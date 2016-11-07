@@ -655,7 +655,7 @@ static void StartStandalone(BlazeServer* server) {
   }
 
   // Wall clock time since process startup.
-  globals->startup_time = ProcessClock() / 1000000LL;
+  globals->startup_time = GetMillisecondsSinceProcessStart();
 
   if (VerboseLogging()) {
     fprintf(stderr, "Starting %s in batch mode.\n",
@@ -985,15 +985,15 @@ static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
   struct stat buf;
   if (stat(globals->options->install_base.c_str(), &buf) == -1) {
-    uint64_t st = MonotonicClock();
+    uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options->install_base + ".tmp." +
         ToString(getpid());
     string tmp_binaries = tmp_install + "/_embedded_binaries";
     ActuallyExtractData(self_path, tmp_binaries);
 
-    uint64_t et = MonotonicClock();
-    globals->extract_data_time = (et - st) / 1000000LL;
+    uint64_t et = GetMillisecondsMonotonic();
+    globals->extract_data_time = et - st;
 
     // Now rename the completed installation to its final name. If this
     // fails due to an ENOTEMPTY then we assume another good
@@ -1239,7 +1239,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
   }
 
   // Wall clock time since process startup.
-  globals->startup_time = ProcessClock() / 1000000LL;
+  globals->startup_time = GetMillisecondsSinceProcessStart();
 
   // Unblock all signals.
   sigset_t sigset;

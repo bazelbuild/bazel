@@ -401,7 +401,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     fflush(stderr);
 
     // Take a clock sample for that start of the waiting time
-    uint64_t st = MonotonicClock();
+    uint64_t st = GetMillisecondsMonotonic();
     // Try to take the lock again (blocking).
     int r;
     do {
@@ -413,8 +413,8 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
            "couldn't acquire file lock");
     }
     // Take another clock sample, calculate elapsed
-    uint64_t et = MonotonicClock();
-    wait_time = (et - st) / 1000000LL;
+    uint64_t et = GetMillisecondsMonotonic();
+    wait_time = et - st;
   }
 
   // Identify ourselves in the lockfile.

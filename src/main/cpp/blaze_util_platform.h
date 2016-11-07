@@ -30,13 +30,13 @@ std::string GetOutputRoot();
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
 void WarnFilesystemType(const std::string& output_base);
 
-// Wrapper around clock_gettime(CLOCK_MONOTONIC) that returns the time
-// as a uint64_t nanoseconds since epoch.
-uint64_t MonotonicClock();
+// Returns elapsed milliseconds since some unspecified start of time.
+// The results are monotonic, i.e. subsequent calls to this method never return
+// a value less than a previous result.
+uint64_t GetMillisecondsMonotonic();
 
-// Wrapper around clock_gettime(CLOCK_PROCESS_CPUTIME_ID) that returns the
-// nanoseconds consumed by the current process since it started.
-uint64_t ProcessClock();
+// Returns elapsed milliseconds since the process started.
+uint64_t GetMillisecondsSinceProcessStart();
 
 // Set cpu and IO scheduling properties. Note that this can take ~50ms
 // on Linux, so it should only be called when necessary.

@@ -123,16 +123,16 @@ string GetSelfPath() {
   return string(pathbuf, len);
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
   }
-  return ts.tv_sec * 1000000000LL + ts.tv_usec * 1000;
+  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
 }
 
-uint64_t ProcessClock() {
-  return clock() * (1000000000LL / CLOCKS_PER_SEC);
+uint64_t GetMillisecondsSinceProcessStart() {
+  return (clock() * 1000LL) / CLOCKS_PER_SEC;
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {

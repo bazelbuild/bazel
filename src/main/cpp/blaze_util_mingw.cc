@@ -83,16 +83,16 @@ string GetOutputRoot() {
   }
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
-uint64_t ProcessClock() {
+uint64_t GetMillisecondsSinceProcessStart() {
   struct timespec ts = {};
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
