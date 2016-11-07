@@ -72,6 +72,9 @@ public final class EvalUtils {
       o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
       o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
+      if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
+        throw new ComparisonException("Cannot compare sets");
+      }
       if (o1 instanceof SkylarkList && o2 instanceof SkylarkList
           && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
         return compareLists((SkylarkList) o1, (SkylarkList) o2);

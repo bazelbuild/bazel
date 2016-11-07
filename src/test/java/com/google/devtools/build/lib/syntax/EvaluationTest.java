@@ -225,6 +225,11 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testSetComparison() throws Exception {
+    newTest().testIfExactError("Cannot compare sets", "set([1, 2]) < set([3, 4])");
+  }
+
+  @Test
   public void testSumFunction() throws Exception {
     BaseFunction sum = new BaseFunction("sum") {
       @Override
