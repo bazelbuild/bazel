@@ -34,6 +34,26 @@ genrule(
   outs = ["env.txt"],
   cmd = "env | sort > \"\$@\""
 )
+
+load("//pkg:build.bzl", "environ")
+
+environ(name = "no_default_env", env = 0)
+environ(name = "with_default_env", env = 1)
+EOF
+  cat > pkg/build.bzl <<EOF
+def _impl(ctx):
+  output = ctx.outputs.out
+  ctx.action(
+      inputs=[],
+      outputs=[output],
+      use_default_shell_env = ctx.attr.env,
+      command="env > %s" % output.path)
+
+environ = rule(
+    implementation=_impl,
+    attrs={"env": attr.bool(default=True)},
+    outputs={"out": "%{name}.env"},
+)
 EOF
 }
 
@@ -144,6 +164,24 @@ function test_env_freezing() {
   expect_log "build --action_env=FREEZE_TEST_BUILD=client_build"
 
   rm -f .${PRODUCT_NAME}rc
+}
+
+function test_use_default_shell_env {
+    bazel build --action_env=FOO=bar //pkg/...
+    echo
+    cat bazel-bin/pkg/with_default_env.env
+    echo
+    grep -q FOO=bar bazel-bin/pkg/with_default_env.env \
+        || fail "static action environment not honored"
+    (grep -q FOO=bar bazel-bin/pkg/no_default_env.env \
+         && fail "static action_env used, even though requested not to") || true
+
+    export BAR=baz
+    bazel build --action_env=BAR //pkg/...
+    grep -q BAR=baz bazel-bin/pkg/with_default_env.env \
+        || fail "dynamic action environment not honored"
+    (grep -q BAR bazel-bin/pkg/no_default_env.env \
+         && fail "dynamic action_env used, even though requested not to") || true
 }
 
 run_suite "Tests for bazel's handling of environment variables in actions"
