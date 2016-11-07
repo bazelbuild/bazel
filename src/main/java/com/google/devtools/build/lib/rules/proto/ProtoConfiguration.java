@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.common.options.Option;
 import java.util.List;
 
@@ -32,6 +34,13 @@ import java.util.List;
  * Configuration for Protocol Buffer Libraries.
  */
 @Immutable
+// This module needs to be exported to Skylark so it can be passed as a mandatory host/target
+// configuration fragment in aspect definitions.
+@SkylarkModule(
+    name = "proto",
+    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+    doc = "A configuration fragment representing protocol buffers."
+)
 public class ProtoConfiguration extends Fragment {
 
   /**
