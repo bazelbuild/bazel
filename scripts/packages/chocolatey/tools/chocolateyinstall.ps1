@@ -68,6 +68,6 @@ You also need, in your msys2 environment (adjust paths for your system):
   export BAZEL_SH=c:/tools/msys64/usr/bin/bash.exe
   export BAZEL_PYTHON=c:/tools/python2/python.exe
 
-See also https://bazel.build/docs/windows.html
+See also https://bazel.build/versions/master/docs/windows.html
 "@
 
