@@ -39,3 +39,5 @@ Find more background about Bazel in our [FAQ](http://bazel.build/faq.html).
   * Our [governance plan](http://bazel.build/governance.html)
   * Future plans are in the [roadmap](http://bazel.build/roadmap.html)
   * For each feature, which level of [support](http://bazel.build/support.html) to expect.
+
+[![Build Status](http://ci.bazel.io/buildStatus/icon?job=bazel-tests)](http://ci.bazel.io/job/bazel-tests)
