@@ -311,9 +311,3 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [":protobuf_clib"],
 )
-
-proto_lang_toolchain(
-    name = "java_toolchain",
-    command_line = "--java_out=shared,immutable:$(OUT)",
-    runtime = ":protobuf",
-)

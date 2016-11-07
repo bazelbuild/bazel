@@ -29,5 +29,3 @@ proto_alias("protobuf_lite", PROTOBUF_VERSION)
 proto_alias("protobuf_clib", PROTOBUF_VERSION)
 
 proto_alias("protoc_lib", PROTOBUF_VERSION)
-
-proto_alias("java_toolchain", PROTOBUF_VERSION)

@@ -812,7 +812,6 @@ java_library(
     srcs = ["rules/java/proto/RpcSupport.java"],
     deps = [
         ":build-base",
-        ":collect",
         ":java-compilation",
         ":packages-internal",
         ":proto-rules",

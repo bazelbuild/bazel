@@ -16,24 +16,15 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
-import java.util.List;
 
 /**
  * Used by java_proto_library to support Google-specific features.
  */
 public interface RpcSupport {
-  List<ProtoCompileActionBuilder.ToolchainInvocation> getToolchainInvocation(
-      RuleContext ruleContext, Artifact sourceJar);
-
-  boolean allowServices(RuleContext ruleContext);
-
-  NestedSet<Artifact> getBlacklist(RuleContext ruleContext);
-
   void mutateProtoCompileAction(
       RuleContext ruleContext, Artifact sourceJar, ProtoCompileActionBuilder actionBuilder);
 
