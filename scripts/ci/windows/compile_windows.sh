@@ -61,15 +61,3 @@ fi
 mkdir -p output/ci
 cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
 zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
-
-# todo(bazel-team): add more tests here.
-echo "Running tests"
-./output/bazel test -k --test_output=all --test_tag_filters -no_windows\
-  //src/test/shell/bazel:bazel_windows_example_test \
-  //src/test/java/...
-retCode=$?
-
-# Exit for failure except for test failures (exit code 3).
-if (( $retCode != 0 )); then
-  echo "$retCode" > .unstable
-fi
