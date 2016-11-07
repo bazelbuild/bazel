@@ -115,11 +115,13 @@ public final class IosTest implements RuleConfiguredTargetFactory {
       extraLinkInputs = ImmutableList.of();
       bundleFormat = ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT;
     } else {
+      xcodeProviderBuilder.setProductType(productType);
+
       XcodeProvider appIpaXcodeProvider =
           ruleContext.getPrerequisite(XCTEST_APP_ATTR, Mode.TARGET, XcodeProvider.class);
-      xcodeProviderBuilder
-          .setTestHost(appIpaXcodeProvider)
-          .setProductType(productType);
+      if (appIpaXcodeProvider != null) {
+        xcodeProviderBuilder.setTestHost(appIpaXcodeProvider);
+      }
 
       XcTestAppProvider testApp = xcTestAppProvider(ruleContext);
       Artifact bundleLoader = testApp.getBundleLoader();
