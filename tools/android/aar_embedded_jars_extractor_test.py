@@ -35,6 +35,7 @@ class AarEmbeddedJarsExtractor(unittest.TestCase):
   def testNoJars(self):
     aar = zipfile.ZipFile(StringIO.StringIO(), "w")
     param_file = StringIO.StringIO()
+    os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
     self.assertEqual([], os.listdir("out_dir"))
     param_file.seek(0)
@@ -46,6 +47,7 @@ class AarEmbeddedJarsExtractor(unittest.TestCase):
     aar.writestr("libs/a.jar", "")
     aar.writestr("libs/b.jar", "")
     param_file = StringIO.StringIO()
+    os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
     self.assertItemsEqual(["classes.jar", "libs"], os.listdir("out_dir"))
     self.assertItemsEqual(["a.jar", "b.jar"], os.listdir("out_dir/libs"))
@@ -64,6 +66,7 @@ class AarEmbeddedJarsExtractor(unittest.TestCase):
     aar = zipfile.ZipFile(StringIO.StringIO(), "w")
     aar.writestr("classes.jar", "")
     param_file = StringIO.StringIO()
+    os.makedirs("out_dir")
     aar_embedded_jars_extractor.ExtractEmbeddedJars(aar, param_file, "out_dir")
     self.assertEqual(["classes.jar"], os.listdir("out_dir"))
     param_file.seek(0)

@@ -18,7 +18,6 @@ An AAR may contain JARs at /classes.jar and /libs/*.jar. This tool extracts all
 of the jars and creates a param file for singlejar to merge them into one jar.
 """
 
-import os
 import re
 import sys
 import zipfile
@@ -37,7 +36,6 @@ gflags.MarkFlagAsRequired("output_dir")
 
 
 def ExtractEmbeddedJars(aar, singlejar_param_file, output_dir):
-  os.makedirs(output_dir)
   jar_pattern = re.compile("^(classes|libs/.+)\\.jar$")
   singlejar_param_file.write("--exclude_build_data\n")
   for name in aar.namelist():
