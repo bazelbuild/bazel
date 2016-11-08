@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.concat;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -62,6 +65,7 @@ import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.Cove
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -71,7 +75,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -631,59 +634,89 @@ public class BuildView {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
       Set<Artifact> artifactsToBuild) {
-    addExtraActionsIfRequested(viewOptions, artifactsToBuild,
-        Iterables.transform(configuredTargets,
-            new Function<ConfiguredTarget, Pair<Label, ExtraActionArtifactsProvider>>() {
-              @Nullable
-              @Override
-              public Pair<Label, ExtraActionArtifactsProvider> apply(
-                  ConfiguredTarget configuredTarget) {
-                return Pair.of(
-                    configuredTarget.getLabel(),
-                    configuredTarget.getProvider(ExtraActionArtifactsProvider.class));
-              }
-            }));
-    addExtraActionsIfRequested(viewOptions, artifactsToBuild,
-        Iterables.transform(aspects,
-            new Function<AspectValue, Pair<Label, ExtraActionArtifactsProvider>>() {
-              @Nullable
-              @Override
-              public Pair<Label, ExtraActionArtifactsProvider> apply(
-                  AspectValue aspectValue) {
-                return Pair.of(
-                    aspectValue.getLabel(),
-                    aspectValue
-                        .getConfiguredAspect()
-                        .getProvider(ExtraActionArtifactsProvider.class));
-              }
-            }
-        ));
-  }
-
-  private void addExtraActionsIfRequested(BuildView.Options viewOptions,
-      Set<Artifact> artifactsToBuild,
-      Iterable<Pair<Label, ExtraActionArtifactsProvider>> providers) {
-    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
-    for (Pair<Label, ExtraActionArtifactsProvider> labelAndProvider : providers) {
-      ExtraActionArtifactsProvider provider = labelAndProvider.getSecond();
-      if (provider != null) {
-        if (viewOptions.extraActionTopLevelOnly) {
-          builder.add(ExtraArtifactSet.of(
-              labelAndProvider.getFirst(),
-              provider.getExtraActionArtifacts()));
-        } else {
-          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
-        }
-      }
-    }
+    Iterable<ExtraArtifactSet> xaSets =
+        concat(
+            addExtraActionsFromTargets(viewOptions, configuredTargets),
+            addExtraActionsFromAspects(viewOptions, aspects));
 
     RegexFilter filter = viewOptions.extraActionFilter;
-    for (ExtraArtifactSet set : builder.build()) {
+    for (ExtraArtifactSet set : xaSets) {
       boolean filterMatches = filter == null || filter.isIncluded(set.getLabel().toString());
       if (filterMatches) {
         artifactsToBuild.addAll(set.getArtifacts());
       }
     }
+  }
+
+  private NestedSet<ExtraArtifactSet> addExtraActionsFromTargets(
+      BuildView.Options viewOptions, Collection<ConfiguredTarget> configuredTargets) {
+    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
+    for (ConfiguredTarget target : configuredTargets) {
+      ExtraActionArtifactsProvider provider =
+          target.getProvider(ExtraActionArtifactsProvider.class);
+      if (provider != null) {
+        if (viewOptions.extraActionTopLevelOnly) {
+          // Collect all aspect-classes that topLevel might inject.
+          Set<AspectClass> aspectClasses = new HashSet<>();
+          for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+            aspectClasses.addAll(attr.getAspectClasses());
+          }
+
+          Iterable<Artifact> artifacts;
+          if (aspectClasses.isEmpty()) {
+            artifacts = provider.getExtraActionArtifacts();
+          } else {
+            ImmutableList.Builder<Artifact> artifactBuilder = ImmutableList.builder();
+            artifactBuilder.addAll(provider.getExtraActionArtifacts());
+            artifactBuilder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
+            artifacts = artifactBuilder.build();
+          }
+          builder.add(ExtraArtifactSet.of(target.getLabel(), artifacts));
+        } else {
+          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
+        }
+      }
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns a list of actions from 'provider' that were registered by an aspect from
+   * 'aspectClasses'. All actions in 'provider' are considered - both direct and transitive.
+   */
+  private ImmutableList<Artifact> filterTransitiveExtraActions(
+      ExtraActionArtifactsProvider provider, Set<AspectClass> aspectClasses) {
+    ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
+    // Add to 'artifacts' all extra-actions which were registered by aspects which 'topLevel'
+    // might have injected.
+    for (ExtraArtifactSet extraArtifactSet : provider.getTransitiveExtraActionArtifacts()) {
+      for (Artifact artifact : extraArtifactSet.getArtifacts()) {
+        ArtifactOwner owner = artifact.getArtifactOwner();
+        if (owner instanceof AspectKey) {
+          if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
+            artifacts.add(artifact);
+          }
+        }
+      }
+    }
+    return artifacts.build();
+  }
+
+  private NestedSet<ExtraArtifactSet> addExtraActionsFromAspects(
+      BuildView.Options viewOptions, Collection<AspectValue> aspects) {
+    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
+    for (AspectValue aspect : aspects) {
+      ExtraActionArtifactsProvider provider =
+          aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
+      if (provider != null) {
+        if (viewOptions.extraActionTopLevelOnly) {
+          builder.add(ExtraArtifactSet.of(aspect.getLabel(), provider.getExtraActionArtifacts()));
+        } else {
+          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
+        }
+      }
+    }
+    return builder.build();
   }
 
   private static void scheduleTestsIfRequested(Collection<ConfiguredTarget> targetsToTest,

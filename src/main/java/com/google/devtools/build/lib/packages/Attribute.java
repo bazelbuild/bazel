@@ -88,6 +88,10 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     public abstract Aspect getAspect(Rule rule);
+
+    public C getAspectClass() {
+      return aspectClass;
+    }
   }
 
   private static class NativeRuleAspect extends RuleAspect<NativeAspectClass> {
@@ -1993,6 +1997,14 @@ public final class Attribute implements Comparable<Attribute> {
       builder.add(aspect.getAspect(rule));
     }
     return builder.build();
+  }
+
+  public ImmutableList<AspectClass> getAspectClasses() {
+    ImmutableList.Builder<AspectClass> result = ImmutableList.builder();
+    for (RuleAspect<?> aspect : aspects) {
+      result.add(aspect.getAspectClass());
+    }
+    return result.build();
   }
 
   /**

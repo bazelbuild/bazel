@@ -24,6 +24,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -42,6 +43,8 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -441,6 +444,83 @@ public class AspectTest extends AnalysisTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:x");
     assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("aspect //a:a",  "aspect //a:b", "aspect //a:c", "rule //a:x");
+  }
+
+  /**
+   * Tests that when --experimental_extra_action_top_level_only, Blaze reports extra-actions for
+   * actions registered by Aspects injected by a top-level rule. Because we can't know whether an
+   * aspect was injected by a top-level target or one of its children, we approximate it by only
+   * reporting extra-actions from Aspects that the top-level target could have injected.
+   *
+   * <p>Here, injector1() and injector2() inject aspects into their children. null_rule() just
+   * passes the aspects to its children. The test makes sure that actions registered by aspect1
+   * (injected by injector1()) are reported to the extra-action mechanism. Actions registered by
+   * aspect2 (from injector2) are not reported, because the target under test (//x:a) doesn't inject
+   * aspect2.
+   */
+  @Test
+  public void extraActionsAreEmitted_topLevel() throws Exception {
+    useConfiguration(
+        "--experimental_action_listener=//pkg1:listener",
+        "--experimental_extra_action_top_level_only");
+
+    scratch.file(
+        "x/BUILD",
+        "load(':extension.bzl', 'injector1', 'injector2', 'null_rule')",
+        "injector1(name='a', deps=[':b'])",
+        "null_rule(name='b', deps=[':c'])",
+        "null_rule(name='c', deps=[':d'])",
+        "injector2(name = 'd', extra_deps=[':e'])",
+        "null_rule(name = 'e')");
+
+    scratch.file(
+        "x/extension.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  return struct()",
+        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'])",
+        "aspect2 = aspect(_aspect_impl, attr_aspects=['extra_deps'])",
+        "def _rule_impl(ctx):",
+        "  return struct()",
+        "injector1 = rule(_rule_impl, attrs = { 'deps' : attr.label_list(aspects = [aspect1]) })",
+        "null_rule = rule(_rule_impl, attrs = { 'deps' : attr.label_list() })",
+        "injector2 = rule(",
+        "  _rule_impl, attrs = { 'extra_deps' : attr.label_list(aspects = [aspect2]) })");
+
+    scratch.file(
+        "pkg1/BUILD",
+        "extra_action(name='xa', cmd='echo dont-care')",
+        "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
+
+    // Sanity check: //x:d injects an aspect which produces some extra-action.
+    {
+      BuildView.AnalysisResult analysisResult = update("//x:d");
+
+      // Get owners of all extra-action artifacts.
+      List<Label> extraArtifactOwners = new ArrayList<>();
+      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+        if (artifact.getRootRelativePathString().endsWith(".xa")) {
+          extraArtifactOwners.add(artifact.getOwnerLabel());
+        }
+      }
+      assertThat(extraArtifactOwners).containsExactly(Label.create("@//x", "e"));
+    }
+
+    // Actual test: //x:a reports actions registered by the aspect it injects.
+    {
+      BuildView.AnalysisResult analysisResult = update("//x:a");
+
+      // Get owners of all extra-action artifacts.
+      List<Label> extraArtifactOwners = new ArrayList<>();
+      for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+        if (artifact.getRootRelativePathString().endsWith(".xa")) {
+          extraArtifactOwners.add(artifact.getOwnerLabel());
+        }
+      }
+      assertThat(extraArtifactOwners)
+          .containsExactly(
+              Label.create("@//x", "b"), Label.create("@//x", "c"), Label.create("@//x", "d"));
+    }
   }
 
   @Test
