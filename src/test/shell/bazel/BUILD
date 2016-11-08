@@ -256,6 +256,8 @@ sh_test(
     srcs = ["maven_skylark_test.sh"],
     data = [
         ":test-deps",
+        "//external:android_ndk_for_testing",
+        "//external:android_sdk_for_testing",
         "@m2//:files",
     ],
     tags = ["manual"],
