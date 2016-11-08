@@ -231,7 +231,7 @@ uint64_t BlazeServer::AcquireLock() {
 // documentation is in command_server.proto .
 class GrpcBlazeServer : public BlazeServer {
  public:
-  GrpcBlazeServer();
+  GrpcBlazeServer(int connect_timeout_secs);
   virtual ~GrpcBlazeServer();
 
   virtual bool Connect();
@@ -253,6 +253,7 @@ class GrpcBlazeServer : public BlazeServer {
   // a memory fence.
   std::mutex cancel_thread_mutex_;
 
+  int connect_timeout_secs_;
   int recv_socket_;  // Socket the cancel thread reads actions from
   int send_socket_;  // Socket the main thread writes actions to
 
@@ -265,6 +266,19 @@ class GrpcBlazeServer : public BlazeServer {
 ////////////////////////////////////////////////////////////////////////
 // Logic
 
+void debug_log(const char* format, ...) {
+  if (!globals->options->client_debug) {
+    return;
+  }
+
+  fprintf(stderr, "CLIENT: ");
+  va_list arglist;
+  va_start(arglist, format);
+  vfprintf(stderr, format, arglist);
+  va_end(arglist);
+  fprintf(stderr, "%s", "\n");
+  fflush(stderr);
+}
 
 #if !defined(__CYGWIN__)
 // Returns the canonical form of the base dir given a root and a hashable
@@ -456,6 +470,9 @@ static vector<string> GetArgumentArray() {
   // JVM arguments are complete. Now pass in Blaze startup options.
   // Note that we always use the --flag=ARG form (instead of the --flag ARG one)
   // so that BlazeRuntime#splitStartupOptions has an easy job.
+
+  // TODO(lberki): Test that whatever the list constructed after this line is
+  // actually a list of parseable startup options.
   if (!globals->options->batch) {
     result.push_back("--max_idle_secs=" +
                      ToString(globals->options->max_idle_secs));
@@ -469,6 +486,10 @@ static vector<string> GetArgumentArray() {
     result.push_back(
         "--command_port=" + ToString(globals->options->command_port));
   }
+
+  result.push_back(
+      "--connect_timeout_secs=" +
+      ToString(globals->options->connect_timeout_secs));
 
   result.push_back("--install_base=" +
                    blaze::ConvertPath(globals->options->install_base));
@@ -503,6 +524,18 @@ static vector<string> GetArgumentArray() {
     result.push_back("--fatal_event_bus_exceptions");
   } else {
     result.push_back("--nofatal_event_bus_exceptions");
+  }
+
+  // We use this syntax so that the logic in ServerNeedsToBeKilled() that
+  // decides whether the server needs killing is simpler. This is parsed by the
+  // Java code where --noclient_debug and --client_debug=false are equivalent.
+  // Note that --client_debug false (separated by space) won't work either,
+  // because the logic in ServerNeedsToBeKilled() assumes that every argument
+  // is in the --arg=value form.
+  if (globals->options->client_debug) {
+    result.push_back("--client_debug=true");
+  } else {
+    result.push_back("--client_debug=false");
   }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
@@ -782,15 +815,18 @@ static void StartServerAndConnect(BlazeServer *server) {
   for (int ii = 0; ii < 600; ++ii) {
     // 60s; enough time to connect with debugger
     if (server->Connect()) {
-      if (ii) {
+      if (ii && !globals->options->client_debug) {
         fputc('\n', stderr);
         fflush(stderr);
       }
       delete server_startup;
       return;
     }
-    fputc('.', stderr);
-    fflush(stderr);
+    if (!globals->options->client_debug) {
+      fputc('.', stderr);
+      fflush(stderr);
+    }
+
     struct timespec ts;
     ts.tv_sec = 0;
     ts.tv_nsec = 100 * 1000 * 1000;
@@ -1037,6 +1073,14 @@ static void ExtractData(const string &self_path) {
   }
 }
 
+const char *volatile_startup_options[] = {
+  "--option_sources=",
+  "--max_idle_secs=",
+  "--connect_timeout_secs=",
+  "--client_debug=",
+  NULL,
+};
+
 // Returns true if the server needs to be restarted to accommodate changes
 // between the two argument lists.
 static bool ServerNeedsToBeKilled(const vector<string>& args1,
@@ -1051,19 +1095,19 @@ static bool ServerNeedsToBeKilled(const vector<string>& args1,
   }
 
   for (int i = 0; i < args1.size(); i++) {
-    string option_sources = "--option_sources=";
-    if (args1[i].substr(0, option_sources.size()) == option_sources &&
-        args2[i].substr(0, option_sources.size()) == option_sources) {
-      continue;
+    bool option_volatile = false;
+    for (const char** candidate = volatile_startup_options;
+         *candidate != NULL;
+         candidate++) {
+      string candidate_string(*candidate);
+      if (args1[i].substr(0, candidate_string.size()) == candidate_string &&
+          args2[i].substr(0, candidate_string.size()) == candidate_string) {
+        option_volatile = true;
+        break;
+      }
     }
 
-    string max_idle_secs = "--max_idle_secs=";
-    if (args1[i].substr(0, max_idle_secs.size()) == max_idle_secs &&
-        args2[i].substr(0, max_idle_secs.size()) == max_idle_secs) {
-      continue;
-    }
-
-    if (args1[i] != args2[i]) {
+    if (!option_volatile && args1[i] != args2[i]) {
       return true;
     }
   }
@@ -1490,13 +1534,16 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
   CheckBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
+  debug_log("Debug logging active");
+
   CheckEnvironment();
   CreateSecureOutputRoot();
 
   const string self_path = GetSelfPath();
   ComputeBaseDirectories(self_path);
 
-  blaze_server = static_cast<BlazeServer *>(new GrpcBlazeServer());
+  blaze_server = static_cast<BlazeServer *>(new GrpcBlazeServer(
+      globals->options->connect_timeout_secs));
 
   globals->command_wait_time = blaze_server->AcquireLock();
 
@@ -1522,9 +1569,12 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
 static void null_grpc_log_function(gpr_log_func_args *args) {
 }
 
-GrpcBlazeServer::GrpcBlazeServer() {
-  gpr_set_log_function(null_grpc_log_function);
+GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
   connected_ = false;
+  connect_timeout_secs_ = connect_timeout_secs;
+
+  gpr_set_log_function(null_grpc_log_function);
+
   int fd[2];
   if (pipe(fd) < 0) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -1584,15 +1634,20 @@ bool GrpcBlazeServer::Connect() {
 
   grpc::ClientContext context;
   context.set_deadline(
-      std::chrono::system_clock::now() + std::chrono::seconds(10));
+      std::chrono::system_clock::now() +
+      std::chrono::seconds(connect_timeout_secs_));
 
   command_server::PingRequest request;
   command_server::PingResponse response;
   request.set_cookie(request_cookie_);
 
+  debug_log("Trying to connect to server (timeout: %d secs)...",
+      connect_timeout_secs_);
   grpc::Status status = client->Ping(&context, request, &response);
 
   if (!status.ok() || response.cookie() != response_cookie_) {
+    debug_log("Connection to server failed: %s",
+        status.error_message().c_str());
     return false;
   }
 

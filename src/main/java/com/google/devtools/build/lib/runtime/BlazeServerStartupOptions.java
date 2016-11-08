@@ -274,4 +274,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
       category = "undocumented",
       help = "Whether or not to write the command.log file")
   public boolean writeCommandLog;
+
+  @Option(name = "client_debug",
+      defaultValue = "false", // NOTE: purely decorative!
+      category = "server startup",
+      help = "If true, log debug information from the client to stderr")
+  public boolean clientDebug;
+
+  @Option(name = "connect_timeout_secs",
+      defaultValue = "10",
+      category = "server startup",
+      help = "The amount of time the client waits for each attempt to connect to the server")
+  public int connectTimeoutSecs;
 }

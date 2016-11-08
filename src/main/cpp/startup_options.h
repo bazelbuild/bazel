@@ -200,8 +200,14 @@ class StartupOptions {
   // gRPC command server.
   int command_port;
 
+  // Connection timeout for each gRPC connection attempt.
+  int connect_timeout_secs;
+
   // Invocation policy proto. May be NULL.
   const char *invocation_policy;
+
+  // Whether to output addition debugging information in the client.
+  bool client_debug;
 
  protected:
   // Constructor for subclasses only so that site-specific extensions of this

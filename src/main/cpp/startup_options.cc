@@ -51,7 +51,9 @@ StartupOptions::StartupOptions(const string &product_name)
       allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
-      invocation_policy(NULL) {
+      connect_timeout_secs(10),
+      invocation_policy(NULL),
+      client_debug(false) {
   bool testing = getenv("TEST_TMPDIR") != NULL;
   if (testing) {
     output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
@@ -69,12 +71,12 @@ StartupOptions::StartupOptions(const string &product_name)
       "host_jvm_debug", "master_blazerc", "master_bazelrc", "batch",
       "batch_cpu_scheduling", "allow_configurable_attributes",
       "fatal_event_bus_exceptions", "experimental_oom_more_eagerly",
-      "write_command_log", "watchfs"};
+      "write_command_log", "watchfs", "client_debug"};
   unary_options = {"output_base", "install_base",
       "output_user_root", "host_jvm_profile", "host_javabase",
       "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
       "max_idle_secs", "experimental_oom_more_eagerly_threshold",
-      "command_port", "invocation_policy"};
+      "command_port", "invocation_policy", "connect_timeout_secs"};
 }
 
 StartupOptions::~StartupOptions() {}
@@ -250,6 +252,23 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nowatchfs")) {
     watchfs = false;
     option_sources["watchfs"] = rcfile;
+  } else if (GetNullaryOption(arg, "--client_debug")) {
+    client_debug = true;
+    option_sources["client_debug"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noclient_debug")) {
+    client_debug = false;
+    option_sources["client_debug"] = rcfile;
+  } else if ((value = GetUnaryOption(
+      arg, next_arg, "--connect_timeout_secs")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
+        connect_timeout_secs < 1 || connect_timeout_secs > 120) {
+      blaze_util::StringPrintf(error,
+          "Invalid argument to --connect_timeout_secs: '%s'.\n"
+          "Must be an integer between 1 and 120.\n",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["connect_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--command_port")) != NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
@@ -260,7 +279,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           value);
       return blaze_exit_code::BAD_ARGV;
     }
-    option_sources["webstatusserver"] = rcfile;
+    option_sources["command_port"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy"))
               != NULL) {
     if (invocation_policy == NULL) {
