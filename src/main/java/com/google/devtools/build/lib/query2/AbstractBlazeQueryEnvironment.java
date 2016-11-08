@@ -50,15 +50,15 @@ import java.util.logging.Logger;
  */
 public abstract class AbstractBlazeQueryEnvironment<T>
     implements QueryEnvironment<T> {
-  protected final ErrorSensingEventHandler eventHandler;
+  protected ErrorSensingEventHandler eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
 
   protected final DependencyFilter dependencyFilter;
   private final Predicate<Label> labelFilter;
 
-  private final Set<Setting> settings;
-  private final List<QueryFunction> extraFunctions;
+  protected final Set<Setting> settings;
+  protected final List<QueryFunction> extraFunctions;
   private final QueryExpressionEvalListener<T> evalListener;
 
   private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());

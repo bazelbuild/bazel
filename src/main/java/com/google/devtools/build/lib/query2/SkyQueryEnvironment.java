@@ -124,11 +124,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final Logger LOG = Logger.getLogger(SkyQueryEnvironment.class.getName());
 
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
-  private final int loadingPhaseThreads;
-  private final WalkableGraphFactory graphFactory;
-  private final List<String> universeScope;
+  protected final int loadingPhaseThreads;
+  protected final WalkableGraphFactory graphFactory;
+  protected final List<String> universeScope;
   protected final String parserPrefix;
-  private final PathPackageLocator pkgPath;
+  protected final PathPackageLocator pkgPath;
   private final int queryEvaluationParallelismLevel;
 
   // The following fields are set in the #beforeEvaluateQuery method.
