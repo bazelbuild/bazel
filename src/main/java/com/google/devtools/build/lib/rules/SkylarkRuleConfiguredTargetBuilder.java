@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -72,7 +71,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       throws InterruptedException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     try (Mutability mutability = Mutability.create("configured target")) {
-      SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext, Kind.RULE);
+      SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext,
+          null);
       Environment env = Environment.builder(mutability)
           .setSkylark()
           .setCallerLabel(ruleContext.getLabel())
