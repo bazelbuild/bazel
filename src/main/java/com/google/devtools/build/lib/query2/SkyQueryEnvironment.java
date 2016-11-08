@@ -126,7 +126,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   protected final int loadingPhaseThreads;
   protected final WalkableGraphFactory graphFactory;
-  protected final List<String> universeScope;
+  protected final ImmutableList<String> universeScope;
   protected final String parserPrefix;
   protected final PathPackageLocator pkgPath;
   private final int queryEvaluationParallelismLevel;
@@ -136,6 +136,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private InterruptibleSupplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
   private ForkJoinPool forkJoinPool;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
+  private final SkyKey universeKey;
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -187,11 +188,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.loadingPhaseThreads = loadingPhaseThreads;
     this.graphFactory = graphFactory;
     this.pkgPath = pkgPath;
-    this.universeScope = Preconditions.checkNotNull(universeScope);
+    this.universeScope = ImmutableList.copyOf(Preconditions.checkNotNull(universeScope));
     this.parserPrefix = parserPrefix;
     Preconditions.checkState(
         !universeScope.isEmpty(), "No queries can be performed with an empty universe");
     this.queryEvaluationParallelismLevel = queryEvaluationParallelismLevel;
+    this.universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
   }
 
   private void beforeEvaluateQuery() throws InterruptedException {
@@ -201,8 +203,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           graphFactory.prepareAndGet(
               universeScope, parserPrefix, loadingPhaseThreads, eventHandler);
     }
-    SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
-    checkEvaluationResult(result, universeKey);
+    checkEvaluationResult(result);
 
     graph = result.getWalkableGraph();
     blacklistPatternsSupplier = InterruptibleSupplier.Memoize.of(new BlacklistSupplier(graph));
@@ -226,7 +227,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * The {@link EvaluationResult} is from the evaluation of a single PrepareDepsOfPatterns node. We
    * expect to see either a single successfully evaluated value or a cycle in the result.
    */
-  private void checkEvaluationResult(EvaluationResult<SkyValue> result, SkyKey universeKey) {
+  private void checkEvaluationResult(EvaluationResult<SkyValue> result) {
     Collection<SkyValue> values = result.values();
     if (!values.isEmpty()) {
       Preconditions.checkState(
