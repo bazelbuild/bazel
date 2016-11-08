@@ -321,7 +321,7 @@ filegroup(
         "error_prone/error_prone_annotation-2.0.13.jar",
         "error_prone/error_prone_annotations-2.0.13.jar",
         "error_prone/error_prone_core-2.0.13.jar",
-        "guava/guava-19.0.jar",
+        "guava/guava-21.0-20161101.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
@@ -332,13 +332,13 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-19.0.jar"],
+    jars = ["guava/guava-21.0-20161101.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-19.0.jar"],
+    srcs = ["guava/guava-21.0-20161101.jar"],
 )
 
 java_import(
@@ -429,7 +429,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib.jar"],
+    jars = ["guava/guava-testlib-21.0-20161101.jar"],
 )
 
 java_import(
