@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -95,7 +96,7 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected SkylarkRuleContext createRuleContext(String label) throws Exception {
-    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), null);
+    return new SkylarkRuleContext(getRuleContextForSkylark(getConfiguredTarget(label)), Kind.RULE);
   }
 
   protected Object evalRuleContextCode(String... lines) throws Exception {

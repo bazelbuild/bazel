@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImp
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -142,7 +141,6 @@ public final class SkylarkRuleContext {
   private final FragmentCollection fragments;
 
   private final FragmentCollection hostFragments;
-  private final SkylarkAspect skylarkAspect;
 
   private final SkylarkDict<String, String> makeVariables;
   private final SkylarkRuleAttributesCollection attributesCollection;
@@ -153,19 +151,24 @@ public final class SkylarkRuleContext {
   private final SkylarkClassObject outputsObject;
 
   /**
+   * Determines whether this context is for rule implementation or for aspect implementation.
+   */
+  public enum Kind {
+    RULE,
+    ASPECT
+  }
+
+  /**
    * Creates a new SkylarkRuleContext using ruleContext.
-   * @param skylarkAspect aspect for which the context is created, or <code>null</code>
-   *        if it is for a rule.
    * @throws InterruptedException
    */
-  public SkylarkRuleContext(RuleContext ruleContext, @Nullable SkylarkAspect skylarkAspect)
+  public SkylarkRuleContext(RuleContext ruleContext, Kind kind)
       throws EvalException, InterruptedException {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
-    this.skylarkAspect = skylarkAspect;
 
-    if (skylarkAspect == null) {
+    if (kind == Kind.RULE) {
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
       HashMap<String, Object> outputsBuilder = new HashMap<>();
       if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -241,11 +244,6 @@ public final class SkylarkRuleContext {
     }
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
-  }
-
-  @Nullable
-  public SkylarkAspect getSkylarkAspect() {
-    return skylarkAspect;
   }
 
   private Function<Attribute, Object> attributeValueExtractorForRule(
