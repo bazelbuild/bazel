@@ -390,7 +390,7 @@ sh_test(
 
 sh_test(
     name = "bazel_repository_cache_test",
-    size = "medium",
+    size = "large",
     srcs = ["bazel_repository_cache_test.sh"],
     data = [":test-deps"],
 )
