@@ -27,22 +27,23 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Sequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for toolchain features.
@@ -226,6 +227,17 @@ public class CcToolchainFeaturesTest {
     }
   }
 
+  private String getFlagGroupsExpansionError(String flagGroups, Variables variables)
+      throws Exception {
+    try {
+      getCommandLineForFlagGroups(flagGroups, variables).get(0);
+      fail("Expected ExpansionException");
+      return "";
+    } catch (ExpansionException e) {
+      return e.getMessage();
+    }
+  }
+
   @Test
   public void testVariableExpansion() throws Exception {
     assertThat(getExpansionOfFlag("%%")).isEqualTo("%");
@@ -249,7 +261,7 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
-  public void testListVariableExpansion() throws Exception {
+  public void testLegacyListVariableExpansion() throws Exception {
     assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2");
     assertThat(getCommandLineForFlag("%{v1} %{v2}",
@@ -258,6 +270,66 @@ public class CcToolchainFeaturesTest {
     assertThat(getFlagExpansionError("%{v1} %{v2}",
         createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
         .contains("'v1' and 'v2'");
+  }
+
+  @Test
+  public void testListVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                createVariables("v", "1", "v", "2")))
+        .containsExactly("1", "2");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithNonListVariable() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b")))
+        .containsExactly("a1 b", "a2 b");
+  }
+
+  @Test
+  public void testNestedListVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                ""
+                    + "flag_group {"
+                    + "  iterate_over: 'v1'"
+                    + "  flag_group {"
+                    + "    iterate_over: 'v2'"
+                    + "    flag: '%{v1} %{v2}'"
+                    + "  }"
+                    + "}",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .containsExactly("a1 b1", "a1 b2", "a2 b1", "a2 b2");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableFails()
+      throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .contains("Cannot expand variable named 'v2': expected string, found sequence");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableWithinFlagGroupWorks()
+      throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                ""
+                    + "flag_group {"
+                    + "  iterate_over: 'v1'"
+                    + "  flag_group {"
+                    + "    flag: '-A%{v1} -B%{v2}'"
+                    + "  }"
+                    + "}",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .containsExactly("-Aa1 -Bb1", "-Aa1 -Bb2", "-Aa2 -Bb1", "-Aa2 -Bb2");
   }
 
   @Test
@@ -284,20 +356,19 @@ public class CcToolchainFeaturesTest {
     }
   }
   
-  private Variables.Sequence createNestedSequence(int depth, int count, String prefix) {
+  private VariableValue createNestedSequence(int depth, int count, String prefix) {
     if (depth == 0) {
-      Variables.ValueSequence.Builder builder = new Variables.ValueSequence.Builder();
+      StringSequence.Builder builder = new StringSequence.Builder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
         builder.addValue(value);
       }
       return builder.build();
-
     } else {
-      Variables.NestedSequence.Builder builder = new Variables.NestedSequence.Builder();
+      Sequence.Builder builder = new Sequence.Builder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
-        builder.addSequence(createNestedSequence(depth - 1, count, value));
+        builder.addValue(createNestedSequence(depth - 1, count, value));
       }
       return builder.build();
     }

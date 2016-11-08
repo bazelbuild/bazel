@@ -49,13 +49,14 @@ message CToolchain {
 
   // A group of correlated flags. Supports parametrization via variable
   // expansion.
-  // If a variable of list type is expanded, all flags in the flag group
-  // will be expanded for each element of the list.
-  // Only a single variable of list type may be referenced in a single flag
-  // group; the same variable may be referenced multiple times.
+  //
+  // To expand a variable of list type, flag_group has to be annotated with
+  // `iterate_over` message. Then all nested flags or flag_groups will be
+  // expanded repeatedly for each element of the list.
   //
   // For example:
   // flag_group {
+  //   iterate_over: 'include_path'
   //   flag: '-I'
   //   flag: '%{include_path}'
   // }
@@ -64,13 +65,16 @@ message CToolchain {
   //
   // Flag groups can be nested; if they are, the flag group must only contain
   // other flag groups (no flags) so the order is unambiguously specified.
-  // Nested flag groups require build variables of nested list types, and
-  // will be expanded recursively.
+  // In order to expand a variable of nested lists, 'iterate_over' can be used.
   //
   // For example:
   // flag_group {
+  //   iterate_over: 'object_files'
   //   flag_group { flag: '--start-lib' }
-  //   flag_group { flag: '%{object_files}' }
+  //   flag_group {
+  //     iterate_over: 'object_files'
+  //     flag: '%{object_files}'
+  //   }
   //   flag_group { flag: '--end-lib' }
   // }
   // ... will get expanded to
@@ -83,6 +87,8 @@ message CToolchain {
     repeated string flag = 1;
 
     repeated FlagGroup flag_group = 2;
+
+    optional string iterate_over = 3;
   }
 
   // A key/value pair to be added as an environment variable. The value of

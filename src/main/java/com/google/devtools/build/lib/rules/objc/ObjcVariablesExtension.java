@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.ValueSequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 
 /** Build variable extensions for templating a toolchain for objc builds. */
@@ -89,7 +89,7 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addFrameworkVariables(CcToolchainFeatures.Variables.Builder builder) {
-    ValueSequence.Builder frameworkSequence = new ValueSequence.Builder();
+    StringSequence.Builder frameworkSequence = new StringSequence.Builder();
     for (String framework :
         CompilationSupport.commonFrameworkNames(objcProvider, appleConfiguration)) {
       frameworkSequence.addValue(framework);
