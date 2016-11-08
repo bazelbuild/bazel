@@ -76,17 +76,25 @@ public final class CppFileTypes {
     };
 
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
-  public static final FileType ARCHIVE = new FileType() {
-      final String ext = ".a";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_ARCHIVE.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType ARCHIVE =
+      new FileType() {
+        final List<String> extensions = ImmutableList.of(".a", ".lib");
+
+        @Override
+        public boolean apply(String filename) {
+          for (String ext : extensions) {
+            if (filename.endsWith(ext) && !PIC_ARCHIVE.matches(filename)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.copyOf(extensions);
+        }
+      };
 
   public static final FileType ALWAYS_LINK_PIC_LIBRARY = FileType.of(".pic.lo");
   public static final FileType ALWAYS_LINK_LIBRARY = new FileType() {
