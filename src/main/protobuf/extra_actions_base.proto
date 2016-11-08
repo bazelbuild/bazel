@@ -52,6 +52,18 @@ message ExtraActionInfo {
 
   // The label of the ActionOwner of the shadowed action.
   optional string owner = 1;
+
+  // Only set if the owner is an Aspect.
+  // Corresponds to AspectValue.AspectKey.getAspectClass.getName()
+  optional string aspect_name = 6;
+
+  // Only set if the owner is an Aspect.
+  // Corresponds to AspectValue.AspectKey.getParameters()
+  map<string, StringList> aspect_parameters = 7;
+  message StringList {
+    repeated string value = 1;
+  }
+
   // An id uniquely describing the shadowed action at the ActionOwner level.
   optional string id = 2;
 
