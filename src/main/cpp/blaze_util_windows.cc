@@ -40,6 +40,30 @@ using blaze_util::pdie;
 using std::string;
 using std::vector;
 
+class WindowsClock {
+ public:
+  uint64_t GetMilliseconds() const;
+  uint64_t GetProcessMilliseconds() const;
+
+  static const WindowsClock INSTANCE;
+
+ private:
+  // Clock frequency per seconds.
+  // It's safe to cache this because (from QueryPerformanceFrequency on MSDN):
+  // "The frequency of the performance counter is fixed at system boot and is
+  // consistent across all processors. Therefore, the frequency need only be
+  // queried upon application initialization, and the result can be cached."
+  const LARGE_INTEGER kFrequency;
+
+  // Time (in milliseconds) at process start.
+  const LARGE_INTEGER kStart;
+
+  WindowsClock();
+
+  static LARGE_INTEGER GetFrequency();
+  static LARGE_INTEGER GetMillisecondsAsLargeInt(const LARGE_INTEGER& freq);
+};
+
 static void PrintError(const string& op) {
     DWORD last_error = ::GetLastError();
     if (last_error == 0) {
@@ -84,15 +108,11 @@ string GetOutputRoot() {
 }
 
 uint64_t GetMillisecondsMonotonic() {
-  struct timespec ts = {};
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
+  return WindowsClock::INSTANCE.GetMilliseconds();
 }
 
 uint64_t GetMillisecondsSinceProcessStart() {
-  struct timespec ts = {};
-  clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
+  return WindowsClock::INSTANCE.GetProcessMilliseconds();
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -778,6 +798,55 @@ bool KillServerProcess(int pid) {
 
 // Not supported.
 void ExcludePathFromBackup(const string &path) {
+}
+
+LARGE_INTEGER WindowsClock::GetFrequency() {
+  LARGE_INTEGER result;
+  if (!QueryPerformanceFrequency(&result)) {
+    PrintError("QueryPerformanceFrequency");
+    pdie(255, "Error getting time resolution\n");
+  }
+
+  // On ancient Windows versions (pre-XP) and specific hardware the result may
+  // be 0. Since this is pre-XP, we don't handle that, just error out.
+  if (result.QuadPart <= 0) {
+    pdie(255, "QueryPerformanceFrequency returned invalid result (%llu)\n",
+         result.QuadPart);
+  }
+
+  return result;
+}
+
+LARGE_INTEGER WindowsClock::GetMillisecondsAsLargeInt(
+    const LARGE_INTEGER& freq) {
+  LARGE_INTEGER counter;
+  if (!QueryPerformanceCounter(&counter)) {
+    PrintError("QueryPerformanceCounter");
+    pdie(255, "Error getting performance counter\n");
+  }
+
+  LARGE_INTEGER result;
+  result.QuadPart =
+      // seconds
+      (counter.QuadPart / freq.QuadPart) * 1000LL +
+      // milliseconds
+      (((counter.QuadPart % freq.QuadPart) * 1000LL) / freq.QuadPart);
+
+  return result;
+}
+
+const WindowsClock WindowsClock::INSTANCE;
+
+WindowsClock::WindowsClock()
+    : kFrequency(GetFrequency()),
+      kStart(GetMillisecondsAsLargeInt(kFrequency)) {}
+
+uint64_t WindowsClock::GetMilliseconds() const {
+  return GetMillisecondsAsLargeInt(kFrequency).QuadPart;
+}
+
+uint64_t WindowsClock::GetProcessMilliseconds() const {
+  return GetMilliseconds() - kStart.QuadPart;
 }
 
 }  // namespace blaze

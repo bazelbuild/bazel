@@ -22,10 +22,10 @@ cc_library(
             "blaze_util_posix.cc",
         ],
         "//src:windows": [
-            "blaze_util_mingw.cc",
+            "blaze_util_windows.cc",
         ],
         "//src:windows_msvc": [
-            "blaze_util_msvc.cc",
+            "blaze_util_windows.cc",
         ],
         "//conditions:default": [
             "blaze_util_linux.cc",
