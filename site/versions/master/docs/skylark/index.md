@@ -13,4 +13,5 @@ also compose existing rules into [macros](macros.md).
 Read the [concepts](concepts.md) behind Skylark and try the
 [cookbook examples](cookbook.md). To go further, read about the
 [standard library](lib/globals.html).
+-->
 
