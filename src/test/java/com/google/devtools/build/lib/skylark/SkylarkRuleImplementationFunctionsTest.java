@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -170,6 +172,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
       assertThat(e).hasMessage(errorMsg);
     }
   }
+
+  private static final Function<Object, String> TO_STRING =
+      new Function<Object, String>() {
+        @Override
+        public String apply(Object input) {
+          return String.valueOf(input);
+        }
+      };
 
   @Test
   public void testSkylarkFunctionPosArgs() throws Exception {
@@ -831,6 +841,131 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testDefaultProvider() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "foo_provider = provider()",
+        "def _impl(ctx):",
+        "    default = ctx.default_provider(",
+        "        runfiles=ctx.runfiles(ctx.files.runs),",
+        "    )",
+        "    foo = foo_provider()",
+        "    return [foo, default]",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'runs': attr.label_list(allow_files=True),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/bar.bzl",
+        "load(':foo.bzl', 'foo_provider')",
+        "def _impl(ctx):",
+        "    dep = ctx.attr.deps[0]",
+        "    provider = dep[ctx.default_provider]",  // The goal is to test this object
+        "    return struct(",                        // so we return it here
+        "        default = provider,",
+        "    )",
+        "bar_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(allow_files=True),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "load(':bar.bzl', 'bar_rule')",
+        "foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])",
+        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
+    Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
+    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
+    SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
+    assertThat((defaultProvider).getConstructor().getKey().getExportedName())
+        .isEqualTo("default_provider");
+
+    // Test .runfiles
+    Object runfilesProvider = defaultProvider.getValue("runfiles");
+    assertThat(runfilesProvider).isInstanceOf(RunfilesProvider.class);
+    assertThat(Iterables.transform(
+        ((RunfilesProvider) runfilesProvider).getDefaultRunfiles().getAllArtifacts(), TO_STRING)
+    ).containsExactly("Artifact:[/workspace[source]]test/run.file",
+        "Artifact:[/workspace[source]]test/run2.file");
+  }
+
+  @Test
+  public void testDefaultProviderProvidedImplicitly() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "foo_provider = provider()",
+        "def _impl(ctx):",
+        "    foo = foo_provider()",
+        "    return [foo]",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        ")"
+    );
+    scratch.file(
+        "test/bar.bzl",
+        "load(':foo.bzl', 'foo_provider')",
+        "def _impl(ctx):",
+        "    dep = ctx.attr.deps[0]",
+        "    provider = dep[ctx.default_provider]",  // The goal is to test this object
+        "    return struct(",                        // so we return it here
+        "        default = provider,",
+        "    )",
+        "bar_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(allow_files=True),",
+        "    }",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "load(':bar.bzl', 'bar_rule')",
+        "foo_rule(name = 'dep_rule')",
+        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
+    Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
+    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
+    SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
+    assertThat((defaultProvider).getConstructor().getKey().getExportedName())
+        .isEqualTo("default_provider");
+  }
+
+  @Test
+  public void testDefaultProviderUnknownFields() throws Exception {
+    scratch.file(
+        "test/foo.bzl",
+        "foo_provider = provider()",
+        "def _impl(ctx):",
+        "    default = ctx.default_provider(",
+        "        foo=ctx.runfiles(),",
+        "    )",
+        "    return [default]",
+        "foo_rule = rule(",
+        "    implementation = _impl,",
+        ")"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':foo.bzl', 'foo_rule')",
+        "foo_rule(name = 'my_rule')"
+    );
+    try {
+      getConfiguredTarget("//test:my_rule");
+      fail();
+    } catch (AssertionError expected) {
+      assertThat(expected.getMessage()).contains("Invalid key for default provider: foo");
+    }
+  }
+
+  @Test
   public void testDeclaredProviders() throws Exception {
     scratch.file(
         "test/foo.bzl",
@@ -1228,7 +1363,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         });
 
     checkEvalErrorContains(
-        "There Is No Message: SkylarkRuleImplementationFunctionsTest$2.invoke() in "
+        "There Is No Message: SkylarkRuleImplementationFunctionsTest$3.invoke() in "
             + "SkylarkRuleImplementationFunctionsTest.java:",
         // This test skips the line number since it was not consistent across local tests and TAP.
         "throw()");

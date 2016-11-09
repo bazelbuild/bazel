@@ -422,6 +422,14 @@ public final class SkylarkRuleContext {
     return ruleContext;
   }
 
+  private static final SkylarkClassObjectConstructor DEFAULT_PROVIDER =
+      SkylarkClassObjectConstructor.createNativeConstructable("default_provider");
+
+  @SkylarkCallable(name = "default_provider", structField = true)
+  public static SkylarkClassObjectConstructor getDefaultProvider() {
+    return DEFAULT_PROVIDER;
+  }
+
   @SkylarkCallable(name = "created_actions",
       doc = "For rules marked <code>_skylark_testable=True</code>, this returns an "
           + "<a href=\"ActionsSkylarkApiProvider.html\">actions</a> provider representing all "
