@@ -29,7 +29,7 @@ public final class LabelValidator {
   /**
    * Matches punctuation in target names which requires quoting in a blaze query.
    */
-  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~");
+  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~#");
 
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.
