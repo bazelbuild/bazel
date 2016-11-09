@@ -6,6 +6,7 @@ cc_library(
     hdrs = [
         "errors.h",
         "file.h",
+        "file_platform.h",
         "numbers.h",
         "port.h",
     ],
@@ -14,6 +15,7 @@ cc_library(
         ":blaze_exit_code",
         ":errors",
         ":file",
+        ":file_platform",
         ":numbers",
         ":port",
         ":strings",
@@ -21,9 +23,16 @@ cc_library(
 )
 
 cc_library(
-    name = "file_posix",
-    srcs = ["file_posix.cc"],
-    hdrs = ["file_posix.h"],
+    name = "file_platform",
+    srcs = select({
+        "//src:windows_msvc": [
+            "file_windows.cc",
+        ],
+        "//conditions:default": [
+            "file_posix.cc",
+        ],
+    }),
+    hdrs = ["file_platform.h"],
     visibility = ["//src/main/cpp:__pkg__"],
     deps = [
         ":blaze_exit_code",

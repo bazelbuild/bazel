@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file_posix.h"
+#include "src/main/cpp/util/file_platform.h"
 
 #include <sys/stat.h>
 #include <stdlib.h>  // getenv
@@ -51,6 +51,24 @@ string Which(const string &executable) {
     }
   }
   return "";
+}
+
+bool PathExists(const string& path) {
+  return access(path.c_str(), F_OK) == 0;
+}
+
+bool CanAccess(const string& path, bool read, bool write, bool exec) {
+  int mode = 0;
+  if (read) {
+    mode |= R_OK;
+  }
+  if (write) {
+    mode |= W_OK;
+  }
+  if (exec) {
+    mode |= X_OK;
+  }
+  return access(path.c_str(), mode) == 0;
 }
 
 }  // namespace blaze_util

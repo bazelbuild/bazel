@@ -11,19 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "src/main/cpp/util/file_platform.h"
 
-#ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_
-#define BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_
-
-#include <string>
+#include <windows.h>
 
 namespace blaze_util {
 
-// Checks each element of the PATH variable for executable. If none is found, ""
-// is returned.  Otherwise, the full path to executable is returned. Can die if
-// looking up PATH fails.
-std::string Which(const std::string &executable);
+using std::string;
+
+string Which(const string &executable) {
+  pdie(255, "blaze_util::Which is not implemented on Windows");
+}
+
+bool PathExists(const string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::PathExists is not implemented on Windows");
+}
+
+bool CanAccess(const string& path, bool read, bool write, bool exec) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::CanAccess is not implemented on Windows");
+}
 
 }  // namespace blaze_util
-
-#endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_POSIX_H_
