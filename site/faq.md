@@ -188,9 +188,11 @@ Due to its UNIX heritage, porting Bazel to Windows is significant work. For
 example, Bazel uses symlinks extensively, which has varying levels of support
 across Windows versions.
 
-We are currently actively working on improving Windows support. See
-our [blog post](https://bazel.build/blog/2016/09/07/bazel-windows.html)
-for more information.
+As of version [0.3.0](https://github.com/bazelbuild/bazel/releases/tag/0.3.0)
+Bazel supports Windows (bootstrapping itself and running builds), and we are
+actively working on improving this support. See our
+[blog post](https://bazel.build/blog/2016/09/07/bazel-windows.html) for more
+information, as well as the [list of open bugs](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22).
 
 What should I not use Bazel for?
 --------------------------------
@@ -406,10 +408,10 @@ Bazel.
 Why do other Google projects (Android, Chrome) use other build tools?
 ---------------------------------------------------------------------
 
-Until now, Bazel was not available externally, so open source projects
-such as Chromium, Android, etc. could not use it. In addition, lack of
-Windows support is a problem for building Windows applications, such
-as Chrome.
+Until the first (Alpha) release, Bazel was not available externally, so open
+source projects such as Chromium, Android, etc. could not use it. In addition,
+the original lack of Windows support was a problem for building Windows
+applications, such as Chrome.
 
 
 How do you pronounce "Bazel"?
