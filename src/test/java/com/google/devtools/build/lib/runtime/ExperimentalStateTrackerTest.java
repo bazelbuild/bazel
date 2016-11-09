@@ -390,7 +390,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "/home/user/bazel/out/abcdef/some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
         Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
-    ActionOwner owner = new ActionOwner(label, null, null, null, "fedcba", null);
+    ActionOwner owner = ActionOwner.create(label, null, null, null, "fedcba", null);
     when(action.getOwner()).thenReturn(owner);
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
@@ -517,7 +517,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     Label labelFooTest = Label.parseAbsolute("//foo/bar:footest");
     ConfiguredTarget targetFooTest = Mockito.mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
-    ActionOwner fooOwner = new ActionOwner(labelFooTest, null, null, null, "abcdef", null);
+    ActionOwner fooOwner = ActionOwner.create(labelFooTest, null, null, null, "abcdef", null);
 
     Label labelBarTest = Label.parseAbsolute("//baz:bartest");
     ConfiguredTarget targetBarTest = Mockito.mock(ConfiguredTarget.class);
@@ -525,7 +525,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
     when(filteringComplete.getTestTargets())
         .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
-    ActionOwner barOwner = new ActionOwner(labelBarTest, null, null, null, "fedcba", null);
+    ActionOwner barOwner = ActionOwner.create(labelBarTest, null, null, null, "fedcba", null);
 
     stateTracker.testFilteringComplete(filteringComplete);
 

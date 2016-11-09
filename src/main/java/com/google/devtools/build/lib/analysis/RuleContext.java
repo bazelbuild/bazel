@@ -399,7 +399,7 @@ public final class RuleContext extends TargetContext
 
   @VisibleForTesting
   public static ActionOwner createActionOwner(Rule rule, BuildConfiguration configuration) {
-    return new ActionOwner(
+    return ActionOwner.create(
         rule.getLabel(),
         rule.getLocation(),
         configuration.getMnemonic(),
