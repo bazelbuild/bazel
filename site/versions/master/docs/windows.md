@@ -85,7 +85,8 @@ To build C++ targets, you will need:
 
 * [Visual Studio](https://www.visualstudio.com/)
 <br/>We are using MSVC as the native C++ toolchain, so please ensure you have Visual
-Studio installed with the Visual C++ components
+Studio installed with the `Visual C++ > Common Tools for Visual C++` and
+`Visual C++ > Microsoft Foundation Classes for C++` features.
 (which is NOT the default installation type of Visual Studio).
 You can set BAZEL\_VS environment variable to tell Bazel
 where Visual Studio is, otherwise Bazel will try to find the latest version installed.
