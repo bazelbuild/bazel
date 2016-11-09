@@ -30,32 +30,33 @@ import javax.annotation.Nullable;
 public class RepositoryCache {
 
   /** The types of cache keys used. */
-  public static enum KeyType {
+  public enum KeyType {
     SHA1("SHA-1", "\\p{XDigit}{40}", "sha1", Hashing.sha1()),
     SHA256("SHA-256", "\\p{XDigit}{64}", "sha256", Hashing.sha256());
 
     private final String stringRepr;
     private final String regexp;
-    private final String cacheDirName;
+    private final String hashName;
+    @SuppressWarnings("ImmutableEnumChecker")
     private final HashFunction hashFunction;
 
-    KeyType(String stringRepr, String regexp, String cacheDirName, HashFunction hashFunction) {
+    KeyType(String stringRepr, String regexp, String hashName, HashFunction hashFunction) {
       this.stringRepr = stringRepr;
       this.regexp = regexp;
-      this.cacheDirName = cacheDirName;
+      this.hashName = hashName;
       this.hashFunction = hashFunction;
     }
 
-    public boolean isValid(String checksum) {
-      return checksum.matches(regexp);
-    }
-
-    public String getDirectoryName() {
-      return cacheDirName;
+    public boolean isValid(@Nullable String checksum) {
+      return checksum != null && checksum.matches(regexp);
     }
 
     public Path getCachePath(Path parentDirectory) {
-      return parentDirectory.getChild(cacheDirName);
+      return parentDirectory.getChild(hashName);
+    }
+
+    public Hasher newHasher() {
+      return hashFunction.newHasher();
     }
     
     @Override
@@ -205,7 +206,7 @@ public class RepositoryCache {
    * @throws IOException
    */
   public static String getChecksum(KeyType keyType, Path path) throws IOException {
-    Hasher hasher = keyType.hashFunction.newHasher();
+    Hasher hasher = keyType.newHasher();
     byte[] byteBuffer = new byte[BUFFER_SIZE];
     try (InputStream stream = path.getInputStream()) {
       int numBytesRead = stream.read(byteBuffer);

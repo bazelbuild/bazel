@@ -93,4 +93,23 @@ public class MavenJarFunctionTest extends BuildViewTestCase {
       assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
     }
   }
+
+  @Test
+  public void testNoSha1WithCache() throws Exception {
+    Rule rule = scratchRule("external", "foo",
+        "maven_jar(",
+        "    name = 'foo',",
+        "    artifact = 'x:y:z:1.1',",
+        ")");
+    RepositoryCache cache = Mockito.mock(RepositoryCache.class);
+    Mockito.when(cache.isEnabled()).thenReturn(true);
+    MavenDownloader downloader = new MavenDownloader(cache);
+    try {
+      downloader.download(
+          "foo", WorkspaceAttributeMapper.of(rule), scratch.dir("/whatever"), TEST_SERVER);
+      fail("Expected failure to fetch artifact because of nonexistent server.");
+    } catch (IOException expected) {
+      assertThat(expected.getMessage()).contains("Failed to fetch Maven dependency:");
+    }
+  }
 }
