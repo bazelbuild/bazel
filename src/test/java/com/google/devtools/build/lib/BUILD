@@ -477,7 +477,7 @@ java_test(
     srcs = glob([
         "analysis/*.java",
     ]),
-    shard_count = 2,
+    shard_count = 6,
     tags = [
         "analysis",
         "no_windows",
