@@ -15,10 +15,13 @@
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
 #include <string.h>  // strerror
+
+#ifndef COMPILER_MSVC
 #include <sys/cygwin.h>
 #include <sys/socket.h>
 #include <sys/statfs.h>
 #include <unistd.h>
+#endif  // COMPILER_MSVC
 
 #include <windows.h>
 
@@ -95,16 +98,40 @@ string GetSelfPath() {
   if (!GetModuleFileName(0, buffer, sizeof(buffer))) {
     pdie(255, "Error %u getting executable file name\n", GetLastError());
   }
+
+  // TODO(bazel-team): Implement proper handling for UNC paths
+  // (e.g. "\\?\C:\foo\bar") instead of erroring out when we see them.
+  if (strlen(buffer) == 0 || buffer[0] == '\\') {
+    PrintError("GetModuleFileName");
+    buffer[PATH_MAX - 1] = '\0';
+    pdie(255, "Error in GetSelfPath, buffer=(%s)", buffer);
+  }
   return string(buffer);
 }
 
 string GetOutputRoot() {
-  char* tmpdir = getenv("TMPDIR");
-  if (tmpdir == 0 || strlen(tmpdir) == 0) {
-    return "/var/tmp";
-  } else {
-    return string(tmpdir);
+#ifdef COMPILER_MSVC
+  // GetTempPathA and GetEnvironmentVariableA only work properly when Bazel
+  // runs under cmd.exe, not when it's run from msys.
+  // We don't know the reason for this; what's sure is GetEnvironmentVariableA
+  // returns nothing for TEMP under msys, though it can retrieve WINDIR.
+
+  char buf[MAX_PATH + 1];
+  if (!GetTempPathA(sizeof(buf), buf)) {
+    PrintError("GetTempPath");
+    pdie(255, "Could not retrieve the temp directory path");
   }
+  return buf;
+#else  // not COMPILER_MSVC
+  for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
+    char* tmpdir = getenv(i);
+    if (tmpdir != NULL && strlen(tmpdir) > 0) {
+      return tmpdir;
+    }
+  }
+
+  return "/var/tmp";
+#endif  // COMPILER_MSVC
 }
 
 uint64_t GetMillisecondsMonotonic() {
