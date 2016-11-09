@@ -1066,7 +1066,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 optMode == JavaOptimizationMode.LEGACY
                     ? "without proguard_specs"
                     : "in optimization mode " + optMode)));
-    return new ProguardOutput(deployJarArtifact, null, null, null, null, null);
+    return new ProguardOutput(deployJarArtifact, null, null, null, null, null, null);
   }
 
   /** Returns {@code true} if resource shrinking should be performed. */

@@ -423,4 +423,6 @@ public interface JavaSemantics {
       JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
       JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
       throws InterruptedException;
+
+  Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
 }

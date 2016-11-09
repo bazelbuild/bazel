@@ -521,4 +521,10 @@ public class BazelJavaSemantics implements JavaSemantics {
     throws InterruptedException {
     return null;
   }
+
+  @Override
+  public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
+      throws InterruptedException {
+    return null;
+  }
 }
