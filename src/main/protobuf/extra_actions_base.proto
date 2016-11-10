@@ -73,11 +73,13 @@ message ExtraActionInfo {
 }
 
 message EnvironmentVariable {
+  // It is possible that this name is not a valid variable identifier.
   required string name = 1;
+  // The value is unescaped and unquoted.
   required string value = 2;
 }
 
-// provides access to data that is specific to spawn actions.
+// Provides access to data that is specific to spawn actions.
 // Usually provided by actions using the "Spawn" & "Genrule" Mnemonics.
 message SpawnInfo {
   extend ExtraActionInfo {
@@ -85,6 +87,7 @@ message SpawnInfo {
   }
 
   repeated string argument = 1;
+  // An *unordered* list of environment variables and their values.
   repeated EnvironmentVariable variable = 2;
   repeated string input_file = 4;
   repeated string output_file = 5;

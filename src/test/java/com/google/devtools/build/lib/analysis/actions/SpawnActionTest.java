@@ -38,17 +38,15 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link SpawnAction}.
@@ -73,7 +71,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     destinationArtifact = getBinArtifactWithNoOwner("dir/destination.txt");
   }
 
-  private SpawnAction createCopyFromWelcomeToDestination() {
+  private SpawnAction createCopyFromWelcomeToDestination(Map<String, String> environmentVariables) {
     PathFragment cp = new PathFragment("/bin/cp");
     List<String> arguments = asList(welcomeArtifact.getExecPath().getPathString(),
         destinationArtifact.getExecPath().getPathString());
@@ -86,6 +84,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .addArguments(arguments)
         .setProgressMessage("hi, mom!")
         .setMnemonic("Dummy")
+        .setEnvironment(environmentVariables)
         .build(ActionsTestUtil.NULL_ACTION_OWNER, collectingAnalysisEnvironment, targetConfig);
     collectingAnalysisEnvironment.registerAction(actions);
     return (SpawnAction) actions[0];
@@ -93,14 +92,16 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testWelcomeArtifactIsInput() {
-    SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
+    SpawnAction copyFromWelcomeToDestination =
+        createCopyFromWelcomeToDestination(ImmutableMap.of());
     Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs();
     assertEquals(Sets.newHashSet(welcomeArtifact), Sets.newHashSet(inputs));
   }
 
   @Test
   public void testDestinationArtifactIsOutput() {
-    SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
+    SpawnAction copyFromWelcomeToDestination =
+        createCopyFromWelcomeToDestination(ImmutableMap.of());
     Collection<Artifact> outputs = copyFromWelcomeToDestination.getOutputs();
     assertEquals(Sets.newHashSet(destinationArtifact), Sets.newHashSet(outputs));
   }
@@ -295,29 +296,49 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testExtraActionInfo() throws Exception {
-    SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
-    ExtraActionInfo.Builder builder = copyFromWelcomeToDestination.getExtraActionInfo();
-    ExtraActionInfo info = builder.build();
+    SpawnAction action = createCopyFromWelcomeToDestination(ImmutableMap.of());
+    ExtraActionInfo info = action.getExtraActionInfo().build();
     assertEquals("Dummy", info.getMnemonic());
 
     SpawnInfo spawnInfo = info.getExtension(SpawnInfo.spawnInfo);
     assertNotNull(spawnInfo);
 
     assertThat(spawnInfo.getArgumentList())
-        .containsExactlyElementsIn(copyFromWelcomeToDestination.getArguments());
+        .containsExactlyElementsIn(action.getArguments());
 
     Iterable<String> inputPaths = Artifact.toExecPaths(
-        copyFromWelcomeToDestination.getInputs());
+        action.getInputs());
     Iterable<String> outputPaths = Artifact.toExecPaths(
-        copyFromWelcomeToDestination.getOutputs());
+        action.getOutputs());
 
     assertThat(spawnInfo.getInputFileList()).containsExactlyElementsIn(inputPaths);
     assertThat(spawnInfo.getOutputFileList()).containsExactlyElementsIn(outputPaths);
-    Map<String, String> environment = copyFromWelcomeToDestination.getEnvironment();
+    Map<String, String> environment = action.getEnvironment();
     assertEquals(environment.size(), spawnInfo.getVariableCount());
 
     for (EnvironmentVariable variable : spawnInfo.getVariableList()) {
       assertThat(environment).containsEntry(variable.getName(), variable.getValue());
+    }
+  }
+
+  /**
+   * Test that environment variables are not escaped or quoted.
+   */
+  @Test
+  public void testExtraActionInfoEnvironmentVariables() throws Exception {
+    Map<String, String> env = ImmutableMap.of(
+        "P1", "simple",
+        "P2", "spaces are not escaped",
+        "P3", ":",
+        "P4", "",
+        "NONSENSE VARIABLE", "value"
+    );
+
+    SpawnInfo spawnInfo = createCopyFromWelcomeToDestination(env).getExtraActionInfo().build()
+        .getExtension(SpawnInfo.spawnInfo);
+    assertThat(env).hasSize(spawnInfo.getVariableCount());
+    for (EnvironmentVariable variable : spawnInfo.getVariableList()) {
+      assertThat(env).containsEntry(variable.getName(), variable.getValue());
     }
   }
 
