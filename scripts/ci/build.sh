@@ -39,6 +39,8 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${RELEASE_CANDIDATE_URL:="${GCS_BASE_URL}/${GCS_BUCKET}/%release_name%/rc%rc%/index.html"}
 : ${RELEASE_URL="${GIT_REPOSITORY_URL}/releases/tag/%release_name%"}
 
+: ${BOOTSTRAP_BAZEL:=bazel}
+
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 if [[ ${PLATFORM} == "darwin" ]]; then
   function checksum() {
@@ -49,9 +51,6 @@ else
     (cd "$(dirname "$1")" && sha256sum "$(basename "$1")")
   }
 fi
-
-GIT_ROOT="$(git rev-parse --show-toplevel)"
-BUILD_SCRIPT_PATH="${GIT_ROOT}/compile.sh"
 
 # Returns the full release name in the form NAME(rcRC)?
 function get_full_release_name() {
@@ -122,13 +121,6 @@ function bazel_build() {
   fi
 
   setup_android_repositories
-  retCode=0
-  ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || retCode=$?
-
-  # Exit for failure except for test failures (exit code 3).
-  if (( $retCode != 0 && $retCode != 3 )); then
-    exit $retCode
-  fi
 
   # Build the packages
   local ARGS=
@@ -136,18 +128,19 @@ function bazel_build() {
       xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
     ARGS="--define IPHONE_SDK=1"
   fi
-  ./output/bazel --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
+  ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
+      //src:bazel \
       //site:jekyll-tree \
       //scripts/packages || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
     mkdir -p $1/packages
-    cp output/bazel $1/bazel
+    cp bazel-bin/src/bazel $1/bazel
     cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
     if [ "$PLATFORM" = "linux" ]; then
       cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
@@ -156,10 +149,6 @@ function bazel_build() {
     fi
     cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
-  fi
-
-  if (( $retCode )); then
-    export BUILD_UNSTABLE=1
   fi
 }
 
