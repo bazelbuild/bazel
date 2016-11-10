@@ -61,8 +61,8 @@ load(":build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
   statement to work, <code>tools/build_rules/BUILD</code> must exist (an empty
   file is sufficient) The name of the file must have the suffix
   <code>.bzl</code>. If the specified label is in the relative label syntax
-  (<code>:a/b.bzl</code>), it will be resolved relative to the package the file
-   the <code>load</code> statement is in.
+  (<code>:a/b.bzl</code>), it will be resolved relative to the package of the
+  file the <code>load</code> statement is in.
 </p>
 
 <p>

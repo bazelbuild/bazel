@@ -236,8 +236,8 @@ public final class Mutability implements AutoCloseable, Serializable {
 
     // Consider an {@link Environment} e1, in which is created {@link UserDefinedFunction} f1,
     // that closes over some variable v1 bound to list l1. If somehow, via the magic of callbacks,
-    // f1 or l1 is passed as argument to some function f2 evaluated in {@link environment} e2
-    // while e1 is be mutable, e2, being a different {@link Environment}, should not be
+    // f1 or l1 is passed as an argument to some function f2 evaluated in {@link Environment} e2
+    // while e1 is still mutable, then e2, being a different {@link Environment}, should not be
     // allowed to mutate objects from e1. It's a bug, that shouldn't happen in our current code
     // base, so we throw an AssertionError. If in the future such situations are allowed to happen,
     // then we should throw a MutabilityException instead.

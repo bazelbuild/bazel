@@ -236,7 +236,7 @@ public class SkylarkRuleImplementationFunctions {
             // When we use a shell command, add an empty argument before other arguments.
             //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
             // bash will use the empty argument as the value of $0 (which we don't care about).
-            // arg1 and arg2 will be $1 and $2, as a user exects.
+            // arg1 and arg2 will be $1 and $2, as a user expects.
             builder.addArgument("");
           }
           builder.addArguments(arguments.getContents(String.class, "arguments"));

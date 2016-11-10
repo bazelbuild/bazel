@@ -92,7 +92,7 @@ public final class SkylarkRuleContext {
   public static final String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in label type "
           + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. Each struct value is always a <code>file</code>s or "
+          + "to the attribute names. Each value in the struct is either a <code>file</code> or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
           + "marked as <code>executable=True</code>, no corresponding struct field is generated.";

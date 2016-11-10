@@ -286,7 +286,7 @@ public class SkylarkRuleClassFunctions {
                 + "The dictionary key becomes an attribute in <code>ctx.outputs</code>. "
                 + "Similar to computed dependency rule attributes, you can also specify the name "
                 + "of a function that returns the dictionary. This function can access all rule "
-                + "attributes that are listed as parameters in its function signature."
+                + "attributes that are listed as parameters in its function signature. "
                 + "For example, <code>outputs = _my_func<code> with <code>def _my_func(srcs, deps):"
                 + "</code> has access to the attributes 'srcs' and 'deps' (if defined)."
       ),
@@ -469,7 +469,7 @@ public class SkylarkRuleClassFunctions {
         + "(see <a href=\"attr.html\">attr</a> module). "
         + "Aspect attributes are available to implementation function as fields of ctx parameter. "
         + "Implicit attributes starting with <code>_</code> must have default values, and have "
-        + "type <code>label</code> or <code>label_list</code>."
+        + "type <code>label</code> or <code>label_list</code>. "
         + "Explicit attributes must have type <code>string</code>, and must use the "
         + "<code>values</code> restriction. If explicit attributes are present, the aspect can "
         + "only be used with rules that have attributes of the same name and type, with valid "
@@ -641,7 +641,7 @@ public class SkylarkRuleClassFunctions {
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         if (pkgContext == null) {
           throw new EvalException(ast.getLocation(),
-              "Cannot instantiate a rule when loading a .bzl file. Rules can only called from "
+              "Cannot instantiate a rule when loading a .bzl file. Rules can only be called from "
               + "a BUILD file (possibly via a macro).");
         }
         return RuleFactory.createAndAddRule(
@@ -695,7 +695,7 @@ public class SkylarkRuleClassFunctions {
    * All classes of values that need special processing after they are exported
    * from an extension file.
    *
-   * Order in list list is significant: all {@link }SkylarkAspect}s need to be exported
+   * Order in list is significant: all {@link SkylarkAspect}s need to be exported
    * before {@link RuleFunction}s etc.
    */
   private static final List<Class<? extends SkylarkExportable>> EXPORTABLES =

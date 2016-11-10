@@ -691,7 +691,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * interpreted as native TransitiveInfoProvider instances of type (map value).
    *
    * <p>That is, if this map contains "dummy" -> DummyProvider.class, a "dummy" entry in a skylark
-   * rule implementations returned struct will be exported from that ConfiguredTarget as a
+   * rule implementation's returned struct will be exported from that ConfiguredTarget as a
    * DummyProvider.
    */
   public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
