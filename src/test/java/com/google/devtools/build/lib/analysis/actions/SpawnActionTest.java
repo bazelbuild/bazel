@@ -93,7 +93,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testWelcomeArtifactIsInput() {
     SpawnAction copyFromWelcomeToDestination =
-        createCopyFromWelcomeToDestination(ImmutableMap.of());
+        createCopyFromWelcomeToDestination(ImmutableMap.<String, String>of());
     Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs();
     assertEquals(Sets.newHashSet(welcomeArtifact), Sets.newHashSet(inputs));
   }
@@ -101,7 +101,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   @Test
   public void testDestinationArtifactIsOutput() {
     SpawnAction copyFromWelcomeToDestination =
-        createCopyFromWelcomeToDestination(ImmutableMap.of());
+        createCopyFromWelcomeToDestination(ImmutableMap.<String, String>of());
     Collection<Artifact> outputs = copyFromWelcomeToDestination.getOutputs();
     assertEquals(Sets.newHashSet(destinationArtifact), Sets.newHashSet(outputs));
   }
@@ -296,7 +296,7 @@ public class SpawnActionTest extends BuildViewTestCase {
 
   @Test
   public void testExtraActionInfo() throws Exception {
-    SpawnAction action = createCopyFromWelcomeToDestination(ImmutableMap.of());
+    SpawnAction action = createCopyFromWelcomeToDestination(ImmutableMap.<String, String>of());
     ExtraActionInfo info = action.getExtraActionInfo().build();
     assertEquals("Dummy", info.getMnemonic());
 
