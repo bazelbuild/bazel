@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -70,8 +71,7 @@ public class ProtoLangToolchainRule implements RuleDefinition {
             attr("blacklisted_protos", LABEL_LIST)
                 .allowedFileTypes()
                 .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        ProtoSourcesProvider.class)))
+                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(FileProvider.class)))
         .build();
   }
 
@@ -112,10 +112,10 @@ It's beneficial to enforce the compiler that LANG_proto_library uses is the same
 
 <pre class="code">
 proto_lang_toolchain(
-    name = "java_stubby1_immutable",
-    command_line = "--$(PLUGIN_out)=no_enforce_api_compatibility,java_stubby_version=1,immutable:$(OUT)",
-    plugin = "//net/rpc/compiler:proto2_java_plugin",
-    runtime = "//java/com/google/net/rpc3:rpc3",
+    name = "javalite_toolchain",
+    command_line = "--$(PLUGIN_OUT)=shared,immutable:$(OUT)",
+    plugin = ":javalite_plugin",
+    runtime = ":protobuf_lite",
 )
 </pre>
 

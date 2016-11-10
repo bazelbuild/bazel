@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -35,9 +36,9 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
-    for (ProtoSourcesProvider protos :
-        ruleContext.getPrerequisites("blacklisted_protos", TARGET, ProtoSourcesProvider.class)) {
-      blacklistedProtos.addAll(protos.getDirectProtoSources());
+    for (FileProvider protos :
+        ruleContext.getPrerequisites("blacklisted_protos", TARGET, FileProvider.class)) {
+      blacklistedProtos.addTransitive(protos.getFilesToBuild());
     }
 
     return new RuleConfiguredTargetBuilder(ruleContext)
