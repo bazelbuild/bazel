@@ -918,7 +918,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructMembersAreImmutable() throws Exception {
     checkErrorContains(
-        "can only assign to variables and tuples, not to 's.x'",
+        "cannot assign to 's.x'",
         "s = struct(x = 'a')",
         "s.x = 'b'\n");
   }
