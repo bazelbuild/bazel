@@ -655,11 +655,12 @@ function __finish_test_report() {
     local passed=$2
     local failed=$((total - passed))
 
-    cat $XML_OUTPUT_FILE >$XML_OUTPUT_FILE.bak | \
-    sed \
-      "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
-    sed \
-      "s/<testsuite>/<testsuite tests=\"$total\" failures=\"0\" errors=\"$failed\">/"
+    cat $XML_OUTPUT_FILE | \
+      sed \
+        "s/<testsuites>/<testsuites tests=\"$total\" failures=\"0\" errors=\"$failed\">/" | \
+      sed \
+        "s/<testsuite>/<testsuite tests=\"$total\" failures=\"0\" errors=\"$failed\">/" \
+         > $XML_OUTPUT_FILE.bak
 
     rm -f $XML_OUTPUT_FILE
     mv $XML_OUTPUT_FILE.bak $XML_OUTPUT_FILE
