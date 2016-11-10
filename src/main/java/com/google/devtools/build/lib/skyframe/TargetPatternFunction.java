@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
@@ -30,9 +32,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -54,8 +54,12 @@ public class TargetPatternFunction implements SkyFunction {
       EnvironmentBackedRecursivePackageProvider provider =
           new EnvironmentBackedRecursivePackageProvider(env);
       RecursivePackageProviderBackedTargetPatternResolver resolver =
-          new RecursivePackageProviderBackedTargetPatternResolver(provider, env.getListener(),
-              patternKey.getPolicy(), MoreExecutors.newDirectExecutorService());
+          new RecursivePackageProviderBackedTargetPatternResolver(
+              provider,
+              env.getListener(),
+              patternKey.getPolicy(),
+              MoreExecutors.newDirectExecutorService(),
+              MultisetSemaphore.<PackageIdentifier>unbounded());
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       final Set<Target> results = CompactHashSet.create();
