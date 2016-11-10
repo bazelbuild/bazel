@@ -235,13 +235,21 @@ public class BazelRuleClassProvider {
     private void validateDirectPrerequisiteForTestOnly(
         RuleContext.Builder context, ConfiguredTarget prerequisite) {
       Rule rule = context.getRule();
+
+      if (rule.getRuleClassObject().canHaveAnyProvider()) {
+        // testonly-ness will be checked directly between the depender and the target of the alias;
+        // getTarget() called by the depender will not return the alias rule, but its actual target
+        return;
+      }
+
       Target prerequisiteTarget = prerequisite.getTarget();
       Label prerequisiteLabel = prerequisiteTarget.getLabel();
       String thisPackage = rule.getLabel().getPackageName();
 
       if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
         String message = "non-test target '" + rule.getLabel() + "' depends on testonly target '"
-            + prerequisiteLabel + "' and doesn't have testonly attribute set";
+            + prerequisiteLabel + "'" + AliasProvider.printVisibilityChain(prerequisite)
+            + " and doesn't have testonly attribute set";
         if (thisPackage.startsWith("experimental/")) {
           context.ruleWarning(message);
         } else {
