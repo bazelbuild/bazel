@@ -30,7 +30,6 @@
 
 namespace blaze {
 
-using blaze_util::die;
 using blaze_util::pdie;
 
 using std::string;
