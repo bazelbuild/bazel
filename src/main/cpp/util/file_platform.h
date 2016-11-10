@@ -34,6 +34,12 @@ bool PathExists(const std::string& path);
 // openable.
 bool CanAccess(const std::string& path, bool read, bool write, bool exec);
 
+// Returns the current working directory.
+std::string GetCwd();
+
+// Changes the current working directory to `path`, returns true upon success.
+bool ChangeDirectory(const std::string& path);
+
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_

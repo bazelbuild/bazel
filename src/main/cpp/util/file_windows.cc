@@ -33,4 +33,14 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
   pdie(255, "blaze_util::CanAccess is not implemented on Windows");
 }
 
+string GetCwd() {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::GetCwd is not implemented on Windows");
+}
+
+bool ChangeDirectory(const string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::ChangeDirectory is not implemented on Windows");
+}
+
 }  // namespace blaze_util

@@ -14,6 +14,7 @@
 #include "src/main/cpp/util/file_platform.h"
 
 #include <sys/stat.h>
+#include <limits.h>  // PATH_MAX
 #include <stdlib.h>  // getenv
 #include <unistd.h>  // access
 #include <vector>
@@ -69,6 +70,18 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
     mode |= X_OK;
   }
   return access(path.c_str(), mode) == 0;
+}
+
+string GetCwd() {
+  char cwdbuf[PATH_MAX];
+  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
+  }
+  return string(cwdbuf);
+}
+
+bool ChangeDirectory(const string& path) {
+  return chdir(path.c_str()) == 0;
 }
 
 }  // namespace blaze_util

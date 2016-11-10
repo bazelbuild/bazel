@@ -22,7 +22,17 @@ cc_test(
     name = "file_test",
     srcs = ["file_test.cc"],
     deps = [
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:file",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "file_platform_test",
+    srcs = ["file_posix_test.cc"],
+    deps = [
+        "//src/main/cpp/util:file",
+        "//src/main/cpp/util:file_platform",
         "//third_party:gtest",
     ],
 )

@@ -16,7 +16,6 @@
 #include <assert.h>
 #include <errno.h>  // errno, ENOENT
 #include <string.h>  // strerror
-#include <unistd.h>  // access
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +24,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
@@ -331,8 +331,8 @@ string StartupOptions::GetHostJavabase() {
 
 string StartupOptions::GetJvm() {
   string java_program = GetHostJavabase() + "/bin/java";
-  if (access(java_program.c_str(), X_OK) == -1) {
-    if (errno == ENOENT) {
+  if (!blaze_util::CanAccess(java_program, false, false, true)) {
+    if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
       fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
@@ -344,8 +344,8 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
   // If just the JRE is installed
   string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
-  if ((access(jdk_rt_jar.c_str(), R_OK) == 0)
-      || (access(jre_rt_jar.c_str(), R_OK) == 0)) {
+  if (blaze_util::CanAccess(jdk_rt_jar, true, false, false)
+      || blaze_util::CanAccess(jre_rt_jar, true, false, false)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "

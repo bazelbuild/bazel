@@ -14,10 +14,10 @@
 #include "src/main/cpp/workspace_layout.h"
 
 #include <assert.h>
-#include <unistd.h>  // access
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze {
 
@@ -31,8 +31,8 @@ string WorkspaceLayout::GetOutputRoot() {
 }
 
 bool WorkspaceLayout::InWorkspace(const string &workspace) {
-  return access(
-      blaze_util::JoinPath(workspace, kWorkspaceMarker).c_str(), F_OK) == 0;
+  return blaze_util::PathExists(
+      blaze_util::JoinPath(workspace, kWorkspaceMarker));
 }
 
 string WorkspaceLayout::GetWorkspace(const string &cwd) {
@@ -59,7 +59,7 @@ static string FindDepotBlazerc(const string& workspace) {
   WorkspaceLayout::WorkspaceRcFileSearchPath(&candidates);
   for (const auto& candidate : candidates) {
     string blazerc = blaze_util::JoinPath(workspace, candidate);
-    if (!access(blazerc.c_str(), R_OK)) {
+    if (blaze_util::CanAccess(blazerc, true, false, false)) {
       return blazerc;
     }
   }
@@ -71,7 +71,7 @@ static string FindAlongsideBinaryBlazerc(const string& cwd,
   string path = arg0[0] == '/' ? arg0 : blaze_util::JoinPath(cwd, arg0);
   string base = blaze_util::Basename(arg0);
   string binary_blazerc_path = path + "." + base + "rc";
-  if (!access(binary_blazerc_path.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(binary_blazerc_path, true, false, false)) {
     return binary_blazerc_path;
   }
   return "";
@@ -79,7 +79,7 @@ static string FindAlongsideBinaryBlazerc(const string& cwd,
 
 static string FindSystemWideBlazerc() {
   string path = "/etc/bazel.bazelrc";
-  if (!access(path.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(path, true, false, false)) {
     return path;
   }
   return "";

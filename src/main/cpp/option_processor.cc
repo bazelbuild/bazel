@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <algorithm>
 #include <cassert>
 #include <set>
@@ -26,6 +25,7 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
@@ -180,7 +180,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     string* error) {
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
-    if (access(rcFile.c_str(), R_OK)) {
+    if (!blaze_util::CanAccess(rcFile, true, false, false)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
@@ -190,7 +190,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
-  if (!access(workspaceRcFile.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(workspaceRcFile, true, false, false)) {
     *blaze_rc_file = workspaceRcFile;
     return blaze_exit_code::SUCCESS;
   }
@@ -202,7 +202,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (!access(userRcFile.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(userRcFile, true, false, false)) {
     *blaze_rc_file = userRcFile;
     return blaze_exit_code::SUCCESS;
   }

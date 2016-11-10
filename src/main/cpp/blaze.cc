@@ -75,6 +75,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
@@ -614,9 +615,9 @@ static string GetArgumentString(const vector<string>& argument_array) {
 // Do a chdir into the workspace, and die if it fails.
 static void GoToWorkspace() {
   if (WorkspaceLayout::InWorkspace(globals->workspace) &&
-      chdir(globals->workspace.c_str()) != 0) {
+      !blaze_util::ChangeDirectory(globals->workspace)) {
     pdie(blaze_exit_code::INTERNAL_ERROR,
-         "chdir() into %s failed", globals->workspace.c_str());
+         "changing directory into %s failed", globals->workspace.c_str());
   }
 }
 
@@ -1334,11 +1335,7 @@ static string MakeCanonical(const char *path) {
 
 // Compute the globals globals->cwd and globals->workspace.
 static void ComputeWorkspace() {
-  char cwdbuf[PATH_MAX];
-  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "getcwd() failed");
-  }
-  globals->cwd = MakeCanonical(cwdbuf);
+  globals->cwd = MakeCanonical(blaze_util::GetCwd().c_str());
   globals->workspace = WorkspaceLayout::GetWorkspace(globals->cwd);
 }
 
@@ -1392,7 +1389,7 @@ static void ComputeBaseDirectories(const string &self_path) {
           output_base);
     }
   }
-  if (access(output_base, R_OK | W_OK | X_OK) != 0) {
+  if (!blaze_util::CanAccess(globals->options->output_base, true, true, true)) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "Error: Output base directory '%s' must be readable and writable.",
         output_base);

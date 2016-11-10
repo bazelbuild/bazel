@@ -14,7 +14,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <limits.h>  // PATH_MAX
 #include <signal.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -26,6 +26,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze {
 
@@ -43,13 +44,9 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
       dbg.append(" ");
     }
 
-    char cwd[PATH_MAX] = {};
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-    }
-
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(), cwd,
-            dbg.c_str());
+    string cwd = blaze_util::GetCwd();
+    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(),
+            cwd.c_str(), dbg.c_str());
   }
 
   // Copy to a char* array for execv:

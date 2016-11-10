@@ -16,7 +16,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -35,6 +34,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/port.h"
@@ -68,14 +68,11 @@ string MakeAbsolute(const string &path) {
     return path;
   }
 
-  char cwdbuf[PATH_MAX];
-  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-  }
+  string cwd = blaze_util::GetCwd();
 
   // Determine whether the cwd ends with "/" or not.
-  string separator = (cwdbuf[strlen(cwdbuf) - 1] == '/') ? "" : "/";
-  return cwdbuf + separator + path;
+  string separator = cwd.back() == '/' ? "" : "/";
+  return cwd + separator + path;
 }
 
 // Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
