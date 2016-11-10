@@ -14,35 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Jenkins is capable of executing shell scripts directly, even on Windows,
-# but it uses a shell binary bundled with it and not the msys one. We don't
-# want to use two different shells, so a batch file is used instead to call
-# the msys shell.
+# Ideally we would call directly script/ci/build.sh just like we do
+# for the linux script but we are not there yet.
 
-# We need to execute bash with -l so that we don't get the usual environment
-# variables from cmd.exe which would interfere with our operation, but that
-# means that PWD will be $HOME. Thus, we need to cd to the source tree.
+# Ensure we are in the root directory
 cd $(dirname $0)/../../..
-
-# Find Java. Minor versions and thus the name of the directory changes quite
-# often.
-export JAVA_HOME=$(ls -d c:/Program\ Files/Java/jdk* 2> /dev/null | head -n 1)
-if [[ "$JAVA_HOME" == "" ]]; then
-  echo "JDK not found under c:\\Program Files\\Java" 1>& 2
-  exit 1
-fi
-
-# These variables are temporarily needed for Bazel
-export BAZEL_SH="$(cygpath --windows /bin/bash)"
-export TMPDIR=${TMPDIR:-c:/bazel_ci/temp}
-export PATH="${PATH}:/c/python_27_amd64/files"
-mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 
 # Even though there are no quotes around $* in the .bat file, arguments
 # containing spaces seem to be passed properly.
-echo "Bootstrapping Bazel"
-retCode=0
 source ./scripts/ci/build.sh
+
+# Bazel still needs to know where bash is, take it from cygpath.
+export BAZEL_SH="$(cygpath --windows /bin/bash)"
 
 # TODO(bazel-team): we should replace ./compile.sh by the same script we use
 # for other platform
@@ -51,11 +34,7 @@ release_label="$(get_full_release_name)"
 if [ -n "${release_label}" ]; then
   export EMBED_LABEL="${release_label}"
 fi
-./compile.sh "$*" || retCode=$?
-if (( $retCode != 0 )); then
-  echo "$retCode" > .unstable
-  exit 0
-fi
+./compile.sh "$*"
 
 # Copy the resulting artifact.
 mkdir -p output/ci
