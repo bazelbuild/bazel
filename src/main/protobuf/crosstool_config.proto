@@ -63,6 +63,15 @@ message CToolchain {
   // ... will get expanded to -I /to/path1 -I /to/path2 ... for each
   // include_path /to/pathN.
   //
+  // To expand a variable of structure type, use dot-notation, e.g.:
+  //    flag_group {
+  //      iterate_over: "libraries_to_link"
+  //      flag_group {
+  //        iterate_over: "libraries_to_link.libraries"
+  //        flag: "-L%{libraries_to_link.libraries.directory}"
+  //      }
+  //    }
+  //
   // Flag groups can be nested; if they are, the flag group must only contain
   // other flag groups (no flags) so the order is unambiguously specified.
   // In order to expand a variable of nested lists, 'iterate_over' can be used.

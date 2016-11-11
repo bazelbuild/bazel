@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Sequence;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -260,6 +261,158 @@ public class CcToolchainFeaturesTest {
         .contains("variable 'v'");
   }
 
+  private Variables createStructureVariables(String name, StructureValue.Builder... values) {
+    Variables.Builder variables = new Variables.Builder();
+    if (values.length == 1) {
+      variables.addStructureVariable(name, values[0].build());
+    } else {
+      ImmutableList.Builder<VariableValue> sequence = ImmutableList.builder();
+      for (StructureValue.Builder builder : values) {
+        sequence.add(builder.build());
+      }
+      variables.addSequence(name, new Sequence(sequence.build()));
+    }
+    return variables.build();
+  }
+
+  @Test
+  public void testSimpleStructureVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { flag: '-A%{struct.foo}' flag: '-B%{struct.bar}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureValue.Builder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testNestedStructureVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { flag: '-A%{struct.foo.bar}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureValue.Builder()
+                        .addField(
+                            "foo", new StructureValue.Builder().addField("bar", "fooBarValue")))))
+        .containsExactly("-AfooBarValue");
+  }
+
+  @Test
+  public void testAccessingStructureAsStringFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{struct}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureValue.Builder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .isEqualTo("Cannot expand variable 'struct': expected string, found structure");
+  }
+
+  @Test
+  public void testAccessingStringValueAsStructureFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{stringVar.foo}' }",
+                createVariables("stringVar", "stringVarValue")))
+        .isEqualTo(
+            "Cannot expand variable 'stringVar.foo': variable 'stringVar' is string, "
+                + "expected structure");
+  }
+
+  @Test
+  public void testAccessingSequenceAsStructureFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{sequence.foo}' }",
+                createVariables("sequence", "foo1", "sequence", "foo2")))
+        .isEqualTo(
+            "Cannot expand variable 'sequence.foo': variable 'sequence' is sequence, "
+                + "expected structure");
+  }
+
+  @Test
+  public void testAccessingMissingStructureFieldFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{struct.missing}' }",
+                createStructureVariables(
+                    "struct", new StructureValue.Builder().addField("bar", "barValue"))))
+        .isEqualTo(
+            "Cannot expand variable 'struct.missing': structure struct doesn't have a field "
+                + "named 'missing'");
+  }
+
+  @Test
+  public void testSequenceOfStructuresExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'structs' flag: '-A%{structs.foo}' }",
+                createStructureVariables(
+                    "structs",
+                    new StructureValue.Builder().addField("foo", "foo1Value"),
+                    new StructureValue.Builder().addField("foo", "foo2Value"))))
+        .containsExactly("-Afoo1Value", "-Afoo2Value");
+  }
+
+  @Test
+  public void testStructureOfSequencesExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'struct.sequences'"
+                    + "  flag: '-A%{struct.sequences.foo}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new StructureValue.Builder()
+                        .addField(
+                            "sequences",
+                            new Sequence.Builder()
+                                .addValue(new StructureValue.Builder().addField("foo", "foo1Value"))
+                                .addValue(
+                                    new StructureValue.Builder().addField("foo", "foo2Value"))))))
+        .containsExactly("-Afoo1Value", "-Afoo2Value");
+  }
+
+  @Test
+  public void testDottedNamesNotAlwaysMeanStructures() throws Exception {
+    Variables.Builder variables = new Variables.Builder();
+    variables.addStructureVariable(
+        "struct", new StructureValue.Builder().addField("sequence", "first", "second").build());
+    variables.addSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"));
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'struct.sequence'"
+                    + "  flag_group {"
+                    + "    iterate_over: 'other_sequence'"
+                    + "    flag_group {"
+                    + "      flag: '-A%{struct.sequence} -B%{other_sequence}'"
+                    + "    }"
+                    + "  }"
+                    + "}",
+                variables.build()))
+        .containsExactly("-Afirst -Bfoo", "-Afirst -Bbar", "-Asecond -Bfoo", "-Asecond -Bbar");
+  }
+
+  // <p>TODO(b/32655571): Get rid of this test once implicit iteration is not supported.
+  // It's there only to document a known limitation of the system.
+  @Test
+  public void testVariableLookupIsBrokenForImplicitStructFieldIteration() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{struct.sequence}' }",
+                createStructureVariables(
+                    "struct", new StructureValue.Builder().addField("sequence", "foo", "bar"))))
+        .contains("Cannot expand variable 'struct.sequence': expected string, found sequence");
+  }
+
   @Test
   public void testLegacyListVariableExpansion() throws Exception {
     assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
@@ -294,8 +447,7 @@ public class CcToolchainFeaturesTest {
   public void testNestedListVariableExpansion() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                ""
-                    + "flag_group {"
+                "flag_group {"
                     + "  iterate_over: 'v1'"
                     + "  flag_group {"
                     + "    iterate_over: 'v2'"
@@ -313,7 +465,7 @@ public class CcToolchainFeaturesTest {
             getFlagGroupsExpansionError(
                 "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
                 createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
-        .contains("Cannot expand variable named 'v2': expected string, found sequence");
+        .contains("Cannot expand variable 'v2': expected string, found sequence");
   }
 
   @Test
@@ -321,8 +473,7 @@ public class CcToolchainFeaturesTest {
       throws Exception {
     assertThat(
             getCommandLineForFlagGroups(
-                ""
-                    + "flag_group {"
+                "flag_group {"
                     + "  iterate_over: 'v1'"
                     + "  flag_group {"
                     + "    flag: '-A%{v1} -B%{v2}'"
@@ -382,8 +533,7 @@ public class CcToolchainFeaturesTest {
   @Test
   public void testFlagTreeVariableExpansion() throws Exception {
     String nestedGroup =
-        ""
-            + "flag_group {"
+        "flag_group {"
             + "  flag_group { flag: '-a' }"
             + "  flag_group {"
             + "    flag: '%{v}'"
