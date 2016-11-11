@@ -34,8 +34,7 @@ cc_library(
     }),
     hdrs = ["file_platform.h"],
     visibility = [
-        "//src/main/cpp:__pkg__",
-        "//src/test/cpp:__pkg__",
+        "//src/test/cpp/util:__pkg__",
     ],
     deps = [
         ":blaze_exit_code",
@@ -50,7 +49,7 @@ cc_library(
     srcs = ["file.cc"],
     hdrs = ["file.h"],
     visibility = [
-        "//src/test/cpp:__pkg__",
+        "//src/test/cpp/util:__pkg__",
         "//src/tools/singlejar:__pkg__",
     ],
     deps = [
