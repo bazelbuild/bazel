@@ -105,6 +105,7 @@ public class TreePruner {
         public void visitVarDef(JCVariableDecl tree) {
           if ((tree.mods.flags & Flags.ENUM) == Flags.ENUM) {
             // javac desugars enum constants into fields during parsing
+            super.visitVarDef(tree);
             return;
           }
           // drop field initializers unless the field looks like a JLS §4.12.4 constant variable

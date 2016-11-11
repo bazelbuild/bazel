@@ -1297,4 +1297,48 @@ public class JavacTurbineTest {
     };
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
+
+  @Test
+  public void enumDecl() throws Exception {
+    addSourceLines(
+        "P.java",
+        "import java.util.function.Predicate;",
+        "enum P implements Predicate<String> {",
+        "  INSTANCE {",
+        "    @Override",
+        "    public boolean test(String s) {",
+        "      return NoSuch.method();",
+        "    }",
+        "  }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    String text = textify(outputs.get("P.class"));
+    String[] expected = {
+      "// class version 52.0 (52)",
+      "// access flags 0x4420",
+      "// signature Ljava/lang/Enum<LP;>;Ljava/util/function/Predicate<Ljava/lang/String;>;",
+      "// declaration: P extends java.lang.Enum<P>"
+          + " implements java.util.function.Predicate<java.lang.String>",
+      "abstract enum P extends java/lang/Enum  implements java/util/function/Predicate  {",
+      "",
+      "  // access flags 0x4000",
+      "  enum INNERCLASS P$1 null null",
+      "",
+      "  // access flags 0x4019",
+      "  public final static enum LP; INSTANCE",
+      "",
+      "  // access flags 0x9",
+      "  public static values()[LP;",
+      "",
+      "  // access flags 0x9",
+      "  public static valueOf(Ljava/lang/String;)LP;",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
 }
