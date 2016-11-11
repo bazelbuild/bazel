@@ -1028,8 +1028,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testListSlice_WrongType() throws Exception {
     new BothModesTest()
-        .testIfExactError("'a' is not a valid int", "'123'['a'::]")
-        .testIfExactError("'b' is not a valid int", "'123'[:'b':]");
+        .testIfExactError("Slice start must be an integer, not 'a'", "'123'['a'::]")
+        .testIfExactError("Slice end must be an integer, not 'b'", "'123'[:'b':]");
   }
 
   @Test
@@ -1074,7 +1074,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testListSliceStep_InvalidStep() throws Exception {
-    String msg = "slice step cannot be zero";
+    String msg = "Slice step cannot be zero";
     new BothModesTest()
         .testIfExactError(msg, "[1, 2, 3][::0]")
         .testIfExactError(msg, "[1, 2, 3][1::0]")
@@ -1098,7 +1098,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("(1, 2, 3, 4, 5)[3:1:-1]", "(4, 3)")
         .testEval("(1, 2, 3, 4, 5)[::-2]", "(5, 3, 1)")
         .testEval("(1, 2, 3, 4, 5)[::-10]", "(5,)")
-        .testIfExactError("slice step cannot be zero", "(1, 2, 3)[1::0]");
+        .testIfExactError("Slice step cannot be zero", "(1, 2, 3)[1::0]");
   }
 
   @Test
@@ -1145,7 +1145,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testListAccessBadIndex() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "List indices must be integers, not string",
+            "Indices must be integers, not string",
             "[[1], [2]]['a']");
   }
 
@@ -1177,9 +1177,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testStringIndexingOutOfRange() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("List index out of range", "'abcdef'[10]")
-        .testIfErrorContains("List index out of range", "'abcdef'[-11]")
-        .testIfErrorContains("List index out of range", "'abcdef'[42]");
+        .testIfErrorContains("Index out of range", "'abcdef'[10]")
+        .testIfErrorContains("Index out of range", "'abcdef'[-11]")
+        .testIfErrorContains("Index out of range", "'abcdef'[42]");
   }
 
   @Test
@@ -1196,8 +1196,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testStringSlice_WrongType() throws Exception {
     new BothModesTest()
-        .testIfExactError("'a' is not a valid int", "'123'['a'::]")
-        .testIfExactError("'b' is not a valid int", "'123'[:'b':]");
+        .testIfExactError("Slice start must be an integer, not 'a'", "'123'['a'::]")
+        .testIfExactError("Slice end must be an integer, not 'b'", "'123'[:'b':]");
   }
 
   @Test
@@ -1242,7 +1242,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringSliceStep_InvalidStep() throws Exception {
-    String msg = "slice step cannot be zero";
+    String msg = "Slice step cannot be zero";
     new BothModesTest()
         .testIfExactError(msg, "'123'[::0]")
         .testIfExactError(msg, "'123'[1::0]")
@@ -1484,15 +1484,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testListIndexOutOfRange() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "List index out of range (index is 3, but list has 3 elements)", "[0, 1, 2][3]")
+            "Index out of range (index is 3, but sequence has 3 elements)", "[0, 1, 2][3]")
         .testIfErrorContains(
-            "List index out of range (index is -4, but list has 3 elements)", "[0, 1, 2][-4]")
+            "Index out of range (index is -4, but sequence has 3 elements)", "[0, 1, 2][-4]")
         .testIfErrorContains(
-            "List index out of range (index is -2, but list has 1 elements)", "[0][-2]")
+            "Index out of range (index is -2, but sequence has 1 elements)", "[0][-2]")
         .testIfErrorContains(
-            "List index out of range (index is 1, but list has 1 elements)", "[0][1]")
+            "Index out of range (index is 1, but sequence has 1 elements)", "[0][1]")
         .testIfErrorContains(
-            "List index out of range (index is 1, but list has 0 elements)", "[][1]");
+            "Index out of range (index is 1, but sequence has 0 elements)", "[][1]");
   }
 
   @Test
@@ -1611,7 +1611,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testLookup("ret", 3);
     new BothModesTest()
         .testIfErrorContains(
-            "List index out of range (index is 3, but list has 2 elements)", "[1, 2].pop(3)");
+            "Index out of range (index is 3, but sequence has 2 elements)", "[1, 2].pop(3)");
 
     new BothModesTest().testIfErrorContains("Type tuple has no function pop()", "(1, 2).pop()");
   }

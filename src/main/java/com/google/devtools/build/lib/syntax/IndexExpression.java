@@ -51,7 +51,7 @@ public final class IndexExpression extends Expression {
       return SkylarkType.convertToSkylark(result, env);
     } else if (objValue instanceof String) {
       String string = (String) objValue;
-      int index = MethodLibrary.getListIndex(keyValue, string.length(), loc);
+      int index = EvalUtils.getSequenceIndex(keyValue, string.length(), loc);
       return string.substring(index, index + 1);
     }
 

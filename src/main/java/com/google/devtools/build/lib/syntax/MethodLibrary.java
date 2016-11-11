@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,16 +51,6 @@ public class MethodLibrary {
 
   private MethodLibrary() {}
 
-  // Convert string index in the same way Python does.
-  // If index is negative, starts from the end.
-  // If index is outside bounds, it is restricted to the valid range.
-  public static int clampIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-    return Math.max(Math.min(index, length), 0);
-  }
-
   // Emulate Python substring function
   // It converts out of range indices, and never fails
   private static String pythonSubstring(String str, int start, Object end, String msg)
@@ -69,40 +58,17 @@ public class MethodLibrary {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
-    start = clampIndex(start, str.length());
+    start = EvalUtils.clampRangeEndpoint(start, str.length());
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
     } else {
-      stop = clampIndex(Type.INTEGER.convert(end, msg), str.length());
+      stop = EvalUtils.clampRangeEndpoint(Type.INTEGER.convert(end, msg), str.length());
     }
     if (start >= stop) {
       return "";
     }
     return str.substring(start, stop);
-  }
-
-  private static int getListIndex(int index, int listSize, Location loc)
-      throws EvalException {
-    // Get the nth element in the list
-    int actualIndex = index;
-    if (actualIndex < 0) {
-      actualIndex += listSize;
-    }
-    if (actualIndex < 0 || actualIndex >= listSize) {
-      throw new EvalException(loc, "List index out of range (index is "
-          + index + ", but list has " + listSize + " elements)");
-    }
-    return actualIndex;
-  }
-
-  public static int getListIndex(Object index, int listSize, Location loc)
-      throws EvalException {
-    if (!(index instanceof Integer)) {
-      throw new EvalException(loc, "List indices must be integers, not "
-          + EvalUtils.getDataTypeName(index));
-    }
-    return getListIndex(((Integer) index).intValue(), listSize, loc);
   }
 
   // supported string methods
@@ -576,7 +542,7 @@ public class MethodLibrary {
       throws ConversionException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = clampIndex(start, self.length());
+    start = EvalUtils.clampRangeEndpoint(start, self.length());
     return subpos < 0 ? subpos : subpos + start;
   }
 
@@ -994,68 +960,6 @@ public class MethodLibrary {
     }
   };
 
-  /**
-   *  Calculates the indices of the elements that should be included in the slice [start:end:step]
-   * of a sequence with the given length.
-   */
-  public static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, Object stepObj, int length, Location loc
-  ) throws EvalException {
-
-    if (!(stepObj instanceof Integer)) {
-      throw new EvalException(loc, "slice step must be an integer");
-    }
-    int step = ((Integer) stepObj).intValue();
-    if (step == 0) {
-      throw new EvalException(loc, "slice step cannot be zero");
-    }
-    int start = getSliceIndex(startObj,
-        step,
-        /*positiveStepDefault=*/ 0,
-        /*negativeStepDefault=*/ length - 1,
-        /*length=*/ length,
-        loc);
-    int end = getSliceIndex(endObj,
-        step,
-        /*positiveStepDefault=*/ length,
-        /*negativeStepDefault=*/ -1,
-        /*length=*/ length,
-        loc);
-    Comparator<Integer> comparator = getOrderingForStep(step);
-    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
-    for (int current = start; comparator.compare(current, end) < 0; current += step) {
-      indices.add(current);
-    }
-    return indices.build();
-  }
-
-  /**
-   * Converts the given value into an integer index.
-   *
-   * <p>If the value is {@code None}, the return value of this methods depends on the sign of the
-   * slice step.
-   */
-  private static int getSliceIndex(Object value, int step, int positiveStepDefault,
-      int negativeStepDefault, int length, Location loc) throws EvalException {
-    if (value == Runtime.NONE) {
-      return step < 0 ? negativeStepDefault : positiveStepDefault;
-    } else {
-      try {
-        return MethodLibrary.clampIndex(Type.INTEGER.cast(value), length);
-      } catch (ClassCastException ex) {
-        throw new EvalException(loc, String.format("'%s' is not a valid int", value));
-      }
-    }
-  }
-
-  private static Ordering<Integer> getOrderingForStep(int step) {
-    Ordering<Integer> ordering = Ordering.<Integer>natural();
-    if (step < 0) {
-      ordering = ordering.reverse();
-    }
-    return ordering;
-  }
-
   @SkylarkSignature(
     name = "min",
     returnType = Object.class,
@@ -1255,7 +1159,7 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(
             MutableList<Object> self, Integer index, Object item, Location loc, Environment env)
             throws EvalException {
-          self.add(clampIndex(index, self.size()), item, loc, env);
+          self.add(EvalUtils.clampRangeEndpoint(index, self.size()), item, loc, env);
           return Runtime.NONE;
         }
       };
@@ -1363,7 +1267,7 @@ public class MethodLibrary {
         public Object invoke(MutableList<?> self, Object i, Location loc, Environment env)
             throws EvalException {
           int arg = i == Runtime.NONE ? -1 : (Integer) i;
-          int index = getListIndex(arg, self.size(), loc);
+          int index = EvalUtils.getSequenceIndex(arg, self.size(), loc);
           Object result = self.get(index);
           self.remove(index, loc, env);
           return result;

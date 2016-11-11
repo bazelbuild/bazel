@@ -381,6 +381,130 @@ public final class EvalUtils {
     return -1;
   }
 
+  // The following functions for indexing and slicing match the behavior of Python.
+
+  /**
+   * Resolves a positive or negative index to an index in the range [0, length), or throws
+   * EvalException if it is out-of-range. If the index is negative, it counts backward from
+   * length.
+   */
+  public static int getSequenceIndex(int index, int length, Location loc)
+      throws EvalException {
+    int actualIndex = index;
+    if (actualIndex < 0) {
+      actualIndex += length;
+    }
+    if (actualIndex < 0 || actualIndex >= length) {
+      throw new EvalException(loc, "Index out of range (index is "
+          + index + ", but sequence has " + length + " elements)");
+    }
+    return actualIndex;
+  }
+
+  /**
+   * Performs index resolution after verifying that the given object has index type.
+   */
+  public static int getSequenceIndex(Object index, int length, Location loc)
+      throws EvalException {
+    if (!(index instanceof Integer)) {
+      throw new EvalException(loc, "Indices must be integers, not "
+          + EvalUtils.getDataTypeName(index));
+    }
+    return getSequenceIndex(((Integer) index).intValue(), length, loc);
+  }
+
+  /**
+   * Resolves a positive or negative index to an integer that can denote the left or right boundary
+   * of a slice. If reverse is false, the slice has positive stride (i.e., its elements are in their
+   * normal order) and the result is guaranteed to be in range [0, length + 1). If reverse is true,
+   * the slice has negative stride and the result is in range [-1, length). In either case, if the
+   * index is negative, it counts backward from length. Note that an input index of -1 represents
+   * the last element's position, while an output integer of -1 represents the imaginary position
+   * to the left of the first element.
+   */
+  public static int clampRangeEndpoint(int index, int length, boolean reverse) {
+    if (index < 0) {
+      index += length;
+    }
+    if (!reverse) {
+      return Math.max(Math.min(index, length), 0);
+    } else {
+      return Math.max(Math.min(index, length - 1), -1);
+    }
+  }
+
+  /**
+   * Resolves a positive or negative index to an integer that can denote the boundary for a
+   * slice with positive stride.
+   */
+  public static int clampRangeEndpoint(int index, int length) {
+    return clampRangeEndpoint(index, length, false);
+  }
+
+  /**
+   * Calculates the indices of the elements that should be included in the slice [start:end:step]
+   * of a sequence with the given length. Each of start, end, and step must be supplied, and step
+   * may not be 0.
+   */
+  public static List<Integer> getSliceIndices(int start, int end, int step, int length) {
+    if (step == 0) {
+      throw new IllegalArgumentException("Slice step cannot be zero");
+    }
+    start = clampRangeEndpoint(start, length, step < 0);
+    end = clampRangeEndpoint(end, length, step < 0);
+    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
+    for (int current = start; step > 0 ? current < end : current > end; current += step) {
+      indices.add(current);
+    }
+    return indices.build();
+  }
+
+  /**
+   * Calculates the indices of the elements in a slice, after validating the arguments and replacing
+   * Runtime.NONE with default values. Throws an EvalException if a bad argument is given.
+   */
+  public static List<Integer> getSliceIndices(
+      Object startObj, Object endObj, Object stepObj, int length, Location loc)
+      throws EvalException {
+    int start;
+    int end;
+    int step;
+
+    if (stepObj == Runtime.NONE) {
+      // This case is excluded by the parser, but let's handle it for completeness.
+      step = 1;
+    } else if (stepObj instanceof Integer) {
+      step = ((Integer) stepObj).intValue();
+    } else {
+      throw new EvalException(loc,
+          String.format("Slice step must be an integer, not '%s'", stepObj));
+    }
+    if (step == 0) {
+      throw new EvalException(loc, "Slice step cannot be zero");
+    }
+
+    if (startObj == Runtime.NONE) {
+      start = (step > 0) ? 0 : length - 1;
+    } else if (startObj instanceof Integer) {
+      start = ((Integer) startObj).intValue();
+    } else {
+      throw new EvalException(loc,
+          String.format("Slice start must be an integer, not '%s'", startObj));
+    }
+    if (endObj == Runtime.NONE) {
+      // If step is negative, can't use -1 for end since that would be converted
+      // to the rightmost element's position.
+      end = (step > 0) ? length : -length - 1;
+    } else if (endObj instanceof Integer) {
+      end = ((Integer) endObj).intValue();
+    } else {
+      throw new EvalException(loc,
+          String.format("Slice end must be an integer, not '%s'", endObj));
+    }
+
+    return getSliceIndices(start, end, step, length);
+  }
+
   /** @return true if x is Java null or Skylark None */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == Runtime.NONE;
