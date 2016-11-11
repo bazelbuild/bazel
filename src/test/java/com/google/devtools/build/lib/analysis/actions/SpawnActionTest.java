@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
@@ -24,6 +25,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -419,5 +421,45 @@ public class SpawnActionTest extends BuildViewTestCase {
       builder.setMnemonic("contains/slash");
       fail("Expected exception");
     } catch (IllegalArgumentException expected) {}
+  }
+
+  /**
+   * Tests that the ExtraActionInfo proto that's generated from an action, contains Aspect-related
+   * information.
+   */
+  @Test
+  public void testGetExtraActionInfoOnAspects() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "load('//a:def.bzl', 'testrule')",
+        "testrule(name='a', deps=[':b'])",
+        "testrule(name='b')");
+    scratch.file(
+        "a/def.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  f = ctx.new_file('foo.txt')",
+        "  ctx.action(outputs = [f], command = 'echo foo > \"$1\"')",
+        "  return struct(output=f)",
+        "def _rule_impl(ctx):",
+        "  return struct(files=set([artifact.output for artifact in ctx.attr.deps]))",
+        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], ",
+        "    attrs = {'parameter': attr.string(values = ['param_value'])})",
+        "testrule = rule(_rule_impl, attrs = { ",
+        "    'deps' : attr.label_list(aspects = [aspect1]), ",
+        "    'parameter': attr.string(default='param_value') })");
+
+    update(
+        ImmutableList.of("//a:a"),
+        false /* keepGoing */,
+        1 /* loadingPhaseThreads */,
+        true /* doAnalysis */,
+        new EventBus());
+
+    Artifact artifact = getOnlyElement(getFilesToBuild(getConfiguredTarget("//a:a")));
+    ExtraActionInfo.Builder extraActionInfo = getGeneratingAction(artifact).getExtraActionInfo();
+    assertThat(extraActionInfo.getAspectName()).isEqualTo("//a:def.bzl%aspect1");
+    assertThat(extraActionInfo.getAspectParametersMap())
+        .containsExactly(
+            "parameter", ExtraActionInfo.StringList.newBuilder().addValue("param_value").build());
   }
 }

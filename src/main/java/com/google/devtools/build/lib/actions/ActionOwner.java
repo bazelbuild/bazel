@@ -17,6 +17,7 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
@@ -32,10 +33,12 @@ import javax.annotation.Nullable;
 public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   public static final ActionOwner SYSTEM_ACTION_OWNER =
-      ActionOwner.create(null, null, "system", "empty target kind", "system", null);
+      ActionOwner.create(null, null, null, null, "system", "empty target kind", "system", null);
 
   public static ActionOwner create(
       @Nullable Label label,
+      @Nullable String aspectName,
+      @Nullable AspectParameters aspectParameters,
       @Nullable Location location,
       @Nullable String mnemonic,
       @Nullable String targetKind,
@@ -44,6 +47,8 @@ public abstract class ActionOwner {
     return new AutoValue_ActionOwner(
         location,
         label,
+        aspectName,
+        aspectParameters,
         mnemonic,
         Preconditions.checkNotNull(configurationChecksum),
         targetKind,
@@ -57,6 +62,12 @@ public abstract class ActionOwner {
   /** Returns the label for this ActionOwner, if any; null otherwise. */
   @Nullable
   public abstract Label getLabel();
+
+  @Nullable
+  public abstract String getAspectName();
+
+  @Nullable
+  public abstract AspectParameters getAspectParameters();
 
   /** Returns the configuration's mnemonic. */
   @Nullable

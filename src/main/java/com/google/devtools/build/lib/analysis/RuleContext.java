@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -106,6 +107,7 @@ import javax.annotation.Nullable;
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+
   /**
    * The configured version of FilesetEntry.
    */
@@ -147,6 +149,8 @@ public final class RuleContext extends TargetContext
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
+  @Nullable private final String aspectName;
+  @Nullable private final AspectParameters aspectParameters;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
@@ -178,6 +182,8 @@ public final class RuleContext extends TargetContext
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
+    this.aspectName = builder.getAspectName();
+    this.aspectParameters = builder.getAspectParameters();
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragment = universalFragment;
     this.targetMap = targetMap;
@@ -322,7 +328,7 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     if (actionOwner == null) {
-      actionOwner = createActionOwner(rule, getConfiguration());
+      actionOwner = createActionOwner(rule, aspectName, aspectParameters, getConfiguration());
     }
     return actionOwner;
   }
@@ -398,9 +404,15 @@ public final class RuleContext extends TargetContext
   }
 
   @VisibleForTesting
-  public static ActionOwner createActionOwner(Rule rule, BuildConfiguration configuration) {
+  public static ActionOwner createActionOwner(
+      Rule rule,
+      @Nullable String aspectName,
+      @Nullable AspectParameters aspectParameters,
+      BuildConfiguration configuration) {
     return ActionOwner.create(
         rule.getLabel(),
+        aspectName,
+        aspectParameters,
         rule.getLocation(),
         configuration.getMnemonic(),
         rule.getTargetKind(),
@@ -1402,6 +1414,7 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
     @Nullable private final String aspectName;
+    @Nullable private final AspectParameters aspectParameters;
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
@@ -1413,6 +1426,7 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Rule rule,
         @Nullable String aspectName,
+        @Nullable AspectParameters aspectParameters,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
@@ -1420,6 +1434,7 @@ public final class RuleContext extends TargetContext
       this.env = Preconditions.checkNotNull(env);
       this.rule = Preconditions.checkNotNull(rule);
       this.aspectName = aspectName;
+      this.aspectParameters = aspectParameters;
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
@@ -1923,6 +1938,16 @@ public final class RuleContext extends TargetContext
       if (attribute.performPrereqValidatorCheck()) {
         prerequisiteValidator.validate(this, prerequisite, attribute);
       }
+    }
+
+    @Nullable
+    public AspectParameters getAspectParameters() {
+      return aspectParameters;
+    }
+
+    @Nullable
+    public String getAspectName() {
+      return aspectName;
     }
   }
 

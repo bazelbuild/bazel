@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -440,10 +441,24 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
-    return ExtraActionInfo.newBuilder()
-        .setOwner(getOwner().getLabel().toString())
-        .setId(getKey())
-        .setMnemonic(getMnemonic());
+    ActionOwner owner = getOwner();
+    ExtraActionInfo.Builder result =
+        ExtraActionInfo.newBuilder()
+            .setOwner(owner.getLabel().toString())
+            .setId(getKey())
+            .setMnemonic(getMnemonic());
+    if (owner.getAspectName() != null) {
+      result.setAspectName(owner.getAspectName());
+    }
+    if (owner.getAspectParameters() != null) {
+      for (Map.Entry<String, Collection<String>> entry :
+          owner.getAspectParameters().getAttributes().asMap().entrySet()) {
+        result.putAspectParameters(
+            entry.getKey(),
+            ExtraActionInfo.StringList.newBuilder().addAllValue(entry.getValue()).build());
+      }
+    }
+    return result;
   }
 
   @Override

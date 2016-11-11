@@ -190,7 +190,14 @@ public final class ActionsTestUtil {
 
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
-          NULL_LABEL, null, "dummy-configuration-mnemonic", null, "dummy-configuration", null);
+          NULL_LABEL,
+          null,
+          null,
+          null,
+          "dummy-configuration-mnemonic",
+          null,
+          "dummy-configuration",
+          null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =
       new ArtifactOwner() {
