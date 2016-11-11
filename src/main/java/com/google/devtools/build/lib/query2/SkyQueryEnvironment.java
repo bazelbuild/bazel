@@ -139,6 +139,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private ForkJoinPool forkJoinPool;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
   private final SkyKey universeKey;
+  private final ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -196,6 +197,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         !universeScope.isEmpty(), "No queries can be performed with an empty universe");
     this.queryEvaluationParallelismLevel = queryEvaluationParallelismLevel;
     this.universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
+    universeTargetPatternKeys =
+        PrepareDepsOfPatternsFunction.getTargetPatternKeys(
+            PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
   }
 
   private void beforeEvaluateQuery() throws InterruptedException {
@@ -211,9 +215,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     graph = result.getWalkableGraph();
     blacklistPatternsSupplier = InterruptibleSupplier.Memoize.of(new BlacklistSupplier(graph));
 
-    ImmutableList<TargetPatternKey> universeTargetPatternKeys =
-        PrepareDepsOfPatternsFunction.getTargetPatternKeys(
-            PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
     GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider =
         new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
     forkJoinPool =
