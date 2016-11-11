@@ -68,4 +68,6 @@ genrule(
     outs = ["bazel-distfile.zip"],
     cmd = "$(location :combine_distfiles.sh) $@ $(SRCS)",
     tools = ["combine_distfiles.sh"],
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
 )

@@ -149,6 +149,7 @@ function bazel_build() {
     fi
     cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
+    cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
   fi
 }
 
@@ -441,7 +442,8 @@ function bazel_release() {
     for file in $folder/*; do
       local filename=$(basename $file)
       if [ "$filename" != README.md ]; then
-        if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] ; then
+          if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] \
+                 || [ "$filename" =~ "bazel-(.*)-dist.zip" ]  ; then
           local destfile=${tmpdir}/$filename
         elif [[ "$file" =~ /([^/]*)(\.[^\./]+)$ ]]; then
           local destfile=${tmpdir}/${BASH_REMATCH[1]}-${platform}${BASH_REMATCH[2]}

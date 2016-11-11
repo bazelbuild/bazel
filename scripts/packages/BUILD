@@ -22,6 +22,7 @@ filegroup(
             ":generate-package-info",
             ":bazel-debian",
             ":bazel-debian-src",
+            "//:bazel-distfile",
         ],
     }),
 )
