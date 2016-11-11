@@ -272,6 +272,10 @@ public class BazelCppRuleClasses {
           very careful, since this may have far-reaching effects.  When in doubt, add
           "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
           </p>
+          <p>
+          Headers must be added to srcs or hdrs, otherwise they will not be available to dependent
+          rules when compilation is sandboxed (the default).
+          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
           .add(
