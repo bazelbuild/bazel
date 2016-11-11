@@ -397,6 +397,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "build_files_test",
+    size = "medium",
+    srcs = ["build_files_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

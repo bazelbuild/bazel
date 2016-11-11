@@ -108,6 +108,7 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtines
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.CacheEntryWithGlobDeps;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -274,6 +275,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final RuleClassProvider ruleClassProvider;
 
   private final CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
+  
+  private final List<BuildFileName> buildFilesByPriority;
 
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
@@ -291,7 +294,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ExternalFileAction externalFileAction,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     // Strictly speaking, these arguments are not required for initialization, but all current
     // callsites have them at hand, so we might as well set them during construction.
     this.evaluatorSupplier = evaluatorSupplier;
@@ -325,6 +329,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         pkgLocator, this.externalFileAction, directories);
     this.productName = productName;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
+    this.buildFilesByPriority = buildFilesByPriority;
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -348,7 +353,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(
         SkyFunctions.PACKAGE_LOOKUP,
-        new PackageLookupFunction(deletedPackages, crossRepositoryLabelViolationStrategy));
+        new PackageLookupFunction(
+            deletedPackages, crossRepositoryLabelViolationStrategy, buildFilesByPriority));
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(ruleClassProvider));
     map.put(

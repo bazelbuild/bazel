@@ -39,6 +39,7 @@ public abstract class PackageLookupValue implements SkyValue {
    * The file (BUILD, WORKSPACE, etc.) that defines this package, referred to as the "build file".
    */
   public enum BuildFileName {
+
     WORKSPACE("WORKSPACE") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
@@ -46,6 +47,12 @@ public abstract class PackageLookupValue implements SkyValue {
       }
     },
     BUILD("BUILD") {
+      @Override
+      public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
+        return packageIdentifier.getPackageFragment().getChild(getFilename());
+      }
+    },
+    BUILD_DOT_BAZEL("BUILD.bazel") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
         return packageIdentifier.getPackageFragment().getChild(getFilename());

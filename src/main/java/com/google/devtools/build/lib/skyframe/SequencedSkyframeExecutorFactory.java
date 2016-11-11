@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -59,6 +60,7 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         extraPrecomputedValues,
         customDirtinessCheckers,
         productName,
-        CrossRepositoryLabelViolationStrategy.ERROR);
+        CrossRepositoryLabelViolationStrategy.ERROR,
+        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
   }
 }

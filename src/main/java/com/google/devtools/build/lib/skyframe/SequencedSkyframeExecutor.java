@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -73,6 +74,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -112,7 +114,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -127,7 +130,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         blacklistedPackagePrefixesFile,
         productName,
-        crossRepositoryLabelViolationStrategy);
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -145,7 +149,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     return create(
         pkgFactory,
         directories,
@@ -160,7 +165,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         customDirtinessCheckers,
         /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
         productName,
-        crossRepositoryLabelViolationStrategy);
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
   }
 
   private static SequencedSkyframeExecutor create(
@@ -177,7 +183,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -194,7 +201,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             customDirtinessCheckers,
             blacklistedPackagePrefixesFile,
             productName,
-            crossRepositoryLabelViolationStrategy);
+            crossRepositoryLabelViolationStrategy,
+            buildFilesByPriority);
     skyframeExecutor.init();
     return skyframeExecutor;
   }
@@ -221,7 +229,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         ImmutableList.<SkyValueDirtinessChecker>of(),
         blacklistedPackagePrefixesFile,
         productName,
-        CrossRepositoryLabelViolationStrategy.ERROR);
+        CrossRepositoryLabelViolationStrategy.ERROR,
+        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
   }
 
   @Override
