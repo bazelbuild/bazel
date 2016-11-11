@@ -11,6 +11,7 @@ filegroup(
 cc_test(
     name = "blaze_util_test",
     srcs = ["blaze_util_test.cc"],
+    tags = ["manual"],
     deps = [
         "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
