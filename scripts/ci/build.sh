@@ -146,10 +146,10 @@ function bazel_build() {
       cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
       cp -f bazel-genfiles/scripts/packages/bazel.dsc $1/bazel.dsc
       cp -f bazel-genfiles/scripts/packages/bazel.tar.gz $1/bazel.tar.gz
+      cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
     fi
     cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
-    cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
   fi
 }
 
