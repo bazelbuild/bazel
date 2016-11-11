@@ -218,22 +218,20 @@ You can also add this command to your `~/.bashrc` file.
 
 ## <a name="compiling-from-source"></a>Compiling from source
 
-If you would like to build Bazel from source, clone the source from GitHub and
-run `./compile.sh` to build it:
+The standard way of compiling a release version of Bazel from source
+is to use a distribution archive. Download `bazel-<VERSION>-dist.zip`
+from
+the [release page](https://github.com/bazelbuild/bazel/releases) for
+the desired version (for releases 0.4.0 and earlier: dowload the "source
+code" zip archive and note that it will only work for the supported
+architectures as it contains binaries). We recommend to also verify
+the signature made by our
+[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
-```
-$ git clone https://github.com/bazelbuild/bazel.git
-$ cd bazel
-$ ./compile.sh
-```
-
-This will create a bazel binary in `bazel-bin/src/bazel`. This binary is
-self-contained, so it can be copied to a directory on the PATH (e.g.,
+Unzip the archive and call `bash ./compile.sh`; this will create a
+bazel binary in `bazel-bin/src/bazel`. This binary is self-contained,
+so it can be copied to a directory on the PATH (e.g.,
 `/usr/local/bin`) or used in-place.
-
-Check our [continuous integration](http://ci.bazel.build) for the current status of
-the build.
-
 
 ## <a name="jdk7"></a>Using Bazel with JDK 7 (deprecated)
 

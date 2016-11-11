@@ -72,15 +72,13 @@ To work with Eclipse:
 <a name="compile-bazel"></a>
 ### Compiling Bazel
 
-To test out bazel, you need to compile it. There are currently two ways of
-compiling it:
+To test out bazel, you need to compile it. To compile a development version of
+Bazel, you need a working version of Bazel already, e.g., the latest release
+version [compiled from source](/versions/master/docs/install.html#compiling-from-source).
 
-* `sh compile.sh` bootstraps Bazel from scratch, first compiling it without using
-  Bazel, then rebuilding it again using the just built Bazel and optionally runs
-  tests, too. The resulting binary can be found at `output/bazel`.
-* `bazel build //src:bazel` builds the Bazel binary using `bazel` from your PATH
-  and the resulting binary can be found at `bazel-bin/src/bazel`. This is the
-  recommended way of rebuilding Bazel once you have bootstrapped it.
+`bazel build //src:bazel` builds the Bazel binary using `bazel` from your PATH
+and the resulting binary can be found at `bazel-bin/src/bazel`. This is the
+recommended way of rebuilding Bazel once you have bootstrapped it.
 
 In addition to the Bazel binary, you might want to build the various tools Bazel
 uses. They are located in `//src/java_tools/...`, `//src/objc_tools/...` and
@@ -89,8 +87,9 @@ respective utility.
 
 When modifying Bazel, you want to make sure that the following still works:
 
-* Bootstrap test with `sh compile.sh all` after having removed the
-  `output` directory: it rebuilds Bazel with `./compile.sh`, Bazel with the
+* Build a distribution archive with `bazel build //:bazel-distfile`. After
+  unzipping it in a new empty directory, run `bash compile.sh all` there.
+  It rebuilds Bazel with `./compile.sh`, Bazel with the
   `compile.sh` Bazel and Bazel with the Bazel-built binary. It compares if the
   constructed Bazel builts are identical and then runs all bazel tests with
   `bazel test //src/... //third_party/ijar/...`. This is what we use at Google
