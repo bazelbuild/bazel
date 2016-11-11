@@ -489,12 +489,13 @@ public class LegacyCompilationSupport extends CompilationSupport {
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
             .setDotdPruningPlan(objcConfiguration.getDotdPruningPlan())
             .setSourceFile(sourceFile)
+            .addTransitiveHeaders(objcProvider.get(HEADER))
+            .addHeaders(compilationArtifacts.getPrivateHdrs())  
             .addMandatoryInputs(swiftHeader.asSet())
             .addTransitiveMandatoryInputs(moduleMapInputs)
             .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .setDotdFile(dotdFile)
-            .addInputs(compilationArtifacts.getPrivateHdrs())
             .addInputs(compilationArtifacts.getPchFile().asSet())
             .setMnemonic("ObjcCompile")
             .setExecutable(xcrunwrapper(ruleContext))
@@ -502,7 +503,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addOutput(objFile)
             .addOutputs(gcnoFile.asSet())
             .addOutput(dotdFile.artifact())
-            .addTransitiveInputs(objcProvider.get(HEADER))
             .build(ruleContext));
   }
 

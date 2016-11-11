@@ -426,14 +426,20 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   /**
-   * The Spawn which this SpawnAction will execute.
+   * A spawn instance that is tied to a specific SpawnAction.
    */
-  private class ActionSpawn extends BaseSpawn {
+  public class ActionSpawn extends BaseSpawn {
 
     private final List<Artifact> filesets = new ArrayList<>();
 
     private final ImmutableMap<String, String> effectiveEnvironment;
 
+    /**
+     * Creates an ActionSpawn with the given environment variables.
+     * 
+     * <p>Subclasses of ActionSpawn may subclass in order to provide action-specific values for
+     * environment variables or action inputs.
+     */
     public ActionSpawn(Map<String, String> clientEnv) {
       super(ImmutableList.copyOf(argv.arguments()),
           ImmutableMap.<String, String>of(),
@@ -460,6 +466,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       effectiveEnvironment = ImmutableMap.copyOf(env);
     }
 
+    /**
+     * Creates an ActionSpawn with no environment variables.
+     */
     public ActionSpawn() {
       this(null);
     }
