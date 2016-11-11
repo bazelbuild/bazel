@@ -279,6 +279,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   
   private final List<BuildFileName> buildFilesByPriority;
 
+  private PerBuildSyscallCache perBuildSyscallCache;
+  private int lastConcurrencyLevel = -1;
+
   private static final Logger LOG = Logger.getLogger(SkyframeExecutor.class.getName());
 
   protected SkyframeExecutor(
@@ -460,6 +463,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
     return PerBuildSyscallCache.newBuilder().setConcurrencyLevel(concurrencyLevel).build();
+  }
+
+  /**
+   * Gets a (possibly cached) syscalls cache, re-initialized each build.
+   *
+   * <p>We cache the syscalls cache if possible because construction of the cache is surprisingly
+   * expensive, and is on the critical path of null builds.
+   */
+  protected final PerBuildSyscallCache getPerBuildSyscallCache(int concurrencyLevel) {
+    if (lastConcurrencyLevel == concurrencyLevel) {
+      perBuildSyscallCache.clear();
+      return perBuildSyscallCache;
+    }
+    lastConcurrencyLevel = concurrencyLevel;
+    perBuildSyscallCache = newPerBuildSyscallCache(concurrencyLevel);
+    return perBuildSyscallCache;
   }
 
  @ThreadCompatible
@@ -934,7 +953,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     setupDefaultPackage(defaultsPackageContents);
     setPackageLocator(pkgLocator);
 
-    syscalls.set(newPerBuildSyscallCache(packageCacheOptions.globbingThreads));
+    syscalls.set(getPerBuildSyscallCache(packageCacheOptions.globbingThreads));
     this.pkgFactory.setGlobbingThreads(packageCacheOptions.globbingThreads);
     this.pkgFactory.setMaxDirectoriesToEagerlyVisitInGlobbing(
         packageCacheOptions.maxDirectoriesToEagerlyVisitInGlobbing);
