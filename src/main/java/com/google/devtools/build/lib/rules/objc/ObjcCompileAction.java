@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.PackageRootResolutionException;
+import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
@@ -42,14 +44,19 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
+import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An action that compiles objc or objc++ source.
@@ -92,6 +99,10 @@ public class ObjcCompileAction extends SpawnAction {
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final NestedSet<Artifact> headers;
 
+  // This can be read/written from multiple threads, so accesses must be synchronized.
+  @GuardedBy("this")
+  private boolean inputsKnown = false;
+  
   private static final String GUID = "a00d5bac-a72c-4f0f-99a7-d5fdc6072137";
 
   private ObjcCompileAction(
@@ -134,6 +145,7 @@ public class ObjcCompileAction extends SpawnAction {
     this.mandatoryInputs = mandatoryInputs;
     this.dotdPruningPlan = dotdPruningPlan;
     this.headers = headers;
+    this.inputsKnown = (dotdPruningPlan == DotdPruningMode.DO_NOT_USE);
   }
 
   /** Returns the DotdPruningPlan for this compile */
@@ -148,6 +160,11 @@ public class ObjcCompileAction extends SpawnAction {
   }
   
   @Override
+  public synchronized boolean inputsKnown() {
+    return inputsKnown;
+  }
+  
+  @Override
   public boolean discoversInputs() {
     return true;
   }
@@ -156,7 +173,59 @@ public class ObjcCompileAction extends SpawnAction {
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     return headers;
   }
+ 
+  // Keep in sync with {@link CppCompileAction#resolveInputsFromCache}
+  @Override
+  public Iterable<Artifact> resolveInputsFromCache(
+      ArtifactResolver artifactResolver,
+      PackageRootResolver resolver,
+      Collection<PathFragment> inputPaths)
+      throws PackageRootResolutionException, InterruptedException {
+    // Note that this method may trigger a violation of the desirable invariant that getInputs()
+    // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
+    // error message and the integration test test_crosstool_change_and_failure().
+    Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
+    List<Artifact> inputs = new ArrayList<>();
+    List<PathFragment> unresolvedPaths = new ArrayList<>();
+    for (PathFragment execPath : inputPaths) {
+      Artifact artifact = allowedDerivedInputsMap.get(execPath);
+      if (artifact != null) {
+        inputs.add(artifact);
+      } else {
+        // Remember this execPath, we will try to resolve it as a source artifact.
+        unresolvedPaths.add(execPath);
+      }
+    }
 
+    Map<PathFragment, Artifact> resolvedArtifacts =
+        artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
+    if (resolvedArtifacts == null) {
+      // We are missing some dependencies. We need to rerun this update later.
+      return null;
+    }
+
+    for (PathFragment execPath : unresolvedPaths) {
+      Artifact artifact = resolvedArtifacts.get(execPath);
+      // If PathFragment cannot be resolved into the artifact - ignore it. This could happen if
+      // rule definition has changed and action no longer depends on, e.g., additional source file
+      // in the separate package and that package is no longer referenced anywhere else.
+      // It is safe to ignore such paths because dependency checker would identify change in inputs
+      // (ignored path was used before) and will force action execution.
+      if (artifact != null) {
+        inputs.add(artifact);
+      }
+    }
+    return inputs;    
+  }
+  
+  @Override
+  public synchronized void updateInputs(Iterable<Artifact> inputs) {
+    inputsKnown = true;
+    synchronized (this) {
+      setInputs(inputs);
+    }
+  }  
+  
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of(dotdFile.artifact());
@@ -230,11 +299,13 @@ public class ObjcCompileAction extends SpawnAction {
   @ThreadCompatible
   public final synchronized void updateActionInputs(NestedSet<Artifact> discoveredInputs)
       throws ActionExecutionException {
+    inputsKnown = false;
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
     try {
       inputs.addTransitive(mandatoryInputs);
       inputs.addTransitive(discoveredInputs);
+      inputsKnown = true;
     } finally {
       Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
       setInputs(inputs.build());

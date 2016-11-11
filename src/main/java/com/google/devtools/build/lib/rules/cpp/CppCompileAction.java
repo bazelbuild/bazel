@@ -992,6 +992,7 @@ public class CppCompileAction extends AbstractAction
     return variableBuilder.build();
   }
 
+  // Keep in sync with {@link ObjcCompileAction#resolveInputsFromCache}
   @Override
   public Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver,
