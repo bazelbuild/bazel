@@ -30,6 +30,7 @@ cc_test(
 cc_test(
     name = "file_platform_test",
     srcs = ["file_posix_test.cc"],
+    tags = ["manual"],
     deps = [
         "//src/main/cpp/util:file",
         "//src/main/cpp/util:file_platform",
