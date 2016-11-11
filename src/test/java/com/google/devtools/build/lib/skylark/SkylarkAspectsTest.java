@@ -560,6 +560,78 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertContainsEvent("MyAspect from //test:aspect.bzl is not an aspect");
   }
 
+
+  @Test
+  public void duplicateOutputGroups() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "  f = ctx.new_file('f.txt')",
+        "  ctx.file_action(f, 'f')",
+        "  return struct(output_groups = { 'duplicate' : set([f]) })",
+        "",
+        "MyAspect = aspect(implementation=_impl)",
+        "def _rule_impl(ctx):",
+        "  g = ctx.new_file('g.txt')",
+        "  ctx.file_action(g, 'g')",
+        "  return struct(output_groups = { 'duplicate' : set([g]) })",
+        "my_rule = rule(_rule_impl)",
+        "def _noop(ctx):",
+        "  pass",
+        "rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'my_rule', 'rbase')",
+        "my_rule(name = 'xxx')",
+        "rbase(name = 'yyy', dep = ':xxx')"
+    );
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update("//test:yyy");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: Output group duplicate provided twice");
+  }
+
+  @Test
+  public void duplicateSkylarkProviders() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "  return struct(duplicate = 'x')",
+        "",
+        "MyAspect = aspect(implementation=_impl)",
+        "def _rule_impl(ctx):",
+        "  return struct(duplicate = 'y')",
+        "my_rule = rule(_rule_impl)",
+        "def _noop(ctx):",
+        "  pass",
+        "rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'my_rule', 'rbase')",
+        "my_rule(name = 'xxx')",
+        "rbase(name = 'yyy', dep = ':xxx')"
+    );
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult result = update("//test:yyy");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:3:1: Provider duplicate provided twice");
+  }
+
+
   @Test
   public void topLevelAspectDoesNotExist() throws Exception {
     scratch.file("test/aspect.bzl", "");

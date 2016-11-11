@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -124,7 +125,8 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
    * @param providers providers to merge {@code this} with.
    */
   @Nullable
-  public static OutputGroupProvider merge(List<OutputGroupProvider> providers) {
+  public static OutputGroupProvider merge(List<OutputGroupProvider> providers)
+      throws DuplicateException {
     if (providers.size() == 0) {
       return null;
     }
@@ -137,7 +139,8 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
     for (OutputGroupProvider provider : providers) {
       for (String outputGroup : provider.outputGroups.keySet()) {
         if (!seenGroups.add(outputGroup)) {
-          throw new IllegalStateException("Output group " + outputGroup + " provided twice");
+          throw new DuplicateException(
+              "Output group " + outputGroup + " provided twice");
         }
 
         resultBuilder.put(outputGroup, provider.getOutputGroup(outputGroup));

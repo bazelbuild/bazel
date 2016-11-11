@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -288,7 +289,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       BuildConfiguration hostConfiguration,
       NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
-      throws DependencyEvaluationException, AspectCreationException, InterruptedException {
+      throws DependencyEvaluationException, ConfiguredTargetFunctionException,
+      AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
     OrderedSetMultimap<Attribute, Dependency> depValueNames;
     try {
@@ -328,7 +330,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Merge the dependent configured targets and aspects into a single map.
-    return mergeAspects(depValueNames, depValues, depAspects);
+    try {
+      return mergeAspects(depValueNames, depValues, depAspects);
+    } catch (DuplicateException e) {
+      env.getListener().handle(
+          Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
+
+      throw new ConfiguredTargetFunctionException(
+          new ConfiguredValueCreationException(e.getMessage(), ctgValue.getLabel()));
+    }
   }
 
   /**
@@ -716,7 +726,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static OrderedSetMultimap<Attribute, ConfiguredTarget> mergeAspects(
       OrderedSetMultimap<Attribute, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
-      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap) {
+      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap)
+      throws DuplicateException  {
     OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
@@ -231,17 +232,21 @@ public final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap =
-          ConfiguredTargetFunction.computeDependencies(
-              env,
-              resolver,
-              originalTargetAndAspectConfiguration,
-              aspect,
-              configConditions,
-              ruleClassProvider,
-              view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
-              transitivePackages,
-              transitiveRootCauses);
+      OrderedSetMultimap<Attribute, ConfiguredTarget> depValueMap;
+      try {
+        depValueMap = ConfiguredTargetFunction.computeDependencies(
+            env,
+            resolver,
+            originalTargetAndAspectConfiguration,
+            aspect,
+            configConditions,
+            ruleClassProvider,
+            view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
+            transitivePackages,
+            transitiveRootCauses);
+      } catch (ConfiguredTargetFunctionException e) {
+        throw new AspectCreationException(e.getMessage());
+      }
       if (depValueMap == null) {
         return null;
       }
