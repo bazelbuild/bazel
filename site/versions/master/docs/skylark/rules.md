@@ -254,7 +254,8 @@ its outputs are needed for the build.
 
 By default, a target is built in the target configuration. For each label
 attribute, you can decide whether the dependency should be built in the same
-configuration, or in the host configuration.
+configuration, or in the host configuration. If `executable=True`, configuration
+setting is required.
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
