@@ -20,7 +20,6 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.List;
 import java.util.Set;
 
@@ -56,6 +55,18 @@ public class LoadingOptions extends OptionsBase {
           + "to build they are source filenames.  For each source filename "
           + "an arbitrary target that depends on it will be built.")
   public boolean compileOneDependency;
+
+  @Option(name = "build_tag_filters",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = "",
+      category = "what",
+      help = "Specifies a comma-separated list of tags. Each tag can be optionally "
+          + "preceded with '-' to specify excluded tags. Only those targets will be built that "
+          + "contain at least one included tag and do not contain any excluded tags. This option "
+          + "does not affect the set of tests executed with the 'test' command; those are be "
+          + "governed by the test filtering options, for example '--test_tag_filters'"
+      )
+  public List<String> buildTagFilterList;
 
   @Option(name = "test_tag_filters",
       converter = CommaSeparatedOptionListConverter.class,

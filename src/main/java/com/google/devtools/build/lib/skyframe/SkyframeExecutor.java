@@ -1827,6 +1827,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
           relativeWorkingDirectory.getPathString(), options.compileOneDependency,
           options.buildTestsOnly, determineTests,
+          ImmutableList.copyOf(options.buildTagFilterList),
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       eventBus.post(new LoadingPhaseStartedEvent(packageProgress));

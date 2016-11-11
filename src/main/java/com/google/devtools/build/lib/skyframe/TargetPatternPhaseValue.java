@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -131,6 +129,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
+      ImmutableList<String> buildTargetFilter,
       @Nullable TestFilter testFilter) {
     return SkyKey.create(
         SkyFunctions.TARGET_PATTERN_PHASE,
@@ -140,6 +139,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
             compileOneDependency,
             buildTestsOnly,
             determineTests,
+            buildTargetFilter,
             testFilter));
   }
 
@@ -154,16 +154,18 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean compileOneDependency;
     private final boolean buildTestsOnly;
     private final boolean determineTests;
+    private final ImmutableList<String> buildTargetFilter;
     @Nullable private final TestFilter testFilter;
 
     public TargetPatternList(ImmutableList<String> targetPatterns, String offset,
         boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
-        @Nullable TestFilter testFilter) {
+        ImmutableList<String> buildTargetFilter, @Nullable TestFilter testFilter) {
       this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
       this.offset = Preconditions.checkNotNull(offset);
       this.compileOneDependency = compileOneDependency;
       this.buildTestsOnly = buildTestsOnly;
       this.determineTests = determineTests;
+      this.buildTargetFilter = Preconditions.checkNotNull(buildTargetFilter);
       this.testFilter = testFilter;
       if (buildTestsOnly || determineTests) {
         Preconditions.checkNotNull(testFilter);
@@ -188,6 +190,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     public boolean getDetermineTests() {
       return determineTests;
+    }
+
+    public ImmutableList<String> getBuildTargetFilter() {
+      return buildTargetFilter;
     }
 
     public TestFilter getTestFilter() {
@@ -228,6 +234,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
           && other.compileOneDependency == compileOneDependency
           && other.buildTestsOnly == buildTestsOnly
           && other.determineTests == determineTests
+          && other.buildTargetFilter.equals(buildTargetFilter)
           && Objects.equals(other.testFilter, testFilter);
     }
   }

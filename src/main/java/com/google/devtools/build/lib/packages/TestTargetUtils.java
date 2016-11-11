@@ -144,31 +144,6 @@ public final class TestTargetUtils {
   }
 
   /**
-   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
-   * all of the required tags and none of the excluded tags.
-   */
-  // TODO(bazel-team): This also applies to non-test rules, so should probably be moved to
-  // TargetUtils.
-  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
-    Pair<Collection<String>, Collection<String>> tagLists = sortTagsBySense(tagFilterList);
-    final Collection<String> requiredTags = tagLists.first;
-    final Collection<String> excludedTags = tagLists.second;
-    return new Predicate<Target>() {
-      @Override
-      public boolean apply(Target input) {
-        if (!(input instanceof Rule)) {
-          return false;
-        }
-        // Note that test_tags are those originating from the XX_test rule,
-        // whereas the requiredTags and excludedTags originate from the command
-        // line or test_suite rule.
-        return testMatchesFilters(((Rule) input).getRuleTags(),
-            requiredTags, excludedTags, false);
-      }
-    };
-  }
-
-  /**
    * Separates a list of text "tags" into a Pair of Collections, where
    * the first element are the required or positive tags and the second element
    * are the excluded or negative tags.
