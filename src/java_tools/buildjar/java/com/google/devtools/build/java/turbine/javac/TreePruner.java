@@ -37,10 +37,14 @@ import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
+import com.sun.tools.javac.tree.JCTree.JCThrow;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
+import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeScanner;
+import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
 
 /**
  * Prunes AST nodes that are not required for header compilation.
@@ -56,65 +60,74 @@ public class TreePruner {
    * <p>Specifically:
    *
    * <ul>
-   * <li>method bodies
-   * <li>class and instance initializer blocks
-   * <li>initializers of definitely non-constant fields
+   *   <li>method bodies
+   *   <li>class and instance initializer blocks
+   *   <li>initializers of definitely non-constant fields
    * </ul>
    */
-  static void prune(JCTree tree) {
-    tree.accept(PRUNING_VISITOR);
+  static void prune(Context context, JCTree tree) {
+    tree.accept(new PruningVisitor(context));
   }
 
   /** A {@link TreeScanner} that deletes method bodies and blocks from the AST. */
-  private static final TreeScanner PRUNING_VISITOR =
-      new TreeScanner() {
+  private static class PruningVisitor extends TreeScanner {
 
-        JCClassDecl enclClass = null;
+    private final TreeMaker make;
+    private final Names names;
 
-        @Override
-        public void visitClassDef(JCClassDecl tree) {
-          JCClassDecl prev = enclClass;
-          enclClass = tree;
-          try {
-            super.visitClassDef(tree);
-          } finally {
-            enclClass = prev;
-          }
-        }
+    PruningVisitor(Context context) {
+      this.make = TreeMaker.instance(context);
+      this.names = Names.instance(context);
+    }
 
-        @Override
-        public void visitMethodDef(JCMethodDecl tree) {
-          if (tree.body == null) {
-            return;
-          }
-          if (tree.getReturnType() == null && delegatingConstructor(tree.body.stats)) {
-            // if the first statement of a constructor declaration delegates to another
-            // constructor, it needs to be preserved to satisfy checks in Resolve
-            tree.body.stats = com.sun.tools.javac.util.List.of(tree.body.stats.get(0));
-            return;
-          }
-          tree.body.stats = com.sun.tools.javac.util.List.nil();
-        }
+    JCClassDecl enclClass = null;
 
-        @Override
-        public void visitBlock(JCBlock tree) {
-          tree.stats = List.nil();
-        }
+    @Override
+    public void visitClassDef(JCClassDecl tree) {
+      JCClassDecl prev = enclClass;
+      enclClass = tree;
+      try {
+        super.visitClassDef(tree);
+      } finally {
+        enclClass = prev;
+      }
+    }
 
-        @Override
-        public void visitVarDef(JCVariableDecl tree) {
-          if ((tree.mods.flags & Flags.ENUM) == Flags.ENUM) {
-            // javac desugars enum constants into fields during parsing
-            super.visitVarDef(tree);
-            return;
-          }
-          // drop field initializers unless the field looks like a JLS §4.12.4 constant variable
-          if (isConstantVariable(enclClass, tree)) {
-            return;
-          }
-          tree.init = null;
-        }
-      };
+    @Override
+    public void visitMethodDef(JCMethodDecl tree) {
+      if (tree.body == null) {
+        return;
+      }
+      if (tree.getReturnType() == null && delegatingConstructor(tree.body.stats)) {
+        // if the first statement of a constructor declaration delegates to another
+        // constructor, it needs to be preserved to satisfy checks in Resolve
+        tree.body.stats = com.sun.tools.javac.util.List.of(tree.body.stats.get(0));
+        return;
+      }
+      tree.body.stats = com.sun.tools.javac.util.List.nil();
+    }
+
+    @Override
+    public void visitBlock(JCBlock tree) {
+      JCIdent ident = make.at(tree).Ident(names.fromString("AssertionError"));
+      JCThrow throwsTree = make.Throw(make.NewClass(null, List.nil(), ident, List.nil(), null));
+      tree.stats = List.of(throwsTree);
+    }
+
+    @Override
+    public void visitVarDef(JCVariableDecl tree) {
+      if ((tree.mods.flags & Flags.ENUM) == Flags.ENUM) {
+        // javac desugars enum constants into fields during parsing
+        super.visitVarDef(tree);
+        return;
+      }
+      // drop field initializers unless the field looks like a JLS §4.12.4 constant variable
+      if (isConstantVariable(enclClass, tree)) {
+        return;
+      }
+      tree.init = null;
+    }
+  }
 
   private static boolean delegatingConstructor(List<JCStatement> stats) {
     if (stats.isEmpty()) {
