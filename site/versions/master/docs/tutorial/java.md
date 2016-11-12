@@ -63,7 +63,7 @@ java_binary(
 `java_binary` is the type of thing this rule will build.
 `glob(["**/*.java"])` is a handy shorthand for "recursively include every file
 that ends with .java" (see the
-[build encyclopedia](be/functions.html#glob) for more information about
+[build encyclopedia](/docs/be/functions.html#glob) for more information about
 globbing). `com.example.ProjectRunner` specifies the class that contains the
 main method.
 
@@ -207,7 +207,7 @@ INFO: Running command line: bazel-bin/src/main/java/com/example/cmdline/runner
 Hi!
 {% endhighlight %}
 
-See the [build encyclopedia](be/common-definitions.html#common.visibility) for more
+See the [build encyclopedia](/docs/be/common-definitions.html#common.visibility) for more
 visibility options.
 
 ## Deploying
