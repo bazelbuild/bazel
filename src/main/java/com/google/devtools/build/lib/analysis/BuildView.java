@@ -187,6 +187,18 @@ public class BuildView {
             help = "Only schedules extra_actions for top level targets.")
     public boolean extraActionTopLevelOnly;
 
+    @Option(
+      name = "experimental_extra_action_top_level_only_with_aspects",
+      defaultValue = "true",
+      category = "experimental",
+      help =
+          "If true and --experimental_extra_action_top_level_only=true, will include actions "
+              + "from aspects injected by top-level rules. "
+              + "This is an escape hatch in case commit df9e5e16c370391098c4432779ad4d1c9dd693ca "
+              + "breaks something."
+    )
+    public boolean extraActionTopLevelOnlyWithAspects;
+
     @Option(name = "version_window_for_dirty_node_gc",
             defaultValue = "0",
             category = "undocumented",
@@ -656,22 +668,26 @@ public class BuildView {
           target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          // Collect all aspect-classes that topLevel might inject.
-          Set<AspectClass> aspectClasses = new HashSet<>();
-          for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
-            aspectClasses.addAll(attr.getAspectClasses());
-          }
-
-          Iterable<Artifact> artifacts;
-          if (aspectClasses.isEmpty()) {
-            artifacts = provider.getExtraActionArtifacts();
+          if (!viewOptions.extraActionTopLevelOnlyWithAspects) {
+            builder.add(ExtraArtifactSet.of(target.getLabel(), provider.getExtraActionArtifacts()));
           } else {
-            ImmutableList.Builder<Artifact> artifactBuilder = ImmutableList.builder();
-            artifactBuilder.addAll(provider.getExtraActionArtifacts());
-            artifactBuilder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
-            artifacts = artifactBuilder.build();
+            // Collect all aspect-classes that topLevel might inject.
+            Set<AspectClass> aspectClasses = new HashSet<>();
+            for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+              aspectClasses.addAll(attr.getAspectClasses());
+            }
+
+            Iterable<Artifact> artifacts;
+            if (aspectClasses.isEmpty()) {
+              artifacts = provider.getExtraActionArtifacts();
+            } else {
+              ImmutableList.Builder<Artifact> artifactBuilder = ImmutableList.builder();
+              artifactBuilder.addAll(provider.getExtraActionArtifacts());
+              artifactBuilder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
+              artifacts = artifactBuilder.build();
+            }
+            builder.add(ExtraArtifactSet.of(target.getLabel(), artifacts));
           }
-          builder.add(ExtraArtifactSet.of(target.getLabel(), artifacts));
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
         }
