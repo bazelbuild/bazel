@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.DependencySet;
@@ -1139,8 +1140,20 @@ public class CppCompileAction extends AbstractAction
     Fingerprint f = new Fingerprint();
     f.addUUID(actionClassId);
     f.addStringMap(getEnvironment());
-    f.addStrings(getArgv());
     f.addStrings(executionRequirements);
+
+    // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
+    // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
+    // the command line. However, these actually don't have an influence on the compile itself and
+    // so ignoring them for the cache key calculation does not affect correctness. The compile
+    // itself is fully determined by the input source files and module maps.
+    // A better long-term solution would be to make the compiler to find them automatically and
+    // never hand in the .pcm files explicitly on the command line in the first place.
+    Variables overwrittenVariables = this.overwrittenVariables;
+    this.overwrittenVariables = getOverwrittenVariables(ImmutableList.<Artifact>of());
+    // TODO(djasper): Make getArgv() accept a variables parameter.
+    f.addStrings(getArgv());
+    this.overwrittenVariables = overwrittenVariables;
 
     /*
      * getArgv() above captures all changes which affect the compilation
@@ -1425,7 +1438,7 @@ public class CppCompileAction extends AbstractAction
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
       CcToolchainFeatures.Variables updatedVariables = variables;
-      if (overwrittenVariables != null) {
+      if (variables != null && overwrittenVariables != null) {
         CcToolchainFeatures.Variables.Builder variablesBuilder =
             new CcToolchainFeatures.Variables.Builder();
         variablesBuilder.addAll(variables);
