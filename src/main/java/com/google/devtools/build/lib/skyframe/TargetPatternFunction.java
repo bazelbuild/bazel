@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -58,7 +57,6 @@ public class TargetPatternFunction implements SkyFunction {
               provider,
               env.getListener(),
               patternKey.getPolicy(),
-              MoreExecutors.newDirectExecutorService(),
               MultisetSemaphore.<PackageIdentifier>unbounded());
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();

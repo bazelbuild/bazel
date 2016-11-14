@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -42,6 +43,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.util.SynchronizedBatchCallback;
+import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +52,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -65,19 +69,16 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private final RecursivePackageProvider recursivePackageProvider;
   private final EventHandler eventHandler;
   private final FilteringPolicy policy;
-  private final ExecutorService executor;
   private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
       RecursivePackageProvider recursivePackageProvider,
       EventHandler eventHandler,
       FilteringPolicy policy,
-      ExecutorService executor,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     this.recursivePackageProvider = recursivePackageProvider;
     this.eventHandler = eventHandler;
     this.policy = policy;
-    this.executor = executor;
     this.packageSemaphore = packageSemaphore;
   }
 
@@ -190,7 +191,51 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       String directory,
       boolean rulesOnly,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      final BatchCallback<Target, E> callback, Class<E> exceptionClass)
+      BatchCallback<Target, E> callback,
+      Class<E> exceptionClass)
+      throws TargetParsingException, E, InterruptedException {
+    findTargetsBeneathDirectoryParImpl(
+        repository,
+        originalPattern,
+        directory,
+        rulesOnly,
+        excludedSubdirectories,
+        new SynchronizedBatchCallback<Target, E>(callback),
+        exceptionClass,
+        MoreExecutors.newDirectExecutorService());
+  }
+
+  @Override
+  public <E extends Exception> void findTargetsBeneathDirectoryPar(
+      final RepositoryName repository,
+      final String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      final ThreadSafeBatchCallback<Target, E> callback,
+      Class<E> exceptionClass,
+      ForkJoinPool forkJoinPool)
+      throws TargetParsingException, E, InterruptedException {
+    findTargetsBeneathDirectoryParImpl(
+        repository,
+        originalPattern,
+        directory,
+        rulesOnly,
+        excludedSubdirectories,
+        callback,
+        exceptionClass,
+        forkJoinPool);
+  }
+
+  private <E extends Exception> void findTargetsBeneathDirectoryParImpl(
+      final RepositoryName repository,
+      final String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      final ThreadSafeBatchCallback<Target, E> callback,
+      Class<E> exceptionClass,
+      ExecutorService executor)
       throws TargetParsingException, E, InterruptedException {
     final FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
@@ -208,7 +253,6 @@ public class RecursivePackageProviderBackedTargetPatternResolver
               }
             });
     final AtomicBoolean foundTarget = new AtomicBoolean(false);
-    final Object callbackLock = new Object();
 
     // For very large sets of packages, we may not want to process all of them at once, so we split
     // into batches.
@@ -236,9 +280,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
                   }
                 }
               }
-              synchronized (callbackLock) {
-                callback.process(filteredTargets);
-              }
+              callback.process(filteredTargets);
             } finally {
               packageSemaphore.releaseAll(pkgIdBatchSet);
             }

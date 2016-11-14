@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
@@ -31,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Pattern;
 
 import javax.annotation.concurrent.Immutable;
@@ -141,15 +143,6 @@ public abstract class TargetPattern implements Serializable {
   }
 
   /**
-   * Evaluates the current target pattern and returns the result.
-   */
-  public <T, E extends Exception> void eval(
-      TargetPatternResolver<T> resolver, BatchCallback<T, E> callback, Class<E> exceptionClass)
-      throws TargetParsingException, E, InterruptedException {
-    eval(resolver, ImmutableSet.<PathFragment>of(), callback, exceptionClass);
-  }
-
-  /**
    * Evaluates the current target pattern, excluding targets under directories in
    * {@code excludedSubdirectories}, and returns the result.
    *
@@ -159,8 +152,23 @@ public abstract class TargetPattern implements Serializable {
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback, Class<E> exceptionClass)
+      BatchCallback<T, E> callback,
+      Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException;
+
+  /**
+   * Same as {@link #eval}, but optionally making use of the given {@link ForkJoinPool} to achieve
+   * parallelism.
+   */
+  public <T, E extends Exception> void parEval(
+      TargetPatternResolver<T> resolver,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<T, E> callback,
+      Class<E> exceptionClass,
+      ForkJoinPool forkJoinPool)
+      throws TargetParsingException, E, InterruptedException {
+    eval(resolver, excludedSubdirectories, callback, exceptionClass);
+  }
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
@@ -469,7 +477,8 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        BatchCallback<T, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       resolver.findTargetsBeneathDirectory(
           directory.getRepository(),
@@ -479,6 +488,25 @@ public abstract class TargetPattern implements Serializable {
           excludedSubdirectories,
           callback,
           exceptionClass);
+    }
+
+    @Override
+    public <T, E extends Exception> void parEval(
+        TargetPatternResolver<T> resolver,
+        ImmutableSet<PathFragment> excludedSubdirectories,
+        ThreadSafeBatchCallback<T, E> callback,
+        Class<E> exceptionClass,
+        ForkJoinPool forkJoinPool)
+        throws TargetParsingException, E, InterruptedException {
+      resolver.findTargetsBeneathDirectoryPar(
+          directory.getRepository(),
+          getOriginalPattern(),
+          directory.getPackageFragment().getPathString(),
+          rulesOnly,
+          excludedSubdirectories,
+          callback,
+          exceptionClass,
+          forkJoinPool);
     }
 
     @Override

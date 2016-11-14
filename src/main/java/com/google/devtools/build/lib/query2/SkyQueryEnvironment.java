@@ -224,7 +224,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             graphBackedRecursivePackageProvider,
             eventHandler,
             TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
-            forkJoinPool,
             packageSemaphore);
   }
 
@@ -580,6 +579,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new ThreadSafeReverseDepSkyKeyUniquifier(DEFAULT_THREAD_COUNT);
   }
 
+  private Pair<TargetPattern, ImmutableSet<PathFragment>> getPatternAndExcludes(String pattern)
+      throws TargetParsingException, InterruptedException {
+    TargetPatternKey targetPatternKey =
+        ((TargetPatternKey)
+            TargetPatternValue.key(
+                    pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
+                .argument());
+    ImmutableSet<PathFragment> subdirectoriesToExclude =
+        targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier);
+    return Pair.of(targetPatternKey.getParsedPattern(), subdirectoriesToExclude);
+  }
+
   @ThreadSafe
   @Override
   public void getTargetsMatchingPattern(
@@ -587,15 +598,33 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       throws QueryException, InterruptedException {
     // Directly evaluate the target pattern, making use of packages in the graph.
     try {
-      TargetPatternKey targetPatternKey =
-          ((TargetPatternKey)
-              TargetPatternValue.key(
-                      pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
-                  .argument());
-      TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
+      Pair<TargetPattern, ImmutableSet<PathFragment>> patternToEvalAndSubdirectoriesToExclude =
+          getPatternAndExcludes(pattern);
+      TargetPattern patternToEval = patternToEvalAndSubdirectoriesToExclude.getFirst();
       ImmutableSet<PathFragment> subdirectoriesToExclude =
-          targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatternsSupplier);
-      parsedPattern.eval(resolver, subdirectoriesToExclude, callback, QueryException.class);
+          patternToEvalAndSubdirectoriesToExclude.getSecond();
+      patternToEval.eval(resolver, subdirectoriesToExclude, callback, QueryException.class);
+    } catch (TargetParsingException e) {
+      reportBuildFileError(owner, e.getMessage());
+    }
+  }
+
+  @Override
+  public void getTargetsMatchingPatternPar(
+      QueryExpression owner,
+      String pattern,
+      ThreadSafeCallback<Target> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    // Directly evaluate the target pattern, making use of packages in the graph.
+    try {
+      Pair<TargetPattern, ImmutableSet<PathFragment>> patternToEvalAndSubdirectoriesToExclude =
+          getPatternAndExcludes(pattern);
+      TargetPattern patternToEval = patternToEvalAndSubdirectoriesToExclude.getFirst();
+      ImmutableSet<PathFragment> subdirectoriesToExclude =
+          patternToEvalAndSubdirectoriesToExclude.getSecond();
+      patternToEval.parEval(
+          resolver, subdirectoriesToExclude, callback, QueryException.class, forkJoinPool);
     } catch (TargetParsingException e) {
       reportBuildFileError(owner, e.getMessage());
     }
