@@ -147,6 +147,7 @@ public class BlazeCommandDispatcher {
   private String currentClientDescription = null;
   private String shutdownReason = null;
   private OutputStream logOutputStream = null;
+  private Level lastLogVerbosityLevel = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       CacheBuilder.newBuilder().build(
           new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
@@ -440,7 +441,10 @@ public class BlazeCommandDispatcher {
     }
 
     CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-    BlazeRuntime.setupLogging(commonOptions.verbosity);
+    if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
+      BlazeRuntime.setupLogging(commonOptions.verbosity);
+      lastLogVerbosityLevel = commonOptions.verbosity;
+    }
 
     // Do this before an actual crash so we don't have to worry about
     // allocating memory post-crash.
