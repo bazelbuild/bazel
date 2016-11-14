@@ -133,7 +133,7 @@ genrule(
         "version.txt",
     ],
     cmd =
-        "find . -name stable-status.txt -exec cat '{}' ';'" +
+        "find -L . -name stable-status.txt -exec cat '{}' ';'" +
         " | grep EMBED_LABEL | cut -d ' ' -f 2-" +
         # Debian package manager does not order our rcs correctly, insert a tilde
         # Non RC version number are not matched by the regex, example translations:
