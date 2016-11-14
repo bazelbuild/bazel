@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -61,7 +60,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   protected final List<QueryFunction> extraFunctions;
   private final QueryExpressionEvalListener<T> evalListener;
 
-  private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
+  private static final Logger logger =
+      Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
 
   protected AbstractBlazeQueryEnvironment(boolean keepGoing,
       boolean strictScope,
@@ -122,36 +122,39 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       final OutputFormatterCallback<T> callback)
           throws QueryException, InterruptedException, IOException {
     EmptinessSensingCallback<T> emptySensingCallback = createEmptinessSensingCallback(callback);
-    try (final AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
-      // In the --nokeep_going case, errors are reported in the order in which the patterns are
-      // specified; using a linked hash set here makes sure that the left-most error is reported.
-      Set<String> targetPatternSet = new LinkedHashSet<>();
-      expr.collectTargetPatterns(targetPatternSet);
+    long startTime = System.currentTimeMillis();
+    // In the --nokeep_going case, errors are reported in the order in which the patterns are
+    // specified; using a linked hash set here makes sure that the left-most error is reported.
+    Set<String> targetPatternSet = new LinkedHashSet<>();
+    expr.collectTargetPatterns(targetPatternSet);
+    try {
+      preloadOrThrow(expr, targetPatternSet);
+    } catch (TargetParsingException e) {
+      // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
+      throw new QueryException(expr, e.getMessage());
+    }
+    IOException ioExn = null;
+    try {
+      callback.start();
+      evalTopLevelInternal(expr, emptySensingCallback);
+    } catch (QueryException e) {
+      throw new QueryException(e, expr);
+    } catch (InterruptedException e) {
+      throw e;
+    } finally {
       try {
-        preloadOrThrow(expr, targetPatternSet);
-      } catch (TargetParsingException e) {
-        // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
-        throw new QueryException(expr, e.getMessage());
+        callback.close();
+      } catch (IOException e) {
+        // Only throw this IOException if we weren't about to throw a different exception.
+        ioExn = e;
       }
-      IOException ioExn = null;
-      try {
-        callback.start();
-        evalTopLevelInternal(expr, emptySensingCallback);
-      } catch (QueryException e) {
-        throw new QueryException(e, expr);
-      } catch (InterruptedException e) {
-        throw e;
-      } finally {
-        try {
-          callback.close();
-        } catch (IOException e) {
-          // Only throw this IOException if we weren't about to throw a different exception.
-          ioExn = e;
-        }
-      }
-      if (ioExn != null) {
-        throw ioExn;
-      }
+    }
+    if (ioExn != null) {
+      throw ioExn;
+    }
+    long elapsedTime = System.currentTimeMillis() - startTime;
+    if (elapsedTime > 1) {
+      logger.info("Spent " + elapsedTime + " milliseconds evaluating query");
     }
 
     if (eventHandler.hasErrors()) {
