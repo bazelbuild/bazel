@@ -40,10 +40,12 @@ import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -129,7 +131,9 @@ public class JavacTurbineTest {
   void compile() throws IOException {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
     }
   }
@@ -442,7 +446,13 @@ public class JavacTurbineTest {
     JavacTool tool = JavacTool.create();
 
     JavacTask task =
-        tool.getTask(new PrintWriter(System.err, true), fm, null, options, null, units);
+        tool.getTask(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
+            fm,
+            null,
+            options,
+            null,
+            units);
     assertThat(task.call()).isTrue();
 
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(jar))) {
@@ -538,7 +548,9 @@ public class JavacTurbineTest {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
       Context context = turbine.context;
 
@@ -625,7 +637,9 @@ public class JavacTurbineTest {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_FULL_CLASSPATH);
       Context context = turbine.context;
 
@@ -1067,7 +1081,7 @@ public class JavacTurbineTest {
     // don't set up any source files
     compile();
     Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet()).containsExactly("dummy");
+    assertThat(outputs.keySet()).isEmpty();
   }
 
   /** An annotation processor that violates the contract. */

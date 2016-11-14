@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -28,8 +30,10 @@ import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.P
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
@@ -69,7 +73,10 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   public static Result compile(TurbineOptions turbineOptions) throws IOException {
-    try (JavacTurbine turbine = new JavacTurbine(new PrintWriter(System.err), turbineOptions)) {
+    try (JavacTurbine turbine =
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            turbineOptions)) {
       return turbine.compile();
     }
   }
@@ -236,7 +243,6 @@ public class JavacTurbine implements AutoCloseable {
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
-      boolean hasEntries = false;
       for (Map.Entry<String, OutputFileObject> entry : files.entrySet()) {
         if (entry.getValue().location != StandardLocation.CLASS_OUTPUT) {
           continue;
@@ -250,11 +256,6 @@ public class JavacTurbine implements AutoCloseable {
           bytes = processBytecode(bytes);
         }
         ZipUtil.storeEntry(name, bytes, zipOut);
-        hasEntries = true;
-      }
-      if (!hasEntries) {
-        // ZipOutputStream refuses to create a completely empty zip file.
-        ZipUtil.storeEntry("dummy", new byte[0], zipOut);
       }
     }
   }
