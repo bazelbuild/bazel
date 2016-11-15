@@ -1538,7 +1538,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             targets,
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            getTargetConfiguration().getAllLabels(),
             viewOptions.keepGoing,
             /*determineTests=*/false,
             /*callback=*/null);

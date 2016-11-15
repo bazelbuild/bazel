@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -676,7 +675,6 @@ public class LoadingPhaseRunnerTest {
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,
                 options,
-                ImmutableListMultimap.<String, Label>of(),
                 keepGoing,
                 determineTests,
                 loadingCallback);
