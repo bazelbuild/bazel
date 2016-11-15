@@ -503,7 +503,7 @@ public final class BuildTool {
    *        a thrown exception somewhere along the way.
    */
   public void stopRequest(BuildResult result, Throwable crash, ExitCode exitCondition) {
-    Preconditions.checkState((crash == null) || (exitCondition != ExitCode.SUCCESS));
+    Preconditions.checkState((crash == null) || !exitCondition.equals(ExitCode.SUCCESS));
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
     // The stop time has to be captured before we send the BuildCompleteEvent.

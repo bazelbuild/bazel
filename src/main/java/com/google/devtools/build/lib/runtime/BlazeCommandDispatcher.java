@@ -391,7 +391,7 @@ public class BlazeCommandDispatcher {
     }
 
     ExitCode result = checkCwdInWorkspace(env, commandAnnotation, commandName, outErr);
-    if (result != ExitCode.SUCCESS) {
+    if (!result.equals(ExitCode.SUCCESS)) {
       return result.getNumericExitCode();
     }
 
