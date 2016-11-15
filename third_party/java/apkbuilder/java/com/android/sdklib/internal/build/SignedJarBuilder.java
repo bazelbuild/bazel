@@ -18,14 +18,6 @@ package com.android.sdklib.internal.build;
 
 import com.android.SdkConstants;
 import com.android.sdklib.internal.build.SignedJarBuilder.IZipEntryFilter.ZipAbortException;
-
-import sun.misc.BASE64Encoder;
-import sun.security.pkcs.ContentInfo;
-import sun.security.pkcs.PKCS7;
-import sun.security.pkcs.SignerInfo;
-import sun.security.x509.AlgorithmId;
-import sun.security.x509.X500Name;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -51,10 +43,16 @@ import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import sun.misc.BASE64Encoder;
+import sun.security.pkcs.ContentInfo;
+import sun.security.pkcs.PKCS7;
+import sun.security.pkcs.SignerInfo;
+import sun.security.x509.AlgorithmId;
+import sun.security.x509.X500Name;
 
 /**
  * A Jar file builder with signature support.
- * 
+ *
  * @deprecated Use Android-Builder instead
  */
 @Deprecated
@@ -221,13 +219,12 @@ public class SignedJarBuilder {
             while ((entry = zis.getNextEntry()) != null) {
                 String name = entry.getName();
 
-                // do not take directories or anything inside a potential META-INF folder.
-                if (entry.isDirectory() || name.startsWith("META-INF/")) {
+                // do not take directories
+                if (entry.isDirectory()) {
                     continue;
                 }
-
                 // if we have a filter, we check the entry against it
-                if (filter != null && filter.checkEntry(name) == false) {
+                if (filter != null && !filter.checkEntry(name)) {
                     continue;
                 }
 
