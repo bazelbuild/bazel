@@ -310,6 +310,12 @@ function release_to_gcs() {
 function ensure_gpg_secret_key_imported() {
   (gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null) || \
   gpg --allow-secret-key-import --import "${APT_GPG_KEY_PATH}"
+  # Make sure we use stronger digest algorithm。
+  # We use reprepro to generate the debian repository,
+  # but there's no way to pass flags to gpg using reprepro, so writting it into
+  # ~/.gnupg/gpg.conf
+  (grep "digest-algo sha256" ~/.gnupg/gpg.conf > /dev/null) || \
+  echo "digest-algo sha256" >> ~/.gnupg/gpg.conf
 }
 
 function create_apt_repository() {
