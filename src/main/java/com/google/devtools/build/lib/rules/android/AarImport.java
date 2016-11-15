@@ -177,6 +177,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addInput(jarsTreeArtifact)
         .addArgument("--output")
         .addOutputArgument(mergedJar)
+        .addArgument("--dont_change_compression")
         .addInput(paramFile)
         .addArgument("@" + paramFile.getExecPathString())
         .build(ruleContext);

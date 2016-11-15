@@ -132,6 +132,9 @@ public class AarImportTest extends BuildViewTestCase {
 
     Artifact classesJar = outputJars.iterator().next().getClassJar();
     assertThat(classesJar.getFilename()).isEqualTo("classes_and_libs_merged.jar");
+
+    SpawnAction jarMergingAction = ((SpawnAction) getGeneratingAction(classesJar));
+    assertThat(jarMergingAction.getArguments()).contains("--dont_change_compression");
   }
 
   @Test
