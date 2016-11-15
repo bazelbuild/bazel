@@ -67,8 +67,6 @@ public class TestCommand implements BlazeCommand {
   @Override
   public void editOptions(CommandEnvironment env, OptionsParser optionsParser)
       throws AbruptExitException {
-    ProjectFileSupport.handleProjectFiles(env, optionsParser, commandName());
-
     TestOutputFormat testOutput = optionsParser.getOptions(ExecutionOptions.class).testOutput;
 
     try {

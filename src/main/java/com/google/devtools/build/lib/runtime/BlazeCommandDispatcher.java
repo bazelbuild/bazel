@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -217,9 +218,9 @@ public class BlazeCommandDispatcher {
     return ExitCode.SUCCESS;
   }
 
-  private void parseArgsAndConfigs(OptionsParser optionsParser, Command commandAnnotation,
-      List<String> args, List<String> rcfileNotes, OutErr outErr)
-          throws OptionsParsingException {
+  private void parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
+      Command commandAnnotation, List<String> args, List<String> rcfileNotes, OutErr outErr)
+      throws OptionsParsingException {
 
     Function<String, String> commandOptionSourceFunction = new Function<String, String>() {
       @Override
@@ -245,6 +246,9 @@ public class BlazeCommandDispatcher {
             runtime.getCommandMap().keySet());
 
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
+    if (commandAnnotation.builds()) {
+      ProjectFileSupport.handleProjectFiles(env, optionsParser, commandAnnotation.name());
+    }
 
     // Fix-point iteration until all configs are loaded.
     List<String> configsLoaded = ImmutableList.of();
@@ -397,7 +401,7 @@ public class BlazeCommandDispatcher {
     List<String> rcfileNotes = new ArrayList<>();
     try {
       optionsParser = createOptionsParser(command);
-      parseArgsAndConfigs(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
+      parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       InvocationPolicyEnforcer optionsPolicyEnforcer =
           new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
