@@ -812,26 +812,31 @@ static void StartServerAndConnect(BlazeServer *server) {
 
   BlazeServerStartup* server_startup;
   StartServer(&server_startup);
-  // Give the server one minute to start up.
-  for (int ii = 0; ii < 600; ++ii) {
-    // 60s; enough time to connect with debugger
+
+  // Give the server two minutes to start up. That's enough to connect with a
+  // debugger.
+  auto try_until_time(
+      std::chrono::system_clock::now() + std::chrono::seconds(120));
+  bool had_to_wait = false;
+  while (std::chrono::system_clock::now() < try_until_time) {
+    auto next_attempt_time(
+        std::chrono::system_clock::now() + std::chrono::milliseconds(100));
     if (server->Connect()) {
-      if (ii && !globals->options->client_debug) {
+      if (had_to_wait && !globals->options->client_debug) {
         fputc('\n', stderr);
         fflush(stderr);
       }
       delete server_startup;
       return;
     }
+
+    had_to_wait = true;
     if (!globals->options->client_debug) {
       fputc('.', stderr);
       fflush(stderr);
     }
 
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = 100 * 1000 * 1000;
-    nanosleep(&ts, NULL);
+    std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
       fprintf(stderr, "\nunexpected pipe read status: %s\n"
           "Server presumed dead. Now printing '%s':\n",
@@ -841,7 +846,7 @@ static void StartServerAndConnect(BlazeServer *server) {
     }
   }
   die(blaze_exit_code::INTERNAL_ERROR,
-      "\nError: couldn't connect to server after 60 seconds.");
+      "\nError: couldn't connect to server after 120 seconds.");
 }
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
