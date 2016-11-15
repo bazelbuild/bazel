@@ -161,7 +161,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
         throws InterruptedException {
       AspectCompletionKey acKey = (AspectCompletionKey) skyKey.argument();
       AspectKey aspectKey = acKey.aspectKey();
-      return (AspectValue) env.getValue(AspectValue.key(aspectKey));
+      return (AspectValue) env.getValue(aspectKey.getSkyKey());
     }
 
     @Override

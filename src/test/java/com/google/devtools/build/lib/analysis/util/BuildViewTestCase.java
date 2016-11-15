@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.AspectDescriptor;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
@@ -119,6 +120,7 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -1063,12 +1065,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
         (AspectValue.AspectKey)
-            AspectValue.key(
-                    owner.getLabel(),
-                    owner.getConfiguration(),
-                    owner.getConfiguration(),
-                    creatingAspectFactory,
-                    parameters)
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                owner.getLabel(), owner.getConfiguration(),
+                new AspectDescriptor(creatingAspectFactory, parameters), owner.getConfiguration()
+            ))
                 .argument());
   }
 
@@ -1141,12 +1141,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         owner.getConfiguration().getGenfilesDirectory(
             owner.getTarget().getLabel().getPackageIdentifier().getRepository()),
         (AspectValue.AspectKey)
-            AspectValue.key(
-                    owner.getLabel(),
-                    owner.getConfiguration(),
-                    owner.getConfiguration(),
-                    creatingAspectFactory,
-                    params)
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                owner.getLabel(), owner.getConfiguration(),
+                new AspectDescriptor(creatingAspectFactory, params), owner.getConfiguration()
+            ))
                 .argument());
   }
 

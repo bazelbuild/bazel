@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -479,14 +480,16 @@ public class BuildView {
             if (!(targetSpec.getTarget() instanceof Rule)) {
               continue;
             }
+            // For invoking top-level aspects, use the top-level configuration for both the
+            // aspect and the base target while the top-level configuration is untrimmed.
+            BuildConfiguration configuration = targetSpec.getConfiguration();
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
-                    // For invoking top-level aspects, use the top-level configuration for both the
-                    // aspect and the base target while the top-level configuration is untrimmed.
-                    targetSpec.getConfiguration(),
-                    targetSpec.getConfiguration(),
-                    aspectFactoryClass));
+                    configuration,
+                    new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
+                    configuration
+                ));
           }
         } else {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");

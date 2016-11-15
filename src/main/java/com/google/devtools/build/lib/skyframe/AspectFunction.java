@@ -21,7 +21,8 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -58,6 +59,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.ArrayList;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -200,6 +203,7 @@ public final class AspectFunction implements SkyFunction {
       return null;
     }
 
+
     if (configuredTargetValue.getConfiguredTarget() == null) {
       return null;
     }
@@ -209,8 +213,32 @@ public final class AspectFunction implements SkyFunction {
           configuredTargetValue.getConfiguredTarget());
     }
 
-    RuleConfiguredTarget associatedTarget =
-        (RuleConfiguredTarget) configuredTargetValue.getConfiguredTarget();
+    ConfiguredTarget associatedTarget =
+      configuredTargetValue.getConfiguredTarget();
+
+    ImmutableList.Builder<Aspect> aspectPath = ImmutableList.builder();
+
+    if (key.getBaseKey() != null) {
+      ImmutableList<SkyKey> aspectKeys = getSkyKeysForAspects(key.getBaseKey());
+
+      Map<SkyKey, SkyValue> values = env.getValues(aspectKeys);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      try {
+        associatedTarget = getBaseTargetAndCollectPath(
+            associatedTarget, aspectKeys, values, aspectPath);
+      } catch (DuplicateException e) {
+        env.getListener().handle(
+            Event.error(associatedTarget.getTarget().getLocation(), e.getMessage()));
+
+        throw new AspectFunctionException(
+            new AspectCreationException(e.getMessage(), associatedTarget.getLabel()));
+
+      }
+    }
+    aspectPath.add(aspect);
+
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
 
     // When getting the dependencies of this hybrid aspect+base target, use the aspect's
@@ -238,7 +266,7 @@ public final class AspectFunction implements SkyFunction {
             env,
             resolver,
             originalTargetAndAspectConfiguration,
-            aspect,
+            aspectPath.build(),
             configConditions,
             ruleClassProvider,
             view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
@@ -258,6 +286,7 @@ public final class AspectFunction implements SkyFunction {
       return createAspect(
           env,
           key,
+          target,
           aspect,
           aspectFactory,
           associatedTarget,
@@ -281,6 +310,43 @@ public final class AspectFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Merges aspects defined by {@code aspectKeys} into the {@code target} using
+   * previously computed {@code values}.
+   *
+   * Also populates {@code aspectPath}.
+   *
+   * @return A {@link ConfiguredTarget} that is a result of a merge.
+   * @throws DuplicateException if there is a duplicate provider provided by aspects.
+   */
+  private ConfiguredTarget getBaseTargetAndCollectPath(ConfiguredTarget target,
+      ImmutableList<SkyKey> aspectKeys, Map<SkyKey, SkyValue> values,
+      ImmutableList.Builder<Aspect> aspectPath)
+      throws DuplicateException {
+    ArrayList<ConfiguredAspect> aspectValues = new ArrayList<>();
+    for (SkyKey skyAspectKey : aspectKeys) {
+      AspectValue aspectValue = (AspectValue) values.get(skyAspectKey);
+      ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
+      aspectValues.add(configuredAspect);
+      aspectPath.add(aspectValue.getAspect());
+    }
+    return MergedConfiguredTarget.of(target, aspectValues);
+  }
+
+  /**
+   *  Returns a list of SkyKeys for all aspects the given aspect key depends on.
+   *  The order corresponds to the order the aspects should be merged into a configured target.
+   */
+  private ImmutableList<SkyKey> getSkyKeysForAspects(AspectKey key) {
+    ImmutableList.Builder<SkyKey> aspectKeysBuilder = ImmutableList.builder();
+    AspectKey baseKey = key;
+    while (baseKey != null) {
+      aspectKeysBuilder.add(baseKey.getSkyKey());
+      baseKey = baseKey.getBaseKey();
+    }
+    return aspectKeysBuilder.build().reverse();
+  }
+
   private static SkyValue createAliasAspect(
       Environment env,
       Target originalTarget,
@@ -293,12 +359,7 @@ public final class AspectFunction implements SkyFunction {
     // the real configured target.
     Label aliasLabel = aliasChain.size() > 1 ? aliasChain.get(1) : configuredTarget.getLabel();
 
-    SkyKey depKey = AspectValue.key(
-        aliasLabel,
-        originalKey.getAspectConfiguration(),
-        originalKey.getBaseConfiguration(),
-        originalKey.getAspectClass(),
-        originalKey.getParameters());
+    SkyKey depKey = ActionLookupValue.key(originalKey.withLabel(aliasLabel));
 
     // Compute the AspectValue of the target the alias refers to (which can itself be either an
     // alias or a real target)
@@ -326,9 +387,10 @@ public final class AspectFunction implements SkyFunction {
   private AspectValue createAspect(
       Environment env,
       AspectKey key,
+      Target baseTarget,
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
-      RuleConfiguredTarget associatedTarget,
+      ConfiguredTarget associatedTarget,
       BuildConfiguration aspectConfiguration,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       OrderedSetMultimap<Attribute, ConfiguredTarget> directDeps,

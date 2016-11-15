@@ -218,7 +218,7 @@ public final class SkyframeBuildView {
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
     for (AspectValueKey aspectKey : aspectKeys) {
-      AspectValue value = (AspectValue) result.get(AspectValue.key(aspectKey));
+      AspectValue value = (AspectValue) result.get(aspectKey.getSkyKey());
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;

@@ -310,7 +310,7 @@ public final class ConfiguredTargetFactory {
    */
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
-      RuleConfiguredTarget associatedTarget,
+      ConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
@@ -318,16 +318,15 @@ public final class ConfiguredTargetFactory {
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration)
       throws InterruptedException {
-    RuleContext.Builder builder =
-        new RuleContext.Builder(
-            env,
-            associatedTarget.getTarget(),
-            aspect.getAspectClass().getName(),
-            aspect.getParameters(),
-            aspectConfiguration,
-            hostConfiguration,
-            ruleClassProvider.getPrerequisiteValidator(),
-            aspect.getDefinition().getConfigurationFragmentPolicy());
+    RuleContext.Builder builder = new RuleContext.Builder(
+        env,
+        associatedTarget.getTarget().getAssociatedRule(),
+        aspect.getAspectClass().getName(),
+        aspect.getParameters(),
+        aspectConfiguration,
+        hostConfiguration,
+        ruleClassProvider.getPrerequisiteValidator(),
+        aspect.getDefinition().getConfigurationFragmentPolicy());
     RuleContext ruleContext =
         builder
             .setVisibility(

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Arrays;
@@ -1361,18 +1362,176 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     Object names = skylarkProviders.getValue("target_labels");
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);
     assertThat(
-            transform(
-                (SkylarkNestedSet) names,
-                new Function<Object, String>() {
-                  @Nullable
-                  @Override
-                  public String apply(Object o) {
-                    assertThat(o).isInstanceOf(Label.class);
-                    return ((Label) o).getName();
-                  }
-                }))
+        transform(
+              (SkylarkNestedSet) names,
+              new Function<Object, String>() {
+                @Nullable
+                @Override
+                public String apply(Object o) {
+                  assertThat(o).isInstanceOf(Label.class);
+                  return ((Label) o).getName();
+                }
+              }))
         .containsExactly("foo", "bar", "tool");
   }
+
+  /**
+   * Simple straightforward linear aspects-on-aspects.
+   */
+  @Test
+  public void aspectOnAspectLinear() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "a1p = provider()",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = a1p(text = 'random'))",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'])",
+        "a2p = provider()",
+        "def _a2_impl(target,ctx):",
+        "  value = []",
+        "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
+        "     value += ctx.rule.attr.dep.a2p.value",
+        "  if hasattr(target, 'a1p'):",
+        "     value.append(str(target.label) + '=yes')",
+        "  else:",
+        "     value.append(str(target.label) + '=no')",
+        "  return struct(a2p = a2p(value = value))",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  return struct(result = ctx.attr.dep.a2p.value)",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')"
+    );
+    AnalysisResult analysisResult = update("//test:r2");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    SkylarkList result = (SkylarkList) target.get("result");
+
+    // "yes" means that aspect a2 sees a1's providers.
+    assertThat(result).containsExactly("//test:r0=yes", "//test:r1=no");
+  }
+
+  /**
+   * Diamond case.
+   * rule r1 depends or r0 with aspect a1.
+   * rule r2 depends or r0 with aspect a2.
+   * rule rcollect depends on r1, r2 with aspect a3.
+   *
+   * Aspect a3 should be applied twice to target r0: once in [a1, a3] sequence
+   * and once in [a2, a3] sequence.
+   */
+  @Test
+  public void aspectOnAspectDiamond() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = 'text from a1')",
+        "a1 = aspect(_a1_impl, attr_aspects = ['deps'])",
+        "",
+        "def _a2_impl(target,ctx):",
+        "  return struct(a2p = 'text from a2')",
+        "a2 = aspect(_a2_impl, attr_aspects = ['deps'])",
+        "",
+        "def _a3_impl(target,ctx):",
+        "  value = []",
+        "  f = ctx.new_file('a3.out')",
+        "  ctx.file_action(f, 'text')",
+        "  for dep in ctx.rule.attr.deps:",
+        "     if hasattr(dep, 'a3p'):",
+        "         value += dep.a3p",
+        "  s = str(target.label) + '='",
+        "  if hasattr(target, 'a1p'):",
+        "     s += 'a1p'",
+        "  if hasattr(target, 'a2p'):",
+        "     s += 'a2p'",
+        "  value.append(s)",
+        "  return struct(a3p = value)",
+        "a3 = aspect(_a3_impl, attr_aspects = ['deps'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _rcollect_impl(ctx):",
+        "  value = []",
+        "  for dep in ctx.attr.deps:",
+        "     if hasattr(dep, 'a3p'):",
+        "         value += dep.a3p",
+        "  return struct(result = value)",
+        "r1 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a1])})",
+        "r2 = rule(_r1_impl, attrs = { 'deps' : attr.label_list(aspects = [a2])})",
+        "rcollect = rule(_rcollect_impl, attrs = { 'deps' : attr.label_list(aspects = [a3])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2', 'rcollect')",
+        "r1(name = 'r0')",
+        "r1(name = 'r1', deps = [':r0'])",
+        "r2(name = 'r2', deps = [':r0'])",
+        "rcollect(name = 'rcollect', deps = [':r1', ':r2'])"
+    );
+    AnalysisResult analysisResult = update("//test:rcollect");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    SkylarkList result = (SkylarkList) target.get("result");
+    assertThat(result).containsExactly(
+        "//test:r0=a1p", "//test:r1=", "//test:r0=a2p", "//test:r2=");
+  }
+
+  /**
+   * Linear with duplicates.
+   * r2_1 depends on r0 with aspect a2.
+   * r1 depends on r2_1 with aspect a1.
+   * r2 depends on r1 with aspect a2.
+   *
+   * There should be just one instance of aspect a2 on r0, and is should *not* see a1.
+   */
+  @Test
+  public void aspectOnAspectLinearDuplicates() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "a1p = provider()",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = 'a1p')",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'])",
+        "a2p = provider()",
+        "def _a2_impl(target,ctx):",
+        "  value = []",
+        "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
+        "     value += ctx.rule.attr.dep.a2p.value",
+        "  if hasattr(target, 'a1p'):",
+        "     value.append(str(target.label) + '=yes')",
+        "  else:",
+        "     value.append(str(target.label) + '=no')",
+        "  return struct(a2p = a2p(value = value))",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  return struct(result = ctx.attr.dep.a2p.value)",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 'r0')",
+        "r2(name = 'r2_1', dep = ':r0')",
+        "r1(name = 'r1', dep = ':r2_1')",
+        "r2(name = 'r2', dep = ':r1')"
+    );
+    AnalysisResult analysisResult = update("//test:r2");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    SkylarkList result = (SkylarkList) target.get("result");
+    // "yes" means that aspect a2 sees a1's providers.
+    assertThat(result).containsExactly("//test:r0=no", "//test:r1=no", "//test:r2_1=yes");
+  }
+
+
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {

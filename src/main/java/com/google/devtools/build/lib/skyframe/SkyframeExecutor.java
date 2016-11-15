@@ -1187,6 +1187,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     Map<Dependency, BuildConfiguration> configs;
     if (originalConfig != null) {
+
       if (useOriginalConfig) {
         // This flag is used because of some unfortunate complexity in the configuration machinery:
         // Most callers of this method pass a <Label, Configuration> pair to directly create a
@@ -1219,10 +1220,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), configs.get(key)));
       for (AspectDescriptor aspectDescriptor : key.getAspects()) {
         skyKeys.add(
-            ConfiguredTargetFunction.createAspectKey(
-                key.getLabel(), configs.get(key), configs.get(key),
-                aspectDescriptor.getAspectClass(),
-                aspectDescriptor.getParameters()));
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                key.getLabel(), configs.get(key),
+                aspectDescriptor, configs.get(key)
+            )));
       }
     }
 
@@ -1252,10 +1253,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
       for (AspectDescriptor aspectDescriptor : key.getAspects()) {
         SkyKey aspectKey =
-            ConfiguredTargetFunction.createAspectKey(
-                key.getLabel(), configs.get(key), configs.get(key),
-                aspectDescriptor.getAspectClass(),
-                aspectDescriptor.getParameters());
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                key.getLabel(), configs.get(key),
+                aspectDescriptor, configs.get(key)
+            ));
         if (result.get(aspectKey) == null) {
           continue DependentNodeLoop;
         }
@@ -1490,7 +1491,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
     for (AspectValueKey aspectKey : aspectKeys) {
-      keys.add(AspectValue.key(aspectKey));
+      keys.add(aspectKey.getSkyKey());
     }
     // Make sure to not run too many analysis threads. This can cause memory thrashing.
     return buildDriver.evaluate(keys, keepGoing, ResourceUsage.getAvailableProcessors(),
