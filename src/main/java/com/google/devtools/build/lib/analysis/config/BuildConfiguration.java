@@ -768,14 +768,14 @@ public final class BuildConfiguration {
         defaultValue = "true",
         category = "strategy",
         help = "Build all the tools used during the build for a distinct configuration from "
-            + "that used for the target program.  By default, the same configuration is used "
-            + "for host and target programs, but this may cause undesirable rebuilds of tool "
+            + "that used for the target program. When this is disabled, the same configuration "
+            + "is used for host and target programs. This may cause undesirable rebuilds of tools "
             + "such as the protocol compiler (and then everything downstream) whenever a minor "
-            + "change is made to the target configuration, such as setting the linker options.  "
-            + "When this flag is specified, a distinct configuration will be used to build the "
-            + "tools, preventing undesired rebuilds.  However, certain libraries will then "
+            + "change is made to the target configuration, such as setting the linker options. "
+            + "When this enabled (the default), a distinct configuration will be used to build the "
+            + "tools, preventing undesired rebuilds. However, certain libraries will then "
             + "need to be compiled twice, once for each configuration, which may cause some "
-            + "builds to be slower.  As a rule of thumb, this option is likely to benefit "
+            + "builds to be slower. As a rule of thumb, this option is likely to benefit "
             + "users that make frequent changes in configuration (e.g. opt/dbg).  "
             + "Please read the user manual for the full explanation.")
     public boolean useDistinctHostConfiguration;
