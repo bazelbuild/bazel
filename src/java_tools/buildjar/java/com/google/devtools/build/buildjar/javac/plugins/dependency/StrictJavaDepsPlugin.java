@@ -53,12 +53,11 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 /**
- * A plugin for BlazeJavaCompiler that checks for types referenced directly
- * in the source, but included through transitive dependencies. To get this
- * information, we hook into the type attribution phase of the BlazeJavaCompiler
- * (thus the overhead is another tree scan with the classic visitor). The
- * constructor takes a map from jar names to target names, only for the jars that
- * come from transitive dependencies (Blaze computes this information).
+ * A plugin for BlazeJavaCompiler that checks for types referenced directly in the source, but
+ * included through transitive dependencies. To get this information, we hook into the type
+ * attribution phase of the BlazeJavaCompiler (thus the overhead is another tree scan with the
+ * classic visitor). The constructor takes a map from jar names to target names, only for the jars
+ * that come from transitive dependencies (Blaze computes this information).
  */
 public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
@@ -85,16 +84,14 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private PrintWriter errWriter;
 
   /**
-   * On top of javac, we keep Blaze-specific information in the form of two
-   * maps. Both map jars (exactly as they appear on the classpath) to target
-   * names, one is used for direct dependencies, the other for the transitive
-   * dependencies.
+   * On top of javac, we keep Blaze-specific information in the form of two maps. Both map jars
+   * (exactly as they appear on the classpath) to target names, one is used for direct dependencies,
+   * the other for the transitive dependencies.
    *
-   * <p>This enables the detection of dependency issues. For instance, when a
-   * type com.Foo is referenced in the source and it's coming from an indirect
-   * dependency, we emit a warning flagging that dependency. Also, we can check
-   * whether the direct dependencies were actually necessary, i.e. if their
-   * associated jars were used at all for looking up class definitions.
+   * <p>This enables the detection of dependency issues. For instance, when a type com.Foo is
+   * referenced in the source and it's coming from an indirect dependency, we emit a warning
+   * flagging that dependency. Also, we can check whether the direct dependencies were actually
+   * necessary, i.e. if their associated jars were used at all for looking up class definitions.
    */
   public StrictJavaDepsPlugin(DependencyModule dependencyModule) {
     this.dependencyModule = dependencyModule;
@@ -109,14 +106,16 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
     fileManager = context.get(JavaFileManager.class);
-    implicitDependencyExtractor = new ImplicitDependencyExtractor(
-        dependencyModule.getUsedClasspath(), dependencyModule.getImplicitDependenciesMap(),
-        fileManager);
+    implicitDependencyExtractor =
+        new ImplicitDependencyExtractor(
+            dependencyModule.getUsedClasspath(),
+            dependencyModule.getImplicitDependenciesMap(),
+            fileManager);
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
       Set<String> platformJars = getPlatformJars(fileManager);
-      checkingTreeScanner = new CheckingTreeScanner(
-          dependencyModule, log, missingTargets, platformJars, fileManager);
+      checkingTreeScanner =
+          new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars, fileManager);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
     initTargetMap();
@@ -133,8 +132,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * We want to make another pass over the AST and "type-check" the usage
-   * of direct/transitive dependencies after the type attribution phase.
+   * We want to make another pass over the AST and "type-check" the usage of direct/transitive
+   * dependencies after the type attribution phase.
    */
   @Override
   public void postAttribute(Env<AttrContext> env) {
@@ -186,10 +185,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * An AST visitor that implements our strict_java_deps checks. For now, it
-   * only emits warnings for types loaded from jar files provided by transitive
-   * (indirect) dependencies. Each type is considered only once, so at most one
-   * warning is generated for it.
+   * An AST visitor that implements our strict_java_deps checks. For now, it only emits warnings for
+   * types loaded from jar files provided by transitive (indirect) dependencies. Each type is
+   * considered only once, so at most one warning is generated for it.
    */
   private static class CheckingTreeScanner extends TreeScanner {
 
@@ -217,6 +215,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     /** We only emit one warning/error per class symbol */
     private final Set<ClassSymbol> seenClasses = new HashSet<>();
+
     private final Set<JarOwner> seenTargets = new HashSet<>();
 
     /** The set of jars on the compilation bootclasspath. */
@@ -244,10 +243,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       return seenClasses;
     }
 
-    /**
-     * Checks an AST node denoting a class type against direct/transitive
-     * dependencies.
-     */
+    /** Checks an AST node denoting a class type against direct/transitive dependencies. */
     private void checkTypeLiteral(JCTree node) {
       if (node == null || node.type.tsym == null) {
         return;
@@ -259,7 +255,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
       if (jarName != null && seenClasses.add(sym.enclClass())) {
-         collectExplicitDependency(jarName, node, sym);
+        collectExplicitDependency(jarName, node, sym);
       }
     }
 
@@ -297,10 +293,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
       if (!directDependenciesMap.containsKey(jarName)) {
         // Also update the dependency proto
-        Dependency dep = Dependency.newBuilder()
-            .setPath(jarName)
-            .setKind(Dependency.Kind.EXPLICIT)
-            .build();
+        Dependency dep =
+            Dependency.newBuilder().setPath(jarName).setKind(Dependency.Kind.EXPLICIT).build();
         directDependenciesMap.put(jarName, dep);
       }
     }
@@ -317,9 +311,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
 
-    /**
-     * Visits an identifier in the AST. We only care about type symbols.
-     */
+    /** Visits an identifier in the AST. We only care about type symbols. */
     @Override
     public void visitIdent(JCTree.JCIdent tree) {
       if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
@@ -328,26 +320,15 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     /**
-     * Visits a field selection in the AST. We care because in some cases types
-     * may appear fully qualified and only inside a field selection
-     * (e.g., "com.foo.Bar.X", we want to catch the reference to Bar).
+     * Visits a field selection in the AST. We care because in some cases types may appear fully
+     * qualified and only inside a field selection (e.g., "com.foo.Bar.X", we want to catch the
+     * reference to Bar).
      */
     @Override
     public void visitSelect(JCTree.JCFieldAccess tree) {
       scan(tree.selected);
       if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
-      }
-    }
-
-    /**
-     * Visits an import statement. Static imports must not be omitted, as they
-     * are the only place we'll see the containing class references.
-     */
-    @Override
-    public void visitImport(JCTree.JCImport tree) {
-      if (tree.isStatic()) {
-        scan(tree.getQualifiedIdentifier());
       }
     }
 
@@ -400,9 +381,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return ProcessorDependencyMode.DEFAULT;
   }
 
-  /**
-   * Returns the canonical version of the target name. Package private for testing.
-   */
+  /** Returns the canonical version of the target name. Package private for testing. */
   static String canonicalizeTarget(String target) {
     String replacement = targetMap.getProperty(target);
     if (replacement != null) {
@@ -434,9 +413,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * Returns the name of the jar file from which the given class symbol was
-   * loaded, if available, and null otherwise. Implicitly filters out jars
-   * from the compilation bootclasspath.
+   * Returns the name of the jar file from which the given class symbol was loaded, if available,
+   * and null otherwise. Implicitly filters out jars from the compilation bootclasspath.
+   *
    * @param platformJars jars on javac's bootclasspath
    */
   static String getJarName(
@@ -465,9 +444,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return name;
   }
 
-  /**
-   * Returns true if the given classSymbol corresponds to one of the sources being compiled.
-   */
+  /** Returns true if the given classSymbol corresponds to one of the sources being compiled. */
   private static boolean haveSourceForSymbol(ClassSymbol classSymbol) {
     if (classSymbol.sourcefile == null) {
       return false;
