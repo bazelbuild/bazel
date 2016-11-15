@@ -91,7 +91,7 @@ final class ProtobufSupport {
    * @param ruleContext context this proto library is constructed in
    */
   public ProtobufSupport(RuleContext ruleContext) throws RuleErrorException {
-    this(ruleContext, null);
+    this(ruleContext, ruleContext.getConfiguration());
   }
 
   /**
@@ -110,13 +110,8 @@ final class ProtobufSupport {
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.inputsToOutputsMap = getInputsToOutputsMap();
-    if (buildConfiguration != null) {
-      this.intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
-    } else {
-      this.intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, ruleContext.getConfiguration());
-    }
+    this.intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
   }
 
   /**
@@ -174,7 +169,10 @@ final class ProtobufSupport {
       ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
 
       new LegacyCompilationSupport(
-              ruleContext, intermediateArtifacts, new CompilationAttributes.Builder().build())
+              ruleContext,
+              buildConfiguration,
+              intermediateArtifacts,
+              new CompilationAttributes.Builder().build())
           .registerCompileAndArchiveActions(common, userHeaderSearchPaths);
 
       actionId++;
@@ -419,18 +417,11 @@ final class ProtobufSupport {
   }
 
   private IntermediateArtifacts getUniqueIntermediateArtifacts(int actionId) {
-    if (buildConfiguration != null) {
-      return new IntermediateArtifacts(
-          ruleContext,
-          getUniqueBundledProtosSuffix(actionId),
-          getUniqueBundledProtosPrefix(actionId),
-          buildConfiguration);
-    }
     return new IntermediateArtifacts(
         ruleContext,
         getUniqueBundledProtosSuffix(actionId),
         getUniqueBundledProtosPrefix(actionId),
-        ruleContext.getConfiguration());
+        buildConfiguration);
   }
 
   private ObjcCommon getCommon(
@@ -527,10 +518,7 @@ final class ProtobufSupport {
   }
 
   private String getGenfilesPathString() {
-    if (buildConfiguration != null) {
-      return buildConfiguration.getGenfilesDirectory().getExecPathString();
-    }
-    return ruleContext.getConfiguration().getGenfilesDirectory().getExecPathString();
+    return buildConfiguration.getGenfilesDirectory().getExecPathString();
   }
 
   private PathFragment getWorkspaceRelativeOutputDir() {
@@ -540,7 +528,7 @@ final class ProtobufSupport {
     PathFragment rootRelativeOutputDir = ruleContext.getUniqueDirectory(UNIQUE_DIRECTORY_NAME);
 
     return new PathFragment(
-        ruleContext.getBinOrGenfilesDirectory().getExecPath(), rootRelativeOutputDir);
+        buildConfiguration.getBinDirectory().getExecPath(), rootRelativeOutputDir);
   }
 
   private Iterable<Artifact> getGeneratedProtoOutputs(
@@ -560,27 +548,18 @@ final class ProtobufSupport {
       if (outputFile != null) {
         builder.add(
             ruleContext.getUniqueDirectoryArtifact(
-                UNIQUE_DIRECTORY_NAME, outputFile, ruleContext.getBinOrGenfilesDirectory()));
+                UNIQUE_DIRECTORY_NAME, outputFile, buildConfiguration.getBinDirectory()));
+
       }
     }
     return builder.build();
   }
 
   private Iterable<ObjcProtoProvider> getObjcProtoProviders() {
-    if (buildConfiguration != null) {
-      return ruleContext
-          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class)
-          .get(buildConfiguration);
-    }
     return ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
   }
 
   private Iterable<ProtoSourcesProvider> getProtoSourcesProviders() {
-    if (buildConfiguration != null) {
-      return ruleContext
-          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ProtoSourcesProvider.class)
-          .get(buildConfiguration);
-    }
     return ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
   }
 
