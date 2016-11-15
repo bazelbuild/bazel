@@ -155,7 +155,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
       if (toplevels.add(env.toplevel)) {
         checkingTreeScanner.scan(env.toplevel.getImports());
-        dependencyModule.addPackage(env.toplevel.packge.toString());
+        dependencyModule.addPackage(env.toplevel.packge);
       }
     } finally {
       checkingTreeScanner.isStrictDepsExempt = previousExemption;
