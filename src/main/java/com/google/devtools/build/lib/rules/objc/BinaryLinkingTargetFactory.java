@@ -115,34 +115,26 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
         .build();
 
-    CompilationSupport compilationSupport;
-    LegacyCompilationSupport legacyCompilationSupport = new LegacyCompilationSupport(ruleContext);
+    CompilationSupport compilationSupport = (usesCrosstool != UsesCrosstool.EXPERIMENTAL
+        || !ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary())
+        ? new LegacyCompilationSupport(ruleContext)
+        : new CrosstoolCompilationSupport(ruleContext);
 
-    if (usesCrosstool != UsesCrosstool.EXPERIMENTAL
-        || !ruleContext.getFragment(ObjcConfiguration.class).useCrosstoolForBinary()) {
-      compilationSupport = legacyCompilationSupport;
-    } else {
-      compilationSupport = new CrosstoolCompilationSupport(ruleContext);
-    }
-     
     compilationSupport
+        .validateAttributes()
         .addXcodeSettings(xcodeProviderBuilder, common)
         .registerCompileAndArchiveActions(common)
         .registerFullyLinkAction(
             common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
-        .validateAttributes();
+        .registerLinkActions(
+            objcProvider,
+            j2ObjcMappingFileProvider,
+            j2ObjcEntryClassProvider,
+            getExtraLinkArgs(ruleContext),
+            ImmutableList.<Artifact>of(),
+            DsymOutputType.APP);
     
-    // TODO(b/29582284): Factor into the above if/else once CrosstoolCompilationSupport supports
-    // executable linking.
-    legacyCompilationSupport.registerLinkActions(
-        objcProvider,
-        j2ObjcMappingFileProvider,
-        j2ObjcEntryClassProvider,
-        getExtraLinkArgs(ruleContext),
-        ImmutableList.<Artifact>of(),
-        DsymOutputType.APP);
-
     Optional<XcTestAppProvider> xcTestAppProvider;
     Optional<RunfilesSupport> maybeRunfilesSupport = Optional.absent();
     switch (hasReleaseBundlingSupport) {

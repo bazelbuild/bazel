@@ -15,10 +15,15 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
+import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.COMPILABLE_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
@@ -28,7 +33,9 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT_SOU
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -67,8 +74,11 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Local
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Support for rules that compile sources. Provides ways to determine files that should be output,
@@ -119,6 +129,17 @@ public abstract class CompilationSupport {
       ImmutableList.of(
           "-fexceptions", "-fasm-blocks", "-fobjc-abi-version=2", "-fobjc-legacy-dispatch");
 
+  private static final String FRAMEWORK_SUFFIX = ".framework";
+  
+  /** Selects cc libraries that have alwayslink=1. */
+  protected static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
+      new Predicate<Artifact>() {
+        @Override
+        public boolean apply(Artifact input) {
+          return LINK_LIBRARY_FILETYPES.matches(input.getFilename());
+        }
+      };
+  
   /**
    * Returns the location of the xcrunwrapper tool.
    */
@@ -427,7 +448,7 @@ public abstract class CompilationSupport {
         // The COVERAGE_GCOV_PATH environment variable is added in TestSupport#getExtraProviders()
         NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
         !TargetUtils.isTestRule(ruleContext.getTarget()));
-  } 
+  }
 
   /**
    * Registers an action that will generate a clang module map for this target, using the hdrs
@@ -450,7 +471,7 @@ public abstract class CompilationSupport {
     return this;
   }
 
-   /**
+  /**
    * Validates compilation-related attributes on this rule.
    *
    * @return this compilation support
@@ -578,7 +599,7 @@ public abstract class CompilationSupport {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType);
+      DsymOutputType dsymOutputType) throws InterruptedException;
 
   /**
    * Returns the copts for the compile action in the current rule context (using a combination of
@@ -611,7 +632,7 @@ public abstract class CompilationSupport {
     }
     return copts;
   }
-  
+
   /**
    * Registers an action that writes given set of object files to the given objList. This objList is
    * suitable to signal symbols to archive in a libtool archiving invocation.
@@ -645,8 +666,8 @@ public abstract class CompilationSupport {
   }
  
   /**
-   * Registers an action to create an archive artifact by fully (statically) linking all
-   * transitive dependencies of this rule.
+   * Registers an action to create an archive artifact by fully (statically) linking all transitive
+   * dependencies of this rule.
    *
    * @param objcProvider provides all compiling and linking information to create this artifact
    * @param inputArtifacts inputs for this action
@@ -657,7 +678,200 @@ public abstract class CompilationSupport {
       ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive)
       throws InterruptedException;
 
- 
+ /**
+   * Returns all framework names to pass to the linker using {@code -framework} flags. For a
+   * framework in the directory foo/bar.framework, the name is "bar". Each framework is found
+   * without using the full path by means of the framework search paths. Search paths are added by
+   * {@link#commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration, AppleConfiguration)})
+   *
+   * <p>It's awful that we can't pass the full path to the framework and avoid framework search
+   * paths, but this is imposed on us by clang. clang does not support passing the full path to the
+   * framework, so Bazel cannot do it either.
+   */
+  protected Set<String> frameworkNames(ObjcProvider provider) {
+    Set<String> names = new LinkedHashSet<>();
+    Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
+    for (PathFragment frameworkDir : provider.get(FRAMEWORK_DIR)) {
+      String segment = frameworkDir.getBaseName();
+      Preconditions.checkState(
+          segment.endsWith(FRAMEWORK_SUFFIX),
+          "expect %s to end with %s, but it does not",
+          segment,
+          FRAMEWORK_SUFFIX);
+      names.add(segment.substring(0, segment.length() - FRAMEWORK_SUFFIX.length()));
+    }
+    return names;
+  }
+  
+  /**
+   * Returns libraries that should be passed to the linker.
+   */
+  protected ImmutableList<String> libraryNames(ObjcProvider objcProvider) {
+    ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
+    for (String dylib : objcProvider.get(SDK_DYLIB)) {
+      if (dylib.startsWith("lib")) {
+        // remove lib prefix if it exists which is standard
+        // for libraries (libxml.dylib -> -lxml).
+        dylib = dylib.substring(3);
+      }
+      args.add(dylib);
+    }
+    return args.build();
+  }
+  
+  /**
+   * Returns libraries that should be passed into the linker with {@code -force_load}.
+   */
+  protected ImmutableSet<Artifact> getForceLoadArtifacts(ObjcProvider objcProvider) {
+    ImmutableList<Artifact> ccLibraries = objcProvider.getCcLibraries();
+    Iterable<Artifact> ccLibrariesToForceLoad =
+        Iterables.filter(ccLibraries, ALWAYS_LINKED_CC_LIBRARY);
+
+    return ImmutableSet.<Artifact>builder()
+        .addAll(objcProvider.get(FORCE_LOAD_LIBRARY))
+        .addAll(ccLibrariesToForceLoad)
+        .build();
+  }
+
+  /** Returns pruned J2Objc archives for this target. */
+  protected ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
+    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
+    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
+    }
+    return j2objcPrunedLibraryBuilder.build();
+  }
+  
+  /**
+   * Returns true if this build should strip J2Objc dead code.
+   */
+  protected boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+    J2ObjcConfiguration j2objcConfiguration =
+        buildConfiguration.getFragment(J2ObjcConfiguration.class);
+    // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
+    // users have specified entry classes.
+    return j2objcConfiguration.removeDeadCode()
+        && !j2ObjcEntryClassProvider.getEntryClasses().isEmpty();
+  }
+
+  /**
+   * Registers actions to perform J2Objc dead code removal.
+   */
+  protected void registerJ2ObjcDeadCodeRemovalActions(
+      ObjcProvider objcProvider,
+      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
+      J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
+    NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
+    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
+    NestedSet<Artifact> j2ObjcDependencyMappingFiles =
+        j2ObjcMappingFileProvider.getDependencyMappingFiles();
+    NestedSet<Artifact> j2ObjcHeaderMappingFiles =
+        j2ObjcMappingFileProvider.getHeaderMappingFiles();
+    NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
+        j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
+
+    for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+      PathFragment paramFilePath =
+          FileSystemUtils.replaceExtension(
+              j2objcArchive.getOwner().toPathFragment(), ".param.j2objc");
+      Artifact paramFile =
+          ruleContext.getUniqueDirectoryArtifact(
+              "_j2objc_pruned", paramFilePath, ruleContext.getBinOrGenfilesDirectory());
+      Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
+      Artifact dummyArchive =
+          Iterables.getOnlyElement(
+              ruleContext
+                  .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.class)
+                  .get(LIBRARY));
+
+      CustomCommandLine commandLine =
+          CustomCommandLine.builder()
+              .addExecPath("--input_archive", j2objcArchive)
+              .addExecPath("--output_archive", prunedJ2ObjcArchive)
+              .addExecPath("--dummy_archive", dummyArchive)
+              .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
+              .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+              .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+              .addJoinExecPaths(
+                  "--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
+              .add("--entry_classes")
+              .add(Joiner.on(",").join(entryClasses))
+              .build();
+
+      ruleContext.registerAction(
+          new ParameterFileWriteAction(
+              ruleContext.getActionOwner(),
+              paramFile,
+              commandLine,
+              ParameterFile.ParameterFileType.UNQUOTED,
+              ISO_8859_1));
+      ruleContext.registerAction(
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                  appleConfiguration, appleConfiguration.getSingleArchPlatform())
+              .setMnemonic("DummyPruner")
+              .setExecutable(pruner)
+              .addInput(dummyArchive)
+              .addInput(pruner)
+              .addInput(paramFile)
+              .addInput(j2objcArchive)
+              .addInput(xcrunwrapper(ruleContext).getExecutable())
+              .addTransitiveInputs(j2ObjcDependencyMappingFiles)
+              .addTransitiveInputs(j2ObjcHeaderMappingFiles)
+              .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
+              .setCommandLine(
+                  CustomCommandLine.builder().addPaths("@%s", paramFile.getExecPath()).build())
+              .addOutput(prunedJ2ObjcArchive)
+              .build(ruleContext));
+    }
+  }
+  
+  /** Returns archives arising from j2objc transpilation after dead code removal. */
+  protected Iterable<Artifact> computeAndStripPrunedJ2ObjcArchives(
+      J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
+      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
+      ObjcProvider objcProvider) {
+    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
+    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
+      registerJ2ObjcDeadCodeRemovalActions(
+          objcProvider, j2ObjcMappingFileProvider, j2ObjcEntryClassProvider);
+      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
+    }
+    return prunedJ2ObjcArchives;
+  }
+
+  /**
+   * Returns a nested set of Bazel-built ObjC libraries with all unpruned J2ObjC libraries
+   * substituted with pruned ones.
+   */
+  protected ImmutableList<Artifact> substituteJ2ObjcPrunedLibraries(ObjcProvider objcProvider) {
+    ImmutableList.Builder<Artifact> libraries = new ImmutableList.Builder<>();
+
+    Set<Artifact> unprunedJ2ObjcLibs = objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toSet();
+    for (Artifact library : objcProvider.getObjcLibraries()) {
+      // If we match an unpruned J2ObjC library, add the pruned version of the J2ObjC static library
+      // instead.
+      if (unprunedJ2ObjcLibs.contains(library)) {
+        libraries.add(intermediateArtifacts.j2objcPrunedArchive(library));
+      } else {
+        libraries.add(library);
+      }
+    }
+    return libraries.build();
+  }
+  
+  /** Returns the artifact that should be the outcome of this build's link action */
+  protected Artifact getBinaryToLink() {
+
+    // When compilation_mode=opt and objc_enable_binary_stripping are specified, the unstripped
+    // binary containing debug symbols is generated by the linker, which also needs the debug
+    // symbols for dead-code removal. The binary is also used to generate dSYM bundle if
+    // --apple_generate_dsym is specified. A symbol strip action is later registered to strip
+    // the symbol table from the unstripped binary.
+    return objcConfiguration.shouldStripBinary()
+        ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
+        : intermediateArtifacts.strippedSingleArchitectureBinary();    
+  }
+
   private NestedSet<Artifact> getGcovForObjectiveCIfNeeded() {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()
         && ruleContext.attributes().has(IosTest.OBJC_GCOV_ATTR, BuildType.LABEL)) {

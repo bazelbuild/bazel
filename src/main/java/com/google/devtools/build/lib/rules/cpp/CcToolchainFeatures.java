@@ -1150,7 +1150,7 @@ public class CcToolchainFeatures implements Serializable {
        * Add a variable that expands a flag group containing a reference to {@code name} for each
        * entry in {@code values}.
        */
-      public Builder addSequenceVariable(String name, Collection<String> values) {
+      public Builder addSequenceVariable(String name, Iterable<String> values) {
         StringSequence.Builder sequenceBuilder = new StringSequence.Builder();
         for (String value : values) {
           sequenceBuilder.addValue(value);

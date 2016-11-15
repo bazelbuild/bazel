@@ -15,12 +15,17 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -38,15 +43,16 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
+import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
- * Constructs command lines for objc compilation, archiving, and linking.  Uses the crosstool
- * infrastructure to register {@link CppCompileAction} and {@link CppLinkAction} instances,
- * making use of a provided toolchain.
- * 
- * TODO(b/28403953): Deprecate LegacyCompilationSupport in favor of this implementation for all
+ * Constructs command lines for objc compilation, archiving, and linking. Uses the crosstool
+ * infrastructure to register {@link CppCompileAction} and {@link CppLinkAction} instances, making
+ * use of a provided toolchain.
+ *
+ * <p>TODO(b/28403953): Deprecate LegacyCompilationSupport in favor of this implementation for all
  * objc rules.
  */
 public class CrosstoolCompilationSupport extends CompilationSupport {
@@ -59,6 +65,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
           "objc++-compile",
           "objc-archive",
           "objc-fully-link",
+          "objc-executable",
           "assemble",
           "preprocess-assemble",
           "c-compile",
@@ -79,25 +86,37 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
     this.compilationArtifacts = compilationArtifacts(ruleContext);
   }
-
+ 
   @Override
   CompilationSupport registerCompileAndArchiveActions(
       ObjcCommon common, ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders)
       throws RuleErrorException, InterruptedException {
 
-    CcLibraryHelper helper = createCcLibraryHelper(common);
-
+    ObjcVariablesExtension.Builder extension = new ObjcVariablesExtension.Builder()
+        .setRuleContext(ruleContext)
+        .setObjcProvider(common.getObjcProvider())
+        .setCompilationArtifacts(compilationArtifacts)
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setConfiguration(ruleContext.getConfiguration());
+    CcLibraryHelper helper;
+    
     if (compilationArtifacts.getArchive().isPresent()) {
       Artifact objList = intermediateArtifacts.archiveObjList();
 
       // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
       registerObjFilelistAction(getObjFiles(compilationArtifacts, intermediateArtifacts), objList);
 
-      helper.setLinkType(LinkTargetType.OBJC_ARCHIVE).addLinkActionInput(objList);
+      extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
+      
+      helper = createCcLibraryHelper(common, extension.build())
+          .setLinkType(LinkTargetType.OBJC_ARCHIVE)
+          .addLinkActionInput(objList);
+    } else {
+      helper = createCcLibraryHelper(common, extension.build());
     }
-
-    helper.build();
     
+    helper.build();
+
     return this;
   }
 
@@ -113,6 +132,16 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .getPackageDirectory()
             .getRelative(labelName.replaceName("lib" + labelName.getBaseName()))
             .getPathString();
+    ObjcVariablesExtension extension = new ObjcVariablesExtension.Builder()
+        .setRuleContext(ruleContext)
+        .setObjcProvider(objcProvider)
+        .setConfiguration(ruleContext.getConfiguration())
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setFullyLinkArchive(
+            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
+        .build();
+    
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(ruleContext, fullyLinkedArchive)
             .addActionInputs(objcProvider.getObjcLibraries())
@@ -121,7 +150,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkType(LinkTargetType.OBJC_FULLY_LINKED_ARCHIVE)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .setLibraryIdentifier(libraryIdentifier)
-            .addVariablesExtension(getVariablesExtension(objcProvider))
+            .addVariablesExtension(extension)
             .setFeatureConfiguration(getFeatureConfiguration(ruleContext))
             .build();
     ruleContext.registerAction(fullyLinkAction);
@@ -136,12 +165,61 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType) {
-    // TODO(b/29582284): Implement the link action in the objc crosstool.
-    throw new UnsupportedOperationException();
+      DsymOutputType dsymOutputType) throws InterruptedException {
+    Iterable<Artifact> prunedJ2ObjcArchives =
+        computeAndStripPrunedJ2ObjcArchives(
+            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
+    ImmutableList<Artifact> bazelBuiltLibraries =
+        Iterables.isEmpty(prunedJ2ObjcArchives)
+            ? objcProvider.getObjcLibraries()
+            : substituteJ2ObjcPrunedLibraries(objcProvider);
+
+    Artifact inputFileList = intermediateArtifacts.linkerObjList();
+    ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
+
+    Iterable<Artifact> objFiles =
+        Iterables.concat(
+            bazelBuiltLibraries, objcProvider.get(IMPORTED_LIBRARY), objcProvider.getCcLibraries());
+    // Clang loads archives specified in filelists and also specified as -force_load twice,
+    // resulting in duplicate symbol errors unless they are deduped.
+    objFiles = Iterables.filter(objFiles, Predicates.not(Predicates.in(forceLinkArtifacts)));
+
+    registerObjFilelistAction(objFiles, inputFileList);
+
+    ObjcVariablesExtension extension = new ObjcVariablesExtension.Builder()
+        .setRuleContext(ruleContext)
+        .setObjcProvider(objcProvider)
+        .setConfiguration(ruleContext.getConfiguration())
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setFrameworkNames(frameworkNames(objcProvider))
+        .setLibraryNames(libraryNames(objcProvider))
+        .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
+        .setAttributeLinkopts(attributes.linkopts())
+        .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES)
+        .build();
+    
+    Artifact binaryToLink = getBinaryToLink();
+    CppLinkAction executableLinkAction =
+        new CppLinkActionBuilder(ruleContext, binaryToLink)
+            .setMnemonic("ObjcLink")
+            .addActionInputs(bazelBuiltLibraries)
+            .addActionInputs(objcProvider.getCcLibraries())
+            .addTransitiveActionInputs(objcProvider.get(IMPORTED_LIBRARY))
+            .addTransitiveActionInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
+            .addTransitiveActionInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .addActionInputs(prunedJ2ObjcArchives)
+            .addActionInput(inputFileList)
+            .setLinkType(LinkTargetType.OBJC_EXECUTABLE)
+            .setLinkStaticness(LinkStaticness.FULLY_STATIC)
+            .addVariablesExtension(extension)
+            .setFeatureConfiguration(getFeatureConfiguration(ruleContext))
+            .build();
+    ruleContext.registerAction(executableLinkAction);    
+    
+    return this;
   }
 
-  private CcLibraryHelper createCcLibraryHelper(ObjcCommon common) throws InterruptedException {
+  private CcLibraryHelper createCcLibraryHelper(ObjcCommon common, VariablesExtension extension) {
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     Collection<Artifact> arcSources = Sets.newHashSet(compilationArtifacts.getSrcs());
     Collection<Artifact> nonArcSources = Sets.newHashSet(compilationArtifacts.getNonArcSrcs());
@@ -170,7 +248,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
         .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
         .setCppModuleMap(intermediateArtifacts.moduleMap())
-        .addVariableExtension(getVariablesExtension(common.getObjcProvider()));
+        .addVariableExtension(extension);
   }
 
   private static FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext) {
@@ -192,7 +270,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS);
-    
+
     if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
     }
@@ -205,17 +283,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
 
     return toolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectables.build());
-  }
-
-  private VariablesExtension getVariablesExtension(ObjcProvider objcProvider)
-      throws InterruptedException {
-    return new ObjcVariablesExtension(
-        ruleContext,
-        objcProvider,
-        compilationArtifacts,
-        ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB),
-        intermediateArtifacts,
-        ruleContext.getConfiguration());
   }
 
   private static ImmutableList<Artifact> getObjFiles(

@@ -103,6 +103,14 @@ public abstract class Link {
     STATIC,
     DYNAMIC
   }
+  
+  /**
+   * Whether a particular link target is executable.
+   */
+  public enum Executable {
+    EXECUTABLE,
+    NOT_EXECUTABLE
+  }
 
   /**
    * Types of ELF files that can be created by the linker (.a, .so, .lo,
@@ -115,7 +123,8 @@ public abstract class Link {
         Staticness.STATIC,
         "c++-link-static-library",
         Picness.NOPIC,
-        ArtifactCategory.STATIC_LIBRARY),
+        ArtifactCategory.STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
     
     /** An objc static archive. */
     OBJC_ARCHIVE(
@@ -123,19 +132,35 @@ public abstract class Link {
         Staticness.STATIC, 
         "objc-archive", 
         Picness.NOPIC,
-        ArtifactCategory.STATIC_LIBRARY),
+        ArtifactCategory.STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
     
     /** An objc fully linked static archive. */
     OBJC_FULLY_LINKED_ARCHIVE(
-        ".a", Staticness.STATIC, "objc-fully-link", Picness.NOPIC, ArtifactCategory.STATIC_LIBRARY),
+        ".a",
+        Staticness.STATIC,
+        "objc-fully-link",
+        Picness.NOPIC,
+        ArtifactCategory.STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
+    /** An objc executable. */
+    OBJC_EXECUTABLE(
+        "",
+        Staticness.STATIC,
+        "objc-executable",
+        Picness.NOPIC,
+        ArtifactCategory.EXECUTABLE,
+        Executable.EXECUTABLE),
+    
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(
         ".pic.a",
         Staticness.STATIC,
         "c++-link-pic-static-library",
         Picness.PIC,
-        ArtifactCategory.STATIC_LIBRARY),
+        ArtifactCategory.STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
     /** An interface dynamic library. */
     INTERFACE_DYNAMIC_LIBRARY(
@@ -143,7 +168,8 @@ public abstract class Link {
         Staticness.DYNAMIC,
         "c++-link-interface-dynamic-library",
         Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
-        ArtifactCategory.INTERFACE_LIBRARY),
+        ArtifactCategory.INTERFACE_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
     /** A dynamic library. */
     DYNAMIC_LIBRARY(
@@ -151,7 +177,8 @@ public abstract class Link {
         Staticness.DYNAMIC,
         "c++-link-dynamic-library",
         Picness.NOPIC,  // Actually PIC but it's not indicated in the file name
-        ArtifactCategory.DYNAMIC_LIBRARY),
+        ArtifactCategory.DYNAMIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
     /** A static archive without removal of unused object files. */
     ALWAYS_LINK_STATIC_LIBRARY(
@@ -159,7 +186,8 @@ public abstract class Link {
         Staticness.STATIC,
         "c++-link-alwayslink-static-library",
         Picness.NOPIC,
-        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
     /** A PIC static archive without removal of unused object files. */
     ALWAYS_LINK_PIC_STATIC_LIBRARY(
@@ -167,7 +195,8 @@ public abstract class Link {
         Staticness.STATIC,
         "c++-link-alwayslink-pic-static-library",
         Picness.PIC,
-        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY),
+        ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY,
+        Executable.NOT_EXECUTABLE),
 
     /** An executable binary. */
     EXECUTABLE(
@@ -175,25 +204,29 @@ public abstract class Link {
         Staticness.DYNAMIC,
         "c++-link-executable",
         Picness.NOPIC,  // Picness is not indicate in the file name
-        ArtifactCategory.EXECUTABLE);
+        ArtifactCategory.EXECUTABLE,
+        Executable.EXECUTABLE);
 
     private final String extension;
     private final Staticness staticness;
     private final String actionName;
     private final ArtifactCategory linkerOutput;
     private final Picness picness;
+    private final Executable executable;
 
     LinkTargetType(
         String extension,
         Staticness staticness,
         String actionName,
         Picness picness,
-        ArtifactCategory linkerOutput) {
+        ArtifactCategory linkerOutput,
+        Executable executable) {
       this.extension = extension;
       this.staticness = staticness;
       this.actionName = actionName;
       this.linkerOutput = linkerOutput;
       this.picness = picness;
+      this.executable = executable;
     }
 
     /**
@@ -222,6 +255,11 @@ public abstract class Link {
      */
     public String getActionName() {
       return actionName;
+    }
+    
+    /** Returns true iff this link type is executable */
+    public boolean isExecutable() {
+      return (executable == Executable.EXECUTABLE);
     }
   }
 

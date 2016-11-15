@@ -408,6 +408,7 @@ public final class LinkCommandLine extends CommandLine {
         // TODO(b/30109612): make this pattern the case for all link variants.
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
+      case OBJC_EXECUTABLE:
         argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;

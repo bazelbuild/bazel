@@ -14,22 +14,17 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINK_INPUTS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MODULE_MAP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.CLANG;
@@ -42,24 +37,20 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPIL
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
@@ -77,9 +68,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * Constructs command lines for objc compilation, archiving, and linking.  Uses hard-coded
@@ -88,17 +77,6 @@ import java.util.Set;
  * TODO(b/28403953): Deprecate in favor of {@link CrosstoolCompilationSupport} in all objc rules.
  */
 public class LegacyCompilationSupport extends CompilationSupport {
-
-  private static final String FRAMEWORK_SUFFIX = ".framework";
-
-  /** Selects cc libraries that have alwayslink=1. */
-  private static final Predicate<Artifact> ALWAYS_LINKED_CC_LIBRARY =
-      new Predicate<Artifact>() {
-        @Override
-        public boolean apply(Artifact input) {
-          return LINK_LIBRARY_FILETYPES.matches(input.getFilename());
-        }
-      };
 
   /**
    * A mapper that maps input ObjC source {@link Artifact.TreeFileArtifact}s to output object file
@@ -798,12 +776,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
       dsymBundleZip = Optional.absent();
     }
 
-    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
-    if (stripJ2ObjcDeadCode(j2ObjcEntryClassProvider)) {
-      registerJ2ObjcDeadCodeRemovalActions(objcProvider, j2ObjcMappingFileProvider,
-          j2ObjcEntryClassProvider);
-      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
-    }
+    Iterable<Artifact> prunedJ2ObjcArchives =
+        computeAndStripPrunedJ2ObjcArchives(
+            j2ObjcEntryClassProvider, j2ObjcMappingFileProvider, objcProvider);
 
     if (objcConfiguration.generateLinkmap()) {
       linkmap = Optional.of(intermediateArtifacts.linkmap());
@@ -821,15 +796,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     return this;
   }
 
-  private boolean stripJ2ObjcDeadCode(J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
-    J2ObjcConfiguration j2objcConfiguration =
-        buildConfiguration.getFragment(J2ObjcConfiguration.class);
-    // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
-    // users have specified entry classes.
-    return j2objcConfiguration.removeDeadCode()
-        && !j2ObjcEntryClassProvider.getEntryClasses().isEmpty();
-  }
-
   private boolean isDynamicLib(CommandLine commandLine) {
     return Iterables.contains(commandLine.arguments(), "-dynamiclib");
   }
@@ -841,15 +807,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
       Optional<Artifact> dsymBundleZip,
       Iterable<Artifact> prunedJ2ObjcArchives,
       Optional<Artifact> linkmap) {
-    // When compilation_mode=opt and objc_enable_binary_stripping are specified, the unstripped
-    // binary containing debug symbols is generated by the linker, which also needs the debug
-    // symbols for dead-code removal. The binary is also used to generate dSYM bundle if
-    // --apple_generate_dsym is specified. A symbol strip action is later registered to strip
-    // the symbol table from the unstripped binary.
-    Artifact binaryToLink =
-        objcConfiguration.shouldStripBinary()
-            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-            : intermediateArtifacts.strippedSingleArchitectureBinary();
+    Artifact binaryToLink = getBinaryToLink();
 
     ImmutableList<Artifact> objcLibraries = objcProvider.getObjcLibraries();
     ImmutableList<Artifact> ccLibraries = objcProvider.getCcLibraries();
@@ -912,14 +870,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     }
   }
 
-  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
-    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
-      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
-    }
-    return j2objcPrunedLibraryBuilder.build();
-  }
-
   private static CommandLine symbolStripCommandLine(
       Iterable<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
@@ -928,26 +878,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .addExecPath("-o", strippedArtifact)
         .addPath(unstrippedArtifact.getExecPath())
         .build();
-  }
-
-  /**
-   * Returns a nested set of Bazel-built ObjC libraries with all unpruned J2ObjC libraries
-   * substituted with pruned ones.
-   */
-  private ImmutableList<Artifact> substituteJ2ObjcPrunedLibraries(ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> libraries = new ImmutableList.Builder<>();
-
-    Set<Artifact> unprunedJ2ObjcLibs = objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toSet();
-    for (Artifact library : objcProvider.getObjcLibraries()) {
-      // If we match an unpruned J2ObjC library, add the pruned version of the J2ObjC static library
-      // instead.
-      if (unprunedJ2ObjcLibs.contains(library)) {
-        libraries.add(intermediateArtifacts.j2objcPrunedArchive(library));
-      } else {
-        libraries.add(library);
-      }
-    }
-    return libraries.build();
   }
 
   private CommandLine linkCommandLine(
@@ -1101,104 +1031,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     public Iterable<String> arguments() {
       return ImmutableList.of(Joiner.on(' ').join(original.arguments()));
     }
-  }
-
-  private Iterable<String> libraryNames(ObjcProvider objcProvider) {
-    ImmutableList.Builder<String> args = new ImmutableList.Builder<>();
-    for (String dylib : objcProvider.get(SDK_DYLIB)) {
-      if (dylib.startsWith("lib")) {
-        // remove lib prefix if it exists which is standard
-        // for libraries (libxml.dylib -> -lxml).
-        dylib = dylib.substring(3);
-      }
-      args.add(dylib);
-    }
-    return args.build();
-  }
-
-  /**
-   * All framework names to pass to the linker using {@code -framework} flags. For a framework in
-   * the directory foo/bar.framework, the name is "bar". Each framework is found without using the
-   * full path by means of the framework search paths. The search paths are added by
-   * {@link #commonLinkAndCompileFlagsForClang(ObjcProvider, ObjcConfiguration,
-   * AppleConfiguration)}).
-   *
-   * <p>It's awful that we can't pass the full path to the framework and avoid framework search
-   * paths, but this is imposed on us by clang. clang does not support passing the full path to the
-   * framework, so Bazel cannot do it either.
-   */
-  private Iterable<String> frameworkNames(ObjcProvider provider) {
-    List<String> names = new ArrayList<>();
-    Iterables.addAll(names, SdkFramework.names(provider.get(SDK_FRAMEWORK)));
-    for (PathFragment frameworkDir : provider.get(FRAMEWORK_DIR)) {
-      String segment = frameworkDir.getBaseName();
-      Preconditions.checkState(segment.endsWith(FRAMEWORK_SUFFIX),
-          "expect %s to end with %s, but it does not", segment, FRAMEWORK_SUFFIX);
-      names.add(segment.substring(0, segment.length() - FRAMEWORK_SUFFIX.length()));
-    }
-    return names;
-  }
-
-  private void registerJ2ObjcDeadCodeRemovalActions(ObjcProvider objcProvider,
-      J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
-      J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
-    NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
-    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
-    NestedSet<Artifact> j2ObjcDependencyMappingFiles =
-        j2ObjcMappingFileProvider.getDependencyMappingFiles();
-    NestedSet<Artifact> j2ObjcHeaderMappingFiles =
-        j2ObjcMappingFileProvider.getHeaderMappingFiles();
-    NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles =
-        j2ObjcMappingFileProvider.getArchiveSourceMappingFiles();
-
-    for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
-      PathFragment paramFilePath = FileSystemUtils.replaceExtension(
-          j2objcArchive.getOwner().toPathFragment(), ".param.j2objc");
-      Artifact paramFile = ruleContext.getUniqueDirectoryArtifact(
-          "_j2objc_pruned",
-          paramFilePath,
-          ruleContext.getBinOrGenfilesDirectory());
-      Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
-      Artifact dummyArchive = Iterables.getOnlyElement(
-          ruleContext.getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.class)
-          .get(LIBRARY));
-
-      CustomCommandLine commandLine = CustomCommandLine.builder()
-          .addExecPath("--input_archive", j2objcArchive)
-          .addExecPath("--output_archive", prunedJ2ObjcArchive)
-          .addExecPath("--dummy_archive", dummyArchive)
-          .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
-          .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
-          .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
-          .addJoinExecPaths(
-              "--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
-          .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
-          .build();
-
-      ruleContext.registerAction(
-          new ParameterFileWriteAction(
-              ruleContext.getActionOwner(),
-              paramFile,
-              commandLine,
-              ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
-      ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                  appleConfiguration, appleConfiguration.getSingleArchPlatform())
-          .setMnemonic("DummyPruner")
-          .setExecutable(pruner)
-          .addInput(dummyArchive)
-          .addInput(pruner)
-          .addInput(paramFile)
-          .addInput(j2objcArchive)
-          .addInput(xcrunwrapper(ruleContext).getExecutable())
-          .addTransitiveInputs(j2ObjcDependencyMappingFiles)
-          .addTransitiveInputs(j2ObjcHeaderMappingFiles)
-          .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
-          .setCommandLine(CustomCommandLine.builder()
-              .addPaths("@%s", paramFile.getExecPath())
-              .build())
-          .addOutput(prunedJ2ObjcArchive)
-          .build(ruleContext));
-      }
   }
 
   private CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {

@@ -95,6 +95,7 @@ public final class CppLinkAction extends AbstractAction
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
   
+  @Nullable private final String mnemonic;
   private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
   private final Artifact linkOutput;
@@ -138,6 +139,7 @@ public final class CppLinkAction extends AbstractAction
    */
   CppLinkAction(
       ActionOwner owner,
+      String mnemonic,
       Iterable<Artifact> inputs,
       ImmutableList<Artifact> outputs,
       CppConfiguration cppConfiguration,
@@ -151,6 +153,11 @@ public final class CppLinkAction extends AbstractAction
       Map<String, String> toolchainEnv,
       ImmutableSet<String> executionRequirements) {
     super(owner, inputs, outputs);
+    if (mnemonic == null) {
+      this.mnemonic = (isLTOIndexing) ? "CppLTOIndexing" : "CppLink";
+    } else {
+      this.mnemonic = mnemonic;
+    }
     this.mandatoryInputs = inputs;
     this.cppConfiguration = cppConfiguration;
     this.outputLibrary = outputLibrary;
@@ -457,7 +464,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    return (isLTOIndexing) ? "CppLTOIndexing" : "CppLink";
+    return mnemonic;
   }
 
   @Override
