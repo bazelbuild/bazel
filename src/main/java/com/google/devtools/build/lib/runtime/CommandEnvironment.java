@@ -93,7 +93,8 @@ public final class CommandEnvironment {
   private ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = ImmutableList.of();
   private Path workingDirectory;
 
-  private OptionsClassProvider options;
+  private String commandName;
+  private OptionsProvider options;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
@@ -182,7 +183,11 @@ public final class CommandEnvironment {
     return Collections.unmodifiableMap(clientEnv);
   }
 
-  public OptionsClassProvider getOptions() {
+  public String getCommandName() {
+    return commandName;
+  }
+
+  public OptionsProvider getOptions() {
     return options;
   }
 
@@ -533,6 +538,7 @@ public final class CommandEnvironment {
         throw new IllegalStateException(e);
       }
     }
+    this.commandName = command.name();
     this.options = optionsParser;
 
     eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
