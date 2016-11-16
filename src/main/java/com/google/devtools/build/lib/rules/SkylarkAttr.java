@@ -520,7 +520,7 @@ public final class SkylarkAttr {
         positional = false,
         doc =
             "This is similar to <code>allow_files</code>, with the restriction that the label must "
-                + "correspond to a single <a href=\"file.html\">File</a>. "
+                + "correspond to a single <a href=\"File.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
@@ -557,7 +557,7 @@ public final class SkylarkAttr {
         positional = false,
         doc =
             "Deprecated: Use <code>allow_single_file</code> instead. "
-                + "If True, the label must correspond to a single <a href=\"file.html\">File</a>. "
+                + "If True, the label must correspond to a single <a href=\"File.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
