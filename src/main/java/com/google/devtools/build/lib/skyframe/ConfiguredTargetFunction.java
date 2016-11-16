@@ -551,14 +551,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
         ImmutableList.Builder<BuildOptions> toOptionsBuilder = ImmutableList.builder();
-        for (BuildOptions options : getDynamicTransitionOptions(ctgOptions, transition)) {
-          if (!sameFragments) {
-            options = options.trim(
-                BuildConfiguration.getOptionsClasses(depFragments, ruleClassProvider));
-          }
-          toOptionsBuilder.add(options);
-        }
-        toOptions = toOptionsBuilder.build();
+        toOptions = getDynamicTransitionOptions(ctgOptions, transition, depFragments,
+            ruleClassProvider, !sameFragments);
         transitionsMap.put(transitionKey, toOptions);
       }
 
@@ -655,16 +649,20 @@ final class ConfiguredTargetFunction implements SkyFunction {
   /**
    * Applies a dynamic configuration transition over a set of build options.
    *
-   * @return the build options for the transitioned configuration. Contains the same fragment
-   *     options as the input.
+   * @return the build options for the transitioned configuration. If trimResults is true,
+   *     only options needed by the required fragments are included. Else the same options as the
+   *     original input are included (with different possible values, of course).
    */
-  private static Collection<BuildOptions> getDynamicTransitionOptions(BuildOptions fromOptions,
-      Attribute.Transition transition) {
+  static List<BuildOptions> getDynamicTransitionOptions(BuildOptions fromOptions,
+      Attribute.Transition transition,
+      Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
+      RuleClassProvider ruleClassProvider, boolean trimResults) {
+    List<BuildOptions> result;
     if (transition == Attribute.ConfigurationTransition.NONE) {
-      return ImmutableList.<BuildOptions>of(fromOptions);
+      result = ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
+      result = ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof Attribute.SplitTransition) {
       @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
       List<BuildOptions> toOptions =
@@ -673,16 +671,26 @@ final class ConfiguredTargetFunction implements SkyFunction {
         // When the split returns an empty list, it's signaling it doesn't apply to this instance.
         // Check that it's safe to skip the transition and return the original options.
         Verify.verify(transition.defaultsToSelf());
-        return ImmutableList.<BuildOptions>of(fromOptions);
+        result = ImmutableList.<BuildOptions>of(fromOptions);
       } else {
-        return toOptions;
+        result = toOptions;
       }
     } else {
       throw new IllegalStateException(String.format(
           "unsupported dynamic transition type: %s", transition.getClass().getName()));
     }
-  }
 
+    if (!trimResults) {
+      return result;
+    } else {
+      ImmutableList.Builder<BuildOptions> trimmedOptions = ImmutableList.builder();
+      for (BuildOptions toOptions : result) {
+        trimmedOptions.add(toOptions.trim(
+            BuildConfiguration.getOptionsClasses(requiredFragments, ruleClassProvider)));
+      }
+      return trimmedOptions.build();
+    }
+  }
 
   /**
    * Diagnostic helper method for dynamic configurations: checks the config fragments required by
