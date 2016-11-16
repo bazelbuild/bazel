@@ -90,7 +90,7 @@ def IsValidPath(path):
 def ExtractResources(input_jar, output_zip):
   for path in input_jar.namelist():
     if IsValidPath(path):
-      output_zip.writestr(path, input_jar.read(path))
+      output_zip.writestr(input_jar.getinfo(path), input_jar.read(path))
 
 
 def main(argv):

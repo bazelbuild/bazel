@@ -62,6 +62,14 @@ class ResourceExtractorTest(unittest.TestCase):
                            "not_CVS/include", "META-INF/services/foo"),
                           output_zip.namelist())
 
+  def testTimestampsAreTheSame(self):
+    input_jar = zipfile.ZipFile(StringIO.StringIO(), "w")
+    entry_info = zipfile.ZipInfo("a", (1982, 1, 1, 0, 0, 0))
+    input_jar.writestr(entry_info, "")
+    output_zip = zipfile.ZipFile(StringIO.StringIO(), "w")
+    resource_extractor.ExtractResources(input_jar, output_zip)
+    self.assertEqual((1982, 1, 1, 0, 0, 0), output_zip.getinfo("a").date_time)
+
 
 if __name__ == "__main__":
   unittest.main()
