@@ -136,6 +136,11 @@ bool KillServerProcess(int pid);
 // Mark path as being excluded from backups (if supported by operating system).
 void ExcludePathFromBackup(const std::string& path);
 
+// Returns the canonical form of the base dir given a root and a hashable
+// string. The resulting dir is composed of the root + md5(hashable)
+std::string GetHashedBaseDir(const std::string& root,
+                             const std::string& hashable);
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

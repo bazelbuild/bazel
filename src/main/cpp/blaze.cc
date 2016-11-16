@@ -75,7 +75,6 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
@@ -84,7 +83,6 @@
 
 #include "src/main/protobuf/command_server.grpc.pb.h"
 
-using blaze_util::Md5Digest;
 using blaze_util::die;
 using blaze_util::pdie;
 
@@ -279,48 +277,6 @@ void debug_log(const char* format, ...) {
   fprintf(stderr, "%s", "\n");
   fflush(stderr);
 }
-
-#if !defined(__CYGWIN__)
-// Returns the canonical form of the base dir given a root and a hashable
-// string. The resulting dir is composed of the root + md5(hashable)
-static string GetHashedBaseDir(const string &root,
-                               const string &hashable) {
-  unsigned char buf[Md5Digest::kDigestLength];
-  Md5Digest digest;
-  digest.Update(hashable.data(), hashable.size());
-  digest.Finish(buf);
-  return root + "/" + digest.String();
-}
-
-#else
-// Builds a shorter output base dir name for Windows.
-// This MD5s together user name and workspace directory,
-// and only uses 1/3 of the bits to get 8-char alphanumeric
-// file name.
-static string GetHashedBaseDirForWindows(const string &root,
-                                         const string &product_name,
-                                         const string &user_name,
-                                         const string &workspace_directory) {
-  static const char* alphabet
-    // Exactly 64 characters.
-    = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789$-";
-
-  // The length of the resulting filename (8 characters).
-  static const int filename_length = Md5Digest::kDigestLength / 2;
-  unsigned char buf[Md5Digest::kDigestLength];
-  char coded_name[filename_length + 1];
-  Md5Digest digest;
-  digest.Update(user_name.data(), user_name.size());
-  digest.Update(workspace_directory.data(), workspace_directory.size());
-  digest.Finish(buf);
-  for (int i = 0; i < filename_length; i++) {
-    coded_name[i] = alphabet[buf[i] & 0x3F];
-  }
-  coded_name[filename_length] = '\0';
-  return root + "/" + product_name + "/" + string(coded_name);
-}
-#endif
-
 
 // A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
 class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
@@ -1333,12 +1289,16 @@ static void ComputeBaseDirectories(const string &self_path) {
 
   if (globals->options->output_base.empty()) {
 #if !defined(__CYGWIN__)
-    globals->options->output_base = GetHashedBaseDir(
+    globals->options->output_base = blaze::GetHashedBaseDir(
         globals->options->output_user_root, globals->workspace);
 #else
-    globals->options->output_base = GetHashedBaseDirForWindows(
-        blaze::GetOutputRoot(), globals->options->product_name,
-        blaze::GetUserName(), globals->workspace);
+    // This MD5s together user name and workspace directory.
+    //
+    // TODO(bazel-team) 2016-11-16: use the --output_user_root instead of
+    // blaze::GetOutputRoot (https://github.com/bazelbuild/bazel/issues/2096).
+    globals->options->output_base = blaze::GetHashedBaseDir(
+        blaze::GetOutputRoot() + "/" + globals->options->product_name,
+        blaze::GetUserName() + globals->workspace);
 #endif
   }
 

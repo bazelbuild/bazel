@@ -7,6 +7,7 @@ cc_library(
         "errors.h",
         "file.h",
         "file_platform.h",
+        "md5.h",
         "numbers.h",
         "port.h",
     ],
@@ -15,6 +16,7 @@ cc_library(
         ":blaze_exit_code",
         ":errors",
         ":file",
+        ":md5",
         ":numbers",
         ":port",
         ":strings",
@@ -70,7 +72,10 @@ cc_library(
     name = "md5",
     srcs = ["md5.cc"],
     hdrs = ["md5.h"],
-    visibility = ["//visibility:public"],
+    visibility = [
+        "//src/main/native:__pkg__",
+        "//src/test/cpp/util:__pkg__",
+    ],
 )
 
 cc_library(

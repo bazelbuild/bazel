@@ -34,6 +34,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze {
@@ -825,6 +826,29 @@ bool KillServerProcess(int pid) {
 
 // Not supported.
 void ExcludePathFromBackup(const string &path) {
+}
+
+string GetHashedBaseDir(const string& root, const string& hashable) {
+  // Builds a shorter output base dir name for Windows.
+  // This algorithm only uses 1/3 of the bits to get 8-char alphanumeric
+  // file name.
+
+  static const char* alphabet
+      // Exactly 64 characters.
+      = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789$-";
+
+  // The length of the resulting filename (8 characters).
+  static const int filename_length = blaze_util::Md5Digest::kDigestLength / 2;
+  unsigned char buf[blaze_util::Md5Digest::kDigestLength];
+  char coded_name[filename_length + 1];
+  blaze_util::Md5Digest digest;
+  digest.Update(hashable.data(), hashable.size());
+  digest.Finish(buf);
+  for (int i = 0; i < filename_length; i++) {
+    coded_name[i] = alphabet[buf[i] & 0x3F];
+  }
+  coded_name[filename_length] = '\0';
+  return root + "/" + string(coded_name);
 }
 
 LARGE_INTEGER WindowsClock::GetFrequency() {

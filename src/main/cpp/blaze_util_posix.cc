@@ -27,6 +27,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/md5.h"
 
 namespace blaze {
 
@@ -215,6 +216,14 @@ bool ReadDirectorySymlink(const string &name, string* result) {
 
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
+}
+
+string GetHashedBaseDir(const string& root, const string& hashable) {
+  unsigned char buf[blaze_util::Md5Digest::kDigestLength];
+  blaze_util::Md5Digest digest;
+  digest.Update(hashable.data(), hashable.size());
+  digest.Finish(buf);
+  return root + "/" + digest.String();
 }
 
 }   // namespace blaze.
