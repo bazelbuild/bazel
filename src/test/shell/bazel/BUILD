@@ -249,7 +249,8 @@ sh_test(
     data = [":test-deps"],
 )
 
-# To run this test, ensure that the maven_dependency_plugin() in WORKSPACE is uncommented as well.
+# To run this test, ensure that maven_dependency_plugin() and
+# android_repositories() in WORKSPACE are uncommented.
 sh_test(
     name = "maven_skylark_test",
     size = "medium",
