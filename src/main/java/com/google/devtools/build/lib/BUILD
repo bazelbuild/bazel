@@ -824,7 +824,6 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
-        "rules/java/BaseJavaCompilationHelper.java",
         "rules/java/BuildInfoPropertiesTranslator.java",
         "rules/java/ClasspathConfiguredFragment.java",
         "rules/java/DeployArchiveBuilder.java",

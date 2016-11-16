@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.java.BaseJavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -93,8 +93,8 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
             jack,
             jill,
             resourceExtractor,
-            BaseJavaCompilationHelper.getBootClasspath(
-                ruleContext, JavaToolchainProvider.fromRuleContext(ruleContext), ""));
+            JavaCompilationHelper.getBootClasspath(
+                JavaToolchainProvider.fromRuleContext(ruleContext)));
     Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes", Mode.HOST);
 

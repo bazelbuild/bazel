@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -342,7 +343,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(
-          helper.build(javaSemantics), true /* isReportedAsStrict */);
+          helper.build(
+              javaSemantics,
+              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+              JavaCompilationHelper.getHostJavabaseInputsNonStatic(ruleContext),
+              JavaCompilationHelper.getInstrumentationJars(ruleContext)),
+          true /* isReportedAsStrict */);
     }
 
     private ProtoLangToolchainProvider getProtoToolchainProvider() {

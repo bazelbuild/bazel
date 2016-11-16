@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -220,7 +221,11 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
         helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
       }
       helper.setCompilationStrictDepsMode(StrictDepsMode.OFF);
-      JavaCompilationArgs artifacts = helper.build(javaSemantics);
+      JavaCompilationArgs artifacts = helper.build(
+          javaSemantics,
+          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+          JavaCompilationHelper.getHostJavabaseInputsNonStatic(ruleContext),
+          JavaCompilationHelper.getInstrumentationJars(ruleContext));
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
     }
 

@@ -69,11 +69,10 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     semantics.checkRule(ruleContext, common);
 
     // No need for javac options - no compilation happening here.
-    BaseJavaCompilationHelper helper = new BaseJavaCompilationHelper(ruleContext);
     ImmutableBiMap.Builder<Artifact, Artifact> compilationToRuntimeJarMapBuilder =
         ImmutableBiMap.builder();
     ImmutableList<Artifact> interfaceJars =
-        processWithIjar(jars, helper, compilationToRuntimeJarMapBuilder);
+        processWithIjar(jars, ruleContext, compilationToRuntimeJarMapBuilder);
 
     JavaCompilationArtifacts javaArtifacts = collectJavaArtifacts(jars, interfaceJars);
     common.setJavaCompilationArtifacts(javaArtifacts);
@@ -221,11 +220,14 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<Artifact> processWithIjar(ImmutableList<Artifact> jars,
-      BaseJavaCompilationHelper helper,
+      RuleContext ruleContext,
       ImmutableMap.Builder<Artifact, Artifact> compilationToRuntimeJarMap) {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
     for (Artifact jar : jars) {
-      Artifact ijar = helper.createIjarAction(jar, true);
+      Artifact ijar = JavaCompilationHelper.createIjarAction(
+          ruleContext,
+          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+          jar, true);
       interfaceJarsBuilder.add(ijar);
       compilationToRuntimeJarMap.put(ijar, jar);
     }
