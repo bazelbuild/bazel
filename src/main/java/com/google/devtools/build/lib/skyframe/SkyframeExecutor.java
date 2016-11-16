@@ -565,7 +565,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     memoizingEvaluator = evaluatorSupplier.create(
         skyFunctions, evaluatorDiffer(), progressReceiver, emittedEventState,
         hasIncrementalState());
-    buildDriver = newBuildDriver();
+    buildDriver = getBuildDriver();
   }
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
@@ -588,7 +588,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected abstract Differencer evaluatorDiffer();
 
-  protected abstract BuildDriver newBuildDriver();
+  protected abstract BuildDriver getBuildDriver();
 
   /**
    * Values whose values are known at startup and guaranteed constant are still wiped from the
@@ -1544,6 +1544,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         buildDriver.evaluate(ImmutableList.of(universeKey), true, numThreads, eventHandler);
     Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), universeKey);
     return evaluationResult;
+  }
+
+  @Override
+  public boolean isUpToDate(SkyKey universeKey) {
+    return buildDriver.alreadyEvaluated(ImmutableList.of(universeKey));
   }
 
   /**
