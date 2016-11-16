@@ -205,9 +205,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private void beforeEvaluateQuery() throws InterruptedException {
     EvaluationResult<SkyValue> result;
     try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", LOG)) {
-      result =
-          graphFactory.prepareAndGet(
-              universeScope, parserPrefix, loadingPhaseThreads, eventHandler);
+      result = graphFactory.prepareAndGet(universeKey, loadingPhaseThreads, eventHandler);
     }
     checkEvaluationResult(result);
 

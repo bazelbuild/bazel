@@ -1530,20 +1530,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * For internal use in queries: performs a graph update to make sure the transitive closure of
-   * the specified target {@code patterns} is present in the graph, and returns the {@link
+   * For internal use in queries: performs a graph update to make sure the transitive closure of the
+   * specified {@code universeKey} is present in the graph, and returns the {@link
    * EvaluationResult}.
    *
    * <p>The graph update is unconditionally done in keep-going mode, so that the query is guaranteed
    * a complete graph to work on.
    */
   @Override
-  public EvaluationResult<SkyValue> prepareAndGet(Collection<String> patterns, String offset,
-      int numThreads, EventHandler eventHandler) throws InterruptedException {
-    SkyKey skyKey = getUniverseKey(patterns, offset);
+  public EvaluationResult<SkyValue> prepareAndGet(
+      SkyKey universeKey, int numThreads, EventHandler eventHandler) throws InterruptedException {
     EvaluationResult<SkyValue> evaluationResult =
-        buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
-    Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
+        buildDriver.evaluate(ImmutableList.of(universeKey), true, numThreads, eventHandler);
+    Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), universeKey);
     return evaluationResult;
   }
 

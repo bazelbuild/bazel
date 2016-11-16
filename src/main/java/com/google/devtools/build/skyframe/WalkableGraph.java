@@ -92,8 +92,8 @@ public interface WalkableGraph {
 
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
-    EvaluationResult<SkyValue> prepareAndGet(Collection<String> roots, String offset,
-        int numThreads, EventHandler eventHandler) throws InterruptedException;
+    EvaluationResult<SkyValue> prepareAndGet(
+        SkyKey universeKey, int numThreads, EventHandler eventHandler) throws InterruptedException;
 
     /** Returns the {@link SkyKey} that defines this universe. */
     SkyKey getUniverseKey(Collection<String> roots, String offset);
