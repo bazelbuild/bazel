@@ -114,6 +114,9 @@ EOF
     android:versionCode="1"
     android:versionName="1.0" >
     <application />
+    <uses-sdk
+        android:minSdkVersion="9"
+        android:targetSdkVersion="20" />
 </manifest>
 EOF
 }
