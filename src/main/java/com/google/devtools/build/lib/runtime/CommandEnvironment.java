@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
@@ -90,7 +91,7 @@ public final class CommandEnvironment {
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
-  private ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = ImmutableList.of();
+  private ActionInputPrefetcher actionInputPrefetcher;
   private Path workingDirectory;
 
   private String commandName;
@@ -344,8 +345,8 @@ public final class CommandEnvironment {
     return outputService;
   }
 
-  public ImmutableList<ActionInputPrefetcher> getActionInputPrefetchers() {
-    return actionInputPrefetchers;
+  public ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher == null ? ActionInputPrefetcher.NONE : actionInputPrefetcher;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -564,7 +565,16 @@ public final class CommandEnvironment {
         prefetchersBuilder.add(actionInputPrefetcher);
       }
     }
-    actionInputPrefetchers = prefetchersBuilder.build();
+    final ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = prefetchersBuilder.build();
+    actionInputPrefetcher =
+        new ActionInputPrefetcher() {
+          @Override
+          public void prefetchFile(ActionInput input) {
+            for (ActionInputPrefetcher prefetcher : actionInputPrefetchers) {
+              prefetcher.prefetchFile(input);
+            }
+          }
+        };
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setOutputService(outputService);
