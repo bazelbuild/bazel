@@ -1288,18 +1288,8 @@ static void ComputeBaseDirectories(const string &self_path) {
   }
 
   if (globals->options->output_base.empty()) {
-#if !defined(__CYGWIN__)
     globals->options->output_base = blaze::GetHashedBaseDir(
         globals->options->output_user_root, globals->workspace);
-#else
-    // This MD5s together user name and workspace directory.
-    //
-    // TODO(bazel-team) 2016-11-16: use the --output_user_root instead of
-    // blaze::GetOutputRoot (https://github.com/bazelbuild/bazel/issues/2096).
-    globals->options->output_base = blaze::GetHashedBaseDir(
-        blaze::GetOutputRoot() + "/" + globals->options->product_name,
-        blaze::GetUserName() + globals->workspace);
-#endif
   }
 
   struct stat buf;
