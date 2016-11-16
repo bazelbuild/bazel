@@ -22,6 +22,8 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.util.OsUtils;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -54,7 +56,7 @@ public class ProtoLangToolchainTest extends BuildViewTestCase {
 
     assertThat(toolchain.commandLine()).isEqualTo("cmd-line");
     assertThat(toolchain.pluginExecutable().getExecutable().getRootRelativePathString())
-        .isEqualTo("x/plugin");
+        .isEqualTo("x/plugin" + OsUtils.executableExtension());
 
     TransitiveInfoCollection runtimes = toolchain.runtime();
     assertThat(runtimes.getLabel()).isEqualTo(Label.parseAbsolute("//x:runtime"));

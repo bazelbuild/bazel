@@ -1144,6 +1144,7 @@ java_test(
         ":analysis_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:junit4",
