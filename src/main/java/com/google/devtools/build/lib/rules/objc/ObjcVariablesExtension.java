@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequence;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import java.util.Set;
 
@@ -121,23 +121,23 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private void addPchVariables(CcToolchainFeatures.Variables.Builder builder) {
     if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
-      builder.addVariable(
+      builder.addStringVariable(
           PCH_FILE_VARIABLE_NAME,
           ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
     }
   }
 
   private void addFrameworkVariables(CcToolchainFeatures.Variables.Builder builder) {
-    StringSequence.Builder frameworkSequence = new StringSequence.Builder();
+    StringSequenceBuilder frameworkSequence = new StringSequenceBuilder();
     for (String framework :
         CompilationSupport.commonFrameworkNames(objcProvider, appleConfiguration)) {
       frameworkSequence.addValue(framework);
     }
-    builder.addSequence(FRAMEWORKS_VARIABLE_NAME, frameworkSequence.build());
+    builder.addCustomBuiltVariable(FRAMEWORKS_VARIABLE_NAME, frameworkSequence);
   }
 
   private void addModuleMapVariables(CcToolchainFeatures.Variables.Builder builder) {
-    builder.addVariable(
+    builder.addStringVariable(
         MODULES_MAPS_DIR_NAME,
         intermediateArtifacts
             .moduleMap()
@@ -145,58 +145,61 @@ class ObjcVariablesExtension implements VariablesExtension {
             .getExecPath()
             .getParentDirectory()
             .toString());
-    builder.addVariable(
+    builder.addStringVariable(
         OBJC_MODULE_CACHE_KEY,
         buildConfiguration.getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME);
   }
 
   private void addArchVariables(CcToolchainFeatures.Variables.Builder builder) {
     Platform platform = appleConfiguration.getSingleArchPlatform();
-    builder.addVariable(VERSION_MIN_VARIABLE_NAME,
+    builder.addStringVariable(
+        VERSION_MIN_VARIABLE_NAME,
         appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString());
   }
 
   private void addArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {
-    builder.addVariable(
+    builder.addStringVariable(
         OBJ_LIST_PATH_VARIABLE_NAME,
         ObjcRuleClasses.intermediateArtifacts(ruleContext).archiveObjList().getExecPathString());
-    builder.addVariable(
+    builder.addStringVariable(
         ARCHIVE_PATH_VARIABLE_NAME, compilationArtifacts.getArchive().get().getExecPathString());
   }
 
   private void addFullyLinkArchiveVariables(CcToolchainFeatures.Variables.Builder builder) {
-    builder.addVariable(
+    builder.addStringVariable(
         FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
-    builder.addSequenceVariable(
+    builder.addStringSequenceVariable(
         OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
         ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.getObjcLibraries())));
-    builder.addSequenceVariable(
+    builder.addStringSequenceVariable(
         CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
         ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.getCcLibraries())));
-    builder.addSequenceVariable(
+    builder.addStringSequenceVariable(
         IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
         ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY))));
   }
 
   private void addExecutableLinkVariables(CcToolchainFeatures.Variables.Builder builder) {
-    builder.addSequenceVariable(FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
-    builder.addSequenceVariable(
+    builder.addStringSequenceVariable(
+        FRAMEWORK_NAMES_VARIABLE_NAME, ImmutableList.copyOf(frameworkNames));
+    builder.addStringSequenceVariable(
         WEAK_FRAMEWORK_NAMES_VARIABLE_NAME,
-        SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK)));
-    builder.addSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
-    builder.addVariable(
+        ImmutableList.copyOf(
+            SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK))));
+    builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
+    builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
-    builder.addVariable(
+    builder.addStringVariable(
         LINKED_BINARY_VARIABLE_NAME,
         ruleContext.getFragment(ObjcConfiguration.class).shouldStripBinary()
             ? intermediateArtifacts.unstrippedSingleArchitectureBinary().getExecPathString()
             : intermediateArtifacts.strippedSingleArchitectureBinary().getExecPathString());
 
-    builder.addSequenceVariable(
+    builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,
-        Artifact.toExecPaths(forceLoadArtifacts));
-    builder.addSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
-    builder.addSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
+        ImmutableList.copyOf(Artifact.toExecPaths(forceLoadArtifacts)));
+    builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
+    builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
 
   /** A Builder for {@link ObjcVariablesExtension}. */

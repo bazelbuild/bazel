@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.Sequence;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequence;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureValue;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -71,10 +71,10 @@ public class CcToolchainFeaturesTest {
     Variables.Builder variables = new Variables.Builder();
     for (String name : entryMap.keySet()) {
       Collection<String> value = entryMap.get(name);
-      if (value.size() > 1) {
-        variables.addSequenceVariable(name, value);
+      if (value.size() == 1) {
+        variables.addStringVariable(name, value.iterator().next());
       } else {
-        variables.addVariable(name, value.iterator().next());
+        variables.addStringSequenceVariable(name, ImmutableList.copyOf(value));
       }
     }
     return variables.build();
@@ -197,7 +197,7 @@ public class CcToolchainFeaturesTest {
         "    " + groups, 
         "  }",
         "}").getFeatureConfiguration("a");
-    return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);    
+    return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);
   }
   
   private List<String> getCommandLineForFlag(String value, Variables variables) throws Exception {
@@ -207,7 +207,7 @@ public class CcToolchainFeaturesTest {
   private String getExpansionOfFlag(String value, Variables variables) throws Exception {
     return getCommandLineForFlag(value, variables).get(0);
   }
-  
+
   private String getFlagParsingError(String value) throws Exception {
     try {
       getExpansionOfFlag(value);
@@ -251,28 +251,27 @@ public class CcToolchainFeaturesTest {
     assertThat(getFlagParsingError("% ")).contains("expected '{'");
     assertThat(getFlagParsingError("%{")).contains("expected variable name");
     assertThat(getFlagParsingError("%{}")).contains("expected variable name");
-    assertThat(getCommandLineForFlag("%{v}",
-        new Variables.Builder().addSequenceVariable("v", ImmutableList.<String>of()).build()))
+    assertThat(
+            getCommandLineForFlag(
+                "%{v}",
+                new Variables.Builder()
+                    .addStringSequenceVariable("v", ImmutableList.<String>of())
+                    .build()))
         .isEmpty();
-    assertThat(getFlagExpansionError("%{v}", createVariables())).contains("unknown variable 'v'");
-    assertThat(getFlagExpansionError("%{v}", new Variables.Builder()
-        .addSequenceVariable("v", ImmutableList.<String>of("1"))
-        .addVariable("v", "2").build()))
-        .contains("variable 'v'");
+    assertThat(getFlagExpansionError("%{v}", createVariables()))
+        .contains("Invalid toolchain configuration: Cannot find variable named 'v'");
   }
 
-  private Variables createStructureVariables(String name, StructureValue.Builder... values) {
-    Variables.Builder variables = new Variables.Builder();
-    if (values.length == 1) {
-      variables.addStructureVariable(name, values[0].build());
-    } else {
-      ImmutableList.Builder<VariableValue> sequence = ImmutableList.builder();
-      for (StructureValue.Builder builder : values) {
-        sequence.add(builder.build());
-      }
-      variables.addSequence(name, new Sequence(sequence.build()));
+  private Variables createStructureSequenceVariables(String name, StructureBuilder... values) {
+    SequenceBuilder builder = new SequenceBuilder();
+    for (StructureBuilder value : values) {
+      builder.addValue(value.build());
     }
-    return variables.build();
+    return new Variables.Builder().addCustomBuiltVariable(name, builder).build();
+  }
+
+  private Variables createStructureVariables(String name, StructureBuilder value) {
+    return new Variables.Builder().addCustomBuiltVariable(name, value).build();
   }
 
   @Test
@@ -282,7 +281,7 @@ public class CcToolchainFeaturesTest {
                 "flag_group { flag: '-A%{struct.foo}' flag: '-B%{struct.bar}' }",
                 createStructureVariables(
                     "struct",
-                    new StructureValue.Builder()
+                    new StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
         .containsExactly("-AfooValue", "-BbarValue");
@@ -295,9 +294,8 @@ public class CcToolchainFeaturesTest {
                 "flag_group { flag: '-A%{struct.foo.bar}' }",
                 createStructureVariables(
                     "struct",
-                    new StructureValue.Builder()
-                        .addField(
-                            "foo", new StructureValue.Builder().addField("bar", "fooBarValue")))))
+                    new StructureBuilder()
+                        .addField("foo", new StructureBuilder().addField("bar", "fooBarValue")))))
         .containsExactly("-AfooBarValue");
   }
 
@@ -308,10 +306,12 @@ public class CcToolchainFeaturesTest {
                 "flag_group { flag: '-A%{struct}' }",
                 createStructureVariables(
                     "struct",
-                    new StructureValue.Builder()
+                    new StructureBuilder()
                         .addField("foo", "fooValue")
                         .addField("bar", "barValue"))))
-        .isEqualTo("Cannot expand variable 'struct': expected string, found structure");
+        .isEqualTo(
+            "Invalid toolchain configuration: Cannot expand variable 'struct': expected string, "
+                + "found structure");
   }
 
   @Test
@@ -321,8 +321,8 @@ public class CcToolchainFeaturesTest {
                 "flag_group { flag: '-A%{stringVar.foo}' }",
                 createVariables("stringVar", "stringVarValue")))
         .isEqualTo(
-            "Cannot expand variable 'stringVar.foo': variable 'stringVar' is string, "
-                + "expected structure");
+            "Invalid toolchain configuration: Cannot expand variable 'stringVar.foo': variable "
+                + "'stringVar' is string, expected structure");
   }
 
   @Test
@@ -332,8 +332,8 @@ public class CcToolchainFeaturesTest {
                 "flag_group { flag: '-A%{sequence.foo}' }",
                 createVariables("sequence", "foo1", "sequence", "foo2")))
         .isEqualTo(
-            "Cannot expand variable 'sequence.foo': variable 'sequence' is sequence, "
-                + "expected structure");
+            "Invalid toolchain configuration: Cannot expand variable 'sequence.foo': variable "
+                + "'sequence' is sequence, expected structure");
   }
 
   @Test
@@ -342,10 +342,10 @@ public class CcToolchainFeaturesTest {
             getFlagGroupsExpansionError(
                 "flag_group { flag: '-A%{struct.missing}' }",
                 createStructureVariables(
-                    "struct", new StructureValue.Builder().addField("bar", "barValue"))))
+                    "struct", new StructureBuilder().addField("bar", "barValue"))))
         .isEqualTo(
-            "Cannot expand variable 'struct.missing': structure struct doesn't have a field "
-                + "named 'missing'");
+            "Invalid toolchain configuration: Cannot expand variable 'struct.missing': structure "
+                + "struct doesn't have a field named 'missing'");
   }
 
   @Test
@@ -353,10 +353,10 @@ public class CcToolchainFeaturesTest {
     assertThat(
             getCommandLineForFlagGroups(
                 "flag_group { iterate_over: 'structs' flag: '-A%{structs.foo}' }",
-                createStructureVariables(
+                createStructureSequenceVariables(
                     "structs",
-                    new StructureValue.Builder().addField("foo", "foo1Value"),
-                    new StructureValue.Builder().addField("foo", "foo2Value"))))
+                    new StructureBuilder().addField("foo", "foo1Value"),
+                    new StructureBuilder().addField("foo", "foo2Value"))))
         .containsExactly("-Afoo1Value", "-Afoo2Value");
   }
 
@@ -370,22 +370,17 @@ public class CcToolchainFeaturesTest {
                     + "}",
                 createStructureVariables(
                     "struct",
-                    new StructureValue.Builder()
+                    new StructureBuilder()
                         .addField(
                             "sequences",
-                            new Sequence.Builder()
-                                .addValue(new StructureValue.Builder().addField("foo", "foo1Value"))
-                                .addValue(
-                                    new StructureValue.Builder().addField("foo", "foo2Value"))))))
+                            new SequenceBuilder()
+                                .addValue(new StructureBuilder().addField("foo", "foo1Value"))
+                                .addValue(new StructureBuilder().addField("foo", "foo2Value"))))))
         .containsExactly("-Afoo1Value", "-Afoo2Value");
   }
 
   @Test
   public void testDottedNamesNotAlwaysMeanStructures() throws Exception {
-    Variables.Builder variables = new Variables.Builder();
-    variables.addStructureVariable(
-        "struct", new StructureValue.Builder().addField("sequence", "first", "second").build());
-    variables.addSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"));
     assertThat(
             getCommandLineForFlagGroups(
                 "flag_group {"
@@ -397,7 +392,13 @@ public class CcToolchainFeaturesTest {
                     + "    }"
                     + "  }"
                     + "}",
-                variables.build()))
+                new Variables.Builder()
+                    .addCustomBuiltVariable(
+                        "struct",
+                        new StructureBuilder()
+                            .addField("sequence", ImmutableList.of("first", "second")))
+                    .addStringSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"))
+                    .build()))
         .containsExactly("-Afirst -Bfoo", "-Afirst -Bbar", "-Asecond -Bfoo", "-Asecond -Bbar");
   }
 
@@ -406,11 +407,12 @@ public class CcToolchainFeaturesTest {
   @Test
   public void testVariableLookupIsBrokenForImplicitStructFieldIteration() throws Exception {
     assertThat(
-            getFlagGroupsExpansionError(
+            getCommandLineForFlagGroups(
                 "flag_group { flag: '-A%{struct.sequence}' }",
                 createStructureVariables(
-                    "struct", new StructureValue.Builder().addField("sequence", "foo", "bar"))))
-        .contains("Cannot expand variable 'struct.sequence': expected string, found sequence");
+                    "struct",
+                    new StructureBuilder().addField("sequence", ImmutableList.of("foo", "bar")))))
+        .containsExactly("-Afoo", "-Abar");
   }
 
   @Test
@@ -507,27 +509,28 @@ public class CcToolchainFeaturesTest {
     }
   }
   
-  private VariableValue createNestedSequence(int depth, int count, String prefix) {
+  private VariableValueBuilder createNestedSequence(int depth, int count, String prefix) {
     if (depth == 0) {
-      StringSequence.Builder builder = new StringSequence.Builder();
+      StringSequenceBuilder builder = new StringSequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
         builder.addValue(value);
       }
-      return builder.build();
+      return builder;
     } else {
-      Sequence.Builder builder = new Sequence.Builder();
+      SequenceBuilder builder = new SequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
         builder.addValue(createNestedSequence(depth - 1, count, value));
       }
-      return builder.build();
+      return builder;
     }
   }
 
   private Variables createNestedVariables(String name, int depth, int count) {
     return new Variables.Builder()
-        .addSequence(name, createNestedSequence(depth, count, "")).build();
+        .addCustomBuiltVariable(name, createNestedSequence(depth, count, ""))
+        .build();
   }
 
   @Test

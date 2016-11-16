@@ -1179,33 +1179,33 @@ public class CppLinkActionBuilder {
 
   private static class LinkArgCollector {
     String rpathRoot;
-    List<String> rpathEntries;
-    Set<String> libopts;
-    List<String> linkerInputParams;
-    List<String> wholeArchiveLinkerInputParams;
-    List<String> noWholeArchiveInputs;
+    ImmutableList<String> rpathEntries;
+    ImmutableSet<String> libopts;
+    ImmutableList<String> linkerInputParams;
+    ImmutableList<String> wholeArchiveLinkerInputParams;
+    ImmutableList<String> noWholeArchiveInputs;
 
     public void setRpathRoot(String rPathRoot) {
       this.rpathRoot = rPathRoot;
     }
 
-    public void setRpathEntries(List<String> rpathEntries) {
+    public void setRpathEntries(ImmutableList<String> rpathEntries) {
       this.rpathEntries = rpathEntries;
     }
 
-    public void setLibopts(Set<String> libopts) {
+    public void setLibopts(ImmutableSet<String> libopts) {
       this.libopts = libopts;
     }
 
-    public void setLinkerInputParams(List<String> linkerInputParams) {
+    public void setLinkerInputParams(ImmutableList<String> linkerInputParams) {
       this.linkerInputParams = linkerInputParams;
     }
 
-    public void setWholeArchiveLinkerInputParams(List<String> wholeArchiveInputParams) {
+    public void setWholeArchiveLinkerInputParams(ImmutableList<String> wholeArchiveInputParams) {
       this.wholeArchiveLinkerInputParams = wholeArchiveInputParams;
     }
 
-    public void setNoWholeArchiveInputs(List<String> noWholeArchiveInputs) {
+    public void setNoWholeArchiveInputs(ImmutableList<String> noWholeArchiveInputs) {
       this.noWholeArchiveInputs = noWholeArchiveInputs;
     }
 
@@ -1213,23 +1213,23 @@ public class CppLinkActionBuilder {
       return rpathRoot;
     }
 
-    public List<String> getRpathEntries() {
+    public ImmutableList<String> getRpathEntries() {
       return rpathEntries;
     }
 
-    public Set<String> getLibopts() {
-      return libopts;
+    public ImmutableList<String> getLibopts() {
+      return libopts.asList();
     }
 
-    public List<String> getLinkerInputParams() {
+    public ImmutableList<String> getLinkerInputParams() {
       return linkerInputParams;
     }
 
-    public List<String> getWholeArchiveLinkerInputParams() {
+    public ImmutableList<String> getWholeArchiveLinkerInputParams() {
       return wholeArchiveLinkerInputParams;
     }
 
-    public List<String> getNoWholeArchiveInputs() {
+    public ImmutableList<String> getNoWholeArchiveInputs() {
       return noWholeArchiveInputs;
     }
   }
@@ -1289,7 +1289,8 @@ public class CppLinkActionBuilder {
 
       // symbol counting
       if (symbolCounts != null) {
-        buildVariables.addVariable(SYMBOL_COUNTS_OUTPUT_VARIABLE, symbolCounts.getExecPathString());
+        buildVariables.addStringVariable(
+            SYMBOL_COUNTS_OUTPUT_VARIABLE, symbolCounts.getExecPathString());
       }
 
       // linkstamp
@@ -1298,54 +1299,57 @@ public class CppLinkActionBuilder {
         linkstampPaths.add(linkstampOutput.getExecPathString());
       }
 
-      buildVariables.addSequenceVariable(LINKSTAMP_PATHS_VARIABLE, linkstampPaths.build());
+      buildVariables.addStringSequenceVariable(
+          LINKSTAMP_PATHS_VARIABLE, linkstampPaths.build().asList());
 
       // pic
       boolean forcePic = cppConfiguration.forcePic();
       if (forcePic) {
-        buildVariables.addVariable(FORCE_PIC_VARIABLE, "");
+        buildVariables.addStringVariable(FORCE_PIC_VARIABLE, "");
       }
 
       // rpath
       if (linkArgCollector.getRpathRoot() != null) {
-        buildVariables.addVariable(RUNTIME_ROOT_FLAGS_VARIABLE, linkArgCollector.getRpathRoot());
+        buildVariables.addStringVariable(
+            RUNTIME_ROOT_FLAGS_VARIABLE, linkArgCollector.getRpathRoot());
       }
 
       if (linkArgCollector.getRpathEntries() != null) {
-        buildVariables.addSequenceVariable(
+        buildVariables.addStringSequenceVariable(
             RUNTIME_ROOT_ENTRIES_VARIABLE, linkArgCollector.getRpathEntries());
       }
 
-      buildVariables.addSequenceVariable(LIBOPTS_VARIABLE, linkArgCollector.getLibopts());
-      buildVariables.addSequenceVariable(
+      buildVariables.addStringSequenceVariable(LIBOPTS_VARIABLE, linkArgCollector.getLibopts());
+      buildVariables.addStringSequenceVariable(
           LINKER_INPUT_PARAMS_VARIABLE, linkArgCollector.getLinkerInputParams());
-      buildVariables.addSequenceVariable(
+      buildVariables.addStringSequenceVariable(
           WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE,
           linkArgCollector.getWholeArchiveLinkerInputParams());
 
       // global archive
       if (needWholeArchive) {
-        buildVariables.addVariable(GLOBAL_WHOLE_ARCHIVE_VARIABLE, "");
+        buildVariables.addStringVariable(GLOBAL_WHOLE_ARCHIVE_VARIABLE, "");
       }
 
       // mostly static
       if (linkStaticness == LinkStaticness.MOSTLY_STATIC && cppConfiguration.skipStaticOutputs()) {
-        buildVariables.addVariable(SKIP_MOSTLY_STATIC_VARIABLE, "");
+        buildVariables.addStringVariable(SKIP_MOSTLY_STATIC_VARIABLE, "");
       }
 
       // output exec path
       if (outputArtifact != null) {
-        buildVariables.addVariable(OUTPUT_EXECPATH_VARIABLE, outputArtifact.getExecPathString());
+        buildVariables.addStringVariable(
+            OUTPUT_EXECPATH_VARIABLE, outputArtifact.getExecPathString());
       }
 
       if (!ltoOutputRootPrefix.equals(PathFragment.EMPTY_FRAGMENT)) {
         if (linkerParamsFile != null) {
-          buildVariables.addVariable(
+          buildVariables.addStringVariable(
               "thinlto_optional_params_file", "=" + linkerParamsFile.getExecPathString());
         } else {
-          buildVariables.addVariable("thinlto_optional_params_file", "");
+          buildVariables.addStringVariable("thinlto_optional_params_file", "");
         }
-        buildVariables.addVariable(
+        buildVariables.addStringVariable(
             "thinlto_prefix_replace",
             configuration.getBinDirectory().getExecPathString()
                 + ";"
@@ -1355,21 +1359,21 @@ public class CppLinkActionBuilder {
           outputArtifact != null
               && interfaceLibraryBuilder != null
               && interfaceLibraryOutput != null;
-      buildVariables.addVariable(
+      buildVariables.addStringVariable(
           GENERATE_INTERFACE_LIBRARY_VARIABLE, shouldGenerateInterfaceLibrary ? "yes" : "no");
-      buildVariables.addVariable(
+      buildVariables.addStringVariable(
           INTERFACE_LIBRARY_BUILDER_VARIABLE,
           shouldGenerateInterfaceLibrary ? interfaceLibraryBuilder.getExecPathString() : "ignored");
-      buildVariables.addVariable(
+      buildVariables.addStringVariable(
           INTERFACE_LIBRARY_INPUT_VARIABLE,
           shouldGenerateInterfaceLibrary ? outputArtifact.getExecPathString() : "ignored");
-      buildVariables.addVariable(
+      buildVariables.addStringVariable(
           INTERFACE_LIBRARY_OUTPUT_VARIABLE,
           shouldGenerateInterfaceLibrary ? interfaceLibraryOutput.getExecPathString() : "ignored");
 
       // Variables arising from the toolchain
       buildVariables
-          .addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables())
+          .addAllStringVariables(CppHelper.getToolchain(ruleContext).getBuildVariables())
           .build();
       CppHelper.getFdoSupport(ruleContext).getLinkOptions(featureConfiguration, buildVariables);
     }
@@ -1399,11 +1403,11 @@ public class CppLinkActionBuilder {
     private void addInputFileLinkOptions(LinkArgCollector linkArgCollector) {
 
       // Used to collect -L and -Wl,-rpath options, ensuring that each used only once.
-      Set<String> libOpts = new LinkedHashSet<>();
+      ImmutableSet.Builder<String> libOpts = ImmutableSet.builder();
 
       // List of command line parameters that need to be placed *outside* of
       // --whole-archive ... --no-whole-archive.
-      List<String> noWholeArchiveInputs = new ArrayList<>();
+      ImmutableList.Builder<String> noWholeArchiveInputs = ImmutableList.builder();
 
       PathFragment solibDir =
           configuration
@@ -1418,7 +1422,7 @@ public class CppLinkActionBuilder {
                       && linkStaticness == LinkStaticness.DYNAMIC));
 
       String rpathRoot = null;
-      List<String> runtimeRpathEntries = new ArrayList<>();
+      ImmutableList.Builder<String> runtimeRpathEntries = ImmutableList.builder();
 
       if (output != null) {
         String origin =
@@ -1499,8 +1503,8 @@ public class CppLinkActionBuilder {
         }
       }
 
-      List<String> wholeArchiveInputParams = new ArrayList<>();
-      List<String> standardArchiveInputParams = new ArrayList<>();
+      ImmutableList.Builder<String> wholeArchiveInputParams = ImmutableList.builder();
+      ImmutableList.Builder<String> standardArchiveInputParams = ImmutableList.builder();
 
       for (LinkerInput input : linkerInputs) {
         if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
@@ -1524,8 +1528,8 @@ public class CppLinkActionBuilder {
       boolean includeRuntimeSolibDir = false;
 
       for (LinkerInput input : runtimeLinkerInputs) {
-        List<String> optionsList = needWholeArchive
-            ? noWholeArchiveInputs : standardArchiveInputParams;
+        ImmutableList.Builder<String> optionsList =
+            needWholeArchive ? noWholeArchiveInputs : standardArchiveInputParams;
 
         if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
@@ -1552,14 +1556,14 @@ public class CppLinkActionBuilder {
         linkArgCollector.setRpathRoot(rpathRoot);
       }
       if (includeRuntimeSolibDir) {
-        linkArgCollector.setRpathEntries(runtimeRpathEntries);
+        linkArgCollector.setRpathEntries(runtimeRpathEntries.build());
       }
 
-      linkArgCollector.setLibopts(libOpts);
+      linkArgCollector.setLibopts(libOpts.build());
 
-      linkArgCollector.setLinkerInputParams(standardArchiveInputParams);
-      linkArgCollector.setWholeArchiveLinkerInputParams(wholeArchiveInputParams);
-      linkArgCollector.setNoWholeArchiveInputs(noWholeArchiveInputs);
+      linkArgCollector.setLinkerInputParams(standardArchiveInputParams.build());
+      linkArgCollector.setWholeArchiveLinkerInputParams(wholeArchiveInputParams.build());
+      linkArgCollector.setNoWholeArchiveInputs(noWholeArchiveInputs.build());
 
       if (ltoMap != null) {
         Preconditions.checkState(ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMap);
@@ -1569,8 +1573,8 @@ public class CppLinkActionBuilder {
     /** Adds command-line options for a dynamic library input file into options and libOpts. */
     private void addDynamicInputLinkOptions(
         LinkerInput input,
-        List<String> options,
-        Set<String> libOpts,
+        ImmutableList.Builder<String> options,
+        ImmutableSet.Builder<String> libOpts,
         PathFragment solibDir,
         String rpathRoot) {
       Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
@@ -1613,7 +1617,9 @@ public class CppLinkActionBuilder {
      *     be supplied for LTO final links.
      */
     private void addStaticInputLinkOptions(
-        LinkerInput input, List<String> wholeArchiveOptions, List<String> standardOptions,
+        LinkerInput input,
+        ImmutableList.Builder<String> wholeArchiveOptions,
+        ImmutableList.Builder<String> standardOptions,
         @Nullable Map<Artifact, Artifact> ltoMap) {
       Preconditions.checkState(!(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY));
       // If we had any LTO artifacts, ltoMap whould be non-null. In that case,
@@ -1647,8 +1653,8 @@ public class CppLinkActionBuilder {
           }
         }
       } else {
-        List<String> options = inputNeedsWholeArchive(input)
-            ? wholeArchiveOptions : standardOptions;
+        ImmutableList.Builder<String> options =
+            inputNeedsWholeArchive(input) ? wholeArchiveOptions : standardOptions;
         // For anything else, add the input directly.
         Artifact inputArtifact = input.getArtifact();
 
