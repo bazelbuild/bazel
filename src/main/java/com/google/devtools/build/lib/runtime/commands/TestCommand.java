@@ -140,7 +140,7 @@ public class TestCommand implements BlazeCommand {
       // If all tests run successfully, test summary should include warning if
       // there were build errors not associated with the test targets.
       printer.printLn(AnsiTerminalPrinter.Mode.ERROR
-          + "One or more non-test targets failed to build.\n"
+          + "All tests passed but there were other errors during the build.\n"
           + AnsiTerminalPrinter.Mode.DEFAULT);
     }
 
