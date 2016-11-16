@@ -43,4 +43,10 @@ bool ChangeDirectory(const string& path) {
   pdie(255, "blaze_util::ChangeDirectory is not implemented on Windows");
 }
 
+void ForEachDirectoryEntry(const string &path,
+                           DirectoryEntryConsumer *consume) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::ForEachDirectoryEntry is not implemented on Windows");
+}
+
 }  // namespace blaze_util

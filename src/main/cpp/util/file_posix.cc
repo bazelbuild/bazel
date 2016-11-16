@@ -14,6 +14,7 @@
 #include "src/main/cpp/util/file_platform.h"
 
 #include <sys/stat.h>
+#include <dirent.h>  // DIR, dirent, opendir, closedir
 #include <limits.h>  // PATH_MAX
 #include <stdlib.h>  // getenv
 #include <unistd.h>  // access
@@ -82,6 +83,39 @@ string GetCwd() {
 
 bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
+}
+
+void ForEachDirectoryEntry(const string &path,
+                           DirectoryEntryConsumer *consume) {
+  DIR *dir;
+  struct dirent *ent;
+
+  if ((dir = opendir(path.c_str())) == NULL) {
+    // This is not a directory or it cannot be opened.
+    return;
+  }
+
+  while ((ent = readdir(dir)) != NULL) {
+    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
+      continue;
+    }
+
+    string filename(blaze_util::JoinPath(path, ent->d_name));
+    bool is_directory;
+    if (ent->d_type == DT_UNKNOWN) {
+      struct stat buf;
+      if (lstat(filename.c_str(), &buf) == -1) {
+        die(blaze_exit_code::INTERNAL_ERROR, "stat failed");
+      }
+      is_directory = S_ISDIR(buf.st_mode);
+    } else {
+      is_directory = (ent->d_type == DT_DIR);
+    }
+
+    consume->Consume(filename, is_directory);
+  }
+
+  closedir(dir);
 }
 
 }  // namespace blaze_util

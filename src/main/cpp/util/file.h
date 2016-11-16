@@ -15,6 +15,7 @@
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 
 #include <string>
+#include <vector>
 
 namespace blaze_util {
 
@@ -28,6 +29,26 @@ std::string Dirname(const std::string &path);
 std::string Basename(const std::string &path);
 
 std::string JoinPath(const std::string &path1, const std::string &path2);
+
+// Lists all files in `path` and all of its subdirectories.
+//
+// Does not follow symlinks / junctions.
+//
+// Populates `result` with the full paths of the files. Every entry will have
+// `path` as its prefix. If `path` is a file, `result` contains just this file.
+void GetAllFilesUnder(const std::string &path,
+                      std::vector<std::string> *result);
+
+class DirectoryEntryConsumer;
+
+// Visible for testing only.
+typedef void (*_ForEachDirectoryEntry)(const std::string &path,
+                                       DirectoryEntryConsumer *consume);
+
+// Visible for testing only.
+void _GetAllFilesUnder(const std::string &path,
+                       std::vector<std::string> *result,
+                       _ForEachDirectoryEntry walk_entries);
 
 }  // namespace blaze_util
 

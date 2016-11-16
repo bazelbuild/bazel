@@ -27,7 +27,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -867,42 +866,6 @@ static void SyncFile(const char *file_path) {
 #endif
 }
 
-// Walks the temporary directory recursively and collects full file paths.
-static void CollectExtractedFiles(const string &dir_path, vector<string> &files) {
-  DIR *dir;
-  struct dirent *ent;
-
-  if ((dir = opendir(dir_path.c_str())) == NULL) {
-    die(blaze_exit_code::INTERNAL_ERROR, "opendir failed");
-  }
-
-  while ((ent = readdir(dir)) != NULL) {
-    if (!strcmp(ent->d_name, ".") || !strcmp(ent->d_name, "..")) {
-      continue;
-    }
-
-    string filename(blaze_util::JoinPath(dir_path, ent->d_name));
-    bool is_directory;
-    if (ent->d_type == DT_UNKNOWN) {
-      struct stat buf;
-      if (lstat(filename.c_str(), &buf) == -1) {
-        die(blaze_exit_code::INTERNAL_ERROR, "stat failed");
-      }
-      is_directory = S_ISDIR(buf.st_mode);
-    } else {
-      is_directory = (ent->d_type == DT_DIR);
-    }
-
-    if (is_directory) {
-      CollectExtractedFiles(filename, files);
-    } else {
-      files.push_back(filename);
-    }
-  }
-
-  closedir(dir);
-}
-
 // A devtools_ijar::ZipExtractorProcessor to extract the files from the blaze
 // zip.
 class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
@@ -974,19 +937,20 @@ static void ActuallyExtractData(const string &argv0,
   // on the disk.
 
   vector<string> extracted_files;
-  CollectExtractedFiles(embedded_binaries, extracted_files);
+
+  // Walks the temporary directory recursively and collects full file paths.
+  blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
 
   set<string> synced_directories;
-  for (vector<string>::iterator it = extracted_files.begin(); it != extracted_files.end(); it++) {
-
-    const char *extracted_path = it->c_str();
+  for (const auto &it : extracted_files) {
+    const char *extracted_path = it.c_str();
 
     // Set the time to a distantly futuristic value so we can observe tampering.
-    // Note that keeping the default timestamp set by unzip (1970-01-01) and using
-    // that to detect tampering is not enough, because we also need the timestamp
-    // to change between Blaze releases so that the metadata cache knows that
-    // the files may have changed. This is important for actions that use
-    // embedded binaries as artifacts.
+    // Note that keeping the default timestamp set by unzip (1970-01-01) and
+    // using that to detect tampering is not enough, because we also need the
+    // timestamp to change between Blaze releases so that the metadata cache
+    // knows that the files may have changed. This is important for actions that
+    // use embedded binaries as artifacts.
     struct utimbuf times = { future_time, future_time };
     if (utime(extracted_path, &times) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,

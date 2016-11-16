@@ -14,10 +14,16 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include <algorithm>
+
 #include "src/main/cpp/util/file_platform.h"
 #include "gtest/gtest.h"
 
 namespace blaze_util {
+
+using std::pair;
+using std::string;
+using std::vector;
 
 TEST(FilePosixTest, Which) {
   ASSERT_EQ("", Which(""));
@@ -117,6 +123,102 @@ TEST(FilePosixTest, ChangeDirectory) {
   ASSERT_TRUE(blaze_util::ChangeDirectory(old_wd));
   ASSERT_EQ(new_wd, getcwd(new_wd, PATH_MAX));
   ASSERT_EQ(string(old_wd), string(new_wd));
+}
+
+class MockDirectoryEntryConsumer : public DirectoryEntryConsumer {
+ public:
+  void Consume(const std::string &name, bool is_directory) override {
+    entries.push_back(pair<string, bool>(name, is_directory));
+  }
+
+  vector<pair<string, bool> > entries;
+};
+
+TEST(FilePosixTest, ForEachDirectoryEntry) {
+  // Get the test's temp dir.
+  char* tmpdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_FALSE(tmpdir_cstr == NULL);
+  string tempdir(tmpdir_cstr);
+  ASSERT_FALSE(tempdir.empty());
+  if (tempdir.back() == '/') {
+    tempdir = tempdir.substr(0, tempdir.size() - 1);
+  }
+
+  // Create the root directory for the mock directory tree.
+  string root = tempdir + "/FilePosixTest.ForEachDirectoryEntry.root";
+  ASSERT_EQ(0, mkdir(root.c_str(), 0700));
+
+  // Names of mock files and directories.
+  string dir = root + "/dir";
+  string file = root + "/file";
+  string dir_sym = root + "/dir_sym";
+  string file_sym = root + "/file_sym";
+  string subfile = dir + "/subfile";
+  string subfile_through_sym = dir_sym + "/subfile";
+
+  // Create mock directory, file, and symlinks.
+  int fd = open(file.c_str(), O_CREAT, 0700);
+  ASSERT_GT(fd, 0);
+  close(fd);
+  ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
+  ASSERT_EQ(0, symlink("dir", dir_sym.c_str()));
+  ASSERT_EQ(0, symlink("file", file_sym.c_str()));
+  fd = open(subfile.c_str(), O_CREAT, 0700);
+  ASSERT_GT(fd, 0);
+  close(fd);
+
+  // Assert that stat'ing the symlinks (with following them) point to the right
+  // filesystem entry types.
+  struct stat stat_buf;
+  ASSERT_EQ(0, stat(dir_sym.c_str(), &stat_buf));
+  ASSERT_TRUE(S_ISDIR(stat_buf.st_mode));
+  ASSERT_EQ(0, stat(file_sym.c_str(), &stat_buf));
+  ASSERT_FALSE(S_ISDIR(stat_buf.st_mode));
+
+  // Actual test: list the directory.
+  MockDirectoryEntryConsumer consumer;
+  ForEachDirectoryEntry(root, &consumer);
+  ASSERT_EQ(4, consumer.entries.size());
+
+  // Sort the collected directory entries.
+  struct {
+    bool operator()(const pair<string, bool> &a, const pair<string, bool> &b) {
+      return a.first < b.first;
+    }
+  } sort_pairs;
+
+  std::sort(consumer.entries.begin(), consumer.entries.end(), sort_pairs);
+
+  // Assert that the directory entries have the right name and type.
+  pair<string, bool> expected;
+  expected = pair<string, bool>(dir, true);
+  ASSERT_EQ(expected, consumer.entries[0]);
+  expected = pair<string, bool>(dir_sym, false);
+  ASSERT_EQ(expected, consumer.entries[1]);
+  expected = pair<string, bool>(file, false);
+  ASSERT_EQ(expected, consumer.entries[2]);
+  expected = pair<string, bool>(file_sym, false);
+  ASSERT_EQ(expected, consumer.entries[3]);
+
+  // Actual test: list a directory symlink.
+  consumer.entries.clear();
+  ForEachDirectoryEntry(dir_sym, &consumer);
+  ASSERT_EQ(1, consumer.entries.size());
+  expected = pair<string, bool>(subfile_through_sym, false);
+  ASSERT_EQ(expected, consumer.entries[0]);
+
+  // Actual test: list a path that's actually a file, not a directory.
+  consumer.entries.clear();
+  ForEachDirectoryEntry(file, &consumer);
+  ASSERT_TRUE(consumer.entries.empty());
+
+  // Cleanup: delete mock directory tree.
+  rmdir(subfile.c_str());
+  rmdir(dir.c_str());
+  unlink(dir_sym.c_str());
+  unlink(file.c_str());
+  unlink(file_sym.c_str());
+  rmdir(root.c_str());
 }
 
 }  // namespace blaze_util

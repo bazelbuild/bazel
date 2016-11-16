@@ -40,6 +40,27 @@ std::string GetCwd();
 // Changes the current working directory to `path`, returns true upon success.
 bool ChangeDirectory(const std::string& path);
 
+// Interface to be implemented by ForEachDirectoryEntry clients.
+class DirectoryEntryConsumer {
+ public:
+  virtual ~DirectoryEntryConsumer() {}
+
+  // This method is called for each entry in a directory.
+  // `name` is the full path of the entry.
+  // `is_directory` is true if this entry is a directory (but false if this is a
+  // symlink pointing to a directory).
+  virtual void Consume(const std::string &name, bool is_directory) = 0;
+};
+
+// Executes a function for each entry in a directory (except "." and "..").
+//
+// Returns true if the `path` referred to a directory or directory symlink,
+// false otherwise.
+//
+// See DirectoryEntryConsumer for more details.
+void ForEachDirectoryEntry(const std::string &path,
+                           DirectoryEntryConsumer *consume);
+
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
