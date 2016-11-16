@@ -1151,6 +1151,19 @@ java_test(
     ],
 )
 
+java_test(
+    name = "BazelProtoLibraryTest",
+    srcs = ["rules/proto/BazelProtoLibraryTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_binary(
     name = "MockSubprocess",
     srcs = ["windows/MockSubprocess.java"],

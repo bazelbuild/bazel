@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -21,15 +23,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
-/**
- * An implementation for the "proto_library" rule.
- */
+/** An implementation for the "proto_library" rule. */
 public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
   @Override
@@ -37,15 +38,13 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> protoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
-    ImmutableList<Artifact> checkDepsProtoSources = ProtoCommon.getCheckDepsProtoSources(
-        ruleContext, protoSources);
+    ImmutableList<Artifact> checkDepsProtoSources =
+        ProtoCommon.getCheckDepsProtoSources(ruleContext, protoSources);
     ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
 
     NestedSet<Artifact> transitiveImports =
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
 
-    RunfilesProvider runfilesProvider =
-        ProtoCommon.createRunfilesProvider(transitiveImports, ruleContext);
     // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
     ProtoSourcesProvider sourcesProvider =
         ProtoSourcesProvider.create(
@@ -59,10 +58,27 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             null /* usedDirectDeps */,
             !protoSources.isEmpty());
 
+    Artifact descriptorSetOutput =
+        ruleContext.getGenfilesArtifact(
+            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
+    ProtoCompileActionBuilder.writeDescriptorSet(
+        ruleContext,
+        descriptorSetOutput.getExecPathString(),
+        supportData,
+        ImmutableList.of(descriptorSetOutput),
+        true /* allowServices */);
+
+    Runfiles dataRunfiles =
+        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
+            .addArtifact(descriptorSetOutput)
+            .build();
+
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, runfilesProvider)
+        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))
+        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
         .addProvider(ProtoSourcesProvider.class, sourcesProvider)
         .addProvider(ProtoSupportDataProvider.class, new ProtoSupportDataProvider(supportData))
+        .addProvider(DescriptorSetProvider.create(descriptorSetOutput))
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, sourcesProvider)
         .build();
   }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.HashSet;
 import java.util.List;
@@ -321,10 +323,7 @@ public class ProtoCompileActionBuilder {
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       for (Artifact artifact : transitiveImports) {
         builder.add(
-            "-I"
-                + artifact.getRootRelativePath().getPathString()
-                + "="
-                + artifact.getExecPathString());
+            "-I" + artifact.getRootRelativePathString() + "=" + artifact.getExecPathString());
       }
       return builder.build();
     }
@@ -332,6 +331,32 @@ public class ProtoCompileActionBuilder {
 
   /** Signifies that a prerequisite could not be satisfied. */
   private static class MissingPrerequisiteException extends RuntimeException {}
+
+  public static void writeDescriptorSet(
+      RuleContext ruleContext,
+      final CharSequence outReplacement,
+      SupportData supportData,
+      Iterable<Artifact> outputs,
+      boolean allowServices) {
+    registerActions(
+        ruleContext,
+        ImmutableList.of(createDescriptorSetToolchain(outReplacement)),
+        supportData,
+        outputs,
+        "Descriptor Set",
+        allowServices);
+  }
+
+  private static ToolchainInvocation createDescriptorSetToolchain(CharSequence outReplacement) {
+    return new ToolchainInvocation(
+        "dontcare",
+        ProtoLangToolchainProvider.create(
+            "--descriptor_set_out=$(OUT)",
+            null /* pluginExecutable */,
+            null /* runtime */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */),
+        outReplacement);
+  }
 
   /**
    * Registers actions to generate code from .proto files.
