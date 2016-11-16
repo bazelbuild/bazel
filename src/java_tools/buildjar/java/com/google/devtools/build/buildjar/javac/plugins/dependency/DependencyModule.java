@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
-import static java.util.stream.Collectors.toCollection;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -24,7 +22,6 @@ import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
-import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -38,6 +35,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Wrapper class for managing dependencies on top of
@@ -84,7 +82,7 @@ public final class DependencyModule {
   Set<String> requiredClasspath;
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
-  private final Set<PackageSymbol> packages;
+  private final Set<String> packages;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
@@ -110,7 +108,7 @@ public final class DependencyModule {
     this.usedClasspath = new HashSet<>();
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
-    this.packages = new HashSet<>();
+    this.packages = new TreeSet<>();
   }
 
   /**
@@ -146,14 +144,7 @@ public final class DependencyModule {
       deps.setRuleLabel(targetLabel);
     }
     deps.setSuccess(successful);
-
-    deps.addAllContainedPackage(
-        packages
-            .stream()
-            .map(pkg -> pkg.isUnnamed() ? "" : pkg.getQualifiedName().toString())
-            .sorted()
-            .collect(toCollection(ArrayList::new)));
-
+    deps.addAllContainedPackage(packages);
     // Filter using the original classpath, to preserve ordering.
     for (String entry : classpath.split(":")) {
       if (explicitDependenciesMap.containsKey(entry)) {
@@ -210,7 +201,7 @@ public final class DependencyModule {
   }
 
   /** Adds a package to the set of packages built by this target. */
-  public boolean addPackage(PackageSymbol packge) {
+  public boolean addPackage(String packge) {
     return packages.add(packge);
   }
 
