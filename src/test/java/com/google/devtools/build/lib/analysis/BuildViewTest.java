@@ -880,7 +880,7 @@ public class BuildViewTest extends BuildViewTestBase {
         "cc_binary(name = 'cpp', data = [':java'])");
     // Everything is fine - the dependency graph is acyclic.
     update("//foo:java", "//foo:cpp");
-    if (getTargetConfiguration().useDynamicConfigurations()) {
+    if (getTargetConfiguration().trimConfigurations()) {
       fail(ExpectedDynamicConfigurationErrors.LATE_BOUND_ATTRIBUTES_UNSUPPORTED);
     }
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
