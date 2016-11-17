@@ -96,6 +96,7 @@ public class LabelValidatorTest {
     assertNull(LabelValidator.validateTargetName("foo.bar"));
     assertNull(LabelValidator.validateTargetName("foo@bar"));
     assertNull(LabelValidator.validateTargetName("foo~bar"));
+    assertNull(LabelValidator.validateTargetName("foo#bar"));
 
     assertEquals("target names may not end with '/'",
                  LabelValidator.validateTargetName("foo/"));
