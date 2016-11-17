@@ -417,11 +417,10 @@ with an error describing the conflict. To fix, you will need to modify your
 any targets using your rule, as well as targets of any kind that depend on those
 targets.
 
-## Instrumented files
+## Code coverage instrumentation
 
-Instrumented files are a set of files used by the coverage command. A rule can
-use the `instrumented_files` provider to provide information about which files
-should be used for measuring coverage.
+A rule can use the `instrumented_files` provider to provide information about
+which files should be measured when code coverage data collection is enabled:
 
 ```python
 def rule_implementation(ctx):
@@ -437,6 +436,36 @@ def rule_implementation(ctx):
       # Optional: Attributes for dependencies that could include instrumented
       # files.
       dependency_attributes=["data", "deps"]))
+```
+
+`ctx.config.coverage_enabled` notes whether coverage data collection is enabled
+for the current run in general (but says nothing about which files specifically
+should be instrumented). If a rule implementation needs to add coverage
+instrumentation at compile-time, it can determine if its sources should be
+instrumented with:
+
+```python
+# Are this rule's sources instrumented?
+if ctx.coverage_instrumented():
+  # Do something to turn on coverage for this compile action
+```
+
+Note that function will always return false if `ctx.config.coverage_enabled` is
+false, so you don't need to check both.
+
+If the rule directly includes sources from its dependencies before compilation
+(e.g. header files), it may also need to turn on compile-time instrumentation
+if the dependencies' sources should be instrumented. In this case, it may
+also be worth checking `ctx.config.coverage_enabled` so you can avoid looping
+over dependencies unnecessarily:
+
+```python
+# Are this rule's sources or any of the sources for its direct dependencies
+# in deps instrumented?
+if ctx.config.coverage_enabled:
+    if (ctx.coverage_instrumented() or
+        any(ctx.coverage_instrumented(dep) for dep in ctx.attr.deps):
+        # Do something to turn on coverage for this compile action
 ```
 
 ## Executable rules

@@ -2228,7 +2228,10 @@ public final class BuildConfiguration {
   }
 
   @SkylarkCallable(name = "coverage_enabled", structField = true,
-      doc = "A boolean that tells whether code coverage is enabled.")
+      doc = "A boolean that tells whether code coverage is enabled for this run. Note that this "
+          + "does not compute whether a specific rule should be instrumented for code coverage "
+          + "data collection. For that, see the <a href=\"ctx.html#coverage_instrumented\"><code>"
+          + "ctx.coverage_instrumented</code></a> function.")
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
   }

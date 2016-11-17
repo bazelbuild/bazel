@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionEx
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -47,8 +48,11 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -512,6 +516,35 @@ public final class SkylarkRuleContext {
           + "configuration</a> type for more details.")
   public BuildConfiguration getHostConfiguration() {
     return ruleContext.getHostConfiguration();
+  }
+
+  @SkylarkCallable(name = "coverage_instrumented",
+    doc = "Returns whether code coverage instrumentation should be generated when performing "
+        + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
+        + "specified by that Target. (If a non-rule Target is provided, this returns False.) This "
+        + "differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
+        + "configuration</a>, which notes whether coverage data collection is enabled for the "
+        + "entire run, but not whether a specific target should be instrumented.",
+    parameters = {
+      @Param(
+          name = "target",
+          type = TransitiveInfoCollection.class,
+          defaultValue = "None",
+          noneable = true,
+          named = true,
+          doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
+    })
+  public boolean instrumentCoverage(Object targetUnchecked) {
+    BuildConfiguration config = ruleContext.getConfiguration();
+    if (!config.isCodeCoverageEnabled()) {
+      return false;
+    }
+    if (targetUnchecked == Runtime.NONE) {
+      return InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext);
+    }
+    TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
+    return (target.getProvider(InstrumentedFilesProvider.class) != null)
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
   @SkylarkCallable(name = "features", structField = true,
