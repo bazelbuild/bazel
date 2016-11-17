@@ -19,6 +19,7 @@ import static com.google.common.base.MoreObjects.firstNonNull;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LambdaExpressionTree.BodyKind;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.ParenthesizedTree;
@@ -27,6 +28,7 @@ import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCBlock;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
@@ -34,6 +36,7 @@ import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
 import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
+import com.sun.tools.javac.tree.JCTree.JCLambda;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
@@ -44,7 +47,6 @@ import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
-import com.sun.tools.javac.util.Names;
 
 /**
  * Prunes AST nodes that are not required for header compilation.
@@ -73,11 +75,11 @@ public class TreePruner {
   private static class PruningVisitor extends TreeScanner {
 
     private final TreeMaker make;
-    private final Names names;
+    private final Symtab symtab;
 
     PruningVisitor(Context context) {
       this.make = TreeMaker.instance(context);
-      this.names = Names.instance(context);
+      this.symtab = Symtab.instance(context);
     }
 
     JCClassDecl enclClass = null;
@@ -108,10 +110,17 @@ public class TreePruner {
     }
 
     @Override
+    public void visitLambda(JCLambda tree) {
+      if (tree.getBodyKind() == BodyKind.STATEMENT) {
+        JCExpression ident = make.at(tree).QualIdent(symtab.assertionErrorType.tsym);
+        JCThrow throwTree = make.Throw(make.NewClass(null, List.nil(), ident, List.nil(), null));
+        tree.body = make.Block(0, List.of(throwTree));
+      }
+    }
+
+    @Override
     public void visitBlock(JCBlock tree) {
-      JCIdent ident = make.at(tree).Ident(names.fromString("AssertionError"));
-      JCThrow throwsTree = make.Throw(make.NewClass(null, List.nil(), ident, List.nil(), null));
-      tree.stats = List.of(throwsTree);
+      tree.stats = List.nil();
     }
 
     @Override
