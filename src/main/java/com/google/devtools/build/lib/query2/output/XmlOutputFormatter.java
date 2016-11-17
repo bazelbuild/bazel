@@ -99,14 +99,16 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       @Override
-      public void close() throws IOException {
-        try {
-          Transformer transformer = TransformerFactory.newInstance().newTransformer();
-          transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-          transformer.transform(new DOMSource(doc), new StreamResult(out));
-        } catch (TransformerFactoryConfigurationError | TransformerException e) {
-          // This shouldn't be possible: all the configuration is hard-coded.
-          throw new IllegalStateException("XML output failed", e);
+      public void close(boolean failFast) throws IOException {
+        if (!failFast) {
+          try {
+            Transformer transformer = TransformerFactory.newInstance().newTransformer();
+            transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+            transformer.transform(new DOMSource(doc), new StreamResult(out));
+          } catch (TransformerFactoryConfigurationError | TransformerException e) {
+            // This shouldn't be possible: all the configuration is hard-coded.
+            throw new IllegalStateException("XML output failed", e);
+          }
         }
       }
     };

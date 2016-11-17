@@ -121,8 +121,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       @Override
-      public void close() throws IOException {
-        queryResult.build().writeTo(out);
+      public void close(boolean failFast) throws IOException {
+        if (!failFast) {
+          queryResult.build().writeTo(out);
+        }
       }
     };
   }

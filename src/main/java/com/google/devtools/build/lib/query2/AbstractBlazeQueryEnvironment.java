@@ -134,16 +134,18 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       throw new QueryException(expr, e.getMessage());
     }
     IOException ioExn = null;
+    boolean failFast = true;
     try {
       callback.start();
       evalTopLevelInternal(expr, emptySensingCallback);
+      failFast = false;
     } catch (QueryException e) {
       throw new QueryException(e, expr);
     } catch (InterruptedException e) {
       throw e;
     } finally {
       try {
-        callback.close();
+        callback.close(failFast);
       } catch (IOException e) {
         // Only throw this IOException if we weren't about to throw a different exception.
         ioExn = e;
@@ -200,8 +202,8 @@ public abstract class AbstractBlazeQueryEnvironment<T>
     }
 
     @Override
-    public void close() throws InterruptedException, IOException {
-      callback.close();
+    public void close(boolean failFast) throws InterruptedException, IOException {
+      callback.close(failFast);
     }
 
     boolean isEmpty() {

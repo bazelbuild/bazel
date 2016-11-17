@@ -1173,9 +1173,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     }
 
     @Override
-    public void close() throws IOException, InterruptedException {
-      processLastPending();
-      callback.close();
+    public void close(boolean failFast) throws IOException, InterruptedException {
+      if (!failFast) {
+        processLastPending();
+      }
+      callback.close(failFast);
     }
 
     private void processLastPending() throws IOException, InterruptedException {
