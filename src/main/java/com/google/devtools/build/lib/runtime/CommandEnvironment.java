@@ -23,7 +23,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
@@ -354,11 +353,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * An array of String values useful if Blaze crashes.
-   * For now, just returns the size of the action cache and the build id; the latter as
-   * soon as it is determined.
+   * An array of String values useful if Blaze crashes. For now, just returns the build id as soon
+   * as it is determined.
    */
-  public String[] getCrashData() {
+  String[] getCrashData() {
     if (crashData == null) {
       String buildId;
       if (commandId == null) {
@@ -366,11 +364,7 @@ public final class CommandEnvironment {
       } else {
         buildId = commandId + " (build id)";
       }
-      crashData = new String[]{
-        getFileSizeString(CompactPersistentActionCache.cacheFile(workspace.getCacheDirectory()),
-                          "action cache"),
-        buildId,
-      };
+      crashData = new String[] {buildId};
     }
     return crashData;
   }
@@ -379,14 +373,6 @@ public final class CommandEnvironment {
     // Update the command id in the crash data, if it is already generated
     if (crashData != null && crashData.length >= 2) {
       crashData[1] = getCommandId() + " (build id)";
-    }
-  }
-
-  private static String getFileSizeString(Path path, String type) {
-    try {
-      return String.format("%d bytes (%s)", path.getFileSize(), type);
-    } catch (IOException e) {
-      return String.format("unknown file size (%s)", type);
     }
   }
 
