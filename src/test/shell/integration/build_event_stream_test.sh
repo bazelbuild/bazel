@@ -78,12 +78,13 @@ function test_test_summary() {
 
 function test_multiple_transports() {
   # Verifies usage of multiple build event transports at the same time
+    outdir=$(mktemp -d ${TEST_TMPDIR}/bazel.XXXXXXXX)
     bazel test \
-      --experimental_build_event_text_file=test_multiple_transports.txt \
-      --experimental_build_event_binary_file=test_multiple_transports.bin \
+      --experimental_build_event_text_file=${outdir}/test_multiple_transports.txt \
+      --experimental_build_event_binary_file=${outdir}/test_multiple_transports.bin \
       pkg:suite || fail "bazel test failed"
-  [ -f test_multiple_transports.txt ] || fail "Missing expected file test_multiple_transports.txt"
-  [ -f test_multiple_transports.bin ] || fail "Missing expected file test_multiple_transports.bin"
+  [ -f ${outdir}/test_multiple_transports.txt ] || fail "Missing expected file test_multiple_transports.txt"
+  [ -f ${outdir}/test_multiple_transports.bin ] || fail "Missing expected file test_multiple_transports.bin"
 }
 
 run_suite "Integration tests for the build event stream"
