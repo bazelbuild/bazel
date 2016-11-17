@@ -438,8 +438,8 @@ public abstract class TestStrategy implements TestActionContext {
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
       // implying the symlinks exist and are already up to date.
-      if (Arrays.equals(runfilesDir.getRelative("MANIFEST").getMD5Digest(),
-          execSettings.getInputManifest().getPath().getMD5Digest())) {
+      if (Arrays.equals(runfilesDir.getRelative("MANIFEST").getDigest(),
+          execSettings.getInputManifest().getPath().getDigest())) {
         return;
       }
     } catch (IOException e1) {

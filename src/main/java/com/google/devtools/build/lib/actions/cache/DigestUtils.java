@@ -19,17 +19,14 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
-import javax.annotation.Nullable;
 
 /**
  * Utility class for getting md5 digests of files.
@@ -45,7 +42,7 @@ import javax.annotation.Nullable;
 public class DigestUtils {
 
   // Object to synchronize on when serializing large file reads.
-  private static final Object MD5_LOCK = new Object();
+  private static final Object DIGEST_LOCK = new Object();
   private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
 
   /** Private constructor to prevent instantiation of utility class. */
@@ -57,9 +54,10 @@ public class DigestUtils {
    * calculations and underlying file system cannot provide it via extended
    * attribute.
    */
-  private static byte[] getDigestInExclusiveMode(Path path) throws IOException {
+  private static byte[] getDigestInExclusiveMode(Path path)
+      throws IOException {
     long startTime = BlazeClock.nanoTime();
-    synchronized (MD5_LOCK) {
+    synchronized (DIGEST_LOCK) {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, path.getPathString());
       return getDigestInternal(path);
     }
@@ -67,29 +65,14 @@ public class DigestUtils {
 
   private static byte[] getDigestInternal(Path path) throws IOException {
     long startTime = BlazeClock.nanoTime();
-    byte[] md5bin = path.getMD5Digest();
+    byte[] digest = path.getDigest();
 
     long millis = (BlazeClock.nanoTime() - startTime) / 1000000;
     if (millis > 5000L) {
       System.err.println("Slow read: a " + path.getFileSize() + "-byte read from " + path
           + " took " +  millis + "ms.");
     }
-    return md5bin;
-  }
-
-  private static boolean binaryDigestWellFormed(byte[] digest) {
-    Preconditions.checkNotNull(digest);
-    return digest.length == 16;
-  }
-
-  /**
-   * Returns the the fast md5 digest of the file, or null if not available.
-   */
-  @Nullable
-  private static byte[] getFastDigest(Path path) throws IOException {
-    // TODO(bazel-team): the action cache currently only works with md5 digests but it ought to
-    // work with any opaque digest.
-    return Objects.equals(path.getFastDigestFunctionType(), "MD5") ? path.getFastDigest() : null;
+    return digest;
   }
 
   /**
@@ -100,7 +83,7 @@ public class DigestUtils {
   }
 
   /**
-   * Get the md5 digest of {@code path}, using a constant-time xattr call if the filesystem supports
+   * Get the digest of {@code path}, using a constant-time xattr call if the filesystem supports
    * it, and calculating the digest manually otherwise.
    *
    * @param path Path of the file.
@@ -108,20 +91,21 @@ public class DigestUtils {
    * serially or in parallel. Files larger than a certain threshold will be read serially, in order
    * to avoid excessive disk seeks.
    */
-  public static byte[] getDigestOrFail(Path path, long fileSize) throws IOException {
-    byte[] md5bin = getFastDigest(path);
+  public static byte[] getDigestOrFail(Path path, long fileSize)
+      throws IOException {
+    byte[] digest = path.getFastDigest();
 
-    if (md5bin != null && !binaryDigestWellFormed(md5bin)) {
+    if (digest != null && !path.isValidDigest(digest)) {
       // Fail-soft in cases where md5bin is non-null, but not a valid digest.
       String msg = String.format("Malformed digest '%s' for file %s",
-                                 BaseEncoding.base16().lowerCase().encode(md5bin),
+                                 BaseEncoding.base16().lowerCase().encode(digest),
                                  path);
       LoggingUtil.logToRemote(Level.SEVERE, msg, new IllegalStateException(msg));
-      md5bin = null;
+      digest = null;
     }
 
-    if (md5bin != null) {
-      return md5bin;
+    if (digest != null) {
+      return digest;
     } else if (fileSize > 4096 && !MULTI_THREADED_DIGEST.get()) {
       // We'll have to read file content in order to calculate the digest. In that case
       // it would be beneficial to serialize those calculations since there is a high

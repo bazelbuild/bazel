@@ -132,7 +132,7 @@ public class MavenServerFunction implements SkyFunction {
         Path path = entry.getValue().realRootedPath().asPath();
         if (path.exists()) {
           fingerprint.addBoolean(true);
-          fingerprint.addBytes(path.getMD5Digest());
+          fingerprint.addBytes(path.getDigest());
         } else {
           fingerprint.addBoolean(false);
         }

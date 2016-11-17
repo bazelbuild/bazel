@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -1039,19 +1040,26 @@ public class Path implements Comparable<Path>, Serializable {
   }
 
   /**
-   * Returns the type of digest that may be returned by {@link #getFastDigest}, or {@code null}
-   * if the filesystem doesn't support them.
+   * Gets a fast digest for the given path, or {@code null} if there isn't one available. The
+   * digest should be suitable for detecting changes to the file.
    */
-  public String getFastDigestFunctionType() {
-    return fileSystem.getFastDigestFunctionType(this);
+  public byte[] getFastDigest() throws IOException {
+    return fileSystem.getFastDigest(this);
   }
 
   /**
    * Gets a fast digest for the given path, or {@code null} if there isn't one available. The
    * digest should be suitable for detecting changes to the file.
    */
-  public byte[] getFastDigest() throws IOException {
-    return fileSystem.getFastDigest(this);
+  public byte[] getFastDigest(HashFunction hashFunction) throws IOException {
+    return fileSystem.getFastDigest(this, hashFunction);
+  }
+
+  /**
+   * Returns whether the given digest is a valid digest for the default system digest function.
+   */
+  public boolean isValidDigest(byte[] digest) {
+    return fileSystem.isValidDigest(digest);
   }
 
   /**
@@ -1080,6 +1088,28 @@ public class Path implements Comparable<Path>, Serializable {
    */
   public byte[] getSHA1Digest() throws IOException {
     return fileSystem.getSHA1Digest(this);
+  }
+
+  /**
+   * Returns the digest of the file denoted by the current path,
+   * following symbolic links.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   */
+  public byte[] getDigest() throws IOException {
+    return fileSystem.getDigest(this);
+  }
+
+  /**
+   * Returns the digest of the file denoted by the current path and digest function,
+   * following symbolic links.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   */
+  public byte[] getDigest(HashFunction hashFunction) throws IOException {
+    return fileSystem.getDigest(this, hashFunction);
   }
 
   /**

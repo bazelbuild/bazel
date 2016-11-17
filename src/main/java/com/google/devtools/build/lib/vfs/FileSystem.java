@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
@@ -24,6 +25,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
+import com.google.devtools.common.options.EnumConverter;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,6 +41,49 @@ import java.util.List;
  */
 @ThreadSafe
 public abstract class FileSystem {
+
+  /** Type of hash function to use for digesting files. */
+  public enum HashFunction {
+    MD5(16),
+    SHA1(20);
+
+    private final int digestSize;
+
+    HashFunction(int digestSize) {
+      this.digestSize = digestSize;
+    }
+
+    /** Converts to {@link HashFunction}. */
+    public static class Converter extends EnumConverter<HashFunction> {
+      public Converter() {
+        super(HashFunction.class, "hash function");
+      }
+    }
+
+    public boolean isValidDigest(byte[] digest) {
+      return digest != null && digest.length == digestSize;
+    }
+  }
+
+  // This is effectively final, should be changed only in unit-tests!
+  private static HashFunction DIGEST_FUNCTION;
+  static {
+    try {
+      DIGEST_FUNCTION = new HashFunction.Converter().convert(
+          System.getProperty("bazel.DigestFunction", "MD5"));
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  @VisibleForTesting
+  public static void setDigestFunctionForTesting(HashFunction value) {
+    DIGEST_FUNCTION = value;
+  }
+
+  public static HashFunction getDigestFunction() {
+    return DIGEST_FUNCTION;
+  }
 
   private enum UnixPathFactory implements PathFactory {
     INSTANCE {
@@ -261,10 +307,11 @@ public abstract class FileSystem {
   }
 
   /**
-   * Returns the type of digest that may be returned by {@link #getFastDigest}, or {@code null}
-   * if the filesystem doesn't support them.
+   * Gets a fast digest for the given path and hash function type, or {@code null} if there
+   * isn't one available or the filesystem doesn't support them. This digest should be
+   * suitable for detecting changes to the file.
    */
-  protected String getFastDigestFunctionType(Path path) {
+  protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
     return null;
   }
 
@@ -273,8 +320,43 @@ public abstract class FileSystem {
    * filesystem doesn't support them. This digest should be suitable for detecting changes to the
    * file.
    */
-  protected byte[] getFastDigest(Path path) throws IOException {
-    return null;
+  protected final byte[] getFastDigest(Path path) throws IOException {
+    return getFastDigest(path, DIGEST_FUNCTION);
+  }
+
+  /**
+   * Returns whether the given digest is a valid digest for the default digest function.
+   */
+  public boolean isValidDigest(byte[] digest) {
+    return DIGEST_FUNCTION.isValidDigest(digest);
+  }
+
+  /**
+   * Returns the digest of the file denoted by the path, following
+   * symbolic links, for the given hash digest function.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   */
+  protected final byte[] getDigest(final Path path, HashFunction hashFunction) throws IOException {
+    switch(hashFunction) {
+      case MD5:
+        return getMD5Digest(path);
+      case SHA1:
+        return getSHA1Digest(path);
+      default:
+        throw new IOException("Unsupported hash function: " + hashFunction);
+    }
+  }
+
+  /**
+   * Returns the digest of the file denoted by the path, following symbolic links.
+   *
+   * @return a new byte array containing the file's digest
+   * @throws IOException if the digest could not be computed for any reason
+   */
+  protected byte[] getDigest(final Path path) throws IOException {
+    return getDigest(path, DIGEST_FUNCTION);
   }
 
   /**

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -34,6 +35,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -43,8 +45,9 @@ import java.util.concurrent.TimeUnit;
 @RunWith(JUnit4.class)
 public class DigestUtilsTest {
 
-  private static void assertMd5CalculationConcurrency(boolean expectConcurrent,
-      final boolean fastDigest, final int fileSize1, final int fileSize2) throws Exception {
+  private static void assertDigestCalculationConcurrency(boolean expectConcurrent,
+      final boolean fastDigest, final int fileSize1, final int fileSize2,
+      HashFunction hf) throws Exception {
     final CountDownLatch barrierLatch = new CountDownLatch(2); // Used to block test threads.
     final CountDownLatch readyLatch = new CountDownLatch(1);   // Used to block main thread.
 
@@ -64,16 +67,26 @@ public class DigestUtilsTest {
         }
 
         @Override
-        protected String getFastDigestFunctionType(Path path) {
-          return "MD5";
+        protected byte[] getSHA1Digest(Path path) throws IOException {
+          try {
+            barrierLatch.countDown();
+            readyLatch.countDown();
+            // Either both threads will be inside getSHA1Digest at the same time or they
+            // both will be blocked.
+            barrierLatch.await();
+          } catch (Exception e) {
+            throw new IOException(e);
+          }
+          return super.getSHA1Digest(path);
         }
 
         @Override
-        protected byte[] getFastDigest(Path path) throws IOException {
-          return fastDigest ? super.getMD5Digest(path) : null;
+        protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+          return fastDigest ? super.getDigest(path, hashFunction) : null;
         }
     };
 
+    FileSystem.setDigestFunctionForTesting(hf);
     final Path myFile1 = myfs.getPath("/f1.dat");
     final Path myFile2 = myfs.getPath("/f2.dat");
     FileSystemUtils.writeContentAsLatin1(myFile1, Strings.repeat("a", fileSize1));
@@ -111,13 +124,15 @@ public class DigestUtilsTest {
    * so machines with rotating drives don't become unusable.
    */
   @Test
-  public void testMd5CalculationConcurrency() throws Exception {
-    assertMd5CalculationConcurrency(true, true, 4096, 4096);
-    assertMd5CalculationConcurrency(true, true, 4097, 4097);
-    assertMd5CalculationConcurrency(true, false, 4096, 4096);
-    assertMd5CalculationConcurrency(false, false, 4097, 4097);
-    assertMd5CalculationConcurrency(true, false, 1024, 4097);
-    assertMd5CalculationConcurrency(true, false, 1024, 1024);
+  public void testCalculationConcurrency() throws Exception {
+    for (HashFunction hf : Arrays.asList(HashFunction.MD5, HashFunction.SHA1)) {
+      assertDigestCalculationConcurrency(true, true, 4096, 4096, hf);
+      assertDigestCalculationConcurrency(true, true, 4097, 4097, hf);
+      assertDigestCalculationConcurrency(true, false, 4096, 4096, hf);
+      assertDigestCalculationConcurrency(false, false, 4097, 4097, hf);
+      assertDigestCalculationConcurrency(true, false, 1024, 4097, hf);
+      assertDigestCalculationConcurrency(true, false, 1024, 1024, hf);
+    }
   }
 
   @Test
@@ -125,21 +140,19 @@ public class DigestUtilsTest {
     final byte[] malformed = {0, 0, 0};
     FileSystem myFS = new InMemoryFileSystem(BlazeClock.instance()) {
       @Override
-      protected String getFastDigestFunctionType(Path path) {
-        return "MD5";
-      }
-
-      @Override
-      protected byte[] getFastDigest(Path path) throws IOException {
-        // MD5 digests are supposed to be 16 bytes.
+      protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+        // Digest functions have more than 3 bytes, usually at least 16.
         return malformed;
       }
     };
     Path path = myFS.getPath("/file");
     FileSystemUtils.writeContentAsLatin1(path, "a");
-    byte[] result = DigestUtils.getDigestOrFail(path, 1);
-    assertArrayEquals(path.getMD5Digest(), result);
-    assertNotSame(malformed, result);
-    assertEquals(16, result.length);
+    for (HashFunction hf : Arrays.asList(HashFunction.MD5, HashFunction.SHA1)) {
+      FileSystem.setDigestFunctionForTesting(hf);
+      byte[] result = DigestUtils.getDigestOrFail(path, 1);
+      assertArrayEquals(path.getDigest(), result);
+      assertNotSame(malformed, result);
+      assertTrue(path.isValidDigest(result));
+    }
   }
 }

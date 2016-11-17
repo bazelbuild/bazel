@@ -18,6 +18,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringTrie;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -380,15 +381,9 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  protected String getFastDigestFunctionType(Path path) {
+  protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
     FileSystem delegate = getDelegate(path);
-    return delegate.getFastDigestFunctionType(adjustPath(path, delegate));
-  }
-
-  @Override
-  protected byte[] getFastDigest(Path path) throws IOException {
-    FileSystem delegate = getDelegate(path);
-    return delegate.getFastDigest(adjustPath(path, delegate));
+    return delegate.getFastDigest(adjustPath(path, delegate), hashFunction);
   }
 
   @Override

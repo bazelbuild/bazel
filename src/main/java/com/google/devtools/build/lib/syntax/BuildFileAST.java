@@ -270,7 +270,7 @@ public class BuildFileAST extends ASTNode {
     Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return create(
         ImmutableList.<Statement>of(), result,
-        HashCode.fromBytes(file.getMD5Digest()).toString(), eventHandler);
+        HashCode.fromBytes(file.getDigest()).toString(), eventHandler);
   }
 
   /**

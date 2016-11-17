@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -95,13 +96,13 @@ public class FileFunctionTest {
   private Path pkgRoot;
   private Path outputBase;
   private PathPackageLocator pkgLocator;
-  private boolean fastMd5;
+  private boolean fastDigest;
   private ManualClock manualClock;
   private RecordingDifferencer differencer;
 
   @Before
   public final void createFsAndRoot() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     manualClock = new ManualClock();
     createFsAndRoot(new CustomInMemoryFs(manualClock));
   }
@@ -433,12 +434,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected String getFastDigestFunctionType(Path path) {
-            return "magic";
-          }
-
-          @Override
-          protected byte[] getFastDigest(Path path) throws IOException {
+          protected byte[] getFastDigest(Path path, HashFunction hf) throws IOException {
             return digest;
           }
         });
@@ -479,7 +475,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path) {
+          protected byte[] getFastDigest(Path path, HashFunction hf) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -494,7 +490,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFileModificationModTime() throws Exception {
-    fastMd5 = false;
+    fastDigest = false;
     Path p = file("file");
     FileValue a = valueForPath(p);
     p.setLastModifiedTime(42);
@@ -504,7 +500,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFileModificationDigest() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     Path p = file("file");
     FileValue a = valueForPath(p);
     FileSystemUtils.writeContentAsLatin1(p, "goop");
@@ -516,9 +512,9 @@ public class FileFunctionTest {
   public void testModTimeVsDigest() throws Exception {
     Path p = file("somefile", "fizzley");
 
-    fastMd5 = true;
+    fastDigest = true;
     FileValue aMd5 = valueForPath(p);
-    fastMd5 = false;
+    fastDigest = false;
     FileValue aModTime = valueForPath(p);
     assertThat(aModTime).isNotEqualTo(aMd5);
     new EqualsTester().addEqualityGroup(aMd5).addEqualityGroup(aModTime).testEquals();
@@ -560,7 +556,7 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkTargetContentsChangeModTime() throws Exception {
-    fastMd5 = false;
+    fastDigest = false;
     Path fooPath = file("foo");
     FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
     Path p = symlink("symlink", "foo");
@@ -572,7 +568,7 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkTargetContentsChangeDigest() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     Path fooPath = file("foo");
     FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
     Path p = symlink("symlink", "foo");
@@ -830,14 +826,14 @@ public class FileFunctionTest {
     assertArrayEquals(digest, value.getDigest());
     // Digest is cached -- no filesystem access.
     assertEquals(expectedCalls, digestCalls.get());
-    fastMd5 = false;
+    fastDigest = false;
     digestCalls.set(0);
     value = valueForPath(file);
     // No new digest calls.
     assertEquals(0, digestCalls.get());
     assertNull(value.getDigest());
     assertEquals(0, digestCalls.get());
-    fastMd5 = true;
+    fastDigest = true;
     Path dir = directory("directory");
     try {
       assertNull(valueForPath(dir).getDigest());
@@ -932,7 +928,7 @@ public class FileFunctionTest {
     fs.stubStat(path("a"), inconsistentParentFileStatus);
     // Disable fast-path md5 so that we don't try try to md5 the "a" (since it actually physically
     // is a directory).
-    fastMd5 = false;
+    fastDigest = false;
     SequentialBuildDriver driver = makeDriver();
     SkyKey skyKey = skyKey("a/b");
     EvaluationResult<FileValue> result =
@@ -1624,21 +1620,16 @@ public class FileFunctionTest {
       super(manualClock);
     }
 
-    @Override
-    protected String getFastDigestFunctionType(Path path) {
-      return fastMd5 ? "MD5" : null;
-    }
-
     public void stubFastDigestError(Path path, IOException error) {
       stubbedFastDigestErrors.put(path, error);
     }
 
     @Override
-    protected byte[] getFastDigest(Path path) throws IOException {
+    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
-      return fastMd5 ? getMD5Digest(path) : null;
+      return fastDigest ? getDigest(path) : null;
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
