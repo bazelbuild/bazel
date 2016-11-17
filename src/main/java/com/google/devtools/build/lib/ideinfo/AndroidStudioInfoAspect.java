@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -485,16 +486,16 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder()
-            .addExecPaths("--filter_jars", filterJars)
-            .addExecPaths("--filter_source_jars", filterSourceJars)
+            .addJoinExecPaths("--filter_jars", File.pathSeparator, filterJars)
+            .addJoinExecPaths("--filter_source_jars", File.pathSeparator, filterSourceJars)
             .addExecPath("--filtered_jar", filteredJar)
             .addExecPath("--filtered_source_jar", filteredSrcJar);
 
     if (!keepJavaFiles.isEmpty()) {
-      commandLine.addExecPaths("--keep_java_files", keepJavaFiles);
+      commandLine.addJoinExecPaths("--keep_java_files", File.pathSeparator, keepJavaFiles);
     }
     if (!keepSourceJars.isEmpty()) {
-      commandLine.addExecPaths("--keep_source_jars", keepSourceJars);
+      commandLine.addJoinExecPaths("--keep_source_jars", File.pathSeparator, keepSourceJars);
     }
 
     return new SpawnAction.Builder()

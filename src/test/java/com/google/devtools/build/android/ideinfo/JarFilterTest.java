@@ -17,6 +17,7 @@ package com.google.devtools.build.android.ideinfo;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
@@ -150,6 +151,13 @@ public class JarFilterTest {
       zo.closeEntry();
     }
 
+    File src3Jar = folder.newFile("gen3.srcjar");
+    try (ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(src3Jar))) {
+      zo.putNextEntry(new ZipEntry("com/google/foo/gen/Gen3.java"));
+      zo.write("package gen; class Gen3 {}".getBytes(UTF_8));
+      zo.closeEntry();
+    }
+
     File filterJar = folder.newFile("foo.jar");
     try (ZipOutputStream zo = new ZipOutputStream(new FileOutputStream(filterJar))) {
       zo.putNextEntry(new ZipEntry("com/google/foo/Foo.class"));
@@ -161,6 +169,8 @@ public class JarFilterTest {
       zo.putNextEntry(new ZipEntry("gen/Gen.class"));
       zo.closeEntry();
       zo.putNextEntry(new ZipEntry("gen/Gen2.class"));
+      zo.closeEntry();
+      zo.putNextEntry(new ZipEntry("gen/Gen3.class"));
       zo.closeEntry();
       zo.putNextEntry(new ZipEntry("com/google/foo/Foo2.class"));
       zo.closeEntry();
@@ -174,6 +184,8 @@ public class JarFilterTest {
       zo.putNextEntry(new ZipEntry("gen/Gen.java"));
       zo.closeEntry();
       zo.putNextEntry(new ZipEntry("gen/Gen2.java"));
+      zo.closeEntry();
+      zo.putNextEntry(new ZipEntry("gen/Gen3.java"));
       zo.closeEntry();
       zo.putNextEntry(new ZipEntry("com/google/foo/Foo2.java"));
       zo.closeEntry();
@@ -189,7 +201,7 @@ public class JarFilterTest {
           "--keep_java_files",
           fooJava.getPath() + File.pathSeparator + barJava.getPath(),
           "--keep_source_jars",
-          srcJar.getPath(),
+          Joiner.on(File.pathSeparator).join(srcJar.getPath(), src3Jar.getPath()),
           "--filter_jars",
           filterJar.getPath(),
           "--filter_source_jars",
@@ -226,13 +238,15 @@ public class JarFilterTest {
             "com/google/foo/Foo$Inner.class",
             "com/google/foo/bar/Bar.class",
             "gen/Gen.class",
-            "gen/Gen2.class");
+            "gen/Gen2.class",
+            "gen/Gen3.class");
 
     assertThat(filteredSourceJarNames)
         .containsExactly(
             "com/google/foo/Foo.java",
             "com/google/foo/bar/Bar.java",
             "gen/Gen.java",
-            "gen/Gen2.java");
+            "gen/Gen2.java",
+            "gen/Gen3.java");
   }
 }
