@@ -40,8 +40,6 @@
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/statvfs.h>
 #include <sys/time.h>
 #include <sys/un.h>
 #include <time.h>
@@ -945,8 +943,7 @@ static void ActuallyExtractData(const string &argv0,
 // Populates globals->extracted_binaries with their extracted locations.
 static void ExtractData(const string &self_path) {
   // If the install dir doesn't exist, create it, if it does, we know it's good.
-  struct stat buf;
-  if (stat(globals->options->install_base.c_str(), &buf) == -1) {
+  if (!blaze_util::PathExists(globals->options->install_base)) {
     uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options->install_base + ".tmp." +
@@ -967,7 +964,7 @@ static void ExtractData(const string &self_path) {
            tmp_install.c_str());
     }
   } else {
-    if (!S_ISDIR(buf.st_mode)) {
+    if (!blaze_util::IsDirectory(globals->options->install_base)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Error: Install base directory '%s' could not be created. "
           "It exists but is not a directory.",
@@ -981,19 +978,28 @@ static void ExtractData(const string &self_path) {
     for (const auto& it : globals->extracted_binaries) {
       string path = blaze_util::JoinPath(real_install_dir, it);
       // Check that the file exists and is readable.
-      if (stat(path.c_str(), &buf) == -1) {
+      if (!blaze_util::CanAccess(path, true, false, false)) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' missing."
             " Please remove '%s' and try again.",
             path.c_str(), globals->options->install_base.c_str());
       }
-      // Check that the timestamp is in the future. A past timestamp would indicate
-      // that the file has been tampered with. See ActuallyExtractData().
-      if (!S_ISDIR(buf.st_mode) && buf.st_mtime <= time_now) {
-        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-            "Error: corrupt installation: file '%s' "
-            "modified.  Please remove '%s' and try again.",
-            path.c_str(), globals->options->install_base.c_str());
+      // Check that the timestamp is in the future. A past timestamp would
+      // indicate that the file has been tampered with.
+      // See ActuallyExtractData().
+      if (!blaze_util::IsDirectory(path)) {
+        time_t mtime = blaze_util::GetMtimeMillisec(path);
+        if (mtime == -1) {
+          die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+              "Error: could not retrieve mtime of file '%s'. "
+              "Please remove '%s' and try again.",
+              path.c_str(), globals->options->install_base.c_str());
+        } else if (mtime <= time_now) {
+          die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+              "Error: corrupt installation: file '%s' "
+              "modified.  Please remove '%s' and try again.",
+              path.c_str(), globals->options->install_base.c_str());
+        }
       }
     }
   }
@@ -1292,16 +1298,15 @@ static void ComputeBaseDirectories(const string &self_path) {
         globals->options->output_user_root, globals->workspace);
   }
 
-  struct stat buf;
   const char *output_base = globals->options->output_base.c_str();
-  if (stat(output_base, &buf) == -1) {
+  if (!blaze_util::PathExists(globals->options->output_base)) {
     if (MakeDirectories(globals->options->output_base, 0777) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "Output base directory '%s' could not be created",
            output_base);
     }
   } else {
-    if (!S_ISDIR(buf.st_mode)) {
+    if (!blaze_util::IsDirectory(globals->options->output_base)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "Error: Output base directory '%s' could not be created. "
           "It exists but is not a directory.",
@@ -1393,50 +1398,6 @@ static void CheckBinaryPath(const string& argv0) {
   }
 }
 
-// Create the user's directory where we keep state, installations etc.
-// Typically, this happens inside a temp directory, so we have to be
-// careful about symlink attacks.
-static void CreateSecureOutputRoot() {
-  const char* root = globals->options->output_user_root.c_str();
-  struct stat fileinfo = {};
-
-  if (MakeDirectories(root, 0755) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
-  }
-
-  // The path already exists.
-  // Check ownership and mode, and verify that it is a directory.
-
-  if (lstat(root, &fileinfo) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s')", root);
-  }
-
-  if (fileinfo.st_uid != geteuid()) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not owned by me",
-        root);
-  }
-
-  if ((fileinfo.st_mode & 022) != 0) {
-    int new_mode = fileinfo.st_mode & (~022);
-    if (chmod(root, new_mode) < 0) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "'%s' has mode %o, chmod to %o failed", root,
-          fileinfo.st_mode & 07777, new_mode);
-    }
-  }
-
-  if (stat(root, &fileinfo) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
-  }
-
-  if (!S_ISDIR(fileinfo.st_mode)) {
-    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
-        root);
-  }
-
-  ExcludePathFromBackup(root);
-}
-
 // TODO(bazel-team): Execute the server as a child process and write its exit
 // code to a file. In case the server becomes unresonsive or terminates
 // unexpectedly (in a way that isn't already handled), we can observe the file,
@@ -1453,7 +1414,7 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
   debug_log("Debug logging active");
 
   CheckEnvironment();
-  CreateSecureOutputRoot();
+  blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();
   ComputeBaseDirectories(self_path);

@@ -15,6 +15,8 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 
+#include <stdint.h>
+
 #include <string>
 
 namespace blaze_util {
@@ -33,6 +35,13 @@ bool PathExists(const std::string& path);
 // executable; if the path is a directory, it means the directory must be
 // openable.
 bool CanAccess(const std::string& path, bool read, bool write, bool exec);
+
+// Returns true if `path` refers to a directory or a symlink/junction to one.
+bool IsDirectory(const std::string& path);
+
+// Returns the last modification time of `path` in milliseconds since the Epoch.
+// Returns -1 upon failure.
+time_t GetMtimeMillisec(const std::string& path);
 
 // Returns the current working directory.
 std::string GetCwd();

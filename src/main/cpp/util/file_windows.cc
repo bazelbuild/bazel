@@ -33,6 +33,16 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
   pdie(255, "blaze_util::CanAccess is not implemented on Windows");
 }
 
+bool IsDirectory(const string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::IsDirectory is not implemented on Windows");
+}
+
+time_t GetMtimeMillisec(const string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::GetMtimeMillisec is not implemented on Windows");
+}
+
 string GetCwd() {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::GetCwd is not implemented on Windows");

@@ -19,6 +19,7 @@
 #ifndef COMPILER_MSVC
 #include <sys/cygwin.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
 #include <unistd.h>
 #endif  // COMPILER_MSVC
@@ -849,6 +850,55 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
   }
   coded_name[filename_length] = '\0';
   return root + "/" + string(coded_name);
+}
+
+void CreateSecureOutputRoot(const string& path) {
+  // TODO(bazel-team) 2016-11-26: implement this function without using the
+  // POSIX API, then get rid of the POSIX version, which is a copy of the
+  // blaze_util_posix version of the same method.
+
+#ifdef COMPILER_MSVC
+  pdie(255, "blaze::CreateSecureOutputRoot is not implemented on Windows");
+#else  // not COMPILER_MSVC
+  const char* root = path.c_str();
+  struct stat fileinfo = {};
+
+  if (MakeDirectories(root, 0755) == -1) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
+  }
+
+  // The path already exists.
+  // Check ownership and mode, and verify that it is a directory.
+
+  if (lstat(root, &fileinfo) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s')", root);
+  }
+
+  if (fileinfo.st_uid != geteuid()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not owned by me",
+        root);
+  }
+
+  if ((fileinfo.st_mode & 022) != 0) {
+    int new_mode = fileinfo.st_mode & (~022);
+    if (chmod(root, new_mode) < 0) {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "'%s' has mode %o, chmod to %o failed", root,
+          fileinfo.st_mode & 07777, new_mode);
+    }
+  }
+
+  if (stat(root, &fileinfo) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
+  }
+
+  if (!S_ISDIR(fileinfo.st_mode)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
+        root);
+  }
+
+  ExcludePathFromBackup(root);
+#endif  // COMPILER_MSVC
 }
 
 LARGE_INTEGER WindowsClock::GetFrequency() {
