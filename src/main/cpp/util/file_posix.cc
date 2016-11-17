@@ -18,6 +18,8 @@
 #include <limits.h>  // PATH_MAX
 #include <stdlib.h>  // getenv
 #include <unistd.h>  // access
+#include <utime.h>  // utime
+
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"
@@ -85,6 +87,11 @@ time_t GetMtimeMillisec(const string& path) {
   } else {
     return buf.st_mtime;
   }
+}
+
+bool SetMtimeMillisec(const string& path, time_t mtime) {
+  struct utimbuf times = { mtime, mtime };
+  return utime(path.c_str(), &times) == 0;
 }
 
 string GetCwd() {

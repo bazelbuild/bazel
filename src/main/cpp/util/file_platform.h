@@ -43,6 +43,11 @@ bool IsDirectory(const std::string& path);
 // Returns -1 upon failure.
 time_t GetMtimeMillisec(const std::string& path);
 
+// Sets the last modification time of `path` to the given value.
+// `mtime` must be milliseconds since the Epoch.
+// Returns true upon success.
+bool SetMtimeMillisec(const std::string& path, time_t mtime);
+
 // Returns the current working directory.
 std::string GetCwd();
 

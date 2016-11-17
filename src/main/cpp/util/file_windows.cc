@@ -15,42 +15,57 @@
 
 #include <windows.h>
 
+#include "src/main/cpp/util/errors.h"
+
 namespace blaze_util {
 
 using std::string;
 
 string Which(const string &executable) {
   pdie(255, "blaze_util::Which is not implemented on Windows");
+  return "";
 }
 
 bool PathExists(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::PathExists is not implemented on Windows");
+  return false;
 }
 
 bool CanAccess(const string& path, bool read, bool write, bool exec) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::CanAccess is not implemented on Windows");
+  return false;
 }
 
 bool IsDirectory(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::IsDirectory is not implemented on Windows");
+  return false;
 }
 
 time_t GetMtimeMillisec(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::GetMtimeMillisec is not implemented on Windows");
+  return -1;
+}
+
+bool SetMtimeMillisec(const string& path, time_t mtime) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::SetMtimeMillisec is not implemented on Windows");
+  return false;
 }
 
 string GetCwd() {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::GetCwd is not implemented on Windows");
+  return "";
 }
 
 bool ChangeDirectory(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::ChangeDirectory is not implemented on Windows");
+  return false;
 }
 
 void ForEachDirectoryEntry(const string &path,

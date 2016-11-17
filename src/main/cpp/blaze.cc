@@ -30,21 +30,13 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
-#include <sched.h>
-#include <signal.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/resource.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
-#include <utime.h>
 
 #include <grpc/grpc.h>
 #include <grpc/support/log.h>
@@ -905,8 +897,7 @@ static void ActuallyExtractData(const string &argv0,
     // timestamp to change between Blaze releases so that the metadata cache
     // knows that the files may have changed. This is important for actions that
     // use embedded binaries as artifacts.
-    struct utimbuf times = { future_time, future_time };
-    if (utime(extracted_path, &times) == -1) {
+    if (!blaze_util::SetMtimeMillisec(it, future_time)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to set timestamp on '%s'", extracted_path);
     }
@@ -1104,8 +1095,8 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
            installation_path.c_str());
     }
     const time_t time_now = time(NULL);
-    struct utimbuf times = { time_now, time_now };
-    if (utime(globals->options->install_base.c_str(), &times) == -1) {
+    if (!blaze_util::SetMtimeMillisec(globals->options->install_base,
+                                      time_now)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to set timestamp on '%s'",
            globals->options->install_base.c_str());
