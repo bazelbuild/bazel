@@ -98,6 +98,8 @@ message CToolchain {
     repeated FlagGroup flag_group = 2;
 
     optional string iterate_over = 3;
+
+    repeated string expand_if_all_available = 4;
   }
 
   // A key/value pair to be added as an environment variable. The value of

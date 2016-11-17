@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import java.io.IOException;
@@ -338,6 +339,7 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableList<Expandable> expandables;
     private final ImmutableSet<String> usedVariables;
     private String iterateOverVariable;
+    private final ImmutableSet<String> expandIfAllAvailable;
 
     /**
      * TODO(b/32655571): Cleanup and get rid of usedVariables field once implicit iteration is not
@@ -370,12 +372,18 @@ public class CcToolchainFeatures implements Serializable {
         this.iterateOverVariable = flagGroup.getIterateOver();
         usedVariables.add(this.iterateOverVariable);
       }
-      this.expandables = expandables.build();
       this.usedVariables = usedVariables.build();
+      this.expandables = expandables.build();
+      this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
     }
     
     @Override
     public void expand(Variables variables, final List<String> commandLine) {
+      for (String variable : expandIfAllAvailable) {
+        if (!variables.isAvailable(variable)) {
+          return;
+        }
+      }
       if (iterateOverVariable == null) {
         // TODO(b/32655571): Remove branch once implicit iteration is not needed anymore.
         iterateOverVariable = variables.guessIteratedOverVariable(usedVariables);
@@ -847,12 +855,15 @@ public class CcToolchainFeatures implements Serializable {
 
       /** Adds a value to the sequence. */
       public SequenceBuilder addValue(VariableValueBuilder value) {
+        Preconditions.checkArgument(value != null, "Cannot use null builder for a sequence value");
         values.add(value.build());
         return this;
       }
 
       /** Adds a value to the sequence. */
       public SequenceBuilder addValues(ImmutableList<VariableValueBuilder> builders) {
+        Preconditions.checkArgument(
+            builders != null, "Cannot use null builders as a sequence value");
         for (VariableValueBuilder builder : builders) {
           addValue(builder);
         }
@@ -879,6 +890,10 @@ public class CcToolchainFeatures implements Serializable {
 
       /** Adds a field to the structure. */
       public StructureBuilder addField(String name, VariableValueBuilder valueBuilder) {
+        Preconditions.checkArgument(
+            valueBuilder != null,
+            "Cannot use null builder to get a field value for field '%s'",
+            name);
         fields.put(name, valueBuilder.build());
         return this;
       }
@@ -960,6 +975,7 @@ public class CcToolchainFeatures implements Serializable {
       private final Iterable<String> values;
 
       public StringSequence(ImmutableList<String> values) {
+        Preconditions.checkNotNull(values, "Cannot create StringSequence from null");
         this.values = values;
       }
 
@@ -1075,11 +1091,7 @@ public class CcToolchainFeatures implements Serializable {
         if (value.containsKey(field)) {
           return value.get(field);
         } else {
-          throw new ExpansionException(
-              String.format(
-                  "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
-                      + "doesn't have a field named '%s'",
-                  variableName, field, variableName, field));
+          return null;
         }
       }
 
@@ -1099,6 +1111,7 @@ public class CcToolchainFeatures implements Serializable {
       private final String value;
 
       public StringValue(String value) {
+        Preconditions.checkNotNull(value, "Cannot create StringValue from null");
         this.value = value;
       }
 
@@ -1141,6 +1154,8 @@ public class CcToolchainFeatures implements Serializable {
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkNotNull(
+            value, "Cannot set null as a value for variable '%s'", name);
         variablesMap.put(name, new StringValue(value));
         return this;
       }
@@ -1168,6 +1183,10 @@ public class CcToolchainFeatures implements Serializable {
       public Builder addCustomBuiltVariable(String name, Variables.VariableValueBuilder builder) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkNotNull(
+            builder,
+            "Cannot use null builder to get variable value for variable '%s'",
+            name);
         variablesMap.put(name, builder.build());
         return this;
       }
@@ -1230,27 +1249,45 @@ public class CcToolchainFeatures implements Serializable {
      * Creates a variables instance nested under the @param parent, and binds variable named @param
      * name to @param value
      */
-    Variables(Variables parent, String name, VariableValue value) {
+    private Variables(Variables parent, String name, VariableValue value) {
       this.variablesMap = ImmutableMap.of(name, value);
       this.parent = parent;
     }
 
+    /**
+     * Get a variable value named @param name. Supports accessing fields in structures (e.g.
+     * 'libraries_to_link.interface_libraries')
+     *
+     * @throws ExpansionException when no such variable or no such field are present, or when
+     *     accessing a field of non-structured variable
+     */
     public VariableValue getVariable(String name) {
-      VariableValue variableValue = lookupVariable(name);
-      if (variableValue == null) {
-        throw new ExpansionException(
-            "Invalid toolchain configuration: Cannot find variable named '" + name + "'");
+      Pair<VariableValue, String> pair = lookupVariable(name);
+      if (pair.getFirst() == null) {
+        throw new ExpansionException(pair.getSecond());
       } else {
-        return variableValue;
+        return pair.getFirst();
       }
     }
 
-    private VariableValue lookupVariable(String name) {
-      VariableValue variableValue = getNonStructuredVariable(name);
-      if (variableValue == null) {
-        variableValue = getStructureVariable(name);
+    /**
+     * Lookup a variable named @param name or return a reason why the variable was not found.
+     * Supports accessing fields in structures.
+     *
+     * @return Pair<VariableValue, String> returns either (variable value, null) or (null, string
+     *     reason why variable was not found)
+     */
+    private Pair<VariableValue, String> lookupVariable(String name) {
+      Pair<VariableValue, String> nonStructuredPair = getNonStructuredVariable(name);
+      if (nonStructuredPair.getFirst() != null) {
+        return nonStructuredPair;
       }
-      return variableValue;
+      Pair<VariableValue, String> structuredPair = getStructureVariable(name);
+      if (structuredPair.getFirst() != null || structuredPair.getSecond() != null) {
+        return structuredPair;
+      } else {
+        return nonStructuredPair;
+      }
     }
 
     public String getStringVariable(String variableName) {
@@ -1261,47 +1298,60 @@ public class CcToolchainFeatures implements Serializable {
       return getVariable(variableName).getSequenceValue(variableName);
     }
 
-    private VariableValue getNonStructuredVariable(String name) {
+    private Pair<VariableValue, String> getNonStructuredVariable(String name) {
       if (variablesMap.containsKey(name)) {
-        return variablesMap.get(name);
+        return Pair.of(variablesMap.get(name), null);
       }
 
       if (parent != null) {
         return parent.getNonStructuredVariable(name);
       }
 
-      return null;
+      return Pair.of(
+          null,
+          String.format("Invalid toolchain configuration: Cannot find variable named '%s'.", name));
     }
 
-    private VariableValue getStructureVariable(String name) {
+    private Pair<VariableValue, String> getStructureVariable(String name) {
       if (!name.contains(".")) {
-        return null;
+        return Pair.of(null, null);
       }
 
       Stack<String> fieldsToAccess = new Stack<>();
       String structPath = name;
-      VariableValue structure;
+      Pair<VariableValue, String> pair;
 
       do {
         fieldsToAccess.push(structPath.substring(structPath.lastIndexOf('.') + 1));
         structPath = structPath.substring(0, structPath.lastIndexOf('.'));
-        structure = getNonStructuredVariable(structPath);
-      } while (structure == null && structPath.contains("."));
+        pair = getNonStructuredVariable(structPath);
+      } while (pair.getFirst() == null && structPath.contains("."));
 
-      if (structure == null) {
-        return null;
+      if (pair.getFirst() == null) {
+        return pair;
       }
+
+      VariableValue structure = pair.getFirst();
       while (!fieldsToAccess.empty()) {
-        structure = structure.getFieldValue(structPath, fieldsToAccess.pop());
+        String field = fieldsToAccess.pop();
+        structure = structure.getFieldValue(structPath, field);
+        if (structure == null) {
+          return Pair.of(
+              null,
+              String.format(
+                  "Invalid toolchain configuration: Cannot expand variable '%s.%s': structure %s "
+                      + "doesn't have a field named '%s'",
+                  structPath, field, structPath, field));
+        }
       }
-      return structure;
+      return Pair.of(structure, null);
     }
 
-    public String guessIteratedOverVariable(ImmutableSet<String> usedVariables) {
+    private String guessIteratedOverVariable(ImmutableSet<String> usedVariables) {
       String sequenceName = null;
       for (String usedVariable : usedVariables) {
-        VariableValue variableValue = getVariable(usedVariable);
-        if (variableValue.isSequence()) {
+        VariableValue variableValue = lookupVariable(usedVariable).getFirst();
+        if (variableValue != null && variableValue.isSequence()) {
           if (sequenceName != null) {
             throw new ExpansionException(
                 "Invalid toolchain configuration: trying to expand two variable list in one "
@@ -1320,7 +1370,7 @@ public class CcToolchainFeatures implements Serializable {
 
     /** Returns whether {@code variable} is set. */
     boolean isAvailable(String variable) {
-      return lookupVariable(variable) != null;
+      return lookupVariable(variable).getFirst() != null;
     }
   }
   

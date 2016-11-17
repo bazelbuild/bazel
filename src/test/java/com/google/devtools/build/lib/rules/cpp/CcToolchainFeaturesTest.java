@@ -416,6 +416,115 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
+  public void testExpandIfAllAvailableWithStructsExpandsIfPresent() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructsDoesntExpandIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructsDoesntCrashIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent'"
+                    + "  flag: '-A%{nonexistent.foo}'"
+                    + "  flag: '-B%{nonexistent.bar}'"
+                    + "}",
+                createVariables()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldDoesntCrashIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent.nonexistant_field'"
+                    + "  flag: '-A%{nonexistent.foo}'"
+                    + "  flag: '-B%{nonexistent.bar}'"
+                    + "}",
+                createVariables()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldExpandsIfPresent() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct.foo'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldDoesntExpandIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct.foo'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldScopesRight() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  flag_group {"
+                    + "    expand_if_all_available: 'struct.foo'"
+                    + "    flag: '-A%{struct.foo}'"
+                    + "  }"
+                    + "  flag_group { "
+                    + "    flag: '-B%{struct.bar}'"
+                    + "  }"
+                    + "}",
+                createStructureVariables(
+                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+        .containsExactly("-BbarValue");
+  }
+
+  @Test
   public void testLegacyListVariableExpansion() throws Exception {
     assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2");
