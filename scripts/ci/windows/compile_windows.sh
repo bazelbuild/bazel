@@ -34,9 +34,13 @@ release_label="$(get_full_release_name)"
 if [ -n "${release_label}" ]; then
   export EMBED_LABEL="${release_label}"
 fi
-./compile.sh "$*"
+${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
+    --embed_label=${release_label} --stamp \
+    --workspace_status_command=scripts/ci/build_status_command.sh \
+    //src:bazel
+
 
 # Copy the resulting artifact.
 mkdir -p output/ci
-cp output/bazel.exe output/ci/bazel-$(get_full_release_name).exe
-zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
+cp bazel-bin/src/bazel.exe output/ci/bazel-$(get_full_release_name).exe
+zip -j output/ci/bazel-$(get_full_release_name).zip bazel-bin/src/bazel.exe
