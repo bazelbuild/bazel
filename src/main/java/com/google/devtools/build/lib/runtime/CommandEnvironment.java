@@ -534,21 +534,24 @@ public final class CommandEnvironment {
     outputService = null;
     BlazeModule outputModule = null;
     ImmutableList.Builder<ActionInputPrefetcher> prefetchersBuilder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      OutputService moduleService = module.getOutputService();
-      if (moduleService != null) {
-        if (outputService != null) {
-          throw new IllegalStateException(String.format(
-              "More than one module (%s and %s) returns an output service",
-              module.getClass(), outputModule.getClass()));
+    if (command.builds()) {
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        OutputService moduleService = module.getOutputService();
+        if (moduleService != null) {
+          if (outputService != null) {
+            throw new IllegalStateException(
+                String.format(
+                    "More than one module (%s and %s) returns an output service",
+                    module.getClass(), outputModule.getClass()));
+          }
+          outputService = moduleService;
+          outputModule = module;
         }
-        outputService = moduleService;
-        outputModule = module;
-      }
 
-      ActionInputPrefetcher actionInputPrefetcher = module.getPrefetcher();
-      if (actionInputPrefetcher != null) {
-        prefetchersBuilder.add(actionInputPrefetcher);
+        ActionInputPrefetcher actionInputPrefetcher = module.getPrefetcher();
+        if (actionInputPrefetcher != null) {
+          prefetchersBuilder.add(actionInputPrefetcher);
+        }
       }
     }
     final ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = prefetchersBuilder.build();
