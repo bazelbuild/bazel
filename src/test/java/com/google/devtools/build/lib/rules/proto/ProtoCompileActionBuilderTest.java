@@ -69,7 +69,6 @@ public class ProtoCompileActionBuilderTest {
             ImmutableList.of(artifact("source_file.proto")),
             NestedSetBuilder.create(
                 STABLE_ORDER, artifact("import1.proto"), artifact("import2.proto")),
-            null /* usedDirectDeps */,
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -100,7 +99,6 @@ public class ProtoCompileActionBuilderTest {
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
-            null /* usedDirectDeps */,
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -139,7 +137,6 @@ public class ProtoCompileActionBuilderTest {
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
-            null /* usedDirectDeps */,
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -165,7 +162,6 @@ public class ProtoCompileActionBuilderTest {
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
-            null /* usedDirectDeps */,
             true /* hasProtoSources */);
 
     ProtoLangToolchainProvider toolchain1 =

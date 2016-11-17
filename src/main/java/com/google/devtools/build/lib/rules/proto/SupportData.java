@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
-import javax.annotation.Nullable;
 
 /**
  * A helper class for the *Support classes containing some data from ProtoLibrary.
@@ -34,10 +33,9 @@ public abstract class SupportData {
       Predicate<TransitiveInfoCollection> nonWeakDepsPredicate,
       ImmutableList<Artifact> protoSources,
       NestedSet<Artifact> transitiveImports,
-      Artifact usedDirectDeps,
       boolean hasProtoSources) {
     return new AutoValue_SupportData(
-        nonWeakDepsPredicate, protoSources, transitiveImports, usedDirectDeps, hasProtoSources);
+        nonWeakDepsPredicate, protoSources, transitiveImports, hasProtoSources);
   }
 
   public abstract Predicate<TransitiveInfoCollection> getNonWeakDepsPredicate();
@@ -45,9 +43,6 @@ public abstract class SupportData {
   public abstract ImmutableList<Artifact> getDirectProtoSources();
 
   public abstract NestedSet<Artifact> getTransitiveImports();
-
-  @Nullable
-  public abstract Artifact getUsedDirectDeps();
 
   public abstract boolean hasProtoSources();
 

@@ -213,11 +213,6 @@ public class ProtoCompileActionBuilder {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(supportData.getTransitiveImports());
 
-    // We also depend on the strict protodeps result to ensure this is run.
-    if (supportData.getUsedDirectDeps() != null) {
-      result.addInput(supportData.getUsedDirectDeps());
-    }
-
     FilesToRunProvider langPluginTarget = getLangPluginTarget();
     if (langPluginTarget != null) {
       result.addTool(langPluginTarget);
@@ -389,11 +384,6 @@ public class ProtoCompileActionBuilder {
       if (toolchain.pluginExecutable() != null) {
         result.addTool(toolchain.pluginExecutable());
       }
-    }
-
-    // We also depend on the strict protodeps result to ensure this is run.
-    if (supportData.getUsedDirectDeps() != null) {
-      result.addInput(supportData.getUsedDirectDeps());
     }
 
     FilesToRunProvider compilerTarget =

@@ -55,7 +55,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             Predicates.<TransitiveInfoCollection>alwaysTrue() /* nonWeakDepsPredicate */,
             protoSources,
             transitiveImports,
-            null /* usedDirectDeps */,
             !protoSources.isEmpty());
 
     Artifact descriptorSetOutput =
