@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.DynamicConfigsMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -178,7 +179,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
   private List<String> configurationArgs;
-  private boolean useDynamicConfigs;
+  private DynamicConfigsMode dynamicConfigsMode = DynamicConfigsMode.OFF;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -200,12 +201,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
-    configurationFactory = analysisMock.createConfigurationFactory();
     packageCacheOptions = parsePackageCacheOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
+    configurationFactory =
+        analysisMock.createConfigurationFactory(ruleClassProvider.getConfigurationFragments());
+
     pkgFactory =
         analysisMock
             .getPackageFactoryForTesting()
@@ -396,9 +399,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(String... args) throws Exception {
     String[] actualArgs;
-    if (useDynamicConfigs) {
+    if (dynamicConfigsMode != DynamicConfigsMode.OFF) {
       actualArgs = Arrays.copyOf(args, args.length + 1);
-      actualArgs[args.length] = "--experimental_dynamic_configs=on";
+      actualArgs[args.length] = "--experimental_dynamic_configs="
+          + dynamicConfigsMode.toString().toLowerCase();
     } else {
       actualArgs = args;
     }
@@ -409,10 +413,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations.
+   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations
+   * in the specified mode.
    */
-  protected final void useDynamicConfigurations() {
-    useDynamicConfigs = true;
+  protected final void useDynamicConfigurations(DynamicConfigsMode mode) {
+    dynamicConfigsMode = mode;
   }
 
   /**

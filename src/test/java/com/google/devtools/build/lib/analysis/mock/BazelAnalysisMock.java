@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
@@ -47,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public final class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
@@ -215,7 +217,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public ConfigurationFactory createConfigurationFactory() {
-    return new ConfigurationFactory(new BazelConfigurationCollection(),
+    return createConfigurationFactory(getDefaultConfigurationFactories());
+  }
+
+  @Override
+  public ConfigurationFactory createConfigurationFactory(
+      List<ConfigurationFragmentFactory> configurationFragmentFactories) {
+    return new ConfigurationFactory(
+        new BazelConfigurationCollection(),
+        configurationFragmentFactories);
+  }
+
+  private static List<ConfigurationFragmentFactory> getDefaultConfigurationFactories() {
+    return ImmutableList.<ConfigurationFragmentFactory>of(
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),
         new PythonConfigurationLoader(),
