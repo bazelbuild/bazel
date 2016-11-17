@@ -186,7 +186,7 @@ def _get_cxx_inc_directories(repository_ctx, cc):
   return [repository_ctx.path(_cxx_inc_convert(p))
           for p in inc_dirs.split("\n")]
 
-def _add_option_if_supported(repository_ctx, cc, option):
+def _is_option_supported(repository_ctx, cc, option):
   """Checks that `option` is supported by the C compiler."""
   result = repository_ctx.execute([
       cc,
@@ -196,11 +196,18 @@ def _add_option_if_supported(repository_ctx, cc, option):
       "-c",
       str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
-  return [option] if result.stderr.find(option) == -1 else []
+  return result.stderr.find(option) == -1
 
+def _add_option_if_supported(repository_ctx, cc, option):
+  """Checks that `option` is supported by the C compiler."""
+  if _is_option_supported(repository_ctx, cc, option) == -1:
+    return [option]
+  else:
+    return []
 
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
+  supports_gold_linker = _is_option_supported(repository_ctx, cc, "-fuse-ld=gold")
   return {
       "abi_version": "local",
       "abi_libc_version": "local",
@@ -208,12 +215,12 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "compiler": "compiler",
       "host_system_name": "local",
       "needsPic": True,
-      "supports_gold_linker": False,
+      "supports_gold_linker": supports_gold_linker,
       "supports_incremental_linker": False,
       "supports_fission": False,
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
-      "supports_start_end_lib": False,
+      "supports_start_end_lib": supports_gold_linker,
       "target_libc": "macosx" if darwin else "local",
       "target_cpu": cpu_value,
       "target_system_name": "local",
@@ -224,7 +231,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
-      ] + _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
+      ] + (
+          ["-fuse-ld=gold"] if supports_gold_linker else []
+      ) + _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
           [
               "-undefined",
               "dynamic_lookup",
