@@ -1524,10 +1524,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
 
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
-    loadingOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
     viewOptions.keepGoing = keepGoing;
+    viewOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));

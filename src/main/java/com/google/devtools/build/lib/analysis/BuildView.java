@@ -82,8 +82,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -149,6 +151,14 @@ public class BuildView {
    * of a BuildConfiguration.
    */
   public static class Options extends OptionsBase {
+    @Option(
+      name = "loading_phase_threads",
+      defaultValue = "-1",
+      category = "what",
+      converter = LoadingPhaseThreadCountConverter.class,
+      help = "Number of parallel threads to use for the loading/analysis phase."
+    )
+    public int loadingPhaseThreads;
 
     @Option(name = "keep_going",
             abbrev = 'k',
@@ -502,7 +512,12 @@ public class BuildView {
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              eventHandler, topLevelCtKeys, aspectKeys, eventBus, viewOptions.keepGoing);
+              eventHandler,
+              topLevelCtKeys,
+              aspectKeys,
+              eventBus,
+              viewOptions.keepGoing,
+              viewOptions.loadingPhaseThreads);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -1106,5 +1121,36 @@ public class BuildView {
       }
     }
     return null;
+  }
+
+  /**
+   * A converter for loading phase thread count. Since the default is not a true constant, we create
+   * a converter here to implement the default logic.
+   */
+  public static final class LoadingPhaseThreadCountConverter implements Converter<Integer> {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if ("-1".equals(input)) {
+        // Reduce thread count while running tests. Test cases are typically small, and large thread
+        // pools vying for a relatively small number of CPU cores may induce non-optimal
+        // performance.
+        return System.getenv("TEST_TMPDIR") == null ? 200 : 5;
+      }
+
+      try {
+        int result = Integer.decode(input);
+        if (result < 0) {
+          throw new OptionsParsingException("'" + input + "' must be at least -1");
+        }
+        return result;
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
   }
 }

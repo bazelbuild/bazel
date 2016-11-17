@@ -87,6 +87,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 
 /**
@@ -131,11 +132,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
+  private final Semaphore cpuBoundSemaphore;
 
-  ConfiguredTargetFunction(BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider) {
+  ConfiguredTargetFunction(
+      BuildViewProvider buildViewProvider,
+      RuleClassProvider ruleClassProvider,
+      Semaphore cpuBoundSemaphore) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
+    this.cpuBoundSemaphore = cpuBoundSemaphore;
   }
 
   private static boolean useDynamicConfigurations(BuildConfiguration config) {
@@ -195,6 +200,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
+
+    // TODO(janakr): this acquire() call may tie up this thread indefinitely, reducing the
+    // parallelism of Skyframe. This is a strict improvement over the prior state of the code, in
+    // which we ran with #processors threads, but ideally we would call #tryAcquire here, and if we
+    // failed, would exit this SkyFunction and restart it when permits were available.
+    cpuBoundSemaphore.acquire();
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions = getConfigConditions(
@@ -256,6 +267,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(e.getMessage(), analysisRootCause));
+    } finally {
+      cpuBoundSemaphore.release();
     }
   }
 

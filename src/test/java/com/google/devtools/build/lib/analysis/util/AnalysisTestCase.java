@@ -279,10 +279,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
-    loadingOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
     viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
+    viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
