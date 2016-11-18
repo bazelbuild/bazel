@@ -26,6 +26,8 @@ source ./scripts/ci/build.sh
 
 # Bazel still needs to know where bash is, take it from cygpath.
 export BAZEL_SH="$(cygpath --windows /bin/bash)"
+# Make sure JAVA_HOME is in Windows path style.
+export JAVA_HOME="$(cygpath --windows "${JAVA_HOME}")"
 
 # TODO(bazel-team): we should replace ./compile.sh by the same script we use
 # for other platform
