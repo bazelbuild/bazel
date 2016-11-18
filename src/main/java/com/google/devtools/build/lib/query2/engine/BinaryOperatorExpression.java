@@ -13,12 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 
 /**
  * A binary algebraic set operation.
@@ -96,6 +103,40 @@ public class BinaryOperatorExpression extends QueryExpression {
       lhsValue.retainAll(QueryUtil.evalAll(env, context, operands.get(i)));
     }
     callback.process(lhsValue);
+  }
+
+  @Override
+  protected <T> void parEvalImpl(
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
+      ArrayList<ForkJoinTask<Void>> tasks = new ArrayList<>(operands.size());
+      for (final QueryExpression operand : operands) {
+        tasks.add(ForkJoinTask.adapt(
+            new Callable<Void>() {
+              @Override
+              public Void call() throws QueryException, InterruptedException {
+                env.eval(operand, context, callback);
+                return null;
+              }
+            }));
+      }
+      for (ForkJoinTask<?> task : tasks) {
+        forkJoinPool.submit(task);
+      }
+      try {
+        MoreFutures.waitForAllInterruptiblyFailFast(tasks);
+      } catch (ExecutionException e) {
+        Throwables.propagateIfPossible(
+            e.getCause(), QueryException.class, InterruptedException.class);
+        throw new IllegalStateException(e);
+      }
+    } else {
+      evalImpl(env, context, callback);
+    }
   }
 
   @Override
