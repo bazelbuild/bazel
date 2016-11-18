@@ -38,7 +38,8 @@ public class HttpJarRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(http_jar).ATTRIBUTE(url) -->
         A URL to an archive file containing a Bazel repository.
 
-        <p>This must be an http or https URL that ends with .jar.</p>
+        <p>This must be a file, http or https URL that ends with .jar. Redirections are
+        followed. There is no support for authentication.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_jar).ATTRIBUTE(sha256) -->
@@ -81,12 +82,12 @@ public class HttpJarRule implements RuleDefinition {
 
 <pre class="code">
 http_jar(
-    name = "my-ssl",
+    name = "my_ssl",
     url = "http://example.com/openssl-0.2.jar",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
 </pre>
 
-<p>Targets would specify <code>@my-ssl//jar</code> as a dependency to depend on this jar.</p>
+<p>Targets would specify <code>@my_ssl//jar</code> as a dependency to depend on this jar.</p>
 
 <!-- #END_BLAZE_RULE -->*/
