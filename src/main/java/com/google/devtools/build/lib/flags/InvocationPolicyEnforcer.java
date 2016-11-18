@@ -33,14 +33,13 @@ import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.TextFormat;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -220,6 +219,16 @@ public final class InvocationPolicyEnforcer {
     }
   }
 
+  private static void logInApplySetValueOperation(String formattingString, Object... objects) {
+    // Finding the caller here is relatively expensive and shows up in profiling, so provide it
+    // manually.
+    log.logp(
+        Level.INFO,
+        "InvocationPolicyEnforcer",
+        "applySetValueOperation",
+        String.format(formattingString, objects));
+  }
+
   private static void applySetValueOperation(
       OptionsParser parser,
       FlagPolicy flagPolicy,
@@ -250,14 +259,13 @@ public final class InvocationPolicyEnforcer {
     if (setValue.getOverridable() && valueDescription != null) {
       // The user set the value for the flag but the flag policy is overridable, so keep the user's
       // value.
-      log.info(
-          String.format(
-              "Keeping value '%s' from source '%s' for flag '%s' "
-                  + "because the invocation policy specifying the value(s) '%s' is overridable",
-              valueDescription.getValue(),
-              valueDescription.getSource(),
-              flagName,
-              setValue.getFlagValueList()));
+      logInApplySetValueOperation(
+          "Keeping value '%s' from source '%s' for flag '%s' "
+              + "because the invocation policy specifying the value(s) '%s' is overridable",
+          valueDescription.getValue(),
+          valueDescription.getSource(),
+          flagName,
+          setValue.getFlagValueList());
     } else {
 
       if (!setValue.getAppend()) {
@@ -268,22 +276,15 @@ public final class InvocationPolicyEnforcer {
       // Set all the flag values from the policy.
       for (String flagValue : setValue.getFlagValueList()) {
         if (valueDescription == null) {
-          log.info(
-              String.format(
-                  "Setting value for flag '%s' from invocation "
-                      + "policy to '%s', overriding the default value '%s'",
-                  flagName,
-                  flagValue,
-                  optionDescription.getDefaultValue()));
+          logInApplySetValueOperation(
+              "Setting value for flag '%s' from invocation "
+                  + "policy to '%s', overriding the default value '%s'",
+              flagName, flagValue, optionDescription.getDefaultValue());
         } else {
-          log.info(
-              String.format(
-                  "Setting value for flag '%s' from invocation "
-                      + "policy to '%s', overriding value '%s' from '%s'",
-                  flagName,
-                  flagValue,
-                  valueDescription.getValue(),
-                  valueDescription.getSource()));
+          logInApplySetValueOperation(
+              "Setting value for flag '%s' from invocation "
+                  + "policy to '%s', overriding value '%s' from '%s'",
+              flagName, flagValue, valueDescription.getValue(), valueDescription.getSource());
         }
         setFlagValue(parser, flagName, flagValue);
       }
