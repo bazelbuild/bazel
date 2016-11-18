@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -186,6 +187,49 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     assertThat(myTarget.getProvider(OutputGroupProvider.class).getOutputGroup("my_group"))
         .containsExactlyElementsIn(hiddenTopLevelArtifacts);
   }
+
+  @Test
+  public void testOutputGroupsAsDictionary() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
+        "  has_key1 = '_hidden_top_level" + INTERNAL_SUFFIX + "' in ctx.attr.dep.output_groups",
+        "  has_key2 = 'foobar' in ctx.attr.dep.output_groups",
+        "  all_keys = [k for k in ctx.attr.dep.output_groups]",
+        "  return struct(result = f, ",
+        "                has_key1 = has_key1,",
+        "                has_key2 = has_key2,",
+        "                all_keys = all_keys,",
+        "               output_groups = { 'my_group' : f })",
+        "my_rule = rule(implementation = _impl,",
+        "    attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/extension',  'my_rule')",
+        "cc_binary(name = 'lib', data = ['a.txt'])",
+        "my_rule(name='my', dep = ':lib')");
+    NestedSet<Artifact> hiddenTopLevelArtifacts =
+        getConfiguredTarget("//test/skylark:lib")
+            .getProvider(OutputGroupProvider.class)
+            .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
+    SkylarkProviders skylarkProviders = myTarget
+        .getProvider(SkylarkProviders.class);
+    SkylarkNestedSet result = (SkylarkNestedSet) skylarkProviders.getValue("result");
+    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(myTarget.getProvider(OutputGroupProvider.class).getOutputGroup("my_group"))
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(skylarkProviders.getValue("has_key1")).isEqualTo(Boolean.TRUE);
+    assertThat(skylarkProviders.getValue("has_key2")).isEqualTo(Boolean.FALSE);
+    assertThat((SkylarkList) skylarkProviders.getValue("all_keys"))
+        .containsExactly(
+            "_hidden_top_level" + INTERNAL_SUFFIX,
+            "compilation_prerequisites" + INTERNAL_SUFFIX,
+            "files_to_compile" + INTERNAL_SUFFIX,
+            "temp_files" + INTERNAL_SUFFIX);
+  }
+
 
   @Test
   public void testOutputGroupsWithList() throws Exception {

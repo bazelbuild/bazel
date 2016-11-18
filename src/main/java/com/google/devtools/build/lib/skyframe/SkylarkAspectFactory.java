@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -25,12 +24,13 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.rules.SkylarkRuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import java.util.Map;
 
@@ -90,8 +90,9 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         for (String key : struct.getKeys()) {
           if (key.equals("output_groups")) {
             addOutputGroups(struct.getValue(key), loc, builder);
+          } else {
+            builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
           }
-          builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
         }
         ConfiguredAspect configuredAspect = builder.build();
         SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
@@ -101,21 +102,20 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError("\n" + e.print());
         return null;
       }
-
     }
   }
 
   private static void addOutputGroups(Object value, Location loc,
       ConfiguredAspect.Builder builder)
       throws EvalException {
-    Map<String, SkylarkNestedSet> outputGroups = SkylarkType
-        .castMap(value, String.class, SkylarkNestedSet.class, "output_groups");
+    Map<String, SkylarkValue> outputGroups =
+        SkylarkType.castMap(value, String.class, SkylarkValue.class, "output_groups");
 
     for (String outputGroup : outputGroups.keySet()) {
-      SkylarkNestedSet objects = outputGroups.get(outputGroup);
+      SkylarkValue objects = outputGroups.get(outputGroup);
+
       builder.addOutputGroup(outputGroup,
-          SkylarkType.cast(objects, SkylarkNestedSet.class, Artifact.class, loc,
-              "Output group '%s'", outputGroup).getSet(Artifact.class));
+          SkylarkRuleConfiguredTargetBuilder.convertToOutputGroupValue(loc, outputGroup, objects));
     }
   }
 

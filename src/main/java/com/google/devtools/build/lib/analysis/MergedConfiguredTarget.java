@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
@@ -85,8 +86,15 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         OutputGroupProvider.merge(getAllProviders(base, aspects, OutputGroupProvider.class));
 
     // Merge Skylark providers.
+    ImmutableMap<String, Object> premergedProviders =
+        mergedOutputGroupProvider == null
+        ? ImmutableMap.<String, Object>of()
+        : ImmutableMap.<String, Object>of(
+            OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
     SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
+        SkylarkProviders.merge(
+            premergedProviders,
+            getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(

@@ -186,41 +186,47 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
     for (String outputGroup : outputGroups.keySet()) {
       SkylarkValue objects = outputGroups.get(outputGroup);
-      NestedSet<Artifact> artifacts;
-
-      String typeErrorMessage =
-          "Output group '%s' is of unexpected type. "
-              + "Should be list or set of Files, but got '%s' instead.";
-
-      if (objects instanceof SkylarkList) {
-        NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
-        for (Object o : (SkylarkList) objects) {
-          if (o instanceof Artifact) {
-            nestedSetBuilder.add((Artifact) o);
-          } else {
-            throw new EvalException(
-                loc,
-                String.format(
-                    typeErrorMessage,
-                    outputGroup,
-                    "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
-          }
-        }
-        artifacts = nestedSetBuilder.build();
-      } else {
-        artifacts =
-            SkylarkType.cast(
-                    objects,
-                    SkylarkNestedSet.class,
-                    Artifact.class,
-                    loc,
-                    typeErrorMessage,
-                    outputGroup,
-                    EvalUtils.getDataTypeName(objects, true))
-                .getSet(Artifact.class);
-      }
+      NestedSet<Artifact> artifacts = convertToOutputGroupValue(loc, outputGroup, objects);
       builder.addOutputGroup(outputGroup, artifacts);
     }
+  }
+
+  public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
+      SkylarkValue objects) throws EvalException {
+    NestedSet<Artifact> artifacts;
+
+    String typeErrorMessage =
+        "Output group '%s' is of unexpected type. "
+            + "Should be list or set of Files, but got '%s' instead.";
+
+    if (objects instanceof SkylarkList) {
+      NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
+      for (Object o : (SkylarkList) objects) {
+        if (o instanceof Artifact) {
+          nestedSetBuilder.add((Artifact) o);
+        } else {
+          throw new EvalException(
+              loc,
+              String.format(
+                  typeErrorMessage,
+                  outputGroup,
+                  "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
+        }
+      }
+      artifacts = nestedSetBuilder.build();
+    } else {
+      artifacts =
+          SkylarkType.cast(
+                  objects,
+                  SkylarkNestedSet.class,
+                  Artifact.class,
+                  loc,
+                  typeErrorMessage,
+                  outputGroup,
+                  EvalUtils.getDataTypeName(objects, true))
+              .getSet(Artifact.class);
+    }
+    return artifacts;
   }
 
   private static ConfiguredTarget addStructFieldsAndBuild(

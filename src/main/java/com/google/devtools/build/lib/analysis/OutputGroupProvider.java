@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
@@ -24,11 +26,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -45,7 +51,9 @@ import javax.annotation.Nullable;
  * not mentioned on the output.
  */
 @Immutable
-public final class OutputGroupProvider implements TransitiveInfoProvider {
+public final class OutputGroupProvider implements
+    TransitiveInfoProvider, SkylarkIndexable, Iterable<String> {
+  public static String SKYLARK_NAME = "output_groups";
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -184,5 +192,34 @@ public final class OutputGroupProvider implements TransitiveInfoProvider {
     }
 
     return ImmutableSortedSet.copyOf(current);
+  }
+
+  @Override
+  public Object getIndex(Object key, Location loc) throws EvalException {
+    if (!(key instanceof String)) {
+      throw new EvalException(loc, String.format(
+          "Output grout names must be strings, got %s instead",
+          EvalUtils.getDataTypeName(key)));
+    }
+
+    NestedSet<Artifact> result = outputGroups.get(key);
+    if (result != null) {
+      return SkylarkNestedSet.of(Artifact.class, result);
+    } else {
+      throw new EvalException(loc, String.format(
+          "Output group %s not present", key
+      ));
+    }
+
+  }
+
+  @Override
+  public boolean containsKey(Object key, Location loc) throws EvalException {
+    return outputGroups.containsKey(key);
+  }
+
+  @Override
+  public Iterator<String> iterator() {
+    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
   }
 }

@@ -106,33 +106,44 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
   /**
    * Merges skylark providers. The set of providers must be disjoint.
    *
+   * @param premergedProviders providers that has already been merged. They will
+   *        be put into the result as-is and their presence will be ignored among {@code providers}.
    * @param providers providers to merge {@code this} with.
    */
-  public static SkylarkProviders merge(List<SkylarkProviders> providers)
+  public static SkylarkProviders merge(
+      Map<String, Object> premergedProviders,
+      List<SkylarkProviders> providers)
       throws DuplicateException {
-    if (providers.size() == 0) {
+    if (premergedProviders.size() == 0 && providers.size() == 0) {
       return null;
     }
-    if (providers.size() == 1) {
+    if (premergedProviders.size() == 0 && providers.size() == 1) {
       return providers.get(0);
     }
 
     ImmutableMap<String, Object> skylarkProviders = mergeMaps(providers,
-        SKYLARK_PROVIDERS_MAP_FUNCTION);
+        SKYLARK_PROVIDERS_MAP_FUNCTION,
+        premergedProviders);
+
     ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject> declaredProviders =
-        mergeMaps(providers, DECLARED_PROVIDERS_MAP_FUNCTION);
+        mergeMaps(providers, DECLARED_PROVIDERS_MAP_FUNCTION,
+            ImmutableMap.<SkylarkClassObjectConstructor.Key, SkylarkClassObject>of());
 
     return new SkylarkProviders(skylarkProviders, declaredProviders);
   }
 
   private static <K, V> ImmutableMap<K, V> mergeMaps(List<SkylarkProviders> providers,
-      Function<SkylarkProviders, Map<K, V>> mapGetter)
+      Function<SkylarkProviders, Map<K, V>> mapGetter, Map<K, V> premerged)
       throws DuplicateException {
-    ImmutableMap.Builder<K, V> resultBuilder = new ImmutableMap.Builder<>();
     Set<K> seenKeys = new HashSet<>();
+    ImmutableMap.Builder<K, V> resultBuilder = ImmutableMap.builder();
+    resultBuilder.putAll(premerged);
     for (SkylarkProviders provider : providers) {
       Map<K, V> map = mapGetter.apply(provider);
       for (K key : map.keySet()) {
+        if (premerged.containsKey(key)) {
+          continue;
+        }
         if (!seenKeys.add(key)) {
           // TODO(dslomov): add better diagnostics.
           throw new DuplicateException("Provider " + key + " provided twice");
