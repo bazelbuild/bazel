@@ -21,6 +21,10 @@
 
 namespace blaze_util {
 
+class IPipe;
+
+IPipe* CreatePipe();
+
 // Checks each element of the PATH variable for executable. If none is found, ""
 // is returned.  Otherwise, the full path to executable is returned. Can die if
 // looking up PATH fails.

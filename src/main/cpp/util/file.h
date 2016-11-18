@@ -19,6 +19,18 @@
 
 namespace blaze_util {
 
+class IPipe {
+ public:
+  virtual ~IPipe() {}
+
+  // Sends `size` bytes from `buffer` through the pipe.
+  virtual bool Send(void *buffer, size_t size) = 0;
+
+  // Receives at most `size` bytes into `buffer` from the pipe.
+  // Returns the number of bytes received; sets `errno` upon error.
+  virtual int Receive(void *buffer, size_t size) = 0;
+};
+
 // Returns the part of the path before the final "/".  If there is a single
 // leading "/" in the path, the result will be the leading "/".  If there is
 // no "/" in the path, the result is the empty prefix of the input (i.e., "").

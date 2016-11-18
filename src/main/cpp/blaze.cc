@@ -236,8 +236,10 @@ class GrpcBlazeServer : public BlazeServer {
   std::mutex cancel_thread_mutex_;
 
   int connect_timeout_secs_;
-  int recv_socket_;  // Socket the cancel thread reads actions from
-  int send_socket_;  // Socket the main thread writes actions to
+
+  // Pipe that the main thread sends actions to and the cancel thread receieves
+  // actions from.
+  blaze_util::IPipe* _pipe;
 
   void CancelThread();
   void SendAction(CancelThreadAction action);
@@ -1404,28 +1406,15 @@ GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
 
   gpr_set_log_function(null_grpc_log_function);
 
-  int fd[2];
-  if (pipe(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "pipe()");
-  }
-  recv_socket_ = fd[0];
-  send_socket_ = fd[1];
-
-  if (fcntl(recv_socket_, F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
-  }
-
-  if (fcntl(send_socket_, F_SETFD, FD_CLOEXEC) == -1) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+  _pipe = blaze_util::CreatePipe();
+  if (_pipe == NULL) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Couldn't create pipe");
   }
 }
 
 GrpcBlazeServer::~GrpcBlazeServer() {
-  close(send_socket_);
-  close(recv_socket_);
+  delete _pipe;
+  _pipe = NULL;
 }
 
 bool GrpcBlazeServer::Connect() {
@@ -1528,8 +1517,9 @@ void GrpcBlazeServer::CancelThread() {
   bool command_id_received = false;
   while (running) {
     char buf;
-    int bytes_read = read(recv_socket_, &buf, 1);
-    if (bytes_read == -1 && errno == EINTR) {
+
+    int bytes_read = _pipe->Receive(&buf, 1);
+    if (bytes_read < 0 && errno == EINTR) {
       continue;
     } else if (bytes_read != 1) {
       pdie(blaze_exit_code::INTERNAL_ERROR,
@@ -1699,7 +1689,7 @@ void GrpcBlazeServer::Disconnect() {
 
 void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
-  if (write(send_socket_, &msg, 1) <= 0) {
+  if (!_pipe->Send(&msg, 1)) {
     sigprintf("\nCould not interrupt server (cannot write to client pipe)\n\n");
   }
 }

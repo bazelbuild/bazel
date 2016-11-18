@@ -33,6 +33,53 @@ namespace blaze_util {
 using std::pair;
 using std::string;
 
+class PosixPipe : public IPipe {
+ public:
+  PosixPipe(int recv_socket, int send_socket)
+      : _recv_socket(recv_socket), _send_socket(send_socket) {}
+
+  PosixPipe() = delete;
+
+  virtual ~PosixPipe() {
+    close(_recv_socket);
+    close(_send_socket);
+  }
+
+  // Sends `size` bytes from `buffer` through the pipe.
+  bool Send(void* buffer, size_t size) override {
+    return write(_send_socket, buffer, size) == size;
+  }
+
+  // Receives at most `size` bytes into `buffer` from the pipe.
+  // Returns the number of bytes received; sets `errno` upon error.
+  int Receive(void* buffer, size_t size) override {
+    return read(_recv_socket, buffer, size);
+  }
+
+ private:
+  int _recv_socket;
+  int _send_socket;
+};
+
+IPipe* CreatePipe() {
+  int fd[2];
+  if (pipe(fd) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "pipe()");
+  }
+
+  if (fcntl(fd[0], F_SETFD, FD_CLOEXEC) == -1) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+  }
+
+  if (fcntl(fd[1], F_SETFD, FD_CLOEXEC) == -1) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "fcntl(F_SETFD, FD_CLOEXEC) failed");
+  }
+
+  return new PosixPipe(fd[0], fd[1]);
+}
+
 string Which(const string &executable) {
   char *path_cstr = getenv("PATH");
   if (path_cstr == NULL || path_cstr[0] == '\0') {
