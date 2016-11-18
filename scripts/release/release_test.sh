@@ -50,13 +50,19 @@ EOF
 }
 
 function create() {
+  local name="$1"
+  local commit="$2"
+  if [[ "$1" =~ ^--force_rc=([0-9]*)$ ]]; then
+    name="$2"
+    commit="$3"
+  fi
   local old_branch=$(git_get_branch)
   ${RELEASE_SCRIPT} create $@ &> $TEST_log \
-    || fail "Failed to cut release $1 at commit $2"
+    || fail "Failed to cut release $name at commit $commit"
   local new_branch=$(git_get_branch)
   assert_equals "$old_branch" "$new_branch"
-  assert_contains "Created $1.* on branch release-$1." $TEST_log
-  git show -s --pretty=format:%B "release-$1" >$TEST_log
+  assert_contains "Created $name.* on branch release-$name." $TEST_log
+  git show -s --pretty=format:%B "release-$name" >$TEST_log
 }
 
 function push() {
@@ -206,6 +212,7 @@ Cherry picks:
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
+  assert_equals 1 "$(get_release_candidate release-v1)"
   push v1
 
   # Test creating a second candidate
@@ -226,7 +233,7 @@ Cherry picks:
   - Attribute error messages related to Android resources are easier
     to understand now.'
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
-  assert_equals 2 "$(get_release_candidate)"
+  assert_equals 2 "$(get_release_candidate release-v1)"
 
   # Push the release
   push v1
@@ -239,9 +246,10 @@ Cherry picks:
 echo 'Dummy release' >\$1
 EOF
   # Create release
-  create v2 2464526
+  create --force_rc=2 v2 2464526
   expect_log "Release v2"
   expect_log "Baseline: 2464526"
+  assert_equals 2 "$(get_release_candidate release-v2)"
   # Abandon it
   abandon v2
   # Add a commit hook to test if it is ignored

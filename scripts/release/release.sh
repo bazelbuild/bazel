@@ -44,6 +44,14 @@ RELEASE_NOTE_MESSAGE='# Editing release notes
 # empty line at the start and at the end.
 '
 
+# Fetch everything from remote repositories to avoid conflicts
+function fetch() {
+  for i in ${RELEASE_REPOSITORIES}; do
+    git fetch $i &>/dev/null || true
+    git fetch $i refs/notes/*:refs/notes/* &>/dev/null || true
+  done
+}
+
 # Set the release name $1 (and eventually the candidate number $2).
 function set_release_name() {
   git notes --ref=release remove 2>/dev/null || true
@@ -156,6 +164,11 @@ function apply_cherry_picks() {
 # Execute the create command:
 #   Create a new release named "$1" with "$2" as the baseline commit.
 function create_release() {
+  local force_rc=
+  if [[ "$1" =~ ^--force_rc=([0-9]*)$ ]]; then
+    force_rc=${BASH_REMATCH[1]}
+    shift 1
+  fi
   local release_name="$1"
   local baseline="$2"
   shift 2
@@ -166,10 +179,15 @@ function create_release() {
   local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
   trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
 
+  fetch
   # Get the rc number (1 by default)
   local rc=1
-  if [ -n "$(git branch --list --column ${branch_name})" ]; then
-    rc=$(($(get_release_candidate "${branch_name}")+1))
+  if [ -z "${force_rc}" ]; then
+    if [ -n "$(git branch --list --column ${branch_name})" ]; then
+      rc=$(($(get_release_candidate "${branch_name}")+1))
+    fi
+  else
+    rc=${force_rc}
   fi
 
   # Save the changelog so we compute the relnotes against HEAD.
@@ -286,9 +304,12 @@ function usage() {
   cat >&2 <<EOF
 Usage: $1 command [arguments]
 Available commands are:
-  - create RELEASE_NAME BASELINE [COMMIT1 ... COMMITN]: creates a new
-      release branch for release named RELEASE_NAME, cutting it at
-      the commit BASELINE and cherry-picking COMMIT1 ... COMMITN.
+  - create [--force_rc=RC] RELEASE_NAME BASELINE [COMMIT1 ... COMMITN]:
+      creates a new release branch for release named RELEASE_NAME,
+      cutting it at the commit BASELINE and cherry-picking
+      COMMIT1 ... COMMITN. The release candidate number will be
+      computed from existing release branch unless --force_rc is
+      specified.
   - push: push the current release branch to release repositories.
   - release: do the actual release of the current release branch.
   - abandon: abandon the current release branch.
