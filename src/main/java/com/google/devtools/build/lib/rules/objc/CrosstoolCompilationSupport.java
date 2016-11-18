@@ -60,7 +60,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
-  private static final Iterable<String> ACTIVATED_ACTIONS =
+  private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
           "objc++-compile",
@@ -218,6 +218,25 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .build();
     ruleContext.registerAction(executableLinkAction);    
     
+    return this;
+  }
+
+  @Override
+  CompilationSupport validateAttributes() throws RuleErrorException {
+    super.validateAttributes();
+
+    FeatureConfiguration featureConfiguration = ruleContext
+        .getPrerequisite(":cc_toolchain", Mode.TARGET)
+        .getProvider(CcToolchainProvider.class)
+        .getFeatures()
+        .getFeatureConfiguration(ACTIVATED_ACTIONS);
+    for (String action : ACTIVATED_ACTIONS) {
+      if (!featureConfiguration.actionIsConfigured(action)) {
+        ruleContext.ruleError(
+            String.format("Toolchain derived from CROSSTOOL for this build does not support objc."
+                + " Missing action %s.", action));
+      }
+    }
     return this;
   }
 
