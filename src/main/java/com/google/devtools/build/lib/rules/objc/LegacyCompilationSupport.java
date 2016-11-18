@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -928,6 +929,15 @@ public class LegacyCompilationSupport extends CompilationSupport {
       commandLine.add("-filelist").add(inputFileList.getExecPathString());
     }
 
+    AppleBitcodeMode bitcodeMode = appleConfiguration.getBitcodeMode();
+    commandLine.add(bitcodeMode.getCompileAndLinkFlags());
+
+    if (bitcodeMode == AppleBitcodeMode.EMBEDDED) {
+      commandLine.add("-Xlinker").add("-bitcode_verify");
+      commandLine.add("-Xlinker").add("-bitcode_hide_symbols");
+      // TODO(b/32910627): Add Bitcode symbol maps outputs.
+    }
+
     commandLine
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add("-Xlinker")
@@ -1152,7 +1162,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
     return Iterables.concat(
         AppleToolchain.DEFAULT_WARNINGS.values(),
         platformSpecificCompileFlagsForClang(configuration),
-        configuration.getBitcodeMode().getCompilerFlags(),
+        configuration.getBitcodeMode().getCompileAndLinkFlags(),
         DEFAULT_COMPILER_FLAGS
     );
   }
