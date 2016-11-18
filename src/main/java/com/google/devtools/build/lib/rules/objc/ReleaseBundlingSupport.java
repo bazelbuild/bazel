@@ -436,7 +436,6 @@ public final class ReleaseBundlingSupport {
     Artifact processedIpa = releaseBundling.getIpaArtifact();
     Artifact unprocessedIpa = intermediateArtifacts.unprocessedIpa();
 
-    boolean processingNeeded = false;
     NestedSetBuilder<Artifact> inputs =
         NestedSetBuilder.<Artifact>stableOrder().add(unprocessedIpa);
 
@@ -454,45 +453,58 @@ public final class ReleaseBundlingSupport {
 
     FilesToRunProvider processor = attributes.ipaPostProcessor();
     if (processor != null) {
-      processingNeeded = true;
       actionCommandLine += processor.getExecutable().getShellEscapedExecPathString() + " ${t} && ";
     }
 
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     if (platform.isDevice()) {
-      processingNeeded = true;
+      actionCommandLine += deviceSigningCommandLine();
+
       registerEntitlementsActions();
-      actionCommandLine += signingCommandLine();
-      inputs.add(releaseBundling.getProvisioningProfile()).add(
-          intermediateArtifacts.entitlements());
+      inputs.add(releaseBundling.getProvisioningProfile())
+          .add(intermediateArtifacts.entitlements());
+    } else {
+      actionCommandLine += simulatorSigningCommandLine();
     }
 
     actionCommandLine += "cd ${t} && /usr/bin/zip -q -r \"${signed_ipa}\" .";
 
-    if (processingNeeded) {
-      SpawnAction.Builder processAction =
-          ObjcRuleClasses.spawnBashOnDarwinActionBuilder(actionCommandLine)
-              .setEnvironment(
-                  ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
-              .setMnemonic("ObjcProcessIpa")
-              .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
-              .disableSandboxing()
-              .addTransitiveInputs(inputs.build())
-              .addOutput(processedIpa);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    SpawnAction.Builder processAction =
+        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(actionCommandLine)
+            .setEnvironment(ObjcRuleClasses.appleToolchainEnvironment(appleConfiguration, platform))
+            .setMnemonic("ObjcProcessIpa")
+            .setProgressMessage("Processing iOS IPA: " + ruleContext.getLabel())
+            .disableSandboxing()
+            .addTransitiveInputs(inputs.build())
+            .addOutput(processedIpa);
 
-      if (processor != null) {
-        processAction.addTool(processor);
-      }
-
-      ruleContext.registerAction(processAction.build(ruleContext));
-    } else {
-      ruleContext.registerAction(
-          new SymlinkAction(
-              ruleContext.getActionOwner(), unprocessedIpa, processedIpa, "Processing IPA"));
+    if (processor != null) {
+      processAction.addTool(processor);
     }
+
+    ruleContext.registerAction(processAction.build(ruleContext));
   }
 
-  private String signingCommandLine() {
+  private String deviceSigningCommandLine() {
+    StringBuilder codesignCommandLineBuilder = new StringBuilder();
+    for (String dir : getDirsToSign()) {
+      codesignCommandLineBuilder.append(deviceCodesignCommand("${t}/" + dir)).append(" && ");
+    }
+    return codesignCommandLineBuilder.toString();
+  }
+
+  private String simulatorSigningCommandLine() {
+    StringBuilder codesignCommandLineBuilder = new StringBuilder();
+    for (String dir : getDirsToSign()) {
+      codesignCommandLineBuilder
+          .append("/usr/bin/codesign --force --sign \"-\" ${t}/")
+          .append(dir)
+          .append(" && ");
+    }
+    return codesignCommandLineBuilder.toString();
+  }
+
+  private ImmutableList<String> getDirsToSign() {
     // The order here is important. The innermost code must singed first.
     ImmutableList.Builder<String> dirsToSign = new ImmutableList.Builder<>();
     String bundleDir = ShellUtils.shellEscape(bundling.getBundleDir());
@@ -505,11 +517,7 @@ public final class ReleaseBundlingSupport {
     }
     dirsToSign.add(bundleDir);
 
-    StringBuilder codesignCommandLineBuilder = new StringBuilder();
-    for (String dir : dirsToSign.build()) {
-      codesignCommandLineBuilder.append(codesignCommand("${t}/" + dir)).append(" && ");
-    }
-    return codesignCommandLineBuilder.toString();
+    return dirsToSign.build();
   }
 
   /**
@@ -1118,7 +1126,7 @@ public final class ReleaseBundlingSupport {
     return "security cms -D -i " + ShellUtils.shellEscape(provisioningProfile.getExecPathString());
   }
 
-  private String codesignCommand(String appDir) {
+  private String deviceCodesignCommand(String appDir) {
     String signingCertName = ObjcRuleClasses.objcConfiguration(ruleContext).getSigningCertName();
     Artifact entitlements = intermediateArtifacts.entitlements();
 
