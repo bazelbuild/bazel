@@ -60,8 +60,10 @@ import com.google.devtools.build.skyframe.NotifyingHelper.Listener;
 import com.google.devtools.build.skyframe.NotifyingHelper.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -1229,6 +1231,56 @@ public class BuildViewTest extends BuildViewTestBase {
             LateBoundSplitUtil.getOptions(Iterables.get(deps, 0).getConfiguration()).fooFlag,
             LateBoundSplitUtil.getOptions(Iterables.get(deps, 1).getConfiguration()).fooFlag))
         .containsExactly("one", "two");
+  }
+
+  /**
+   * Here, injecting_rule injects an aspect which acts on a action_rule() and registers an action.
+   * The action_rule() registers another action of its own.
+   *
+   * <p>This test asserts that both actions are reported.
+   */
+  @Test
+  public void ruleExtraActionsDontHideAspectExtraActions() throws Exception {
+    useConfiguration("--experimental_action_listener=//pkg:listener");
+
+    scratch.file(
+        "x/BUILD",
+        "load(':extension.bzl', 'injecting_rule', 'action_rule')",
+        "injecting_rule(name='a', deps=[':b'])",
+        "action_rule(name='b')");
+
+    scratch.file(
+        "x/extension.bzl",
+        "def _aspect1_impl(target, ctx):",
+        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  return struct()",
+        "aspect1 = aspect(_aspect1_impl, attr_aspects=['deps'])",
+        "",
+        "def _injecting_rule_impl(ctx):",
+        "  return struct()",
+        "injecting_rule = rule(_injecting_rule_impl, ",
+        "    attrs = { 'deps' : attr.label_list(aspects = [aspect1]) })",
+        "",
+        "def _action_rule_impl(ctx):",
+        "  out = ctx.new_file(ctx.label.name)",
+        "  ctx.action(outputs = [out], command = 'dontcare', mnemonic='Mnemonic')",
+        "  return struct()",
+        "action_rule = rule(_action_rule_impl, attrs = { 'deps' : attr.label_list() })");
+
+    scratch.file(
+        "pkg/BUILD",
+        "extra_action(name='xa', cmd='echo dont-care')",
+        "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
+
+    BuildView.AnalysisResult analysisResult = update("//x:a");
+
+    List<String> owners = new ArrayList<>();
+    for (Artifact artifact : analysisResult.getAdditionalArtifactsToBuild()) {
+      if ("xa".equals(artifact.getExtension())) {
+        owners.add(artifact.getOwnerLabel().toString());
+      }
+    }
+    assertThat(owners).containsExactly("//x:b", "//x:b");
   }
 
   /** Runs the same test with the reduced loading phase. */

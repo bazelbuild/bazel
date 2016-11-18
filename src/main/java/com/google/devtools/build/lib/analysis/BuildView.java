@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -682,30 +681,31 @@ public class BuildView {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
       Set<Artifact> artifactsToBuild) {
-    Iterable<ExtraArtifactSet> xaSets =
+    Iterable<Artifact> extraActionArtifacts =
         concat(
             addExtraActionsFromTargets(viewOptions, configuredTargets),
             addExtraActionsFromAspects(viewOptions, aspects));
 
     RegexFilter filter = viewOptions.extraActionFilter;
-    for (ExtraArtifactSet set : xaSets) {
-      boolean filterMatches = filter == null || filter.isIncluded(set.getLabel().toString());
+    for (Artifact artifact : extraActionArtifacts) {
+      boolean filterMatches =
+          filter == null || filter.isIncluded(artifact.getOwnerLabel().toString());
       if (filterMatches) {
-        artifactsToBuild.addAll(set.getArtifacts());
+        artifactsToBuild.add(artifact);
       }
     }
   }
 
-  private NestedSet<ExtraArtifactSet> addExtraActionsFromTargets(
+  private NestedSet<Artifact> addExtraActionsFromTargets(
       BuildView.Options viewOptions, Collection<ConfiguredTarget> configuredTargets) {
-    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (ConfiguredTarget target : configuredTargets) {
       ExtraActionArtifactsProvider provider =
           target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
           if (!viewOptions.extraActionTopLevelOnlyWithAspects) {
-            builder.add(ExtraArtifactSet.of(target.getLabel(), provider.getExtraActionArtifacts()));
+            builder.addTransitive(provider.getExtraActionArtifacts());
           } else {
             // Collect all aspect-classes that topLevel might inject.
             Set<AspectClass> aspectClasses = new HashSet<>();
@@ -713,16 +713,10 @@ public class BuildView {
               aspectClasses.addAll(attr.getAspectClasses());
             }
 
-            Iterable<Artifact> artifacts;
-            if (aspectClasses.isEmpty()) {
-              artifacts = provider.getExtraActionArtifacts();
-            } else {
-              ImmutableList.Builder<Artifact> artifactBuilder = ImmutableList.builder();
-              artifactBuilder.addAll(provider.getExtraActionArtifacts());
-              artifactBuilder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
-              artifacts = artifactBuilder.build();
+            builder.addTransitive(provider.getExtraActionArtifacts());
+            if (!aspectClasses.isEmpty()) {
+              builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
             }
-            builder.add(ExtraArtifactSet.of(target.getLabel(), artifacts));
           }
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
@@ -741,28 +735,26 @@ public class BuildView {
     ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
     // Add to 'artifacts' all extra-actions which were registered by aspects which 'topLevel'
     // might have injected.
-    for (ExtraArtifactSet extraArtifactSet : provider.getTransitiveExtraActionArtifacts()) {
-      for (Artifact artifact : extraArtifactSet.getArtifacts()) {
-        ArtifactOwner owner = artifact.getArtifactOwner();
-        if (owner instanceof AspectKey) {
-          if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
-            artifacts.add(artifact);
-          }
+    for (Artifact artifact : provider.getTransitiveExtraActionArtifacts()) {
+      ArtifactOwner owner = artifact.getArtifactOwner();
+      if (owner instanceof AspectKey) {
+        if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
+          artifacts.add(artifact);
         }
       }
     }
     return artifacts.build();
   }
 
-  private NestedSet<ExtraArtifactSet> addExtraActionsFromAspects(
+  private NestedSet<Artifact> addExtraActionsFromAspects(
       BuildView.Options viewOptions, Collection<AspectValue> aspects) {
-    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (AspectValue aspect : aspects) {
       ExtraActionArtifactsProvider provider =
           aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          builder.add(ExtraArtifactSet.of(aspect.getLabel(), provider.getExtraActionArtifacts()));
+          builder.addTransitive(provider.getExtraActionArtifacts());
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
         }

@@ -18,14 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
-
 import java.util.List;
 import java.util.Set;
 
@@ -51,7 +49,7 @@ class ExtraActionUtils {
     }
 
     ImmutableList<Artifact> extraActionArtifacts = ImmutableList.of();
-    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
 
     List<Label> actionListenerLabels = configuration.getActionListeners();
     if (!actionListenerLabels.isEmpty()
@@ -70,7 +68,7 @@ class ExtraActionUtils {
 
       extraActionArtifacts = visitor.getAndResetExtraArtifacts();
       if (!extraActionArtifacts.isEmpty()) {
-        builder.add(ExtraArtifactSet.of(ruleContext.getLabel(), extraActionArtifacts));
+        builder.addAll(extraActionArtifacts);
       }
     }
 
