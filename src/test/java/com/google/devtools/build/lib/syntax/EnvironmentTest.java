@@ -141,11 +141,8 @@ public class EnvironmentTest extends EvaluationTestCase {
             "range",
             "repr",
             "reversed",
-            "select",
-            "set",
             "sorted",
             "str",
-            "type",
             "zip"),
         outerEnv.getVariableNames());
     assertEquals(
@@ -176,11 +173,8 @@ public class EnvironmentTest extends EvaluationTestCase {
             "range",
             "repr",
             "reversed",
-            "select",
-            "set",
             "sorted",
             "str",
-            "type",
             "zip"),
         innerEnv.getVariableNames());
   }

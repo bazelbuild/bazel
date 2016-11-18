@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -69,7 +70,7 @@ public class EvaluationTestCase {
   public Environment newBuildEnvironment() {
     Environment env =
         Environment.builder(mutability)
-            .setGlobals(Environment.DEFAULT_GLOBALS)
+            .setGlobals(BazelLibrary.GLOBALS)
             .setEventHandler(getEventHandler())
             .setPhase(Phase.LOADING)
             .build();
@@ -84,7 +85,7 @@ public class EvaluationTestCase {
   public Environment newSkylarkEnvironment() {
     return Environment.builder(mutability)
         .setSkylark()
-        .setGlobals(Environment.DEFAULT_GLOBALS)
+        .setGlobals(BazelLibrary.GLOBALS)
         .setEventHandler(getEventHandler())
         .build();
   }

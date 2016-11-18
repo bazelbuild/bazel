@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
 
@@ -27,8 +28,7 @@ public abstract class TestMode {
         @Override
         public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
           return Environment.builder(Mutability.create("build test"))
-              .setGlobals(
-                  environment == null ? Environment.DEFAULT_GLOBALS : environment.getGlobals())
+              .setGlobals(environment == null ? BazelLibrary.GLOBALS : environment.getGlobals())
               .setEventHandler(eventHandler)
               .build();
         }
@@ -40,8 +40,7 @@ public abstract class TestMode {
         public Environment createEnvironment(EventHandler eventHandler, Environment environment) {
           return Environment.builder(Mutability.create("skylark test"))
               .setSkylark()
-              .setGlobals(
-                  environment == null ? Environment.DEFAULT_GLOBALS : environment.getGlobals())
+              .setGlobals(environment == null ? BazelLibrary.GLOBALS : environment.getGlobals())
               .setEventHandler(eventHandler)
               .build();
         }

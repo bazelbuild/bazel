@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -1631,7 +1632,7 @@ public final class PackageFactory {
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
       Environment pkgEnv =
           Environment.builder(mutability)
-              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setGlobals(BazelLibrary.GLOBALS)
               .setEventHandler(eventHandler)
               .setImportedExtensions(imports)
               .setPhase(Phase.LOADING)
@@ -1708,7 +1709,7 @@ public final class PackageFactory {
     try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
       Environment pkgEnv =
           Environment.builder(mutability)
-              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setGlobals(BazelLibrary.GLOBALS)
               .setEventHandler(NullEventHandler.INSTANCE)
               .setPhase(Phase.LOADING)
               .build();
