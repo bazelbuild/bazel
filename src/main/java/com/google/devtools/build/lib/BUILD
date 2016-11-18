@@ -1186,7 +1186,7 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 bootstrap_java_library(
     name = "shell-skylark",
     srcs = glob(["shell/*.java"]),
-    jars = ["//third_party:guava-jars"],
+    jars = ["//third_party:bootstrap_guava_and_error_prone-jars"],
 )
 
 ########################################################################

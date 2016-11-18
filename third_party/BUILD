@@ -314,14 +314,37 @@ java_import(
     ],
 )
 
-# For bootstrapping JavaBuilder
 filegroup(
-    name = "error_prone-jars",
+    name = "guava_and_error_prone-jars",
     srcs = [
+        "guava/guava-21.0-20161101.jar",
         "error_prone/error_prone_annotation-2.0.13.jar",
         "error_prone/error_prone_annotations-2.0.13.jar",
+        # error_prone_core contains a copy of an earlier version of guava, so
+        # it's very important that it occur *after* the guava jar in the
+        # -classpath arg for both 'javac' and 'java'. The latter is especially
+        # important when dealing with pre-built jars that themselves assume
+        # they'll be provided guava classes at runtime via -classpath (e.g.
+        # guava-testlib uses stuff from guava).
         "error_prone/error_prone_core-2.0.13.jar",
-        "guava/guava-19.0.jar",
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "jsr305/jsr-305.jar",
+        "pcollections/pcollections-2.1.2.jar",
+        "//third_party/checker_framework_dataflow",
+        "//third_party/jformatstring",
+    ],
+)
+
+# For bootstrapping JavaBuilder
+filegroup(
+    name = "bootstrap_guava_and_error_prone-jars",
+    srcs = [
+        "guava/guava-21.0-20161101.jar",
+        "error_prone/error_prone_annotation-2.0.13.jar",
+        "error_prone/error_prone_annotations-2.0.13.jar",
+        # See the comment about error_prone_core in 'guava_and_error_prone-jars'
+        # above.
+        "error_prone/error_prone_core-2.0.13.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
@@ -330,15 +353,21 @@ filegroup(
     ],
 )
 
+# As of Guava 20.0, Guava code uses Error Prone annotations. This isn't a
+# problem when compiling with java 8, but is a problem when compiling Bazel
+# with java 7 (the Error Prone jars need to be on the javac classpath). So,
+# until we drop support for compiling Bazel with java 7, we unfortunately need
+# to ensure that the Error Prone jars are always used together with the Guava
+# jars.
 java_import(
     name = "guava",
-    jars = ["guava/guava-19.0.jar"],
+    jars = [":guava_and_error_prone-jars"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-19.0.jar"],
+    srcs = ["guava/guava-21.0-20161101.jar"],
 )
 
 java_import(
@@ -429,7 +458,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib.jar"],
+    jars = ["guava/guava-testlib-21.0-20161101.jar"],
 )
 
 java_import(

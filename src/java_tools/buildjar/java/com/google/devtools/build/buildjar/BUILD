@@ -125,8 +125,7 @@ bootstrap_java_library(
     name = "skylark-deps",
     jars = [
         "//third_party:auto_value-jars",
-        "//third_party:error_prone-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
     ],
@@ -166,7 +165,7 @@ bootstrap_java_library(
     jars = [
         "//third_party:jsr305-jars",
         "//third_party:auto_value-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
     ],
 )
 
