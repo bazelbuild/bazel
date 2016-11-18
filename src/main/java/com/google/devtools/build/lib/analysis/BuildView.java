@@ -19,12 +19,13 @@ import static com.google.common.collect.Iterables.concat;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.common.base.Verify;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -839,44 +840,49 @@ public class BuildView {
   private List<TargetAndConfiguration> getDynamicConfigurations(
       Iterable<TargetAndConfiguration> inputs, EventHandler eventHandler)
       throws InterruptedException {
-    Map<Label, TargetAndConfiguration> labelsToTargets = new LinkedHashMap<>();
-    BuildConfiguration topLevelConfig = null;
-    List<Dependency> asDeps = new ArrayList<Dependency>();
+    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
+    // for deps including transitions. So to satisfy its API we repackage each target as a
+    // Dependency with a NONE transition.
+    Multimap<BuildConfiguration, Dependency> asDeps =
+        ArrayListMultimap.<BuildConfiguration, Dependency>create();
 
     for (TargetAndConfiguration targetAndConfig : inputs) {
-      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig);
-      BuildConfiguration targetConfig = targetAndConfig.getConfiguration();
-      if (targetConfig != null) {
-        asDeps.add(Dependency.withTransitionAndAspects(
-            targetAndConfig.getLabel(),
-            Attribute.ConfigurationTransition.NONE,
-            ImmutableSet.<AspectDescriptor>of()));  // TODO(bazel-team): support top-level aspects
-
-        // TODO(bazel-team): support multiple top-level configurations (for, e.g.,
-        // --experimental_multi_cpu). This requires refactoring the getConfigurations() call below.
-        Verify.verify(topLevelConfig == null || topLevelConfig == targetConfig);
-        topLevelConfig = targetConfig;
+      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
+      if (targetAndConfig.getConfiguration() != null) {
+        asDeps.put(targetAndConfig.getConfiguration(),
+            Dependency.withTransitionAndAspects(
+                targetAndConfig.getLabel(),
+                Attribute.ConfigurationTransition.NONE,
+                // TODO(bazel-team): support top-level aspects
+                ImmutableSet.<AspectDescriptor>of()));
       }
     }
 
-    Map<Label, TargetAndConfiguration> successfullyEvaluatedTargets = new LinkedHashMap<>();
+    // Maps <target, originalConfig> pairs to <target, dynamicConfig> pairs for targets that
+    // could be successfully Skyframe-evaluated.
+    Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
+        new LinkedHashMap<>();
     if (!asDeps.isEmpty()) {
-      Map<Dependency, BuildConfiguration> trimmedTargets =
-          skyframeExecutor.getConfigurations(eventHandler, topLevelConfig.getOptions(), asDeps);
-      for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entrySet()) {
-        Label targetLabel = trimmedTarget.getKey().getLabel();
-        successfullyEvaluatedTargets.put(targetLabel,
-            new TargetAndConfiguration(
-                labelsToTargets.get(targetLabel).getTarget(), trimmedTarget.getValue()));
+      for (BuildConfiguration fromConfig : asDeps.keySet()) {
+        Map<Dependency, BuildConfiguration> trimmedTargets =
+            skyframeExecutor.getConfigurations(eventHandler, fromConfig.getOptions(),
+                asDeps.get(fromConfig));
+        for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entrySet()) {
+          Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
+          successfullyEvaluatedTargets.put(
+              new TargetAndConfiguration(target, fromConfig),
+              new TargetAndConfiguration(target, trimmedTarget.getValue()));
+        }
       }
     }
 
     ImmutableList.Builder<TargetAndConfiguration> result =
         ImmutableList.<TargetAndConfiguration>builder();
     for (TargetAndConfiguration originalInput : inputs) {
-      if (successfullyEvaluatedTargets.containsKey(originalInput.getLabel())) {
+      if (successfullyEvaluatedTargets.containsKey(originalInput)) {
         // The configuration was successfully trimmed.
-        result.add(successfullyEvaluatedTargets.get(originalInput.getLabel()));
+        result.add(successfullyEvaluatedTargets.get(originalInput));
       } else {
         // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
         result.add(originalInput);
