@@ -1159,7 +1159,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>This should be used for targets use configurations with C++ fragments.
    */
   protected String stripCppPrefixForDynamicConfigs(String outputPath) {
-    return targetConfig.useDynamicConfigurations()
+    return targetConfig.trimConfigurations()
         ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
         : outputPath;
   }
