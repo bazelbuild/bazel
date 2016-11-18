@@ -44,4 +44,5 @@ ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
 # Copy the resulting artifact.
 mkdir -p output/ci
 cp bazel-bin/src/bazel output/ci/bazel-$(get_full_release_name).exe
-zip -j output/ci/bazel-$(get_full_release_name).zip bazel-bin/src/bazel.exe
+cp bazel-bin/src/bazel output/bazel.exe
+zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
