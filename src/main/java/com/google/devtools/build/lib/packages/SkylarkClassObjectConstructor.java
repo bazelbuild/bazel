@@ -135,14 +135,31 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
 
   @Override
   public int hashCode() {
+    if (isExported()) {
+      return getKey().hashCode();
+    }
     return System.identityHashCode(this);
   }
 
   @Override
-  public boolean equals(@Nullable Object other) {
-    return other == this;
+  public boolean equals(@Nullable Object otherObject) {
+    if (!(otherObject instanceof  SkylarkClassObjectConstructor)) {
+      return false;
+    }
+    SkylarkClassObjectConstructor other = (SkylarkClassObjectConstructor) otherObject;
+
+    if (this.isExported() && other.isExported()) {
+      return this.getKey().equals(other.getKey());
+    } else {
+      return this == other;
+    }
   }
 
+  @Override
+  public boolean isImmutable() {
+    // Hash code for non exported constructors may be changed
+    return isExported();
+  }
 
   /**
    * A representation of {@link SkylarkClassObjectConstructor}.

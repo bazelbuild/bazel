@@ -792,6 +792,26 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStructEquality() throws Exception {
+    assertTrue((Boolean) eval("struct(a = 1, b = 2) == struct(b = 2, a = 1)"));
+    assertFalse((Boolean) eval("struct(a = 1) == struct(a = 1, b = 2)"));
+    assertFalse((Boolean) eval("struct(a = 1, b = 2) == struct(a = 1)"));
+    // Compare a recursive object to itself to make sure reference equality is checked
+    assertTrue((Boolean) eval("s = (struct(a = 1, b = [])); s.b.append(s); s == s"));
+    assertFalse((Boolean) eval("struct(a = 1, b = 2) == struct(a = 1, b = 3)"));
+    assertFalse((Boolean) eval("struct(a = 1) == [1]"));
+    assertFalse((Boolean) eval("[1] == struct(a = 1)"));
+    assertTrue((Boolean) eval("struct() == struct()"));
+    assertFalse((Boolean) eval("struct() == struct(a = 1)"));
+
+    eval("foo = provider(); bar = provider()");
+    assertFalse((Boolean) eval("struct(a = 1) == foo(a = 1)"));
+    assertFalse((Boolean) eval("foo(a = 1) == struct(a = 1)"));
+    assertFalse((Boolean) eval("foo(a = 1) == bar(a = 1)"));
+    assertTrue((Boolean) eval("foo(a = 1) == foo(a = 1)"));
+  }
+
+  @Test
   public void testStructAccessingFieldsFromSkylark() throws Exception {
     eval("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
     assertThat(lookup("x1")).isEqualTo(1);

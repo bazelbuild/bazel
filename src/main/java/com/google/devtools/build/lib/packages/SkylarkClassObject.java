@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
@@ -31,6 +32,9 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -175,12 +179,53 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
 
   @Override
   public boolean isImmutable() {
+    // If the constructor is not yet exported the hash code of the object is subject to change
+    if (!constructor.isExported()) {
+      return false;
+    }
     for (Object item : values.values()) {
       if (!EvalUtils.isImmutable(item)) {
         return false;
       }
     }
     return true;
+  }
+
+  @Override
+  public boolean equals(Object otherObject) {
+    if (!(otherObject instanceof SkylarkClassObject)) {
+      return false;
+    }
+    SkylarkClassObject other = (SkylarkClassObject) otherObject;
+    if (this == other) {
+      return true;
+    }
+    if (!this.constructor.equals(other.constructor)) {
+      return false;
+    }
+    // Compare objects' keys and values
+    if (!this.getKeys().equals(other.getKeys())) {
+      return false;
+    }
+    for (String key : getKeys()) {
+      if (!this.getValue(key).equals(other.getValue(key))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public int hashCode() {
+    List<String> keys = new ArrayList<>(getKeys());
+    Collections.sort(keys);
+    List<Object> objectsToHash = new ArrayList<>();
+    objectsToHash.add(constructor);
+    for (String key : keys) {
+      objectsToHash.add(key);
+      objectsToHash.add(getValue(key));
+    }
+    return Objects.hashCode(objectsToHash.toArray());
   }
 
   /**
