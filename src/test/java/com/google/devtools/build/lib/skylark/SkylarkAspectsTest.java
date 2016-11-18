@@ -69,32 +69,79 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(
-            transform(
-                analysisResult.getTargetsToBuild(),
-                new Function<ConfiguredTarget, String>() {
-                  @Nullable
-                  @Override
-                  public String apply(ConfiguredTarget configuredTarget) {
-                    return configuredTarget.getLabel().toString();
-                  }
-                }))
-        .containsExactly("//test:xxx");
-    assertThat(
-            transform(
-                analysisResult.getAspects(),
-                new Function<AspectValue, String>() {
-                  @Nullable
-                  @Override
-                  public String apply(AspectValue aspectValue) {
-                    return String.format(
-                        "%s(%s)",
-                        aspectValue.getConfiguredAspect().getName(),
-                        aspectValue.getLabel().toString());
-                  }
-                }))
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
         .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
   }
+
+  private Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
+    return transform(
+        analysisResult.getAspects(),
+        new Function<AspectValue, String>() {
+          @Nullable
+          @Override
+          public String apply(AspectValue aspectValue) {
+            return String.format(
+                "%s(%s)",
+                aspectValue.getConfiguredAspect().getName(),
+                aspectValue.getLabel().toString());
+          }
+        });
+  }
+
+  @Test
+  public void testAspectCommandLineLabel() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   print('This aspect does nothing')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("//test:aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
+  }
+
+  @Test
+  public void testAspectCommandLineRepoLabel() throws Exception {
+    scratch.overwriteFile(
+        "WORKSPACE",
+        scratch.readFile("WORKSPACE"),
+        "local_repository(name='local', path='local/repo')"
+    );
+    scratch.file(
+        "local/repo/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   print('This aspect does nothing')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("local/repo/BUILD");
+
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("@local//:aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("@local//:aspect.bzl%MyAspect(//test:xxx)");
+  }
+
+  private Iterable<String> getLabelsToBuild(AnalysisResult analysisResult) {
+    return transform(
+        analysisResult.getTargetsToBuild(),
+        new Function<ConfiguredTarget, String>() {
+          @Nullable
+          @Override
+          public String apply(ConfiguredTarget configuredTarget) {
+            return configuredTarget.getLabel().toString();
+          }
+        });
+  }
+
 
   @Test
   public void testAspectAllowsFragmentsToBeSpecified() throws Exception {
@@ -157,17 +204,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(
-            transform(
-                analysisResult.getTargetsToBuild(),
-                new Function<ConfiguredTarget, String>() {
-                  @Nullable
-                  @Override
-                  public String apply(ConfiguredTarget configuredTarget) {
-                    return configuredTarget.getLabel().toString();
-                  }
-                }))
-        .containsExactly("//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
     SkylarkProviders skylarkProviders =
         aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
@@ -270,17 +307,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-    assertThat(
-        transform(
-            analysisResult.getTargetsToBuild(),
-            new Function<ConfiguredTarget, String>() {
-              @Nullable
-              @Override
-              public String apply(ConfiguredTarget configuredTarget) {
-                return configuredTarget.getLabel().toString();
-              }
-            }))
-        .containsExactly("//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
     OutputGroupProvider outputGroupProvider =
         aspectValue.getConfiguredAspect().getProvider(OutputGroupProvider.class);
@@ -331,17 +358,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         ")");
 
     AnalysisResult analysisResult = update("//test:xxx");
-    assertThat(
-        transform(
-            analysisResult.getTargetsToBuild(),
-            new Function<ConfiguredTarget, String>() {
-              @Nullable
-              @Override
-              public String apply(ConfiguredTarget configuredTarget) {
-                return configuredTarget.getLabel().toString();
-              }
-            }))
-        .containsExactly("//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
     ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
     SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
     assertThat(skylarkProviders).isNotNull();
@@ -428,7 +445,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException expected) {
       assertThat(expected.getMessage())
-          .contains("Analysis of aspect '/test/aspect.bzl%MyAspect of //test:xxx' failed");
+          .contains("Analysis of aspect '/test/aspect%MyAspect of //test:xxx' failed");
     }
     assertContainsEvent("//test:aspect.bzl%MyAspect is attached to source file zzz.jar but "
         + "aspects must be attached to rules");

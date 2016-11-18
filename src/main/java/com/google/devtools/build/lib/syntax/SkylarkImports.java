@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 
 /**
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
@@ -31,7 +32,11 @@ public class SkylarkImports {
 
   // Default implementation class for SkylarkImport.
   private abstract static class SkylarkImportImpl implements SkylarkImport {
-    protected String importString;
+    private final String importString;
+
+    protected SkylarkImportImpl(String importString) {
+      this.importString = importString;
+    }
 
     @Override
     public String getImportString() {
@@ -53,13 +58,32 @@ public class SkylarkImports {
     public PathFragment getAbsolutePath() {
       throw new IllegalStateException("can't request absolute path from a non-absolute import");
     }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(getClass(), importString);
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      if (this == that) {
+        return true;
+      }
+
+      if (!(that instanceof SkylarkImportImpl)) {
+        return false;
+      }
+
+      return Objects.equals(getClass(), that.getClass())
+          && Objects.equals(importString, ((SkylarkImportImpl) that).importString);
+    }
   }
 
   private static final class AbsolutePathImport extends SkylarkImportImpl {
     private final PathFragment importPath;
 
     private AbsolutePathImport(String importString, PathFragment importPath) {
-      this.importString = importString;
+      super(importString);
       this.importPath = importPath;
     }
 
@@ -82,13 +106,14 @@ public class SkylarkImports {
     public PathFragment getAbsolutePath() {
       return this.importPath;
     }
+
   }
 
   private static final class RelativePathImport extends SkylarkImportImpl {
     private final String importFile;
 
     private RelativePathImport(String importString, String importFile) {
-      this.importString = importString;
+      super(importString);
       this.importFile = importFile;
     }
 
@@ -113,13 +138,14 @@ public class SkylarkImports {
         throw new IllegalStateException(e);
       }
     }
+
   }
 
   private static final class AbsoluteLabelImport extends SkylarkImportImpl {
     private final Label importLabel;
 
     private AbsoluteLabelImport(String importString, Label importLabel) {
-      this.importString = importString;
+      super(importString);
       this.importLabel = importLabel;
     }
 
@@ -134,13 +160,14 @@ public class SkylarkImports {
       // to the repo of the containing file.
       return containingFileLabel.resolveRepositoryRelative(importLabel);
     }
+
   }
 
   private static final class RelativeLabelImport extends SkylarkImportImpl {
     private final String importTarget;
 
     private RelativeLabelImport(String importString, String importTarget) {
-      this.importString = importString;
+      super(importString);
       this.importTarget = importTarget;
     }
 
@@ -161,6 +188,7 @@ public class SkylarkImports {
         throw new IllegalStateException(e);
       }
     }
+
   }
 
   /**
