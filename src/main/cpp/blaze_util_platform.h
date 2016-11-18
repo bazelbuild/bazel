@@ -21,6 +21,8 @@
 
 namespace blaze {
 
+std::string GetProcessIdAsString();
+
 // Get the absolute path to the binary being executed.
 std::string GetSelfPath();
 

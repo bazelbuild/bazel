@@ -95,6 +95,10 @@ static void PrintError(const string& op) {
 void WarnFilesystemType(const string& output_base) {
 }
 
+string GetProcessIdAsString() {
+  return ToString(GetCurrentProcessId());
+}
+
 string GetSelfPath() {
   char buffer[PATH_MAX] = {};
   if (!GetModuleFileName(0, buffer, sizeof(buffer))) {

@@ -170,39 +170,55 @@ int MakeDirectories(const string& path, mode_t mode) {
 }
 
 // Replaces 'contents' with contents of 'fd' file descriptor.
+// If `max_size` is positive, the method reads at most that many bytes; if it
+// is 0, the method reads the whole file.
 // Returns false on error.
-bool ReadFileDescriptor(int fd, string *content) {
+bool ReadFileDescriptor(int fd, string *content, size_t max_size) {
   content->clear();
   char buf[4096];
   // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read(fd, buf, sizeof buf)) {
+  while (int r = read(fd, buf, max_size > 0 ? std::min(max_size, sizeof buf)
+                                            : sizeof buf)) {
     if (r == -1) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
     }
     content->append(buf, r);
+    if (max_size > 0) {
+      if (max_size > r) {
+        max_size -= r;
+      } else {
+        break;
+      }
+    }
   }
   close(fd);
   return true;
 }
 
 // Replaces 'content' with contents of file 'filename'.
+// If `max_size` is positive, the method reads at most that many bytes; if it
+// is 0, the method reads the whole file.
 // Returns false on error.
-bool ReadFile(const string &filename, string *content) {
+bool ReadFile(const string &filename, string *content, size_t max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  return ReadFileDescriptor(fd, content);
+  return ReadFileDescriptor(fd, content, max_size);
 }
 
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
 bool WriteFile(const string &content, const string &filename) {
+  return WriteFile(content.data(), content.size(), filename);
+}
+
+bool WriteFile(const void *data, size_t size, const std::string &filename) {
   UnlinkPath(filename);  // We don't care about the success of this.
   int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
   if (fd == -1) {
     return false;
   }
-  int r = write(fd, content.data(), content.size());
+  int r = write(fd, data, size);
   if (r == -1) {
     return false;
   }
@@ -211,7 +227,7 @@ bool WriteFile(const string &content, const string &filename) {
     return false;  // Can fail on NFS.
   }
   errno = saved_errno;  // Caller should see errno from write().
-  return static_cast<uint>(r) == content.size();
+  return static_cast<uint>(r) == size;
 }
 
 bool UnlinkPath(const string &file_path) {

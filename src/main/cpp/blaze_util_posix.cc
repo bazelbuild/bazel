@@ -38,6 +38,10 @@ using blaze_util::pdie;
 using std::string;
 using std::vector;
 
+string GetProcessIdAsString() {
+  return ToString(getpid());
+}
+
 void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
   if (VerboseLogging()) {
     string dbg;
@@ -154,7 +158,7 @@ void ExecuteDaemon(const string& exe,
   }
 
   Daemonize(daemon_output);
-  string pid_string = ToString(getpid());
+  string pid_string = GetProcessIdAsString();
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   string pid_symlink_file = blaze_util::JoinPath(server_dir, kServerPidSymlink);
 

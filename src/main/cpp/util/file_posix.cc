@@ -13,12 +13,13 @@
 // limitations under the License.
 #include "src/main/cpp/util/file_platform.h"
 
-#include <sys/stat.h>
 #include <dirent.h>  // DIR, dirent, opendir, closedir
+#include <fcntl.h>   // O_RDONLY
 #include <limits.h>  // PATH_MAX
 #include <stdlib.h>  // getenv
-#include <unistd.h>  // access
-#include <utime.h>  // utime
+#include <sys/stat.h>
+#include <unistd.h>  // access, open, close, fsync
+#include <utime.h>   // utime
 
 #include <vector>
 
@@ -80,6 +81,23 @@ bool IsDirectory(const string& path) {
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
 
+void SyncFile(const string& path) {
+// fsync always fails on Cygwin with "Permission denied" for some reason.
+#ifndef __CYGWIN__
+  const char* file_path = path.c_str();
+  int fd = open(file_path, O_RDONLY);
+  if (fd < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "failed to open '%s' for syncing", file_path);
+  }
+  if (fsync(fd) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "failed to sync '%s'",
+         file_path);
+  }
+  close(fd);
+#endif
+}
+
 time_t GetMtimeMillisec(const string& path) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
@@ -90,7 +108,7 @@ time_t GetMtimeMillisec(const string& path) {
 }
 
 bool SetMtimeMillisec(const string& path, time_t mtime) {
-  struct utimbuf times = { mtime, mtime };
+  struct utimbuf times = {mtime, mtime};
   return utime(path.c_str(), &times) == 0;
 }
 

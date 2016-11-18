@@ -46,16 +46,25 @@ std::string MakeAbsolute(const std::string &path);
 int MakeDirectories(const std::string &path, mode_t mode);
 
 // Replaces 'content' with contents of file 'filename'.
+// If `max_size` is positive, the method reads at most that many bytes; if it
+// is 0, the method reads the whole file.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFile(const std::string &filename, std::string *content);
+bool ReadFile(const std::string &filename, std::string *content,
+              size_t max_size = 0);
 
 // Replaces 'content' with contents of file descriptor 'fd'.
+// If `max_size` is positive, the method reads at most that many bytes; if it
+// is 0, the method reads the whole file.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFileDescriptor(int fd, std::string *content);
+bool ReadFileDescriptor(int fd, std::string *content, size_t max_size = 0);
 
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
 bool WriteFile(const std::string &content, const std::string &filename);
+
+// Writes `size` bytes from `data` into file 'filename' and makes it executable.
+// Returns false on failure, sets errno.
+bool WriteFile(const void* data, size_t size, const std::string &filename);
 
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.

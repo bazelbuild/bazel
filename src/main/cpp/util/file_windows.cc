@@ -44,6 +44,10 @@ bool IsDirectory(const string& path) {
   return false;
 }
 
+void SyncFile(const string& path) {
+  // No-op on Windows native; unsupported by Cygwin.
+}
+
 time_t GetMtimeMillisec(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::GetMtimeMillisec is not implemented on Windows");

@@ -76,18 +76,12 @@
 using blaze_util::die;
 using blaze_util::pdie;
 
-// This should already be defined in sched.h, but it's not.
-#ifndef SCHED_BATCH
-#define SCHED_BATCH 3
-#endif
-
 namespace blaze {
 
 using std::set;
 using std::string;
 using std::vector;
 
-static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
 static int GetServerPid(const string &server_dir);
 static void VerifyJavaVersionAndSetJvm();
 
@@ -673,8 +667,7 @@ static void StartStandalone(BlazeServer* server) {
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }
 
-// Write the contents of file_name to stream.
-static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
+static void WriteFileToStderrOrDie(const char *file_name) {
   FILE *fp = fopen(file_name, "r");
   if (fp == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -687,7 +680,7 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to read from '%s'", file_name);
     }
-    fwrite(buffer, 1, num_read, stream);
+    fwrite(buffer, 1, num_read, stderr);
   }
   fclose(fp);
 }
@@ -705,21 +698,15 @@ static int GetServerPid(const string &server_dir) {
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
   len = readlink(pid_symlink.c_str(), buf, sizeof(buf) - 1);
-  if (len < 0) {
-    int fd = open(pid_file.c_str(), O_RDONLY);
-    if (fd < 0) {
-      return -1;
-    }
-    len = read(fd, buf, 32);
-    close(fd);
-    if (len < 0) {
-      return -1;
-    }
+  string bufstr;
+  if (len > 0) {
+    bufstr = string(buf, len);
+  } else if (!blaze::ReadFile(pid_file, &bufstr, 32)) {
+    return -1;
   }
 
   int result;
-  buf[len] = 0;
-  if (!blaze_util::safe_strto32(string(buf), &result)) {
+  if (!blaze_util::safe_strto32(bufstr, &result)) {
     return -1;
   }
 
@@ -786,30 +773,12 @@ static void StartServerAndConnect(BlazeServer *server) {
       fprintf(stderr, "\nunexpected pipe read status: %s\n"
           "Server presumed dead. Now printing '%s':\n",
           strerror(errno), globals->jvm_log_file.c_str());
-      WriteFileToStreamOrDie(stderr, globals->jvm_log_file.c_str());
+      WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
   }
   die(blaze_exit_code::INTERNAL_ERROR,
       "\nError: couldn't connect to server after 120 seconds.");
-}
-
-// Calls fsync() on the file (or directory) specified in 'file_path'.
-// pdie()'s if syncing fails.
-static void SyncFile(const char *file_path) {
-  // fsync always fails on Cygwin with "Permission denied" for some reason.
-#ifndef __CYGWIN__
-  int fd = open(file_path, O_RDONLY);
-  if (fd < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "failed to open '%s' for syncing", file_path);
-  }
-  if (fsync(fd) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "failed to sync '%s'", file_path);
-  }
-  close(fd);
-#endif
 }
 
 // A devtools_ijar::ZipExtractorProcessor to extract the files from the blaze
@@ -830,19 +799,11 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
       pdie(blaze_exit_code::INTERNAL_ERROR,
            "couldn't create '%s'", path.c_str());
     }
-    int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0755);
-    if (fd < 0) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nFailed to open extraction file: %s", strerror(errno));
-    }
 
-    if (write(fd, data, size) != size) {
+    if (!blaze::WriteFile(data, size, path)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nError writing zipped file to %s", path.c_str());
-    }
-    if (close(fd) != 0) {
-      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-          "\nCould not close file %s", path.c_str());
+          "\nFailed to write zipped file \"%s\": %s", path.c_str(),
+          strerror(errno));
     }
   }
 
@@ -902,7 +863,7 @@ static void ActuallyExtractData(const string &argv0,
            "failed to set timestamp on '%s'", extracted_path);
     }
 
-    SyncFile(extracted_path);
+    blaze_util::SyncFile(it);
 
     string directory = blaze_util::Dirname(extracted_path);
 
@@ -916,13 +877,13 @@ static void ActuallyExtractData(const string &argv0,
            synced_directories.count(directory) == 0 &&
            !directory.empty() &&
            directory != "/") {
-      SyncFile(directory.c_str());
+      blaze_util::SyncFile(directory);
       synced_directories.insert(directory);
       directory = blaze_util::Dirname(directory);
     }
   }
 
-  SyncFile(embedded_binaries.c_str());
+  blaze_util::SyncFile(embedded_binaries);
 }
 
 // Installs Blaze by extracting the embedded data files, iff necessary.
@@ -938,7 +899,7 @@ static void ExtractData(const string &self_path) {
     uint64_t st = GetMillisecondsMonotonic();
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options->install_base + ".tmp." +
-        ToString(getpid());
+                         blaze::GetProcessIdAsString();
     string tmp_binaries = tmp_install + "/_embedded_binaries";
     ActuallyExtractData(self_path, tmp_binaries);
 
@@ -1630,8 +1591,8 @@ void GrpcBlazeServer::KillRunningServer() {
   command_server::RunResponse response;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(globals->options->block_for_lock);
-  request.set_client_description(
-      "pid=" + ToString(getpid()) + " (for shutdown)");
+  request.set_client_description("pid=" + blaze::GetProcessIdAsString() +
+                                 " (for shutdown)");
   request.add_arg("shutdown");
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
@@ -1662,7 +1623,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(globals->options->block_for_lock);
-  request.set_client_description("pid=" + ToString(getpid()));
+  request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string& arg : arg_vector) {
     request.add_arg(arg);
   }
