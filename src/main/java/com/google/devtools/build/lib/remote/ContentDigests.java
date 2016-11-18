@@ -82,9 +82,7 @@ public final class ContentDigests {
   }
 
   public static String toHexString(ContentDigest digest) {
-    return digest.getSizeBytes() > 0
-        ? HashCode.fromBytes(digest.getDigest().toByteArray()).toString()
-        : "";
+    return HashCode.fromBytes(digest.getDigest().toByteArray()).toString();
   }
 
   public static String toString(ContentDigest digest) {
