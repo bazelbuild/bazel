@@ -435,14 +435,15 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(name = "created_actions",
-      doc = "For rules marked <code>_skylark_testable=True</code>, this returns an "
-          + "<a href=\"ActionsSkylarkApiProvider.html\">actions</a> provider representing all "
-          + "actions created so far for the current rule. For all other rules, returns None. "
+      doc = "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable"
+          + "</a> set to <code>True</code>, this returns an "
+          + "<a href=\"globals.html#Actions\">Actions</a> provider representing all actions "
+          + "created so far for the current rule. For all other rules, returns <code>None</code>. "
           + "Note that the provider is not updated when subsequent actions are created, so you "
           + "will have to call this function again if you wish to inspect them. "
-          + ""
-          + "<p>This is intended to help test rule-implementation helper functions that take in a "
-          + "<a href=\"ctx.html\">ctx</a> object and create actions for it.")
+          + "<br/><br/>"
+          + "This is intended to help write tests for rule-implementation helper functions, which "
+          + "may take in a<code>ctx</code> object and create actions on it.")
   public Object createdActions() {
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(

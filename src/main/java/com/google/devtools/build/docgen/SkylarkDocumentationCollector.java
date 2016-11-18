@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
@@ -188,6 +189,8 @@ final class SkylarkDocumentationCollector {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
     collectBuiltinModule(modules, SkylarkRuleContext.class);
     collectBuiltinModule(modules, TransitiveInfoCollection.class);
+
+    collectBuiltinModule(modules, AbstractAction.class);
 
     collectBuiltinModule(modules, AppleConfiguration.class);
     collectBuiltinModule(modules, CppConfiguration.class);

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
@@ -52,8 +53,12 @@ import javax.annotation.Nullable;
 @Immutable @ThreadSafe
 @SkylarkModule(
     name = "Action",
-    doc = "Base class for actions.",
-    documented = false)
+    category = SkylarkModuleCategory.BUILTIN,
+    doc = "An action created on a <a href=\"ctx.html\">ctx</a> object. You can retrieve these "
+        + "using the <a href=\"globals.html#Actions\">Actions</a> provider. Some fields are only "
+        + "applicable for certain kinds of actions. Fields that are inapplicable are set to "
+        + "<code>None</code>."
+)
 public abstract class AbstractAction implements Action, SkylarkValue {
 
   /**
@@ -508,7 +513,9 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @SkylarkCallable(
       name = "argv",
       doc = "For actions created by <a href=\"ctx.html#action\">ctx.action()</a>, an immutable "
-          + "list of the command line arguments. For all other actions, None.",
+          + "list of the arguments for the command line to be executed. Note that when using the "
+          + "shell (i.e., when <a href=\"ctx.html#action.executable\">executable</a> is not set), "
+          + "the first two arguments will be the shell path and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
   public SkylarkList<String> getSkylarkArgv() {
@@ -519,7 +526,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       name = "content",
       doc = "For actions created by <a href=\"ctx.html#file_action\">ctx.file_action()</a> or "
           + "<a href=\"ctx.html#template_action\">ctx.template_action()</a>, the contents of the "
-          + "file to be written. For all other actions, None.",
+          + "file to be written.",
       structField = true,
       allowReturnNones = true)
   public String getSkylarkContent() throws IOException {
@@ -528,8 +535,8 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @SkylarkCallable(
       name = "substitutions",
-      doc = "For actions created by <a href=\"ctx#template_action\">ctx.template_action()</a>, "
-          + "an immutable dict holding the substitution mapping. For all other actions, None.",
+      doc = "For actions created by <a href=\"ctx.html#template_action\">"
+          + "ctx.template_action()</a>, an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
   public SkylarkDict<String, String> getSkylarkSubstitutions() {

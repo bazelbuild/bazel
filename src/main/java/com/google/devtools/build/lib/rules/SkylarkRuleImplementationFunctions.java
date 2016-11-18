@@ -338,7 +338,8 @@ public class SkylarkRuleImplementationFunctions {
       "Expands all <code>$(location ...)</code> templates in the given string by replacing "
       + "<code>$(location //x)</code> with the path of the output file of target //x. "
       + "Expansion only works for labels that point to direct dependencies of this rule or that "
-      + "are explicitly listed in the optional argument <code>targets</code>.<br/>"
+      + "are explicitly listed in the optional argument <code>targets</code>. "
+      + "<br/><br/>"
       + "<code>$(location ...)</code> will cause an error if the referenced target has multiple "
       + "outputs. In this case, please use <code>$(locations ...)</code> since it produces a space-"
       + "separated list of output paths. It can be safely used for a single output file, too.",
