@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ProtoCommandLineArgv;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +40,10 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ProtoCompileActionBuilderTest {
 
-  private final Root root = Root.asSourceRoot(new InMemoryFileSystem().getPath("/"));
+  private static final InMemoryFileSystem FILE_SYSTEM = new InMemoryFileSystem();
+  private final Root root = Root.asSourceRoot(FILE_SYSTEM.getPath("/"));
+  private final Root derivedRoot =
+      Root.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
 
   @Test
   public void commandLine_basic() throws Exception {
@@ -67,6 +71,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.of(artifact("source_file.proto")),
+            null /* protosInDirectDeps */,
             NestedSetBuilder.create(
                 STABLE_ORDER, artifact("import1.proto"), artifact("import2.proto")),
             true /* hasProtoSources */);
@@ -93,11 +98,47 @@ public class ProtoCompileActionBuilderTest {
   }
 
   @Test
+  public void commandLine_strictDeps() throws Exception {
+    ProtoLangToolchainProvider toolchain =
+        ProtoLangToolchainProvider.create(
+            "--java_out=param1,param2:$(OUT)",
+            null /* pluginExecutable */,
+            mock(TransitiveInfoCollection.class) /* runtime */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* blacklistedProtos */);
+
+    SupportData supportData =
+        SupportData.create(
+            Predicates.<TransitiveInfoCollection>alwaysFalse(),
+            ImmutableList.of(artifact("source_file.proto")),
+            NestedSetBuilder.create(STABLE_ORDER, artifact("import1.proto")),
+            NestedSetBuilder.create(
+                STABLE_ORDER, artifact("import1.proto"), artifact("import2.proto")),
+            true /* hasProtoSources */);
+
+    CustomCommandLine cmdLine =
+        createCommandLineFromToolchains(
+            ImmutableList.of(new ToolchainInvocation("dontcare", toolchain, "foo.srcjar")),
+            supportData,
+            true /* allowServices */,
+            ImmutableList.<String>of() /* protocOpts */);
+
+    assertThat(cmdLine.arguments())
+        .containsExactly(
+            "--java_out=param1,param2:foo.srcjar",
+            "-Iimport1.proto=import1.proto",
+            "-Iimport2.proto=import2.proto",
+            "--direct_dependencies=import1.proto",
+            "source_file.proto")
+        .inOrder();
+  }
+
+  @Test
   public void otherParameters() throws Exception {
     SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
+            null /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -136,6 +177,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
+            null /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -161,6 +203,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
+            null /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -195,7 +238,44 @@ public class ProtoCompileActionBuilderTest {
     }
   }
 
+  @Test
+  public void testProtoCommandLineArgv() throws Exception {
+    assertThat(
+            new ProtoCommandLineArgv(
+                    null /* directDependencies */, ImmutableList.of(derivedArtifact("foo.proto")))
+                .argv())
+        .containsExactly("-Ifoo.proto=out/foo.proto");
+
+    assertThat(
+            new ProtoCommandLineArgv(
+                    ImmutableList.<Artifact>of() /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("foo.proto")))
+                .argv())
+        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
+
+    assertThat(
+            new ProtoCommandLineArgv(
+                    ImmutableList.of(derivedArtifact("foo.proto")) /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("foo.proto")))
+                .argv())
+        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=foo.proto");
+
+    assertThat(
+            new ProtoCommandLineArgv(
+                    ImmutableList.of(
+                        derivedArtifact("foo.proto"),
+                        derivedArtifact("bar.proto")) /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("foo.proto")))
+                .argv())
+        .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=foo.proto:bar.proto");
+  }
+
   private Artifact artifact(String path) {
     return new Artifact(new PathFragment(path), root);
+  }
+
+  /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
+  private Artifact derivedArtifact(String path) {
+    return new Artifact(new PathFragment(path), derivedRoot);
   }
 }
