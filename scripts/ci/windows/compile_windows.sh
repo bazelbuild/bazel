@@ -38,7 +38,6 @@ if [ -n "${release_label}" ]; then
 fi
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
-    --workspace_status_command=scripts/ci/build_status_command.sh \
     //src:bazel
 
 
