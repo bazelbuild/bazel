@@ -358,6 +358,18 @@ java_library(
     ],
 )
 
+java_library(
+    name = "integration_testutil",
+    srcs = glob([
+        "integration/util/*.java",
+    ]),
+    deps = [
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+    ],
+)
+
 java_test(
     name = "analysis_actions_test",
     srcs = glob([
@@ -1074,6 +1086,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
+        ":integration_testutil",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
