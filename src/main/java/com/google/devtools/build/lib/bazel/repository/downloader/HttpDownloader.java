@@ -31,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -82,10 +83,7 @@ public class HttpDownloader {
     try {
       return download(url, sha256, type, outputDirectory, eventHandler, clientEnv);
     } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "Error downloading from " + url + " to " + outputDirectory + ": " + e.getMessage()),
-          SkyFunctionException.Transience.TRANSIENT);
+      throw new RepositoryFunctionException(e, SkyFunctionException.Transience.TRANSIENT);
     }
   }
 
@@ -130,10 +128,10 @@ public class HttpDownloader {
     AtomicInteger totalBytes = new AtomicInteger(0);
     final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes, eventHandler, urlString);
     final URL url = new URL(urlString);
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString(), clientEnv);
 
     try (OutputStream out = destination.getOutputStream();
-         HttpConnection connection = HttpConnection.createAndConnect(url, clientEnv)) {
-      InputStream inputStream = connection.getInputStream();
+         InputStream inputStream = HttpConnector.connect(url, proxy, eventHandler)) {
       int read;
       byte[] buf = new byte[BUFFER_SIZE];
       while ((read = inputStream.read(buf)) > 0) {
@@ -142,11 +140,6 @@ public class HttpDownloader {
         if (Thread.interrupted()) {
           throw new InterruptedException("Download interrupted");
         }
-      }
-      if (connection.getContentLength() != -1
-          && totalBytes.get() != connection.getContentLength()) {
-        throw new IOException("Expected " + formatSize(connection.getContentLength()) + ", got "
-            + formatSize(totalBytes.get()));
       }
     } catch (IOException e) {
       throw new IOException(
