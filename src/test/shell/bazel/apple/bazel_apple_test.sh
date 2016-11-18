@@ -720,7 +720,12 @@ function test_swift_ast_is_recorded() {
   mkdir -p ios
 
   touch ios/main.swift
-  touch ios/dep.swift
+  cat >ios/dep.swift <<EOF
+import UIKit
+// Add dummy code so that Swift symbols are exported into final binary, which
+// will cause runtime libraries to be packaged into the IPA
+class X: UIViewController {}
+EOF
 
   cat >ios/main.m <<EOF
 #import <UIKit/UIKit.h>
