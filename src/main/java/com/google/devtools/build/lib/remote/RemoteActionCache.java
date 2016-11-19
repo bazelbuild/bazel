@@ -61,8 +61,9 @@ interface RemoteActionCache {
       throws IOException, InterruptedException;
 
   /**
-   * Put the file contents in cache if it is not already in it. No-op if the file is already stored
-   * in cache. The given path must be a full absolute path.
+   * Put the file contents cache if it is not already in it. No-op if the file is already stored in
+   * cache. The given path must be a full absolute path. Note: this is horribly inefficient, need to
+   * patch through an overload that uses an ActionInputFile cache to compute the digests!
    *
    * @return The key for fetching the file contents blob from cache.
    */

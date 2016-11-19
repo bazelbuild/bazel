@@ -188,10 +188,8 @@ public class RemoteCache {
                 offset == chunk.getOffset(),
                 "Missing input chunk for digest %s",
                 ContentDigests.toString(digest));
-            if (digest.getSizeBytes() > 0) {
-              chunk.getData().copyTo(blob, (int) offset);
-              offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
-            }
+            chunk.getData().copyTo(blob, (int) offset);
+            offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
             if (offset == 0) {
               ContentDigest uploadedDigest = cache.uploadBlob(blob);
               Preconditions.checkArgument(
