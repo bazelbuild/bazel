@@ -83,6 +83,7 @@ public class AndroidResourcesProcessorBuilder {
   private String applicationId;
   private String versionName;
   private Artifact symbolsTxt;
+  private Artifact dataBindingInfoZip;
 
   private Artifact manifestOut;
   private Artifact mergedResourcesOut;
@@ -104,6 +105,16 @@ public class AndroidResourcesProcessorBuilder {
    */
   public AndroidResourcesProcessorBuilder withPrimary(ResourceContainer primary) {
     this.primary = primary;
+    return this;
+  }
+
+  /**
+   * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
+   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   * layout resources).
+   */
+  public AndroidResourcesProcessorBuilder setDataBindingInfoZip(Artifact zip) {
+    this.dataBindingInfoZip = zip;
     return this;
   }
 
@@ -285,6 +296,11 @@ public class AndroidResourcesProcessorBuilder {
 
     if (applicationId != null) {
       builder.add("--applicationId").add(applicationId);
+    }
+
+    if (dataBindingInfoZip != null) {
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+      outs.add(dataBindingInfoZip);
     }
 
     if (!Strings.isNullOrEmpty(customJavaPackage)) {

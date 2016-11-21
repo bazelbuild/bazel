@@ -64,7 +64,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             AndroidCommon.collectTransitiveInfo(ruleContext, Mode.TARGET));
     NestedSet<Artifact> transitiveProguardConfigs =
         new ProguardLibrary(ruleContext).collectProguardSpecs();
-    JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
+    JavaCommon javaCommon =
+        AndroidCommon.createJavaCommonWithAndroidDataBinding(ruleContext, javaSemantics, true);
     javaSemantics.checkRule(ruleContext, javaCommon);
     AndroidCommon androidCommon = new AndroidCommon(javaCommon);
 
@@ -93,8 +94,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           null, /* proguardCfgOut */
           null, /* mainDexProguardCfg */
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-          // This is just to communicate the results from the merge step to the validator step.
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+          DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null);
       if (ruleContext.hasErrors()) {
         return null;
       }

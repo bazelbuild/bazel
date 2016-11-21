@@ -66,6 +66,7 @@ public final class JavaCompilationHelper {
   private final List<Artifact> translations = new ArrayList<>();
   private boolean translationsFrozen;
   private final JavaSemantics semantics;
+  private final ImmutableList<Artifact> additionalJavaBaseInputs;
 
   private static final String DEFAULT_ATTRIBUTES_SUFFIX = "";
 
@@ -73,7 +74,8 @@ public final class JavaCompilationHelper {
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
       JavaToolchainProvider javaToolchainProvider,
       NestedSet<Artifact> hostJavabase,
-      Iterable<Artifact> jacocoInstrumentation) {
+      Iterable<Artifact> jacocoInstrumentation,
+      ImmutableList<Artifact> additionalJavaBaseInputs) {
     this.ruleContext = ruleContext;
     this.javaToolchain = javaToolchainProvider;
     this.hostJavabase = hostJavabase;
@@ -82,6 +84,16 @@ public final class JavaCompilationHelper {
     this.customJavacOpts = javacOpts;
     this.customJavacJvmOpts = javaToolchain.getJvmOptions();
     this.semantics = semantics;
+    this.additionalJavaBaseInputs = additionalJavaBaseInputs;
+  }
+
+  public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
+      ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
+      JavaToolchainProvider javaToolchainProvider,
+      NestedSet<Artifact> hostJavabase,
+      Iterable<Artifact> jacocoInstrumentation) {
+    this(ruleContext, semantics, javacOpts, attributes, javaToolchainProvider, hostJavabase,
+        jacocoInstrumentation, ImmutableList.<Artifact>of());
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
@@ -90,6 +102,16 @@ public final class JavaCompilationHelper {
         getJavaToolchainProvider(ruleContext),
         getHostJavabaseInputsNonStatic(ruleContext),
         getInstrumentationJars(ruleContext));
+  }
+
+  public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
+      ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
+      ImmutableList<Artifact> additionalJavaBaseInputs) {
+    this(ruleContext, semantics, javacOpts, attributes,
+        getJavaToolchainProvider(ruleContext),
+        getHostJavabaseInputsNonStatic(ruleContext),
+        getInstrumentationJars(ruleContext),
+        additionalJavaBaseInputs);
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
@@ -152,6 +174,7 @@ public final class JavaCompilationHelper {
     builder.setManifestProtoOutput(manifestProtoOutput);
     builder.setGensrcOutputJar(gensrcOutputJar);
     builder.setOutputDepsProto(outputDepsProto);
+    builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
     builder.setMetadata(outputMetadata);
     builder.setInstrumentationJars(jacocoInstrumentation);
     builder.addSourceFiles(attributes.getSourceFiles());
@@ -164,6 +187,7 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(outputJar));
     builder.setClassDirectory(classDir(outputJar));
     builder.addProcessorPaths(attributes.getProcessorPath());
+    builder.addProcessorPathDirs(attributes.getProcessorPathDirs());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setDirectJars(attributes.getDirectJars());
@@ -240,8 +264,8 @@ public final class JavaCompilationHelper {
 
   private boolean shouldInstrumentJar() {
     // TODO(bazel-team): What about source jars?
-    return getConfiguration().isCodeCoverageEnabled() && attributes.hasSourceFiles() &&
-        InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
+    return getConfiguration().isCodeCoverageEnabled() && attributes.hasSourceFiles()
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(getRuleContext());
   }
 
   private boolean shouldUseHeaderCompilation() {
@@ -302,7 +326,11 @@ public final class JavaCompilationHelper {
     builder.setDirectJars(attributes.getDirectJars());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
-      builder.setJavaBaseInputs(hostJavabase);
+    builder.setJavaBaseInputs(
+        NestedSetBuilder
+            .fromNestedSet(hostJavabase)
+            .addAll(additionalJavaBaseInputs)
+            .build());
     builder.setJavacJar(javaToolchain.getJavac());
     builder.build(javaToolchain);
 
@@ -425,8 +453,8 @@ public final class JavaCompilationHelper {
    * targets acting as aliases have to be filtered out.
    */
   private boolean generatesOutputDeps() {
-    return getJavaConfiguration().getGenerateJavaDeps() &&
-        (attributes.hasSourceFiles() || attributes.hasSourceJars());
+    return getJavaConfiguration().getGenerateJavaDeps()
+        && (attributes.hasSourceFiles() || attributes.hasSourceJars());
   }
 
   /**
@@ -466,7 +494,11 @@ public final class JavaCompilationHelper {
     JavaCompileAction.Builder builder = new JavaCompileAction.Builder(ruleContext, semantics);
     builder.setJavaExecutable(
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable());
-    builder.setJavaBaseInputs(hostJavabase);
+    builder.setJavaBaseInputs(
+        NestedSetBuilder
+            .fromNestedSet(hostJavabase)
+            .addAll(additionalJavaBaseInputs)
+            .build());
     builder.setTargetLabel(ruleContext.getLabel());
     return builder;
   }
