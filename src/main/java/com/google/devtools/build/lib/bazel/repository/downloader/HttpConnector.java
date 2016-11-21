@@ -92,6 +92,9 @@ final class HttpConnector {
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (IllegalArgumentException e) {
+          // This will happen if the user does something like specify a port greater than 2^16-1.
+          throw new UnrecoverableHttpException(e.getMessage());
         } catch (IOException e) {
           if (!e.getMessage().startsWith("Server returned")) {
             throw e;
