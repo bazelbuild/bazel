@@ -111,8 +111,8 @@ import javax.annotation.Nullable;
  * <p>The parts specific to the current command are stored in {@link CommandEnvironment}.
  */
 public final class BlazeRuntime {
-  private static final Pattern suppressFromLog = Pattern.compile(".*(auth|pass|cookie).*",
-      Pattern.CASE_INSENSITIVE);
+  private static final Pattern suppressFromLog =
+      Pattern.compile("(auth|pass|cookie)", Pattern.CASE_INSENSITIVE);
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
@@ -593,7 +593,7 @@ public final class BlazeRuntime {
         int varStart = "--client_env=".length();
         int varEnd = s.indexOf('=', varStart);
         String varName = s.substring(varStart, varEnd);
-        if (suppressFromLog.matcher(varName).matches()) {
+        if (suppressFromLog.matcher(varName).find()) {
           buf.append("--client_env=");
           buf.append(varName);
           buf.append("=__private_value_removed__");
