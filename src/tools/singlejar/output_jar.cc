@@ -25,7 +25,6 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "src/main/cpp/util/file.h"
 #include "src/tools/singlejar/combiners.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/input_jar.h"
@@ -65,6 +64,15 @@ OutputJar::OutputJar()
   manifest_.Append(
       "Manifest-Version: 1.0\r\n"
       "Created-By: singlejar\r\n");
+}
+
+static std::string Basename(const std::string& path) {
+  size_t pos = path.rfind('/');
+  if (pos == std::string::npos) {
+    return path;
+  } else {
+    return std::string(path, pos + 1);
+  }
 }
 
 int OutputJar::Doit(Options *options) {
@@ -169,7 +177,7 @@ int OutputJar::Doit(Options *options) {
   }
 
   for (auto &rpath : options_->classpath_resources) {
-    ClasspathResource(blaze_util::Basename(rpath), rpath);
+    ClasspathResource(Basename(rpath), rpath);
   }
 
   for (auto &rdesc : options_->resources) {
