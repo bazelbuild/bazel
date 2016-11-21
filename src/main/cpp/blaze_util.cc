@@ -445,4 +445,9 @@ void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
 }
 
+bool IsArg(const string& arg) {
+  return blaze_util::starts_with(arg, "-") && (arg != "--help")
+      && (arg != "-help") && (arg != "-h");
+}
+
 }  // namespace blaze

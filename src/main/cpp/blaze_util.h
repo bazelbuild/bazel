@@ -115,6 +115,9 @@ std::string GetJvmVersion(const std::string &java_exe);
 bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
                                const std::string &version_spec);
 
+// Returns true iff arg is a valid command line argument for bazel.
+bool IsArg(const std::string& arg);
+
 // Converts a project identifier to string.
 // Workaround for mingw where std::to_string is not implemented.
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.

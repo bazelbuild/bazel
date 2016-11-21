@@ -26,6 +26,22 @@
 
 namespace blaze {
 
+struct CommandLine {
+  const std::string path_to_binary;
+  const std::vector<std::string> startup_args;
+  const std::string command;
+  const std::vector<std::string> command_args;
+
+  CommandLine(const std::string& path_to_binary_arg,
+              const std::vector<std::string>& startup_args_arg,
+              const std::string& command_arg,
+              const std::vector<std::string>& command_args_arg)
+      : path_to_binary(path_to_binary_arg),
+        startup_args(startup_args_arg),
+        command(command_arg),
+        command_args(command_args_arg) {}
+};
+
 // This class is responsible for parsing the command line of the Blaze binary,
 // parsing blazerc files, and putting together the command that should be sent
 // to the server.
@@ -34,6 +50,29 @@ class OptionProcessor {
   OptionProcessor(std::unique_ptr<StartupOptions> default_startup_options);
 
   virtual ~OptionProcessor();
+
+  // Splits the arguments of a command line invocation.
+  //
+  // For instance:
+  // output/bazel --foo --bar=42 --bar blah build --myflag value :mytarget
+  //
+  // returns a CommandLine structure with the following values:
+  // result.path_to_binary = "output/bazel"
+  // result.startup_args = {"--foo", "--bar=42", "--bar=blah"}
+  // result.command = "build"
+  // result.command_args = {"--some_flag", "value", ":mytarget"}
+  //
+  // Note that result.startup_args is guaranteed to contain only valid
+  // startup options (w.r.t. StartupOptions::IsUnary and
+  // StartupOptions::IsNullary) and unary startup args of the form '--bar blah'
+  // are rewritten as '--bar=blah' for uniformity.
+  // In turn, the command and command args are not rewritten nor validated.
+  //
+  // If the method fails then error will contain the cause, otherwise error
+  // remains untouched.
+  std::unique_ptr<CommandLine> SplitCommandLine(
+      const std::vector<std::string>& args,
+      std::string* error);
 
   // Parse a command line and the appropriate blazerc files. This should be
   // invoked only once per OptionProcessor object.

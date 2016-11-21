@@ -61,8 +61,7 @@ StartupOptions::StartupOptions(const string &product_name)
     output_root = WorkspaceLayout::GetOutputRoot();
   }
 
-  string product_name_lower = product_name;
-  blaze_util::ToLower(&product_name_lower);
+  const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
@@ -81,7 +80,13 @@ StartupOptions::StartupOptions(const string &product_name)
 
 StartupOptions::~StartupOptions() {}
 
-bool StartupOptions::IsNullary(const string &arg) const {
+string StartupOptions::GetLowercaseProductName() const {
+  string lowercase_product_name = product_name;
+  blaze_util::ToLower(&lowercase_product_name);
+  return lowercase_product_name;
+}
+
+bool StartupOptions::IsNullary(const string& arg) const {
   for (string option : nullary_options) {
     if (GetNullaryOption(arg.c_str(), ("--" + option).c_str()) ||
         GetNullaryOption(arg.c_str(), ("--no" + option).c_str())) {
@@ -91,11 +96,15 @@ bool StartupOptions::IsNullary(const string &arg) const {
   return false;
 }
 
-bool StartupOptions::IsUnary(const string &arg,
-                             const string &next_arg) const {
+bool StartupOptions::IsUnary(const string& arg) const {
   for (string option : unary_options) {
-    if (GetUnaryOption(arg.c_str(), next_arg.c_str(),
-                       ("--" + option).c_str()) != NULL) {
+    // The second argument of GetUnaryOption is not relevant to determine
+    // whether the option is unary or not, hence we set it to the empty string
+    // by default.
+    //
+    // TODO(lpino): Improve GetUnaryOption to only require the arg and the
+    // option we are looking for.
+    if (GetUnaryOption(arg.c_str(), "", ("--" + option).c_str()) != NULL) {
       return true;
     }
   }

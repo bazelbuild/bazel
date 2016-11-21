@@ -111,12 +111,13 @@ class StartupOptions {
 
   // Checks whether the argument is a valid nullary option.
   // E.g. --master_bazelrc, --nomaster_bazelrc.
-  bool IsNullary(const std::string &arg) const;
+  bool IsNullary(const std::string& arg) const;
 
   // Checks whether the argument is a valid unary option.
   // E.g. --blazerc=foo, --blazerc foo.
-  bool IsUnary(const std::string &arg,
-               const std::string &next_arg) const;
+  bool IsUnary(const std::string& arg) const;
+
+  std::string GetLowercaseProductName() const;
 
   // The capitalized name of this binary.
   const std::string product_name;
