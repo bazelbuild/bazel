@@ -16,6 +16,12 @@
 #
 # Integration tests for IDE build info generation.
 
+ASPECT=$1
+BINARY_OUTPUT_GROUP=$2
+BINARY_OUTPUT=$3
+TEXT_OUTPUT_GROUP=$4
+TEXT_OUTPUT=$5
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
@@ -61,12 +67,12 @@ java_library(
 EOF
 
   bazel build //com/google/example:complex \
-        --aspects AndroidStudioInfoAspect --output_groups "ide-info" \
+        --aspects $ASPECT --output_groups "$BINARY_OUTPUT_GROUP" \
     || fail "Expected success"
-  SIMPLE_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.aswb-build"
-  [ -e  $SIMPLE_ASWB_BUILD ] || fail "$SIMPLE_ASWB_BUILD not found"
-  COMPLEX_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.aswb-build"
-  [ -e  $COMPLEX_ASWB_BUILD ] || fail "$COMPLEX_ASWB_BUILD not found"
+  SIMPLE_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.$BINARY_OUTPUT"
+  [ -e  $SIMPLE_BUILD ] || fail "$SIMPLE_BUILD not found"
+  COMPLEX_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.$BINARY_OUTPUT"
+  [ -e  $COMPLEX_BUILD ] || fail "$COMPLEX_BUILD not found"
 }
 
 function test_detailed_result() {
@@ -111,26 +117,26 @@ java_library(
 EOF
 
   bazel build //com/google/example:complex \
-       --aspects AndroidStudioInfoAspect --output_groups "ide-info" \
+       --aspects $ASPECT --output_groups "$BINARY_OUTPUT_GROUP" \
        --experimental_show_artifacts 2> $TEST_log \
     || fail "Expected success"
-  SIMPLE_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.aswb-build"
-  [ -e  $SIMPLE_ASWB_BUILD ] || fail "$SIMPLE_ASWB_BUILD not found"
-  COMPLEX_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.aswb-build"
-  [ -e  $COMPLEX_ASWB_BUILD ] || fail "$COMPLEX_ASWB_BUILD not found"
+  SIMPLE_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.$BINARY_OUTPUT"
+  [ -e  $SIMPLE_BUILD ] || fail "$SIMPLE_BUILD not found"
+  COMPLEX_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.$BINARY_OUTPUT"
+  [ -e  $COMPLEX_BUILD ] || fail "$COMPLEX_BUILD not found"
 
   expect_log '^Build artifacts:'
-  expect_log "^>>>.*/com/google/example/complex.aswb-build"
-  expect_log "^>>>.*/com/google/example/simple.aswb-build"
+  expect_log "^>>>.*/com/google/example/complex.$BINARY_OUTPUT"
+  expect_log "^>>>.*/com/google/example/simple.$BINARY_OUTPUT"
 
   # second build; test that up-to-date artifacts are output.
   bazel build //com/google/example:complex \
-       --aspects AndroidStudioInfoAspect --output_groups "ide-info" \
+       --aspects $ASPECT --output_groups "$BINARY_OUTPUT_GROUP" \
        --experimental_show_artifacts 2> $TEST_log \
     || fail "Expected success"
   expect_log '^Build artifacts:'
-  expect_log "^>>>.*/com/google/example/complex.aswb-build"
-  expect_log "^>>>.*/com/google/example/simple.aswb-build"
+  expect_log "^>>>.*/com/google/example/complex.$BINARY_OUTPUT"
+  expect_log "^>>>.*/com/google/example/simple.$BINARY_OUTPUT"
 }
 
 function test_ide_resolve_output_group() {
@@ -171,7 +177,7 @@ java_library(
 EOF
 
   bazel build //com/google/example:complex \
-        --aspects AndroidStudioInfoAspect --output_groups "ide-resolve" \
+        --aspects $ASPECT --output_groups "ide-resolve" \
     || fail "Expected success"
   [ -e ${PRODUCT_NAME}-bin/com/google/example/libsimple.jar ] \
     || fail "${PRODUCT_NAME}-bin/com/google/example/libsimple.jar not found"
@@ -199,7 +205,7 @@ java_library(
 EOF
 
   bazel build //com/google/example:test \
-        --aspects AndroidStudioInfoAspect --output_groups "ide-resolve" \
+        --aspects $ASPECT --output_groups "ide-resolve" \
         --experimental_show_artifacts \
     || fail "Expected success"
   EXAMPLE_DIR="${PRODUCT_NAME}-bin/com/google/example"
@@ -253,12 +259,12 @@ java_library(
 EOF
 
   bazel build //com/google/example:complex \
-        --aspects AndroidStudioInfoAspect --output_groups "ide-info-text" \
+        --aspects $ASPECT --output_groups "$TEXT_OUTPUT_GROUP" \
     || fail "Expected success"
-  SIMPLE_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.aswb-build.txt"
-  [ -e  $SIMPLE_ASWB_BUILD ] || fail "$SIMPLE_ASWB_BUILD not found"
-  COMPLEX_ASWB_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.aswb-build.txt"
-  [ -e  $COMPLEX_ASWB_BUILD ] || fail "$COMPLEX_ASWB_BUILD not found"
+  SIMPLE_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.$TEXT_OUTPUT"
+  [ -e  $SIMPLE_BUILD ] || fail "$SIMPLE_BUILD not found"
+  COMPLEX_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.$TEXT_OUTPUT"
+  [ -e  $COMPLEX_BUILD ] || fail "$COMPLEX_BUILD not found"
 }
 
 run_suite "Test IDE info files generation"

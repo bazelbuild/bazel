@@ -647,12 +647,20 @@ java_test(
     ],
 )
 
+# Copy intellij_info.bzl so it's in a predictable resource location
+genrule(
+    name = "intellij_info_bzl_copy",
+    srcs = ["//tools/ide:intellij_info"],
+    outs = ["ideinfo/intellij_info.bzl"],
+    cmd = "cp $(SRCS) $@",
+)
+
 java_test(
     name = "ideinfo_test",
     srcs = glob([
         "ideinfo/*.java",
     ]),
-    resources = ["ideinfo/intellij_info.bzl"],
+    resources = [":intellij_info_bzl_copy"],
     tags = ["ideinfo"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [

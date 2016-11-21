@@ -135,9 +135,33 @@ sh_test(
 )
 
 sh_test(
-    name = "ide_info_generation",
+    name = "ide_info_generation_native",
     size = "large",
     srcs = ["ide_info_generation.sh"],
+    args = [
+        "AndroidStudioInfoAspect",
+        "ide-info",
+        "aswb-build",
+        "ide-info-text",
+        "aswb-build.txt",
+    ],
+    data = [
+        ":test-deps",
+        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
+    ],
+)
+
+sh_test(
+    name = "ide_info_generation_skylark",
+    size = "large",
+    srcs = ["ide_info_generation.sh"],
+    args = [
+        "@bazel_tools//tools/ide:intellij_info.bzl%intellij_info_aspect",
+        "ide-info-text",
+        "intellij-build.txt",
+        "ide-info-text",
+        "intellij-build.txt",
+    ],
     data = [
         ":test-deps",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
