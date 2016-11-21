@@ -405,17 +405,6 @@ sh_test(
     data = [":test-deps"],
 )
 
-sh_test(
-    name = "bazel_boostrap_distfile_test",
-    size = "large",
-    srcs = ["bazel_bootstrap_distfile_test.sh"],
-    args = ["$(location //:bazel-distfile)"],
-    data = [
-        ":test-deps",
-        "//:bazel-distfile",
-    ],
-)
-
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
