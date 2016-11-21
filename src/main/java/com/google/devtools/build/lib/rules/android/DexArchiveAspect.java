@@ -116,6 +116,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
         .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
+        // Access to --android_sdk so we can stub in a bootclasspath for desugaring if missing
+        .add(attr(":dex_archive_android_sdk", LABEL)
+            .allowedRuleClasses("android_sdk", "filegroup")
+            .value(new AndroidRuleClasses.AndroidSdkLabel(
+                Label.parseAbsoluteUnchecked(toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
         .requiresConfigurationFragments(AndroidConfiguration.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
@@ -199,7 +204,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           .getRecursiveJavaCompilationArgs()
           .getCompileTimeJars();
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
-      ImmutableList<Artifact> bootclasspath = getBootclasspath(base);
+      ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
       for (Artifact jar : jarProvider.getRuntimeJars()) {
         Artifact desugared = createDesugarAction(ruleContext, jar, bootclasspath,
             compileTimeClasspath);
@@ -222,11 +227,16 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return result.build();
   }
 
-  private static ImmutableList<Artifact> getBootclasspath(ConfiguredTarget base) {
+  private static ImmutableList<Artifact> getBootclasspath(ConfiguredTarget base,
+      RuleContext ruleContext) {
     JavaCompilationInfoProvider compilationInfo =
         base.getProvider(JavaCompilationInfoProvider.class);
-    if (compilationInfo == null) {
-      return ImmutableList.of();
+    if (compilationInfo == null || compilationInfo.getBootClasspath().isEmpty()) {
+      return ImmutableList.of(
+          ruleContext
+              .getPrerequisite(":dex_archive_android_sdk", Mode.TARGET)
+              .getProvider(AndroidSdkProvider.class)
+              .getAndroidJar());
     }
     return compilationInfo.getBootClasspath();
   }
