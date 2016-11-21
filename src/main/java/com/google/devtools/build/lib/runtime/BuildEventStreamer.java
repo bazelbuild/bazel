@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
@@ -25,6 +27,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -41,6 +44,7 @@ public class BuildEventStreamer implements EventHandler {
   private final Collection<BuildEventTransport> transports;
   private Set<BuildEventId> announcedEvents;
   private Set<BuildEventId> postedEvents;
+  private final Multimap<BuildEventId, BuildEvent> pendingEvents;
   private int progressCount;
   private AbortReason abortReason = AbortReason.UNKNOWN;
   private static final Logger LOG = Logger.getLogger(BuildEventStreamer.class.getName());
@@ -50,6 +54,7 @@ public class BuildEventStreamer implements EventHandler {
     this.announcedEvents = null;
     this.postedEvents = null;
     this.progressCount = 0;
+    this.pendingEvents = HashMultimap.create();
   }
 
   /**
@@ -98,11 +103,19 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
+  /** Clear pending events by generating aborted events for all their requisits. */
+  private void clearPendingEvents() {
+    while (!pendingEvents.isEmpty()) {
+      BuildEventId id = pendingEvents.keySet().iterator().next();
+      buildEvent(new AbortedEvent(id, abortReason, ""));
+    }
+  }
+
   /**
-   * Clear all events that are still pending; events not naturally closed by the expected event
+   * Clear all events that are still announced; events not naturally closed by the expected event
    * normally only occur if the build is aborted.
    */
-  private void clearPendingEvents() {
+  private void clearAnnouncedEvents() {
     if (announcedEvents != null) {
       // create a copy of the identifiers to clear, as the post method
       // will change the set of already announced events.
@@ -142,8 +155,9 @@ public class BuildEventStreamer implements EventHandler {
 
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
-    post(ProgressEvent.finalProgressUpdate(progressCount));
     clearPendingEvents();
+    post(ProgressEvent.finalProgressUpdate(progressCount));
+    clearAnnouncedEvents();
     close();
   }
 
@@ -156,7 +170,23 @@ public class BuildEventStreamer implements EventHandler {
       }
     }
 
+    if (event instanceof BuildEventWithOrderConstraint) {
+      // Check if all prerequisit events are posted already.
+      for (BuildEventId prerequisiteId : ((BuildEventWithOrderConstraint) event).postedAfter()) {
+        if (!postedEvents.contains(prerequisiteId)) {
+          pendingEvents.put(prerequisiteId, event);
+          return;
+        }
+      }
+    }
+
     post(event);
+
+    // Reconsider all events blocked by the event just posted.
+    Collection<BuildEvent> toReconsider = pendingEvents.removeAll(event.getEventId());
+    for (BuildEvent freedEvent : toReconsider) {
+      buildEvent(freedEvent);
+    }
   }
 
   @VisibleForTesting

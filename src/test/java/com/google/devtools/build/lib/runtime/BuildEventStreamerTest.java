@@ -20,11 +20,14 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,6 +54,43 @@ public class BuildEventStreamerTest {
 
     List<BuildEvent> getEvents() {
       return events;
+    }
+  }
+
+  private static class GenericOrderEvent implements BuildEventWithOrderConstraint {
+    private final BuildEventId id;
+    private final Collection<BuildEventId> children;
+    private final Collection<BuildEventId> after;
+
+    GenericOrderEvent(
+        BuildEventId id, Collection<BuildEventId> children, Collection<BuildEventId> after) {
+      this.id = id;
+      this.children = children;
+      this.after = after;
+    }
+
+    GenericOrderEvent(BuildEventId id, Collection<BuildEventId> children) {
+      this(id, children, children);
+    }
+
+    @Override
+    public BuildEventId getEventId() {
+      return id;
+    }
+
+    @Override
+    public Collection<BuildEventId> getChildrenEvents() {
+      return children;
+    }
+
+    @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto() {
+      return GenericBuildEvent.protoChaining(this).build();
+    }
+
+    @Override
+    public Collection<BuildEventId> postedAfter() {
+      return after;
     }
   }
 
@@ -187,5 +227,67 @@ public class BuildEventStreamerTest {
     }
     // The early event should be reported precisely once.
     assertEquals(1, earlyEventCount);
+  }
+
+  @Test
+  public void testReodering() {
+    // Verify that an event requiring to be posted after another one is indeed.
+
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+
+    BuildEventId expectedId = testId("the target");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE, expectedId));
+    BuildEvent rootCause =
+        new GenericBuildEvent(testId("failure event"), ImmutableSet.<BuildEventId>of());
+    BuildEvent failedTarget =
+        new GenericOrderEvent(expectedId, ImmutableSet.<BuildEventId>of(rootCause.getEventId()));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(failedTarget);
+    streamer.buildEvent(rootCause);
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertThat(allEventsSeen).hasSize(4);
+    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    BuildEvent linkEvent = allEventsSeen.get(1);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
+    assertEquals(rootCause.getEventId(), allEventsSeen.get(2).getEventId());
+    assertEquals(failedTarget.getEventId(), allEventsSeen.get(3).getEventId());
+  }
+
+  @Test
+  public void testMissingPrerequisits() {
+    // Verify that an event where the prerequisite is never coming till the end of
+    // the build still gets posted, with the prerequisite aborted.
+
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+
+    BuildEventId expectedId = testId("the target");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE, expectedId));
+    BuildEventId rootCauseId = testId("failure event");
+    BuildEvent failedTarget =
+        new GenericOrderEvent(expectedId, ImmutableSet.<BuildEventId>of(rootCauseId));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(failedTarget);
+    streamer.buildComplete(new BuildCompleteEvent(null));
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertThat(allEventsSeen).hasSize(5);
+    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    BuildEvent linkEvent = allEventsSeen.get(1);
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
+    assertEquals(rootCauseId, allEventsSeen.get(2).getEventId());
+    assertEquals(failedTarget.getEventId(), allEventsSeen.get(3).getEventId());
   }
 }
