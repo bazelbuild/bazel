@@ -24,11 +24,13 @@ class IPipe {
   virtual ~IPipe() {}
 
   // Sends `size` bytes from `buffer` through the pipe.
-  virtual bool Send(void *buffer, size_t size) = 0;
+  // Returns true if `size` is not negative and could send all the data.
+  virtual bool Send(void *buffer, int size) = 0;
 
   // Receives at most `size` bytes into `buffer` from the pipe.
   // Returns the number of bytes received; sets `errno` upon error.
-  virtual int Receive(void *buffer, size_t size) = 0;
+  // If `size` is negative, returns -1.
+  virtual int Receive(void *buffer, int size) = 0;
 };
 
 // Returns the part of the path before the final "/".  If there is a single

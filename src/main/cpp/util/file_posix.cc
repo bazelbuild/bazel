@@ -45,15 +45,12 @@ class PosixPipe : public IPipe {
     close(_send_socket);
   }
 
-  // Sends `size` bytes from `buffer` through the pipe.
-  bool Send(void* buffer, size_t size) override {
-    return write(_send_socket, buffer, size) == size;
+  bool Send(void* buffer, int size) override {
+    return size >= 0 && write(_send_socket, buffer, size) == size;
   }
 
-  // Receives at most `size` bytes into `buffer` from the pipe.
-  // Returns the number of bytes received; sets `errno` upon error.
-  int Receive(void* buffer, size_t size) override {
-    return read(_recv_socket, buffer, size);
+  int Receive(void* buffer, int size) override {
+    return size < 0 ? -1 : read(_recv_socket, buffer, size);
   }
 
  private:

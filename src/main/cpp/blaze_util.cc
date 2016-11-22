@@ -77,23 +77,21 @@ string MakeAbsolute(const string &path) {
   return cwd + separator + path;
 }
 
-// Replaces 'contents' with contents of 'fd' file descriptor.
-// If `max_size` is positive, the method reads at most that many bytes; if it
-// is 0, the method reads the whole file.
-// Returns false on error.
-bool ReadFileDescriptor(int fd, string *content, size_t max_size) {
+bool ReadFileDescriptor(int fd, string *content, int max_size) {
   content->clear();
   char buf[4096];
   // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read(fd, buf, max_size > 0 ? std::min(max_size, sizeof buf)
-                                            : sizeof buf)) {
+  while (int r = read(fd, buf,
+                      max_size > 0
+                          ? std::min(max_size, static_cast<int>(sizeof buf))
+                          : sizeof buf)) {
     if (r == -1) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
     }
     content->append(buf, r);
     if (max_size > 0) {
-      if (max_size > static_cast<size_t>(r)) {
+      if (max_size > r) {
         max_size -= r;
       } else {
         break;
@@ -104,11 +102,7 @@ bool ReadFileDescriptor(int fd, string *content, size_t max_size) {
   return true;
 }
 
-// Replaces 'content' with contents of file 'filename'.
-// If `max_size` is positive, the method reads at most that many bytes; if it
-// is 0, the method reads the whole file.
-// Returns false on error.
-bool ReadFile(const string &filename, string *content, size_t max_size) {
+bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
   return ReadFileDescriptor(fd, content, max_size);
