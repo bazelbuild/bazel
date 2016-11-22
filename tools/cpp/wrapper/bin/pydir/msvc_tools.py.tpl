@@ -15,6 +15,7 @@
 # limitations under the License.
 """Tools for working with the Microsoft Visual C++ toolchain."""
 
+from argparse import ArgumentParser
 import ntpath
 import os
 import re
@@ -32,11 +33,15 @@ PATH = "%{path}"
 INCLUDE = "%{include}"
 LIB = "%{lib}"
 LIB_TOOL = "%{lib_tool}"
+supported_cuda_compute_capabilities = [ %{cuda_compute_capabilities} ]
 
 class Error(Exception):
   """Base class for all script-specific errors."""
   pass
 
+def Log(s):
+  """Print log messages."""
+  print('msvc_tools.py: {0}'.format(s))
 
 class ArgParser(object):
   """Class that parses gcc/clang-style options for a Windows.
@@ -48,13 +53,16 @@ class ArgParser(object):
     self.driver = driver
     self.substitutions = substitutions
     self.options = []
+    self.leftover = []
     self.target_arch = None
     self.compilation_mode = None
     self.deps_file = None
     self.output_file = None
     self.params_file = None
     self.support_whole_archive = %{support_whole_archive}
-    self.need_global_whole_archive = None
+    self.global_whole_archive = None
+    self.is_cuda_compilation = None
+    self.cuda_log = False
     self._ParseArgs(argv)
 
   def ReplaceLibrary(self, arg):
@@ -84,6 +92,108 @@ class ArgParser(object):
     for arg in self.options:
       options.extend(self.ReplaceLibrary(arg))
     self.options = options
+
+  def IsCudaCompilation(self):
+    """Check if it's a cuda compilation."""
+    parser = ArgumentParser()
+    parser.add_argument('-x', nargs=1)
+    parser.add_argument('--cuda_log', action='store_true')
+    args, leftover = parser.parse_known_args(self.leftover)
+    if args.x and args.x[0] == 'cuda':
+      if args.cuda_log:
+        Log('Using nvcc')
+        self.cuda_log = True
+      self.leftover = leftover
+      return True
+    return False
+
+  def GetNvccOptions(self):
+    """Collect the -nvcc_options values from self.leftover.
+
+    Returns:
+      The list of options that can be passed directly to nvcc.
+    """
+
+    parser = ArgumentParser()
+    parser.add_argument('-nvcc_options', nargs='*', action='append')
+
+    args, leftover = parser.parse_known_args(self.leftover)
+
+    if args.nvcc_options:
+      self.leftover = leftover
+      return ['--'+a for a in sum(args.nvcc_options, [])]
+    return []
+
+  def GetOptionValue(self, option):
+    """Extract the list of values for option from self.options.
+
+    Args:
+      option: The option whose value to extract, without the leading '/'.
+
+    Returns:
+      A list of values, either directly following the option,
+      (eg., /opt val1 val2) or values collected from multiple occurrences of
+      the option (eg., /opt val1 /opt val2).
+    """
+
+    parser = ArgumentParser(prefix_chars='/')
+    parser.add_argument('/' + option, nargs='*', action='append')
+    args, leftover = parser.parse_known_args(self.options)
+    if args and vars(args)[option]:
+      self.options = leftover
+      return sum(vars(args)[option], [])
+    return []
+
+  def GetOptionsForCudaCompilation(self):
+    """Get nvcc options with arguments assembled from self.options."""
+
+    src_files = [f for f in self.options if
+                 re.search('\.cpp$|\.cc$|\.c$|\.cxx$|\.C$', f)]
+    if len(src_files) == 0:
+      raise Error('No source files found for cuda compilation.')
+
+    out_file = [ f for f in self.options if f.startswith('/Fo') ]
+    if len(out_file) != 1:
+      raise Error('Please sepecify exactly one output file for cuda compilation.')
+    out = ['-o', out_file[0][len('/Fo'):]]
+
+    nvcc_compiler_options = self.GetNvccOptions()
+
+    opt_option = self.GetOptionValue('O')
+    opt = ['-g', '-G']
+    if (len(opt_option) > 0 and int(opt_option[0]) > 0):
+      opt = ['-O2']
+
+    include_options = self.GetOptionValue('I')
+    includes = ["-I " + include for include in include_options]
+
+    defines = self.GetOptionValue('D')
+    defines = ['-D' + define for define in defines]
+
+    undefines = self.GetOptionValue('U')
+    undefines = ['-U' + define for define in undefines]
+
+    # The rest of the unrecongized options should be passed to host compiler
+    host_compiler_options = [option for option in self.options if option not in (src_files + out_file)]
+
+    m_options = ["-m64"]
+
+    nvccopts = ['-D_FORCE_INLINES']
+    for capability in supported_cuda_compute_capabilities:
+      capability = capability.replace('.', '')
+      nvccopts += [r'-gencode=arch=compute_%s,"code=sm_%s,compute_%s"' % (
+          capability, capability, capability)]
+    nvccopts += nvcc_compiler_options
+    nvccopts += undefines
+    nvccopts += defines
+    nvccopts += m_options
+    nvccopts += ['--compiler-options="' + " ".join(host_compiler_options) + '"']
+    nvccopts += ['-x', 'cu'] + opt + includes + out + ['-c'] + src_files
+
+    if self.cuda_log:
+      Log("Running: " + " ".join(["nvcc"] + nvccopts))
+
+    self.options = nvccopts
 
   def _MatchOneArg(self, args):
     """Finds a pattern which matches the beginning elements of args.
@@ -245,8 +355,7 @@ class ArgParser(object):
             result = pattern.sub(lambda x: patterns[x.group(0)], entry)
             self.options.append(result)
       i += num_matched
-    if unmatched:
-      print('Warning: Unmatched arguments: ' + ' '.join(unmatched))
+    self.leftover = unmatched
 
     # Use the proper runtime flag depending on compilation mode. If the
     # compilation is happening in debug mode, this flag already exists. If not,
@@ -255,6 +364,16 @@ class ArgParser(object):
       self.AddOpt('/MT')
     # Add in any parsed files
     self.options += files
+
+    if '/w' in self.options:
+      self.options = [option for option in self.options if option not in ['/W2', '/W3', '/W4']]
+
+    self.is_cuda_compilation = self.IsCudaCompilation()
+    if self.is_cuda_compilation:
+      self.GetOptionsForCudaCompilation()
+
+    if self.leftover:
+      print('Warning: Unmatched arguments: ' + ' '.join(self.leftover))
 
   def NormPath(self, path):
     """Uses the current WindowsRunner to normalize the passed path.
@@ -345,17 +464,11 @@ class WindowsRunner(object):
 
     # Check again the arguments are within MAX_PATH.
     for arg in args:
-      if len(arg) > MAX_PATH:
-        print('Warning: arg "' + arg + '" is > than 260 characters (' +
-              str(len(arg)) + '); programs may crash with long arguments')
       if os.path.splitext(arg)[1].lower() in ['.c', '.cc', '.cpp', '.s']:
         # cl.exe prints out the file name it is compiling; add that to the
         # filter.
         name = arg.rpartition(ntpath.sep)[2]
         filters.append(name)
-
-    if '/w' in args:
-      args = [arg for arg in args if arg not in ['/W2', '/W3', '/W4']]
 
     # Setup the Windows paths and the build environment.
     build_env = self.SetupEnvironment()
