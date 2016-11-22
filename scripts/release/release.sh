@@ -213,6 +213,8 @@ function create_release() {
   create_release_commit "${release_title}" "${release_name}" \
       "${relnotes}" "${tmpfile}" "${baseline}" $@
   release_name=$(set_release_name "${release_name}" "${rc}")
+  # Add the release notes
+  git notes --ref=release-notes add -f -m "${relnotes}"
   git checkout ${origin_branch} &> /dev/null
   echo "Created ${release_name} on branch ${branch_name}."
 
@@ -228,6 +230,7 @@ function push_release_candidate() {
     git push -f ${repo} +${branch}
     git push -f ${repo} +refs/notes/release
     git push -f ${repo} +refs/notes/release-candidate
+    git push -f ${repo} +refs/notes/release-notes
   done
 }
 
@@ -282,6 +285,7 @@ function do_release() {
       git push $i +refs/tags/${tag_name}
       git push $i +refs/notes/release-candidate
       git push $i +refs/notes/release
+      git push $i +refs/notes/release-notes
     done
     cleanup_branches ${tag_name}
   fi

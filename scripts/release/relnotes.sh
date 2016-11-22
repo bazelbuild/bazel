@@ -90,7 +90,7 @@ function extract_release_note() {
 
 # Build release notes arrays from a list of commits ($@) and return the release
 # note in an array of array.
-function get_release_notes() {
+function generate_release_notes() {
   for i in "${RELNOTES_TYPES[@]}"; do
     eval "RELNOTES_${i}=()"
   done
@@ -123,7 +123,7 @@ function release_notes() {
   local i
   local commits=$(get_release_notes_commits $@)
   local length="${#RELNOTES_TYPES[@]}"
-  get_release_notes "$commits"
+  generate_release_notes "$commits"
   for (( i=0; $i < $length; i=$i+1 )); do
     local relnotes_title="${RELNOTES_DESC[$i]}"
     local relnotes_type=${RELNOTES_TYPES[$i]}

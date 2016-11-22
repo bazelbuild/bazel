@@ -49,6 +49,11 @@ function get_release_name() {
   git notes --ref=release show "$@" 2>/dev/null | xargs echo || true
 }
 
+# Extract the release notes from the git notes
+function get_release_notes() {
+  git notes --ref=release-notes show "$@" 2>/dev/null || true
+}
+
 # Returns the info from the branch of the release. It is the current branch
 # but it errors out if the current branch is not a release branch. This
 # method returns the tag of the release and the number of the current

@@ -212,6 +212,7 @@ Cherry picks:
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
+  assert_equals "Test replacement" "$(get_release_notes release-v1)"
   assert_equals 1 "$(get_release_candidate release-v1)"
   push v1
 
@@ -233,6 +234,7 @@ Cherry picks:
   - Attribute error messages related to Android resources are easier
     to understand now.'
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
+  assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
   assert_equals 2 "$(get_release_candidate release-v1)"
 
   # Push the release
