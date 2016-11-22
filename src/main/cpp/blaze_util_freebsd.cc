@@ -145,11 +145,8 @@ bool IsSharedLibrary(const string &filename) {
 
 string GetDefaultHostJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  const char *javahome = getenv("JAVA_HOME");
-  if (javahome != NULL) {
-    return string(javahome);
-  }
-  return "/usr/local/openjdk8";
+  string javahome = getenv("JAVA_HOME");
+  return !javahome.empty() ? javahome : "/usr/local/openjdk8";
 }
 
 void WriteSystemSpecificProcessIdentifier(const string& server_dir) {

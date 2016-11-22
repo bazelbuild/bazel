@@ -721,7 +721,7 @@ static void StartServerAndConnect(BlazeServer *server) {
 
   // The server dir has the socket, so we don't allow access by other
   // users.
-  if (MakeDirectories(server_dir, 0700) == -1) {
+  if (!MakeDirectories(server_dir, 0700)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "server directory '%s' could not be created", server_dir.c_str());
   }
@@ -797,7 +797,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
   virtual void Process(const char *filename, const devtools_ijar::u4 attr,
                        const devtools_ijar::u1 *data, const size_t size) {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
-    if (MakeDirectories(blaze_util::Dirname(path), 0777) == -1) {
+    if (!MakeDirectories(blaze_util::Dirname(path), 0777)) {
       pdie(blaze_exit_code::INTERNAL_ERROR,
            "couldn't create '%s'", path.c_str());
     }
@@ -818,7 +818,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
 static void ActuallyExtractData(const string &argv0,
                                 const string &embedded_binaries) {
   ExtractBlazeZipProcessor processor(embedded_binaries);
-  if (MakeDirectories(embedded_binaries, 0777) == -1) {
+  if (!MakeDirectories(embedded_binaries, 0777)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "couldn't create '%s'",
          embedded_binaries.c_str());
   }
@@ -1254,7 +1254,7 @@ static void ComputeBaseDirectories(const string &self_path) {
 
   const char *output_base = globals->options->output_base.c_str();
   if (!blaze_util::PathExists(globals->options->output_base)) {
-    if (MakeDirectories(globals->options->output_base, 0777) == -1) {
+    if (!MakeDirectories(globals->options->output_base, 0777)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "Output base directory '%s' could not be created",
            output_base);
@@ -1280,32 +1280,32 @@ static void ComputeBaseDirectories(const string &self_path) {
 }
 
 static void CheckEnvironment() {
-  if (getenv("http_proxy") != NULL) {
+  if (!blaze::GetEnv("http_proxy").empty()) {
     fprintf(stderr, "Warning: ignoring http_proxy in environment.\n");
-    unsetenv("http_proxy");
+    blaze::UnsetEnv("http_proxy");
   }
 
-  if (getenv("LD_ASSUME_KERNEL") != NULL) {
+  if (!blaze::GetEnv("LD_ASSUME_KERNEL").empty()) {
     // Fix for bug: if ulimit -s and LD_ASSUME_KERNEL are both
     // specified, the JVM fails to create threads.  See thread_stack_regtest.
     // This is also provoked by LD_LIBRARY_PATH=/usr/lib/debug,
     // or anything else that causes the JVM to use LinuxThreads.
     fprintf(stderr, "Warning: ignoring LD_ASSUME_KERNEL in environment.\n");
-    unsetenv("LD_ASSUME_KERNEL");
+    blaze::UnsetEnv("LD_ASSUME_KERNEL");
   }
 
-  if (getenv("LD_PRELOAD") != NULL) {
+  if (!blaze::GetEnv("LD_PRELOAD").empty()) {
     fprintf(stderr, "Warning: ignoring LD_PRELOAD in environment.\n");
-    unsetenv("LD_PRELOAD");
+    blaze::UnsetEnv("LD_PRELOAD");
   }
 
-  if (getenv("_JAVA_OPTIONS") != NULL) {
+  if (!blaze::GetEnv("_JAVA_OPTIONS").empty()) {
     // This would override --host_jvm_args
     fprintf(stderr, "Warning: ignoring _JAVA_OPTIONS in environment.\n");
-    unsetenv("_JAVA_OPTIONS");
+    blaze::UnsetEnv("_JAVA_OPTIONS");
   }
 
-  if (getenv("TEST_TMPDIR") != NULL) {
+  if (!blaze::GetEnv("TEST_TMPDIR").empty()) {
     fprintf(stderr, "INFO: $TEST_TMPDIR defined: output root default is "
                     "'%s'.\n", globals->options->output_root.c_str());
   }
@@ -1316,10 +1316,10 @@ static void CheckEnvironment() {
   // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
   // run" doesn't handle non-ASCII command line arguments. This is apparently
   // the most reliable way to select the platform default encoding.
-  setenv("LANG", "en_US.ISO-8859-1", 1);
-  setenv("LANGUAGE", "en_US.ISO-8859-1", 1);
-  setenv("LC_ALL", "en_US.ISO-8859-1", 1);
-  setenv("LC_CTYPE", "en_US.ISO-8859-1", 1);
+  blaze::SetEnv("LANG", "en_US.ISO-8859-1");
+  blaze::SetEnv("LANGUAGE", "en_US.ISO-8859-1");
+  blaze::SetEnv("LC_ALL", "en_US.ISO-8859-1");
+  blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
 }
 
 static void SetupStreams() {

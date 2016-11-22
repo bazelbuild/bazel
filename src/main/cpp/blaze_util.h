@@ -41,10 +41,6 @@ std::string GetUserName();
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
 std::string MakeAbsolute(const std::string &path);
 
-// mkdir -p path. All newly created directories use the given mode.
-// Returns -1 on failure, sets errno.
-int MakeDirectories(const std::string &path, mode_t mode);
-
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes; if it
 // is 0, the method reads the whole file.

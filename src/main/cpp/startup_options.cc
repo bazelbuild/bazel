@@ -54,9 +54,9 @@ StartupOptions::StartupOptions(const string &product_name)
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false) {
-  bool testing = getenv("TEST_TMPDIR") != NULL;
+  bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
-    output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
+    output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
   } else {
     output_root = WorkspaceLayout::GetOutputRoot();
   }

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "gtest/gtest.h"
 
@@ -182,12 +183,12 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   ASSERT_STRNE(NULL, test_src_dir);
 
   string dir = blaze_util::JoinPath(tmp_dir, "x/y/z");
-  int ok = MakeDirectories(dir, 0755);
-  ASSERT_EQ(0, ok);
+  bool ok = MakeDirectories(dir, 0755);
+  ASSERT_TRUE(ok);
 
   // Changing permissions on an existing dir should work.
   ok = MakeDirectories(dir, 0750);
-  ASSERT_EQ(0, ok);
+  ASSERT_TRUE(ok);
   struct stat filestat = {};
   ASSERT_EQ(0, stat(dir.c_str(), &filestat));
   ASSERT_EQ(0750, filestat.st_mode & 0777);
@@ -196,27 +197,27 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   // TODO(ulfjack): Fix this!
 //  string srcdir = blaze_util::JoinPath(test_src_dir, "x/y/z");
 //  ok = MakeDirectories(srcdir, 0755);
-//  ASSERT_EQ(-1, ok);
+//  ASSERT_FALSE(ok);
 //  ASSERT_EQ(EACCES, errno);
 
   // Can't make a dir out of a file.
   string non_dir = blaze_util::JoinPath(dir, "w");
   ASSERT_TRUE(CreateEmptyFile(non_dir));
   ok = MakeDirectories(non_dir, 0755);
-  ASSERT_EQ(-1, ok);
+  ASSERT_FALSE(ok);
   ASSERT_EQ(ENOTDIR, errno);
 
   // Valid symlink should work.
   string symlink = blaze_util::JoinPath(tmp_dir, "z");
   ASSERT_TRUE(Symlink(dir, symlink));
   ok = MakeDirectories(symlink, 0755);
-  ASSERT_EQ(0, ok);
+  ASSERT_TRUE(ok);
 
   // Error: Symlink to a file.
   symlink = blaze_util::JoinPath(tmp_dir, "w");
   ASSERT_TRUE(Symlink(non_dir, symlink));
   ok = MakeDirectories(symlink, 0755);
-  ASSERT_EQ(-1, ok);
+  ASSERT_FALSE(ok);
   ASSERT_EQ(ENOTDIR, errno);
 
   // Error: Symlink to a dir with wrong perms.
@@ -226,13 +227,13 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   // These perms will force a chmod()
   // TODO(ulfjack): Fix this!
 //  ok = MakeDirectories(symlink, 0000);
-//  ASSERT_EQ(-1, ok);
+//  ASSERTFALSE(ok);
 //  ASSERT_EQ(EPERM, errno);
 
   // Edge cases.
-  ASSERT_EQ(-1, MakeDirectories("", 0755));
+  ASSERT_FALSE(MakeDirectories("", 0755));
   ASSERT_EQ(EACCES, errno);
-  ASSERT_EQ(-1, MakeDirectories("/", 0755));
+  ASSERT_FALSE(MakeDirectories("/", 0755));
   ASSERT_EQ(EACCES, errno);
 }
 
@@ -243,7 +244,7 @@ TEST_F(BlazeUtilTest, HammerMakeDirectories) {
   string path = blaze_util::JoinPath(tmp_dir, "x/y/z");
   // TODO(ulfjack): Fix this!
 //  ASSERT_LE(0, fork());
-//  ASSERT_EQ(0, MakeDirectories(path, 0755));
+//  ASSERT_TRUE(MakeDirectories(path, 0755));
 }
 
 }  // namespace blaze

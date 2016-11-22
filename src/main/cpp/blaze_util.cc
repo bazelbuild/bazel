@@ -51,8 +51,10 @@ const char kServerPidFile[] = "server.pid.txt";
 const char kServerPidSymlink[] = "server.pid";
 
 string GetUserName() {
-  const char *user = getenv("USER");
-  if (user && user[0] != '\0') return user;
+  string user = GetEnv("USER");
+  if (!user.empty()) {
+    return user;
+  }
   errno = 0;
   passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
   if (pwent == NULL || pwent->pw_name == NULL) {
@@ -75,100 +77,6 @@ string MakeAbsolute(const string &path) {
   return cwd + separator + path;
 }
 
-// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
-// `path` isn't a directory. If check_perms is true, this will also
-// make sure that `path` is owned by the current user and has `mode`
-// permissions (observing the umask). It attempts to run chmod to
-// correct the mode if necessary. If `path` is a symlink, this will
-// check ownership of the link, not the underlying directory.
-static int GetDirectoryStat(const string& path, mode_t mode, bool check_perms) {
-  struct stat filestat = {};
-  if (stat(path.c_str(), &filestat) == -1) {
-    return -1;
-  }
-
-  if (!S_ISDIR(filestat.st_mode)) {
-    errno = ENOTDIR;
-    return -1;
-  }
-
-  if (check_perms) {
-    // If this is a symlink, run checks on the link. (If we did lstat above
-    // then it would return false for ISDIR).
-    struct stat linkstat = {};
-    if (lstat(path.c_str(), &linkstat) != 0) {
-      return -1;
-    }
-    if (linkstat.st_uid != geteuid()) {
-      // The directory isn't owned by me.
-      errno = EACCES;
-      return -1;
-    }
-
-    mode_t mask = umask(022);
-    umask(mask);
-    mode = (mode & ~mask);
-    if ((filestat.st_mode & 0777) != mode
-        && chmod(path.c_str(), mode) == -1) {
-      // errno set by chmod.
-      return -1;
-    }
-  }
-  return 0;
-}
-
-static int MakeDirectories(const string& path, mode_t mode, bool childmost) {
-  if (path.empty() || path == "/") {
-    errno = EACCES;
-    return -1;
-  }
-
-  int retval = GetDirectoryStat(path, mode, childmost);
-  if (retval == 0) {
-    return 0;
-  }
-
-  if (errno == ENOENT) {
-    // Path does not exist, attempt to create its parents, then it.
-    string parent = blaze_util::Dirname(path);
-    if (MakeDirectories(parent, mode, false) == -1) {
-      // errno set by stat.
-      return -1;
-    }
-
-    if (mkdir(path.c_str(), mode) == -1) {
-      if (errno == EEXIST) {
-        if (childmost) {
-          // If there are multiple bazel calls at the same time then the
-          // directory could be created between the MakeDirectories and mkdir
-          // calls. This is okay, but we still have to check the permissions.
-          return GetDirectoryStat(path, mode, childmost);
-        } else {
-          // If this isn't the childmost directory, we don't care what the
-          // permissions were. If it's not even a directory then that error will
-          // get caught when we attempt to create the next directory down the
-          // chain.
-          return 0;
-        }
-      }
-      // errno set by mkdir.
-      return -1;
-    }
-    return 0;
-  }
-
-  return retval;
-}
-
-// mkdir -p path. Returns 0 if the path was created or already exists and could
-// be chmod-ed to exactly the given permissions. If final part of the path is a
-// symlink, this ensures that the destination of the symlink has the desired
-// permissions. It also checks that the directory or symlink is owned by us.
-// On failure, this returns -1 and sets errno.
-int MakeDirectories(const string& path, mode_t mode) {
-  return MakeDirectories(path, mode, true);
-}
-
 // Replaces 'contents' with contents of 'fd' file descriptor.
 // If `max_size` is positive, the method reads at most that many bytes; if it
 // is 0, the method reads the whole file.
@@ -185,7 +93,7 @@ bool ReadFileDescriptor(int fd, string *content, size_t max_size) {
     }
     content->append(buf, r);
     if (max_size > 0) {
-      if (max_size > r) {
+      if (max_size > static_cast<size_t>(r)) {
         max_size -= r;
       } else {
         break;
@@ -235,14 +143,13 @@ bool UnlinkPath(const string &file_path) {
 }
 
 bool IsEmacsTerminal() {
-  string emacs = getenv("EMACS") == nullptr ? "" : getenv("EMACS");
-  string inside_emacs =
-      getenv("INSIDE_EMACS") == nullptr ? "" : getenv("INSIDE_EMACS");
+  string emacs = GetEnv("EMACS");
+  string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
   // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
-  return emacs == "t" || inside_emacs != "";
+  return emacs == "t" || !inside_emacs.empty();
 }
 
 // Returns true iff both stdout and stderr are connected to a
@@ -250,9 +157,10 @@ bool IsEmacsTerminal() {
 // (this is computed heuristically based on the values of
 // environment variables).
 bool IsStandardTerminal() {
-  string term = getenv("TERM") == nullptr ? "" : getenv("TERM");
-  if (term == "" || term == "dumb" || term == "emacs" || term == "xterm-mono" ||
-      term == "symbolics" || term == "9term" || IsEmacsTerminal()) {
+  string term = GetEnv("TERM");
+  if (term.empty() || term == "dumb" || term == "emacs" ||
+      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
+      IsEmacsTerminal()) {
     return false;
   }
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
@@ -265,10 +173,10 @@ int GetTerminalColumns() {
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
-  const char* columns_env = getenv("COLUMNS");
-  if (columns_env != NULL && columns_env[0] != '\0') {
+  string columns_env = GetEnv("COLUMNS");
+  if (!columns_env.empty()) {
     char* endptr;
-    int columns = blaze_util::strto32(columns_env, &endptr, 10);
+    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
     if (*endptr == '\0') {  // $COLUMNS is a valid number
       return columns;
     }
@@ -305,9 +213,7 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-bool VerboseLogging() {
-  return getenv("VERBOSE_BLAZE_CLIENT") != NULL;
-}
+bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
 
 // Read the Jvm version from a file descriptor. The read fd
 // should contains a similar output as the java -version output.

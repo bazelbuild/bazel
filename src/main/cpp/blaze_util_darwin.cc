@@ -153,9 +153,9 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetDefaultHostJavabase() {
-  const char *java_home = getenv("JAVA_HOME");
-  if (java_home) {
-    return std::string(java_home);
+  string java_home = GetEnv("JAVA_HOME");
+  if (!java_home.empty()) {
+    return java_home;
   }
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");

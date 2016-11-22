@@ -274,8 +274,8 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     return blaze_exit_code::SUCCESS;
   }
 
-  const char* home = getenv("HOME");
-  if (home == NULL) {
+  string home = blaze::GetEnv("HOME");
+  if (home.empty()) {
     *blaze_rc_file = "";
     return blaze_exit_code::SUCCESS;
   }

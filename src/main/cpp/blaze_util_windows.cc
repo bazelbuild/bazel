@@ -14,7 +14,6 @@
 
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
-#include <string.h>  // strerror
 
 #ifndef COMPILER_MSVC
 #include <sys/cygwin.h>
@@ -100,6 +99,9 @@ string GetProcessIdAsString() {
 }
 
 string GetSelfPath() {
+#ifdef COMPILER_MSVC
+  const size_t PATH_MAX = 4096;
+#endif  // COMPILER_MSVC
   char buffer[PATH_MAX] = {};
   if (!GetModuleFileName(0, buffer, sizeof(buffer))) {
     pdie(255, "Error %u getting executable file name\n", GetLastError());
@@ -153,6 +155,11 @@ void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
 }
 
 string GetProcessCWD(int pid) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team) 2016-11-18: decide whether we need this on Windows and
+  // implement or delete.
+  return "";
+#else   // not COMPILER_MSVC
   char server_cwd[PATH_MAX] = {};
   if (readlink(
           ("/proc/" + ToString(pid) + "/cwd").c_str(),
@@ -161,6 +168,7 @@ string GetProcessCWD(int pid) {
   }
 
   return string(server_cwd);
+#endif  // COMPILER_MSVC
 }
 
 bool IsSharedLibrary(const string &filename) {
@@ -340,6 +348,10 @@ string RunProgram(
 // So, we first pretend to be a POSIX daemon so that msys2 knows about our
 // intentions and *then* we call CreateProcess(). Life ain't easy.
 static bool DaemonizeOnWindows() {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team) 2016-11-18: implement this.
+  return false;
+#else  // not COMPILER_MSVC
   if (fork() > 0) {
     // We are the original client process.
     return true;
@@ -356,6 +368,7 @@ static bool DaemonizeOnWindows() {
   // descriptors here. CreateProcess() will take care of that and it's useful
   // to see the error messages in ExecuteDaemon() on the console of the client.
   return false;
+#endif  // COMPILER_MSVC
 }
 
 // Keeping an eye on the server process on Windows is not implemented yet.
@@ -463,6 +476,9 @@ void BatchWaiterThread(HANDLE java_handle) {
   WaitForSingleObject(java_handle, INFINITE);
 }
 
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement signal handling.
+#else  // not COMPILER_MSVC
 static void MingwSignalHandler(int signum) {
   // Java process will be terminated because we set the job to terminate if its
   // handle is closed.
@@ -476,6 +492,7 @@ static void MingwSignalHandler(int signum) {
   // allow breakaway processes.
   exit(blaze_exit_code::ExitCode::INTERRUPTED);
 }
+#endif  // COMPILER_MSVC
 
 // Returns whether assigning the given process to a job failed because nested
 // jobs are not available on the current system.
@@ -570,7 +587,12 @@ void ExecuteProgram(
 
   // msys doesn't deliver signals while a Win32 call is pending so we need to
   // do the blocking call in another thread
+
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement signal handling.
+#else  // not COMPILER_MSVC
   signal(SIGINT, MingwSignalHandler);
+#endif  // COMPILER_MSVC
   std::thread batch_waiter_thread([=]() {
     BatchWaiterThread(processInfo.hProcess);
   });
@@ -587,6 +609,11 @@ void ExecuteProgram(
 string ListSeparator() { return ";"; }
 
 string ConvertPath(const string& path) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::ConvertPath is not implemented on Windows");
+  return "";
+#else  // not COMPILER_MSVC
   // If the path looks like %USERPROFILE%/foo/bar, don't convert.
   if (path.empty() || path[0] == '%') {
     return path;
@@ -596,6 +623,7 @@ string ConvertPath(const string& path) {
   string result(wpath);
   free(wpath);
   return result;
+#endif  // COMPILER_MSVC
 }
 
 // Convert a Unix path list to Windows path list
@@ -613,12 +641,18 @@ string ConvertPathList(const string& path_list) {
   return w_list;
 }
 
-string ConvertPathToPosix(const string& win_path) {
+static string ConvertPathToPosix(const string& win_path) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team) 2016-11-18: verify that this function is not needed on
+  // Windows.
+  return win_path;
+#else   // not COMPILER_MSVC
   char* posix_path = static_cast<char*>(cygwin_create_path(
       CCP_WIN_A_TO_POSIX, static_cast<const void*>(win_path.c_str())));
   string result(posix_path);
   free(posix_path);
   return result;
+#endif  // COMPILER_MSVC
 }
 
 // Cribbed from ntifs.h, not present in windows.h
@@ -867,7 +901,7 @@ void CreateSecureOutputRoot(const string& path) {
   const char* root = path.c_str();
   struct stat fileinfo = {};
 
-  if (MakeDirectories(root, 0755) == -1) {
+  if (!MakeDirectories(root, 0755)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
   }
 
@@ -902,6 +936,137 @@ void CreateSecureOutputRoot(const string& path) {
   }
 
   ExcludePathFromBackup(root);
+#endif  // COMPILER_MSVC
+}
+
+#ifdef COMPILER_MSVC
+bool MakeDirectories(const string& path, unsigned int mode) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::MakeDirectories is not implemented on Windows");
+  return false;
+}
+#else   // not COMPILER_MSVC
+// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
+// `path` isn't a directory. If check_perms is true, this will also
+// make sure that `path` is owned by the current user and has `mode`
+// permissions (observing the umask). It attempts to run chmod to
+// correct the mode if necessary. If `path` is a symlink, this will
+// check ownership of the link, not the underlying directory.
+static bool GetDirectoryStat(const string& path, mode_t mode,
+                             bool check_perms) {
+  struct stat filestat = {};
+  if (stat(path.c_str(), &filestat) == -1) {
+    return false;
+  }
+
+  if (!S_ISDIR(filestat.st_mode)) {
+    errno = ENOTDIR;
+    return false;
+  }
+
+  if (check_perms) {
+    // If this is a symlink, run checks on the link. (If we did lstat above
+    // then it would return false for ISDIR).
+    struct stat linkstat = {};
+    if (lstat(path.c_str(), &linkstat) != 0) {
+      return false;
+    }
+    if (linkstat.st_uid != geteuid()) {
+      // The directory isn't owned by me.
+      errno = EACCES;
+      return false;
+    }
+
+    mode_t mask = umask(022);
+    umask(mask);
+    mode = (mode & ~mask);
+    if ((filestat.st_mode & 0777) != mode && chmod(path.c_str(), mode) == -1) {
+      // errno set by chmod.
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool MakeDirectories(const string& path, mode_t mode, bool childmost) {
+  if (path.empty() || path == "/") {
+    errno = EACCES;
+    return false;
+  }
+
+  bool stat_succeeded = GetDirectoryStat(path, mode, childmost);
+  if (stat_succeeded) {
+    return true;
+  }
+
+  if (errno == ENOENT) {
+    // Path does not exist, attempt to create its parents, then it.
+    string parent = blaze_util::Dirname(path);
+    if (!MakeDirectories(parent, mode, false)) {
+      // errno set by stat.
+      return false;
+    }
+
+    if (mkdir(path.c_str(), mode) == -1) {
+      if (errno == EEXIST) {
+        if (childmost) {
+          // If there are multiple bazel calls at the same time then the
+          // directory could be created between the MakeDirectories and mkdir
+          // calls. This is okay, but we still have to check the permissions.
+          return GetDirectoryStat(path, mode, childmost);
+        } else {
+          // If this isn't the childmost directory, we don't care what the
+          // permissions were. If it's not even a directory then that error will
+          // get caught when we attempt to create the next directory down the
+          // chain.
+          return true;
+        }
+      }
+      // errno set by mkdir.
+      return false;
+    }
+    return true;
+  }
+
+  return stat_succeeded;
+}
+
+// mkdir -p path. Returns 0 if the path was created or already exists and could
+// be chmod-ed to exactly the given permissions. If final part of the path is a
+// symlink, this ensures that the destination of the symlink has the desired
+// permissions. It also checks that the directory or symlink is owned by us.
+// On failure, this returns -1 and sets errno.
+bool MakeDirectories(const string& path, mode_t mode) {
+  return MakeDirectories(path, mode, true);
+}
+#endif  // COMPILER_MSVC
+
+string GetEnv(const string& name) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::GetEnv is not implemented on Windows");
+  return "";
+#else  // not COMPILER_MSVC
+  char* result = getenv(name.c_str());
+  return result != NULL ? string(result) : "";
+#endif  // COMPILER_MSVC
+}
+
+void SetEnv(const string& name, const string& value) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::SetEnv is not implemented on Windows");
+#else  // not COMPILER_MSVC
+  setenv(name.c_str(), value.c_str(), 1);
+#endif  // COMPILER_MSVC
+}
+
+void UnsetEnv(const string& name) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::UnsetEnv is not implemented on Windows");
+#else  // not COMPILER_MSVC
+  unsetenv(name.c_str());
 #endif  // COMPILER_MSVC
 }
 
