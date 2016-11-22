@@ -17,22 +17,33 @@ package com.google.devtools.build.lib.syntax;
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
 public final class SkylarkUtils {
 
-  public static final String TOOLS_REPOSITORY = "$tools_repository";
+  /** Bazel-specific information that we store in the Environment. */
+  private static class BazelInfo {
+    String toolsRepository;
+  }
 
-  /** Unsafe version of Environment#update */
-  private static void updateEnv(Environment env, String key, Object value) {
+  private static final String BAZEL_INFO_KEY = "$bazel";
+
+  private static BazelInfo getInfo(Environment env) {
+    Object info = env.lookup(BAZEL_INFO_KEY);
+    if (info != null) {
+      return (BazelInfo) info;
+    }
+
+    BazelInfo result = new BazelInfo();
     try {
-      env.update(key, value);
+      env.update(BAZEL_INFO_KEY, result);
+      return result;
     } catch (EvalException e) {
       throw new AssertionError(e);
     }
   }
 
   public static void setToolsRepository(Environment env, String toolsRepository) {
-    updateEnv(env, TOOLS_REPOSITORY, toolsRepository);
+    getInfo(env).toolsRepository = toolsRepository;
   }
 
   public static String getToolsRepository(Environment env) {
-    return (String) env.lookup(TOOLS_REPOSITORY);
+    return getInfo(env).toolsRepository;
   }
 }
