@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
 public final class SkylarkDict<K, V>
     extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
 
-  private final TreeMap<K, V> contents = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
+  private final LinkedHashMap<K, V> contents = new LinkedHashMap<>();
 
   private final Mutability mutability;
 
@@ -139,7 +139,7 @@ public final class SkylarkDict<K, V>
 
   /** @return the first key in the dict */
   K firstKey() {
-    return contents.firstKey();
+    return contents.entrySet().iterator().next().getKey();
   }
 
   /**

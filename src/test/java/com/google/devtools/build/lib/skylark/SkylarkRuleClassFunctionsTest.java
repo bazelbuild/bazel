@@ -812,6 +812,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStructIncomparability() throws Exception {
+    checkErrorContains("Cannot compare structs", "struct(a = 1) < struct(a = 2)");
+    checkErrorContains("Cannot compare structs", "struct(a = 1) > struct(a = 2)");
+    checkErrorContains("Cannot compare structs", "struct(a = 1) <= struct(a = 2)");
+    checkErrorContains("Cannot compare structs", "struct(a = 1) >= struct(a = 2)");
+  }
+
+  @Test
   public void testStructAccessingFieldsFromSkylark() throws Exception {
     eval("x = struct(a = 1, b = 2)", "x1 = x.a", "x2 = x.b");
     assertThat(lookup("x1")).isEqualTo(1);
@@ -933,6 +941,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testStructsInSets() throws Exception {
     eval("set([struct(a='a')])");
+  }
+
+  @Test
+  public void testStructsInDicts() throws Exception {
+    eval("d = {struct(a = 1): 'aa', struct(b = 2): 'bb'}");
+    assertThat(eval("d[struct(a = 1)]")).isEqualTo("aa");
+    assertThat(eval("d[struct(b = 2)]")).isEqualTo("bb");
+
+    checkErrorContains(
+        "unhashable type: 'struct'",
+        "{struct(a = []): 'foo'}");
   }
 
   @Test

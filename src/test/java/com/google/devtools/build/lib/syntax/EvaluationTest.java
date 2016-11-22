@@ -272,7 +272,10 @@ public class EvaluationTest extends EvaluationTestCase {
         .update(kwargs.getName(), kwargs)
         .testEval(
             "kwargs(foo=1, bar='bar', wiz=[1,2,3]).items()",
-            "[('bar', 'bar'), ('foo', 1), ('wiz', [1, 2, 3])]");
+            "[('foo', 1), ('bar', 'bar'), ('wiz', [1, 2, 3])]")
+        .testEval(
+            "kwargs(wiz=[1,2,3], bar='bar', foo=1).items()",
+            "[('wiz', [1, 2, 3]), ('bar', 'bar'), ('foo', 1)]");
   }
 
   @Test
