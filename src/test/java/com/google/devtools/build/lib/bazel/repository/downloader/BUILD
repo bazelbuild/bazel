@@ -5,11 +5,11 @@ filegroup(
 )
 
 java_test(
-    name = "DownloaderTestSuite",
+    name = "DownloaderTests",
     srcs = glob(["*.java"]),
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
