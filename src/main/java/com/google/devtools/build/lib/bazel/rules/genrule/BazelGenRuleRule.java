@@ -22,14 +22,18 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.ToolchainProvider;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for the genrule rule.
@@ -82,6 +86,10 @@ public final class BazelGenRuleRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("tools", LABEL_LIST).cfg(HOST).legacyAllowAnyFileType())
+        .add(attr("toolchains", LABEL_LIST)
+            .allowedFileTypes(FileTypeSet.NO_FILE)
+            .mandatoryNativeProviders(ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                ToolchainProvider.class)))
         .add(attr("$genrule_setup", LABEL).cfg(HOST).value(env.getToolsLabel(GENRULE_SETUP_LABEL)))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(outs) -->

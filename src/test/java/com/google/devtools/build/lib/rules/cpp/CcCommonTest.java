@@ -21,23 +21,32 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
+import com.google.devtools.build.lib.bazel.rules.BazelToolchainLookup;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.ToolchainLookup;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -813,6 +822,45 @@ public class CcCommonTest extends BuildViewTestCase {
             RepositoryName.MAIN).getExecPath().getPathString()));
   }
 
+  /**
+   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   */
+  public static class OnlyCppToolchainLookup extends ToolchainLookup {
+    public OnlyCppToolchainLookup() {
+      super(
+          ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
+          ImmutableMap.<Label, ImmutableMap<String, String>>of());
+    }
+  }
+
+  /**
+   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   */
+  public static class OnlyCppToolchainLookupRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          // This means that *every* toolchain_lookup rule depends on every configuration fragment
+          // that contributes Make variables, regardless of which one it is.
+          .requiresConfigurationFragments(CppConfiguration.class)
+          .removeAttribute("licenses")
+          .removeAttribute("distribs")
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return Metadata.builder()
+          .name("toolchain_lookup")
+          .factoryClass(BazelToolchainLookup.class)
+          .ancestors(BaseRuleClasses.BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Tests for the case where there are only C++ rules defined.
+   */
   @RunWith(JUnit4.class)
   public static class OnlyCppRules extends CcCommonTest {
     @Override
@@ -835,6 +883,7 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
           BazelRuleClassProvider.BASIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
+          builder.addRuleDefinition(new OnlyCppToolchainLookupRule());
           return builder.build();
         }
 

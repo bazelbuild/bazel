@@ -565,6 +565,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
                 "srcs",
                 "stamp",
                 "tags",
+                "toolchains",
                 "tools",
                 "visibility")),
         result);

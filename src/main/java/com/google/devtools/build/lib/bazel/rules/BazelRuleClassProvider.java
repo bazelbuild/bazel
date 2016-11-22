@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.bazel.rules.BazelToolchainLookup.BazelToolchainLookupRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
@@ -280,6 +281,10 @@ public class BazelRuleClassProvider {
     J2OBJC_RULES.init(builder);
     ANDROID_STUDIO_ASPECT.init(builder);
     VARIOUS_WORKSPACE_RULES.init(builder);
+
+    // This rule is a little special: it needs to depend on every configuration fragment that has
+    // Make variables, so we can't put it in any of the above buckets.
+    builder.addRuleDefinition(new BazelToolchainLookupRule());
   }
 
   public static final RuleSet BAZEL_SETUP =

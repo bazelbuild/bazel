@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Package;
@@ -28,12 +29,19 @@ import java.util.Map;
  */
 public class ConfigurationMakeVariableContext implements MakeVariableExpander.Context {
   private final Package pkg;
+  private final Map<String, String> toolchainEnv;
   private final Map<String, String> commandLineEnv;
   private final Map<String, String> globalEnv;
   private final String platform;
 
   public ConfigurationMakeVariableContext(Package pkg, BuildConfiguration configuration) {
+    this(pkg, configuration, ImmutableMap.<String, String>of());
+  }
+
+  public ConfigurationMakeVariableContext(Package pkg, BuildConfiguration configuration,
+      ImmutableMap<String, String> toolchainEnv) {
     this.pkg = pkg;
+    this.toolchainEnv = toolchainEnv;
     commandLineEnv = configuration.getCommandLineBuildVariables();
     globalEnv = configuration.getGlobalMakeEnvironment();
     platform = configuration.getPlatformName();
@@ -41,7 +49,10 @@ public class ConfigurationMakeVariableContext implements MakeVariableExpander.Co
 
   @Override
   public String lookupMakeVariable(String var) throws ExpansionException {
-    String value = commandLineEnv.get(var);
+    String value = toolchainEnv.get(var);
+    if (value == null) {
+      value = commandLineEnv.get(var);
+    }
     if (value == null) {
       value = pkg.lookupMakeVariable(var, platform);
     }
