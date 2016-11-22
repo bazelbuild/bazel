@@ -230,6 +230,36 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             "temp_files" + INTERNAL_SUFFIX);
   }
 
+  @Test
+  public void testOutputGroupsAsDictionaryPipe() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def _impl(ctx):",
+        "  f = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
+        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'] | set([])",
+        "  return struct(result = g, ",
+        "                output_groups = { 'my_group' : g })",
+        "my_rule = rule(implementation = _impl,",
+        "    attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/extension',  'my_rule')",
+        "cc_binary(name = 'lib', data = ['a.txt'])",
+        "my_rule(name='my', dep = ':lib')");
+    NestedSet<Artifact> hiddenTopLevelArtifacts =
+        getConfiguredTarget("//test/skylark:lib")
+            .getProvider(OutputGroupProvider.class)
+            .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    ConfiguredTarget myTarget = getConfiguredTarget("//test/skylark:my");
+    SkylarkProviders skylarkProviders = myTarget
+        .getProvider(SkylarkProviders.class);
+    SkylarkNestedSet result = (SkylarkNestedSet) skylarkProviders.getValue("result");
+    assertThat(result.getSet(Artifact.class)).containsExactlyElementsIn(hiddenTopLevelArtifacts);
+    assertThat(myTarget.getProvider(OutputGroupProvider.class).getOutputGroup("my_group"))
+        .containsExactlyElementsIn(hiddenTopLevelArtifacts);
+  }
+
+
 
   @Test
   public void testOutputGroupsWithList() throws Exception {
