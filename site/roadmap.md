@@ -126,7 +126,7 @@ be refined if appropriate.
     </tr>
     <tr>
       <td rowspan="4"><b>0.5</b></td>
-      <td rowspan="4"><b>2016&#8209;11</b></td>
+      <td rowspan="4"><b>2017&#8209;01</b></td>
       <td>P0. Support for testing Android apps</td>
     </tr>
     <tr><td>P0. Bazel supports building Java, C++ and Python on Windows</td></tr>
@@ -134,7 +134,7 @@ be refined if appropriate.
     <tr><td>P2. Support for Swift language</td></tr>
     <tr>
       <td rowspan="2"><b>0.6</b></td>
-      <td rowspan="2"><b>2017 Q1</b></td>
+      <td rowspan="2"><b>2017&#8209;03 </b></td>
       <td>P0. Searchable "hub" of Skylark rules</td>
     </tr>
     <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
