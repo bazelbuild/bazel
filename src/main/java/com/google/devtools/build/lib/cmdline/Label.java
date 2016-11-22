@@ -81,6 +81,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -96,6 +97,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -110,6 +112,9 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     if (packageStartPos > 0) {
       repo = absName.substring(0, packageStartPos);
       absName = absName.substring(packageStartPos);
+    } else if (absName.startsWith("@")) {
+      repo = absName;
+      absName = "//:" + absName.substring(1);
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
@@ -324,7 +329,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
-  
+
   /**
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
