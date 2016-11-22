@@ -48,9 +48,6 @@ public class PathWindowsTest {
         };
     root = filesystem.getRootDirectory().getRelative("C:/");
     root.createDirectory();
-
-    Path first = root.getChild("first");
-    first.createDirectory();
   }
 
   private void assertAsFragmentWorks(String expected) {
@@ -159,6 +156,7 @@ public class PathWindowsTest {
     // Ensure the Path to "/usr" (actually "C:/fake/msys/usr") is created, path parents/children
     // properly registered.
     Path usrPath = root.getRelative("/usr");
+    Path dummyPath = root.getRelative("dummy_path");
 
     // Assert that "usr" is not registered as a child of "/".
     final List<String> children = new ArrayList<>(2);
@@ -170,7 +168,7 @@ public class PathWindowsTest {
             return true;
           }
         });
-    assertThat(children).containsExactly("C:/fake", "C:/first");
+    assertThat(children).containsAllOf("C:/fake", "C:/dummy_path");
 
     // Assert that "usr" is registered as a child of "C:/fake/msys/".
     children.clear();
