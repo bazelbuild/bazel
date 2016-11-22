@@ -69,6 +69,24 @@ cc_library(
 )
 
 cc_library(
+    name = "logging",
+    srcs = ["logging.cc"],
+    hdrs = ["logging.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "bazel_log_handler",
+    srcs = ["bazel_log_handler.cc"],
+    hdrs = ["bazel_log_handler.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":file",
+        ":logging",
+    ],
+)
+
+cc_library(
     name = "md5",
     srcs = ["md5.cc"],
     hdrs = ["md5.h"],

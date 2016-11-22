@@ -105,6 +105,7 @@ cc_binary(
         ":blaze_abrupt_exit",
         ":blaze_util",
         "//src/main/cpp/util",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",

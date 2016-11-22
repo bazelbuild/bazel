@@ -65,6 +65,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
@@ -1275,6 +1276,7 @@ static void ComputeBaseDirectories(const string &self_path) {
   ExcludePathFromBackup(output_base);
 
   globals->options->output_base = MakeCanonical(output_base);
+
   globals->lockfile = globals->options->output_base + "/lock";
   globals->jvm_log_file = globals->options->output_base + "/server/jvm.out";
 }
@@ -1356,7 +1358,10 @@ static void CheckBinaryPath(const string& argv0) {
 // code to a file. In case the server becomes unresonsive or terminates
 // unexpectedly (in a way that isn't already handled), we can observe the file,
 // if it exists. (If it doesn't, then we know something went horribly wrong.)
-int Main(int argc, const char *argv[], OptionProcessor *option_processor) {
+int Main(int argc, const char *argv[], OptionProcessor *option_processor,
+         std::unique_ptr<blaze_util::LogHandler> log_handler) {
+  // Logging must be set first to assure no log statements are missed.
+  blaze_util::SetLogHandler(std::move(log_handler));
   globals = new GlobalVariables(option_processor);
   SetupStreams();
 

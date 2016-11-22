@@ -32,6 +32,16 @@ cc_test(
 )
 
 cc_test(
+    name = "logging_test",
+    srcs = ["logging_test.cc"],
+    deps = [
+        "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:logging",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "numbers_test",
     srcs = ["numbers_test.cc"],
     deps = [

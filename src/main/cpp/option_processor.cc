@@ -26,6 +26,7 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
@@ -71,6 +72,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     list<string>* import_stack,
     string* error) {
   string filename(filename_ref);  // file
+  BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   string contents;
   if (!ReadFile(filename, &contents)) {
     // We checked for file readability before, so this is unexpected.
