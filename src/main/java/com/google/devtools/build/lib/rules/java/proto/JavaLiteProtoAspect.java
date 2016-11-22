@@ -202,7 +202,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           ImmutableList.of(
               new ProtoCompileActionBuilder.ToolchainInvocation(
                   "javalite", getProtoToolchainProvider(), sourceJar.getExecPathString())),
-          supportData,
+          supportData.getDirectProtoSources(),
+          supportData.getTransitiveImports(),
+          supportData.getProtosInDirectDeps(),
           ImmutableList.of(sourceJar),
           "JavaLite",
           true /* allowServices */);

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
+import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -58,6 +59,8 @@ public class JavaProtoSkylarkCommon {
       ConfiguredTarget target,
       Artifact sourceJar,
       String protoToolchainAttr) {
+    SupportData supportData =
+        checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
     ProtoCompileActionBuilder.registerActions(
         skylarkRuleContext.getRuleContext(),
         ImmutableList.of(
@@ -65,7 +68,9 @@ public class JavaProtoSkylarkCommon {
                 "javalite",
                 getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr),
                 sourceJar.getExecPathString())),
-        checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData()),
+        supportData.getDirectProtoSources(),
+        supportData.getTransitiveImports(),
+        supportData.getProtosInDirectDeps(),
         ImmutableList.of(sourceJar),
         "JavaLite",
         true /* allowServices */);

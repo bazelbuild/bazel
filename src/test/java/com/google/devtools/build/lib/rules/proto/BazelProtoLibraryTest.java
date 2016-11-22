@@ -20,19 +20,58 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class BazelProtoLibraryTest extends BuildViewTestCase {
+
+  @Before
+  public void setUp() throws Exception {
+    scratch.file("third_party/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc'])");
+  }
+
   @Test
   public void testDescriptorSetOutput() throws Exception {
-    scratch.file("third_party/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc'])");
     ConfiguredTarget target =
-        scratchConfiguredTarget("foo", "foo", "proto_library(name='foo', srcs=['foo.proto'])");
+        scratchConfiguredTarget("x", "foo", "proto_library(name='foo', srcs=['foo.proto'])");
     Artifact file =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
-    assertThat(file.getRootRelativePathString()).isEqualTo("foo/foo-descriptor-set.proto.bin");
+    assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
+
+    assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
+        .containsAllOf(
+            "-Ix/foo.proto=x/foo.proto",
+            "--descriptor_set_out=" + file.getExecPathString(),
+            "x/foo.proto");
+  }
+
+  @Test
+  public void testDescriptorSetOutput_aliasLibrary() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "x",
+            "alias",
+            "proto_library(name='alias', deps = [':second_alias'])",
+            "proto_library(name='second_alias', deps = [':foo'])",
+            "proto_library(name='foo', srcs=['foo.proto'])");
+    Artifact file =
+        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
+    assertThat(file.getRootRelativePathString()).isEqualTo("x/alias-descriptor-set.proto.bin");
+
+    assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
+        .containsAllOf(
+            "-Ix/foo.proto=x/foo.proto",
+            "--descriptor_set_out=" + file.getExecPathString(),
+            "x/foo.proto");
+  }
+
+  @Test
+  public void testDescriptorSetOutput_noSrcs() throws Exception {
+    ConfiguredTarget target = scratchConfiguredTarget("x", "foo", "proto_library(name='foo')");
+    assertThat(ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin"))
+        .isNull();
   }
 }

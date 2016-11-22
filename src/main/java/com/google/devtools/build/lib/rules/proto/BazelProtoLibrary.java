@@ -58,27 +58,36 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             transitiveImports,
             !protoSources.isEmpty());
 
-    Artifact descriptorSetOutput =
-        ruleContext.getGenfilesArtifact(
-            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
-    ProtoCompileActionBuilder.writeDescriptorSet(
-        ruleContext,
-        descriptorSetOutput.getExecPathString(),
-        supportData,
-        ImmutableList.of(descriptorSetOutput),
-        true /* allowServices */);
+    Runfiles.Builder dataRunfiles =
+        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext);
 
-    Runfiles dataRunfiles =
-        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
-            .addArtifact(descriptorSetOutput)
-            .build();
+    RuleConfiguredTargetBuilder result = new RuleConfiguredTargetBuilder(ruleContext);
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
+    if (checkDepsProtoSources.isEmpty()) {
+      result.setFilesToBuild(NestedSetBuilder.<Artifact>create(STABLE_ORDER));
+    } else {
+      Artifact descriptorSetOutput =
+          ruleContext.getGenfilesArtifact(
+              ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
+      ProtoCompileActionBuilder.writeDescriptorSet(
+          ruleContext,
+          descriptorSetOutput.getExecPathString(),
+          checkDepsProtoSources,
+          transitiveImports,
+          null /* protosInDirectDeps */,
+          ImmutableList.of(descriptorSetOutput),
+          true /* allowServices */);
+
+      dataRunfiles.addArtifact(descriptorSetOutput);
+
+      result.setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput));
+      result.addProvider(DescriptorSetProvider.create(descriptorSetOutput));
+    }
+
+    return result
+        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles.build()))
         .addProvider(ProtoSourcesProvider.class, sourcesProvider)
         .addProvider(ProtoSupportDataProvider.class, new ProtoSupportDataProvider(supportData))
-        .addProvider(DescriptorSetProvider.create(descriptorSetOutput))
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, sourcesProvider)
         .build();
   }
