@@ -42,44 +42,17 @@ case "${PLATFORM}" in
 linux)
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
-  if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-    if [ "${MACHINE_IS_Z}" = 'yes' ]; then
-       PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-linux-s390x_64.exe}
-       GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe}
-    else
-       PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-linux-x86_64.exe}
-       GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-x86_64.exe}
-    fi
-  else
-    if [ "${MACHINE_IS_ARM}" = 'yes' ]; then
-      PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-linux-arm32.exe}
-    else
-      PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-linux-x86_32.exe}
-      GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-x86_32.exe}
-    fi
-  fi
   ;;
 
 freebsd)
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
-  # Note: the linux protoc binary works on freebsd using linux emulation.
-  # We choose the 32-bit version for maximum compatiblity since 64-bit
-  # linux binaries are only supported in FreeBSD-11.
-  PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-linux-x86_32.exe}
-  GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-x86_32.exe}
   ;;
 
 darwin)
   if [[ -z "$JAVA_HOME" ]]; then
     JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
       || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
-  fi
-  if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-    PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-osx-x86_64.exe}
-    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-osx-x86_64.exe}
-  else
-    PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-osx-x86_32.exe}
   fi
   ;;
 
@@ -89,21 +62,8 @@ msys*|mingw*)
   PATHSEP=";"
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
-  # We do not use the JNI library on Windows.
-  if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
-    PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-windows-x86_64.exe}
-    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-windows-x86_64.exe}
-  else
-    PROTOC=${PROTOC:-third_party/protobuf/3.0.0/protoc-3.0.0-windows-x86_32.exe}
-    GRPC_JAVA_PLUGIN=${GRPC_JAVA_PLUGIN:-third_party/grpc/protoc-gen-grpc-java-0.15.0-windows-x86_32.exe}
-  fi
 esac
 
-[[ -x "${PROTOC-}" ]] \
-    || fail "Protobuf compiler not found in ${PROTOC-}"
-
-[[ -x "${GRPC_JAVA_PLUGIN-}" ]] \
-    || fail "gRPC Java plugin not found in ${GRPC_JAVA_PLUGIN-}"
 
 # Check that javac -version returns a upper version than $JAVA_VERSION.
 get_java_version
@@ -183,14 +143,35 @@ function create_deploy_jar() {
 }
 
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
-  log "Compiling Java stubs for protocol buffers..."
-  for f in $PROTO_FILES ; do
-    run "${PROTOC}" -Isrc/main/protobuf/ \
-        -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
-        --java_out=${OUTPUT_DIR}/src \
-        --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
-        --grpc_out=${OUTPUT_DIR}/src "$f"
-  done
+
+    if [ -d derived/src/java ]
+    then
+        log "Using pre-generated java proto files"
+        mkdir -p "${OUTPUT_DIR}/src"
+        cp -r derived/src/java/* "${OUTPUT_DIR}/src"
+    else
+
+        [ -n "${PROTOC}" ] \
+            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact"
+
+        [ -n "${GRPC_JAVA_PLUGIN}" ] \
+            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact"
+
+        [[ -x "${PROTOC-}" ]] \
+            || fail "Protobuf compiler not found in ${PROTOC-}"
+
+        [[ -x "${GRPC_JAVA_PLUGIN-}" ]] \
+            || fail "gRPC Java plugin not found in ${GRPC_JAVA_PLUGIN-}"
+
+        log "Compiling Java stubs for protocol buffers..."
+        for f in $PROTO_FILES ; do
+            run "${PROTOC}" -Isrc/main/protobuf/ \
+                -Isrc/main/java/com/google/devtools/build/lib/buildeventstream/proto/ \
+                --java_out=${OUTPUT_DIR}/src \
+                --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
+                --grpc_out=${OUTPUT_DIR}/src "$f"
+        done
+    fi
 
   java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
 
