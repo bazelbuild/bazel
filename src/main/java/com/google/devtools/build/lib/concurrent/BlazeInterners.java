@@ -19,7 +19,13 @@ import com.google.common.collect.Interners.InternerBuilder;
 
 /** Wrapper around {@link Interners}, with Blaze-specific predetermined concurrency levels. */
 public class BlazeInterners {
-  private static final int CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
+  private static final int DEFAULT_CONCURRENCY_LEVEL = Runtime.getRuntime().availableProcessors();
+  private static final int CONCURRENCY_LEVEL;
+
+  static {
+    String val = System.getenv("BLAZE_INTERNER_CONCURRENCY_LEVEL");
+    CONCURRENCY_LEVEL = (val == null) ? DEFAULT_CONCURRENCY_LEVEL : Integer.parseInt(val);
+  }
 
   private static InternerBuilder setConcurrencyLevel(InternerBuilder builder) {
     return builder.concurrencyLevel(CONCURRENCY_LEVEL);
@@ -33,3 +39,4 @@ public class BlazeInterners {
     return setConcurrencyLevel(Interners.newBuilder().strong()).build();
   }
 }
+
