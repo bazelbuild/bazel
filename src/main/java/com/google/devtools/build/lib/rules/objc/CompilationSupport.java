@@ -29,7 +29,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT_SOURCES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -164,7 +163,6 @@ public abstract class CompilationSupport {
               FileTypeSet.of(
                   ObjcRuleClasses.NON_CPP_SOURCES,
                   ObjcRuleClasses.CPP_SOURCES,
-                  ObjcRuleClasses.SWIFT_SOURCES,
                   HEADERS))
           .withSourceAttributes("srcs", "non_arc_srcs", "hdrs")
           .withDependencyAttributes("deps", "data", "binary", "xctest_app");
@@ -266,13 +264,13 @@ public abstract class CompilationSupport {
         .build();
   }
 
-  /** Returns a list of framework search path flags for clang/swift actions. */
+  /** Returns a list of framework search path flags for clang actions. */
   static Iterable<String> commonFrameworkFlags(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
     return Interspersing.beforeEach("-F", commonFrameworkNames(provider, appleConfiguration));
   }
 
-  /** Returns a list of frameworks for clang/swift actions. */
+  /** Returns a list of frameworks for clang actions. */
   static Iterable<String> commonFrameworkNames(
       ObjcProvider provider, AppleConfiguration appleConfiguration) {
     Platform platform = appleConfiguration.getSingleArchPlatform();
@@ -292,14 +290,6 @@ public abstract class CompilationSupport {
             PathFragment.safePathStrings(
                 uniqueParentDirectories(provider.get(FRAMEWORK_SEARCH_PATH_ONLY))))
         .build();
-  }
-
-  /** Returns the target string for swift compiler. For example, "x86_64-apple-ios8.2" */
-  @VisibleForTesting
-  static String swiftTarget(AppleConfiguration configuration) {
-    // TODO(bazel-team): Assert the configuration is for an apple platform, or support
-    // other platform types.
-    return configuration.getSingleArchitecture() + "-apple-ios" + configuration.getIosSdkVersion();
   }
 
   protected final RuleContext ruleContext;
@@ -504,14 +494,6 @@ public abstract class CompilationSupport {
         String path = conflict.getRootRelativePath().toString();
         ruleContext.attributeError(
             "srcs", String.format(FILE_IN_SRCS_AND_NON_ARC_SRCS_ERROR_FORMAT, path));
-      }
-
-      if (appleConfiguration.disableNativeSwiftRules()) {
-        for (Artifact src : srcsSet) {
-          if (SWIFT_SOURCES.apply(src.getFilename())) {
-            ruleContext.attributeError("srcs", "Swift is not supported in native rules.");
-          }
-        }
       }
     }
 

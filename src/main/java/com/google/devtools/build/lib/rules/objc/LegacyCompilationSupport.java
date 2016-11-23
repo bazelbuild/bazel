@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
@@ -36,7 +35,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_S
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -219,29 +217,25 @@ public class LegacyCompilationSupport extends CompilationSupport {
     for (Artifact sourceFile : compilationArtifacts.getSrcs()) {
       Artifact objFile = intermediateArtifacts.objFile(sourceFile);
       objFiles.add(objFile);
-      if (!appleConfiguration.disableNativeSwiftRules()
-          && ObjcRuleClasses.SWIFT_SOURCES.matches(sourceFile.getFilename())) {
-        registerSwiftCompileAction(sourceFile, objFile, objcProvider);
+
+      if (objFile.isTreeArtifact()) {
+        registerCompileActionTemplate(
+            sourceFile,
+            objFile,
+            objcProvider,
+            priorityHeaders,
+            moduleMap,
+            compilationArtifacts,
+            Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
       } else {
-        if (objFile.isTreeArtifact()) {
-          registerCompileActionTemplate(
-              sourceFile,
-              objFile,
-              objcProvider,
-              priorityHeaders,
-              moduleMap,
-              compilationArtifacts,
-              Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
-        } else {
-          registerCompileAction(
-              sourceFile,
-              objFile,
-              objcProvider,
-              priorityHeaders,
-              moduleMap,
-              compilationArtifacts,
-              Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
-        }
+        registerCompileAction(
+            sourceFile,
+            objFile,
+            objcProvider,
+            priorityHeaders,
+            moduleMap,
+            compilationArtifacts,
+            Iterables.concat(extraCompileArgs, ImmutableList.of("-fobjc-arc")));
       }
     }
     for (Artifact nonArcSourceFile : compilationArtifacts.getNonArcSrcs()) {
@@ -270,10 +264,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
 
     objFiles.addAll(compilationArtifacts.getPrecompiledSrcs());
 
-    if (compilationArtifacts.hasSwiftSources()) {
-      registerSwiftModuleMergeAction(compilationArtifacts, objcProvider);
-    }
-
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerArchiveActions(objFiles.build(), archive);
     }
@@ -293,12 +283,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     return commandLine;
   }
 
-  private CustomCommandLine.Builder addSource(String argName, CustomCommandLine.Builder commandLine,
-      Artifact sourceFile) {
-    commandLine.add(argName);
-    return addSource(commandLine, sourceFile);
-  }
-
   private CustomCommandLine compileActionCommandLine(
       Artifact sourceFile,
       Artifact objFile,
@@ -309,20 +293,12 @@ public class LegacyCompilationSupport extends CompilationSupport {
       Optional<Artifact> dotdFile,
       Iterable<String> otherFlags,
       boolean collectCodeCoverage,
-      boolean isCPlusPlusSource,
-      boolean hasSwiftSources) {
+      boolean isCPlusPlusSource) {
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder().add(CLANG);
 
     if (isCPlusPlusSource) {
       commandLine.add("-stdlib=libc++");
       commandLine.add("-std=gnu++11");
-    }
-
-    if (hasSwiftSources) {
-      // Add the directory that contains merged TargetName-Swift.h header to search path, in case
-      // any of ObjC files use it.
-      commandLine.add("-I");
-      commandLine.addPath(intermediateArtifacts.swiftHeader().getExecPath().getParentDirectory());
     }
 
     // The linker needs full debug symbol information to perform binary dead-code stripping.
@@ -430,7 +406,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     boolean isCPlusPlusSource = ObjcRuleClasses.CPP_SOURCES.matches(sourceFile.getExecPath());
     boolean runCodeCoverage =
         buildConfiguration.isCodeCoverageEnabled() && ObjcRuleClasses.isInstrumentable(sourceFile);
-    boolean hasSwiftSources = compilationArtifacts.hasSwiftSources();
     DotdFile dotdFile = intermediateArtifacts.dotdFile(sourceFile);
 
     CustomCommandLine commandLine =
@@ -444,17 +419,11 @@ public class LegacyCompilationSupport extends CompilationSupport {
             Optional.of(dotdFile.artifact()),
             otherFlags,
             runCodeCoverage,
-            isCPlusPlusSource,
-            hasSwiftSources);
+            isCPlusPlusSource);
 
     Optional<Artifact> gcnoFile = Optional.absent();
     if (runCodeCoverage && !buildConfiguration.isLLVMCoverageMapFormatEnabled()) {
       gcnoFile = Optional.of(intermediateArtifacts.gcnoFile(sourceFile));
-    }
-
-    Optional<Artifact> swiftHeader = Optional.absent();
-    if (hasSwiftSources) {
-      swiftHeader = Optional.of(intermediateArtifacts.swiftHeader());
     }
 
     NestedSet<Artifact> moduleMapInputs = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -470,7 +439,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .setSourceFile(sourceFile)
             .addTransitiveHeaders(objcProvider.get(HEADER))
             .addHeaders(compilationArtifacts.getPrivateHdrs())  
-            .addMandatoryInputs(swiftHeader.asSet())
             .addTransitiveMandatoryInputs(moduleMapInputs)
             .addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
@@ -510,7 +478,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       Optional<CppModuleMap> moduleMap,
       CompilationArtifacts compilationArtifacts,
       Iterable<String> otherFlags) {
-    CustomCommandLine commandLine = compileActionCommandLine(
+    CustomCommandLine commandLine =
+        compileActionCommandLine(
             sourceFiles,
             objFiles,
             objcProvider,
@@ -519,9 +488,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
             compilationArtifacts.getPchFile(),
             Optional.<Artifact>absent(),
             otherFlags,
-            /* runCodeCoverage=*/false,
-            /* isCPlusPlusSource=*/false,
-            /* hasSwiftSources=*/false);
+            /* runCodeCoverage=*/ false,
+            /* isCPlusPlusSource=*/ false);
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = appleConfiguration.getSingleArchPlatform();
@@ -546,169 +514,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addCommonTransitiveInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .addCommonInputs(compilationArtifacts.getPchFile().asSet())
             .build(ruleContext.getActionOwner()));
-  }
-
-  /**
-   * Compiles a single swift file.
-   *
-   * @param sourceFile the artifact to compile
-   * @param objFile the resulting object artifact
-   * @param objcProvider ObjcProvider instance for this invocation
-   */
-  private void registerSwiftCompileAction(
-      Artifact sourceFile,
-      Artifact objFile,
-      ObjcProvider objcProvider) {
-
-    // Compiling a single swift file requires knowledge of all of the other
-    // swift files in the same module. The primary file ({@code sourceFile}) is
-    // compiled to an object file, while the remaining files are used to resolve
-    // symbols (they behave like c/c++ headers in this context).
-    ImmutableSet.Builder<Artifact> otherSwiftSourcesBuilder = ImmutableSet.builder();
-    for (Artifact otherSourceFile : compilationArtifacts(ruleContext).getSrcs()) {
-      if (ObjcRuleClasses.SWIFT_SOURCES.matches(otherSourceFile.getFilename())
-          && !otherSourceFile.equals(sourceFile)) {
-        otherSwiftSourcesBuilder.add(otherSourceFile);
-      }
-    }
-    ImmutableSet<Artifact> otherSwiftSources = otherSwiftSourcesBuilder.build();
-
-    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
-            .add(SWIFT)
-            .add("-frontend")
-            .add("-emit-object")
-            .add("-target").add(swiftTarget(appleConfiguration))
-            .add("-sdk").add(AppleToolchain.sdkDir())
-            .add("-enable-objc-interop")
-            .add(objcConfiguration.getSwiftCoptsForCompilationMode());
-
-    if (objcConfiguration.generateDsym()) {
-      commandLine.add("-g");
-    }
-
-    commandLine
-      .add("-module-name").add(getModuleName())
-      .add("-parse-as-library");
-    addSource("-primary-file", commandLine, sourceFile)
-        .addExecPaths(otherSwiftSources)
-        .addExecPath("-o", objFile)
-        .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile))
-        // The swift compiler will invoke clang itself when compiling module maps. This invocation
-        // does not include the current working directory, causing cwd-relative imports to fail.
-        // Including the current working directory to the header search paths ensures that these
-        // relative imports will work.
-        .add("-Xcc").add("-I.");
-
-    // Using addExecPathBefore here adds unnecessary quotes around '-Xcc -I', which trips the
-    // compiler. Using two add() calls generates a correctly formed command line.
-    for (PathFragment directory : objcProvider.get(INCLUDE).toList()) {
-      commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
-    }
-
-    ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
-            .addAll(attributes.hdrs())
-            .addAll(attributes.textualHdrs());
-
-    Optional<Artifact> bridgingHeader = attributes.bridgingHeader();
-    if (bridgingHeader.isPresent()) {
-      commandLine.addExecPath("-import-objc-header", bridgingHeader.get());
-      inputHeaders.add(bridgingHeader.get());
-    }
-
-    // Import the Objective-C module map.
-    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
-    // directory?
-    if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
-      commandLine.add("-import-underlying-module");
-
-      inputHeaders.addAll(objcProvider.get(MODULE_MAP));
-    }
-
-    commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
-
-    ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
-            .setMnemonic("SwiftCompile")
-            .setExecutable(xcrunwrapper(ruleContext))
-            .setCommandLine(commandLine.build())
-            .addInput(sourceFile)
-            .addInputs(otherSwiftSources)
-            .addInputs(inputHeaders.build())
-            .addTransitiveInputs(objcProvider.get(HEADER))
-            .addOutput(objFile)
-            .addOutput(intermediateArtifacts.swiftModuleFile(sourceFile))
-            .build(ruleContext));
-  }
-
-  /**
-   * Merges multiple .partial_swiftmodule files together. Also produces a swift header that can be
-   * used by Objective-C code.
-   */
-  private void registerSwiftModuleMergeAction(
-      CompilationArtifacts compilationArtifacts,
-      ObjcProvider objcProvider) {
-    ImmutableList.Builder<Artifact> moduleFiles = new ImmutableList.Builder<>();
-    for (Artifact src : compilationArtifacts.getSrcs()) {
-      if (ObjcRuleClasses.SWIFT_SOURCES.matches(src.getFilename())) {
-        moduleFiles.add(intermediateArtifacts.swiftModuleFile(src));
-      }
-    }
-
-    CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder()
-            .add(SWIFT)
-            .add("-frontend")
-            .add("-emit-module")
-            .add("-sdk").add(AppleToolchain.sdkDir())
-            .add("-target").add(swiftTarget(appleConfiguration))
-            .add(objcConfiguration.getSwiftCoptsForCompilationMode());
-
-    if (objcConfiguration.generateDsym()) {
-      commandLine.add("-g");
-    }
-
-    commandLine
-        .add("-module-name").add(getModuleName())
-        .add("-parse-as-library")
-        .addExecPaths(moduleFiles.build())
-        .addExecPath("-o", intermediateArtifacts.swiftModule())
-        .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader())
-        // The swift compiler will invoke clang itself when compiling module maps. This invocation
-        // does not include the current working directory, causing cwd-relative imports to fail.
-        // Including the current working directory to the header search paths ensures that these
-        // relative imports will work.
-        .add("-Xcc").add("-I.");
-
-
-    // Using addExecPathBefore here adds unnecessary quotes around '-Xcc -I', which trips the
-    // compiler. Using two add() calls generates a correctly formed command line.
-    for (PathFragment directory : objcProvider.get(INCLUDE).toList()) {
-      commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
-    }
-
-    // Import the Objective-C module map.
-    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
-    // directory?
-    if (objcConfiguration.moduleMapsEnabled()) {
-      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
-      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
-    }
-
-    commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
-
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                appleConfiguration, appleConfiguration.getSingleArchPlatform())
-            .setMnemonic("SwiftModuleMerge")
-            .setExecutable(xcrunwrapper(ruleContext))
-            .setCommandLine(commandLine.build())
-            .addInputs(moduleFiles.build())
-            .addTransitiveInputs(objcProvider.get(HEADER))
-            .addTransitiveInputs(objcProvider.get(MODULE_MAP))
-            .addOutput(intermediateArtifacts.swiftModule())
-            .addOutput(intermediateArtifacts.swiftHeader())
-            .build(ruleContext));
   }
 
   private void registerArchiveActions(List<Artifact> objFiles, Artifact archive) {
@@ -974,25 +779,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
       }
     }
 
-    if (objcProvider.is(USES_SWIFT)) {
-      // Check if there's a swift library path already. If that's not the case - fall back to
-      // the default one. This is for backwards compatibility with Swift native rules.
-      // TODO(b/30281236): Remove when native Swift is deprecated.
-      boolean swiftLibDirSet = false;
-      for (String arg : objcProvider.get(ObjcProvider.LINKOPT)) {
-        if (arg.startsWith("-L") && arg.contains("usr/lib/swift")) {
-          swiftLibDirSet = true;
-          break;
-        }
-      }
-
-      if (!swiftLibDirSet) {
-        commandLine
-            .add("-L")
-            .add(AppleToolchain.swiftLibDir(appleConfiguration.getSingleArchPlatform()));
-      }
-    }
-
     for (String linkopt : attributes.linkopts()) {
       commandLine.add("-Wl," + linkopt);
     }
@@ -1092,19 +878,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     Preconditions.checkArgument(
         name.endsWith(suffix), "expect %s to end with %s, but it does not", name, suffix);
     return path.replaceName(name.substring(0, name.length() - suffix.length()));
-  }
-
-  /**
-   * Returns the name of Swift module for this target.
-   */
-  private String getModuleName() {
-    // If we have module maps support, we need to use the generated module name, this way
-    // clang can properly load objc part of the module via -import-underlying-module command.
-    if (objcConfiguration.moduleMapsEnabled()) {
-      return intermediateArtifacts.moduleMap().getName();
-    }
-    // Otherwise, just use target name, it doesn't matter.
-    return ruleContext.getLabel().getName();
   }
 
   /** Returns a list of clang flags used for all link and compile actions executed through clang. */

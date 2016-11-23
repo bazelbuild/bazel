@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 
 /**
@@ -55,7 +54,6 @@ final class CompilationAttributes {
     private final NestedSetBuilder<SdkFramework> sdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<SdkFramework> weakSdkFrameworks = NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<String> sdkDylibs = NestedSetBuilder.stableOrder();
-    private Optional<Artifact> bridgingHeader = Optional.absent();
     private Optional<PathFragment> packageFragment = Optional.absent();
     private boolean enableModules;
 
@@ -156,18 +154,6 @@ final class CompilationAttributes {
     }
 
     /**
-     * Sets the bridging header to be used when compiling Swift sources.
-     */
-    public Builder setBridgingHeader(Artifact bridgingHeader) {
-      Preconditions.checkState(
-          !this.bridgingHeader.isPresent(),
-          "bridgingHeader is already set to %s",
-          this.bridgingHeader);
-      this.bridgingHeader = Optional.of(bridgingHeader);
-      return this;
-    }
-
-    /**
      * Sets the package path from which to base the header search paths.
      */
     public Builder setPackageFragment(PathFragment packageFragment) {
@@ -194,7 +180,6 @@ final class CompilationAttributes {
       return new CompilationAttributes(
           this.hdrs.build(),
           this.textualHdrs.build(),
-          this.bridgingHeader,
           this.includes.build(),
           this.sdkIncludes.build(),
           this.sdkFrameworks.build(),
@@ -219,13 +204,6 @@ final class CompilationAttributes {
       if (ruleContext.attributes().has("textual_hdrs", BuildType.LABEL_LIST)) {
         builder.addTextualHdrs(
             PrerequisiteArtifacts.nestedSet(ruleContext, "textual_hdrs", Mode.TARGET));
-      }
-
-      if (ruleContext.attributes().has("bridging_header", BuildType.LABEL)) {
-        Artifact header = ruleContext.getPrerequisiteArtifact("bridging_header", Mode.TARGET);
-        if (header != null) {
-          builder.setBridgingHeader(header);
-        }
       }
     }
 
@@ -329,7 +307,6 @@ final class CompilationAttributes {
 
   private final NestedSet<Artifact> hdrs;
   private final NestedSet<Artifact> textualHdrs;
-  private final Optional<Artifact> bridgingHeader;
   private final NestedSet<PathFragment> includes;
   private final NestedSet<PathFragment> sdkIncludes;
   private final NestedSet<SdkFramework> sdkFrameworks;
@@ -344,7 +321,6 @@ final class CompilationAttributes {
   private CompilationAttributes(
       NestedSet<Artifact> hdrs,
       NestedSet<Artifact> textualHdrs,
-      Optional<Artifact> bridgingHeader,
       NestedSet<PathFragment> includes,
       NestedSet<PathFragment> sdkIncludes,
       NestedSet<SdkFramework> sdkFrameworks,
@@ -357,7 +333,6 @@ final class CompilationAttributes {
       boolean enableModules) {
     this.hdrs = hdrs;
     this.textualHdrs = textualHdrs;
-    this.bridgingHeader = bridgingHeader;
     this.includes = includes;
     this.sdkIncludes = sdkIncludes;
     this.sdkFrameworks = sdkFrameworks;
@@ -382,13 +357,6 @@ final class CompilationAttributes {
    */
   public NestedSet<Artifact> textualHdrs() {
     return this.textualHdrs;
-  }
-
-  /**
-   * Returns the bridging header to be used when compiling Swift sources.
-   */
-  public Optional<Artifact> bridgingHeader() {
-    return this.bridgingHeader;
   }
 
   /**

@@ -219,24 +219,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the default set of swiftc options for the current compilation mode.
-   */
-  @SkylarkCallable(name = "swift_copts_for_current_compilation_mode", structField = true,
-      doc = "Returns a list of default options to use for compiling Swift in the current mode.")
-  public ImmutableList<String> getSwiftCoptsForCompilationMode() {
-    switch (compilationMode) {
-      case DBG:
-        return ImmutableList.of("-Onone", "-DDEBUG=1", "-g");
-      case FASTBUILD:
-        return ImmutableList.of("-Onone", "-DDEBUG=1");
-      case OPT:
-        return ImmutableList.of("-O", "-DNDEBUG=1");
-      default:
-        throw new AssertionError();
-    }
-  }
-
-  /**
    * Returns options passed to (Apple) clang when compiling Objective C. These options should be
    * applied after any default options but before options specified in the attributes of the rule.
    */

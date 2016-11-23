@@ -355,10 +355,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
      */
     USES_CPP,
 
-    /**
-     * Indicates that Swift source files are present. This affects bundling, compiling and linking
-     * actions.
-     */
+    /** Indicates that Swift dependencies are present. This affects bundling actions. */
     USES_SWIFT,
 
     /**

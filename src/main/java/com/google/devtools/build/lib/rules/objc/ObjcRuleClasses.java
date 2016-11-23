@@ -73,7 +73,6 @@ public class ObjcRuleClasses {
 
   static final String CLANG = "clang";
   static final String CLANG_PLUSPLUS = "clang++";
-  static final String SWIFT = "swift";
   static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
@@ -371,8 +370,6 @@ public class ObjcRuleClasses {
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
   static final FileType OBJECT_FILE_SOURCES = FileType.of(".o");
-  
-  static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
@@ -388,14 +385,11 @@ public class ObjcRuleClasses {
           CPP_SOURCES,
           ASSEMBLY_SOURCES,
           OBJECT_FILE_SOURCES,
-          SWIFT_SOURCES,
           HEADERS);
 
-  /**
-   * Files that should actually be compiled.
-   */
-  static final FileTypeSet COMPILABLE_SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
-      ASSEMBLY_SOURCES, SWIFT_SOURCES);
+  /** Files that should actually be compiled. */
+  static final FileTypeSet COMPILABLE_SRCS_TYPE =
+      FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, ASSEMBLY_SOURCES);
 
   /**
    * Files that are already compiled.
@@ -631,12 +625,6 @@ public class ObjcRuleClasses {
           sources.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("textual_hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
-          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(bridging_header) -->
-          A header defining the Objective-C interfaces to be exposed in Swift.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("bridging_header", BuildType.LABEL)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->

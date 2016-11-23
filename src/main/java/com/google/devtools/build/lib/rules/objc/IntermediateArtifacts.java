@@ -271,27 +271,6 @@ public final class IntermediateArtifacts {
   }
 
   /**
-   * The swift module produced by compiling the {@code source} artifact.
-   */
-  public Artifact swiftModuleFile(Artifact source) {
-    return inUniqueObjsDir(source, ".partial_swiftmodule");
-  }
-
-  /**
-   * Integrated swift module for this target.
-   */
-  public Artifact swiftModule() {
-    return appendExtension(".swiftmodule");
-  }
-
-  /**
-   * Integrated swift header for this target.
-   */
-  public Artifact swiftHeader() {
-    return appendExtension("-Swift.h");
-  }
-
-  /**
    * The artifact for the .gcno file that should be generated when compiling the {@code source}
    * artifact.
    */
