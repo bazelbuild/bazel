@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -30,15 +30,22 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
 /** This event is fired as soon as a target is either built or fails. */
-public final class TargetCompleteEvent implements SkyValue, BuildEvent {
+public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderConstraint {
 
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
+  private final Collection<BuildEventId> postedAfter;
 
   private TargetCompleteEvent(ConfiguredTarget target, NestedSet<Cause> rootCauses) {
     this.target = target;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+
+    ImmutableList.Builder postedAfterBuilder = ImmutableList.builder();
+    for (Cause cause : getRootCauses()) {
+      postedAfterBuilder.add(BuildEventId.fromCause(cause));
+    }
+    this.postedAfter = postedAfterBuilder.build();
   }
 
   /**
@@ -97,5 +104,10 @@ public final class TargetCompleteEvent implements SkyValue, BuildEvent {
     BuildEventStreamProtos.TargetComplete complete =
         BuildEventStreamProtos.TargetComplete.newBuilder().setSuccess(!failed()).build();
     return GenericBuildEvent.protoChaining(this).setCompleted(complete).build();
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return postedAfter;
   }
 }

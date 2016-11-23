@@ -41,6 +41,11 @@ test_suite(
   name = "suite",
   tests = ["true"],
 )
+genrule(
+  name = "fails_to_build",
+  outs = ["fails_to_build.txt"],
+  cmd = "false",
+)
 EOF
 }
 
@@ -85,6 +90,21 @@ function test_multiple_transports() {
       pkg:suite || fail "bazel test failed"
   [ -f ${outdir}/test_multiple_transports.txt ] || fail "Missing expected file test_multiple_transports.txt"
   [ -f ${outdir}/test_multiple_transports.bin ] || fail "Missing expected file test_multiple_transports.bin"
+}
+
+function test_root_cause_early() {
+  (bazel build --experimental_build_event_text_file=$TEST_log \
+         pkg:fails_to_build && fail "bazel test failed") || true
+  # We expect precisely one action being reported (the failed one) and
+  # precisely on report on a completed target; moreover, the action has
+  # to be reported first.
+  expect_log_once '^action'
+  expect_log_once '^completed'
+  expect_not_log 'success'
+  local naction=`grep -n '^action' $TEST_log | cut -f 1 -d :`
+  local ncomplete=`grep -n '^completed' $TEST_log | cut -f 1 -d :`
+  [ $naction -lt $ncomplete ] \
+      || fail "failed action not before compelted target"
 }
 
 run_suite "Integration tests for the build event stream"
