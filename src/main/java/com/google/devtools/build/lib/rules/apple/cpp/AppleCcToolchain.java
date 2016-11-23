@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.apple.cpp;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -44,12 +45,29 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
+  
+  @VisibleForTesting
+  public static final String XCODE_VERISON_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
+  
+  @VisibleForTesting
+  public static final String APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY =
+      "apple_sdk_version_override_value";
+  
+  @VisibleForTesting
+  public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
   protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    
+    if (!appleConfiguration.getXcodeVersion().isPresent()) {
+      ruleContext.ruleError("Xcode version must be specified to use an Apple CROSSTOOL");
+    }
+    
     Platform platform = appleConfiguration.getSingleArchPlatform();
 
+    Map<String, String> appleEnv = getEnvironment(ruleContext);
+    
     return ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
@@ -76,9 +94,18 @@ public class AppleCcToolchain extends CcToolchain {
         .put(
             PLATFORM_DEVELOPER_FRAMEWORK_DIR,
             AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
+        .put(
+            XCODE_VERISON_OVERRIDE_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.XCODE_VERSION_ENV_NAME, ""))
+        .put(
+            APPLE_SDK_VERSION_OVERRIDE_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, ""))
+        .put(
+            APPLE_SDK_PLATFORM_VALUE_KEY,
+            appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
         .build();
   }
-  
+
   @Override
   protected NestedSet<Artifact> fullInputsForLink(
       RuleContext ruleContext, NestedSet<Artifact> link) {
