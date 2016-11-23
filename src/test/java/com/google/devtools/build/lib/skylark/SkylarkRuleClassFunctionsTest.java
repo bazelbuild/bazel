@@ -446,6 +446,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrCfgTarget() throws Exception {
+    Attribute attr = evalAttributeDefinition("attr.label(cfg = 'target', allow_files = True)")
+        .build("a1");
+    assertEquals(ConfigurationTransition.NONE, attr.getConfigurationTransition());
+  }
+
+  @Test
   public void testAttrValues() throws Exception {
     Attribute attr = evalAttributeDefinition("attr.string(values = ['ab', 'cd'])").build("a1");
     PredicateWithMessage<Object> predicate = attr.getAllowedValues();

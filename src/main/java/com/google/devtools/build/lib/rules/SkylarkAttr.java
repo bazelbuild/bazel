@@ -91,8 +91,8 @@ public final class SkylarkAttr {
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. It can be either \"data\" or \"host\". This parameter is "
-          + "required if <code>executable</code> is True.";
+      "configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
+          + "This parameter is required if <code>executable</code> is True.";
 
   private static final String DEFAULT_ARG = "default";
   private static final String DEFAULT_DOC = "the default value of the attribute.";
@@ -203,8 +203,8 @@ public final class SkylarkAttr {
     if (containsNonNoneKey(arguments, EXECUTABLE_ARG) && (Boolean) arguments.get(EXECUTABLE_ARG)) {
       builder.setPropertyFlag("EXECUTABLE");
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
-        String message = "Argument `cfg = \"host\"` or `cfg = \"data\"` is required if "
-            + "`executable = True` is provided for a label. Please see "
+        String message = "Argument `cfg = \"host\"`, `cfg = \"data\"`, or `cfg = \"target\"` "
+            + "is required if `executable = True` is provided for a label. Please see "
             + "https://www.bazel.build/versions/master/docs/skylark/rules.html#configurations "
             + "for more details.";
         env.handleEvent(Event.warn(loc, message));
@@ -281,8 +281,9 @@ public final class SkylarkAttr {
         builder.cfg(ConfigurationTransition.DATA);
       } else if (trans.equals("host")) {
         builder.cfg(ConfigurationTransition.HOST);
-      } else {
-        throw new EvalException(ast.getLocation(), "cfg must be either 'data' or 'host'.");
+      } else if (!trans.equals("target")) {
+        throw new EvalException(ast.getLocation(),
+            "cfg must be either 'data', 'host', or 'target'.");
       }
     }
     return builder;
