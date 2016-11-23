@@ -21,6 +21,27 @@ LIBRARY_JARS=$(find third_party -name '*.jar' | grep -Fv /javac.jar | grep -Fv /
 GRPC_JAVA_VERSION=0.15.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e .*${GRPC_JAVA_VERSION}.*jar | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS}"
+
+# tl;dr - error_prone_core contains a copy of an older version of guava, so we
+# need to make sure the newer version of guava always appears first on the
+# classpath.
+#
+# Please read the comment in third_party/BUILD for more details.
+LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
+for i in $(seq 0 $((${#LIBRARY_JARS_ARRAY[@]} - 1)))
+do
+  [ "${LIBRARY_JARS_ARRAY[$i]}" = "third_party/error_prone/error_prone_core-2.0.13.jar" ] && ERROR_PRONE_INDEX=$i
+  [ "${LIBRARY_JARS_ARRAY[$i]}" = "third_party/guava/guava-21.0-20161101.jar" ] && GUAVA_INDEX=$i
+done
+[ "${ERROR_PRONE_INDEX:+present}" = "present" ] || { echo "no error prone jar"; echo "${LIBRARY_JARS_ARRAY[@]}"; exit 1; }
+[ "${GUAVA_INDEX:+present}" = "present" ] || { echo "no guava jar"; exit 1; }
+if [ "$ERROR_PRONE_INDEX" -lt "$GUAVA_INDEX" ]; then
+  TEMP_FOR_SWAP="${LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]}"
+  LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]="${LIBRARY_JARS_ARRAY[$GUAVA_INDEX]}"
+  LIBRARY_JARS_ARRAY[$GUAVA_INDEX]="$TEMP_FOR_SWAP"
+  LIBRARY_JARS="${LIBRARY_JARS_ARRAY[@]}"
+fi
+
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} third_party/java/dd_plist/java ${OUTPUT_DIR}/src)
 EXCLUDE_FILES=src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java
 
