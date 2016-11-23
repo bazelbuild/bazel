@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -152,7 +151,16 @@ public abstract class Link {
         Picness.NOPIC,
         ArtifactCategory.EXECUTABLE,
         Executable.EXECUTABLE),
-    
+
+    /** An objc executable that includes objc++/c++ source. */
+    OBJCPP_EXECUTABLE(
+        "",
+        Staticness.STATIC,
+        "objc++-executable",
+        Picness.NOPIC,
+        ArtifactCategory.EXECUTABLE,
+        Executable.EXECUTABLE),
+
     /** A static archive with .pic.o object files (compiled with -fPIC). */
     PIC_STATIC_LIBRARY(
         ".pic.a",
@@ -357,8 +365,6 @@ public abstract class Link {
 
       while (inputs.hasNext()) {
         LibraryToLink inputLibrary = inputs.next();
-        Artifact input = inputLibrary.getArtifact();
-        String name = input.getFilename();
 
         // True if the linker might use the members of this file, i.e., if the file is a thin or
         // start_end_lib archive (aka static library). Also check if the library contains object

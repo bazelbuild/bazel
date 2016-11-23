@@ -409,6 +409,7 @@ public final class LinkCommandLine extends CommandLine {
       case OBJC_ARCHIVE:
       case OBJC_FULLY_LINKED_ARCHIVE:
       case OBJC_EXECUTABLE:
+      case OBJCPP_EXECUTABLE:
         argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;

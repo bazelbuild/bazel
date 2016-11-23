@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
+import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -67,6 +68,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
           "objc-archive",
           "objc-fully-link",
           "objc-executable",
+          "objc++-executable",
           "assemble",
           "preprocess-assemble",
           "c-compile",
@@ -188,6 +190,10 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
     registerObjFilelistAction(objFiles, inputFileList);
 
+    LinkTargetType linkType = (objcProvider.is(Flag.USES_CPP))
+        ? LinkTargetType.OBJCPP_EXECUTABLE
+        : LinkTargetType.OBJC_EXECUTABLE;
+    
     ObjcVariablesExtension extension = new ObjcVariablesExtension.Builder()
         .setRuleContext(ruleContext)
         .setObjcProvider(objcProvider)
@@ -199,7 +205,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .setAttributeLinkopts(attributes.linkopts())
         .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES)
         .build();
-    
+   
     Artifact binaryToLink = getBinaryToLink();
     CppLinkAction executableLinkAction =
         new CppLinkActionBuilder(ruleContext, binaryToLink)
@@ -209,9 +215,10 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addTransitiveActionInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveActionInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
             .addTransitiveActionInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
+            .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
             .addActionInputs(prunedJ2ObjcArchives)
             .addActionInput(inputFileList)
-            .setLinkType(LinkTargetType.OBJC_EXECUTABLE)
+            .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .addVariablesExtension(extension)
             .setFeatureConfiguration(getFeatureConfiguration(ruleContext))
