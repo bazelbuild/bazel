@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -37,7 +38,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> protoSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
     ImmutableList<Artifact> checkDepsProtoSources =
         ProtoCommon.getCheckDepsProtoSources(ruleContext, protoSources);
     ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
@@ -50,11 +51,16 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ProtoSourcesProvider.create(
             transitiveImports, transitiveImports, protoSources, checkDepsProtoSources);
 
+    NestedSet<Artifact> protosInDirectDeps =
+        ruleContext.attributes().get("strict_proto_deps", BOOLEAN)
+            ? ProtoCommon.computeProtosInDirectDeps(ruleContext)
+            : null;
+
     final SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysTrue() /* nonWeakDepsPredicate */,
             protoSources,
-            null /* protosInDirectDeps */,
+            protosInDirectDeps,
             transitiveImports,
             !protoSources.isEmpty());
 
@@ -74,7 +80,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
           descriptorSetOutput.getExecPathString(),
           checkDepsProtoSources,
           transitiveImports,
-          null /* protosInDirectDeps */,
+          protosInDirectDeps,
           ImmutableList.of(descriptorSetOutput),
           true /* allowServices */);
 

@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -56,11 +57,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         // but these are still 'experimental' according to the documentation.
         .setUndocumented()
         .setOutputToGenfiles()
-        .add(
-            attr(":proto_compiler", LABEL)
-                .cfg(HOST)
-                .exec()
-                .value(PROTO_COMPILER))
+        .add(attr(":proto_compiler", LABEL).cfg(HOST).exec().value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
         The list of other <code>proto_library</code> rules that the target depends upon.
         A <code>proto_library</code> may only depend on other
@@ -79,6 +76,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
             attr("srcs", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
+        .add(attr("strict_proto_deps", BOOLEAN).value(true).undocumented("for migration only"))
         .advertiseProvider(ProtoSourcesProvider.class)
         .build();
   }

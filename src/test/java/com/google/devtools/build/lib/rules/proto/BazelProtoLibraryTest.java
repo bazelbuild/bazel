@@ -74,4 +74,61 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin"))
         .isNull();
   }
+
+  @Test
+  public void testDescriptorSetOutput_strictDeps() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='nodeps', srcs=['nodeps.proto'])",
+        "proto_library(name='withdeps', srcs=['withdeps.proto'], deps=[':dep1', ':dep2'])",
+        "proto_library(name='depends_on_alias', srcs=['depends_on_alias.proto'], deps=[':alias'])",
+        "proto_library(name='alias', deps=[':dep1', ':dep2'])",
+        "proto_library(name='dep1', srcs=['dep1.proto'])",
+        "proto_library(name='dep2', srcs=['dep2.proto'])");
+
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
+        .contains("--direct_dependencies=");
+
+    assertThat(
+            getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
+        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto");
+
+    assertThat(
+            getGeneratingSpawnAction(getDescriptorOutput("//x:depends_on_alias"))
+                .getRemainingArguments())
+        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto");
+  }
+
+  @Test
+  public void testDescriptorSetOutput_strictDeps_aliasLibrary() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "proto_library(name='alias', deps=[':dep1', ':subalias'])",
+        "proto_library(name='dep1', srcs=['dep1.proto'], deps = [':subdep1'])",
+        "proto_library(name='subdep1', srcs=['subdep1.proto'])",
+        "proto_library(name='subalias', deps = [':dep2'])",
+        "proto_library(name='dep2', srcs = ['dep2.proto'], deps = [':subdep2'])",
+        "proto_library(name='subdep2', srcs=['subdep2.proto'])");
+
+    assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:alias")).getRemainingArguments())
+        .containsAllOf(
+            "--direct_dependencies=x/subdep1.proto:x/subdep2.proto",
+            "x/dep1.proto",
+            "x/dep2.proto");
+  }
+
+  @Test
+  public void testDescriptorSetOutput_strictDeps_disabled() throws Exception {
+    scratch.file("x/BUILD", "proto_library(name='foo', srcs=['foo.proto'], strict_proto_deps=0)");
+
+    for (String arg :
+        getGeneratingSpawnAction(getDescriptorOutput("//x:foo")).getRemainingArguments()) {
+      assertThat(arg).doesNotContain("--direct_dependencies=");
+    }
+  }
+
+  private Artifact getDescriptorOutput(String label) throws Exception {
+    return ActionsTestUtil.getFirstArtifactEndingWith(
+        getFilesToBuild(getConfiguredTarget(label)), ".proto.bin");
+  }
 }
