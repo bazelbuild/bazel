@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedList;
 import java.util.List;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,15 +39,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ParserTest extends EvaluationTestCase {
 
-  Environment buildEnvironment;
-
-  @Before
-  public final void createBuildEnvironment() throws Exception  {
-    buildEnvironment = newBuildEnvironment();
-  }
-
   private BuildFileAST parseFileWithComments(String... input) {
-    return BuildFileAST.parseBuildString(buildEnvironment.getEventHandler(), input);
+    return BuildFileAST.parseBuildString(getEventHandler(), input);
   }
 
   /** Parses build code (not Skylark) */
@@ -59,7 +51,9 @@ public class ParserTest extends EvaluationTestCase {
 
   /** Parses Skylark code */
   private List<Statement> parseFileForSkylark(String... input) {
-    return env.parseFile(input);
+    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
+    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    return ast.getStatements();
   }
 
   private static String getText(String text, ASTNode node) {

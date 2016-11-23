@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,7 +30,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -863,28 +861,6 @@ public final class Environment implements Freezable {
             !EventKind.ERRORS_AND_WARNINGS.contains(event.getKind()), event);
       }
     };
-
-  /**
-   * Parses some String inputLines without a supporting file, returning statements only.
-   * TODO(laurentlb): Remove from Environment
-   * @param inputLines a list of lines of code
-   */
-  @VisibleForTesting
-  public List<Statement> parseFile(String... inputLines) {
-    ParserInputSource input = ParserInputSource.create(Joiner.on("\n").join(inputLines), null);
-    List<Statement> statements;
-    if (isSkylark) {
-      Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
-      ValidationEnvironment valid = new ValidationEnvironment(this);
-      valid.validateAst(result.statements, eventHandler);
-      statements = result.statements;
-    } else {
-      statements = Parser.parseFile(input, eventHandler).statements;
-    }
-    // Force the validation of imports
-    BuildFileAST.fetchLoads(statements, eventHandler);
-    return statements;
-  }
 
   /**
    * Evaluates code some String input without a supporting file.

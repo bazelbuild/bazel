@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.syntax.BazelLibrary;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
 import java.util.LinkedList;
@@ -133,7 +135,9 @@ public class EvaluationTestCase {
   }
 
   protected List<Statement> parseFile(String... input) {
-    return env.parseFile(input);
+    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
+    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    return ast.getStatements();
   }
 
   /** Parses an Expression from string without a supporting file */
@@ -431,10 +435,9 @@ public class EvaluationTestCase {
   }
 
   /**
-   * A simple decorator that allows the execution of setup actions before running
-   * a {@code Testable}
+   * A simple decorator that allows the execution of setup actions before running a {@code Testable}
    */
-  class TestableDecorator implements Testable {
+  static class TestableDecorator implements Testable {
     private final SetupActions setup;
     private final Testable decorated;
 
