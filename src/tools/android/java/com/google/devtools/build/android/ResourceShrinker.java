@@ -287,6 +287,7 @@ public class ResourceShrinker {
       if (xml == null) {
         xml = Files.toString(values, UTF_8);
       }
+      List<String> stubbed = Lists.newArrayList();
       Document document = XmlUtils.parseDocument(xml, true);
       Element root = document.getDocumentElement();
       for (Resource resource : resources) {
@@ -295,8 +296,11 @@ public class ResourceShrinker {
           item.setAttribute(ATTR_TYPE, resource.type.getName());
           item.setAttribute(ATTR_NAME, resource.name);
           root.appendChild(item);
+          stubbed.add(resource.getUrl());
         }
       }
+      logger.fine("Created " + stubbed.size() + " stub IDs for:\n  "
+          + Joiner.on(", ").join(stubbed));
       String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
       rewritten.put(values, formatted);
     }
