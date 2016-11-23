@@ -21,6 +21,11 @@ set -u
 DISTFILE=$(readlink $1)
 shift 1
 
+if [ "${JAVA_VERSION:-}" == "1.7" ] ; then
+  echo "Warning: bootstrapping not tested for java 1.7"
+  exit 0
+fi
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
