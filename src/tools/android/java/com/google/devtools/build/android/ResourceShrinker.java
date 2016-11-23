@@ -217,6 +217,7 @@ public class ResourceShrinker {
     Set<File> rewrite = Sets.newHashSetWithExpectedSize(resourceCount);
     Set<Resource> deleted = Sets.newHashSetWithExpectedSize(resourceCount);
     for (Resource resource : unused) {
+      deleted.add(resource);
       if (resource.declarations != null) {
         for (File file : resource.declarations) {
           String folder = file.getParentFile().getName();
@@ -225,12 +226,10 @@ public class ResourceShrinker {
             logger.fine("Deleted unused resource " + file);
             assert skip != null;
             skip.add(file);
-            deleted.add(resource);
           } else {
             // Can't delete values immediately; there can be many resources
             // in this file, so we have to process them all
             rewrite.add(file);
-            deleted.add(resource);
           }
         }
       }
