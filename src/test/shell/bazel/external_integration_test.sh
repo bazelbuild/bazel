@@ -345,7 +345,7 @@ EOF
   kill_nc
   # Observes that we tried to follow redirect, but failed due to ridiculous
   # port.
-  expect_log "Failed to connect.*port out of range"
+  expect_log "port out of range"
 }
 
 function test_http_404() {
@@ -361,7 +361,7 @@ http_file(
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
-  expect_log "404 Not Found: Help, I'm lost!"
+  expect_log "404 Not Found"
 }
 
 # Tests downloading a file and using it as a dependency.
@@ -760,31 +760,6 @@ EOF
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
-
-function test_truncated() {
-  http_response="$TEST_TMPDIR/http_response"
-  cat > "$http_response" <<EOF
-HTTP/1.0 200 OK
-Content-length: 200
-
-EOF
-  echo "foo"  >> "$http_response"
-  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  nc_log="$TEST_TMPDIR/nc.log"
-  nc_l "$nc_port" < "$http_response" >& "$nc_log" &
-  nc_pid=$!
-
-  cat > WORKSPACE <<EOF
-http_archive(
-    name = "foo",
-    url = "http://localhost:$nc_port",
-    sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
-)
-EOF
-  bazel build @foo//bar &> $TEST_log || echo "Build failed, as expected"
-  expect_log "Expected 200B, got 4B"
-}
-
 
 function test_android_sdk_basic_load() {
   cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"
