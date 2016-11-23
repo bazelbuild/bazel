@@ -449,7 +449,7 @@ function bazel_release() {
       local filename=$(basename $file)
       if [ "$filename" != README.md ]; then
           if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] \
-                 || [ "$filename" =~ "bazel-(.*)-dist.zip" ]  ; then
+                 || [[ "$filename" =~ bazel-(.*)-dist\.zip ]]  ; then
           local destfile=${tmpdir}/$filename
         elif [[ "$file" =~ /([^/]*)(\.[^\./]+)$ ]]; then
           local destfile=${tmpdir}/${BASH_REMATCH[1]}-${platform}${BASH_REMATCH[2]}
