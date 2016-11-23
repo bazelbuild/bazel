@@ -227,19 +227,6 @@ public class BuildFileAST extends ASTNode {
   /**
    * Parse the specified build file, returning its AST. All errors during
    * scanning or parsing will be reported to the reporter.
-   *
-   * @throws IOException if the file cannot not be read.
-   */
-  public static BuildFileAST parseBuildFile(Path buildFile, long fileSize,
-                                            EventHandler eventHandler)
-      throws IOException {
-    ParserInputSource inputSource = ParserInputSource.create(buildFile, fileSize);
-    return parseBuildFile(inputSource, eventHandler);
-  }
-
-  /**
-   * Parse the specified build file, returning its AST. All errors during
-   * scanning or parsing will be reported to the reporter.
    */
   public static BuildFileAST parseBuildFile(ParserInputSource input,
                                             List<Statement> preludeStatements,
