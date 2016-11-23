@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis.actions;
+package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -37,7 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests {@link LTOBackendAction}. */
+/** Tests {@link com.google.devtools.build.lib.rules.cpp.LTOBackendAction}. */
 @RunWith(JUnit4.class)
 public class LTOBackendActionTest extends BuildViewTestCase {
   private Artifact bitcode1Artifact;
@@ -51,10 +51,6 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   private AnalysisTestUtil.CollectingAnalysisEnvironment collectingAnalysisEnvironment;
   private Executor executor;
   private ActionExecutionContext context;
-
-  private LTOBackendAction.Builder builder() {
-    return new LTOBackendAction.Builder();
-  }
 
   @Before
   public final void createArtifacts() throws Exception {
@@ -84,7 +80,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   @Test
   public void testEmptyImports() throws Exception {
     Action[] actions =
-        builder()
+        new LTOBackendAction.Builder()
             .addImportsInfo(allBitcodeFiles, imports1Artifact)
             .addInput(bitcode1Artifact)
             .addInput(index1Artifact)
@@ -111,7 +107,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
   @Test
   public void testNonEmptyImports() throws Exception {
     Action[] actions =
-        builder()
+        new LTOBackendAction.Builder()
             .addImportsInfo(allBitcodeFiles, imports2Artifact)
             .addInput(bitcode2Artifact)
             .addInput(index2Artifact)
@@ -148,7 +144,7 @@ public class LTOBackendActionTest extends BuildViewTestCase {
         new ActionCombinationFactory() {
           @Override
           public Action generate(int i) {
-            LTOBackendAction.Builder builder = builder();
+            LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
             builder.addOutput(destinationArtifact);
 
             PathFragment executable =
