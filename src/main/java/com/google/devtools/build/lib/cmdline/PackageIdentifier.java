@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,7 +36,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
 
-  private static final Interner<PackageIdentifier> INTERNER = Interners.newWeakInterner();
+  private static final Interner<PackageIdentifier> INTERNER = BlazeInterners.newWeakInterner();
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
       throws LabelSyntaxException {

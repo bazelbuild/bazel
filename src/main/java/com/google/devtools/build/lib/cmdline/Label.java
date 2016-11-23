@@ -17,8 +17,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -74,7 +74,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
 
   public static final String EXTERNAL_PATH_PREFIX = "external";
 
-  private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
+  private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
   /**
    * Factory for Labels from absolute string form. e.g.
