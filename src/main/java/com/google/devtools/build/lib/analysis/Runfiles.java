@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -129,7 +131,7 @@ public final class Runfiles {
   // equals to the third one if they are not the same instance (which they almost never are)
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  private static final class SymlinkEntry {
+  private static final class SymlinkEntry implements SkylarkValue {
     private final PathFragment path;
     private final Artifact artifact;
 
@@ -144,6 +146,18 @@ public final class Runfiles {
 
     public Artifact getArtifact() {
       return artifact;
+    }
+
+    public boolean isImmutable() {
+      return true;
+    }
+
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "SymlinkEntry(path = ");
+      Printer.write(buffer, getPath().toString(), quotationMark);
+      Printer.append(buffer, ", artifact = ");
+      getArtifact().write(buffer, quotationMark);
+      Printer.append(buffer, ")");
     }
   }
 
