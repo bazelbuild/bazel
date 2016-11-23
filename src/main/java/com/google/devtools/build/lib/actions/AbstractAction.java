@@ -370,11 +370,22 @@ public abstract class AbstractAction implements Action, SkylarkValue {
       // Optimize for the common case: output artifacts are files.
       path.delete();
     } catch (IOException e) {
-      // Only try to recursively delete a directory if the output root is known. This is just a
-      // sanity check so that we do not start deleting random files on disk.
-      // TODO(bazel-team): Strengthen this test by making sure that the output is part of the
-      // output tree.
-      if (path.isDirectory(Symlinks.NOFOLLOW) && output.getRoot() != null) {
+      // Handle a couple of scenarios where the output can still be deleted, but make sure we're not
+      // deleting random files on the filesystem.
+      if (output.getRoot() == null) {
+        throw e;
+      }
+      String outputRootDir = output.getRoot().getPath().getPathString();
+      if (!path.getPathString().startsWith(outputRootDir)) {
+        throw e;
+      }
+
+      Path parentDir = path.getParentDirectory();
+      if (!parentDir.isWritable() && parentDir.getPathString().startsWith(outputRootDir)) {
+        // Retry deleting after making the parent writable.
+        parentDir.setWritable(true);
+        deleteOutput(output);
+      } else if (path.isDirectory(Symlinks.NOFOLLOW)) {
         FileSystemUtils.deleteTree(path);
       } else {
         throw e;

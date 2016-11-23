@@ -135,6 +135,13 @@ sh_test(
 )
 
 sh_test(
+    name = "force_delete_output_test",
+    size = "medium",
+    srcs = ["force_delete_output_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ide_info_generation_native",
     size = "large",
     srcs = ["ide_info_generation.sh"],
