@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -37,6 +36,8 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * An implementation for the "java_import" rule.
@@ -203,7 +204,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<Artifact> collectJars(RuleContext ruleContext) {
-    ImmutableList.Builder<Artifact> jarsBuilder = ImmutableList.builder();
+    Set<Artifact> jars = new LinkedHashSet<>();
     for (TransitiveInfoCollection info : ruleContext.getPrerequisites("jars", Mode.TARGET)) {
       if (info.getProvider(JavaCompilationArgsProvider.class) != null) {
         ruleContext.attributeError("jars", "should not refer to Java rules");
@@ -212,11 +213,13 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         if (!JavaSemantics.JAR.matches(jar.getFilename())) {
           ruleContext.attributeError("jars", jar.getFilename() + " is not a .jar file");
         } else {
-          jarsBuilder.add(jar);
+          if (!jars.add(jar)) {
+            ruleContext.attributeError("jars", jar.getFilename() + " is a duplicate");
+          }
         }
       }
     }
-    return jarsBuilder.build();
+    return ImmutableList.copyOf(jars);
   }
 
   private ImmutableList<Artifact> processWithIjar(ImmutableList<Artifact> jars,
