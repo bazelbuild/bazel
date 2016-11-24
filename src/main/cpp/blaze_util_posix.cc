@@ -160,17 +160,11 @@ void ExecuteDaemon(const string& exe,
   Daemonize(daemon_output);
   string pid_string = GetProcessIdAsString();
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
-  string pid_symlink_file = blaze_util::JoinPath(server_dir, kServerPidSymlink);
 
   if (!WriteFile(pid_string, pid_file)) {
     // The exit code does not matter because we are already in the daemonized
     // server. The output of this operation will end up in jvm.out .
     pdie(0, "Cannot write PID file");
-  }
-
-  UnlinkPath(pid_symlink_file.c_str());
-  if (symlink(pid_string.c_str(), pid_symlink_file.c_str()) < 0) {
-    pdie(0, "Cannot write PID symlink");
   }
 
   WriteSystemSpecificProcessIdentifier(server_dir);

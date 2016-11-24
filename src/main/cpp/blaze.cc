@@ -693,23 +693,11 @@ static void WriteFileToStderrOrDie(const char *file_name) {
 static int GetServerPid(const string &server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
-  char buf[33];
-
-  // The server writes a file, but we need to handle old servers that still
-  // write a symlink.
-  int len;
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
-  string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
-  len = readlink(pid_symlink.c_str(), buf, sizeof(buf) - 1);
   string bufstr;
-  if (len > 0) {
-    bufstr = string(buf, len);
-  } else if (!blaze::ReadFile(pid_file, &bufstr, 32)) {
-    return -1;
-  }
-
   int result;
-  if (!blaze_util::safe_strto32(bufstr, &result)) {
+  if (!blaze::ReadFile(pid_file, &bufstr, 32) ||
+      !blaze_util::safe_strto32(bufstr, &result)) {
     return -1;
   }
 
@@ -726,6 +714,15 @@ static void StartServerAndConnect(BlazeServer *server) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "server directory '%s' could not be created", server_dir.c_str());
   }
+
+  // TODO(laszlocsomor) 2016-11-21: remove `pid_symlink` and the `remove` call
+  // after 2017-05-01 (~half a year from writing this comment). By that time old
+  // Bazel clients that used to write PID symlinks will probably no longer be in
+  // use.
+  // Until then, defensively delete old PID symlinks that older clients may have
+  // left behind.
+  string pid_symlink = blaze_util::JoinPath(server_dir, kServerPidSymlink);
+  remove(pid_symlink.c_str());
 
   // If we couldn't connect to the server check if there is still a PID file
   // and if so, kill the server that wrote it. This can happen e.g. if the

@@ -466,9 +466,7 @@ public class GrpcServerImpl implements RPCServer {
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
     Path pidFile = serverDirectory.getRelative("server.pid.txt");
-    Path pidSymlink = serverDirectory.getRelative("server.pid");
     deleteAtExit(pidFile, /*deleteParent=*/ false);
-    deleteAtExit(pidSymlink, /*deleteParent=*/ false);
 
     this.commandExecutor = commandExecutor;
     this.clock = clock;
