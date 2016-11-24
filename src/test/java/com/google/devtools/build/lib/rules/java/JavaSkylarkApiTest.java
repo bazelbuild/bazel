@@ -22,8 +22,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -79,5 +81,116 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
 
     assertThat((List<?>) skylarkClassObject.getValue("processor_classnames"))
         .containsExactly("com.google.process.stuff");
+  }
+
+  @Test
+  public void cannotConstructJavaProvider() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "my_provider = provider()",
+        "def _impl(ctx):",
+        "  java_p = java_common.provider",
+        "  dep_params = java_p()",
+        "  return [my_provider(p = dep_params)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name = 'r')");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//foo:r")).isNull();
+    assertContainsEvent("'java_common.provider' cannot be constructed from Skylark");
+  }
+
+  @Test
+  public void javaProviderExposedOnJavaLibrary() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "my_provider = provider()",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  return [my_provider(p = dep_params)]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'jl', srcs = ['java/A.java'])",
+        "my_rule(name = 'r', dep = ':jl')");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
+    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
+    SkylarkKey myProviderKey =
+        new SkylarkKey(Label.parseAbsolute("//foo:extension.bzl"), "my_provider");
+    SkylarkClassObject declaredProvider =
+        myRuleTarget.getProvider(SkylarkProviders.class).getDeclaredProvider(myProviderKey);
+    Object javaProvider = declaredProvider.getValue("p");
+    assertThat(javaProvider).isInstanceOf(JavaProvider.class);
+    assertThat(javaLibraryTarget.getProvider(JavaProvider.class)).isEqualTo(javaProvider);
+  }
+
+  @Test
+  public void javaProviderPropagation() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  dep_params = ctx.attr.dep[java_common.provider]",
+        "  return [dep_params]",
+        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'jl', srcs = ['java/A.java'])",
+        "my_rule(name = 'r', dep = ':jl')",
+        "java_library(name = 'jl_top', srcs = ['java/C.java'], deps = [':r'])");
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
+    ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
+    ConfiguredTarget topJavaLibraryTarget = getConfiguredTarget("//foo:jl_top");
+
+    Object javaProvider = myRuleTarget.get(JavaProvider.JAVA_PROVIDER.getKey());
+    assertThat(javaProvider).isInstanceOf(JavaProvider.class);
+
+    JavaProvider jlJavaProvider = javaLibraryTarget.getProvider(JavaProvider.class);
+
+    assertThat(jlJavaProvider == javaProvider).isTrue();
+
+    JavaProvider jlTopJavaProvider = topJavaLibraryTarget.getProvider(JavaProvider.class);
+
+    javaCompilationArgsHaveTheSameParent(
+        jlJavaProvider.getJavaCompilationArgsProvider().getJavaCompilationArgs(),
+        jlTopJavaProvider.getJavaCompilationArgsProvider().getJavaCompilationArgs());
+  }
+
+  private static boolean javaCompilationArgsHaveTheSameParent(
+      JavaCompilationArgs args, JavaCompilationArgs otherArgs) {
+    if (!nestedSetsOfArtifactHaveTheSameParent(
+        args.getCompileTimeJars(), otherArgs.getCompileTimeJars())) {
+      return false;
+    }
+    if (!nestedSetsOfArtifactHaveTheSameParent(
+        args.getInstrumentationMetadata(), otherArgs.getInstrumentationMetadata())) {
+      return false;
+    }
+    if (!nestedSetsOfArtifactHaveTheSameParent(args.getRuntimeJars(), otherArgs.getRuntimeJars())) {
+      return false;
+    }
+    return true;
+  }
+
+  private static boolean nestedSetsOfArtifactHaveTheSameParent(
+      NestedSet<Artifact> artifacts, NestedSet<Artifact> otherArtifacts) {
+    Iterator<Artifact> iterator = artifacts.iterator();
+    Iterator<Artifact> otherIterator = otherArtifacts.iterator();
+    while (iterator.hasNext() && otherIterator.hasNext()) {
+      Artifact artifact = (Artifact) iterator.next();
+      Artifact otherArtifact = (Artifact) otherIterator.next();
+      if (!artifact
+          .getPath()
+          .getParentDirectory()
+          .equals(otherArtifact.getPath().getParentDirectory())) {
+        return false;
+      }
+    }
+    if (iterator.hasNext() || otherIterator.hasNext()) {
+      return false;
+    }
+    return true;
   }
 }
