@@ -207,6 +207,10 @@ public abstract class CompilationSupport {
     ExtraLinkArgs(String... args) {
       super(args);
     }
+
+    ExtraLinkArgs(Iterable<String> args) {
+      super(args);
+    }
   }
 
   /**

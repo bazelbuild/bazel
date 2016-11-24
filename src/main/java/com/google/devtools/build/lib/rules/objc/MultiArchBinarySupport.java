@@ -52,6 +52,7 @@ public class MultiArchBinarySupport {
    * @param platform the platform for which the binary is targeted
    * @param extraLinkArgs the extra linker args to add to link actions linking single-architecture
    *     binaries together
+   * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param configurationToObjcCommon a map from from dependency configuration to the
    *     {@link ObjcCommon} which comprises all information about the dependencies in that
    *     configuration. Can be obtained via {@link #objcCommonByDepConfiguration}
@@ -62,8 +63,10 @@ public class MultiArchBinarySupport {
    *     this support
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public void registerActions(Platform platform,
+  public void registerActions(
+      Platform platform,
       ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs,
       Map<BuildConfiguration, ObjcCommon> configurationToObjcCommon,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       Artifact outputLipoBinary)
@@ -101,7 +104,7 @@ public class MultiArchBinarySupport {
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
-              ImmutableList.<Artifact>of(),
+              extraLinkInputs,
               DsymOutputType.APP)
           .validateAttributes();
       ruleContext.assertNoErrors();

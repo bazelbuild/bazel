@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_D
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -62,8 +63,13 @@ public class AppleDynamicLibrary implements RuleConfiguredTargetFactory {
     Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration =
         multiArchBinarySupport.objcCommonByDepConfiguration(childConfigurations,
             configToDepsCollectionMap, configurationToNonPropagatedObjcMap, dylibProviders);
-    multiArchBinarySupport.registerActions(platform, new ExtraLinkArgs("-dynamiclib"),
-        objcCommonByDepConfiguration, configToDepsCollectionMap, outputArtifact);
+    multiArchBinarySupport.registerActions(
+        platform,
+        new ExtraLinkArgs("-dynamiclib"),
+        ImmutableSet.<Artifact>of(),
+        objcCommonByDepConfiguration,
+        configToDepsCollectionMap,
+        outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder()

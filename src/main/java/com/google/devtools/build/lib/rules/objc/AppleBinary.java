@@ -14,10 +14,17 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -39,6 +46,39 @@ import java.util.Set;
  * Implementation for the "apple_binary" rule.
  */
 public class AppleBinary implements RuleConfiguredTargetFactory {
+
+  // TODO(b/33077308): Expand into DYLIB when apple_dynamic_library is removed.
+  enum BinaryType {
+    EXECUTABLE, BUNDLE;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase();
+    }
+
+    /**
+     * Returns the {@link BinaryType} with given name (case insensitive).
+     *
+     * @throws IllegalArgumentException if the name does not match a valid platform type.
+     */
+    public static BinaryType fromString(String name) {
+      for (BinaryType binaryType : BinaryType.values()) {
+        if (name.equalsIgnoreCase(binaryType.toString())) {
+          return binaryType;
+        }
+      }
+      throw new IllegalArgumentException(String.format("Unsupported binary type \"%s\"", name));
+    }
+
+    /** Returns the enum values as a list of strings for validation. */
+    static Iterable<String> getValues() {
+      return Iterables.transform(ImmutableList.copyOf(values()), Functions.toStringFunction());
+    }
+  }
+
+  @VisibleForTesting
+  static final String BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR =
+      "Can only use bundle_loader when binary_type is bundle.";
 
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
@@ -62,8 +102,14 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration =
         multiArchBinarySupport.objcCommonByDepConfiguration(childConfigurations,
             configToDepsCollectionMap, configurationToNonPropagatedObjcMap, dylibProviders);
-    multiArchBinarySupport.registerActions(platform, new ExtraLinkArgs(),
-        objcCommonByDepConfiguration, configToDepsCollectionMap, outputArtifact);
+
+    multiArchBinarySupport.registerActions(
+        platform,
+        getExtraLinkArgs(ruleContext),
+        getExtraLinkInputs(ruleContext),
+        objcCommonByDepConfiguration,
+        configToDepsCollectionMap,
+        outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
@@ -78,6 +124,45 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     targetBuilder.addProvider(ObjcProvider.class, objcProviderBuilder.build());
     return targetBuilder.build();
+  }
+
+  private ExtraLinkArgs getExtraLinkArgs(RuleContext ruleContext) throws RuleErrorException {
+    String binaryTypeString = ruleContext
+        .attributes()
+        .get(AppleBinaryRule.BINARY_TYPE_ATTR, STRING);
+    BinaryType binaryType = BinaryType.fromString(binaryTypeString);
+
+    ImmutableList.Builder<String> extraLinkArgs = new ImmutableList.Builder<>();
+
+    boolean didProvideBundleLoader =
+        ruleContext
+            .attributes()
+            .isAttributeValueExplicitlySpecified(AppleBinaryRule.BUNDLE_LOADER_ATTR);
+
+    if (didProvideBundleLoader && binaryType != BinaryType.BUNDLE) {
+      ruleContext.throwWithRuleError(BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR);
+    }
+
+    switch(binaryType) {
+      case EXECUTABLE: break;
+      case BUNDLE: {
+        extraLinkArgs.add("-bundle");
+        if (didProvideBundleLoader) {
+          Artifact bundleLoader =
+              ruleContext.getPrerequisiteArtifact(AppleBinaryRule.BUNDLE_LOADER_ATTR, TARGET);
+          extraLinkArgs.add("-bundle_loader " + bundleLoader.getExecPathString());
+        }
+        break;
+      }
+    }
+
+    return new ExtraLinkArgs(extraLinkArgs.build());
+  }
+
+  private Iterable<Artifact> getExtraLinkInputs(RuleContext ruleContext) {
+    return Optional.fromNullable(
+            ruleContext.getPrerequisiteArtifact(AppleBinaryRule.BUNDLE_LOADER_ATTR, TARGET))
+        .asSet();
   }
 
   private Set<BuildConfiguration> getChildConfigurations(RuleContext ruleContext) {
