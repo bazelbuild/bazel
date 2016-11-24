@@ -34,21 +34,10 @@ if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip
 }
 
-if ($mode -eq "release") {
+if (($mode -eq "release") -or ($mode -eq "rc")) {
   Invoke-WebRequest "$($tvUri).sha256" -UseBasicParsing -passthru -outfile sha256.txt
   $tvChecksum = (gc sha256.txt).split(' ')[0]
   rm sha256.txt
-} elseif ($mode -eq "rc") {
-  if (-not(test-path $tvFilename)) {
-    Invoke-WebRequest "$($tvUri)" -UseBasicParsing -passthru -outfile $tvFilename
-  }
-  if ($checksum -eq "") {
-    write-host "calculating checksum"
-    $tvChecksum = (get-filehash $tvFilename -algorithm sha256).Hash
-  } else {
-    write-host "using passed checksum"
-    $tvChecksum = $checksum
-  }
 } elseif ($mode -eq "local") {
   Add-Type -A System.IO.Compression.FileSystem
   $outputDir = "$pwd/../../../output"
