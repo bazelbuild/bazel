@@ -16,6 +16,7 @@
 #include <fcntl.h>
 #include <limits.h>  // PATH_MAX
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -373,6 +374,27 @@ void SetEnv(const string& name, const string& value) {
 
 void UnsetEnv(const string& name) {
   unsetenv(name.c_str());
+}
+
+ATTRIBUTE_NORETURN void ExitImmediately(int exit_code) {
+  _exit(exit_code);
+}
+
+void SetupStdStreams() {
+  // Set non-buffered output mode for stderr/stdout. The server already
+  // line-buffers messages where it makes sense, so there's no need to do set
+  // line-buffering here. On the other hand the server sometimes sends binary
+  // output (when for example a query returns results as proto), in which case
+  // we must not perform line buffering on the client side. So turn off
+  // buffering here completely.
+  setvbuf(stdout, NULL, _IONBF, 0);
+  setvbuf(stderr, NULL, _IONBF, 0);
+
+  // Ensure we have three open fds.  Otherwise we can end up with
+  // bizarre things like stdout going to the lock file, etc.
+  if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
+  if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+  if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
 }
 
 }   // namespace blaze.

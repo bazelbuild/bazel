@@ -1070,6 +1070,37 @@ void UnsetEnv(const string& name) {
 #endif  // COMPILER_MSVC
 }
 
+ATTRIBUTE_NORETURN void ExitImmediately(int exit_code) {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::ExitImmediately is not implemented on Windows");
+#else  // not COMPILER_MSVC
+  _exit(exit_code);
+#endif  // COMPILER_MSVC
+}
+
+void SetupStdStreams() {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::SetupStdStreams is not implemented on Windows");
+#else  // not COMPILER_MSVC
+  // Set non-buffered output mode for stderr/stdout. The server already
+  // line-buffers messages where it makes sense, so there's no need to do set
+  // line-buffering here. On the other hand the server sometimes sends binary
+  // output (when for example a query returns results as proto), in which case
+  // we must not perform line buffering on the client side. So turn off
+  // buffering here completely.
+  setvbuf(stdout, NULL, _IONBF, 0);
+  setvbuf(stderr, NULL, _IONBF, 0);
+
+  // Ensure we have three open fds.  Otherwise we can end up with
+  // bizarre things like stdout going to the lock file, etc.
+  if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
+  if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+  if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+#endif  // COMPILER_MSVC
+}
+
 LARGE_INTEGER WindowsClock::GetFrequency() {
   LARGE_INTEGER result;
   if (!QueryPerformanceFrequency(&result)) {

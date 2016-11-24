@@ -69,7 +69,7 @@ class WorkspaceLayout {
   static bool WorkspaceRelativizeRcFilePath(const std::string& workspace,
                                             std::string* path_fragment);
 
-  static constexpr char WorkspacePrefix[] = "%workspace%/";
+  static constexpr const char WorkspacePrefix[] = "%workspace%/";
   static const int WorkspacePrefixLength = sizeof WorkspacePrefix - 1;
 };
 

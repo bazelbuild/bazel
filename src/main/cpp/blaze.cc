@@ -1098,7 +1098,7 @@ static void handler(int signum) {
         if (globals->server_pid != -1) {
           KillServerProcess(globals->server_pid);
         }
-        _exit(1);
+        blaze::ExitImmediately(1);
       }
       sigprintf("\n%s caught interrupt signal; shutting down.\n\n",
                 globals->options->product_name.c_str());
@@ -1321,19 +1321,6 @@ static void CheckEnvironment() {
   blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
 }
 
-static void SetupStreams() {
-  // Line-buffer stderr, since we always flush at the end of a server
-  // message.  This saves lots of single-char calls to write(2).
-  // This doesn't work if any writes to stderr have already occurred!
-  setlinebuf(stderr);
-
-  // Ensure we have three open fds.  Otherwise we can end up with
-  // bizarre things like stdout going to the lock file, etc.
-  if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
-  if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
-  if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
-}
-
 static void CheckBinaryPath(const string& argv0) {
   if (argv0[0] == '/') {
     globals->binary_path = argv0;
@@ -1360,7 +1347,7 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor,
   // Logging must be set first to assure no log statements are missed.
   blaze_util::SetLogHandler(std::move(log_handler));
   globals = new GlobalVariables(option_processor);
-  SetupStreams();
+  blaze::SetupStdStreams();
 
   // Must be done before command line parsing.
   ComputeWorkspace();
@@ -1640,18 +1627,19 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     bool pipe_broken_now = false;
-    if (response.standard_output().size() > 0) {
-      int result = write(STDOUT_FILENO, response.standard_output().c_str(),
-                         response.standard_output().size());
-      if (result < 0 && errno == EPIPE) {
+
+    if (!response.standard_output().empty()) {
+      size_t size = response.standard_output().size();
+      size_t r = fwrite(response.standard_output().c_str(), 1, size, stdout);
+      if (r < size && errno == EPIPE) {
         pipe_broken_now = true;
       }
     }
 
-    if (response.standard_error().size() > 0) {
-      int result = write(STDERR_FILENO, response.standard_error().c_str(),
-                         response.standard_error().size());
-      if (result < 0 && errno == EPIPE) {
+    if (!response.standard_error().empty()) {
+      size_t size = response.standard_error().size();
+      size_t r = fwrite(response.standard_error().c_str(), 1, size, stderr);
+      if (r < size && errno == EPIPE) {
         pipe_broken_now = true;
       }
     }
