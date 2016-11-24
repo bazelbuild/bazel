@@ -30,6 +30,7 @@ rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
 rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
 rm -force -ErrorAction SilentlyContinue ./tools/params.json
+rm -force -ErrorAction SilentlyContinue ./tools/*.orig
 if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip
 }
