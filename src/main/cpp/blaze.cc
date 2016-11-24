@@ -204,6 +204,11 @@ class BlazeServer {
 static GlobalVariables *globals;
 static BlazeServer *blaze_server;
 
+// TODO(laszlocsomor) 2016-11-24: release the `globals` and `blaze_server`
+// objects. Currently nothing deletes them. Be careful that some functions may
+// call exit(2) or _exit(2) (attributed with ATTRIBUTE_NORETURN) meaning we have
+// to delete the objects before those.
+
 uint64_t BlazeServer::AcquireLock() {
   return blaze::AcquireLock(
       globals->options->output_base, globals->options->batch,
@@ -1086,41 +1091,8 @@ static void sigprintf(const char *format, ...) {
   }
 }
 
-// Signal handler.
-static void handler(int signum) {
-  int saved_errno = errno;
-
-  switch (signum) {
-    case SIGINT:
-      if (++globals->sigint_count >= 3)  {
-        sigprintf("\n%s caught third interrupt signal; killed.\n\n",
-                  globals->options->product_name.c_str());
-        if (globals->server_pid != -1) {
-          KillServerProcess(globals->server_pid);
-        }
-        blaze::ExitImmediately(1);
-      }
-      sigprintf("\n%s caught interrupt signal; shutting down.\n\n",
-                globals->options->product_name.c_str());
-      blaze_server->Cancel();
-      break;
-    case SIGTERM:
-      sigprintf("\n%s caught terminate signal; shutting down.\n\n",
-                globals->options->product_name.c_str());
-      blaze_server->Cancel();
-      break;
-    case SIGPIPE:
-      globals->received_signal = SIGPIPE;
-      break;
-    case SIGQUIT:
-      sigprintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
-                globals->server_pid,
-                globals->jvm_log_file.c_str());
-      kill(globals->server_pid, SIGQUIT);
-      break;
-  }
-
-  errno = saved_errno;
+static void CancelServer() {
+  blaze_server->Cancel();
 }
 
 // Performs all I/O for a single client request to the server, and
@@ -1169,26 +1141,8 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
   // Wall clock time since process startup.
   globals->startup_time = GetMillisecondsSinceProcessStart();
 
-  // Unblock all signals.
-  sigset_t sigset;
-  sigemptyset(&sigset);
-  sigprocmask(SIG_SETMASK, &sigset, NULL);
-
-  signal(SIGINT,  handler);
-  signal(SIGTERM, handler);
-  signal(SIGPIPE, handler);
-  signal(SIGQUIT, handler);
-
-  int exit_code = server->Communicate();
-  if (globals->received_signal) {
-    // Kill ourselves with the same signal, so that callers see the
-    // right WTERMSIG value.
-    signal(globals->received_signal, SIG_DFL);
-    raise(globals->received_signal);
-    exit(1);  // (in case raise didn't kill us for some reason)
-  } else {
-    exit(exit_code);
-  }
+  SignalHandler::Get().Install(globals, CancelServer);
+  SignalHandler::Get().PropagateSignalOrExit(server->Communicate());
 }
 
 // Parse the options, storing parsed values in globals.

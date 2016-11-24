@@ -25,6 +25,8 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/global_variables.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
@@ -38,6 +40,86 @@ using blaze_util::pdie;
 
 using std::string;
 using std::vector;
+
+SignalHandler SignalHandler::INSTANCE;
+
+// The number of the last received signal that should cause the client
+// to shutdown.  This is saved so that the client's WTERMSIG can be set
+// correctly.  (Currently only SIGPIPE uses this mechanism.)
+static volatile sig_atomic_t signal_handler_received_signal = 0;
+
+// A signal-safe version of fprintf(stderr, ...).
+static void sigprintf(const char *format, ...);
+
+// Signal handler.
+static void handler(int signum) {
+  int saved_errno = errno;
+
+  static volatile sig_atomic_t sigint_count = 0;
+
+  switch (signum) {
+    case SIGINT:
+      if (++sigint_count >= 3) {
+        sigprintf(
+            "\n%s caught third interrupt signal; killed.\n\n",
+            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+        }
+        ExitImmediately(1);
+      }
+      sigprintf(
+          "\n%s caught interrupt signal; shutting down.\n\n",
+          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+      SignalHandler::Get().CancelServer();
+      break;
+    case SIGTERM:
+      sigprintf(
+          "\n%s caught terminate signal; shutting down.\n\n",
+          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+      SignalHandler::Get().CancelServer();
+      break;
+    case SIGPIPE:
+      signal_handler_received_signal = SIGPIPE;
+      break;
+    case SIGQUIT:
+      sigprintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
+                SignalHandler::Get().GetGlobals()->server_pid,
+                SignalHandler::Get().GetGlobals()->jvm_log_file.c_str());
+      kill(SignalHandler::Get().GetGlobals()->server_pid, SIGQUIT);
+      break;
+  }
+
+  errno = saved_errno;
+}
+
+void SignalHandler::Install(GlobalVariables* globals,
+                            SignalHandler::Callback cancel_server) {
+  _globals = globals;
+  _cancel_server = cancel_server;
+
+  // Unblock all signals.
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, NULL);
+
+  signal(SIGINT, handler);
+  signal(SIGTERM, handler);
+  signal(SIGPIPE, handler);
+  signal(SIGQUIT, handler);
+}
+
+ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
+  if (signal_handler_received_signal) {
+    // Kill ourselves with the same signal, so that callers see the
+    // right WTERMSIG value.
+    signal(signal_handler_received_signal, SIG_DFL);
+    raise(signal_handler_received_signal);
+    exit(1);  // (in case raise didn't kill us for some reason)
+  } else {
+    exit(exit_code);
+  }
+}
 
 string GetProcessIdAsString() {
   return ToString(getpid());
@@ -395,6 +477,27 @@ void SetupStdStreams() {
   if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
   if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
   if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+}
+
+// A signal-safe version of fprintf(stderr, ...).
+//
+// WARNING: any output from the blaze client may be interleaved
+// with output from the blaze server.  In --curses mode,
+// the Blaze server often erases the previous line of output.
+// So, be sure to end each such message with TWO newlines,
+// otherwise it may be erased by the next message from the
+// Blaze server.
+// Also, it's a good idea to start each message with a newline,
+// in case the Blaze server has written a partial line.
+static void sigprintf(const char *format, ...) {
+  char buf[1024];
+  va_list ap;
+  va_start(ap, format);
+  int r = vsnprintf(buf, sizeof buf, format, ap);
+  va_end(ap);
+  if (write(STDERR_FILENO, buf, r) <= 0) {
+    // We don't care, just placate the compiler.
+  }
 }
 
 }   // namespace blaze.

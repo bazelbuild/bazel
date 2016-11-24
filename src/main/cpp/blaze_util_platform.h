@@ -23,6 +23,27 @@
 
 namespace blaze {
 
+struct GlobalVariables;
+
+class SignalHandler {
+ public:
+  typedef void (* Callback)();
+
+  static SignalHandler& Get() { return INSTANCE; }
+  GlobalVariables* GetGlobals() { return _globals; }
+  void CancelServer() { _cancel_server(); }
+  void Install(GlobalVariables* globals, Callback cancel_server);
+  ATTRIBUTE_NORETURN void PropagateSignalOrExit(int exit_code);
+
+ private:
+  static SignalHandler INSTANCE;
+
+  GlobalVariables* _globals;
+  Callback _cancel_server;
+
+  SignalHandler() : _globals(nullptr), _cancel_server(nullptr) {}
+};
+
 std::string GetProcessIdAsString();
 
 // Get the absolute path to the binary being executed.
@@ -132,9 +153,9 @@ void ReleaseLock(BlazeLock* blaze_lock);
 bool VerifyServerProcess(int pid, const std::string& output_base,
                          const std::string& install_base);
 
-// Kills a server process based on its PID. Returns true if the
-// server process was found and killed. This function can be called from a
-// signal handler! Returns true if successful.
+// Kills a server process based on its PID.
+// Returns true if the server process was found and killed.
+// WARNING! This function can be called from a signal handler!
 bool KillServerProcess(int pid);
 
 // Mark path as being excluded from backups (if supported by operating system).
@@ -163,6 +184,7 @@ void UnsetEnv(const std::string& name);
 
 // Terminate the process immediately.
 // This is a wrapper around POSIX's _exit(2).
+// WARNING! This function can be called from a signal handler!
 ATTRIBUTE_NORETURN void ExitImmediately(int exit_code);
 
 // Ensure we have open file descriptors for stdin/stdout/stderr.

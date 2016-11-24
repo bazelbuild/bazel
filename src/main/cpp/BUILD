@@ -8,6 +8,8 @@ cc_library(
     name = "blaze_util",
     srcs = [
         "blaze_util.cc",
+        "global_variables.h",
+        "startup_options.h",
     ] + select({
         "//src:darwin": [
             "blaze_util_darwin.cc",

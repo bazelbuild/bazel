@@ -18,7 +18,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
 #define BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
 
-#include <signal.h>
 #include <sys/types.h>
 #include <string>
 #include <vector>
@@ -54,13 +53,6 @@ struct GlobalVariables {
   std::string jvm_path;
 
   pid_t server_pid;
-
-  volatile sig_atomic_t sigint_count;
-
-  // The number of the last received signal that should cause the client
-  // to shutdown.  This is saved so that the client's WTERMSIG can be set
-  // correctly.  (Currently only SIGPIPE uses this mechanism.)
-  volatile sig_atomic_t received_signal;
 
   // Contains the relative paths of all the files in the attached zip, and is
   // populated during GetInstallBase().
