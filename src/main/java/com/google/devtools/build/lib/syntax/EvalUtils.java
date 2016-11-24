@@ -72,9 +72,6 @@ public final class EvalUtils {
       o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
       o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
-      if (o1 instanceof ClassObject && o2 instanceof ClassObject) {
-        throw new ComparisonException("Cannot compare structs");
-      }
       if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
         throw new ComparisonException("Cannot compare sets");
       }

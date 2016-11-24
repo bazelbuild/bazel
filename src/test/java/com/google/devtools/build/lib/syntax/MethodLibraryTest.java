@@ -1311,8 +1311,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testEval("{1: 'foo'}.values()", "['foo']")
         .testEval("{}.values()", "[]")
-        .testEval("{True: 3, False: 5}.values()", "[3, 5]")
-        .testEval("{'a': 5, 'c': 2, 'b': 4, 'd': 3}.values()", "[5, 2, 4, 3]");
+        .testEval("{True: 3, False: 5}.values()", "[5, 3]")
+        .testEval("{'a': 5, 'c': 2, 'b': 4, 'd': 3}.values()", "[5, 4, 2, 3]");
     // sorted by keys
   }
 
@@ -1342,7 +1342,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("{'a': 'foo'}.items()", "[('a', 'foo')]")
         .testEval("{}.items()", "[]")
         .testEval("{1: 3, 2: 5}.items()", "[(1, 3), (2, 5)]")
-        .testEval("{'a': 5, 'c': 2, 'b': 4}.items()", "[('a', 5), ('c', 2), ('b', 4)]");
+        .testEval("{'a': 5, 'c': 2, 'b': 4}.items()", "[('a', 5), ('b', 4), ('c', 2)]");
   }
 
   @Test
@@ -1378,9 +1378,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "popitem(): dictionary is empty",
             "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
                 + "if len(d) != 3: fail('popitem 0')\n"
+                + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
                 + "if d.popitem() != (2, 'bar'): fail('popitem 2')\n"
                 + "if d.popitem() != (3, 'baz'): fail('popitem 3')\n"
-                + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
                 + "if d != {}: fail('popitem 4')\n"
                 + "d.popitem()");
   }

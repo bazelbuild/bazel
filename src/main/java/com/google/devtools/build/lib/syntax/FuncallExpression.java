@@ -801,7 +801,7 @@ public final class FuncallExpression extends Expression {
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
-    Map<String, Object> kwargs = new LinkedHashMap<>();
+    Map<String, Object> kwargs = new HashMap<>();
     BaseFunction function = checkCallable(funcValue, getLocation());
     evalArguments(posargs, kwargs, env);
     return function.call(posargs.build(), ImmutableMap.copyOf(kwargs), this, env);
