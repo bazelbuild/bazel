@@ -434,7 +434,7 @@ public class SkylarkRuleClassFunctions {
       for (Map.Entry<String, Descriptor> attr :
           castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
         Descriptor attrDescriptor = attr.getValue();
-        AttributeValueSource source = attrDescriptor.getAttributeBuilder().getValueSource();
+        AttributeValueSource source = attrDescriptor.getValueSource();
         String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
         attributes.add(Pair.of(attrName, attrDescriptor));
       }
@@ -542,10 +542,10 @@ public class SkylarkRuleClassFunctions {
               attrObjectToAttributesList(attrs, ast);
           ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
           ImmutableSet.Builder<String> requiredParams = ImmutableSet.<String>builder();
-          for (Pair<String, Descriptor> descriptor : descriptors) {
-            String nativeName = descriptor.getFirst();
-            boolean hasDefault = descriptor.getSecond().getAttributeBuilder().isValueSet();
-            Attribute attribute = descriptor.second.getAttributeBuilder().build(descriptor.first);
+          for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
+            String nativeName = nameDescriptorPair.first;
+            boolean hasDefault = nameDescriptorPair.second.hasDefault();
+            Attribute attribute = nameDescriptorPair.second.build(nameDescriptorPair.first);
             if (attribute.getType() == Type.STRING
                 && ((String) attribute.getDefaultValue(null)).isEmpty()) {
               hasDefault = false;  // isValueSet() is always true for attr.string.
@@ -678,7 +678,7 @@ public class SkylarkRuleClassFunctions {
         descriptor.exportAspects(definitionLocation);
 
         addAttribute(definitionLocation, builder,
-            descriptor.getAttributeBuilder().build(attribute.getFirst()));
+            descriptor.build(attribute.getFirst()));
       }
       this.ruleClass = builder.build(ruleClassName);
 

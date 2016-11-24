@@ -138,50 +138,49 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     eval("def impl():\n" + "  return 0\n");
   }
 
-  private Attribute.Builder<?> evalAttributeDefinition(String... lines) throws Exception {
-    return ((SkylarkAttr.Descriptor) evalRuleClassCode(lines)).getAttributeBuilder();
-  }
-
   @Test
   public void testAttrWithOnlyType() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string_list()").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string_list()", "");
     assertEquals(Type.STRING_LIST, attr.getType());
+  }
+
+  private Attribute buildAttribute(String name, String... lines) throws Exception {
+    return ((SkylarkAttr.Descriptor) evalRuleClassCode(lines)).build(name);
   }
 
   @Test
   public void testOutputListAttr() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.output_list()").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.output_list()");
     assertEquals(BuildType.OUTPUT_LIST, attr.getType());
   }
 
   @Test
   public void testIntListAttr() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.int_list()").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.int_list()");
     assertEquals(Type.INTEGER_LIST, attr.getType());
   }
 
   @Test
   public void testOutputAttr() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.output()").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.output()");
     assertEquals(BuildType.OUTPUT, attr.getType());
   }
 
   @Test
   public void testStringDictAttr() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string_dict(default = {'a': 'b'})").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string_dict(default = {'a': 'b'})");
     assertEquals(Type.STRING_DICT, attr.getType());
   }
 
   @Test
   public void testStringListDictAttr() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string_list_dict(default = {'a': ['b', 'c']})")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string_list_dict(default = {'a': ['b', 'c']})");
     assertEquals(Type.STRING_LIST_DICT, attr.getType());
   }
 
   @Test
   public void testAttrAllowedFileTypesAnyFile() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label_list(allow_files = True)").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = True)");
     assertEquals(FileTypeSet.ANY_FILE, attr.getAllowedFileTypesPredicate());
   }
 
@@ -201,8 +200,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrWithList() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label_list(allow_files = ['.xml'])")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = ['.xml'])");
     assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
     assertFalse(attr.isSingleArtifact());
@@ -210,8 +208,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrSingleFileWithList() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label(allow_single_file = ['.xml'])")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label(allow_single_file = ['.xml'])");
     assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
     assertTrue(attr.isSingleArtifact());
@@ -219,8 +216,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrWithSkylarkFileType() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label_list(allow_files = FileType(['.xml']))")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = FileType(['.xml']))");
     assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
   }
@@ -228,8 +224,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrWithProviders() throws Exception {
     Attribute attr =
-        evalAttributeDefinition("attr.label_list(allow_files = True, providers = ['a', 'b'])")
-            .build("a1");
+        buildAttribute("a1", "attr.label_list(allow_files = True, providers = ['a', 'b'])");
     assertThat(attr.getMandatoryProvidersList())
         .containsExactly(ImmutableSet.of(legacy("a"), legacy("b")));
   }
@@ -241,9 +236,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrWithProvidersList() throws Exception {
     Attribute attr =
-        evalAttributeDefinition("attr.label_list(allow_files = True,"
-            + " providers = [['a', 'b'], ['c']])")
-            .build("a1");
+        buildAttribute("a1", "attr.label_list(allow_files = True,"
+            + " providers = [['a', 'b'], ['c']])");
     assertThat(attr.getMandatoryProvidersList()).containsExactly(
         ImmutableSet.of(legacy("a"), legacy("b")),
         ImmutableSet.of(legacy("c")));
@@ -384,14 +378,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
   @Test
   public void testAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
-    Attribute attr = evalAttributeDefinition(
-        "attr.label_list(allow_rules = ['java_binary'], allow_files = True)").build("a");
+    Attribute attr = buildAttribute("a",
+        "attr.label_list(allow_rules = ['java_binary'], allow_files = True)");
     assertTrue(attr.getAllowedRuleClassesPredicate().apply(ruleClass("java_binary")));
     assertFalse(attr.getAllowedRuleClassesPredicate().apply(ruleClass("genrule")));
   }
   @Test
   public void testAttrDefaultValue() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string(default = 'some value')").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string(default = 'some value')");
     assertEquals("some value", attr.getDefaultValueForTesting());
   }
 
@@ -406,21 +400,21 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrMandatory() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string(mandatory=True)").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string(mandatory=True)");
     assertTrue(attr.isMandatory());
     assertFalse(attr.isNonEmpty());
   }
 
   @Test
   public void testAttrNonEmpty() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string_list(non_empty=True)").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string_list(non_empty=True)");
     assertTrue(attr.isNonEmpty());
     assertFalse(attr.isMandatory());
   }
 
   @Test
   public void testAttrAllowEmpty() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string_list(allow_empty=False)").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string_list(allow_empty=False)");
     assertTrue(attr.isNonEmpty());
     assertFalse(attr.isMandatory());
   }
@@ -433,28 +427,25 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrCfg() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label(cfg = 'host', allow_files = True)")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'host', allow_files = True)");
     assertEquals(ConfigurationTransition.HOST, attr.getConfigurationTransition());
   }
 
   @Test
   public void testAttrCfgData() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label(cfg = 'data', allow_files = True)")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'data', allow_files = True)");
     assertEquals(ConfigurationTransition.DATA, attr.getConfigurationTransition());
   }
 
   @Test
   public void testAttrCfgTarget() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.label(cfg = 'target', allow_files = True)")
-        .build("a1");
+    Attribute attr = buildAttribute("a1", "attr.label(cfg = 'target', allow_files = True)");
     assertEquals(ConfigurationTransition.NONE, attr.getConfigurationTransition());
   }
 
   @Test
   public void testAttrValues() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.string(values = ['ab', 'cd'])").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.string(values = ['ab', 'cd'])");
     PredicateWithMessage<Object> predicate = attr.getAllowedValues();
     assertThat(predicate.apply("ab")).isTrue();
     assertThat(predicate.apply("xy")).isFalse();
@@ -462,7 +453,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrIntValues() throws Exception {
-    Attribute attr = evalAttributeDefinition("attr.int(values = [1, 2])").build("a1");
+    Attribute attr = buildAttribute("a1", "attr.int(values = [1, 2])");
     PredicateWithMessage<Object> predicate = attr.getAllowedValues();
     assertThat(predicate.apply(2)).isTrue();
     assertThat(predicate.apply(3)).isFalse();

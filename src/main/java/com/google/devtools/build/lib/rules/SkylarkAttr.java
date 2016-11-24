@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -1267,20 +1268,50 @@ public final class SkylarkAttr {
   public static final class Descriptor {
     private final Attribute.Builder<?> attributeBuilder;
     private final ImmutableList<SkylarkAspect> aspects;
+
+    /**
+     * This lock guards {@code attributeBuilder} field.
+     *
+     * {@link Attribute.Builder} class is not thread-safe for concurrent modification.
+     * This class, together with its enclosing {@link SkylarkAttr} class, do not let
+     * anyone else access the {@code attributeBuilder}, however {@link #exportAspects(Location)}
+     * method actually modifies the {@code attributeBuilder}. Therefore all read- and write-accesses
+     * to {@code attributeBuilder} are protected with this lock.
+     *
+     * For example, {@link #hasDefault()} method only reads from {@link #attributeBuilder},
+     * but we have no guarantee that it is safe to do so concurrently with adding aspects
+     * in {@link #exportAspects(Location)}.
+     */
+    private final Object lock = new Object();
     boolean exported;
 
-    public Descriptor(Attribute.Builder<?> attributeBuilder) {
+    private Descriptor(Attribute.Builder<?> attributeBuilder) {
       this(attributeBuilder, ImmutableList.<SkylarkAspect>of());
     }
 
-    public Descriptor(Attribute.Builder<?> attributeBuilder, ImmutableList<SkylarkAspect> aspects) {
+    private Descriptor(
+        Attribute.Builder<?> attributeBuilder, ImmutableList<SkylarkAspect> aspects) {
       this.attributeBuilder = attributeBuilder;
       this.aspects = aspects;
       exported = false;
     }
 
-    public Attribute.Builder<?> getAttributeBuilder() {
-      return attributeBuilder;
+    public boolean hasDefault() {
+      synchronized (lock) {
+        return attributeBuilder.isValueSet();
+      }
+    }
+
+    public AttributeValueSource getValueSource() {
+      synchronized (lock) {
+        return attributeBuilder.getValueSource();
+      }
+    }
+
+    public Attribute build(String name) {
+      synchronized (lock) {
+        return attributeBuilder.build(name);
+      }
     }
 
     public ImmutableList<SkylarkAspect> getAspects() {
@@ -1288,19 +1319,20 @@ public final class SkylarkAttr {
     }
 
     public void exportAspects(Location definitionLocation) throws EvalException {
-      if (exported) {
-        // Only export an attribute definiton once.
-        return;
-      }
-      Attribute.Builder<?> attributeBuilder = getAttributeBuilder();
-      for (SkylarkAspect skylarkAspect : getAspects()) {
-        if (!skylarkAspect.isExported()) {
-          throw new EvalException(definitionLocation,
-              "All aspects applied to rule dependencies must be top-level values");
+      synchronized (lock) {
+        if (exported) {
+          // Only export an attribute definiton once.
+          return;
         }
-        attributeBuilder.aspect(skylarkAspect, definitionLocation);
+        for (SkylarkAspect skylarkAspect : getAspects()) {
+          if (!skylarkAspect.isExported()) {
+            throw new EvalException(definitionLocation,
+                "All aspects applied to rule dependencies must be top-level values");
+          }
+          attributeBuilder.aspect(skylarkAspect, definitionLocation);
+        }
+        exported = true;
       }
-      exported = true;
     }
   }
 

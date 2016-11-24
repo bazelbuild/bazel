@@ -1615,7 +1615,42 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(result).containsExactly("//test:r0=no", "//test:r1=no", "//test:r2_1=yes");
   }
 
+  @Test
+  public void attributesWithAspectsReused() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "my_aspect = aspect(_impl)",
+        "a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }"
+    );
 
+    scratch.file(
+        "test/r1.bzl",
+        "load(':aspect.bzl', 'my_aspect', 'a_dict')",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "r1 = rule(_rule_impl, attrs = a_dict)"
+    );
+
+    scratch.file(
+        "test/r2.bzl",
+        "load(':aspect.bzl', 'my_aspect', 'a_dict')",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "r2 = rule(_rule_impl, attrs = a_dict)"
+    );
+
+    scratch.file(
+        "test/BUILD",
+        "load(':r1.bzl', 'r1')",
+        "load(':r2.bzl', 'r2')",
+        "r1(name = 'x1')",
+        "r2(name = 'x2', foo = [':x1'])"
+    );
+    AnalysisResult analysisResult = update("//test:x2");
+    assertThat(analysisResult.hasError()).isFalse();
+  }
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
