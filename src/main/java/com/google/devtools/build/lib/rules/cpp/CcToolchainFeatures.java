@@ -1455,10 +1455,8 @@ public class CcToolchainFeatures implements Serializable {
       return commandLine;
     }
 
-    /**
-     * @return the environment variables (key/value pairs) for the given {@code action}.
-     */
-    Map<String, String> getEnvironmentVariables(String action, Variables variables) {
+    /** @return the environment variables (key/value pairs) for the given {@code action}. */
+    ImmutableMap<String, String> getEnvironmentVariables(String action, Variables variables) {
       ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
       for (Feature feature : enabledFeatures) {
         feature.expandEnvironment(action, variables, envBuilder);

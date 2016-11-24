@@ -117,19 +117,6 @@ def _get_tool_paths(repository_ctx, darwin, cc):
           }
 
 
-def _ld_library_paths(repository_ctx):
-  """Use ${LD_LIBRARY_PATH} to compute the list -Wl,rpath flags."""
-  if "LD_LIBRARY_PATH" in repository_ctx.os.environ:
-    result = []
-    for p in repository_ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
-      p = str(repository_ctx.path(p))  # Normalize the path
-      result.append("-Wl,-rpath," + p)
-      result.append("-L" + p)
-    return result
-  else:
-    return []
-
-
 def _cplus_include_paths(repository_ctx):
   """Use ${CPLUS_INCLUDE_PATH} to compute the list of flags for cxxflag."""
   if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
@@ -244,7 +231,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               # Gold linker only? Can we enable this by default?
               # "-Wl,--warn-execstack",
               # "-Wl,--detect-odr-violations"
-          ]) + _ld_library_paths(repository_ctx),
+          ]),
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],

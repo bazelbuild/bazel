@@ -727,7 +727,7 @@ public class CppLinkActionBuilder {
       analysisEnvironment.registerAction(parameterFileWriteAction);
     }
 
-    Map<String, String> toolchainEnv =
+    ImmutableMap<String, String> toolchainEnv =
         featureConfiguration.getEnvironmentVariables(getActionName(), buildVariables);
 
     // If the crosstool uses action_configs to configure cc compilation, collect execution info
@@ -752,6 +752,8 @@ public class CppLinkActionBuilder {
         isLTOIndexing,
         allLTOArtifacts,
         linkCommandLine,
+        configuration.getVariableShellEnvironment(),
+        configuration.getLocalShellEnvironment(),
         toolchainEnv,
         executionRequirements.build());
   }
