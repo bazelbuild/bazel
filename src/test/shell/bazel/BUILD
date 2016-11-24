@@ -414,6 +414,7 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
+    tags = ["manual"],
 )
 
 test_suite(
