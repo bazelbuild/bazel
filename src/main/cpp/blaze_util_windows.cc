@@ -16,6 +16,7 @@
 #include <limits.h>
 
 #ifndef COMPILER_MSVC
+#include <fcntl.h>
 #include <sys/cygwin.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
