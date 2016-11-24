@@ -505,9 +505,8 @@ public final class BuildConfiguration {
         help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
     public boolean stampBinaries;
 
-    // TODO(bazel-team): delete from OSS tree
-    // This default value is always overwritten in the case of "blaze coverage" by
-    // CoverageCommand.setDefaultInstrumentationFilter()
+    // This default value is always overwritten in the case of "bazel coverage" by
+    // CoverageCommand.setDefaultInstrumentationFilter().
     @Option(name = "instrumentation_filter",
         converter = RegexFilter.RegexFilterConverter.class,
         defaultValue = "-/javatests[/:]",
