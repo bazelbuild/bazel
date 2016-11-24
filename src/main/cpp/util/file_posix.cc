@@ -106,6 +106,17 @@ bool PathExists(const string& path) {
   return access(path.c_str(), F_OK) == 0;
 }
 
+string MakeCanonical(const char *path) {
+  char *resolved_path = realpath(path, NULL);
+  if (resolved_path == NULL) {
+    return "";
+  } else {
+    string ret = resolved_path;
+    free(resolved_path);
+    return ret;
+  }
+}
+
 bool CanAccess(const string& path, bool read, bool write, bool exec) {
   int mode = 0;
   if (read) {

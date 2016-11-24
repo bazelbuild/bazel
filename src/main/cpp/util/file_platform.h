@@ -33,6 +33,13 @@ std::string Which(const std::string &executable);
 // Returns true if this path exists.
 bool PathExists(const std::string& path);
 
+// Returns the real, absolute path corresponding to `path`.
+// The method resolves all symlink components of `path`.
+// Returns the empty string upon error.
+//
+// This is a wrapper around realpath(3).
+std::string MakeCanonical(const char *path);
+
 // Returns true if the path exists and can be accessed to read/write as desired.
 //
 // If `exec` is true and the path refers to a file, it means the file must be

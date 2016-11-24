@@ -1203,22 +1203,14 @@ static void ParseOptions(int argc, const char *argv[]) {
   globals->options = globals->option_processor->GetParsedStartupOptions();
 }
 
-// Returns the canonical form of a path.
-static string MakeCanonical(const char *path) {
-  char *resolved_path = realpath(path, NULL);
-  if (resolved_path == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "realpath('%s') failed", path);
-  }
-
-  string ret = resolved_path;
-  free(resolved_path);
-  return ret;
-}
-
 // Compute the globals globals->cwd and globals->workspace.
 static void ComputeWorkspace() {
-  globals->cwd = MakeCanonical(blaze_util::GetCwd().c_str());
+  globals->cwd = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
+  if (globals->cwd.empty()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "blaze_util::MakeCanonical('%s') failed",
+         blaze_util::GetCwd().c_str());
+  }
   globals->workspace = WorkspaceLayout::GetWorkspace(globals->cwd);
 }
 
@@ -1272,7 +1264,11 @@ static void ComputeBaseDirectories(const string &self_path) {
   }
   ExcludePathFromBackup(output_base);
 
-  globals->options->output_base = MakeCanonical(output_base);
+  globals->options->output_base = blaze_util::MakeCanonical(output_base);
+  if (globals->options->output_base.empty()) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "blaze_util::MakeCanonical('%s') failed", output_base);
+  }
 
   globals->lockfile = globals->options->output_base + "/lock";
   globals->jvm_log_file = globals->options->output_base + "/server/jvm.out";
@@ -1321,19 +1317,18 @@ static void CheckEnvironment() {
   blaze::SetEnv("LC_CTYPE", "en_US.ISO-8859-1");
 }
 
-static void CheckBinaryPath(const string& argv0) {
+static string CheckAndGetBinaryPath(const string& argv0) {
   if (argv0[0] == '/') {
-    globals->binary_path = argv0;
+    return argv0;
   } else {
     string abs_path = globals->cwd + '/' + argv0;
-    char *resolved_path = realpath(abs_path.c_str(), NULL);
-    if (resolved_path) {
-      globals->binary_path = resolved_path;
-      free(resolved_path);
+    string resolved_path = blaze_util::MakeCanonical(abs_path.c_str());
+    if (!resolved_path.empty()) {
+      return resolved_path;
     } else {
       // This happens during our integration tests, but thats okay, as we won't
       // log the invocation anyway.
-      globals->binary_path = abs_path;
+      return abs_path;
     }
   }
 }
@@ -1351,7 +1346,7 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor,
 
   // Must be done before command line parsing.
   ComputeWorkspace();
-  CheckBinaryPath(argv[0]);
+  globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
   debug_log("Debug logging active");

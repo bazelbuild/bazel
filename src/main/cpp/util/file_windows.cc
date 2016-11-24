@@ -32,6 +32,12 @@ bool PathExists(const string& path) {
   return false;
 }
 
+string MakeCanonical(const char *path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::MakeCanonical is not implemented on Windows");
+  return "";
+}
+
 bool CanAccess(const string& path, bool read, bool write, bool exec) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::CanAccess is not implemented on Windows");
