@@ -8,7 +8,7 @@ title: Get Support
 * [User mailing list](https://groups.google.com/forum/#!forum/bazel-discuss)
 * [Issue tracker](https://github.com/bazelbuild/bazel/issues)
 * [Twitter](http://www.twitter.com/bazelbuild)
-* [IRC](irc://irc.freenode.net/bazel) (freenode.net#bazel)
+* [IRC](http://webchat.freenode.net) (irc.freenode.net#bazel)
 
 # Support Policy
 

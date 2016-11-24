@@ -25,8 +25,21 @@ version_prefix: /versions/master
           </a>
           <nav class="sidebar collapse" id="sidebar-nav">
             <ul class="sidebar-nav">
-              <li><a href="{{ page.version_prefix }}/docs/install.html">Installing</a></li>
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#installing-menu" aria-expanded="false"
+                    aria-controls="installing-menu">
+                  Installing <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="installing-menu">
+                  <li><a href="{{ page.version_prefix }}/docs/install.html">General information</a></li>
+                  <li><a href="{{ page.version_prefix }}/docs/windows.html">Windows: installation and running</a></li>
+                  <li><a href="{{ page.version_prefix }}/docs/windows-chocolatey-maintenance.html">Windows: Chocolatey package manager</a></li>
+                </ul>
+              </li>
+
               <li><a href="{{ page.version_prefix }}/docs/getting-started.html">Getting Started</a></li>
+
               <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
                     href="#tutorial-menu" aria-expanded="false"
