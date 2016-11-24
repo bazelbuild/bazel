@@ -29,7 +29,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -972,14 +971,10 @@ public class CcToolchainFeatures implements Serializable {
     @Immutable
     private static final class StringSequence implements VariableValue {
 
-      private final Iterable<String> values;
+      private final ImmutableList<String> values;
 
       public StringSequence(ImmutableList<String> values) {
         Preconditions.checkNotNull(values, "Cannot create StringSequence from null");
-        this.values = values;
-      }
-
-      StringSequence(NestedSet<String> values) {
         this.values = values;
       }
 
@@ -1149,30 +1144,27 @@ public class CcToolchainFeatures implements Serializable {
      */
     public static class Builder {
       private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
+      private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
 
       /** Add a variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkArgument(
+            !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
         Preconditions.checkNotNull(
             value, "Cannot set null as a value for variable '%s'", name);
-        variablesMap.put(name, new StringValue(value));
+        stringVariablesMap.put(name, value);
         return this;
       }
 
       /** Add a sequence variable that expands {@code name} to {@code values}. */
-      public Builder addStringSequenceVariable(String name, ImmutableList<String> values) {
+      public Builder addStringSequenceVariable(String name, Iterable<String> values) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
-        return this;
-      }
-
-      /** Add a sequence variable that expands {@code name} to {@code values}. */
-      public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
-        Preconditions.checkArgument(
-            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-        variablesMap.put(name, new StringSequence(values));
+        ImmutableList.Builder<String> builder = ImmutableList.builder();
+        builder.addAll(values);
+        variablesMap.put(name, new StringSequence(builder.build()));
         return this;
       }
 
@@ -1196,8 +1188,10 @@ public class CcToolchainFeatures implements Serializable {
         for (String name : variables.keySet()) {
           Preconditions.checkArgument(
               !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
-          variablesMap.put(name, new StringValue(variables.get(name)));
+          Preconditions.checkArgument(
+              !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
         }
+        stringVariablesMap.putAll(variables);
         return this;
       }
 
@@ -1205,9 +1199,15 @@ public class CcToolchainFeatures implements Serializable {
       public Builder addAll(Variables variables) {
         SetView<String> intersection =
             Sets.intersection(variables.variablesMap.keySet(), variablesMap.keySet());
+        SetView<String> stringIntersection =
+            Sets.intersection(variables.stringVariablesMap.keySet(), stringVariablesMap.keySet());
         Preconditions.checkArgument(
             intersection.isEmpty(), "Cannot overwrite existing variables: %s", intersection);
+        Preconditions.checkArgument(
+            stringIntersection.isEmpty(),
+            "Cannot overwrite existing variables: %s", stringIntersection);
         this.variablesMap.putAll(variables.variablesMap);
+        this.stringVariablesMap.putAll(variables.stringVariablesMap);
         return this;
       }
 
@@ -1218,6 +1218,7 @@ public class CcToolchainFeatures implements Serializable {
        */
       Builder addAndOverwriteAll(Variables overwrittenVariables) {
         this.variablesMap.putAll(overwrittenVariables.variablesMap);
+        this.stringVariablesMap.putAll(overwrittenVariables.stringVariablesMap);
         return this;
       }
 
@@ -1225,7 +1226,8 @@ public class CcToolchainFeatures implements Serializable {
        * @return a new {@Variables} object.
        */
       Variables build() {
-        return new Variables(ImmutableMap.copyOf(variablesMap));
+        return new Variables(
+            ImmutableMap.copyOf(variablesMap), ImmutableMap.copyOf(stringVariablesMap));
       }
     }
     
@@ -1238,10 +1240,14 @@ public class CcToolchainFeatures implements Serializable {
     }
     
     private final ImmutableMap<String, VariableValue> variablesMap;
+    private final ImmutableMap<String, String> stringVariablesMap;
     private final Variables parent;
 
-    private Variables(ImmutableMap<String, VariableValue> variablesMap) {
+    private Variables(
+        ImmutableMap<String, VariableValue> variablesMap,
+        ImmutableMap<String, String> stringVariablesMap) {
       this.variablesMap = variablesMap;
+      this.stringVariablesMap = stringVariablesMap;
       this.parent = null;
     }
 
@@ -1251,6 +1257,7 @@ public class CcToolchainFeatures implements Serializable {
      */
     private Variables(Variables parent, String name, VariableValue value) {
       this.variablesMap = ImmutableMap.of(name, value);
+      this.stringVariablesMap = ImmutableMap.of();
       this.parent = parent;
     }
 
@@ -1301,6 +1308,9 @@ public class CcToolchainFeatures implements Serializable {
     private Pair<VariableValue, String> getNonStructuredVariable(String name) {
       if (variablesMap.containsKey(name)) {
         return Pair.of(variablesMap.get(name), null);
+      }
+      if (stringVariablesMap.containsKey(name)) {
+        return Pair.<VariableValue, String>of(new StringValue(stringVariablesMap.get(name)), null);
       }
 
       if (parent != null) {

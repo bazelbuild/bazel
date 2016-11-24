@@ -170,22 +170,21 @@ class ObjcVariablesExtension implements VariablesExtension {
         FULLY_LINKED_ARCHIVE_PATH_VARIABLE_NAME, fullyLinkArchive.getExecPathString());
     builder.addStringSequenceVariable(
         OBJC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.getObjcLibraries())));
+        Artifact.toExecPaths(objcProvider.getObjcLibraries()));
     builder.addStringSequenceVariable(
         CC_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.getCcLibraries())));
+        Artifact.toExecPaths(objcProvider.getCcLibraries()));
     builder.addStringSequenceVariable(
         IMPORTED_LIBRARY_EXEC_PATHS_VARIABLE_NAME,
-        ImmutableList.copyOf(Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY))));
+        Artifact.toExecPaths(objcProvider.get(IMPORTED_LIBRARY)));
   }
 
   private void addExecutableLinkVariables(CcToolchainFeatures.Variables.Builder builder) {
     builder.addStringSequenceVariable(
-        FRAMEWORK_NAMES_VARIABLE_NAME, ImmutableList.copyOf(frameworkNames));
+        FRAMEWORK_NAMES_VARIABLE_NAME, frameworkNames);
     builder.addStringSequenceVariable(
         WEAK_FRAMEWORK_NAMES_VARIABLE_NAME,
-        ImmutableList.copyOf(
-            SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK))));
+            SdkFramework.names(objcProvider.get(ObjcProvider.WEAK_SDK_FRAMEWORK)));
     builder.addStringSequenceVariable(LIBRARY_NAMES_VARIABLE_NAME, libraryNames);
     builder.addStringVariable(
         FILELIST_VARIABLE_NAME, intermediateArtifacts.linkerObjList().getExecPathString());
@@ -197,7 +196,7 @@ class ObjcVariablesExtension implements VariablesExtension {
 
     builder.addStringSequenceVariable(
         FORCE_LOAD_EXEC_PATHS_VARIABLE_NAME,
-        ImmutableList.copyOf(Artifact.toExecPaths(forceLoadArtifacts)));
+        Artifact.toExecPaths(forceLoadArtifacts));
     builder.addStringSequenceVariable(DEP_LINKOPTS_VARIABLE_NAME, objcProvider.get(LINKOPT));
     builder.addStringSequenceVariable(ATTR_LINKOPTS_VARIABLE_NAME, attributeLinkopts);
   }
