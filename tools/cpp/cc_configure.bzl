@@ -86,9 +86,12 @@ def _which_cmd(repository_ctx, cmd, default = None):
   return str(result)
 
 
-def _execute(repository_ctx, command):
+def _execute(repository_ctx, command, environment = None):
   """Execute a command, return stdout if succeed and throw an error if it fails."""
-  result = repository_ctx.execute(command)
+  if environment:
+    result = repository_ctx.execute(command, environment = environment)
+  else:
+    result = repository_ctx.execute(command)
   if result.stderr:
     auto_configure_fail(result.stderr)
   else:
@@ -429,7 +432,12 @@ def _find_env_vars(repository_ctx, vs_path):
                       "@echo off\n" +
                       "call \"" + vsvars + "\" amd64 \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  envs = _execute(repository_ctx, ["wrapper/get_env.bat"]).split(",")
+  env = repository_ctx.os.environ
+  if "PATH" not in env:
+    env["PATH"]=""
+  # Running VCVARSALL.BAT needs C:\\windows\\system32 to be in PATH
+  env["PATH"] = env["PATH"] + ";C:\\windows\\system32"
+  envs = _execute(repository_ctx, ["wrapper/get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
     key, value = env.split("=")
@@ -511,7 +519,7 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
-    lib_tool = vs_path + "/VC/bin/amd64/lib.exe"
+    lib_tool = vs_path.replace("\\", "\\\\") + "/VC/bin/amd64/lib.exe"
     if _is_support_whole_archive(repository_ctx, vs_path):
       support_whole_archive = "True"
     else:
