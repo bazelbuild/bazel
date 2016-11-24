@@ -1,6 +1,7 @@
 param(
   [string] $version = "0.3.2",
   [int] $rc = 0,
+  [switch] $fixPackage,
   [string] $mode = "local",
   [string] $checksum = ""
 )
@@ -20,6 +21,10 @@ if ($mode -eq "release") {
   $tvUri = "http://localhost:8000/$($tvFilename)"
 } else {
   throw "mode parameter '$mode' unsupported. Please use local, rc, or release."
+}
+
+if ($fixPackage -eq $true) {
+  $tvPackageFixVersion = "-$((get-date).tostring("yyyyMMdd-hhmmss"))"
 }
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
