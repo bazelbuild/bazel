@@ -629,7 +629,6 @@ public final class GrpcActionCache implements RemoteActionCache {
     ExecutionCacheReply reply = stub.getCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
     if (!status.getSucceeded()
-        && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED
         && status.getError() != ExecutionCacheStatus.ErrorCode.MISSING_RESULT) {
       throw new RuntimeException(status.getErrorDetail());
     }
@@ -650,7 +649,8 @@ public final class GrpcActionCache implements RemoteActionCache {
             .build();
     ExecutionCacheSetReply reply = stub.setCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
-    if (!status.getSucceeded()) {
+    if (!status.getSucceeded()
+        && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED) {
       throw new RuntimeException(status.getErrorDetail());
     }
   }

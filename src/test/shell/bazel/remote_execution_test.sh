@@ -69,7 +69,7 @@ function test_cc_binary() {
   cp bazel-bin/a/test ${TEST_TMPDIR}/test_expected
   bazel clean --expunge
 
-  bazel build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
     --spawn_strategy=remote \
     --hazelcast_node=localhost:${hazelcast_port} \
     --remote_worker=localhost:${worker_port} \

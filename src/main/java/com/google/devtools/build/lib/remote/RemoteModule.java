@@ -24,6 +24,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.common.options.OptionsBase;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -66,8 +70,17 @@ public final class RemoteModule extends BlazeModule {
       }
       // Otherwise actionCache remains null and remote caching/execution are disabled.
 
-      if (actionCache != null && RemoteWorkExecutor.isRemoteExecutionOptions(options)) {
-        workExecutor = new RemoteWorkExecutor(options);
+      if (actionCache != null) {
+        HashFunction hf = FileSystem.getDigestFunction();
+        if (hf != HashFunction.SHA1) {
+          env.getBlazeModuleEnvironment().exit(new AbruptExitException(
+              "Remote cache/execution requires SHA1 digests, got " + hf
+              + ", run with --host_jvm_args=-Dbazel.DigestFunction=SHA1",
+              ExitCode.COMMAND_LINE_ERROR));
+        }
+        if (RemoteWorkExecutor.isRemoteExecutionOptions(options)) {
+          workExecutor = new RemoteWorkExecutor(options);
+        }
       }
     } catch (InvalidConfigurationException e) {
       env.getReporter().handle(Event.warn(e.toString()));
