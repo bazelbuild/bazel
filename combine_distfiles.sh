@@ -40,7 +40,7 @@ do
     (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
 done
 
-if [ -n "${USE_TAR}" ]
+if [ -n "${USE_TAR:-}" ]
 then
   (cd "${PACKAGE_DIR}" && tar -c -f "${OUTPUT}" --group=0 --owner=0 \
      $(find . -type f | sort))
