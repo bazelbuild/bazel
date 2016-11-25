@@ -33,10 +33,11 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -49,7 +50,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-
 import javax.annotation.Nullable;
 
 /**
@@ -104,7 +104,7 @@ public final class Runfiles {
    * An entry in the runfiles map.
    *
    * <p>build-runfiles.cc enforces the following constraints: The PathFragment must not be an
-   * absolute path, nor contain "..".  Overlapping runfiles links are also refused. This is the case
+   * absolute path, nor contain "..". Overlapping runfiles links are also refused. This is the case
    * where you ask to create a link to "foo" and also "foo/bar.txt". I.e. you're asking it to make
    * "foo" both a file (symlink) and a directory.
    *
@@ -129,7 +129,7 @@ public final class Runfiles {
   // equals to the third one if they are not the same instance (which they almost never are)
   //
   // Goodnight, prince(ss)?, and sweet dreams.
-  private static final class SymlinkEntry {
+  private static final class SymlinkEntry implements SkylarkValue {
     private final PathFragment path;
     private final Artifact artifact;
 
@@ -144,6 +144,18 @@ public final class Runfiles {
 
     public Artifact getArtifact() {
       return artifact;
+    }
+
+    public boolean isImmutable() {
+      return true;
+    }
+
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "SymlinkEntry(path = ");
+      Printer.write(buffer, getPath().toString(), quotationMark);
+      Printer.append(buffer, ", artifact = ");
+      getArtifact().write(buffer, quotationMark);
+      Printer.append(buffer, ")");
     }
   }
 
