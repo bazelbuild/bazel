@@ -18,23 +18,6 @@ filegroup(
     visibility = ["//third_party/protobuf:__pkg__"],
 )
 
-filegroup(
-    name = "protoc",
-    srcs = select({
-        # protoc-windows-x86_64.exe can't deal with long path(length > 260),
-        # so use protoc-mingw.exe instead.
-        "//third_party:windows_mingw": ["protoc-3.0.0-mingw.exe"],
-        "//third_party:windows_msys64_mingw64": ["protoc-3.0.0-mingw.exe"],
-        "//third_party:windows_msys64": ["protoc-3.0.0-mingw.exe"],
-        "//third_party:windows_clang": ["protoc-3.0.0-mingw.exe"],
-        "//third_party:darwin": ["protoc-3.0.0-osx-x86_32.exe"],
-        "//third_party:k8": ["protoc-3.0.0-linux-x86_64.exe"],
-        "//third_party:piii": ["protoc-3.0.0-linux-x86_32.exe"],
-        "//third_party:freebsd": ["protoc-3.0.0-linux-x86_32.exe"],
-        "//third_party:s390x": ["protoc-linux-s390x_64.exe"],
-    }),
-)
-
 java_import(
     name = "protobuf",
     jars = ["protobuf-java-3.0.0.jar"],
@@ -317,4 +300,12 @@ proto_lang_toolchain(
     name = "java_toolchain",
     command_line = "--java_out=shared,immutable:$(OUT)",
     runtime = ":protobuf",
+)
+
+cc_binary(
+    name = "protoc",
+    srcs = ["src/google/protobuf/compiler/main.cc"],
+    linkopts = LINK_OPTS,
+    visibility = ["//visibility:public"],
+    deps = [":protoc_lib"],
 )
