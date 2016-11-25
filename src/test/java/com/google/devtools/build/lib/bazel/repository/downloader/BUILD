@@ -6,9 +6,11 @@ filegroup(
 
 java_test(
     name = "DownloaderTestSuite",
-    size = "large",  # times out on Windows otherwise
     srcs = glob(["*.java"]),
-    tags = ["rules"],
+    tags = [
+        "no_windows",
+        "rules",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
