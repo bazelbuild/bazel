@@ -109,6 +109,7 @@ import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
+import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
@@ -522,6 +523,7 @@ public class BazelRuleClassProvider {
 
           builder.addSkylarkAccessibleTopLevels("android_common", new AndroidSkylarkCommon());
           builder.addSkylarkAccessibleTopLevels("java_proto_common", JavaProtoSkylarkCommon.class);
+          builder.addSkylarkAccessibleTopLevels("java_common", JavaSkylarkCommon.INSTANCE);
 
           try {
             builder.addWorkspaceFilePrefix(

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -169,6 +168,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
     CcLinkParamsProvider ccLinkParamsProvider = new CcLinkParamsProvider(ccLinkParamsStore);
+    JavaCompilationArgsProvider compilationArgsProvider =
+        JavaCompilationArgsProvider.create(
+            javaCompilationArgs, recursiveJavaCompilationArgs,
+            compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts);
+    JavaProvider javaProvider = new JavaProvider(compilationArgsProvider);
     builder
         .add(
             JavaRuleOutputJarsProvider.class,
@@ -186,13 +190,11 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(CppCompilationContext.class, transitiveCppDeps)
-        .add(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.create(
-                javaCompilationArgs, recursiveJavaCompilationArgs,
-                compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts))
+        .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .add(JavaProvider.class, javaProvider)
         .add(CcLinkParamsProvider.class, ccLinkParamsProvider)
         .addNativeDeclaredProvider(ccLinkParamsProvider)
+        .addNativeDeclaredProvider(javaProvider)
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))

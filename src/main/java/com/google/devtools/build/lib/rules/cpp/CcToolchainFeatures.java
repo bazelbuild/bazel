@@ -29,6 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.util.Pair;
@@ -971,9 +972,9 @@ public class CcToolchainFeatures implements Serializable {
     @Immutable
     private static final class StringSequence implements VariableValue {
 
-      private final ImmutableList<String> values;
+      private final Iterable<String> values;
 
-      public StringSequence(ImmutableList<String> values) {
+      public StringSequence(Iterable<String> values) {
         Preconditions.checkNotNull(values, "Cannot create StringSequence from null");
         this.values = values;
       }
@@ -1158,13 +1159,45 @@ public class CcToolchainFeatures implements Serializable {
         return this;
       }
 
-      /** Add a sequence variable that expands {@code name} to {@code values}. */
-      public Builder addStringSequenceVariable(String name, Iterable<String> values) {
+      /**
+       * Add a sequence variable that expands {@code name} to {@code values}.
+       *
+       * <p>Accepts values as ImmutableSet. As ImmutableList has smaller memory footprint, we copy
+       * the values into a new list.
+       */
+      public Builder addStringSequenceVariable(String name, ImmutableSet<String> values) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
         ImmutableList.Builder<String> builder = ImmutableList.builder();
         builder.addAll(values);
         variablesMap.put(name, new StringSequence(builder.build()));
+        return this;
+      }
+
+      /**
+       * Add a sequence variable that expands {@code name} to {@code values}.
+       *
+       * <p>Accepts values as NestedSet. Nested set is stored directly, not cloned, not flattened.
+       */
+      public Builder addStringSequenceVariable(String name, NestedSet<String> values) {
+        Preconditions.checkArgument(
+            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        variablesMap.put(name, new StringSequence(values));
+        return this;
+      }
+
+      /**
+       * Add a sequence variable that expands {@code name} to {@code values}.
+       *
+       * <p>Accepts values as Iterable. The iterable is stored directly, not cloned, not iterated.
+       * Be mindful of memory consumption of the particular Iterable. Prefer ImmutableList, or
+       * be sure that the iterable always returns the same elements in the same order, without any
+       * side effects.
+       */
+      public Builder addStringSequenceVariable(String name, Iterable<String> values) {
+        Preconditions.checkArgument(
+            !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        variablesMap.put(name, new StringSequence(values));
         return this;
       }
 
