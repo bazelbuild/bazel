@@ -341,6 +341,13 @@ def _dbg_content():
   return {"compiler_flag": "-g"}
 
 
+def _get_system_root(repository_ctx):
+  r"""Get System root path on Windows, default is C:\\Windows."""
+  if "SYSTEMROOT" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["SYSTEMROOT"]
+  auto_configure_warning("SYSTEMROOT is not set, using default SYSTEMROOT=C:\\Windows")
+  return "C:\\Windows"
+
 def _find_cc(repository_ctx):
   """Find the C++ compiler."""
   cc_name = "gcc"
@@ -380,34 +387,43 @@ def _find_python(repository_ctx):
   auto_configure_warning("Python found at %s" % python_binary)
   return python_binary
 
-def _find_bash(repository_ctx):
-  """Find where is bash on Windows."""
-  if "BAZEL_SH" in repository_ctx.os.environ:
-    bash_binary = repository_ctx.os.environ["BAZEL_SH"]
-    if not bash_binary.endswith(".exe"):
-      bash_binary = bash_binary + ".exe"
-    return bash_binary
-  auto_configure_warning("'BAZEL_SH' is not set, start looking for bash in PATH.")
-  bash_binary = _which_cmd(repository_ctx, "bash.exe")
-  auto_configure_warning("Bash binary found at %s" % bash_binary)
-  if bash_binary.lower() == "c:/windows/system32/bash.exe":
-    auto_configure_fail("Bash on Windows currently doesn't work with Bazel, please set BAZEL_SH or make sure 'which bash' returns MSYS bash binary.")
-  return bash_binary
 
 def _find_vs_path(repository_ctx):
   """Find Visual Studio install path."""
   if "BAZEL_VS" in repository_ctx.os.environ:
     return repository_ctx.os.environ["BAZEL_VS"]
   auto_configure_warning("'BAZEL_VS' is not set, start looking for the latest Visual Studio installed.")
-  bash_bin = _find_bash(repository_ctx)
-  program_files_dir = _get_env_var(repository_ctx, "ProgramFiles(x86)", "C:\\Program Files (x86)")
-  # --version-sort let us find the latest version of Visual Studio
-  # Make sure we are using msys sort, the Windows one doesn't support --version-sort.
-  sort_binary = bash_bin[0:-8].replace("\\", "/") + "sort.exe"
-  vs_version = _execute(repository_ctx, [bash_bin, "-c", "ls '%s' | grep -E 'Microsoft Visual Studio [0-9]+' | %s --version-sort | tail -n 1" % (program_files_dir, sort_binary)])
-  if not vs_version:
-    auto_configure_fail("Visual Studio not found under %s" % program_files_dir)
-  vs_dir = program_files_dir + "/" + vs_version
+
+  # Query the installed visual stduios on the machine, should return something like:
+  # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0
+  # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\8.0
+  # ...
+  reg_binary = _get_system_root(repository_ctx) + "\\system32\\reg.exe"
+  result = _execute(repository_ctx, [reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio"])
+  vs_versions = result.split("\n")
+
+  vs_dir = None
+  vs_version_number = -1
+  for entry in vs_versions:
+    entry = entry.strip()
+    # Query InstallDir to find out where a specific version of VS is installed.
+    # The output looks like if succeeded:
+    # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0
+    #     InstallDir    REG_SZ    C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\
+    result = repository_ctx.execute([reg_binary, "query", entry, "-v", "InstallDir"])
+    if not result.stderr:
+      for line in result.stdout.split("\n"):
+        line = line.strip()
+        if line.startswith("InstallDir"):
+          path_segments = [ seg for seg in line[len("InstallDir    REG_SZ    "):].split("\\") if seg ]
+          # Extract version number X from "Microsoft Visual Studio X.0"
+          version_number = int(path_segments[-3].split(" ")[-1][:-len(".0")])
+          if version_number > vs_version_number:
+            vs_version_number = version_number
+            vs_dir = "\\".join(path_segments[:-2])
+
+  if not vs_dir:
+    auto_configure_fail("Visual Studio not found on your machine.")
   auto_configure_warning("Visual Studio found at %s" % vs_dir)
   return vs_dir
 
@@ -422,8 +438,8 @@ def _find_env_vars(repository_ctx, vs_path):
   env = repository_ctx.os.environ
   if "PATH" not in env:
     env["PATH"]=""
-  # Running VCVARSALL.BAT needs C:\\windows\\system32 to be in PATH
-  env["PATH"] = env["PATH"] + ";C:\\windows\\system32"
+  # Running VCVARSALL.BAT needs %SYSTEMROOT%\\system32 to be in PATH
+  env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
   envs = _execute(repository_ctx, ["wrapper/get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
