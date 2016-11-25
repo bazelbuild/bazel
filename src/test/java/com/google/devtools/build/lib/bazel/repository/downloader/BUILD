@@ -6,6 +6,7 @@ filegroup(
 
 java_test(
     name = "DownloaderTestSuite",
+    size = "large",  # times out on Windows otherwise
     srcs = glob(["*.java"]),
     tags = ["rules"],
     deps = [
