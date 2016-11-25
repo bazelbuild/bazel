@@ -155,10 +155,10 @@ pkg_deb(
     data = ":debian-data",
     depends = select({
         "//tools/jdk:jdk7": [
-            "java7-jdk | java7-sdk",
+            "java7-jdk | java7-sdk | oracle-java7-installer",
         ],
         "//conditions:default": [
-            "google-jdk | java8-jdk | java8-sdk",
+            "google-jdk | java8-jdk | java8-sdk | oracle-java8-installer",
         ],
     }) + [
         "g++",
