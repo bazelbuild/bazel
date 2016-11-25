@@ -114,6 +114,7 @@ java_library(
 
 java_test(
     name = "foundations_test",
+    size = "large",
     srcs = glob(
         [
             "cmdline/*.java",
