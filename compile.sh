@@ -155,6 +155,7 @@ if [ $DO_SRCS_TEST ]; then
   find . -type f | sed 's|./||' \
     | grep -v '^bazel-' | grep -v '^WORKSPACE.user.bzl' \
     | grep -v '^\.' | grep -v '^out/' | grep -v '^output/' \
+    | grep -v '^derived' \
     | grep -Ev "${SRCS_EXCLUDES}" \
     | grep -v '^tools/defaults/BUILD' \
     | sort -u >"${OUTPUT_DIR}/srcs-find"

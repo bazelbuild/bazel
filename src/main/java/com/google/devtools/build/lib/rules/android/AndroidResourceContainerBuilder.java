@@ -64,6 +64,14 @@ public final class AndroidResourceContainerBuilder {
    * @throws InterruptedException */
   public ResourceContainer buildFromRule(RuleContext ruleContext, @Nullable Artifact apk)
       throws InterruptedException {
+    return buildFromRule(ruleContext, apk, false);
+  }
+
+  /** Creates a {@link ResourceContainer} from a {@link RuleContext}.
+   * @throws InterruptedException */
+  public ResourceContainer buildFromRule(RuleContext ruleContext, @Nullable Artifact apk,
+      boolean alwaysExportManifest)
+      throws InterruptedException {
     Preconditions.checkNotNull(this.manifest);
     Preconditions.checkNotNull(this.data);
     Artifact rJavaSrcJar = ruleContext.getImplicitOutputArtifact(
@@ -81,7 +89,7 @@ public final class AndroidResourceContainerBuilder {
             data.getResources(),
             data.getAssetRoots(),
             data.getResourceRoots(),
-            getExportsManifest(ruleContext),
+            alwaysExportManifest || getExportsManifest(ruleContext),
             rOutput,
             symbolsFile);
   }

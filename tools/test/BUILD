@@ -9,12 +9,12 @@ filegroup(
 
 filegroup(
     name = "coverage_support",
-    srcs = [],
+    srcs = ["//tools/coverage:coverage_support"],
 )
 
 filegroup(
     name = "coverage_report_generator",
-    srcs = ["dummy_coverage_report_generator"],
+    srcs = ["//tools/coverage:coverage_report_generator"],
 )
 
 filegroup(

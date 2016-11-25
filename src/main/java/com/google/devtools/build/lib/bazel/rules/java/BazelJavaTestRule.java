@@ -39,8 +39,6 @@ import com.google.devtools.build.lib.rules.java.Jvm;
  */
 public final class BazelJavaTestRule implements RuleDefinition {
 
-  private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
-
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(java_test).IMPLICIT_OUTPUTS -->
@@ -60,8 +58,6 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
-        // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
-        .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>

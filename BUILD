@@ -58,3 +58,29 @@ pkg_tar(
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
+
+genrule(
+    name = "bazel-distfile",
+    srcs = [
+        ":bazel-srcs",
+        "//src:derived_java_srcs",
+    ],
+    outs = ["bazel-distfile.zip"],
+    cmd = "$(location :combine_distfiles.sh) $@ $(SRCS)",
+    tools = ["combine_distfiles.sh"],
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+genrule(
+    name = "bazel-distfile-tar",
+    srcs = [
+        ":bazel-srcs",
+        "//src:derived_java_srcs",
+    ],
+    outs = ["bazel-distfile.tar"],
+    cmd = "env USE_TAR=YES $(location :combine_distfiles.sh) $@ $(SRCS)",
+    tools = ["combine_distfiles.sh"],
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)

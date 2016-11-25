@@ -46,6 +46,8 @@ class X86Crosstools {
     // clang
     CToolchain.Builder x86Clang =
         createBaseX86ClangToolchain("x86", "i686")
+            // Workaround for https://code.google.com/p/android/issues/detail?id=220159.
+            .addCompilerFlag("-mstackrealign")
             .setToolchainIdentifier("x86-clang3.8")
             .setTargetCpu("x86")
             .addAllToolPath(ndkPaths.createClangToolpaths("x86-4.9", "i686-linux-android", null))

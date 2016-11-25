@@ -50,15 +50,24 @@ EOF
 }
 
 function create() {
-  ${RELEASE_SCRIPT} create $@ \
-      || fail "Failed to cut release $1 at commit $2"
-  local branch=$(git_get_branch)
-  assert_equals "release-$1" "$branch"
-  git show -s --pretty=format:%B >$TEST_log
+  local name="$1"
+  local commit="$2"
+  if [[ "$1" =~ ^--force_rc=([0-9]*)$ ]]; then
+    name="$2"
+    commit="$3"
+  fi
+  local old_branch=$(git_get_branch)
+  ${RELEASE_SCRIPT} create $@ &> $TEST_log \
+    || fail "Failed to cut release $name at commit $commit"
+  local new_branch=$(git_get_branch)
+  assert_equals "$old_branch" "$new_branch"
+  assert_contains "Created $name.* on branch release-$name." $TEST_log
+  git show -s --pretty=format:%B "release-$name" >$TEST_log
 }
 
 function push() {
-  local branch=$(git_get_branch)
+  local branch="release-$1"
+  git checkout "$branch"
   ${RELEASE_SCRIPT} push || fail "Failed to push release branch $branch"
   git --git-dir=${GITHUB_ROOT} branch >$TEST_log
   expect_log "$branch"
@@ -105,7 +114,8 @@ function release() {
 
 function abandon() {
   local tag="$1"
-  local branch=$(git_get_branch)
+  local branch="release-$tag"
+  git checkout "$branch"
   local changelog="$(git show master:CHANGELOG.md)"
   local master_sha1=$(git rev-parse master)
   echo y | ${RELEASE_SCRIPT} abandon || fail "Failed to abandon release ${branch}"
@@ -144,7 +154,7 @@ function test_release_workflow() {
   expect_log "Release v0"
   expect_log "Initial release"
   # Push the release branch
-  push
+  push v0
   # Do the initial release
   release v0
 
@@ -202,7 +212,9 @@ Cherry picks:
 
 '
   assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
-  push
+  assert_equals "Test replacement" "$(get_release_notes release-v1)"
+  assert_equals 1 "$(get_release_candidate release-v1)"
+  push v1
 
   # Test creating a second candidate
   echo "#!$(which true)" >${EDITOR}
@@ -222,10 +234,11 @@ Cherry picks:
   - Attribute error messages related to Android resources are easier
     to understand now.'
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
-  assert_equals 2 "$(get_release_candidate)"
+  assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
+  assert_equals 2 "$(get_release_candidate release-v1)"
 
   # Push the release
-  push
+  push v1
   release v1
 
   # Third release to test abandon
@@ -235,9 +248,10 @@ Cherry picks:
 echo 'Dummy release' >\$1
 EOF
   # Create release
-  create v2 2464526
+  create --force_rc=2 v2 2464526
   expect_log "Release v2"
   expect_log "Baseline: 2464526"
+  assert_equals 2 "$(get_release_candidate release-v2)"
   # Abandon it
   abandon v2
   # Add a commit hook to test if it is ignored
@@ -251,7 +265,7 @@ EOF
   expect_log "Baseline: 2464526"
   expect_not_log "HOOK-SHOULD-BE-IGNORED"
   # Push
-  push
+  push v2
   # Abandon it
   abandon v2
 }

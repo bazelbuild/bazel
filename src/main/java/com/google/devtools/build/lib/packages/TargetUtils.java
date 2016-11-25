@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Pair;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -191,6 +195,34 @@ public final class TargetUtils {
     ExplicitEdgeVisitor visitor = new ExplicitEdgeVisitor(rule, label);
     AggregatingAttributeMapper.of(rule).visitLabels(visitor);
     return visitor.isExplicit();
+  }
+
+  /**
+   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
+   * all of the required tags and none of the excluded tags.
+   */
+  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
+    Pair<Collection<String>, Collection<String>> tagLists =
+        TestTargetUtils.sortTagsBySense(tagFilterList);
+    final Collection<String> requiredTags = tagLists.first;
+    final Collection<String> excludedTags = tagLists.second;
+    return new Predicate<Target>() {
+      @Override
+      public boolean apply(Target input) {
+        if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
+          return true;
+        }
+
+        if (!(input instanceof Rule)) {
+          return false;
+        }
+        // Note that test_tags are those originating from the XX_test rule,
+        // whereas the requiredTags and excludedTags originate from the command
+        // line or test_suite rule.
+        return TestTargetUtils.testMatchesFilters(((Rule) input).getRuleTags(),
+            requiredTags, excludedTags, false);
+      }
+    };
   }
 
   private static class ExplicitEdgeVisitor implements AttributeMap.AcceptsLabelAttribute {

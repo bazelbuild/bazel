@@ -35,12 +35,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testAssignmentNotValidLValue() {
-    checkError("can only assign to variables and tuples, not to ''a''", "'a' = 1");
-  }
-
-  @Test
-  public void testTopLevelForStatement() throws Exception {
-    checkError("'For' is not allowed as a top level statement", "for i in [1,2,3]: a = i\n");
+    checkError("cannot assign to ''a''", "'a' = 1");
   }
 
   @Test

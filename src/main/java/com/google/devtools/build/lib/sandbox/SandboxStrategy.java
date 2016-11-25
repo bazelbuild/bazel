@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -67,6 +68,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
     EventHandler eventHandler = actionExecutionContext.getExecutor().getEventHandler();
+    ExecException execException = null;
     try {
       runner.run(
           spawn.getArguments(),
@@ -74,29 +76,33 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
           actionExecutionContext.getFileOutErr(),
           Spawns.getTimeoutSeconds(spawn),
           SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
-    } finally {
-      if (writeOutputFiles != null
-          && !writeOutputFiles.compareAndSet(null, SandboxStrategy.class)) {
-        Thread.currentThread().interrupt();
+    } catch (ExecException e) {
+      execException = e;
+    }
+
+    if (writeOutputFiles != null && !writeOutputFiles.compareAndSet(null, SandboxStrategy.class)) {
+      throw new InterruptedException();
+    }
+
+    try {
+      // We copy the outputs even when the command failed, otherwise StandaloneTestStrategy
+      // won't be able to get the test logs of a failed test. (We should probably do this in
+      // some better way.)
+      sandboxExecRoot.copyOutputs(execRoot, outputs);
+    } catch (IOException e) {
+      if (execException == null) {
+        throw new UserExecException("Could not move output artifacts from sandboxed execution", e);
       } else {
-        try {
-          // We copy the outputs even when the command failed, otherwise StandaloneTestStrategy
-          // won't be able to get the test logs of a failed test. (We should probably do this in
-          // some better way.)
-          sandboxExecRoot.copyOutputs(execRoot, outputs);
-        } catch (IOException e) {
-          // Catch the IOException and turn it into an error message, otherwise this might hide an
-          // exception thrown during runner.run earlier.
-          eventHandler.handle(
-              Event.error(
-                  "I/O exception while extracting output artifacts from sandboxed execution: "
-                      + e));
-        }
+        // Catch the IOException and turn it into an error message, otherwise this might hide an
+        // exception thrown during runner.run earlier.
+        eventHandler.handle(
+            Event.error(
+                "I/O exception while extracting output artifacts from sandboxed execution: " + e));
       }
     }
 
-    if (Thread.interrupted()) {
-      throw new InterruptedException();
+    if (execException != null) {
+      throw execException;
     }
   }
 

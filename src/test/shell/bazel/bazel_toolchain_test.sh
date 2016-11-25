@@ -17,9 +17,10 @@
 # Tests compiling using an external Linaro toolchain on a Linux machine
 #
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 if [ "${PLATFORM-}" = "darwin" -o "${MACHINE_TYPE}" = "ppc64le" ]; then
   echo "Skipping test: linaro toolchain is not supported on darwin host or ppc64le Linux."
@@ -33,6 +34,11 @@ cp -r ${testdata_path}/bazel_toolchain_test_data/* .
 # (Did not include the file WORKSPACE in the test because source tree under
 # directories that contain this file is not parsed)
 mv WORKSPACE.linaro WORKSPACE
+
+# Rename BUILD.linaro files
+for i in $(find . -name BUILD.linaro); do
+  mv "$i" "$(dirname "$i")/BUILD"
+done
 
 # Make sure that the wrapper scripts have the execution permission
 chmod +x tools/arm_compiler/linaro_linux_gcc/arm-linux-gnueabihf-*

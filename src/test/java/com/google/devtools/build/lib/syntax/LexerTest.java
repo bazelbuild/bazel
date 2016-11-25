@@ -483,4 +483,10 @@ public class LexerTest {
     assertEquals(s.length(), lastErrorLocation.getEndOffset());
     assertEquals("STRING(unterminated) NEWLINE EOF", values(tokens(s)));
   }
+
+  @Test
+  public void testUnterminatedRawStringWithEscapingError() throws Exception {
+    assertEquals("STRING NEWLINE EOF", names(tokens("r'\\")));
+    assertEquals("/some/path.txt:1: unterminated string literal at eof", lastError);
+  }
 }

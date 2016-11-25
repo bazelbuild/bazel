@@ -115,11 +115,13 @@ public final class IosTest implements RuleConfiguredTargetFactory {
       extraLinkInputs = ImmutableList.of();
       bundleFormat = ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT;
     } else {
+      xcodeProviderBuilder.setProductType(productType);
+
       XcodeProvider appIpaXcodeProvider =
           ruleContext.getPrerequisite(XCTEST_APP_ATTR, Mode.TARGET, XcodeProvider.class);
-      xcodeProviderBuilder
-          .setTestHost(appIpaXcodeProvider)
-          .setProductType(productType);
+      if (appIpaXcodeProvider != null) {
+        xcodeProviderBuilder.setTestHost(appIpaXcodeProvider);
+      }
 
       XcTestAppProvider testApp = xcTestAppProvider(ruleContext);
       Artifact bundleLoader = testApp.getBundleLoader();
@@ -149,7 +151,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
         .build();
 
-    new CompilationSupport(ruleContext)
+    new LegacyCompilationSupport(ruleContext)
         .registerLinkActions(
             common.getObjcProvider(),
             j2ObjcMappingFileProvider,
@@ -200,7 +202,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
 
     InstrumentedFilesProvider instrumentedFilesProvider =
-        new CompilationSupport(ruleContext).getInstrumentedFilesProvider(common);
+        new LegacyCompilationSupport(ruleContext).getInstrumentedFilesProvider(common);
 
     TestSupport testSupport =
         new TestSupport(ruleContext)

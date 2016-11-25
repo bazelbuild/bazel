@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -31,7 +32,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -72,7 +72,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       throws InterruptedException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     try (Mutability mutability = Mutability.create("configured target")) {
-      SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext, Kind.RULE);
+      SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext,
+          null);
       Environment env = Environment.builder(mutability)
           .setSkylark()
           .setCallerLabel(ruleContext.getLabel())
@@ -185,41 +186,47 @@ public final class SkylarkRuleConfiguredTargetBuilder {
 
     for (String outputGroup : outputGroups.keySet()) {
       SkylarkValue objects = outputGroups.get(outputGroup);
-      NestedSet<Artifact> artifacts;
-
-      String typeErrorMessage =
-          "Output group '%s' is of unexpected type. "
-              + "Should be list or set of Files, but got '%s' instead.";
-
-      if (objects instanceof SkylarkList) {
-        NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
-        for (Object o : (SkylarkList) objects) {
-          if (o instanceof Artifact) {
-            nestedSetBuilder.add((Artifact) o);
-          } else {
-            throw new EvalException(
-                loc,
-                String.format(
-                    typeErrorMessage,
-                    outputGroup,
-                    "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
-          }
-        }
-        artifacts = nestedSetBuilder.build();
-      } else {
-        artifacts =
-            SkylarkType.cast(
-                    objects,
-                    SkylarkNestedSet.class,
-                    Artifact.class,
-                    loc,
-                    typeErrorMessage,
-                    outputGroup,
-                    EvalUtils.getDataTypeName(objects, true))
-                .getSet(Artifact.class);
-      }
+      NestedSet<Artifact> artifacts = convertToOutputGroupValue(loc, outputGroup, objects);
       builder.addOutputGroup(outputGroup, artifacts);
     }
+  }
+
+  public static NestedSet<Artifact> convertToOutputGroupValue(Location loc, String outputGroup,
+      SkylarkValue objects) throws EvalException {
+    NestedSet<Artifact> artifacts;
+
+    String typeErrorMessage =
+        "Output group '%s' is of unexpected type. "
+            + "Should be list or set of Files, but got '%s' instead.";
+
+    if (objects instanceof SkylarkList) {
+      NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
+      for (Object o : (SkylarkList) objects) {
+        if (o instanceof Artifact) {
+          nestedSetBuilder.add((Artifact) o);
+        } else {
+          throw new EvalException(
+              loc,
+              String.format(
+                  typeErrorMessage,
+                  outputGroup,
+                  "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
+        }
+      }
+      artifacts = nestedSetBuilder.build();
+    } else {
+      artifacts =
+          SkylarkType.cast(
+                  objects,
+                  SkylarkNestedSet.class,
+                  Artifact.class,
+                  loc,
+                  typeErrorMessage,
+                  outputGroup,
+                  EvalUtils.getDataTypeName(objects, true))
+              .getSet(Artifact.class);
+    }
+    return artifacts;
   }
 
   private static ConfiguredTarget addStructFieldsAndBuild(
@@ -230,92 +237,140 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes)
       throws EvalException {
     Location loc = null;
-    Runfiles statelessRunfiles = null;
-    Runfiles dataRunfiles = null;
-    Runfiles defaultRunfiles = null;
+    Boolean isParsed = false;
     if (target instanceof SkylarkClassObject) {
       SkylarkClassObject struct = (SkylarkClassObject) target;
       loc = struct.getCreationLoc();
-      for (String key : struct.getKeys()) {
-        if (key.equals("files")) {
-          // If we specify files_to_build we don't have the executable in it by default.
-          builder.setFilesToBuild(cast("files", struct, SkylarkNestedSet.class, Artifact.class, loc)
-              .getSet(Artifact.class));
-        } else if (key.equals("runfiles")) {
-          statelessRunfiles = cast("runfiles", struct, Runfiles.class, loc);
-        } else if (key.equals("data_runfiles")) {
-          dataRunfiles = cast("data_runfiles", struct, Runfiles.class, loc);
-        } else if (key.equals("default_runfiles")) {
-          defaultRunfiles = cast("default_runfiles", struct, Runfiles.class, loc);
-        } else if (key.equals("output_groups")) {
-          addOutputGroups(struct.getValue(key), loc, builder);
-        } else if (key.equals("instrumented_files")) {
-          SkylarkClassObject insStruct =
-              cast("instrumented_files", struct, SkylarkClassObject.class, loc);
-          Location insLoc = insStruct.getCreationLoc();
-          FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
-          if (insStruct.getKeys().contains("extensions")) {
-            @SuppressWarnings("unchecked")
-            List<String> exts = cast(
-                "extensions", insStruct, SkylarkList.class, String.class, insLoc);
-            if (exts.isEmpty()) {
-              fileTypeSet = FileTypeSet.NO_FILE;
-            } else {
-              FileType[] fileTypes = new FileType[exts.size()];
-              for (int i = 0; i < fileTypes.length; i++) {
-                fileTypes[i] = FileType.of(exts.get(i));
-              }
-              fileTypeSet = FileTypeSet.of(fileTypes);
-            }
-          }
-          List<String> dependencyAttributes = Collections.emptyList();
-          if (insStruct.getKeys().contains("dependency_attributes")) {
-            dependencyAttributes =
-                cast("dependency_attributes", insStruct, SkylarkList.class, String.class, insLoc);
-          }
-          List<String> sourceAttributes = Collections.emptyList();
-          if (insStruct.getKeys().contains("source_attributes")) {
-            sourceAttributes =
-                cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
-          }
-          InstrumentationSpec instrumentationSpec =
-              new InstrumentationSpec(fileTypeSet)
-                  .withSourceAttributes(sourceAttributes.toArray(new String[0]))
-                  .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
-          InstrumentedFilesProvider instrumentedFilesProvider =
-              InstrumentedFilesCollector.collect(
-                  ruleContext,
-                  instrumentationSpec,
-                  InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
-                  Collections.<Artifact>emptySet());
-          builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
-        } else if (registeredProviderTypes.containsKey(key)) {
-          Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
-          TransitiveInfoProvider provider = cast(key, struct, providerType, loc);
-          builder.addProvider(providerType, provider);
-        } else if (key.equals("providers")) {
-          Iterable iterable = cast(key, struct, Iterable.class, loc);
-          for (Object o : iterable) {
-            SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
-                "The value of 'providers' should be a sequence of declared providers");
-            builder.addSkylarkDeclaredProvider(declaredProvider, loc);
-          }
-        } else if (!key.equals("executable")) {
-          // We handled executable already.
-          builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
-        }
-      }
+      parseProviderKeys(struct, false, ruleContext, loc, executable, registeredProviderTypes,
+          builder);
+      isParsed = true;
     } else if (target instanceof Iterable) {
       loc = ruleContext.getRule().getRuleClassObject().getConfiguredTargetFunction().getLocation();
       for (Object o : (Iterable) target) {
         SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
             "A return value of rule implementation function should be "
                 + "a sequence of declared providers");
-        Location creationLoc = declaredProvider.getCreationLocOrNull();
-        builder.addSkylarkDeclaredProvider(declaredProvider,
-            creationLoc != null ? creationLoc : loc);
+        if (declaredProvider.getConstructor().getKey().equals(
+            SkylarkRuleContext.getDefaultProvider().getKey())) {
+          parseProviderKeys(declaredProvider, true, ruleContext, loc, executable,
+              registeredProviderTypes, builder);
+          isParsed = true;
+        } else {
+          Location creationLoc = declaredProvider.getCreationLocOrNull();
+          builder.addSkylarkDeclaredProvider(declaredProvider,
+              creationLoc != null ? creationLoc : loc);
+        }
       }
     }
+
+    if (!isParsed) {
+      addSimpleProviders(builder, ruleContext, loc, executable, null, null, null, null);
+    }
+
+    try {
+      return builder.build();
+    } catch (IllegalArgumentException e) {
+      throw new EvalException(loc, e.getMessage());
+    }
+  }
+
+  private static void parseProviderKeys(
+      SkylarkClassObject provider,
+      Boolean isDefaultProvider,
+      RuleContext ruleContext,
+      Location loc,
+      Artifact executable,
+      Map<String, Class<? extends TransitiveInfoProvider>> registeredProviderTypes,
+      RuleConfiguredTargetBuilder builder) throws EvalException {
+    Runfiles statelessRunfiles = null;
+    Runfiles dataRunfiles = null;
+    Runfiles defaultRunfiles = null;
+
+    for (String key : provider.getKeys()) {
+      if (key.equals("files")) {
+        // If we specify files_to_build we don't have the executable in it by default.
+        builder.setFilesToBuild(cast("files", provider, SkylarkNestedSet.class, Artifact.class, loc)
+            .getSet(Artifact.class));
+      } else if (key.equals("runfiles")) {
+        statelessRunfiles = cast("runfiles", provider, Runfiles.class, loc);
+      } else if (key.equals("data_runfiles")) {
+        dataRunfiles = cast("data_runfiles", provider, Runfiles.class, loc);
+      } else if (key.equals("default_runfiles")) {
+        defaultRunfiles = cast("default_runfiles", provider, Runfiles.class, loc);
+      } else if (key.equals("output_groups")) {
+        addOutputGroups(provider.getValue(key), loc, builder);
+      } else if (key.equals("instrumented_files")) {
+        SkylarkClassObject insStruct =
+            cast("instrumented_files", provider, SkylarkClassObject.class, loc);
+        Location insLoc = insStruct.getCreationLoc();
+        FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
+        if (insStruct.getKeys().contains("extensions")) {
+          @SuppressWarnings("unchecked")
+          List<String> exts = cast(
+              "extensions", insStruct, SkylarkList.class, String.class, insLoc);
+          if (exts.isEmpty()) {
+            fileTypeSet = FileTypeSet.NO_FILE;
+          } else {
+            FileType[] fileTypes = new FileType[exts.size()];
+            for (int i = 0; i < fileTypes.length; i++) {
+              fileTypes[i] = FileType.of(exts.get(i));
+            }
+            fileTypeSet = FileTypeSet.of(fileTypes);
+          }
+        }
+        List<String> dependencyAttributes = Collections.emptyList();
+        if (insStruct.getKeys().contains("dependency_attributes")) {
+          dependencyAttributes =
+              cast("dependency_attributes", insStruct, SkylarkList.class, String.class, insLoc);
+        }
+        List<String> sourceAttributes = Collections.emptyList();
+        if (insStruct.getKeys().contains("source_attributes")) {
+          sourceAttributes =
+              cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
+        }
+        InstrumentationSpec instrumentationSpec =
+            new InstrumentationSpec(fileTypeSet)
+                .withSourceAttributes(sourceAttributes.toArray(new String[0]))
+                .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
+        InstrumentedFilesProvider instrumentedFilesProvider =
+            InstrumentedFilesCollector.collect(
+                ruleContext,
+                instrumentationSpec,
+                InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
+                Collections.<Artifact>emptySet());
+        builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
+      } else if (registeredProviderTypes.containsKey(key)) {
+        Class<? extends TransitiveInfoProvider> providerType = registeredProviderTypes.get(key);
+        TransitiveInfoProvider providerField = cast(key, provider, providerType, loc);
+        builder.addProvider(providerType, providerField);
+      } else if (isDefaultProvider) {
+        // Custom keys are not allowed for default providers
+        throw new EvalException(loc, "Invalid key for default provider: " + key);
+      } else if (key.equals("providers")) {
+        Iterable iterable = cast(key, provider, Iterable.class, loc);
+        for (Object o : iterable) {
+          SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
+              "The value of 'providers' should be a sequence of declared providers");
+          builder.addSkylarkDeclaredProvider(declaredProvider, loc);
+        }
+      } else if (!key.equals("executable")) {
+        // We handled executable already.
+        builder.addSkylarkTransitiveInfo(key, provider.getValue(key), loc);
+      }
+    }
+
+    addSimpleProviders(builder, ruleContext, loc, executable, statelessRunfiles, dataRunfiles,
+        defaultRunfiles, (isDefaultProvider ? provider : null));
+  }
+
+  private static void addSimpleProviders(RuleConfiguredTargetBuilder builder,
+      RuleContext ruleContext,
+      Location loc,
+      Artifact executable,
+      Runfiles statelessRunfiles,
+      Runfiles dataRunfiles,
+      Runfiles defaultRunfiles,
+      SkylarkClassObject defaultProvider) throws EvalException {
 
     if ((statelessRunfiles != null) && (dataRunfiles != null || defaultRunfiles != null)) {
       throw new EvalException(loc, "Cannot specify the provider 'runfiles' "
@@ -354,11 +409,16 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       builder.addSkylarkDeclaredProvider(actions, loc);
     }
 
-    try {
-      return builder.build();
-    } catch (IllegalArgumentException e) {
-      throw new EvalException(loc, e.getMessage());
-    }
+    // Populate default provider fields and build it
+    ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
+    // TODO: Add actual attributes that users expect to access from default providers
+    attrBuilder.put("runfiles", runfilesProvider);
+    SkylarkClassObject statelessDefaultProvider = SkylarkRuleContext.getDefaultProvider().create(
+        attrBuilder.build(), "Default provider has no attribute '%s'");
+
+    // Add the default provider
+    builder.addSkylarkDeclaredProvider(statelessDefaultProvider, (defaultProvider == null) ? loc
+        : Optional.fromNullable(defaultProvider.getCreationLocOrNull()).or(loc));
   }
 
   private static <T> T cast(String paramName, ClassObject struct, Class<T> expectedGenericType,

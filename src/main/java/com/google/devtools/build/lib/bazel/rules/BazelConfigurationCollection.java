@@ -184,14 +184,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
 
     for (BuildConfiguration config : allConfigurations) {
-      Transitions outgoingTransitions =
-          new BazelTransitions(config, transitionBuilder.row(config),
-              // Split transitions must not have their own split transitions because then they
-              // would be applied twice due to a quirk in DependencyResolver. See the comment in
-              // DependencyResolver.resolveLateBoundAttributes().
-              splitTransitionsTable.values().contains(config)
-                  ? ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>of()
-                  : splitTransitionsTable);
       // We allow host configurations to be shared between target configurations. In that case, the
       // transitions may already be set.
       // TODO(bazel-team): Check that the transitions are identical, or even better, change the
@@ -200,6 +192,23 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       if (config.isHostConfiguration() && config.getTransitions() != null) {
         continue;
       }
+      boolean isSplitConfig = splitTransitionsTable.values().contains(config);
+      // When --experimental_multi_cpu is set, we create multiple target configurations that only
+      // differ by --cpu. We may therefore end up with multiple identical split configurations, if
+      // the split transition overwrites the cpu, which it usually does.
+      if (isSplitConfig && config.getTransitions() != null) {
+        continue;
+      }
+      Transitions outgoingTransitions =
+          new BazelTransitions(
+              config,
+              transitionBuilder.row(config),
+              // Split transitions must not have their own split transitions because then they
+              // would be applied twice due to a quirk in DependencyResolver. See the comment in
+              // DependencyResolver.resolveLateBoundAttributes().
+              isSplitConfig
+                  ? ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>of()
+                  : splitTransitionsTable);
       config.setConfigurationTransitions(outgoingTransitions);
     }
 

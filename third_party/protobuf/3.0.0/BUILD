@@ -2,7 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-load("//third_party/protobuf:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf/3.0.0:protobuf.bzl", "py_proto_library")
+load(":proto_lang_toolchain_if_exists.bzl", "proto_lang_toolchain")
 
 filegroup(
     name = "srcs",
@@ -51,7 +52,7 @@ filegroup(
 ################################################################################
 
 py_library(
-    name = "python_srcs",
+    name = "protobuf_python_srcs",
     srcs = glob(
         [
             "python/google/protobuf/*.py",
@@ -311,4 +312,10 @@ cc_library(
     linkopts = LINK_OPTS,
     visibility = ["//visibility:public"],
     deps = [":protobuf_clib"],
+)
+
+proto_lang_toolchain(
+    name = "java_toolchain",
+    command_line = "--java_out=shared,immutable:$(OUT)",
+    runtime = ":protobuf",
 )

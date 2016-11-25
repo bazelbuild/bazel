@@ -14,13 +14,12 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.OutputService;
@@ -213,24 +212,15 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns the action context providers the module contributes to Blaze, if any.
+   * Called when Bazel initializes the action execution subsystem. This is called once per build if
+   * action execution is enabled. Modules can override this method to affect how execution is
+   * performed.
    *
-   * <p>This method will be called at the beginning of the execution phase, e.g. of the
-   * "blaze build" command.
+   * @param env the command environment
+   * @param request the build request
+   * @param builder the builder to add action context providers and consumers to
    */
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.of();
-  }
-
-  /**
-   * Returns the action context consumers that pulls in action contexts required by this module,
-   * if any.
-   *
-   * <p>This method will be called at the beginning of the execution phase, e.g. of the
-   * "blaze build" command.
-   */
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.of();
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
   }
 
   /**
@@ -241,29 +231,26 @@ public abstract class BlazeModule {
 
   /**
    * Called when Blaze shuts down.
+   *
+   * <p>If you are also implementing {@link #shutdownOnCrash()}, consider putting the common
+   * shutdown code in the latter and calling that other hook from here.
    */
   public void blazeShutdown() {
   }
 
   /**
+   * Called when Blaze shuts down due to a crash.
+   *
+   * <p>Modules may use this to flush pending state, but they must be careful to only do a minimal
+   * number of things. Keep in mind that we are crashing so who knows what state we are in. Modules
+   * rarely need to implement this.
+   */
+  public void blazeShutdownOnCrash() {}
+
+  /**
    * Perform module specific check of current command environment.
    */
   public void checkEnvironment(CommandEnvironment env) {
-  }
-
-  /**
-   * Optionally specializes the cache that ensures source files are looked at just once during
-   * a build. Only one module may do so.
-   */
-  public ActionInputFileCache createActionInputCache(String cwd, FileSystem fs) {
-    return null;
-  }
-
-  /**
-   * Returns the extensions this module contributes to the global namespace of the BUILD language.
-   */
-  public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
-    return new PackageFactory.EmptyEnvironmentExtension();
   }
 
   /**

@@ -98,7 +98,7 @@ def _impl(ctx):
     that every provider is associated with its declaration (it is a different
     type). Arguments of a provider declaration when used as a function are
     exactly the same as that of a built-in `struct` function.
-*   [Target](http://www.bazel.io/docs/skylark/lib/Target.html) objects become
+*   [Target](http://www.bazel.build/docs/skylark/lib/Target.html) objects become
     dictionaries of providers indexed by their declaration. Bracket notation can
     be used to retrieve a particular provider. Thus, provider declarations are
     [symbol-like](https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/Symbol)
@@ -137,7 +137,7 @@ find easily what can go in the deps attribute of cc_library).
 
 We allow rules to declare the providers they intend to return with a `providers`
 argument of a
-<code>[rule](http://www.bazel.io/docs/skylark/lib/globals.html#rule)</code>
+<code>[rule](http://www.bazel.build/docs/skylark/lib/globals.html#rule)</code>
 function. It is an error if the rule implementation function does not return all
 the providers listed in `providers`. It may however return additional providers.
 

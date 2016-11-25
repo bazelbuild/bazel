@@ -18,16 +18,13 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /** A Preprocessor is an interface to implement generic text-based preprocessing of BUILD files. */
@@ -183,7 +180,6 @@ public interface Preprocessor {
       byte[] buildFileBytes,
       String packageName,
       Globber globber,
-      Environment.Frame globals,
       Set<String> ruleNames)
     throws IOException, InterruptedException;
 

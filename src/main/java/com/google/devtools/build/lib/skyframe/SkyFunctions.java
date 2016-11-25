@@ -104,6 +104,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName EXTERNAL_PACKAGE = SkyFunctionName.create("EXTERNAL_PACKAGE");
   public static final SkyFunctionName ACTION_TEMPLATE_EXPANSION =
       SkyFunctionName.create("ACTION_TEMPLATE_EXPANSION");
+  public static final SkyFunctionName LOCAL_REPOSITORY_LOOKUP =
+      SkyFunctionName.create("LOCAL_REPOSITORY_LOOKUP");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

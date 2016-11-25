@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -145,6 +147,7 @@ final class SkylarkDocumentationCollector {
   private static Map<String, SkylarkModuleDoc> collectBuiltinModules(String... clazz) {
     Map<String, SkylarkModuleDoc> modules = new HashMap<>();
     collectBuiltinDoc(modules, Runtime.class.getDeclaredFields());
+    collectBuiltinDoc(modules, BazelLibrary.class.getDeclaredFields());
     collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
     for (Class<?> moduleClass : SkylarkModules.MODULES) {
       collectBuiltinDoc(modules, moduleClass.getDeclaredFields());
@@ -188,6 +191,8 @@ final class SkylarkDocumentationCollector {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
     collectBuiltinModule(modules, SkylarkRuleContext.class);
     collectBuiltinModule(modules, TransitiveInfoCollection.class);
+
+    collectBuiltinModule(modules, AbstractAction.class);
 
     collectBuiltinModule(modules, AppleConfiguration.class);
     collectBuiltinModule(modules, CppConfiguration.class);

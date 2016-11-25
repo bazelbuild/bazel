@@ -16,13 +16,10 @@
 #
 # An end-to-end test that Bazel's experimental UI produces reasonable output.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-create_and_cd_client
-put_bazel_on_path
-write_default_bazelrc
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 #### SETUP #############################################################
 
@@ -82,7 +79,8 @@ EOF
 #### TESTS #############################################################
 
 function test_basic_progress() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:true 2>$TEST_log || fail "bazel test failed"
+  bazel test --experimental_ui --curses=yes --color=yes pkg:true 2>$TEST_log \
+    || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
   # curses are used to delete at least one line
@@ -94,7 +92,7 @@ function test_basic_progress() {
 
 function test_noshow_progress() {
   bazel test --experimental_ui --noshow_progress --curses=yes --color=yes \
-    pkg:true 2>$TEST_log || fail "bazel test failed"
+    pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # Info messages should still go through
   expect_log 'Elapsed time'
   # no progress indicator is shown
@@ -103,7 +101,7 @@ function test_noshow_progress() {
 
 function test_basic_progress_no_curses() {
   bazel test --experimental_ui --curses=no --color=yes pkg:true 2>$TEST_log \
-    || fail "bazel test failed"
+    || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown
   expect_log '\[[0-9,]* / [0-9,]*\]'
   # cursor is not moved up
@@ -116,26 +114,28 @@ function test_basic_progress_no_curses() {
 
 function test_no_curses_no_linebreak() {
   bazel test --experimental_ui --curses=no --color=yes --terminal_columns=9 \
-    pkg:true 2>$TEST_log || fail "bazel test failed"
+    pkg:true 2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # expect a long-ish status line
   expect_log '\[[0-9,]* / [0-9,]*\]......'
 }
 
 function test_pass() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log || fail "bazel test failed"
+  bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log \
+    || fail "${PRODUCT_NAME} test failed"
   # PASS is written in green on the same line as the test target
   expect_log 'pkg:true.*'$'\x1b\[32m''.*PASS'
 }
 
 function test_fail() {
-  bazel test --experimental_ui --curses=yes --color=yes pkg:false >$TEST_log && fail "expected failure"
+  bazel test --experimental_ui --curses=yes --color=yes pkg:false >$TEST_log \
+    && fail "expected failure"
   # FAIL is written in red bold on the same line as the test target
   expect_log 'pkg:false.*'$'\x1b\[31m\x1b\[1m''.*FAIL'
 }
 
 function test_timestamp() {
   bazel test --experimental_ui --show_timestamps pkg:true 2>$TEST_log \
-    || fail "bazel test failed"
+    || fail "${PRODUCT_NAME} test failed"
   # expect something that looks like HH:mm:ss
   expect_log '[0-2][0-9]:[0-5][0-9]:[0-6][0-9]'
 }
@@ -145,7 +145,7 @@ function test_info_spacing() {
   # in particular free carriage-return characters.
   BAZEL_INFO_OUTPUT=XXX`bazel info --experimental_ui workspace`XXX
   echo "$BAZEL_INFO_OUTPUT" | grep -q 'XXX[^'$'\r'']*XXX' \
-    || fail "bazel info output spaced as $BAZEL_INFO_OUTPUT"
+    || fail "${PRODUCT_NAME} info output spaced as $BAZEL_INFO_OUTPUT"
 }
 
 function test_query_spacing() {
@@ -195,30 +195,30 @@ function test_version_nobuild {
 }
 
 function test_subcommand {
-  bazel clean || fail "bazel clean failed"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel build --experimental_ui -s pkg:gentext 2>$TEST_log \
     || fail "bazel build failed"
   expect_log "here be dragons"
 }
 
 function test_subcommand_notdefault {
-  bazel clean || fail "bazel clean failed"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel build --experimental_ui pkg:gentext 2>$TEST_log \
     || fail "bazel build failed"
   expect_not_log "dragons"
 }
 
 function test_loading_progress {
-  bazel clean || fail "bazel clean failed"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --experimental_ui \
     --experimental_skyframe_target_pattern_evaluator pkg:true 2>$TEST_log \
-    || fail "bazel test failed"
+    || fail "${PRODUCT_NAME} test failed"
   # some progress indicator is shown during loading
   expect_log 'Loading.*[0-9,]* packages'
 }
 
 function test_failure_scrollback_buffer_curses {
-  bazel clean || fail "bazel clean failed"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --experimental_ui --curses=yes --color=yes \
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
@@ -228,13 +228,13 @@ function test_failure_scrollback_buffer_curses {
 
 function test_terminal_title {
   bazel test --experimental_ui --progress_in_terminal_title pkg:true \
-    2>$TEST_log || fail "bazel test failed"
+    2>$TEST_log || fail "${PRODUCT_NAME} test failed"
   # The terminal title is changed
   expect_log $'\x1b\]0;.*\x07'
 }
 
 function test_failure_scrollback_buffer {
-  bazel clean || fail "bazel clean failed"
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
   bazel test --experimental_ui --curses=no --color=yes \
     --nocache_test_results pkg:false pkg:slow 2>$TEST_log \
     && fail "expected failure"
@@ -249,4 +249,4 @@ function test_streamed {
   expect_log 'foobar'
 }
 
-run_suite "Integration tests for bazel's experimental UI"
+run_suite "Integration tests for ${PRODUCT_NAME}'s experimental UI"

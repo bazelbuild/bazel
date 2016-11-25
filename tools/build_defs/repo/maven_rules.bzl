@@ -13,10 +13,15 @@
 # limitations under the License.
 
 # Implementations of Maven rules in Skylark:
-# 1) maven_jar(name, artifact, repository, sha1)
+# 1) maven_jar(name, artifact, repository, sha1, settings)
 #    The API of this is largely the same as the native maven_jar rule,
-#    except for the server attribute, which is not implemented.
-# 2) maven_dependency_plugin()
+#    except for the server attribute, which is not implemented. The optional
+#    settings supports passing a custom Maven settings.xml to download the JAR.
+# 2) maven_aar(name, artifact, repository, sha1)
+#    The API of this rule is the same as maven_jar except that the artifact must
+#    be the Maven coordinate of an AAR and it does not support the historical
+#    repository and server attributes.
+# 3) maven_dependency_plugin()
 #    This rule downloads the maven-dependency-plugin used internally
 #    for testing and the implementation for the fetching of artifacts.
 
@@ -47,11 +52,11 @@ set -ex
 def _check_dependencies(ctx):
   for dep in DEPS:
     if ctx.which(dep) == None:
-      fail("maven_jar requires %s as a dependency. Please check your PATH." % dep)
+      fail("%s requires %s as a dependency. Please check your PATH." % (ctx.name, dep))
 
 
 def _validate_attr(ctx):
-  if (ctx.attr.server != None):
+  if hasattr(ctx.attr, "server") and (ctx.attr.server != None):
     fail("%s specifies a 'server' attribute which is currently not supported." % ctx.name)
 
 
@@ -60,14 +65,18 @@ def _artifact_dir(coordinates):
                   [coordinates.artifact_id, coordinates.version])
 
 
-# Creates a struct containing the different parts of an artifact's FQN
-def _create_coordinates(fully_qualified_name):
+# Creates a struct containing the different parts of an artifact's FQN.
+# If the fully_qualified_name does not specify a packaging and the rule does
+# not set a default packaging then JAR is assumed.
+def _create_coordinates(fully_qualified_name, packaging="jar"):
   parts = fully_qualified_name.split(":")
-  packaging = None
   classifier = None
 
   if len(parts) == 3:
     group_id, artifact_id, version = parts
+    # Updates the FQN with the default packaging so that the Maven plugin
+    # downloads the correct artifact.
+    fully_qualified_name = "%s:%s" % (fully_qualified_name, packaging)
   elif len(parts) == 4:
     group_id, artifact_id, packaging, version = parts
   elif len(parts) == 5:
@@ -85,118 +94,82 @@ def _create_coordinates(fully_qualified_name):
   )
 
 
-# NOTE: Please use this method to define ALL paths that the maven_jar
-# rule uses. Doing otherwise will lead to inconsistencies and/or errors.
+# NOTE: Please use this method to define ALL paths that the maven_*
+# rules use. Doing otherwise will lead to inconsistencies and/or errors.
 #
 # CONVENTION: *_path refers to files, *_dir refers to directories.
 def _create_paths(ctx, coordinates):
   """Creates a struct that contains the paths to create the cache WORKSPACE"""
 
   # e.g. guava-18.0.jar
-  # TODO(jingwen): Make the filename conditional on package type (jar, war, etc.)
-  jar_filename = "%s-%s.jar" % (coordinates.artifact_id, coordinates.version)
-  sha1_filename = "%s.sha1" % jar_filename
+  artifact_filename = "%s-%s.%s" % (coordinates.artifact_id,
+                                    coordinates.version,
+                                    coordinates.packaging)
+  sha1_filename = "%s.sha1" % artifact_filename
 
   # e.g. com/google/guava/guava/18.0
-  relative_jar_dir = _artifact_dir(coordinates)
+  relative_artifact_dir = _artifact_dir(coordinates)
 
-  # The symlink to the actual .jar is stored in this dir, along with the
-  # BUILD file.
-  symlink_dir = "jar"
+  # The symlink to the actual artifact is stored in this dir, along with the
+  # BUILD file. The dir has the same name as the packaging to support syntax
+  # like @guava//jar and @google_play_services//aar.
+  symlink_dir = coordinates.packaging
 
   m2 = ".m2"
   m2_repo = "/".join([m2, "repository"]) # .m2/repository
 
-  m2_plugin_coordinates = _create_coordinates(MVN_PLUGIN)
-  m2_plugin_filename = "%s-%s.jar" % (m2_plugin_coordinates.artifact_id,
-                                      m2_plugin_coordinates.version)
-  m2_plugin_dir = "/".join([m2_repo, _artifact_dir(m2_plugin_coordinates)])
-
-  if (ctx.attr.local_repository):
-    bazel_m2_dir = ctx.path("%s" % (ctx.path(ctx.attr.local_repository).dirname))
-  else:
-    bazel_m2_dir = None
-
   return struct(
-      jar_filename = jar_filename,
+      artifact_filename = artifact_filename,
       sha1_filename = sha1_filename,
 
       symlink_dir = ctx.path(symlink_dir),
 
       # e.g. external/com_google_guava_guava/ \
       #        .m2/repository/com/google/guava/guava/18.0/guava-18.0.jar
-      jar_path = ctx.path("/".join([m2_repo, relative_jar_dir, jar_filename])),
-      jar_dir = ctx.path("/".join([m2_repo, relative_jar_dir])),
+      artifact_path = ctx.path("/".join([m2_repo, relative_artifact_dir, artifact_filename])),
+      artifact_dir = ctx.path("/".join([m2_repo, relative_artifact_dir])),
 
-      sha1_path = ctx.path("/".join([m2_repo, relative_jar_dir, sha1_filename])),
+      sha1_path = ctx.path("/".join([m2_repo, relative_artifact_dir, sha1_filename])),
 
       # e.g. external/com_google_guava_guava/jar/guava-18.0.jar
-      symlink_jar_path = ctx.path("/".join([symlink_dir, jar_filename])),
-
-      # maven directories and filepaths
-      m2_dir = ctx.path(m2),
-      m2_repo_dir = ctx.path(m2_repo),
-      m2_settings_path = ctx.path("settings.xml"),
-      m2_plugin_dir = ctx.path(m2_plugin_dir),
-      m2_plugin_path = ctx.path("/".join([m2_plugin_dir, m2_plugin_filename])),
-
-      bazel_m2_dir = bazel_m2_dir,
+      symlink_artifact_path = ctx.path("/".join([symlink_dir, artifact_filename])),
   )
 
-
-# Provides the syntax "@jar_name//jar" for dependencies
-def _generate_build_file(ctx, paths):
-  contents = """
+_maven_jar_build_file_template = """
 # DO NOT EDIT: automatically generated BUILD file for maven_jar rule {rule_name}
 
 java_import(
     name = 'jar',
-    jars = ['{jar_filename}'],
+    jars = ['{artifact_filename}'],
     visibility = ['//visibility:public']
 )
 
 filegroup(
     name = 'file',
-    srcs = ['{jar_filename}'],
+    srcs = ['{artifact_filename}'],
     visibility = ['//visibility:public']
-)\n""".format(rule_name = ctx.name, jar_filename = paths.jar_filename)
+)\n"""
+
+_maven_aar_build_file_template = """
+# DO NOT EDIT: automatically generated BUILD file for maven_aar rule {rule_name}
+
+aar_import(
+    name = 'aar',
+    aar = '{artifact_filename}',
+    visibility = ['//visibility:public'],
+)
+
+filegroup(
+    name = 'file',
+    srcs = ['{artifact_filename}'],
+    visibility = ['//visibility:public']
+)\n"""
+
+# Provides the syntax "@jar_name//jar" for dependencies
+def _generate_build_file(ctx, template, paths):
+  contents = template.format(
+      rule_name = ctx.name, artifact_filename = paths.artifact_filename)
   ctx.file('%s/BUILD' % paths.symlink_dir, contents, False)
-
-
-# Used for integration tests within bazel.
-def _mvn_init(ctx, paths, repository):
-  if repository == "":
-    repository = MAVEN_CENTRAL_URL
-
-  # Symlink the m2 cache to the local m2 in //external
-  ctx.symlink(paths.bazel_m2_dir, paths.m2_dir)
-
-  # Having a custom settings.xml and setting a mirror is the only way to
-  # force the Maven binary to download from the specified repository
-  # directly, and skip the default configured repositories.
-  _SETTINGS_XML = """
-<!-- # DO NOT EDIT: automatically generated settings.xml for maven_jar rule {rule_name} -->
-<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
-    https://maven.apache.org/xsd/settings-1.0.0.xsd">
-  <localRepository>{localRepository}</localRepository>
-  <mirrors>
-    <mirror>
-      <id>central</id>
-      <url>{mirror}</url>
-      <mirrorOf>*,default</mirrorOf>
-    </mirror>
-  </mirrors>
-</settings>
-""".format(
-    rule_name = ctx.name,
-    mirror = repository, # Required because the Bazel test environment has no internet access
-    localRepository = paths.m2_repo_dir,
-  )
-
-  # Overwrite default settings file
-  ctx.file("%s" % paths.m2_settings_path, _SETTINGS_XML)
 
 
 def _file_exists(ctx, filename):
@@ -206,28 +179,25 @@ def _file_exists(ctx, filename):
 # Constructs the maven command to retrieve the dependencies from remote
 # repositories using the dependency plugin, and executes it.
 def _mvn_download(ctx, paths, fully_qualified_name):
-  repository = ctx.attr.repository
-  if repository == "":
-    repository = MAVEN_CENTRAL_URL
-
   # If a custom settings file exists, we'll use that. If not, Maven will use the default settings.
   mvn_flags = ""
-  if _file_exists(ctx, paths.m2_settings_path):
-    mvn_flags += "-s %s" % paths.m2_settings_path
+  if hasattr(ctx.attr, "settings") and ctx.attr.settings != "":
+    mvn_flags += "-s %s " % ctx.attr.settings
 
   # dependency:get step. Downloads the artifact into the local repository.
   mvn_get = MVN_PLUGIN + ":get"
   mvn_artifact = "-Dartifact=%s" % fully_qualified_name
   mvn_transitive = "-Dtransitive=false"
-  mvn_remote_repo = "-Dmaven.repo.remote=%s" % repository
-  command = " ".join(["mvn", mvn_flags, mvn_get, mvn_transitive, mvn_remote_repo, mvn_artifact])
+  if hasattr(ctx.attr, "repository") and ctx.attr.repository != "":
+    mvn_flags += "-Dmaven.repo.remote=%s " % ctx.attr.repository
+  command = " ".join(["mvn", mvn_flags, mvn_get, mvn_transitive, mvn_artifact])
   exec_result = _execute(ctx, command)
   if exec_result.return_code != 0:
     fail("%s\n%s\nFailed to fetch Maven dependency" % (exec_result.stdout, exec_result.stderr))
 
   # dependency:copy step. Moves the artifact from the local repository into //external.
   mvn_copy = MVN_PLUGIN + ":copy"
-  mvn_output_dir = "-DoutputDirectory=%s" % paths.jar_dir
+  mvn_output_dir = "-DoutputDirectory=%s" % paths.artifact_dir
   command = " ".join(["mvn", mvn_flags, mvn_copy, mvn_artifact, mvn_output_dir])
   exec_result = _execute(ctx, command)
   if exec_result.return_code != 0:
@@ -235,7 +205,7 @@ def _mvn_download(ctx, paths, fully_qualified_name):
 
 
 def _check_sha1(ctx, paths, sha1):
-  actual_sha1 = _execute(ctx, "openssl sha1 %s | awk '{printf $2}'" % paths.jar_path).stdout
+  actual_sha1 = _execute(ctx, "openssl sha1 %s | awk '{printf $2}'" % paths.artifact_path).stdout
 
   if sha1.lower() != actual_sha1.lower():
     fail(("{rule_name} has SHA-1 of {actual_sha1}, " +
@@ -244,10 +214,10 @@ def _check_sha1(ctx, paths, sha1):
               expected_sha1 = sha1,
               actual_sha1 = actual_sha1))
   else:
-    _execute(ctx, "echo %s %s > %s" % (sha1, paths.jar_path, paths.sha1_path))
+    _execute(ctx, "echo %s %s > %s" % (sha1, paths.artifact_path, paths.sha1_path))
 
 
-def _maven_jar_impl(ctx):
+def _maven_artifact_impl(ctx, default_rule_packaging, build_file_template):
   # Ensure that we have all of the dependencies installed
   _check_dependencies(ctx)
 
@@ -255,24 +225,16 @@ def _maven_jar_impl(ctx):
   _validate_attr(ctx)
 
   # Create a struct to contain the different parts of the artifact FQN
-  coordinates = _create_coordinates(ctx.attr.artifact)
+  coordinates = _create_coordinates(ctx.attr.artifact, default_rule_packaging)
 
   # Create a struct to store the relative and absolute paths needed for this rule
   paths = _create_paths(ctx, coordinates)
 
   _generate_build_file(
       ctx = ctx,
+      template = build_file_template,
       paths = paths,
   )
-
-  # Initialize local settings.xml files and symlink the dependency plugin
-  # artifact to the local repository
-  if ctx.attr.local_repository:
-    _mvn_init(
-        ctx = ctx,
-        paths = paths,
-        repository = ctx.attr.repository
-    )
 
   if _execute(ctx, "mkdir -p %s" % paths.symlink_dir).return_code != 0:
     fail("%s: Failed to create dirs in execution root.\n" % ctx.name)
@@ -291,27 +253,38 @@ def _maven_jar_impl(ctx):
         sha1 = ctx.attr.sha1,
     )
 
-  ctx.symlink(paths.jar_path, paths.symlink_jar_path)
+  ctx.symlink(paths.artifact_path, paths.symlink_artifact_path)
 
 
-_maven_jar_attrs = {
+_common_maven_rule_attrs = {
     "artifact": attr.string(
         default = "",
         mandatory = True,
     ),
-    "repository": attr.string(default = ""),
-    "server": attr.label(default = None),
     "sha1": attr.string(default = ""),
-    "local_repository": attr.label(
-        default = None,
-        allow_single_file = True,
-    )
+    "settings": attr.string(default = "")
 }
 
+def _maven_jar_impl(ctx):
+  _maven_artifact_impl(ctx, "jar", _maven_jar_build_file_template)
+
+
+def _maven_aar_impl(ctx):
+  _maven_artifact_impl(ctx, "aar", _maven_aar_build_file_template)
 
 maven_jar = repository_rule(
     implementation=_maven_jar_impl,
-    attrs=_maven_jar_attrs,
+    attrs=_common_maven_rule_attrs + {
+        # Needed for compatability reasons with the native maven_jar rule.
+        "repository": attr.string(default = ""),
+        "server": attr.label(default = None),
+    },
+    local=False,
+)
+
+maven_aar = repository_rule(
+    implementation=_maven_aar_impl,
+    attrs=_common_maven_rule_attrs,
     local=False,
 )
 

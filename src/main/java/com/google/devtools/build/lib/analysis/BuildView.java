@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.concat;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
-import com.google.common.base.Verify;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -31,7 +34,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
@@ -47,6 +49,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -62,6 +66,7 @@ import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.Cove
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -70,16 +75,20 @@ import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkImport;
+import com.google.devtools.build.lib.syntax.SkylarkImports;
+import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -145,6 +154,14 @@ public class BuildView {
    * of a BuildConfiguration.
    */
   public static class Options extends OptionsBase {
+    @Option(
+      name = "loading_phase_threads",
+      defaultValue = "-1",
+      category = "what",
+      converter = LoadingPhaseThreadCountConverter.class,
+      help = "Number of parallel threads to use for the loading/analysis phase."
+    )
+    public int loadingPhaseThreads;
 
     @Option(name = "keep_going",
             abbrev = 'k',
@@ -183,6 +200,18 @@ public class BuildView {
             category = "experimental",
             help = "Only schedules extra_actions for top level targets.")
     public boolean extraActionTopLevelOnly;
+
+    @Option(
+      name = "experimental_extra_action_top_level_only_with_aspects",
+      defaultValue = "true",
+      category = "experimental",
+      help =
+          "If true and --experimental_extra_action_top_level_only=true, will include actions "
+              + "from aspects injected by top-level rules. "
+              + "This is an escape hatch in case commit df9e5e16c370391098c4432779ad4d1c9dd693ca "
+              + "breaks something."
+    )
+    public boolean extraActionTopLevelOnlyWithAspects;
 
     @Option(name = "version_window_for_dirty_node_gc",
             defaultValue = "0",
@@ -439,7 +468,22 @@ public class BuildView {
         // TODO(jfield): For consistency with Skylark loads, the aspect should be specified
         // as an absolute path. Also, we probably need to do at least basic validation of
         // path well-formedness here.
-        PathFragment bzlFile = new PathFragment("/" + aspect.substring(0, delimiterPosition));
+        String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
+        if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
+          // "Legacy" behavior of '--aspects' parameter.
+          bzlFileLoadLikeString = new PathFragment("/" + bzlFileLoadLikeString).toString();
+          if (bzlFileLoadLikeString.endsWith(".bzl")) {
+            bzlFileLoadLikeString = bzlFileLoadLikeString.substring(0,
+                bzlFileLoadLikeString.length() - ".bzl".length());
+          }
+        }
+        SkylarkImport skylarkImport;
+        try {
+          skylarkImport = SkylarkImports.create(bzlFileLoadLikeString);
+        } catch (SkylarkImportSyntaxException e) {
+          throw new ViewCreationFailedException(
+              String.format("Invalid aspect '%s': %s", aspect, e.getMessage()), e);
+        }
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (TargetAndConfiguration targetSpec : topLevelTargetsWithConfigs) {
@@ -453,7 +497,7 @@ public class BuildView {
                   // aspect and the base target while the top-level configuration is untrimmed.
                   targetSpec.getConfiguration(),
                   targetSpec.getConfiguration(),
-                  bzlFile,
+                  skylarkImport,
                   skylarkFunctionName));
         }
       } else {
@@ -464,14 +508,16 @@ public class BuildView {
             if (!(targetSpec.getTarget() instanceof Rule)) {
               continue;
             }
+            // For invoking top-level aspects, use the top-level configuration for both the
+            // aspect and the base target while the top-level configuration is untrimmed.
+            BuildConfiguration configuration = targetSpec.getConfiguration();
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
-                    // For invoking top-level aspects, use the top-level configuration for both the
-                    // aspect and the base target while the top-level configuration is untrimmed.
-                    targetSpec.getConfiguration(),
-                    targetSpec.getConfiguration(),
-                    aspectFactoryClass));
+                    configuration,
+                    new AspectDescriptor(aspectFactoryClass, AspectParameters.EMPTY),
+                    configuration
+                ));
           }
         } else {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
@@ -484,7 +530,12 @@ public class BuildView {
     try {
       skyframeAnalysisResult =
           skyframeBuildView.configureTargets(
-              eventHandler, topLevelCtKeys, aspectKeys, eventBus, viewOptions.keepGoing);
+              eventHandler,
+              topLevelCtKeys,
+              aspectKeys,
+              eventBus,
+              viewOptions.keepGoing,
+              viewOptions.loadingPhaseThreads);
       setArtifactRoots(skyframeAnalysisResult.getPackageRoots());
     } finally {
       skyframeBuildView.clearInvalidatedConfiguredTargets();
@@ -631,59 +682,86 @@ public class BuildView {
       Collection<ConfiguredTarget> configuredTargets,
       Collection<AspectValue> aspects,
       Set<Artifact> artifactsToBuild) {
-    addExtraActionsIfRequested(viewOptions, artifactsToBuild,
-        Iterables.transform(configuredTargets,
-            new Function<ConfiguredTarget, Pair<Label, ExtraActionArtifactsProvider>>() {
-              @Nullable
-              @Override
-              public Pair<Label, ExtraActionArtifactsProvider> apply(
-                  ConfiguredTarget configuredTarget) {
-                return Pair.of(
-                    configuredTarget.getLabel(),
-                    configuredTarget.getProvider(ExtraActionArtifactsProvider.class));
-              }
-            }));
-    addExtraActionsIfRequested(viewOptions, artifactsToBuild,
-        Iterables.transform(aspects,
-            new Function<AspectValue, Pair<Label, ExtraActionArtifactsProvider>>() {
-              @Nullable
-              @Override
-              public Pair<Label, ExtraActionArtifactsProvider> apply(
-                  AspectValue aspectValue) {
-                return Pair.of(
-                    aspectValue.getLabel(),
-                    aspectValue
-                        .getConfiguredAspect()
-                        .getProvider(ExtraActionArtifactsProvider.class));
-              }
-            }
-        ));
+    Iterable<Artifact> extraActionArtifacts =
+        concat(
+            addExtraActionsFromTargets(viewOptions, configuredTargets),
+            addExtraActionsFromAspects(viewOptions, aspects));
+
+    RegexFilter filter = viewOptions.extraActionFilter;
+    for (Artifact artifact : extraActionArtifacts) {
+      boolean filterMatches =
+          filter == null || filter.isIncluded(artifact.getOwnerLabel().toString());
+      if (filterMatches) {
+        artifactsToBuild.add(artifact);
+      }
+    }
   }
 
-  private void addExtraActionsIfRequested(BuildView.Options viewOptions,
-      Set<Artifact> artifactsToBuild,
-      Iterable<Pair<Label, ExtraActionArtifactsProvider>> providers) {
-    NestedSetBuilder<ExtraArtifactSet> builder = NestedSetBuilder.stableOrder();
-    for (Pair<Label, ExtraActionArtifactsProvider> labelAndProvider : providers) {
-      ExtraActionArtifactsProvider provider = labelAndProvider.getSecond();
+  private NestedSet<Artifact> addExtraActionsFromTargets(
+      BuildView.Options viewOptions, Collection<ConfiguredTarget> configuredTargets) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (ConfiguredTarget target : configuredTargets) {
+      ExtraActionArtifactsProvider provider =
+          target.getProvider(ExtraActionArtifactsProvider.class);
       if (provider != null) {
         if (viewOptions.extraActionTopLevelOnly) {
-          builder.add(ExtraArtifactSet.of(
-              labelAndProvider.getFirst(),
-              provider.getExtraActionArtifacts()));
+          if (!viewOptions.extraActionTopLevelOnlyWithAspects) {
+            builder.addTransitive(provider.getExtraActionArtifacts());
+          } else {
+            // Collect all aspect-classes that topLevel might inject.
+            Set<AspectClass> aspectClasses = new HashSet<>();
+            for (Attribute attr : target.getTarget().getAssociatedRule().getAttributes()) {
+              aspectClasses.addAll(attr.getAspectClasses());
+            }
+
+            builder.addTransitive(provider.getExtraActionArtifacts());
+            if (!aspectClasses.isEmpty()) {
+              builder.addAll(filterTransitiveExtraActions(provider, aspectClasses));
+            }
+          }
         } else {
           builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
         }
       }
     }
+    return builder.build();
+  }
 
-    RegexFilter filter = viewOptions.extraActionFilter;
-    for (ExtraArtifactSet set : builder.build()) {
-      boolean filterMatches = filter == null || filter.isIncluded(set.getLabel().toString());
-      if (filterMatches) {
-        artifactsToBuild.addAll(set.getArtifacts());
+  /**
+   * Returns a list of actions from 'provider' that were registered by an aspect from
+   * 'aspectClasses'. All actions in 'provider' are considered - both direct and transitive.
+   */
+  private ImmutableList<Artifact> filterTransitiveExtraActions(
+      ExtraActionArtifactsProvider provider, Set<AspectClass> aspectClasses) {
+    ImmutableList.Builder<Artifact> artifacts = ImmutableList.builder();
+    // Add to 'artifacts' all extra-actions which were registered by aspects which 'topLevel'
+    // might have injected.
+    for (Artifact artifact : provider.getTransitiveExtraActionArtifacts()) {
+      ArtifactOwner owner = artifact.getArtifactOwner();
+      if (owner instanceof AspectKey) {
+        if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
+          artifacts.add(artifact);
+        }
       }
     }
+    return artifacts.build();
+  }
+
+  private NestedSet<Artifact> addExtraActionsFromAspects(
+      BuildView.Options viewOptions, Collection<AspectValue> aspects) {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (AspectValue aspect : aspects) {
+      ExtraActionArtifactsProvider provider =
+          aspect.getConfiguredAspect().getProvider(ExtraActionArtifactsProvider.class);
+      if (provider != null) {
+        if (viewOptions.extraActionTopLevelOnly) {
+          builder.addTransitive(provider.getExtraActionArtifacts());
+        } else {
+          builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
+        }
+      }
+    }
+    return builder.build();
   }
 
   private static void scheduleTestsIfRequested(Collection<ConfiguredTarget> targetsToTest,
@@ -762,44 +840,49 @@ public class BuildView {
   private List<TargetAndConfiguration> getDynamicConfigurations(
       Iterable<TargetAndConfiguration> inputs, EventHandler eventHandler)
       throws InterruptedException {
-    Map<Label, TargetAndConfiguration> labelsToTargets = new LinkedHashMap<>();
-    BuildConfiguration topLevelConfig = null;
-    List<Dependency> asDeps = new ArrayList<Dependency>();
+    Map<Label, Target> labelsToTargets = new LinkedHashMap<>();
+    // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
+    // for deps including transitions. So to satisfy its API we repackage each target as a
+    // Dependency with a NONE transition.
+    Multimap<BuildConfiguration, Dependency> asDeps =
+        ArrayListMultimap.<BuildConfiguration, Dependency>create();
 
     for (TargetAndConfiguration targetAndConfig : inputs) {
-      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig);
-      BuildConfiguration targetConfig = targetAndConfig.getConfiguration();
-      if (targetConfig != null) {
-        asDeps.add(Dependency.withTransitionAndAspects(
-            targetAndConfig.getLabel(),
-            Attribute.ConfigurationTransition.NONE,
-            ImmutableSet.<AspectDescriptor>of()));  // TODO(bazel-team): support top-level aspects
-
-        // TODO(bazel-team): support multiple top-level configurations (for, e.g.,
-        // --experimental_multi_cpu). This requires refactoring the getConfigurations() call below.
-        Verify.verify(topLevelConfig == null || topLevelConfig == targetConfig);
-        topLevelConfig = targetConfig;
+      labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
+      if (targetAndConfig.getConfiguration() != null) {
+        asDeps.put(targetAndConfig.getConfiguration(),
+            Dependency.withTransitionAndAspects(
+                targetAndConfig.getLabel(),
+                Attribute.ConfigurationTransition.NONE,
+                // TODO(bazel-team): support top-level aspects
+                ImmutableSet.<AspectDescriptor>of()));
       }
     }
 
-    Map<Label, TargetAndConfiguration> successfullyEvaluatedTargets = new LinkedHashMap<>();
+    // Maps <target, originalConfig> pairs to <target, dynamicConfig> pairs for targets that
+    // could be successfully Skyframe-evaluated.
+    Map<TargetAndConfiguration, TargetAndConfiguration> successfullyEvaluatedTargets =
+        new LinkedHashMap<>();
     if (!asDeps.isEmpty()) {
-      Map<Dependency, BuildConfiguration> trimmedTargets =
-          skyframeExecutor.getConfigurations(eventHandler, topLevelConfig.getOptions(), asDeps);
-      for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entrySet()) {
-        Label targetLabel = trimmedTarget.getKey().getLabel();
-        successfullyEvaluatedTargets.put(targetLabel,
-            new TargetAndConfiguration(
-                labelsToTargets.get(targetLabel).getTarget(), trimmedTarget.getValue()));
+      for (BuildConfiguration fromConfig : asDeps.keySet()) {
+        Map<Dependency, BuildConfiguration> trimmedTargets =
+            skyframeExecutor.getConfigurations(eventHandler, fromConfig.getOptions(),
+                asDeps.get(fromConfig));
+        for (Map.Entry<Dependency, BuildConfiguration> trimmedTarget : trimmedTargets.entrySet()) {
+          Target target = labelsToTargets.get(trimmedTarget.getKey().getLabel());
+          successfullyEvaluatedTargets.put(
+              new TargetAndConfiguration(target, fromConfig),
+              new TargetAndConfiguration(target, trimmedTarget.getValue()));
+        }
       }
     }
 
     ImmutableList.Builder<TargetAndConfiguration> result =
         ImmutableList.<TargetAndConfiguration>builder();
     for (TargetAndConfiguration originalInput : inputs) {
-      if (successfullyEvaluatedTargets.containsKey(originalInput.getLabel())) {
+      if (successfullyEvaluatedTargets.containsKey(originalInput)) {
         // The configuration was successfully trimmed.
-        result.add(successfullyEvaluatedTargets.get(originalInput.getLabel()));
+        result.add(successfullyEvaluatedTargets.get(originalInput));
       } else {
         // Either the configuration couldn't be determined (e.g. loading phase error) or it's null.
         result.add(originalInput);
@@ -1022,6 +1105,7 @@ public class BuildView {
             env,
             (Rule) target.getTarget(),
             null,
+            null,
             targetConfig,
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
@@ -1053,5 +1137,36 @@ public class BuildView {
       }
     }
     return null;
+  }
+
+  /**
+   * A converter for loading phase thread count. Since the default is not a true constant, we create
+   * a converter here to implement the default logic.
+   */
+  public static final class LoadingPhaseThreadCountConverter implements Converter<Integer> {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if ("-1".equals(input)) {
+        // Reduce thread count while running tests. Test cases are typically small, and large thread
+        // pools vying for a relatively small number of CPU cores may induce non-optimal
+        // performance.
+        return System.getenv("TEST_TMPDIR") == null ? 200 : 5;
+      }
+
+      try {
+        int result = Integer.decode(input);
+        if (result < 0) {
+          throw new OptionsParsingException("'" + input + "' must be at least -1");
+        }
+        return result;
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
   }
 }

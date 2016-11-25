@@ -18,20 +18,22 @@ import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_ATTR;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.LITE_PROTO_RUNTIME_LABEL;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoLibrary;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import javax.annotation.Nullable;
 
 /** Declaration of the {@code java_lite_proto_library} rule. */
@@ -75,9 +77,11 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("strict_deps", BOOLEAN).value(true))
         .add(
-            attr(LITE_PROTO_RUNTIME_ATTR, LABEL)
-                .legacyAllowAnyFileType()
-                .value(Label.parseAbsoluteUnchecked(LITE_PROTO_RUNTIME_LABEL)))
+            attr(PROTO_TOOLCHAIN_ATTR, LABEL)
+                .mandatoryNativeProviders(
+                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                        ProtoLangToolchainProvider.class))
+                .value(PROTO_TOOLCHAIN_LABEL))
         .build();
   }
 

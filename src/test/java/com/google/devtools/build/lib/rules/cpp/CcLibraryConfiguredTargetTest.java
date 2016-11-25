@@ -240,7 +240,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getLinkopts());
+        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
   }
 
   @Test
@@ -274,7 +274,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(cppLinkInfo.getBuildInfoHeaderArtifactList())
         .containsExactlyElementsIn(buildInfoHeaderArtifacts);
     assertThat(cppLinkInfo.getLinkOptList())
-        .containsExactlyElementsIn(action.getLinkCommandLine().getLinkopts());
+        .containsExactlyElementsIn(action.getLinkCommandLine().getRawLinkArgv());
   }
 
   /**
@@ -366,9 +366,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
       fail("Should fail");
     } catch (AssertionError e) {
       assertThat(e.getMessage())
-          .contains(
-              "Invalid toolchain configuration: unknown variable 'bad_variable' "
-                  + "can not be expanded.");
+          .contains("Invalid toolchain configuration: Cannot find variable named 'bad_variable'");
     }
   }
 

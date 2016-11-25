@@ -407,6 +407,7 @@ public abstract class RepositoryFunction {
     // new_local_repository needs a dependency on the directory that `path` points to, as the
     // external/repo-name DirStateValue has a logical dependency on that directory that is not
     // reflected in the SkyFrame tree, since it's not symlinked to it or anything.
+    // new_local_repository is responsible for verifying that the path exists and is a directory.
     if (repositoryRule.getRuleClass().equals(NewLocalRepositoryRule.NAME)
         && repositoryPath.segmentCount() == 1) {
       PathFragment pathDir;

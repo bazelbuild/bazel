@@ -11,7 +11,6 @@ java_library(
     name = "util",
     srcs = glob(["*.java"]),
     deps = [
-        "//third_party:auto_value",
         "//third_party:jsr305",
         "//third_party:junit4",
     ],
@@ -19,5 +18,6 @@ java_library(
 
 filegroup(
     name = "srcs",
+    testonly = 0,  # All srcs should be not test only, overwrite package default.
     srcs = glob(["**"]),
 )

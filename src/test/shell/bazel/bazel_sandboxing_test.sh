@@ -18,12 +18,13 @@
 #
 
 # Load test environment
-src_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${src_dir}/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
-source ${src_dir}/bazel_sandboxing_test_utils.sh \
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source ${CURRENT_DIR}/bazel_sandboxing_test_utils.sh \
   || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
-source ${src_dir}/remote_helpers.sh \
+source ${CURRENT_DIR}/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 cat >>$TEST_TMPDIR/bazelrc <<'EOF'
@@ -412,12 +413,11 @@ EOF
   # returned an exit code of 0.
   expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 
-  # This is the error message printed by the EventHandler telling us that some
-  # output artifacts couldn't be copied.
-  expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
+  # This is the error message telling us that some output artifacts couldn't be copied.
+  expect_log "Could not move output artifacts from sandboxed execution.*(Permission denied)"
 
   # The build fails, because the action didn't generate its output artifact.
-  expect_log "ERROR:.*declared output 'readonlydir/output.txt' was not created by genrule"
+  expect_log "ERROR:.*Executing genrule //:test failed"
 }
 
 function test_failing_action_with_ioexception_while_copying_outputs_throws_correct_exception() {

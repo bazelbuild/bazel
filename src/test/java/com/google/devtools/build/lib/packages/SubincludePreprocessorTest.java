@@ -22,33 +22,24 @@ import static org.junit.Assert.fail;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.io.IOException;
+import java.nio.CharBuffer;
+import java.nio.charset.StandardCharsets;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-import java.nio.CharBuffer;
-import java.nio.charset.StandardCharsets;
-
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class SubincludePreprocessorTest extends PackageLoadingTestCase {
   private Path packageRoot;
   protected SubincludePreprocessor preprocessor;
-  protected Environment globalEnv =
-      Environment.builder(Mutability.create("test"))
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(reporter)
-          .build();
 
   public SubincludePreprocessorTest() {}
 
@@ -83,7 +74,6 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
             buildFileBytes,
             packageName, /*globber=*/
             null,
-            globalEnv.getGlobals(),
             /*ruleNames=*/ null);
     Event.replayEventsOn(reporter, result.events);
     return result;

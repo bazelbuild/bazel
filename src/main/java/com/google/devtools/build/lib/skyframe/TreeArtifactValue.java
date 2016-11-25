@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
@@ -37,7 +36,7 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
-public class TreeArtifactValue implements SkyValue {
+class TreeArtifactValue implements SkyValue {
   private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
       new Function<Artifact, PathFragment>() {
         @Override
@@ -58,8 +57,7 @@ public class TreeArtifactValue implements SkyValue {
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments
    * and their corresponding FileArtifactValues.
    */
-  @VisibleForTesting
-  public static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
+  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, Metadata> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
@@ -73,29 +71,29 @@ public class TreeArtifactValue implements SkyValue {
         ImmutableMap.copyOf(childFileValues));
   }
 
-  public FileArtifactValue getSelfData() {
+  FileArtifactValue getSelfData() {
     return FileArtifactValue.createProxy(digest);
   }
 
-  public Metadata getMetadata() {
+  Metadata getMetadata() {
     return new Metadata(digest.clone());
   }
 
-  public Set<PathFragment> getChildPaths() {
+  Set<PathFragment> getChildPaths() {
     return ImmutableSet.copyOf(Iterables.transform(childData.keySet(), PARENT_RELATIVE_PATHS));
   }
 
   @Nullable
-  public byte[] getDigest() {
+  byte[] getDigest() {
     return digest.clone();
   }
 
-  public Iterable<TreeFileArtifact> getChildren() {
+  Iterable<TreeFileArtifact> getChildren() {
     return childData.keySet();
   }
 
-  public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
-    return childData.get(artifact);
+  Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
+    return childData;
   }
 
   @Override
@@ -136,33 +134,33 @@ public class TreeArtifactValue implements SkyValue {
   static final TreeArtifactValue MISSING_TREE_ARTIFACT = new TreeArtifactValue(null,
       ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
     @Override
-    public FileArtifactValue getSelfData() {
+    FileArtifactValue getSelfData() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Iterable<TreeFileArtifact> getChildren() {
+    Iterable<TreeFileArtifact> getChildren() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
+    Map<TreeFileArtifact, FileArtifactValue> getChildValues() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Metadata getMetadata() {
+    Metadata getMetadata() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Set<PathFragment> getChildPaths() {
+    Set<PathFragment> getChildPaths() {
       throw new UnsupportedOperationException();
     }
 
     @Nullable
     @Override
-    public byte[] getDigest() {
+    byte[] getDigest() {
       throw new UnsupportedOperationException();
     }
 
@@ -182,29 +180,43 @@ public class TreeArtifactValue implements SkyValue {
     }
   };
 
-  /**
-   * Exception used when the contents of a directory do not form a valid SetArtifact.
-   * (We cannot use IOException because ActionMetadataHandler, in some code paths,
-   * interprets IOExceptions as missing files.)
-   */
-  static class TreeArtifactException extends Exception {
-    TreeArtifactException(String message) {
-      super(message);
-    }
-  }
-
-  private static void explodeDirectory(Artifact rootArtifact,
+  private static void explodeDirectory(Artifact treeArtifact,
       PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
-      throws IOException, TreeArtifactException {
-    for (Path subpath : rootArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
+      throws IOException {
+    for (Path subpath : treeArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
       PathFragment canonicalSubpathFragment =
           pathToExplode.getChild(subpath.getBaseName()).normalize();
       if (subpath.isDirectory()) {
-        explodeDirectory(rootArtifact,
+        explodeDirectory(treeArtifact,
             pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
       } else if (subpath.isSymbolicLink()) {
-        throw new TreeArtifactException(
-            "A SetArtifact may not contain a symlink, found " + subpath);
+        PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
+        if (linkTarget.isAbsolute()) {
+          String errorMessage = String.format(
+              "A TreeArtifact may not contain absolute symlinks, found %s pointing to %s.",
+              subpath,
+              linkTarget);
+          throw new IOException(errorMessage);
+        }
+
+        // We visit each path segment of the link target to catch any path traversal outside of the
+        // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have
+        // a symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this
+        // symlink points to a file under the TreeArtifact, the link target traverses outside of the
+        // TreeArtifact into a/b/outside_dir.
+        PathFragment intermediatePath = canonicalSubpathFragment.getParentDirectory();
+        for (String pathSegment : linkTarget.getSegments()) {
+          intermediatePath = intermediatePath.getRelative(pathSegment).normalize();
+          if (intermediatePath.containsUplevelReferences()) {
+            String errorMessage = String.format(
+                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                + "outside of the TreeArtifact, found %s pointing to %s.",
+                subpath,
+                linkTarget);
+            throw new IOException(errorMessage);
+          }
+        }
+        valuesBuilder.add(canonicalSubpathFragment);
       } else if (subpath.isFile()) {
         valuesBuilder.add(canonicalSubpathFragment);
       } else {
@@ -217,13 +229,12 @@ public class TreeArtifactValue implements SkyValue {
   /**
    * Recursively get all child files in a directory
    * (excluding child directories themselves, but including all files in them).
-   * @throws IOException if one was thrown reading directory contents from disk.
-   * @throws TreeArtifactException if the on-disk directory is not a valid TreeArtifact.
+   * @throws IOException if there is any problem reading or validating outputs under the given
+   *     tree artifact.
    */
-  static Set<PathFragment> explodeDirectory(Artifact rootArtifact)
-      throws IOException, TreeArtifactException {
+  static Set<PathFragment> explodeDirectory(Artifact treeArtifact) throws IOException {
     ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
-    explodeDirectory(rootArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
+    explodeDirectory(treeArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
     return explodedDirectory.build();
   }
 }

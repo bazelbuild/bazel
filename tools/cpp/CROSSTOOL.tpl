@@ -297,7 +297,7 @@ toolchain {
      config_name: 'c++-link-executable'
      action_name: 'c++-link-executable'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
@@ -309,20 +309,21 @@ toolchain {
      config_name: 'c++-link-dynamic-library'
      action_name: 'c++-link-dynamic-library'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'shared_flag'
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
      implies: 'global_whole_archive'
+     implies: 'has_configured_linker_path'
   }
 
   action_config {
      config_name: 'c++-link-static-library'
      action_name: 'c++-link-static-library'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
      implies: 'global_whole_archive'
@@ -332,7 +333,7 @@ toolchain {
      config_name: 'c++-link-alwayslink-static-library'
      action_name: 'c++-link-alwayslink-static-library'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
      implies: 'global_whole_archive'
@@ -344,7 +345,7 @@ toolchain {
      config_name: 'c++-link-pic-static-library'
      action_name: 'c++-link-pic-static-library'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
      implies: 'global_whole_archive'
@@ -354,7 +355,7 @@ toolchain {
      config_name: 'c++-link-alwayslink-pic-static-library'
      action_name: 'c++-link-alwayslink-pic-static-library'
      tool {
-         tool_path: 'DUMMY_TOOL'
+         tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
      implies: 'global_whole_archive'
@@ -364,8 +365,12 @@ toolchain {
     config_name: 'c++-link-interface-dynamic-library'
     action_name: 'c++-link-interface-dynamic-library'
     tool {
-      tool_path: 'DUMMY_TOOL'
+      tool_path: 'wrapper/bin/msvc_link.bat'
     }
+  }
+
+  feature {
+    name: 'has_configured_linker_path'
   }
 
   feature {
@@ -425,21 +430,7 @@ toolchain {
          action: 'c++-link-pic-static-library'
          action: 'c++-link-alwayslink-pic-static-library'
          flag_group {
-            # If MSVC linker supports /WHOLEARCHIVE, this field will be enabled
-            %{whole_archive_linker_params}
-         }
-     }
-     flag_set {
-         expand_if_all_available: 'whole_archive_object_files_params'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         action: 'c++-link-static-library'
-         action: 'c++-link-alwayslink-static-library'
-         action: 'c++-link-pic-static-library'
-         action: 'c++-link-alwayslink-pic-static-library'
-         flag_group {
-            # If MSVC linker doesn't support /WHOLEARCHIVE, this field will be enabled
-            %{whole_archive_object_files_params}
+            flag: '/WHOLEARCHIVE:%{whole_archive_linker_params}'
          }
      }
      flag_set {
@@ -467,8 +458,7 @@ toolchain {
        action: 'c++-link-pic-static-library'
        action: 'c++-link-alwayslink-pic-static-library'
        flag_group {
-           # If MSVC linker supports /WHOLEARCHIVE, this field will be enabled
-           %{global_whole_archive}
+           flag: '/WHOLEARCHIVE'
        }
    }
 }

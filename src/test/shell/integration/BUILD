@@ -10,7 +10,6 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = [
-        "testenv.sh",
         "//src/test/shell/bazel:test-deps",
     ],
 )
@@ -126,9 +125,50 @@ sh_test(
 )
 
 sh_test(
-    name = "ide_info_generation",
+    name = "client_sigint_test",
+    size = "medium",
+    srcs = ["client_sigint_test.sh"],
+    data = [":test-deps"],
+    # This test doesn't work with the sandbox on, see the source file
+    # for details.
+    tags = ["local"],
+)
+
+sh_test(
+    name = "force_delete_output_test",
+    size = "medium",
+    srcs = ["force_delete_output_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "ide_info_generation_native",
     size = "large",
     srcs = ["ide_info_generation.sh"],
+    args = [
+        "AndroidStudioInfoAspect",
+        "ide-info",
+        "aswb-build",
+        "ide-info-text",
+        "aswb-build.txt",
+    ],
+    data = [
+        ":test-deps",
+        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
+    ],
+)
+
+sh_test(
+    name = "ide_info_generation_skylark",
+    size = "large",
+    srcs = ["ide_info_generation.sh"],
+    args = [
+        "@bazel_tools//tools/ide:intellij_info.bzl%intellij_info_aspect",
+        "ide-info-text",
+        "intellij-build.txt",
+        "ide-info-text",
+        "intellij-build.txt",
+    ],
     data = [
         ":test-deps",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
@@ -162,6 +202,13 @@ sh_test(
     srcs = ["discard_graph_edges_test.sh"],
     data = [":test-deps"],
     shard_count = 5,
+)
+
+sh_test(
+    name = "build_event_stream_test",
+    size = "medium",
+    srcs = ["build_event_stream_test.sh"],
+    data = [":test-deps"],
 )
 
 test_suite(

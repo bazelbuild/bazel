@@ -81,43 +81,39 @@ import javax.annotation.Nullable;
 public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, SkylarkQueryable {
 
   private final SkylarkType contentType;
-  @Nullable private final List<Object> items;
-  @Nullable private final List<NestedSet<Object>> transitiveItems;
   private final NestedSet<?> set;
+  @Nullable private final List<Object> items;
+  @Nullable private final List<NestedSet> transitiveItems;
 
   public SkylarkNestedSet(Order order, Object item, Location loc) throws EvalException {
-    this(order, SkylarkType.TOP, item, loc, new ArrayList<Object>(),
-        new ArrayList<NestedSet<Object>>());
+    this(order, SkylarkType.TOP, item, loc, null);
   }
 
   public SkylarkNestedSet(SkylarkNestedSet left, Object right, Location loc) throws EvalException {
-    this(left.set.getOrder(), left.contentType, right, loc,
-        new ArrayList<Object>(checkItems(left.items, loc)),
-        new ArrayList<NestedSet<Object>>(checkItems(left.transitiveItems, loc)));
-  }
-
-  private static <T> T checkItems(T items, Location loc) throws EvalException {
-    // SkylarkNestedSets created directly from ordinary NestedSets (those were created in a
-    // native rule) don't have directly accessible items and transitiveItems, so we cannot
-    // add more elements to them.
-    if (items == null) {
-      throw new EvalException(loc, "Cannot add more elements to this set. Sets created in "
-          + "native rules cannot be left side operands of the + operator.");
-    }
-    return items;
+    this(left.set.getOrder(), left.contentType, right, loc, left);
   }
 
   // This is safe because of the type checking
   @SuppressWarnings("unchecked")
   private SkylarkNestedSet(Order order, SkylarkType contentType, Object item, Location loc,
-      List<Object> items, List<NestedSet<Object>> transitiveItems) throws EvalException {
+    @Nullable SkylarkNestedSet left) throws EvalException {
 
+    ArrayList<Object> items = new ArrayList<>();
+    ArrayList<NestedSet> transitiveItems = new ArrayList<>();
+    if (left != null) {
+      if (left.items == null) { // SkylarkSet created from native NestedSet
+        transitiveItems.add(left.set);
+      } else { // Preserving the left-to-right addition order.
+        items.addAll(left.items);
+        transitiveItems.addAll(left.transitiveItems);
+      }
+    }
     // Adding the item
     if (item instanceof SkylarkNestedSet) {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
         contentType = checkType(contentType, nestedSet.contentType, loc);
-        transitiveItems.add((NestedSet<Object>) nestedSet.set);
+        transitiveItems.add(nestedSet.set);
       }
     } else if (item instanceof SkylarkList) {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
@@ -137,7 +133,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
     builder.addAll(items);
     try {
-      for (NestedSet<Object> nestedSet : transitiveItems) {
+      for (NestedSet<?> nestedSet : transitiveItems) {
         builder.addTransitive(nestedSet);
       }
     } catch (IllegalStateException e) {

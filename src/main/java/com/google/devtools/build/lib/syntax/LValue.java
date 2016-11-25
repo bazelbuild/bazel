@@ -91,7 +91,7 @@ public class LValue implements Serializable {
       return;
     }
     throw new EvalException(loc,
-        "can only assign to variables and tuples, not to '" + lvalue + "'");
+        "cannot assign to '" + lvalue + "'");
   }
 
   @SuppressWarnings("unchecked")
@@ -101,7 +101,7 @@ public class LValue implements Serializable {
     if (o instanceof SkylarkDict) {
       SkylarkDict<Object, Object> dict = (SkylarkDict<Object, Object>) o;
       dict.put(key, value, loc, env);
-    } else if (o instanceof  SkylarkList) {
+    } else if (o instanceof SkylarkList) {
       SkylarkList<Object> list = (SkylarkList<Object>) o;
       list.set(key, value, loc, env);
     } else {
@@ -155,7 +155,7 @@ public class LValue implements Serializable {
       return;
     }
     throw new EvalException(loc,
-        "can only assign to variables and tuples, not to '" + expr + "'");
+        "cannot assign to '" + expr + "'");
   }
 
   @Override

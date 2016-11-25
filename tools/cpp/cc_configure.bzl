@@ -67,7 +67,7 @@ def _get_env_var(repository_ctx, name, default = None):
   auto_configure_fail("'%s' environment variable is not set" % name)
 
 
-def _which(repository_ctx, cmd, default):
+def _which(repository_ctx, cmd, default = None):
   """A wrapper around repository_ctx.which() to provide a fallback value."""
   result = repository_ctx.which(cmd)
   return default if result == None else str(result)
@@ -86,9 +86,12 @@ def _which_cmd(repository_ctx, cmd, default = None):
   return str(result)
 
 
-def _execute(repository_ctx, command):
+def _execute(repository_ctx, command, environment = None):
   """Execute a command, return stdout if succeed and throw an error if it fails."""
-  result = repository_ctx.execute(command)
+  if environment:
+    result = repository_ctx.execute(command, environment = environment)
+  else:
+    result = repository_ctx.execute(command)
   if result.stderr:
     auto_configure_fail(result.stderr)
   else:
@@ -112,19 +115,6 @@ def _get_tool_paths(repository_ctx, darwin, cc):
               "ar": "/usr/bin/libtool"
                     if darwin else _which(repository_ctx, "ar", "/usr/bin/ar")
           }
-
-
-def _ld_library_paths(repository_ctx):
-  """Use ${LD_LIBRARY_PATH} to compute the list -Wl,rpath flags."""
-  if "LD_LIBRARY_PATH" in repository_ctx.os.environ:
-    result = []
-    for p in repository_ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
-      p = str(repository_ctx.path(p))  # Normalize the path
-      result.append("-Wl,-rpath," + p)
-      result.append("-L" + p)
-    return result
-  else:
-    return []
 
 
 def _cplus_include_paths(repository_ctx):
@@ -243,7 +233,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               # Gold linker only? Can we enable this by default?
               # "-Wl,--warn-execstack",
               # "-Wl,--detect-odr-violations"
-          ]) + _ld_library_paths(repository_ctx),
+          ]),
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
@@ -371,6 +361,15 @@ def _find_cc(repository_ctx):
   return cc
 
 
+def _find_cuda(repository_ctx):
+  """Find out if and where cuda is installed."""
+  if "CUDA_PATH" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["CUDA_PATH"]
+  nvcc = _which(repository_ctx, "nvcc.exe")
+  if nvcc:
+    return nvcc[:-len("/bin/nvcc.exe")]
+  return None
+
 def _find_python(repository_ctx):
   """Find where is python on Windows."""
   if "BAZEL_PYTHON" in repository_ctx.os.environ:
@@ -422,7 +421,12 @@ def _find_env_vars(repository_ctx, vs_path):
                       "@echo off\n" +
                       "call \"" + vsvars + "\" amd64 \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  envs = _execute(repository_ctx, ["wrapper/get_env.bat"]).split(",")
+  env = repository_ctx.os.environ
+  if "PATH" not in env:
+    env["PATH"]=""
+  # Running VCVARSALL.BAT needs C:\\windows\\system32 to be in PATH
+  env["PATH"] = env["PATH"] + ";C:\\windows\\system32"
+  envs = _execute(repository_ctx, ["wrapper/get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
     key, value = env.split("=")
@@ -432,8 +436,28 @@ def _find_env_vars(repository_ctx, vs_path):
 
 def _is_support_whole_archive(repository_ctx, vs_dir):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
+  env = repository_ctx.os.environ
+  if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
+    return False
   result = _execute(repository_ctx, [vs_dir + "/VC/BIN/amd64/link"])
   return result.find("/WHOLEARCHIVE") != -1
+
+
+def _cuda_compute_capabilities(repository_ctx):
+  """Returns a list of strings representing cuda compute capabilities."""
+
+  if "CUDA_COMPUTE_CAPABILITIES" not in repository_ctx.os.environ:
+    return ["3.5", "5.2"]
+  capabilities_str = repository_ctx.os.environ["CUDA_COMPUTE_CAPABILITIES"]
+  capabilities = capabilities_str.split(",")
+  for capability in capabilities:
+    # Workaround for Skylark's lack of support for regex. This check should
+    # be equivalent to checking:
+    #     if re.match("[0-9]+.[0-9]+", capability) == None:
+    parts = capability.split(".")
+    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].isdigit():
+      auto_configure_fail("Invalid compute capability: %s" % capability)
+  return capabilities
 
 
 def _tpl(repository_ctx, tpl, substitutions={}, out=None):
@@ -484,37 +508,40 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
-    tmp_dir = _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp")
+    lib_tool = vs_path.replace("\\", "\\\\") + "/VC/bin/amd64/lib.exe"
+    if _is_support_whole_archive(repository_ctx, vs_path):
+      support_whole_archive = "True"
+    else:
+      support_whole_archive = "False"
+    tmp_dir = _get_env_var(repository_ctx, "TMP", "C:\\Windows\\Temp").replace("\\", "\\\\")
+    # Make sure nvcc.exe is in PATH
+    paths = env["PATH"]
+    cuda_path = _find_cuda(repository_ctx)
+    if cuda_path:
+      paths = (cuda_path.replace("\\", "\\\\") + "/bin;") + paths
+    compute_capabilities = _cuda_compute_capabilities(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{tmp}": tmp_dir.replace("\\", "\\\\"),
-        "%{path}": env["PATH"],
+        "%{tmp}": tmp_dir,
+        "%{path}": paths,
         "%{include}": include_paths,
         "%{lib}": lib_paths,
+        "%{lib_tool}": lib_tool,
+        "%{support_whole_archive}": support_whole_archive,
+        "%{cuda_compute_capabilities}": ", ".join(
+            ["\"%s\"" % c for c in compute_capabilities]),
     })
 
-    cxx_include_directories = []
+    # nvcc will generate some source files under tmp_dir
+    cxx_include_directories = [ "cxx_builtin_include_directory: \"%s\"" % tmp_dir ]
     for path in include_paths.split(";"):
       if path:
         cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
-
-    if _is_support_whole_archive(repository_ctx, vs_path):
-      whole_archive_linker_params = "flag: '/WHOLEARCHIVE:%{whole_archive_linker_params}'"
-      global_whole_archive = "flag: '/WHOLEARCHIVE'"
-      whole_archive_object_files_params = ""
-    else:
-      whole_archive_linker_params = ""
-      global_whole_archive = ""
-      whole_archive_object_files_params = "flag: '%{whole_archive_object_files_params}'"
-
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
         "%{content}": _get_windows_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
         "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
-        "%{whole_archive_linker_params}": whole_archive_linker_params,
-        "%{whole_archive_object_files_params}": whole_archive_object_files_params,
-        "%{global_whole_archive}": global_whole_archive,
     })
   else:
     darwin = cpu_value == "darwin"
@@ -540,9 +567,6 @@ def _impl(repository_ctx):
         "%{opt_content}": _build_crosstool(opt_content, "    "),
         "%{dbg_content}": _build_crosstool(dbg_content, "    "),
         "%{cxx_builtin_include_directory}": "",
-        "%{whole_archive_linker_params}": "",
-        "%{whole_archive_object_files_params}": "",
-        "%{global_whole_archive}": "",
     })
 
 

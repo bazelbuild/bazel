@@ -177,7 +177,7 @@ public class RunCommand implements BlazeCommand  {
       }
       for (ConfiguredTarget target : targetsBuilt) {
         ExitCode targetValidation = fullyValidateTarget(env, target);
-        if (targetValidation != ExitCode.SUCCESS) {
+        if (!targetValidation.equals(ExitCode.SUCCESS)) {
           return targetValidation;
         }
         if (runUnder != null && target.getLabel().equals(runUnder.getLabel())) {

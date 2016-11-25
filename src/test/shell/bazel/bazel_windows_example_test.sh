@@ -22,9 +22,9 @@ if ! type rlocation &> /dev/null; then
   exit 0
 fi
 
-# Load test environment
-source $(rlocation io_bazel/src/test/shell/bazel/test-setup.sh) \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+source $(rlocation io_bazel/src/test/shell/integration_test_setup.sh) \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 if ! is_windows; then
   echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
@@ -33,7 +33,7 @@ fi
 
 function set_up() {
   copy_examples
-  export PATH=$PATH:/c/python_27_amd64/files
+  export PATH=/c/python_27_amd64/files:$PATH
   EXTRA_BAZELRC="build --cpu=x64_windows_msvc"
   setup_bazelrc
 }
@@ -58,6 +58,48 @@ function test_cpp() {
   assert_bazel_run "//examples/cpp:hello-world foo" "Hello foo"
   assert_test_ok "//examples/cpp:hello-success_test"
   assert_test_fails "//examples/cpp:hello-fail_test"
+}
+
+function test_cpp_alwayslink() {
+  mkdir -p cpp/main
+  cat >cpp/main/BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    alwayslink = 1,
+)
+cc_library(
+    name = "main",
+    srcs = ["main.cc"],
+)
+cc_binary(
+    name = "bin",
+    deps = [":main", ":lib"],
+)
+EOF
+
+  cat >cpp/main/lib.cc <<EOF
+extern int global_variable;
+int init() {
+    ++global_variable;
+    return global_variable;
+}
+int x = init();
+int y = init();
+EOF
+
+  cat >cpp/main/main.cc <<EOF
+#include<stdio.h>
+int global_variable = 0;
+int main(void) {
+    printf("global : %d\n", global_variable);
+    return 0;
+}
+EOF
+  assert_build //cpp/main:bin
+  ./bazel-bin/cpp/main/bin >& $TEST_log \
+    || fail "//cpp/main:bin execution failed"
+  expect_log "global : 2"
 }
 
 function test_java() {

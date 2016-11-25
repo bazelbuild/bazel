@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 
@@ -44,24 +44,17 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget configureExperimentalObjcLibrary(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     validateAttributes(ruleContext);
-
-    CompilationArtifacts compilationArtifacts =
-        CompilationSupport.compilationArtifacts(ruleContext);
-    CompilationSupport compilationSupport = new CompilationSupport(ruleContext);
-
+    
     ObjcCommon common = common(ruleContext);
 
-    CrosstoolSupport crosstoolSupport = new CrosstoolSupport(ruleContext, common.getObjcProvider());
+    CompilationSupport compilationSupport =
+        new CrosstoolCompilationSupport(ruleContext)
+            .validateAttributes()
+            .registerCompileAndArchiveActions(common)
+            .registerFullyLinkAction(
+                common.getObjcProvider(),
+                ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));
 
-    TransitiveInfoProviderMap compilationProviders;
-    if (compilationArtifacts.getArchive().isPresent()) {
-      compilationProviders = crosstoolSupport.registerCompileAndArchiveActions(common);
-    } else {
-      compilationProviders = crosstoolSupport.registerCompileActions(common);
-    }
-    
-    crosstoolSupport.registerFullyLinkAction(common);
-    
     NestedSetBuilder<Artifact> filesToBuild =
         NestedSetBuilder.<Artifact>stableOrder().addAll(common.getCompiledArchive().asSet());
 
@@ -81,9 +74,22 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             xcodeProviderBuilder, new Attribute("non_propagated_deps", Mode.TARGET))
         .registerActions(xcodeProviderBuilder.build());
 
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
+        new J2ObjcEntryClassProvider.Builder()
+            .addTransitive(
+                ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
+            .build();
+
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addProvider(ObjcProvider.class, common.getObjcProvider())
-        .addProviders(compilationProviders)
+        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
+        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
+        .addProvider(
+            CcLinkParamsProvider.class,
+            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .addProvider(ObjcProvider.class, common.getObjcProvider())
         .addProvider(XcodeProvider.class, xcodeProviderBuilder.build())
         .build();

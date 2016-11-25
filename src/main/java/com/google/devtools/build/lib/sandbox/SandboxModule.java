@@ -15,15 +15,11 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsBase;
 import java.io.IOException;
 
@@ -31,28 +27,6 @@ import java.io.IOException;
  * This module provides the Sandbox spawn strategy.
  */
 public final class SandboxModule extends BlazeModule {
-  // Per-command state
-  private CommandEnvironment env;
-  private BuildRequest buildRequest;
-
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    Preconditions.checkNotNull(env);
-    Preconditions.checkNotNull(buildRequest);
-    try {
-      return ImmutableList.<ActionContextProvider>of(
-          SandboxActionContextProvider.create(env, buildRequest));
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    Preconditions.checkNotNull(env);
-    return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer(env));
-  }
-
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
@@ -61,19 +35,12 @@ public final class SandboxModule extends BlazeModule {
   }
 
   @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
-    this.env = env;
-    env.getEventBus().register(this);
-  }
-
-  @Override
-  public void afterCommand() {
-    env = null;
-    buildRequest = null;
-  }
-
-  @Subscribe
-  public void buildStarting(BuildStartingEvent event) {
-    buildRequest = event.getRequest();
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    try {
+      builder.addActionContextProvider(SandboxActionContextProvider.create(env, request));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
+    builder.addActionContextConsumer(new SandboxActionContextConsumer(env));
   }
 }

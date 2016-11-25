@@ -32,7 +32,7 @@ directory: to remove all external artifacts, use `bazel clean --expunge`.
 
 By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
-[`bazel fetch`](http://bazel.io/docs/bazel-user-manual.html#fetch).
+[`bazel fetch`](http://bazel.build/docs/bazel-user-manual.html#fetch).
 
 ## Using Proxies
 
@@ -104,7 +104,7 @@ other versions requested, for example:
 # org.springframework:spring-support:2.0.2 wanted version 1.0.2
 # org.slf4j:nlog4j:1.2.24 wanted version 1.0.2
 maven_jar(
-    name = "javax/activation/activation",
+    name = "javax_activation_activation",
     artifact = "javax.activation:activation:1.1",
 )
 ```
@@ -127,8 +127,8 @@ There are a few basic types of external dependencies that can be created.
 
 If you have a second Bazel project that you'd like to use targets from, you can
 use
-[`local_repository`](http://bazel.io/docs/be/workspace.html#local_repository)
-or [`http_archive`](http://bazel.io/docs/be/workspace.html#http_archive)
+[`local_repository`](http://bazel.build/docs/be/workspace.html#local_repository)
+or [`http_archive`](http://bazel.build/docs/be/workspace.html#http_archive)
 to symlink it from the local filesystem or download it (respectively).
 
 For example, suppose you are working on a project, `my-project/`, and you want
@@ -150,8 +150,8 @@ If your coworker has a target `//foo:bar`, your project can refer to it as
 ## Depending on non-Bazel projects
 
 Rules prefixed with `new_` (e.g.,
-[`new_local_repository`](http://bazel.io/docs/be/workspace.html#new_local_repository)
-and [`new_http_archive`](http://bazel.io/docs/be/workspace.html#new_http_archive)
+[`new_local_repository`](http://bazel.build/docs/be/workspace.html#new_local_repository)
+and [`new_http_archive`](http://bazel.build/docs/be/workspace.html#new_http_archive)
 ) allow you to create targets from projects that do not use Bazel.
 
 For example, suppose you are working on a project, `my-project/`, and you want

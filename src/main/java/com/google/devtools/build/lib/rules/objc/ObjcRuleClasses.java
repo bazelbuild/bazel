@@ -73,7 +73,6 @@ public class ObjcRuleClasses {
 
   static final String CLANG = "clang";
   static final String CLANG_PLUSPLUS = "clang++";
-  static final String SWIFT = "swift";
   static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
@@ -371,8 +370,6 @@ public class ObjcRuleClasses {
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
   static final FileType OBJECT_FILE_SOURCES = FileType.of(".o");
-  
-  static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
   /**
    * Header files, which are not compiled directly, but may be included/imported from source files.
@@ -388,14 +385,11 @@ public class ObjcRuleClasses {
           CPP_SOURCES,
           ASSEMBLY_SOURCES,
           OBJECT_FILE_SOURCES,
-          SWIFT_SOURCES,
           HEADERS);
 
-  /**
-   * Files that should actually be compiled.
-   */
-  static final FileTypeSet COMPILABLE_SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
-      ASSEMBLY_SOURCES, SWIFT_SOURCES);
+  /** Files that should actually be compiled. */
+  static final FileTypeSet COMPILABLE_SRCS_TYPE =
+      FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES, ASSEMBLY_SOURCES);
 
   /**
    * Files that are already compiled.
@@ -631,12 +625,6 @@ public class ObjcRuleClasses {
           sources.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("textual_hdrs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(HDRS_TYPE))
-          /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(bridging_header) -->
-          A header defining the Objective-C interfaces to be exposed in Swift.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("bridging_header", BuildType.LABEL)
               .direct_compile_time_input()
               .allowedFileTypes(HDRS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(includes) -->
@@ -959,6 +947,40 @@ public class ObjcRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$apple_multiarch_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for apple rules that can depend on one or more dynamic libraries.
+   */
+  public static class DylibDependingRule implements RuleDefinition {
+
+    /**
+     * Attribute name for dylib dependencies.
+     */
+    static final String DYLIBS_ATTR_NAME = "dylibs";
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          // TODO(b/32411441): Restrict the dylibs attribute to take only dylib dependencies.
+          // This will require refactoring ObjcProvider into alternate providers.
+          // TODO(cparsons): Subtract transitive dependencies from "deps" during linking, as needed.
+          // Also document this attribute when this is resolved.
+          .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
+              .direct_compile_time_input()
+              .mandatoryNativeProviders(
+                  ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
+              .allowedFileTypes())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$apple_dylib_depending_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }
@@ -1312,15 +1334,12 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that use the iOS simulator.
    */
   public static class SimulatorRule implements RuleDefinition {
-    static final String IOSSIM_ATTR = "$iossim";
     static final String STD_REDIRECT_DYLIB_ATTR = "$std_redirect_dylib";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           // Needed to run the binary in the simulator.
-          .add(attr(IOSSIM_ATTR, LABEL).cfg(HOST).exec()
-              .value(env.getToolsLabel("//third_party/iossim:iossim")))
           .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:StdRedirect.dylib")))
           .build();

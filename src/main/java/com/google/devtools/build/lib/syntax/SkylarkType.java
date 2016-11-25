@@ -20,8 +20,8 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -377,7 +377,7 @@ public abstract class SkylarkType implements Serializable {
     }
 
     private static final Interner<Combination> combinationInterner =
-        Interners.<Combination>newWeakInterner();
+        BlazeInterners.<Combination>newWeakInterner();
 
     public static SkylarkType of(SkylarkType generic, SkylarkType argument) {
       // assume all combinations with TOP are the same as the simple type, and canonicalize.

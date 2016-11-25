@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -59,6 +60,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -1415,7 +1417,6 @@ public final class PackageFactory {
           buildFileBytes,
           packageId.toString(),
           globber,
-          Environment.BUILD,
           ruleFactory.getRuleClassNames());
     } catch (InterruptedException e) {
       globber.onInterrupt();
@@ -1629,13 +1630,14 @@ public final class PackageFactory {
     StoredEventHandler eventHandler = new StoredEventHandler();
 
     try (Mutability mutability = Mutability.create("package %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(eventHandler)
-          .setImportedExtensions(imports)
-          .setToolsRepository(ruleClassProvider.getToolsRepository())
-          .setPhase(Phase.LOADING)
-          .build();
+      Environment pkgEnv =
+          Environment.builder(mutability)
+              .setGlobals(BazelLibrary.GLOBALS)
+              .setEventHandler(eventHandler)
+              .setImportedExtensions(imports)
+              .setPhase(Phase.LOADING)
+              .build();
+      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       pkgBuilder.setFilename(buildFilePath)
           .setMakeEnv(pkgMakeEnv)
@@ -1705,12 +1707,13 @@ public final class PackageFactory {
     // strategy would be to crawl the ast and tag statements whose execution cannot involve globs -
     // these can be executed and their impact on the resulting package can be saved.
     try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
-      Environment pkgEnv = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD)
-          .setEventHandler(NullEventHandler.INSTANCE)
-          .setToolsRepository(ruleClassProvider.getToolsRepository())
-          .setPhase(Phase.LOADING)
-          .build();
+      Environment pkgEnv =
+          Environment.builder(mutability)
+              .setGlobals(BazelLibrary.GLOBALS)
+              .setEventHandler(NullEventHandler.INSTANCE)
+              .setPhase(Phase.LOADING)
+              .build();
+      SkylarkUtils.setToolsRepository(pkgEnv, ruleClassProvider.getToolsRepository());
 
       Package.Builder pkgBuilder = new Package.Builder(packageBuilderHelper.createFreshPackage(
           packageId, ruleClassProvider.getRunfilesPrefix()));
@@ -1764,7 +1767,7 @@ public final class PackageFactory {
           continue;
         }
         String target = ((Identifier) lvalue).getName();
-        if (pkgEnv.lookup(target, null) != null) {
+        if (pkgEnv.hasVariable(target)) {
           eventHandler.handle(Event.error(stmt.getLocation(), "Reassignment of builtin build "
               + "function '" + target + "' not permitted"));
           return false;

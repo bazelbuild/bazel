@@ -27,6 +27,7 @@ filegroup(
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
+        "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildtool:srcs",
     ],
     visibility = ["//src:__pkg__"],
@@ -169,7 +170,10 @@ java_test(
 java_test(
     name = "windows_test",
     srcs = CROSS_PLATFORM_WINDOWS_TESTS,
-    jvm_flags = ["-Dblaze.os=Windows"],
+    jvm_flags = [
+        "-Dblaze.os=Windows",
+        "-Dbazel.windows_unix_root=C:/fake/msys",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
@@ -354,6 +358,18 @@ java_library(
     ],
 )
 
+java_library(
+    name = "integration_testutil",
+    srcs = glob([
+        "integration/util/*.java",
+    ]),
+    deps = [
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+    ],
+)
+
 java_test(
     name = "analysis_actions_test",
     srcs = glob([
@@ -473,7 +489,7 @@ java_test(
     srcs = glob([
         "analysis/*.java",
     ]),
-    shard_count = 2,
+    shard_count = 6,
     tags = [
         "analysis",
         "no_windows",
@@ -631,12 +647,20 @@ java_test(
     ],
 )
 
+# Copy intellij_info.bzl so it's in a predictable resource location
+genrule(
+    name = "intellij_info_bzl_copy",
+    srcs = ["//tools/ide:intellij_info"],
+    outs = ["ideinfo/intellij_info.bzl"],
+    cmd = "cp $(SRCS) $@",
+)
+
 java_test(
     name = "ideinfo_test",
     srcs = glob([
         "ideinfo/*.java",
     ]),
-    resources = ["ideinfo/intellij_info.bzl"],
+    resources = [":intellij_info_bzl_copy"],
     tags = ["ideinfo"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -910,6 +934,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:flags",
+        "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
@@ -956,14 +981,21 @@ java_test(
         ":analysis_testutil",
         ":foundations_testutil",
         ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:java-compilation",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/protobuf:crosstool_config_java_proto",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -990,6 +1022,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
@@ -1008,6 +1041,7 @@ java_test(
         ":foundations_testutil",
         ":test_runner",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:preconditions",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -1062,6 +1096,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
+        ":integration_testutil",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
@@ -1103,6 +1138,53 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//third_party/protobuf",
+    ],
+)
+
+java_test(
+    name = "ProtoCompileActionBuilderTest",
+    srcs = ["rules/proto/ProtoCompileActionBuilderTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:collect",
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "ProtoLangToolchainTest",
+    srcs = ["rules/proto/ProtoLangToolchainTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "BazelProtoLibraryTest",
+    srcs = ["rules/proto/BazelProtoLibraryTest.java"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

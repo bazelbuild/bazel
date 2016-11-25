@@ -158,10 +158,6 @@ public final class AspectDefinition {
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
       Rule from, Attribute attribute, boolean canHaveAnyProvider, Set<String> advertisedProviders,
       DependencyFilter dependencyFilter) {
-    if (advertisedProviders.isEmpty() && !canHaveAnyProvider) {
-      return ImmutableMultimap.of();
-    }
-
     LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required

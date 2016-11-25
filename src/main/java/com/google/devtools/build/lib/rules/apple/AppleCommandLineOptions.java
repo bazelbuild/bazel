@@ -295,13 +295,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
     private final String mode;
     private final ImmutableList<String> featureNames;
-    private final ImmutableList<String> compilerFlags;
+    private final ImmutableList<String> clangFlags;
 
     private AppleBitcodeMode(
-        String mode, ImmutableList<String> featureNames, String... compilerFlags) {
+        String mode, ImmutableList<String> featureNames, String... clangFlags) {
       this.mode = mode;
       this.featureNames = featureNames;
-      this.compilerFlags = ImmutableList.copyOf(compilerFlags);
+      this.clangFlags = ImmutableList.copyOf(clangFlags);
     }
 
     @Override
@@ -314,9 +314,12 @@ public class AppleCommandLineOptions extends FragmentOptions {
       return featureNames;
     }
 
-    /** Returns the flags that should be added to compile actions to use this bitcode setting. */
-    public ImmutableList<String> getCompilerFlags() {
-      return compilerFlags;
+    /**
+     * Returns the flags that should be added to compile and link actions to use this
+     * bitcode setting.
+     */
+    public ImmutableList<String> getCompileAndLinkFlags() {
+      return clangFlags;
     }
 
     /**

@@ -89,7 +89,7 @@ native rule implementation (lang.java.compile) both consumes the entire
 providers from dependencies and returns the provider that needs to be returned
 from the rule. `lang.java.transitive` is a function that passes all the
 transitive information correctly from dependencies. The [existing '.java'
-provider](http://www.bazel.io/docs/skylark/lib/JavaSkylarkApiProvider.html)
+provider](http://www.bazel.build/docs/skylark/lib/JavaSkylarkApiProvider.html)
 becomes the same thing as lang.java.provider.
 
 Note: for the sake for this document we are placing things in lang.java. There

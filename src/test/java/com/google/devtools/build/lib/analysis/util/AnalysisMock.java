@@ -18,6 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
@@ -37,6 +40,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Create a mock client for the analysis phase, as well as a configuration factory. */
@@ -91,6 +95,9 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public abstract ConfigurationFactory createConfigurationFactory();
 
+  public abstract ConfigurationFactory createConfigurationFactory(
+      List<ConfigurationFragmentFactory> configurationFragmentFactories);
+
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
 
   @Override
@@ -110,7 +117,8 @@ public abstract class AnalysisMock extends LoadingMock {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
-        LocalRepositoryRule.NAME, localRepositoryFunction);
+        LocalRepositoryRule.NAME, localRepositoryFunction,
+        AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
@@ -140,6 +148,12 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public ConfigurationFactory createConfigurationFactory() {
       return delegate.createConfigurationFactory();
+    }
+
+    @Override
+    public ConfigurationFactory createConfigurationFactory(
+        List<ConfigurationFragmentFactory> configurationFragmentFactories) {
+      return delegate.createConfigurationFactory(configurationFragmentFactories);
     }
 
     @Override

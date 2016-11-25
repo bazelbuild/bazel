@@ -46,12 +46,6 @@ public final class ValidationEnvironment {
   private final Stack<Set<String>> futureReadOnlyVariables = new Stack<>();
 
   /**
-   * Tracks the number of nested for loops that contain the statement that is currently being
-   * validated
-   */
-  private int loopCount = 0;
-
-  /**
    * Create a ValidationEnvironment for a given global Environment.
    */
   public ValidationEnvironment(Environment env) {
@@ -96,7 +90,10 @@ public final class ValidationEnvironment {
 
   private void checkReadonly(String varname, Location location) throws EvalException {
     if (readOnlyVariables.contains(varname)) {
-      throw new EvalException(location, String.format("Variable %s is read only", varname));
+      throw new EvalException(
+          location,
+          String.format("Variable %s is read only", varname),
+          "https://bazel.build/versions/master/docs/skylark/errors/read-only-variable.html");
     }
   }
 
@@ -168,34 +165,5 @@ public final class ValidationEnvironment {
       }
       return false;
     }
-  }
-
-  /**
-   * Returns whether the current statement is inside a for loop (either in this environment or one
-   * of its parents)
-   *
-   * @return True if the current statement is inside a for loop
-   */
-  public boolean isInsideLoop() {
-    return (loopCount > 0);
-  }
-
-  /**
-   * Signals that the block of a for loop was entered
-   */
-  public void enterLoop()   {
-    ++loopCount;
-  }
-
-  /**
-   * Signals that the block of a for loop was left
-   *
-   * @param location The current location
-   * @throws EvalException If there was no corresponding call to
-   *         {@code ValidationEnvironment#enterLoop}
-   */
-  public void exitLoop(Location location) throws EvalException {
-    Preconditions.checkState(loopCount > 0);
-    --loopCount;
   }
 }

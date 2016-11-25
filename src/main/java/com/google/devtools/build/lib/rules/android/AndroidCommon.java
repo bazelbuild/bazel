@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -125,7 +126,7 @@ public class AndroidCommon {
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JackCompilationHelper jackCompilationHelper;
-  private ImmutableList<Artifact> jarsProducedForRuntime;
+  private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
   private Artifact iJar;
   private Artifact srcJar;
@@ -375,6 +376,17 @@ public class AndroidCommon {
     throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
   }
 
+  public static NestedSetBuilder<Artifact> collectTransitiveNativeLibsZips(
+      RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> transitiveAarNativeLibs = NestedSetBuilder.naiveLinkOrder();
+    Iterable<NativeLibsZipsProvider> providers = getTransitivePrerequisites(
+        ruleContext, Mode.TARGET, NativeLibsZipsProvider.class);
+    for (NativeLibsZipsProvider nativeLibsZipsProvider : providers) {
+      transitiveAarNativeLibs.addTransitive(nativeLibsZipsProvider.getAarNativeLibs());
+    }
+    return transitiveAarNativeLibs;
+  }
+
   Artifact compileDexWithJack(
       MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
     return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
@@ -387,7 +399,7 @@ public class AndroidCommon {
       JavaCompilationArtifacts.Builder artifactsBuilder,
       JavaTargetAttributes.Builder attributes,
       NestedSetBuilder<Artifact> filesBuilder,
-      ImmutableList.Builder<Artifact> jarsProducedForRuntime,
+      NestedSetBuilder<Artifact> jarsProducedForRuntime,
       boolean useRClassGenerator) throws InterruptedException {
     compileResourceJar(javaSemantics, resourceApk, resourcesJar, useRClassGenerator);
     // Add the compiled resource jar to the classpath of the main compilation.
@@ -451,7 +463,7 @@ public class AndroidCommon {
 
   private void createJarJarActions(
       JavaTargetAttributes.Builder attributes,
-      ImmutableList.Builder<Artifact> jarsProducedForRuntime,
+      NestedSetBuilder<Artifact> jarsProducedForRuntime,
       Iterable<ResourceContainer> resourceContainers,
       String originalPackage,
       Artifact binaryResourcesJar) {
@@ -537,9 +549,12 @@ public class AndroidCommon {
                 idlHelper.getIdlGeneratedJavaSources(),
                 androidSemantics.getJavacArguments(ruleContext))
             .setBootClassPath(bootclasspath);
+    if (DataBinding.isEnabled(ruleContext)) {
+      DataBinding.addAnnotationProcessor(ruleContext, attributes);
+    }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
-    ImmutableList.Builder<Artifact> jarsProducedForRuntime = ImmutableList.builder();
+    NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
     Artifact resourcesJar = resourceApk.getResourceJavaSrcJar();
@@ -596,8 +611,10 @@ public class AndroidCommon {
 
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes, JavaSemantics semantics) {
-    JavaCompilationHelper helper = new JavaCompilationHelper(
-        ruleContext, semantics, javaCommon.getJavacOpts(), attributes);
+    JavaCompilationHelper helper = new JavaCompilationHelper(ruleContext, semantics,
+        javaCommon.getJavacOpts(), attributes,
+        DataBinding.isEnabled(ruleContext)
+            ? DataBinding.processDeps(ruleContext, attributes) : ImmutableList.<Artifact>of());
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
@@ -625,6 +642,7 @@ public class AndroidCommon {
         // sources
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
+        .addCompiledJars(attributes.getDirectJars().toCollection())
         .addResources(attributes.getResources())
         .addProcessorNames(attributes.getProcessorNames())
         .addProcessorClasspathJars(attributes.getProcessorPath())
@@ -894,7 +912,7 @@ public class AndroidCommon {
    * {@link #getRuntimeJars()} returns the complete runtime classpath needed by this rule, including
    * dependencies.
    */
-  public ImmutableList<Artifact> getJarsProducedForRuntime() {
+  public NestedSet<Artifact> getJarsProducedForRuntime() {
     return jarsProducedForRuntime;
   }
 
@@ -948,5 +966,49 @@ public class AndroidCommon {
       builder.addTransitive(provider.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }
     return builder.build();
+  }
+
+  /**
+   * Returns a {@link JavaCommon} instance with Android data binding support.
+   *
+   * <p>Binaries need both compile-time and runtime support, while libraries only need compile-time
+   * support.
+   *
+   * <p>No rule needs <i>any</i> support if data binding is disabled.
+   */
+  static JavaCommon createJavaCommonWithAndroidDataBinding(RuleContext ruleContext,
+      JavaSemantics semantics, boolean isLibrary) {
+    boolean useDataBinding = DataBinding.isEnabled(ruleContext);
+
+    ImmutableList<Artifact> srcs =
+        ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
+    if (useDataBinding) {
+      srcs = ImmutableList.<Artifact>builder().addAll(srcs)
+          .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+    }
+
+    ImmutableList<TransitiveInfoCollection> compileDeps;
+    ImmutableList<TransitiveInfoCollection> runtimeDeps;
+    ImmutableList<TransitiveInfoCollection> bothDeps;
+
+    if (isLibrary) {
+      compileDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY);
+      if (useDataBinding) {
+        compileDeps = DataBinding.addSupportLibs(ruleContext, compileDeps);
+      }
+      runtimeDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY);
+      bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
+    } else {
+      // Binary:
+      List<? extends TransitiveInfoCollection> ruleDeps =
+          ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET);
+      compileDeps = useDataBinding
+          ? DataBinding.addSupportLibs(ruleContext, ruleDeps)
+          : ImmutableList.<TransitiveInfoCollection>copyOf(ruleDeps);
+      runtimeDeps = compileDeps;
+      bothDeps = compileDeps;
+    }
+
+    return new JavaCommon(ruleContext, semantics, srcs, compileDeps, runtimeDeps, bothDeps);
   }
 }

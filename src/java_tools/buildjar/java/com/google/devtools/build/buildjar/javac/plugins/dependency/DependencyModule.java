@@ -15,13 +15,17 @@
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
+import com.sun.tools.javac.code.Symbol.PackageSymbol;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -81,6 +85,7 @@ public final class DependencyModule {
   Set<String> requiredClasspath;
   private final FixMessage fixMessage;
   private final Set<String> exemptGenerators;
+  private final Set<PackageSymbol> packages;
 
   DependencyModule(
       StrictJavaDeps strictJavaDeps,
@@ -106,6 +111,7 @@ public final class DependencyModule {
     this.usedClasspath = new HashSet<>();
     this.fixMessage = fixMessage;
     this.exemptGenerators = exemptGenerators;
+    this.packages = new HashSet<>();
   }
 
   /**
@@ -118,9 +124,8 @@ public final class DependencyModule {
   /**
    * Writes dependency information to the deps file in proto format, if specified.
    *
-   * This is a replacement for {@link #emitUsedClasspath} above, which only outputs the used
-   * classpath. We collect more precise dependency information to allow Blaze to analyze both
-   * strict and unused dependencies based on the new deps.proto.
+   * <p>We collect precise dependency information to allow Blaze to analyze both strict and unused
+   * dependencies, as well as packages contained by the output jar.
    */
   public void emitDependencyInformation(String classpath, boolean successful) throws IOException {
     if (outputDepsProtoFile == null) {
@@ -142,6 +147,18 @@ public final class DependencyModule {
       deps.setRuleLabel(targetLabel);
     }
     deps.setSuccess(successful);
+
+    deps.addAllContainedPackage(
+        FluentIterable.from(packages)
+            .transform(
+                new Function<PackageSymbol, String>() {
+                  @Override
+                  public String apply(PackageSymbol pkg) {
+                    return pkg.isUnnamed() ? "" : pkg.getQualifiedName().toString();
+                  }
+                })
+            .toSortedList(Ordering.natural()));
+
     // Filter using the original classpath, to preserve ordering.
     for (String entry : classpath.split(":")) {
       if (explicitDependenciesMap.containsKey(entry)) {
@@ -195,6 +212,11 @@ public final class DependencyModule {
    */
   public Map<String, Deps.Dependency> getImplicitDependenciesMap() {
     return implicitDependenciesMap;
+  }
+
+  /** Adds a package to the set of packages built by this target. */
+  public boolean addPackage(PackageSymbol packge) {
+    return packages.add(packge);
   }
 
   /**

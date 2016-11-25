@@ -17,7 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <algorithm>
 #include <cassert>
 #include <set>
@@ -26,18 +25,21 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
-
-using std::list;
-using std::map;
-using std::set;
-using std::vector;
 
 // On OSX, there apparently is no header that defines this.
 extern char **environ;
 
 namespace blaze {
+
+using std::list;
+using std::map;
+using std::set;
+using std::string;
+using std::vector;
 
 constexpr char WorkspaceLayout::WorkspacePrefix[];
 
@@ -70,6 +72,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     list<string>* import_stack,
     string* error) {
   string filename(filename_ref);  // file
+  BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   string contents;
   if (!ReadFile(filename, &contents)) {
     // We checked for file readability before, so this is unexpected.
@@ -166,6 +169,85 @@ OptionProcessor::OptionProcessor(
     parsed_startup_options_(std::move(default_startup_options)) {
 }
 
+std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
+    const vector<string>& args,
+    string* error) {
+  const string lowercase_product_name =
+      parsed_startup_options_->GetLowercaseProductName();
+
+  if (args.empty()) {
+    blaze_util::StringPrintf(error,
+                             "Unable to split command line, args is empty");
+    return nullptr;
+  }
+
+  const string path_to_binary(args[0]);
+
+  // Process the startup options.
+  vector<string> startup_args;
+  vector<string>::size_type i = 1;
+  while (i < args.size() && IsArg(args[i])) {
+    const string current_arg(args[i]);
+    // If the current argument is a valid nullary startup option such as
+    // --master_bazelrc or --nomaster_bazelrc proceed to examine the next
+    // argument.
+    if (parsed_startup_options_->IsNullary(current_arg)) {
+      startup_args.push_back(current_arg);
+      i++;
+    } else if (parsed_startup_options_->IsUnary(current_arg)) {
+      // If the current argument is a valid unary startup option such as
+      // --bazelrc there are two cases to consider.
+
+      // The option is of the form '--bazelrc=value', hence proceed to
+      // examine the next argument.
+      if (current_arg.find("=") != string::npos) {
+        startup_args.push_back(current_arg);
+        i++;
+      } else {
+        // Otherwise, the option is of the form '--bazelrc value', hence
+        // skip the next argument and proceed to examine the argument located
+        // two places after.
+        if (i + 1 >= args.size()) {
+          blaze_util::StringPrintf(
+              error,
+              "Startup option '%s' expects a value.\n"
+              "Usage: '%s=somevalue' or '%s somevalue'.\n"
+              "  For more info, run '%s help startup_options'.",
+              current_arg.c_str(), current_arg.c_str(), current_arg.c_str(),
+              lowercase_product_name.c_str());
+          return nullptr;
+        }
+        // In this case we transform it to the form '--bazelrc=value'.
+        startup_args.push_back(current_arg + string("=") + args[i + 1]);
+        i += 2;
+      }
+    } else {
+      // If the current argument is not a valid unary or nullary startup option
+      // then fail.
+      blaze_util::StringPrintf(
+          error,
+          "Unknown %s startup option: '%s'.\n"
+          "  For more info, run '%s help startup_options'.",
+          lowercase_product_name.c_str(), current_arg.c_str(),
+          lowercase_product_name.c_str());
+      return nullptr;
+    }
+  }
+
+  // The command is the arg right after the startup options.
+  if (i == args.size()) {
+    return std::unique_ptr<CommandLine>(
+        new CommandLine(path_to_binary, startup_args, "", {}));
+  }
+  const string command(args[i]);
+
+  // The rest are the command arguments.
+  const vector<string> command_args(args.begin() + i + 1, args.end());
+
+  return std::unique_ptr<CommandLine>(
+      new CommandLine(path_to_binary, startup_args, command, command_args));
+}
+
 // Return the path to the user's rc file.  If cmdLineRcFile != NULL,
 // use it, dying if it is not readable.  Otherwise, return the first
 // readable file called rc_basename from [workspace, $HOME]
@@ -179,7 +261,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     string* error) {
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
-    if (access(rcFile.c_str(), R_OK)) {
+    if (!blaze_util::CanAccess(rcFile, true, false, false)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
@@ -189,19 +271,19 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
-  if (!access(workspaceRcFile.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(workspaceRcFile, true, false, false)) {
     *blaze_rc_file = workspaceRcFile;
     return blaze_exit_code::SUCCESS;
   }
 
-  const char* home = getenv("HOME");
-  if (home == NULL) {
+  string home = blaze::GetEnv("HOME");
+  if (home.empty()) {
     *blaze_rc_file = "";
     return blaze_exit_code::SUCCESS;
   }
 
   string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (!access(userRcFile.c_str(), R_OK)) {
+  if (blaze_util::CanAccess(userRcFile, true, false, false)) {
     *blaze_rc_file = userRcFile;
     return blaze_exit_code::SUCCESS;
   }
@@ -315,11 +397,6 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   }
 
   return ParseOptions(args, workspace, cwd, error);
-}
-
-static bool IsArg(const string& arg) {
-  return blaze_util::starts_with(arg, "-") && (arg != "--help")
-      && (arg != "-help") && (arg != "-h");
 }
 
 blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {

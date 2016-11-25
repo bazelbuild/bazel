@@ -113,7 +113,7 @@ src/
 
 <pre class="code">
 new_git_repository(
-    name = "my-ssl",
+    name = "my_ssl",
     remote = "http://example.com/openssl/openssl.git",
     tag = "v1.0.2",
     build_file_content = """
@@ -125,6 +125,6 @@ cc_library(
 )
 </pre>
 
-<p>Then targets would specify <code>@my-ssl//:openssl-lib</code> as a dependency.</p>
+<p>Then targets would specify <code>@my_ssl//:openssl-lib</code> as a dependency.</p>
 
 <!-- #END_BLAZE_RULE -->*/

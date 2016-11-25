@@ -32,10 +32,9 @@ import java.util.List;
 public class ObjcCommandLineOptions extends FragmentOptions {
   @Option(
     name = "ios_simulator_version",
-    defaultValue = "8.4",
+    defaultValue = "9.3",
     category = "run",
     converter = DottedVersionConverter.class,
-    deprecationWarning = "Use target_device instead to drive the simulator to use.",
     help =
         "The version of iOS to run on the simulator when running or testing. This is ignored "
             + "for ios_test rules if a target device is specified in the rule."
@@ -227,7 +226,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     category = "undocumented"
   )
   public boolean experimentalUseCrosstoolForBinary;
-  
+
   @Option(
     name = "objc_use_dotd_pruning",
     defaultValue = "false",
@@ -237,6 +236,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "compiles."
   )
   public boolean useDotdPruning;
+
+  @Option(
+    name = "enable_apple_binary_native_protos",
+    defaultValue = "true",
+    category = "flags",
+    help =
+        "If set, apple_binary will generate and link objc protos into the output binary."
+  )
+  public boolean enableAppleBinaryNativeProtos;
 
   @SuppressWarnings("unchecked")
   @Override

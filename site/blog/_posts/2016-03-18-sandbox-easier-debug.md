@@ -6,7 +6,7 @@ title: Easier Debugging of Sandbox Failures
 We have often heard that debugging failed execution due to issues with the sandbox is difficult and requires knowledge of the sandboxing code of Bazel to actually understand what’s happening. With [these changes](https://github.com/bazelbuild/bazel/commit/40ee9de052e3bb8cf5a59eeff3936148e1f55e69), we hope that you will be able to solve common issues easier on your own and make debugging easier.
 
 
-If you don’t know much about Bazel sandbox, you might want to read [this blog post](http://bazel.io/blog/2015/09/11/sandboxing.html)
+If you don’t know much about Bazel sandbox, you might want to read [this blog post](http://bazel.build/blog/2015/09/11/sandboxing.html)
 
 
 ## What we did:

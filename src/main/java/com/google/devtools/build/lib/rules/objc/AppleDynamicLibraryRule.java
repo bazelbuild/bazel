@@ -60,7 +60,8 @@ public class AppleDynamicLibraryRule implements RuleDefinition {
         .name("apple_dynamic_library")
         .factoryClass(AppleDynamicLibrary.class)
         .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.LinkingRule.class,
-            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class)
+            ObjcRuleClasses.MultiArchPlatformRule.class, ObjcRuleClasses.SimulatorRule.class,
+            ObjcRuleClasses.DylibDependingRule.class)
         .build();
   }
 }

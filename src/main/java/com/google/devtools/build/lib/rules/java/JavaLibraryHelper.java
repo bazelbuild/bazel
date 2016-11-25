@@ -39,10 +39,7 @@ import java.util.List;
  * Java compiler.
  */
 public final class JavaLibraryHelper {
-  private static final String DEFAULT_SUFFIX_IS_EMPTY_STRING = "";
-
   private final RuleContext ruleContext;
-  private final String implicitAttributesSuffix;
 
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
@@ -57,14 +54,9 @@ public final class JavaLibraryHelper {
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
-    this(ruleContext, DEFAULT_SUFFIX_IS_EMPTY_STRING);
-  }
-
-  public JavaLibraryHelper(RuleContext ruleContext, String implicitAttributesSuffix) {
     this.ruleContext = ruleContext;
     ruleContext.getConfiguration();
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
-    this.implicitAttributesSuffix = implicitAttributesSuffix;
   }
 
   /**
@@ -131,7 +123,11 @@ public final class JavaLibraryHelper {
   /**
    * Creates the compile actions.
    */
-  public JavaCompilationArgs build(JavaSemantics semantics) {
+  public JavaCompilationArgs build(
+      JavaSemantics semantics,
+      JavaToolchainProvider javaToolchainProvider,
+      NestedSet<Artifact> hostJavabase,
+      Iterable<Artifact> jacocoInstrumental) {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
@@ -147,8 +143,10 @@ public final class JavaLibraryHelper {
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
-        new JavaCompilationHelper(
-            ruleContext, semantics, javacOpts, attributes, implicitAttributesSuffix);
+        new JavaCompilationHelper(ruleContext, semantics, javacOpts, attributes,
+            javaToolchainProvider,
+            hostJavabase,
+            jacocoInstrumental);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
         output,

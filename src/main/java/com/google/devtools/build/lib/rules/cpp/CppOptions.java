@@ -527,6 +527,16 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
+    name = "experimental_skip_unused_modules",
+    defaultValue = "false",
+    category = "experimental",
+    help =
+        "If enabled, not all transitive modules automatically become an action's inputs. Instead,"
+            + " input discovery adds just the required ones."
+  )
+  public boolean skipUnusedModules;
+
+  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",
@@ -545,6 +555,16 @@ public class CppOptions extends FragmentOptions {
             + "will be shared among different targets"
   )
   public boolean shareNativeDeps;
+
+  @Option(
+    name = "strict_system_includes",
+    defaultValue = "false",
+    category = "strategy",
+    help =
+        "If true, headers found through system include paths (-isystem) are also required to be "
+        + "declared."
+  )
+  public boolean strictSystemIncludes;
 
   @Override
   public FragmentOptions getHost(boolean fallback) {

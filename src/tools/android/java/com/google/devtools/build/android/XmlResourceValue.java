@@ -16,7 +16,6 @@ package com.google.devtools.build.android;
 import com.google.devtools.build.android.xml.Namespaces;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 
 /**
  * An {@link XmlResourceValue} is extracted from xml files in the resource 'values' directory.
@@ -29,7 +28,7 @@ public interface XmlResourceValue {
    * @param source The source of the value to allow for proper comment annotation.
    * @param mergedDataWriter The target writer.
    */
-  void write(FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter);
+  void write(FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter);
 
   /** Serializes the resource value to the OutputStream and returns the bytes written. */
   int serializeTo(int sourceId, Namespaces namespaces, OutputStream out) throws IOException;

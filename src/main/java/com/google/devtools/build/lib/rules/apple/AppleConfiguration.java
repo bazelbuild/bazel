@@ -259,7 +259,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     // evaluated for the current configuration xcode version, this would break users who build
     // cc_* rules without specifying both xcode_version and macosx_sdk_version build options.
     if (platform != Platform.MACOS_X) {
-        String sdkVersion = getSdkVersionForPlatform(platform).toString();
+        String sdkVersion = getSdkVersionForPlatform(platform).toStringWithMinimumComponents(2);
         builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, sdkVersion)
             .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
     }

@@ -313,7 +313,8 @@ public final class ApplicationManifest {
         proguardCfg,
         null, /* Artifact mainDexProguardCfg */
         null, /* Artifact manifestOut */
-        null /* Artifact mergedResources */);
+        null /* Artifact mergedResources */,
+        null /* Artifact dataBindingInfoZip */);
   }
 
   /** Packages up the manifest with resource and assets from the LocalResourceContainer. */
@@ -324,7 +325,8 @@ public final class ApplicationManifest {
       Artifact rTxt,
       Artifact symbolsTxt,
       Artifact manifestOut,
-      Artifact mergedResources) throws InterruptedException {
+      Artifact mergedResources,
+      boolean alwaysExportManifest) throws InterruptedException {
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -343,12 +345,13 @@ public final class ApplicationManifest {
             .withROutput(rTxt)
             .withSymbolsFile(symbolsTxt)
             .useJavaPackageFromManifest(true)
-            .buildFromRule(ruleContext, null),
+            .buildFromRule(ruleContext, null, alwaysExportManifest),
         data,
         null, /* Artifact proguardCfg */
         null, /* Artifact mainDexProguardCfg */
         manifestOut,
-        mergedResources);
+        mergedResources,
+        null /* Artifact dataBindingInfoZip */);
   }
 
   /** Packages up the manifest with resource and assets from the rule and dependent resources. */
@@ -367,7 +370,8 @@ public final class ApplicationManifest {
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
       Artifact manifestOut,
-      Artifact mergedResources) throws InterruptedException {
+      Artifact mergedResources,
+      Artifact dataBindingInfoZip) throws InterruptedException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -403,7 +407,7 @@ public final class ApplicationManifest {
         proguardCfg,
         mainDexProguardCfg,
         manifestOut,
-        mergedResources);
+        mergedResources, dataBindingInfoZip);
   }
 
   private ResourceApk createApk(
@@ -420,7 +424,8 @@ public final class ApplicationManifest {
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
       Artifact manifestOut,
-      Artifact mergedResources) throws InterruptedException {
+      Artifact mergedResources,
+      Artifact dataBindingInfoZip) throws InterruptedException {
     ResourceContainer resourceContainer = checkForInlinedResources(
         maybeInlinedResourceContainer,
         resourceDeps.getResources(),  // TODO(bazel-team): Figure out if we really need to check
@@ -483,6 +488,7 @@ public final class ApplicationManifest {
               .setDensities(densities)
               .setProguardOut(proguardCfg)
               .setMainDexProguardOut(mainDexProguardCfg)
+              .setDataBindingInfoZip(dataBindingInfoZip)
               .setApplicationId(manifestValues.get("applicationId"))
               .setVersionCode(manifestValues.get("versionCode"))
               .setVersionName(manifestValues.get("versionName"));

@@ -39,7 +39,7 @@ public class HttpArchiveRule implements RuleDefinition {
          A URL referencing an archive file containing a Bazel repository.
 
          <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
-         for authentication. Redirections are followed, but not from HTTP to HTTPS.</p>
+         for authentication.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(sha256) -->
@@ -55,8 +55,8 @@ public class HttpArchiveRule implements RuleDefinition {
          The archive type of the downloaded file.
 
          <p>By default, the archive type is determined from the file extension of the URL. If the
-         file has no extension, you can explicitly specify either "zip", "jar", "tar.gz", or
-         "tgz" here.</p>
+         file has no extension, you can explicitly specify one of the following: `"zip"`, `"jar"`,
+         `"war"`, `"tar.gz"`, `"tgz"`, `"tar.xz"`, and `tar.bz2`</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("type", STRING))
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(strip_prefix) -->
@@ -135,12 +135,12 @@ cc_library(
 
 <pre class="code">
 http_archive(
-    name = "my-ssl",
+    name = "my_ssl",
     url = "http://example.com/openssl.zip",
     sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
 )
 </pre>
 
-<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+<p>Then targets would specify <code>@my_ssl//src:openssl-lib</code> as a dependency.</p>
 
 <!-- #END_BLAZE_RULE -->*/

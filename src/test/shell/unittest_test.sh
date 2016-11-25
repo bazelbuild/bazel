@@ -63,6 +63,7 @@ EOF
   ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
   assert_contains "I'm a failure." ${TEST_TMPDIR}/dummy.xml
+  assert_contains 'errors="1"' ${TEST_TMPDIR}/dummy.xml
 }
 
 function test_no_failure_message() {

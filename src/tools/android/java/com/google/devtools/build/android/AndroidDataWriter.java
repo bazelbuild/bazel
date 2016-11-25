@@ -369,8 +369,9 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
 
     @Override
-    public ValuesResourceDefinition derivedFrom(final Path source) {
-      final SegmentMapper mapper = SegmentMapper.create(segments, adopted, segmentsKey, source);
+    public ValuesResourceDefinition derivedFrom(final DataSource source) {
+      final SegmentMapper mapper =
+          SegmentMapper.create(segments, adopted, segmentsKey, source.getPath());
       return new StringValuesResourceDefinition(mapper);
     }
   }

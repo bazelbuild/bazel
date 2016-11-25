@@ -20,9 +20,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority;
+import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
@@ -89,8 +90,11 @@ public final class CommandEnvironment {
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
   private OutputService outputService;
-  private ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = ImmutableList.of();
+  private ActionInputPrefetcher actionInputPrefetcher;
   private Path workingDirectory;
+
+  private String commandName;
+  private OptionsProvider options;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
@@ -177,6 +181,14 @@ public final class CommandEnvironment {
    */
   public Map<String, String> getClientEnv() {
     return Collections.unmodifiableMap(clientEnv);
+  }
+
+  public String getCommandName() {
+    return commandName;
+  }
+
+  public OptionsProvider getOptions() {
+    return options;
   }
 
   /**
@@ -332,8 +344,8 @@ public final class CommandEnvironment {
     return outputService;
   }
 
-  public ImmutableList<ActionInputPrefetcher> getActionInputPrefetchers() {
-    return actionInputPrefetchers;
+  public ActionInputPrefetcher getActionInputPrefetcher() {
+    return actionInputPrefetcher == null ? ActionInputPrefetcher.NONE : actionInputPrefetcher;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -341,11 +353,10 @@ public final class CommandEnvironment {
   }
 
   /**
-   * An array of String values useful if Blaze crashes.
-   * For now, just returns the size of the action cache and the build id; the latter as
-   * soon as it is determined.
+   * An array of String values useful if Blaze crashes. For now, just returns the build id as soon
+   * as it is determined.
    */
-  public String[] getCrashData() {
+  String[] getCrashData() {
     if (crashData == null) {
       String buildId;
       if (commandId == null) {
@@ -353,11 +364,7 @@ public final class CommandEnvironment {
       } else {
         buildId = commandId + " (build id)";
       }
-      crashData = new String[]{
-        getFileSizeString(CompactPersistentActionCache.cacheFile(workspace.getCacheDirectory()),
-                          "action cache"),
-        buildId,
-      };
+      crashData = new String[] {buildId};
     }
     return crashData;
   }
@@ -366,14 +373,6 @@ public final class CommandEnvironment {
     // Update the command id in the crash data, if it is already generated
     if (crashData != null && crashData.length >= 2) {
       crashData[1] = getCommandId() + " (build id)";
-    }
-  }
-
-  private static String getFileSizeString(Path path, String type) {
-    try {
-      return String.format("%d bytes (%s)", path.getFileSize(), type);
-    } catch (IOException e) {
-      return String.format("unknown file size (%s)", type);
     }
   }
 
@@ -470,7 +469,7 @@ public final class CommandEnvironment {
    *
    * @see DefaultsPackage
    */
-  public void setupPackageCache(PackageCacheOptions packageCacheOptions,
+  public void setupPackageCache(OptionsClassProvider options,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     if (!skyframeExecutor.hasIncrementalState()) {
@@ -478,7 +477,7 @@ public final class CommandEnvironment {
     }
     skyframeExecutor.sync(
         reporter,
-        packageCacheOptions,
+        options.getOptions(PackageCacheOptions.class),
         getOutputBase(),
         getWorkingDirectory(),
         defaultsPackageContents,
@@ -486,7 +485,8 @@ public final class CommandEnvironment {
         // TODO(bazel-team): this optimization disallows rule-specified additional dependencies
         // on the client environment!
         getWhitelistedClientEnv(),
-        timestampGranularityMonitor);
+        timestampGranularityMonitor,
+        options);
   }
 
   public void recordLastExecutionTime() {
@@ -516,6 +516,17 @@ public final class CommandEnvironment {
       CommonCommandOptions options, long execStartTimeNanos, long waitTimeInMs)
       throws AbruptExitException {
     commandStartTime -= options.startupTime;
+    if (runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).watchFS) {
+      try {
+        // TODO(ulfjack): Get rid of the startup option and drop this code.
+        optionsParser.parse("--watchfs");
+      } catch (OptionsParsingException e) {
+        // This should never happen.
+        throw new IllegalStateException(e);
+      }
+    }
+    this.commandName = command.name();
+    this.options = optionsParser;
 
     eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
     throwPendingException();
@@ -523,24 +534,36 @@ public final class CommandEnvironment {
     outputService = null;
     BlazeModule outputModule = null;
     ImmutableList.Builder<ActionInputPrefetcher> prefetchersBuilder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      OutputService moduleService = module.getOutputService();
-      if (moduleService != null) {
-        if (outputService != null) {
-          throw new IllegalStateException(String.format(
-              "More than one module (%s and %s) returns an output service",
-              module.getClass(), outputModule.getClass()));
+    if (command.builds()) {
+      for (BlazeModule module : runtime.getBlazeModules()) {
+        OutputService moduleService = module.getOutputService();
+        if (moduleService != null) {
+          if (outputService != null) {
+            throw new IllegalStateException(
+                String.format(
+                    "More than one module (%s and %s) returns an output service",
+                    module.getClass(), outputModule.getClass()));
+          }
+          outputService = moduleService;
+          outputModule = module;
         }
-        outputService = moduleService;
-        outputModule = module;
-      }
 
-      ActionInputPrefetcher actionInputPrefetcher = module.getPrefetcher();
-      if (actionInputPrefetcher != null) {
-        prefetchersBuilder.add(actionInputPrefetcher);
+        ActionInputPrefetcher actionInputPrefetcher = module.getPrefetcher();
+        if (actionInputPrefetcher != null) {
+          prefetchersBuilder.add(actionInputPrefetcher);
+        }
       }
     }
-    actionInputPrefetchers = prefetchersBuilder.build();
+    final ImmutableList<ActionInputPrefetcher> actionInputPrefetchers = prefetchersBuilder.build();
+    actionInputPrefetcher =
+        new ActionInputPrefetcher() {
+          @Override
+          public void prefetchFile(ActionInput input) {
+            for (ActionInputPrefetcher prefetcher : actionInputPrefetchers) {
+              prefetcher.prefetchFile(input);
+            }
+          }
+        };
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
     skyframeExecutor.setOutputService(outputService);

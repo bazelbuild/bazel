@@ -302,8 +302,8 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
         "--nodistinct_host_configuration does not currently work with dynamic configurations";
     checkError(expectedError,
         "--nodistinct_host_configuration", "--experimental_dynamic_configs=on");
-    checkError(expectedError,
-        "--nodistinct_host_configuration", "--experimental_dynamic_configs=notrim");
+    assertThat(create("--nodistinct_host_configuration", "--experimental_dynamic_configs=notrim"))
+        .isNotNull();
   }
 
   @Test

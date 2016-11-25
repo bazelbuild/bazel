@@ -53,6 +53,8 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class, name = { "standalone" })
 public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
+  private static final String COLLECT_COVERAGE =
+      "external/bazel_tools/tools/coverage/collect-coverage.sh";
 
   private final Path workspace;
 
@@ -100,9 +102,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
     Spawn spawn =
         new BaseSpawn(
-            // Bazel lacks much of the tooling for coverage, so we don't attempt to pass a coverage
-            // script here.
-            getArgs(testSetup.getExecPathString(), "", action),
+            getArgs(testSetup.getExecPathString(), COLLECT_COVERAGE, action),
             env,
             info,
             new RunfilesSupplierImpl(
@@ -172,7 +172,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (!action.isEnableRunfiles()) {
       vars.put("RUNFILES_MANIFEST_ONLY", "1");
     }
-
+    if (isCoverageMode(action)) {
+      vars.put("COVERAGE_MANIFEST",
+          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
+      vars.put("COVERAGE_OUTPUT_FILE", action.getCoverageData().getExecPathString());
+      // Instruct test-setup.sh not to cd into the runfiles directory.
+      vars.put("RUNTEST_PRESERVE_CWD", "1");
+    }
     return vars;
   }
 

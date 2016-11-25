@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidManifestMerger;
 
 /**
@@ -83,6 +85,22 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         apk to only the ones in the 'en' configuration.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("resource_configuration_filters", STRING_LIST))
+        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(shrink_resources) -->
+        Do resource shrinking (or not). This allows resource shrinking to be controlled on a per
+        target basis and will only be used if Android resource shrinking is enabled globally. This
+        is only supported for local resources (not android_resources).
+        <p>Possible values:
+        <ul>
+          <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
+          <li><code>shrink_resources = 0</code>: Turns off Android resource shrinking</li>
+          <li><code>shrink_resources = -1</code>: Shrinking is controlled by the
+              <a href="../blaze-user-manual.html#flag--android_resource_shrinking">
+              --android_resource_shrinking</a> flag.</li>
+        </ul>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("shrink_resources", TRISTATE)
+            .value(TriState.AUTO)
+            .undocumented("Android resource shrinking is still experimental"))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(densities) -->
         Densities to filter for when building the apk.
         This will strip out raster drawable resources that would not be loaded by a device with

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.ToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
@@ -172,7 +173,8 @@ public class GenRule implements RuleConfiguredTargetFactory {
         "cmd",
         command,
         new ConfigurationMakeVariableContext(
-            ruleContext.getRule().getPackage(), ruleContext.getConfiguration()) {
+            ruleContext.getRule().getPackage(), ruleContext.getConfiguration(),
+            ToolchainProvider.getToolchainMakeVariables(ruleContext, "toolchains")) {
           @Override
           public String lookupMakeVariable(String name) throws ExpansionException {
             if (name.equals("SRCS")) {

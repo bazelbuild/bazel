@@ -279,7 +279,7 @@ public final class ParallelEvaluator implements Evaluator {
                 // for error bubbling) and throw an exception coming from it.
                 SkyKey errorKey = entry.getKey();
                 NodeEntry errorEntry = entry.getValue();
-                state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(errorKey)));
+                state.addTemporaryDirectDeps(GroupedListHelper.create(errorKey));
                 errorEntry.checkIfDoneForDirtyReverseDep(skyKey);
                 // Perform the necessary bookkeeping for any deps that are not being used.
                 for (Entry<SkyKey, ? extends NodeEntry> depEntry : entriesToCheck.entrySet()) {
@@ -344,138 +344,143 @@ public final class ParallelEvaluator implements Evaluator {
     @Override
     public void run() {
       try {
-      NodeEntry state = Preconditions.checkNotNull(
-          graph.get(null, Reason.EVALUATION, skyKey),
-          skyKey);
-      Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
-      if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
-        return;
-      }
+        NodeEntry state =
+            Preconditions.checkNotNull(graph.get(null, Reason.EVALUATION, skyKey), skyKey);
+        Preconditions.checkState(state.isReady(), "%s %s", skyKey, state);
+        if (maybeHandleDirtyNode(state) == DirtyOutcome.ALREADY_PROCESSED) {
+          return;
+        }
 
-      Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
-      SkyFunctionEnvironment env =
-          new SkyFunctionEnvironment(
-              skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
-      SkyFunctionName functionName = skyKey.functionName();
-      SkyFunction factory =
-          Preconditions.checkNotNull(
-              evaluatorContext.getSkyFunctions().get(functionName),
-              "Unable to find SkyFunction '%s' for node with key %s, %s",
-              functionName,
-              skyKey,
-              state);
+        Set<SkyKey> oldDeps = state.getAllRemainingDirtyDirectDeps();
+        SkyFunctionEnvironment env =
+            new SkyFunctionEnvironment(
+                skyKey, state.getTemporaryDirectDeps(), oldDeps, evaluatorContext);
+        SkyFunctionName functionName = skyKey.functionName();
+        SkyFunction factory =
+            Preconditions.checkNotNull(
+                evaluatorContext.getSkyFunctions().get(functionName),
+                "Unable to find SkyFunction '%s' for node with key %s, %s",
+                functionName,
+                skyKey,
+                state);
 
-      SkyValue value = null;
-      long startTime = BlazeClock.instance().nanoTime();
-      try {
-        value = factory.compute(skyKey, env);
-      } catch (final SkyFunctionException builderException) {
-        ReifiedSkyFunctionException reifiedBuilderException =
-            new ReifiedSkyFunctionException(builderException, skyKey);
-        // In keep-going mode, we do not let SkyFunctions throw errors with missing deps -- we will
-        // restart them when their deps are done, so we can have a definitive error and definitive
-        // graph structure, thus avoiding non-determinism. It's completely reasonable for
-        // SkyFunctions to throw eagerly because they do not know if they are in keep-going mode.
-        // Propagated transitive errors are treated the same as missing deps.
-        if ((!evaluatorContext.keepGoing() || !env.valuesMissing())
-            && reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
-          boolean shouldFailFast =
-              !evaluatorContext.keepGoing() || builderException.isCatastrophic();
-          if (shouldFailFast) {
+        SkyValue value = null;
+        long startTime = BlazeClock.instance().nanoTime();
+        try {
+          value = factory.compute(skyKey, env);
+        } catch (final SkyFunctionException builderException) {
+          ReifiedSkyFunctionException reifiedBuilderException =
+              new ReifiedSkyFunctionException(builderException, skyKey);
+          // In keep-going mode, we do not let SkyFunctions throw errors with missing deps -- we
+          // will restart them when their deps are done, so we can have a definitive error and
+          // definitive graph structure, thus avoiding non-determinism. It's completely reasonable
+          // for SkyFunctions to throw eagerly because they do not know if they are in keep-going
+          // mode.
+          // Propagated transitive errors are treated the same as missing deps.
+          if ((!evaluatorContext.keepGoing() || !env.valuesMissing())
+              && reifiedBuilderException.getRootCauseSkyKey().equals(skyKey)) {
+            boolean shouldFailFast =
+                !evaluatorContext.keepGoing() || builderException.isCatastrophic();
+            if (shouldFailFast) {
               // After we commit this error to the graph but before the doMutatingEvaluation call
               // completes with the error there is a race-like opportunity for the error to be used,
               // either by an in-flight computation or by a future computation.
               if (!evaluatorContext.getVisitor().preventNewEvaluations()) {
-              // This is not the first error encountered, so we ignore it so that we can terminate
-              // with the first error.
+                // This is not the first error encountered, so we ignore it so that we can terminate
+                // with the first error.
+                return;
+              }
+            }
+
+            Map<SkyKey, ? extends NodeEntry> newlyRequestedDeps =
+                evaluatorContext.getBatchValues(
+                    skyKey, Reason.RDEP_ADDITION, env.getNewlyRequestedDeps());
+            boolean isTransitivelyTransient = reifiedBuilderException.isTransient();
+            for (NodeEntry depEntry :
+                Iterables.concat(env.getDirectDepsValues(), newlyRequestedDeps.values())) {
+              if (!isDoneForBuild(depEntry)) {
+                continue;
+              }
+              ErrorInfo depError = depEntry.getErrorInfo();
+              if (depError != null) {
+                isTransitivelyTransient |= depError.isTransient();
+              }
+            }
+            ErrorInfo errorInfo =
+                ErrorInfo.fromException(reifiedBuilderException, isTransitivelyTransient);
+            registerNewlyDiscoveredDepsForDoneEntry(
+                skyKey, state, newlyRequestedDeps, oldDeps, env);
+            env.setError(
+                state, errorInfo, /*isDirectlyTransient=*/ reifiedBuilderException.isTransient());
+            env.commit(
+                state,
+                evaluatorContext.keepGoing()
+                    ? EnqueueParentBehavior.ENQUEUE
+                    : EnqueueParentBehavior.SIGNAL);
+            if (!shouldFailFast) {
               return;
             }
+            throw SchedulerException.ofError(errorInfo, skyKey);
           }
-
-          Map<SkyKey, ? extends NodeEntry> newlyRequestedDeps =
-              evaluatorContext.getBatchValues(
-                  skyKey, Reason.RDEP_ADDITION, env.getNewlyRequestedDeps());
-          boolean isTransitivelyTransient = reifiedBuilderException.isTransient();
-          for (NodeEntry depEntry :
-              Iterables.concat(env.getDirectDepsValues(), newlyRequestedDeps.values())) {
-            if (!isDoneForBuild(depEntry)) {
-              continue;
-            }
-            ErrorInfo depError = depEntry.getErrorInfo();
-            if (depError != null) {
-              isTransitivelyTransient |= depError.isTransient();
-            }
-          }
-          ErrorInfo errorInfo = ErrorInfo.fromException(reifiedBuilderException,
-              isTransitivelyTransient);
-          registerNewlyDiscoveredDepsForDoneEntry(skyKey, state, newlyRequestedDeps, oldDeps, env);
-          env.setError(
-              state,
-              errorInfo,
-              /*isDirectlyTransient=*/ reifiedBuilderException.isTransient());
-          env.commit(
-              state,
-               evaluatorContext.keepGoing()
-                   ? EnqueueParentBehavior.ENQUEUE
-                   : EnqueueParentBehavior.SIGNAL);
-          if (!shouldFailFast) {
-            return;
-          }
-          throw SchedulerException.ofError(errorInfo, skyKey);
-        }
-      } catch (RuntimeException re) {
-        // Programmer error (most likely NPE or a failed precondition in a SkyFunction). Output
-        // some context together with the exception.
-        String msg = prepareCrashMessage(skyKey, state.getInProgressReverseDeps());
-        RuntimeException ex = new RuntimeException(msg, re);
+        } catch (RuntimeException re) {
+          // Programmer error (most likely NPE or a failed precondition in a SkyFunction). Output
+          // some context together with the exception.
+          String msg = prepareCrashMessage(skyKey, state.getInProgressReverseDeps());
+          RuntimeException ex = new RuntimeException(msg, re);
           evaluatorContext.getVisitor().noteCrash(ex);
-        throw ex;
-      } finally {
-        env.doneBuilding();
-        long elapsedTimeNanos =  BlazeClock.instance().nanoTime() - startTime;
-        if (elapsedTimeNanos > 0)  {
-          evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
-          Profiler.instance().logSimpleTaskDuration(startTime, elapsedTimeNanos,
-              ProfilerTask.SKYFUNCTION, skyKey);
+          throw ex;
+        } finally {
+          env.doneBuilding();
+          long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;
+          if (elapsedTimeNanos > 0) {
+            evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
+            Profiler.instance()
+                .logSimpleTaskDuration(
+                    startTime, elapsedTimeNanos, ProfilerTask.SKYFUNCTION, skyKey);
+          }
         }
-      }
 
-      GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
+        GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
 
-      if (value != null) {
-        Preconditions.checkState(!env.valuesMissing(), "Evaluation of %s returned non-null value "
-            + "but requested dependencies that weren't computed yet (one of %s), ValueEntry: %s",
-            skyKey, newDirectDeps, state);
-        env.setValue(value);
-        registerNewlyDiscoveredDepsForDoneEntry(
-            skyKey,
-            state,
-            graph.getBatch(skyKey, Reason.RDEP_ADDITION, env.getNewlyRequestedDeps()),
-            oldDeps,
-            env);
+        if (value != null) {
+          Preconditions.checkState(
+              !env.valuesMissing(),
+              "Evaluation of %s returned non-null value but requested dependencies that weren't "
+                  + "computed yet (one of %s), NodeEntry: %s",
+              skyKey,
+              newDirectDeps,
+              state);
+          env.setValue(value);
+          registerNewlyDiscoveredDepsForDoneEntry(
+              skyKey,
+              state,
+              graph.getBatch(skyKey, Reason.RDEP_ADDITION, env.getNewlyRequestedDeps()),
+              oldDeps,
+              env);
           env.commit(state, EnqueueParentBehavior.ENQUEUE);
-        return;
-      }
+          return;
+        }
 
-      if (env.getDepErrorKey() != null) {
-        Preconditions.checkState(
-            !evaluatorContext.keepGoing(), "%s %s %s", skyKey, state, env.getDepErrorKey());
-        // We encountered a child error in noKeepGoing mode, so we want to fail fast. But we first
-        // need to add the edge between the current node and the child error it requested so that
-        // error bubbling can occur. Note that this edge will subsequently be removed during graph
-        // cleaning (since the current node will never be committed to the graph).
-        SkyKey childErrorKey = env.getDepErrorKey();
-        NodeEntry childErrorEntry = Preconditions.checkNotNull(
-            graph.get(skyKey, Reason.OTHER, childErrorKey),
-            "skyKey: %s, state: %s childErrorKey: %s",
-            skyKey,
-            state,
-            childErrorKey);
+        if (env.getDepErrorKey() != null) {
+          Preconditions.checkState(
+              !evaluatorContext.keepGoing(), "%s %s %s", skyKey, state, env.getDepErrorKey());
+          // We encountered a child error in noKeepGoing mode, so we want to fail fast. But we first
+          // need to add the edge between the current node and the child error it requested so that
+          // error bubbling can occur. Note that this edge will subsequently be removed during graph
+          // cleaning (since the current node will never be committed to the graph).
+          SkyKey childErrorKey = env.getDepErrorKey();
+          NodeEntry childErrorEntry =
+              Preconditions.checkNotNull(
+                  graph.get(skyKey, Reason.OTHER, childErrorKey),
+                  "skyKey: %s, state: %s childErrorKey: %s",
+                  skyKey,
+                  state,
+                  childErrorKey);
           if (newDirectDeps.contains(childErrorKey)) {
             // Add this dep if it was just requested. In certain rare race conditions (see
             // MemoizingEvaluatorTest.cachedErrorCausesRestart) this dep may have already been
             // requested.
-            state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
+            state.addTemporaryDirectDeps(GroupedListHelper.create(childErrorKey));
             DependencyState childErrorState;
             if (oldDeps.contains(childErrorKey)) {
               childErrorState = childErrorEntry.checkIfDoneForDirtyReverseDep(skyKey);
@@ -489,62 +494,62 @@ public final class ParallelEvaluator implements Evaluator {
                 state,
                 childErrorKey,
                 childErrorEntry);
-        }
-        ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
+          }
+          ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
           evaluatorContext.getVisitor().preventNewEvaluations();
-        throw SchedulerException.ofError(childErrorInfo, childErrorKey);
-      }
+          throw SchedulerException.ofError(childErrorInfo, childErrorKey);
+        }
 
-      // TODO(bazel-team): This code is not safe to interrupt, because we would lose the state in
-      // newDirectDeps.
+        // TODO(bazel-team): This code is not safe to interrupt, because we would lose the state in
+        // newDirectDeps.
 
-      // TODO(bazel-team): An ill-behaved SkyFunction can throw us into an infinite loop where we
-      // add more dependencies on every run. [skyframe-core]
+        // TODO(bazel-team): An ill-behaved SkyFunction can throw us into an infinite loop where we
+        // add more dependencies on every run. [skyframe-core]
 
-      // Add all new keys to the set of known deps.
-      state.addTemporaryDirectDeps(newDirectDeps);
+        // Add all new keys to the set of known deps.
+        Set<SkyKey> uniqueNewDeps = state.addTemporaryDirectDeps(newDirectDeps);
 
-      // If there were no newly requested dependencies, at least one of them was in error or there
-      // is a bug in the SkyFunction implementation. The environment has collected its errors, so we
-      // just order it to be built.
-      if (newDirectDeps.isEmpty()) {
-        // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
-        Preconditions.checkState(
-            !env.getChildErrorInfos().isEmpty(),
-            "Evaluation of SkyKey failed and no dependencies were requested: %s %s",
-            skyKey,
-            state);
-        Preconditions.checkState(
-            evaluatorContext.keepGoing(),
-            "nokeep_going evaluation should have failed on first child error: %s %s %s",
-            skyKey,
-            state,
-            env.getChildErrorInfos());
+        // If there were no newly requested dependencies, at least one of them was in error or there
+        // is a bug in the SkyFunction implementation. The environment has collected its errors, so
+        // we just order it to be built.
+        if (uniqueNewDeps.isEmpty()) {
+          // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
+          Preconditions.checkState(
+              !env.getChildErrorInfos().isEmpty(),
+              "Evaluation of SkyKey failed and no dependencies were requested: %s %s",
+              skyKey,
+              state);
+          Preconditions.checkState(
+              evaluatorContext.keepGoing(),
+              "nokeep_going evaluation should have failed on first child error: %s %s %s",
+              skyKey,
+              state,
+              env.getChildErrorInfos());
           // If the child error was catastrophic, committing this parent to the graph is not
           // necessary, but since we don't do error bubbling in catastrophes, it doesn't violate any
           // invariants either.
           env.commit(state, EnqueueParentBehavior.ENQUEUE);
-        return;
-      }
+          return;
+        }
 
-      for (Entry<SkyKey, ? extends NodeEntry> e :
-          graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, newDirectDeps).entrySet()) {
-        SkyKey newDirectDep = e.getKey();
-        NodeEntry newDirectDepEntry = e.getValue();
-        enqueueChild(
-            skyKey,
-            state,
-            newDirectDep,
-            newDirectDepEntry,
-            /*depAlreadyExists=*/ oldDeps.contains(newDirectDep));
-      }
+        for (Entry<SkyKey, ? extends NodeEntry> e :
+            graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, uniqueNewDeps).entrySet()) {
+          SkyKey newDirectDep = e.getKey();
+          NodeEntry newDirectDepEntry = e.getValue();
+          enqueueChild(
+              skyKey,
+              state,
+              newDirectDep,
+              newDirectDepEntry,
+              /*depAlreadyExists=*/ oldDeps.contains(newDirectDep));
+        }
+        // It is critical that there is no code below this point in the try block.
       } catch (InterruptedException ie) {
         // InterruptedException cannot be thrown by Runnable.run, so we must wrap it.
         // Interrupts can be caught by both the Evaluator and the AbstractQueueVisitor.
         // The former will unwrap the IE and propagate it as is; the latter will throw a new IE.
         throw SchedulerException.ofInterruption(ie, skyKey);
       }
-      // It is critical that there is no code below this point.
     }
 
     private String prepareCrashMessage(SkyKey skyKey, Iterable<SkyKey> reverseDeps) {
@@ -594,8 +599,8 @@ public final class ParallelEvaluator implements Evaluator {
       }
     }
     env.getNewlyRequestedDeps().remove(unfinishedDeps);
-    entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
-    for (SkyKey newDep : env.getNewlyRequestedDeps()) {
+    Set<SkyKey> uniqueNewDeps = entry.addTemporaryDirectDeps(env.getNewlyRequestedDeps());
+    for (SkyKey newDep : uniqueNewDeps) {
       // Note that this depEntry can't be null. If env.newlyRequestedDeps contained a key with a
       // null entry, then it would have been added to unfinishedDeps and then removed from
       // env.newlyRequestedDeps just above this loop.

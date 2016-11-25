@@ -45,8 +45,10 @@ public class DirectoryListingStateFunction implements SkyFunction {
         return null;
       }
       return DirectoryListingStateValue.create(dirRootedPath);
-    } catch (FileOutsidePackageRootsException e) {
-      throw new DirectoryListingStateFunctionException(e);
+    } catch (ExternalFilesHelper.NonexistentImmutableExternalFileException e) {
+      // DirectoryListingStateValue.key assumes the path exists. This exception here is therefore
+      // indicative of a programming bug.
+      throw new IllegalStateException(dirRootedPath.toString(), e);
     } catch (IOException e) {
       throw new DirectoryListingStateFunctionException(e);
     }
@@ -65,10 +67,6 @@ public class DirectoryListingStateFunction implements SkyFunction {
       extends SkyFunctionException {
     public DirectoryListingStateFunctionException(IOException e) {
       super(e, Transience.TRANSIENT);
-    }
-
-    public DirectoryListingStateFunctionException(FileOutsidePackageRootsException e) {
-      super(e, Transience.PERSISTENT);
     }
   }
 }

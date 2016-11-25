@@ -14,17 +14,24 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <limits.h>  // PATH_MAX
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
+#include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/global_variables.h"
+#include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
+#include "src/main/cpp/util/md5.h"
 
 namespace blaze {
 
@@ -34,6 +41,90 @@ using blaze_util::pdie;
 using std::string;
 using std::vector;
 
+SignalHandler SignalHandler::INSTANCE;
+
+// The number of the last received signal that should cause the client
+// to shutdown.  This is saved so that the client's WTERMSIG can be set
+// correctly.  (Currently only SIGPIPE uses this mechanism.)
+static volatile sig_atomic_t signal_handler_received_signal = 0;
+
+// A signal-safe version of fprintf(stderr, ...).
+static void sigprintf(const char *format, ...);
+
+// Signal handler.
+static void handler(int signum) {
+  int saved_errno = errno;
+
+  static volatile sig_atomic_t sigint_count = 0;
+
+  switch (signum) {
+    case SIGINT:
+      if (++sigint_count >= 3) {
+        sigprintf(
+            "\n%s caught third interrupt signal; killed.\n\n",
+            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+        }
+        ExitImmediately(1);
+      }
+      sigprintf(
+          "\n%s caught interrupt signal; shutting down.\n\n",
+          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+      SignalHandler::Get().CancelServer();
+      break;
+    case SIGTERM:
+      sigprintf(
+          "\n%s caught terminate signal; shutting down.\n\n",
+          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+      SignalHandler::Get().CancelServer();
+      break;
+    case SIGPIPE:
+      signal_handler_received_signal = SIGPIPE;
+      break;
+    case SIGQUIT:
+      sigprintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
+                SignalHandler::Get().GetGlobals()->server_pid,
+                SignalHandler::Get().GetGlobals()->jvm_log_file.c_str());
+      kill(SignalHandler::Get().GetGlobals()->server_pid, SIGQUIT);
+      break;
+  }
+
+  errno = saved_errno;
+}
+
+void SignalHandler::Install(GlobalVariables* globals,
+                            SignalHandler::Callback cancel_server) {
+  _globals = globals;
+  _cancel_server = cancel_server;
+
+  // Unblock all signals.
+  sigset_t sigset;
+  sigemptyset(&sigset);
+  sigprocmask(SIG_SETMASK, &sigset, NULL);
+
+  signal(SIGINT, handler);
+  signal(SIGTERM, handler);
+  signal(SIGPIPE, handler);
+  signal(SIGQUIT, handler);
+}
+
+ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
+  if (signal_handler_received_signal) {
+    // Kill ourselves with the same signal, so that callers see the
+    // right WTERMSIG value.
+    signal(signal_handler_received_signal, SIG_DFL);
+    raise(signal_handler_received_signal);
+    exit(1);  // (in case raise didn't kill us for some reason)
+  } else {
+    exit(exit_code);
+  }
+}
+
+string GetProcessIdAsString() {
+  return ToString(getpid());
+}
+
 void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
   if (VerboseLogging()) {
     string dbg;
@@ -42,13 +133,9 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
       dbg.append(" ");
     }
 
-    char cwd[PATH_MAX] = {};
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-    }
-
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(), cwd,
-            dbg.c_str());
+    string cwd = blaze_util::GetCwd();
+    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(),
+            cwd.c_str(), dbg.c_str());
   }
 
   // Copy to a char* array for execv:
@@ -145,6 +232,8 @@ void ExecuteDaemon(const string& exe,
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
   } else if (child > 0) {  // we're the parent
     close(fds[1]);  // parent keeps only the reading side
+    int unused_status;
+    waitpid(child, &unused_status, 0);  // child double-forks
     *server_startup = new PipeBlazeServerStartup(fds[0]);
     return;
   } else {
@@ -152,19 +241,13 @@ void ExecuteDaemon(const string& exe,
   }
 
   Daemonize(daemon_output);
-  string pid_string = ToString(getpid());
+  string pid_string = GetProcessIdAsString();
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
-  string pid_symlink_file = blaze_util::JoinPath(server_dir, kServerPidSymlink);
 
   if (!WriteFile(pid_string, pid_file)) {
     // The exit code does not matter because we are already in the daemonized
     // server. The output of this operation will end up in jvm.out .
     pdie(0, "Cannot write PID file");
-  }
-
-  UnlinkPath(pid_symlink_file.c_str());
-  if (symlink(pid_string.c_str(), pid_symlink_file.c_str()) < 0) {
-    pdie(0, "Cannot write PID symlink");
   }
 
   WriteSystemSpecificProcessIdentifier(server_dir);
@@ -216,6 +299,205 @@ bool ReadDirectorySymlink(const string &name, string* result) {
 
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
+}
+
+string GetHashedBaseDir(const string& root, const string& hashable) {
+  unsigned char buf[blaze_util::Md5Digest::kDigestLength];
+  blaze_util::Md5Digest digest;
+  digest.Update(hashable.data(), hashable.size());
+  digest.Finish(buf);
+  return root + "/" + digest.String();
+}
+
+void CreateSecureOutputRoot(const string& path) {
+  const char* root = path.c_str();
+  struct stat fileinfo = {};
+
+  if (!MakeDirectories(root, 0755)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
+  }
+
+  // The path already exists.
+  // Check ownership and mode, and verify that it is a directory.
+
+  if (lstat(root, &fileinfo) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "lstat('%s')", root);
+  }
+
+  if (fileinfo.st_uid != geteuid()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not owned by me",
+        root);
+  }
+
+  if ((fileinfo.st_mode & 022) != 0) {
+    int new_mode = fileinfo.st_mode & (~022);
+    if (chmod(root, new_mode) < 0) {
+      die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+          "'%s' has mode %o, chmod to %o failed", root,
+          fileinfo.st_mode & 07777, new_mode);
+    }
+  }
+
+  if (stat(root, &fileinfo) < 0) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
+  }
+
+  if (!S_ISDIR(fileinfo.st_mode)) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
+        root);
+  }
+
+  ExcludePathFromBackup(root);
+}
+
+// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
+// `path` isn't a directory. If check_perms is true, this will also
+// make sure that `path` is owned by the current user and has `mode`
+// permissions (observing the umask). It attempts to run chmod to
+// correct the mode if necessary. If `path` is a symlink, this will
+// check ownership of the link, not the underlying directory.
+static bool GetDirectoryStat(const string& path, mode_t mode,
+                             bool check_perms) {
+  struct stat filestat = {};
+  if (stat(path.c_str(), &filestat) == -1) {
+    return false;
+  }
+
+  if (!S_ISDIR(filestat.st_mode)) {
+    errno = ENOTDIR;
+    return false;
+  }
+
+  if (check_perms) {
+    // If this is a symlink, run checks on the link. (If we did lstat above
+    // then it would return false for ISDIR).
+    struct stat linkstat = {};
+    if (lstat(path.c_str(), &linkstat) != 0) {
+      return false;
+    }
+    if (linkstat.st_uid != geteuid()) {
+      // The directory isn't owned by me.
+      errno = EACCES;
+      return false;
+    }
+
+    mode_t mask = umask(022);
+    umask(mask);
+    mode = (mode & ~mask);
+    if ((filestat.st_mode & 0777) != mode
+        && chmod(path.c_str(), mode) == -1) {
+      // errno set by chmod.
+      return false;
+    }
+  }
+  return true;
+}
+
+static bool MakeDirectories(const string& path, mode_t mode, bool childmost) {
+  if (path.empty() || path == "/") {
+    errno = EACCES;
+    return false;
+  }
+
+  bool stat_succeeded = GetDirectoryStat(path, mode, childmost);
+  if (stat_succeeded) {
+    return true;
+  }
+
+  if (errno == ENOENT) {
+    // Path does not exist, attempt to create its parents, then it.
+    string parent = blaze_util::Dirname(path);
+    if (!MakeDirectories(parent, mode, false)) {
+      // errno set by stat.
+      return false;
+    }
+
+    if (mkdir(path.c_str(), mode) == -1) {
+      if (errno == EEXIST) {
+        if (childmost) {
+          // If there are multiple bazel calls at the same time then the
+          // directory could be created between the MakeDirectories and mkdir
+          // calls. This is okay, but we still have to check the permissions.
+          return GetDirectoryStat(path, mode, childmost);
+        } else {
+          // If this isn't the childmost directory, we don't care what the
+          // permissions were. If it's not even a directory then that error will
+          // get caught when we attempt to create the next directory down the
+          // chain.
+          return true;
+        }
+      }
+      // errno set by mkdir.
+      return false;
+    }
+    return true;
+  }
+
+  return stat_succeeded;
+}
+
+// mkdir -p path. Returns 0 if the path was created or already exists and could
+// be chmod-ed to exactly the given permissions. If final part of the path is a
+// symlink, this ensures that the destination of the symlink has the desired
+// permissions. It also checks that the directory or symlink is owned by us.
+// On failure, this returns -1 and sets errno.
+bool MakeDirectories(const string& path, unsigned int mode) {
+  return MakeDirectories(path, mode, true);
+}
+
+string GetEnv(const string& name) {
+  char* result = getenv(name.c_str());
+  return result != NULL ? string(result) : "";
+}
+
+void SetEnv(const string& name, const string& value) {
+  setenv(name.c_str(), value.c_str(), 1);
+}
+
+void UnsetEnv(const string& name) {
+  unsetenv(name.c_str());
+}
+
+ATTRIBUTE_NORETURN void ExitImmediately(int exit_code) {
+  _exit(exit_code);
+}
+
+void SetupStdStreams() {
+  // Set non-buffered output mode for stderr/stdout. The server already
+  // line-buffers messages where it makes sense, so there's no need to do set
+  // line-buffering here. On the other hand the server sometimes sends binary
+  // output (when for example a query returns results as proto), in which case
+  // we must not perform line buffering on the client side. So turn off
+  // buffering here completely.
+  setvbuf(stdout, NULL, _IONBF, 0);
+  setvbuf(stderr, NULL, _IONBF, 0);
+
+  // Ensure we have three open fds.  Otherwise we can end up with
+  // bizarre things like stdout going to the lock file, etc.
+  if (fcntl(STDIN_FILENO, F_GETFL) == -1) open("/dev/null", O_RDONLY);
+  if (fcntl(STDOUT_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+  if (fcntl(STDERR_FILENO, F_GETFL) == -1) open("/dev/null", O_WRONLY);
+}
+
+// A signal-safe version of fprintf(stderr, ...).
+//
+// WARNING: any output from the blaze client may be interleaved
+// with output from the blaze server.  In --curses mode,
+// the Blaze server often erases the previous line of output.
+// So, be sure to end each such message with TWO newlines,
+// otherwise it may be erased by the next message from the
+// Blaze server.
+// Also, it's a good idea to start each message with a newline,
+// in case the Blaze server has written a partial line.
+static void sigprintf(const char *format, ...) {
+  char buf[1024];
+  va_list ap;
+  va_start(ap, format);
+  int r = vsnprintf(buf, sizeof buf, format, ap);
+  va_end(ap);
+  if (write(STDERR_FILENO, buf, r) <= 0) {
+    // We don't care, just placate the compiler.
+  }
 }
 
 }   // namespace blaze.

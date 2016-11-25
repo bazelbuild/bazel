@@ -8,7 +8,7 @@ title: Get Support
 * [User mailing list](https://groups.google.com/forum/#!forum/bazel-discuss)
 * [Issue tracker](https://github.com/bazelbuild/bazel/issues)
 * [Twitter](http://www.twitter.com/bazelbuild)
-* [IRC](irc://irc.freenode.net/bazel) (freenode.net#bazel)
+* [IRC](http://webchat.freenode.net) (irc.freenode.net#bazel)
 
 # Support Policy
 
@@ -63,7 +63,7 @@ release candidate, we release it.
 ### Release versioning
 
 Version 0.1 is our first release marking the start of our beta phase. Until version 1.0.0, we
-increase the MINOR version every time we reach a [new milestone](http://bazel.io/roadmap.html).
+increase the MINOR version every time we reach a [new milestone](http://bazel.build/roadmap.html).
 
 Version 1.0.0 marks the end of our beta phase; afterwards, we will label each release with a
 version number of the form MAJOR.MINOR.PATCH according to the

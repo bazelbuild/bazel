@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -91,9 +92,12 @@ final class ProtocolBuffers2Support {
     return this;
   }
 
-  /** Registers the actions that will compile the generated code. */
-  public ProtocolBuffers2Support registerCompilationActions() {
-    new CompilationSupport(ruleContext)
+  /**
+   * Registers the actions that will compile the generated code.
+   */
+  public ProtocolBuffers2Support registerCompilationActions()
+      throws RuleErrorException, InterruptedException {
+    new LegacyCompilationSupport(ruleContext)
         .registerCompileAndArchiveActions(getCommon())
         .registerGenerateModuleMapAction(Optional.of(getCompilationArtifacts()));
     return this;

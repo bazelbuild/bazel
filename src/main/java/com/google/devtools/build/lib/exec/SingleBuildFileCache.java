@@ -70,7 +70,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
           Path path = null;
           try {
             path = fs.getPath(fullPath(input));
-            byte[] digest = path.getMD5Digest();
+            byte[] digest = path.getDigest();
             BaseEncoding hex = BaseEncoding.base16().lowerCase();
             ByteString hexDigest = ByteString.copyFrom(hex.encode(digest).getBytes(US_ASCII));
             // Inject reverse mapping. Doing this unconditionally in getDigest() showed up

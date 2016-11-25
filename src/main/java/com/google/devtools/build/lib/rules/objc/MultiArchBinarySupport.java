@@ -18,6 +18,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -51,6 +52,7 @@ public class MultiArchBinarySupport {
    * @param platform the platform for which the binary is targeted
    * @param extraLinkArgs the extra linker args to add to link actions linking single-architecture
    *     binaries together
+   * @param extraLinkInputs the extra linker inputs to be made available during link actions
    * @param configurationToObjcCommon a map from from dependency configuration to the
    *     {@link ObjcCommon} which comprises all information about the dependencies in that
    *     configuration. Can be obtained via {@link #objcCommonByDepConfiguration}
@@ -61,11 +63,14 @@ public class MultiArchBinarySupport {
    *     this support
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public void registerActions(Platform platform,
+  public void registerActions(
+      Platform platform,
       ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs,
       Map<BuildConfiguration, ObjcCommon> configurationToObjcCommon,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
-      Artifact outputLipoBinary) throws RuleErrorException {
+      Artifact outputLipoBinary)
+      throws RuleErrorException, InterruptedException {
 
     NestedSetBuilder<Artifact> binariesToLipo =
         NestedSetBuilder.<Artifact>stableOrder();
@@ -92,14 +97,14 @@ public class MultiArchBinarySupport {
 
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-      new CompilationSupport(ruleContext, childConfig)
+      new LegacyCompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerLinkActions(
               common.getObjcProvider(),
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
-              ImmutableList.<Artifact>of(),
+              extraLinkInputs,
               DsymOutputType.APP)
           .validateAttributes();
       ruleContext.assertNoErrors();
@@ -118,25 +123,42 @@ public class MultiArchBinarySupport {
    * register actions in {@link #registerActions} and collect provider information to be
    * propagated upstream.
    *
+   * @param childConfigurations the set of configurations in which dependencies of the current
+   *     rule are built
+   * @param configToDepsCollectionMap a map from child configuration to providers that "deps" of
+   *     the current rule have propagated in that configuration
+   * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
+   *     "non_propagated_deps" of the current rule have propagated in that configuration
+   * @param configToDylibsObjcMap providers that dynamic library dependencies of the current rule
+   *     have propagated
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration(
       Set<BuildConfiguration> childConfigurations,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
-      ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap)
-      throws RuleErrorException {
+      ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
+      Iterable<ObjcProvider> configToDylibsObjcMap)
+      throws RuleErrorException, InterruptedException {
     ImmutableMap.Builder<BuildConfiguration, ObjcCommon> configurationToObjcCommonBuilder =
         ImmutableMap.builder();
     for (BuildConfiguration childConfig : childConfigurations) {
-      ProtobufSupport protoSupport =
-          new ProtobufSupport(ruleContext, childConfig)
-              .registerGenerationActions()
-              .registerCompilationActions();
-
-      Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
+      Optional<ObjcProvider> protosObjcProvider;
+      if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
+        ProtobufSupport protoSupport =
+            new ProtobufSupport(ruleContext, childConfig)
+                .registerGenerationActions()
+                .registerCompilationActions();
+        protosObjcProvider = protoSupport.getObjcProvider();
+      } else {
+        protosObjcProvider = Optional.absent();
+      }
 
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
+
+      Iterable<ObjcProvider> additionalDepProviders = Iterables.concat(configToDylibsObjcMap,
+          ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
+          protosObjcProvider.asSet());
 
       ObjcCommon common =
           common(
@@ -145,11 +167,11 @@ public class MultiArchBinarySupport {
               intermediateArtifacts,
               nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
               nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
-              protosObjcProvider);
-      
+              additionalDepProviders);
+
       configurationToObjcCommonBuilder.put(childConfig, common);
     }
-    
+
     return configurationToObjcCommonBuilder.build();
   }
 
@@ -159,7 +181,7 @@ public class MultiArchBinarySupport {
       IntermediateArtifacts intermediateArtifacts,
       List<TransitiveInfoCollection> propagatedDeps,
       List<ObjcProvider> nonPropagatedObjcDeps,
-      Optional<ObjcProvider> protosObjcProvider) {
+      Iterable<ObjcProvider> additionalDepProviders) {
 
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext, intermediateArtifacts);
@@ -171,9 +193,7 @@ public class MultiArchBinarySupport {
         .setResourceAttributes(new ResourceAttributes(ruleContext))
         .addDefines(ruleContext.getTokenizedStringListAttr("defines"))
         .addDeps(propagatedDeps)
-        .addDepObjcProviders(
-            ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
-        .addDepObjcProviders(protosObjcProvider.asSet())
+        .addDepObjcProviders(additionalDepProviders)
         .addNonPropagatedDepObjcProviders(nonPropagatedObjcDeps)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setAlwayslink(false)

@@ -17,8 +17,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -74,13 +74,14 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
 
   public static final String EXTERNAL_PATH_PREFIX = "external";
 
-  private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
+  private static final Interner<Label> LABEL_INTERNER = BlazeInterners.newWeakInterner();
 
   /**
    * Factory for Labels from absolute string form. e.g.
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -96,6 +97,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * <pre>
    * //foo/bar
    * //foo/bar:quux
+   * {@literal @}foo
    * {@literal @}foo//bar
    * {@literal @}foo//bar:baz
    * </pre>
@@ -110,6 +112,9 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     if (packageStartPos > 0) {
       repo = absName.substring(0, packageStartPos);
       absName = absName.substring(packageStartPos);
+    } else if (absName.startsWith("@")) {
+      repo = absName;
+      absName = "//:" + absName.substring(1);
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
@@ -324,7 +329,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
-  
+
   /**
    * Returns the execution root for the workspace, relative to the execroot (e.g., for label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},

@@ -21,12 +21,10 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.regex.Pattern;
 
 /**
  * Tests for {@link Label}.
@@ -54,6 +52,12 @@ public class LabelTest {
       Label l = Label.parseAbsolute("//:bar");
       assertEquals("", l.getPackageName());
       assertEquals("bar", l.getName());
+    }
+    {
+      Label l = Label.parseAbsolute("@foo");
+      assertEquals("@foo", l.getPackageIdentifier().getRepository().getName());
+      assertEquals("", l.getPackageName());
+      assertEquals("foo", l.getName());
     }
   }
 
@@ -249,6 +253,10 @@ public class LabelTest {
       Label l = Label.parseAbsolute("//foo/bar");
       assertEquals("//foo/bar:bar", l.toString());
     }
+    {
+      Label l = Label.parseAbsolute("@foo");
+      assertEquals("@foo//:foo", l.toString());
+    }
   }
 
   @Test
@@ -434,7 +442,7 @@ public class LabelTest {
           "invalid repository name 'foo': workspace names must start with '@'");
     }
   }
-  
+
   @Test
   public void testGetWorkspaceRoot() throws Exception {
     Label label = Label.parseAbsolute("//bar/baz");

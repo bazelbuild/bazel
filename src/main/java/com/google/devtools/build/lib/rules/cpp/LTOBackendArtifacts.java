@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.LTOBackendAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
@@ -128,12 +127,12 @@ public final class LTOBackendArtifacts {
 
     builder.setExecutable(compiler);
     Variables.Builder buildVariablesBuilder = new Variables.Builder();
-    buildVariablesBuilder.addVariable("thinlto_index", index.getExecPath().toString());
+    buildVariablesBuilder.addStringVariable("thinlto_index", index.getExecPath().toString());
     // The output from the LTO backend step is a native object file.
-    buildVariablesBuilder.addVariable(
+    buildVariablesBuilder.addStringVariable(
         "thinlto_output_object_file", objectFile.getExecPath().toString());
     // The input to the LTO backend step is the bitcode file.
-    buildVariablesBuilder.addVariable(
+    buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
     Variables buildVariables = buildVariablesBuilder.build();
     List<String> execArgs = new ArrayList<>();

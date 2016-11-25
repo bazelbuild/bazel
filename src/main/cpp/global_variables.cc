@@ -19,8 +19,6 @@ namespace blaze {
 GlobalVariables::GlobalVariables(OptionProcessor* option_processor)
     : option_processor(option_processor),
       server_pid(-1),
-      sigint_count(0),
-      received_signal(0),
       options(NULL), /* Initialized after parsing with option_processor. */
       startup_time(0),
       extract_data_time(0),

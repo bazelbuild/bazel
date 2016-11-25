@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.file.Path;
 
 /**
  * Represents the value associated with DataKey interface for resource and asset values.
@@ -25,9 +24,9 @@ import java.nio.file.Path;
 public interface DataValue {
 
   /**
-   * Provides the Path to the file from which the DataValue was derived.
+   * Provides the DataSource, which contains metadata about the original xml it was derived from.
    */
-  Path source();
+  DataSource source();
 
   /**
    * Serializes to a supplied stream and returns the number of bytes written.

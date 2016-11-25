@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
-
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -26,10 +24,8 @@ import javax.annotation.Nullable;
  */
 public final class LabelValidator {
 
-  /**
-   * Matches punctuation in target names which requires quoting in a blaze query.
-   */
-  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~");
+  /** Matches punctuation in target names which requires quoting in a blaze query. */
+  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~#");
 
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.

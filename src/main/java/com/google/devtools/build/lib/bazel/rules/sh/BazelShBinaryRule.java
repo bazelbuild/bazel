@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.sh;
 
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.BazelBaseRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses.ShRule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -33,7 +33,7 @@ public final class BazelShBinaryRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("sh_binary")
-        .ancestors(ShRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
+        .ancestors(ShRule.class, BaseRuleClasses.BinaryBaseRule.class)
         .factoryClass(ShBinary.class)
         .build();
   }

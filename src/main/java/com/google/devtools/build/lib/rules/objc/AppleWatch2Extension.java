@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.HAS_WAT
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.WatchApplicationBundleRule.WATCH_APP_NAME_ATTR;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,9 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.WatchUtils.WatchOSVersion;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -46,7 +50,7 @@ public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
-    validateAttributes(ruleContext);
+    validateAttributesAndConfiguration(ruleContext);
 
     ObjcProvider.Builder exposedObjcProviderBuilder = new ObjcProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
@@ -100,14 +104,11 @@ public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
    * depending targets.
    *
    * @param ruleContext rule context in which to create the bundle
+   * @param extensionIpa the artifact representing the final extension bundle ipa
    * @param filesToBuild the list to contain the files to be built for this bundle
-   * @param exposedObjcProviderBuilder builder of {@link ObjcProvider} exposed to the parent target;
-   *     bundling information will be added to this builder
    */
   private void createWatchApplicationBundle(
-      RuleContext ruleContext,
-      Artifact extensionIpa,
-      NestedSetBuilder<Artifact> filesToBuild)
+      RuleContext ruleContext, Artifact extensionIpa, NestedSetBuilder<Artifact> filesToBuild)
       throws InterruptedException {
     new WatchApplicationSupport(
             ruleContext,
@@ -141,7 +142,8 @@ public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
     return ruleContext.getLabel().getName();
   }
 
-  private void validateAttributes(RuleContext ruleContext) throws RuleErrorException {
+  private void validateAttributesAndConfiguration(RuleContext ruleContext)
+      throws RuleErrorException {
     boolean hasError = false;
 
     Multiset<Artifact> appResources = HashMultiset.create();
@@ -168,6 +170,32 @@ public class AppleWatch2Extension implements RuleConfiguredTargetFactory {
                 + entry.getElement().getRootRelativePathString());
         hasError = true;
       }
+    }
+
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    Platform watchPlatform = appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS);
+    Platform iosPlatform = appleConfiguration.getMultiArchPlatform(PlatformType.IOS);
+    if (watchPlatform.isDevice() != iosPlatform.isDevice()) {
+      hasError = true;
+      if (watchPlatform.isDevice()) {
+        ruleContext.ruleError(
+            String.format(
+                "Building a watch extension for watch device architectures [%s] "
+                    + "requires a device ios architecture. Found [%s] instead.",
+                Joiner.on(",").join(appleConfiguration.getMultiArchitectures(PlatformType.WATCHOS)),
+                Joiner.on(",").join(appleConfiguration.getMultiArchitectures(PlatformType.IOS))));
+      } else {
+        ruleContext.ruleError(
+            String.format(
+                "Building a watch extension for ios device architectures [%s] "
+                    + "requires a device watch architecture. Found [%s] instead.",
+                Joiner.on(",").join(appleConfiguration.getMultiArchitectures(PlatformType.IOS)),
+                Joiner.on(",")
+                    .join(appleConfiguration.getMultiArchitectures(PlatformType.WATCHOS))));
+      }
+      ruleContext.ruleError(
+          "For building watch extension, there may only be a watch device "
+              + "architecture if and only if there is an ios device architecture");
     }
 
     if (hasError) {

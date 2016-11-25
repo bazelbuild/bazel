@@ -140,7 +140,7 @@ reproducible.
 ## Pulling images and deb files from the internet
 
 If you do not want to check in base image in your repository, you can use
-[external repositories](http://bazel.io/docs/external.html). For instance,
+[external repositories](http://bazel.build/docs/external.html). For instance,
 you could create various layer with `external` labels:
 
 ```python

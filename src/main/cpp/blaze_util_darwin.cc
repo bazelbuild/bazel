@@ -123,16 +123,16 @@ string GetSelfPath() {
   return string(pathbuf, len);
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timeval ts = {};
   if (gettimeofday(&ts, NULL) < 0) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "error calling gettimeofday");
   }
-  return ts.tv_sec * 1000000000LL + ts.tv_usec * 1000;
+  return ts.tv_sec * 1000LL + ts.tv_usec / 1000LL;
 }
 
-uint64_t ProcessClock() {
-  return clock() * (1000000000LL / CLOCKS_PER_SEC);
+uint64_t GetMillisecondsSinceProcessStart() {
+  return (clock() * 1000LL) / CLOCKS_PER_SEC;
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -153,9 +153,9 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetDefaultHostJavabase() {
-  const char *java_home = getenv("JAVA_HOME");
-  if (java_home) {
-    return std::string(java_home);
+  string java_home = GetEnv("JAVA_HOME");
+  if (!java_home.empty()) {
+    return java_home;
   }
 
   FILE *output = popen("/usr/libexec/java_home -v 1.7+", "r");

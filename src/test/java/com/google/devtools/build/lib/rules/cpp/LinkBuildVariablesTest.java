@@ -57,11 +57,13 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     return (CppLinkAction) getGeneratingAction(linkerOutput);
   }
 
-  private Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
+  /** Returns active build variables for a link action of given type for given target. */
+  protected Variables getLinkBuildVariables(ConfiguredTarget target, Link.LinkTargetType type) {
     return getCppLinkAction(target, type).getLinkCommandLine().getBuildVariables();
   }
 
-  private List<String> getVariableValue(Variables variables, String variable) throws Exception {
+  /** Returns the value of a given variable in context of the given Variables instance. */
+  protected List<String> getVariableValue(Variables variables, String variable) throws Exception {
     FeatureConfiguration mockFeatureConfiguration =
         CcToolchainFeaturesTest.buildFeatures(
                 "feature {",
@@ -163,10 +165,6 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     ;
   }
 
-  /**
-   * TODO(pcloudy): Add test for testing that necessary build variables are populated when
-   * alwayslink=1.
-   */
   @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration

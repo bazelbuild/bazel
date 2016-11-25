@@ -19,7 +19,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-
 import java.util.Objects;
 
 /**
@@ -62,6 +61,10 @@ public final class AspectParameters {
    */
   public ImmutableCollection<String> getAttribute(String key) {
     return attributes.get(key);
+  }
+
+  public ImmutableMultimap<String, String> getAttributes() {
+    return attributes;
   }
 
   /**

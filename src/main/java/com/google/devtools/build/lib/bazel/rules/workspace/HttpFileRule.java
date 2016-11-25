@@ -39,8 +39,7 @@ public class HttpFileRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(url) -->
          A URL to a file that will be made available to Bazel.
 
-         <p>This must be an http or https URL. Authentication is not support.
-         Redirections are followed, but not from HTTP to HTTPS.</p>
+         <p>This must be an http or https URL. Authentication is not supported.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(sha256) -->
@@ -82,12 +81,12 @@ public class HttpFileRule implements RuleDefinition {
 
  <pre class="code">
  http_file(
- name = "my-deb",
- url = "http://example.com/package.deb",
- sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
+    name = "my_deb",
+    url = "http://example.com/package.deb",
+    sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
  )
  </pre>
 
- <p>Targets would specify <code>@my-deb//file</code> as a dependency to depend on this file.</p>
+ <p>Targets would specify <code>@my_deb//file</code> as a dependency to depend on this file.</p>
 
  <!-- #END_BLAZE_RULE -->*/

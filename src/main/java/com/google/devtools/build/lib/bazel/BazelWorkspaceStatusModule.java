@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -31,14 +30,15 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfo;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
@@ -160,6 +160,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
+    public void prepare(Path execRoot) throws IOException {
+      // The default implementation of this method deletes all output files; override it to keep
+      // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)
+      // if the contents haven't changed.
+      deleteOutput(volatileStatus);
+    }
+
+    @Override
     public void execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
@@ -181,7 +189,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         stableMap.put(BuildInfo.BUILD_USER, username);
         volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 
-        FileSystemUtils.writeContent(stableStatus.getPath(), printStatusMap(stableMap));
+        // Only update the stableStatus contents if they are different than what we have on disk.
+        // This is to preserve the old file's mtime so that we do not generate an unnecessary dirty
+        // file on each incremental build.
+        FileSystemUtils.maybeUpdateContent(stableStatus.getPath(), printStatusMap(stableMap));
+
+        // Contrary to the stableStatus, write the contents of volatileStatus unconditionally
+        // because we know it will be different. This output file is marked as "constant metadata"
+        // so its dirtiness will be ignored anyway.
         FileSystemUtils.writeContent(volatileStatus.getPath(), printStatusMap(volatileMap));
       } catch (IOException e) {
         throw new ActionExecutionException(
@@ -246,7 +261,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   private class BazelStatusActionFactory implements WorkspaceStatusAction.Factory {
-
     private String hostname;
 
     @Override
@@ -286,7 +300,13 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
-  private class BazelWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
+  private static final class BazelWorkspaceStatusActionContext
+      implements WorkspaceStatusAction.Context {
+    private final WorkspaceStatusAction.Options options;
+
+    private BazelWorkspaceStatusActionContext(WorkspaceStatusAction.Options options) {
+      this.options = options;
+    }
 
     @Override
     public ImmutableMap<String, Key> getStableKeys() {
@@ -339,12 +359,12 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
   }
 
   @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return SimpleActionContextProvider.of(new BazelWorkspaceStatusActionContext());
+  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
+    builder.setWorkspaceStatusActionFactory(new BazelStatusActionFactory());
   }
 
   @Override
-  public void workspaceInit(BlazeDirectories directories, WorkspaceBuilder builder) {
-    builder.setWorkspaceStatusActionFactory(new BazelStatusActionFactory());
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    builder.addActionContext(new BazelWorkspaceStatusActionContext(options));
   }
 }

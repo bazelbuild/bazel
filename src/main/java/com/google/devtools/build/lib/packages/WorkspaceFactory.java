@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtensio
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.File;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -177,15 +179,14 @@ public class WorkspaceFactory {
   private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
       StoredEventHandler localReporter)
       throws InterruptedException {
-    Environment.Builder environmentBuilder = Environment.builder(mutability)
-        .setGlobals(Environment.BUILD)
-        .setEventHandler(localReporter);
+    Environment.Builder environmentBuilder =
+        Environment.builder(mutability)
+            .setGlobals(BazelLibrary.GLOBALS)
+            .setEventHandler(localReporter);
     if (importedExtensions != null) {
-      importMap =
-          ImmutableMap.<String, Extension>builder()
-              .putAll(parentImportMap)
-              .putAll(importedExtensions)
-              .build();
+      Map<String, Extension> map = new HashMap<String, Extension>(parentImportMap);
+      map.putAll(importedExtensions);
+      importMap = ImmutableMap.<String, Extension>copyOf(importedExtensions);
     } else {
       importMap = parentImportMap;
     }

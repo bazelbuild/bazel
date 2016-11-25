@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionEx
 import com.google.devtools.build.lib.analysis.MakeVariableExpander.ExpansionException;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,10 +45,14 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImp
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
+import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -91,7 +96,7 @@ public final class SkylarkRuleContext {
   public static final String EXECUTABLE_DOC =
       "A <code>struct</code> containing executable files defined in label type "
           + "attributes marked as <code>executable=True</code>. The struct fields correspond "
-          + "to the attribute names. Each struct value is always a <code>file</code>s or "
+          + "to the attribute names. Each value in the struct is either a <code>file</code> or "
           + "<code>None</code>. If an optional attribute is not specified in the rule "
           + "then the corresponding struct value is <code>None</code>. If a label type is not "
           + "marked as <code>executable=True</code>, no corresponding struct field is generated.";
@@ -141,6 +146,7 @@ public final class SkylarkRuleContext {
   private final FragmentCollection fragments;
 
   private final FragmentCollection hostFragments;
+  private final SkylarkAspect skylarkAspect;
 
   private final SkylarkDict<String, String> makeVariables;
   private final SkylarkRuleAttributesCollection attributesCollection;
@@ -151,24 +157,19 @@ public final class SkylarkRuleContext {
   private final SkylarkClassObject outputsObject;
 
   /**
-   * Determines whether this context is for rule implementation or for aspect implementation.
-   */
-  public enum Kind {
-    RULE,
-    ASPECT
-  }
-
-  /**
    * Creates a new SkylarkRuleContext using ruleContext.
+   * @param skylarkAspect aspect for which the context is created, or <code>null</code>
+   *        if it is for a rule.
    * @throws InterruptedException
    */
-  public SkylarkRuleContext(RuleContext ruleContext, Kind kind)
+  public SkylarkRuleContext(RuleContext ruleContext, @Nullable SkylarkAspect skylarkAspect)
       throws EvalException, InterruptedException {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
+    this.skylarkAspect = skylarkAspect;
 
-    if (kind == Kind.RULE) {
+    if (skylarkAspect == null) {
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
       HashMap<String, Object> outputsBuilder = new HashMap<>();
       if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -244,6 +245,11 @@ public final class SkylarkRuleContext {
     }
 
     makeVariables = ruleContext.getConfigurationMakeVariableContext().collectMakeVariables();
+  }
+
+  @Nullable
+  public SkylarkAspect getSkylarkAspect() {
+    return skylarkAspect;
   }
 
   private Function<Attribute, Object> attributeValueExtractorForRule(
@@ -420,15 +426,24 @@ public final class SkylarkRuleContext {
     return ruleContext;
   }
 
+  private static final SkylarkClassObjectConstructor DEFAULT_PROVIDER =
+      SkylarkClassObjectConstructor.createNativeConstructable("default_provider");
+
+  @SkylarkCallable(name = "default_provider", structField = true)
+  public static SkylarkClassObjectConstructor getDefaultProvider() {
+    return DEFAULT_PROVIDER;
+  }
+
   @SkylarkCallable(name = "created_actions",
-      doc = "For rules marked <code>_skylark_testable=True</code>, this returns an "
-          + "<a href=\"ActionsSkylarkApiProvider.html\">actions</a> provider representing all "
-          + "actions created so far for the current rule. For all other rules, returns None. "
+      doc = "For rules with <a href=\"globals.html#rule._skylark_testable\">_skylark_testable"
+          + "</a> set to <code>True</code>, this returns an "
+          + "<a href=\"globals.html#Actions\">Actions</a> provider representing all actions "
+          + "created so far for the current rule. For all other rules, returns <code>None</code>. "
           + "Note that the provider is not updated when subsequent actions are created, so you "
           + "will have to call this function again if you wish to inspect them. "
-          + ""
-          + "<p>This is intended to help test rule-implementation helper functions that take in a "
-          + "<a href=\"ctx.html\">ctx</a> object and create actions for it.")
+          + "<br/><br/>"
+          + "This is intended to help write tests for rule-implementation helper functions, which "
+          + "may take in a<code>ctx</code> object and create actions on it.")
   public Object createdActions() {
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(
@@ -502,6 +517,35 @@ public final class SkylarkRuleContext {
           + "configuration</a> type for more details.")
   public BuildConfiguration getHostConfiguration() {
     return ruleContext.getHostConfiguration();
+  }
+
+  @SkylarkCallable(name = "coverage_instrumented",
+    doc = "Returns whether code coverage instrumentation should be generated when performing "
+        + "compilation actions for this rule or, if <code>target</code> is provided, the rule "
+        + "specified by that Target. (If a non-rule Target is provided, this returns False.) This "
+        + "differs from <code>coverage_enabled</code> in the <a href=\"configuration.html\">"
+        + "configuration</a>, which notes whether coverage data collection is enabled for the "
+        + "entire run, but not whether a specific target should be instrumented.",
+    parameters = {
+      @Param(
+          name = "target",
+          type = TransitiveInfoCollection.class,
+          defaultValue = "None",
+          noneable = true,
+          named = true,
+          doc = "A Target specifying a rule. If not provided, defaults to the current rule.")
+    })
+  public boolean instrumentCoverage(Object targetUnchecked) {
+    BuildConfiguration config = ruleContext.getConfiguration();
+    if (!config.isCodeCoverageEnabled()) {
+      return false;
+    }
+    if (targetUnchecked == Runtime.NONE) {
+      return InstrumentedFilesCollector.shouldIncludeLocalSources(ruleContext);
+    }
+    TransitiveInfoCollection target = (TransitiveInfoCollection) targetUnchecked;
+    return (target.getProvider(InstrumentedFilesProvider.class) != null)
+        && InstrumentedFilesCollector.shouldIncludeLocalSources(config, target);
   }
 
   @SkylarkCallable(name = "features", structField = true,

@@ -426,14 +426,20 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   }
 
   /**
-   * The Spawn which this SpawnAction will execute.
+   * A spawn instance that is tied to a specific SpawnAction.
    */
-  private class ActionSpawn extends BaseSpawn {
+  public class ActionSpawn extends BaseSpawn {
 
     private final List<Artifact> filesets = new ArrayList<>();
 
     private final ImmutableMap<String, String> effectiveEnvironment;
 
+    /**
+     * Creates an ActionSpawn with the given environment variables.
+     * 
+     * <p>Subclasses of ActionSpawn may subclass in order to provide action-specific values for
+     * environment variables or action inputs.
+     */
     public ActionSpawn(Map<String, String> clientEnv) {
       super(ImmutableList.copyOf(argv.arguments()),
           ImmutableMap.<String, String>of(),
@@ -460,6 +466,9 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       effectiveEnvironment = ImmutableMap.copyOf(env);
     }
 
+    /**
+     * Creates an ActionSpawn with no environment variables.
+     */
     public ActionSpawn() {
       this(null);
     }
@@ -595,6 +604,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           buildSpawnAction(
               owner,
               configuration.getLocalShellEnvironment(),
+              configuration.getVariableShellEnvironment(),
               configuration.getShellExecutable(),
               paramsFile,
               paramFileWriteAction));
@@ -627,6 +637,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     SpawnAction buildSpawnAction(
         ActionOwner owner,
         @Nullable Map<String, String> defaultShellEnvironment,
+        @Nullable Set<String> variableShellEnvironment,
         @Nullable PathFragment defaultShellExecutable,
         @Nullable Artifact paramsFile,
         @Nullable ParameterFileWriteAction paramFileWriteAction) {
@@ -657,10 +668,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       inputAndToolManifests.putAll(toolManifests);
 
       Map<String, String> env;
+      Set<String> clientEnv;
       if (useDefaultShellEnvironment) {
         env = Preconditions.checkNotNull(defaultShellEnvironment);
+        clientEnv = Preconditions.checkNotNull(variableShellEnvironment);
       } else {
         env = this.environment;
+        clientEnv = this.clientEnvironmentVariables;
       }
 
       if (disableSandboxing) {
@@ -678,7 +692,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
           resourceSet,
           actualCommandLine,
           ImmutableMap.copyOf(env),
-          clientEnvironmentVariables,
+          ImmutableSet.copyOf(clientEnv),
           ImmutableMap.copyOf(executionInfo),
           progressMessage,
           ImmutableMap.copyOf(inputAndToolManifests),

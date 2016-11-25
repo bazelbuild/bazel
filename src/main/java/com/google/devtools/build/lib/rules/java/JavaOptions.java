@@ -172,11 +172,13 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean headerCompilation;
 
+  // TODO(cushon): delete flag after removing from global .blazerc
+  @Deprecated
   @Option(
     name = "experimental_optimize_header_compilation_annotation_processing",
     defaultValue = "false",
     category = "undocumented",
-    help = "Experimental: only run api-generating java_plugins during header compilation."
+    help = "This flag is a noop and scheduled for removal."
   )
   public boolean optimizeHeaderCompilationAnnotationProcessing;
 

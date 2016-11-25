@@ -30,7 +30,7 @@ experimental on Windows.
 
 ## Problem
 
-Currently, as described on [bazel.io](/docs/be/python.html#py_binary),
+Currently, as described on [bazel.build](/docs/be/python.html#py_binary),
 the way py\_binary works on Unix is:
 
 _A py\_binary is an executable Python program consisting of a collection

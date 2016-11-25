@@ -22,7 +22,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -96,6 +95,7 @@ public class LabelValidatorTest {
     assertNull(LabelValidator.validateTargetName("foo.bar"));
     assertNull(LabelValidator.validateTargetName("foo@bar"));
     assertNull(LabelValidator.validateTargetName("foo~bar"));
+    assertNull(LabelValidator.validateTargetName("foo#bar"));
 
     assertEquals("target names may not end with '/'",
                  LabelValidator.validateTargetName("foo/"));

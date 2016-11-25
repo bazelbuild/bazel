@@ -375,19 +375,25 @@ public final class BinaryOperatorExpression extends Expression {
    * <p>Publicly accessible for reflection and compiled Skylark code.
    */
   public static Object mult(Object lval, Object rval, Location location) throws EvalException {
-    // int * int
-    if (lval instanceof Integer && rval instanceof Integer) {
-      return ((Integer) lval).intValue() * ((Integer) rval).intValue();
+    Integer number = null;
+    Object otherFactor = null;
+
+    if (lval instanceof Integer) {
+      number = (Integer) lval;
+      otherFactor = rval;
+    } else if (rval instanceof Integer) {
+      number = (Integer) rval;
+      otherFactor = lval;
     }
 
-    // string * int
-    if (lval instanceof String && rval instanceof Integer) {
-      return Strings.repeat((String) lval, ((Integer) rval).intValue());
-    }
-
-    // int * string
-    if (lval instanceof Integer && rval instanceof String) {
-      return Strings.repeat((String) rval, ((Integer) lval).intValue());
+    if (number != null) {
+      if (otherFactor instanceof Integer) {
+        return number.intValue() * ((Integer) otherFactor).intValue();
+      } else if (otherFactor instanceof String) {
+        // Similar to Python, a factor < 1 leads to an empty string.
+        return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));
+      }
+      // TODO(skylark-team): implement int * list
     }
     throw typeException(lval, rval, Operator.MULT, location);
   }

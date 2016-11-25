@@ -203,12 +203,15 @@ public final class SkyframeBuildView {
       List<ConfiguredTargetKey> values,
       List<AspectValueKey> aspectKeys,
       EventBus eventBus,
-      boolean keepGoing)
+      boolean keepGoing,
+      int numThreads)
       throws InterruptedException, ViewCreationFailedException {
     enableAnalysis(true);
     EvaluationResult<ActionLookupValue> result;
     try {
-      result = skyframeExecutor.configureTargets(eventHandler, values, aspectKeys, keepGoing);
+      result =
+          skyframeExecutor.configureTargets(
+              eventHandler, values, aspectKeys, keepGoing, numThreads);
     } finally {
       enableAnalysis(false);
     }
@@ -218,7 +221,7 @@ public final class SkyframeBuildView {
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
     for (AspectValueKey aspectKey : aspectKeys) {
-      AspectValue value = (AspectValue) result.get(AspectValue.key(aspectKey));
+      AspectValue value = (AspectValue) result.get(aspectKey.getSkyKey());
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
         continue;

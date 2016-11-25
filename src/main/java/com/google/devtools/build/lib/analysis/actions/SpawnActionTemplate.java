@@ -165,6 +165,7 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
     return actionBuilder.buildSpawnAction(
         getOwner(),
         /*defaultShellEnvironment=*/ null,
+        /*variableShellEnvironment=*/ null,
         /*defaultShellExecutable=*/ null,
         /*paramsFile=*/ null,
         /*paramFileWriteAction=*/ null);
@@ -266,7 +267,7 @@ public final class SpawnActionTemplate implements ActionAnalysisMetadata {
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
     return spawnActionBuilder
-        .buildSpawnAction(getOwner(), null, null, null, null)
+        .buildSpawnAction(getOwner(), null, null, null, null, null)
         .getClientEnvironmentVariables();
   }
 

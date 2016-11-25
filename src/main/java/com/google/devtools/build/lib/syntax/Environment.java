@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.common.base.Preconditions.checkState;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -33,7 +30,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -96,7 +92,7 @@ public final class Environment implements Freezable {
    * is closed, it becomes immutable, including the Frame, which can be shared in other
    * {@link Environment}-s. Indeed, a {@link UserDefinedFunction} will close over the global
    * Frame of its definition {@link Environment}, which will thus be reused (immutably)
-   * in all any {@link Environment} in which this function is called, so it's important to
+   * in any {@link Environment} in which this function is called, so it's important to
    * preserve the {@link Mutability} to make sure no Frame is modified after it's been finalized.
    */
   public static final class Frame implements Freezable {
@@ -213,24 +209,19 @@ public final class Environment implements Freezable {
     /** The set of known global variables of the caller. */
     @Nullable Set<String> knownGlobalVariables;
 
-    /** Whether the caller is in Skylark mode. */
-    boolean isSkylark;
-
     Continuation(
         Continuation continuation,
         BaseFunction function,
         FuncallExpression caller,
         Frame lexicalFrame,
         Frame globalFrame,
-        Set<String> knownGlobalVariables,
-        boolean isSkylark) {
+        Set<String> knownGlobalVariables) {
       this.continuation = continuation;
       this.function = function;
       this.caller = caller;
       this.lexicalFrame = lexicalFrame;
       this.globalFrame = globalFrame;
       this.knownGlobalVariables = knownGlobalVariables;
-      this.isSkylark = isSkylark;
     }
   }
 
@@ -358,12 +349,6 @@ public final class Environment implements Freezable {
   @Nullable private final Label callerLabel;
 
   /**
-   * The path to the tools repository.
-   * TODO(laurentlb): Remove from Environment
-   */
-  private final String toolsRepository;
-
-  /**
    * Enters a scope by saving state to a new Continuation
    * @param function the function whose scope to enter
    * @param caller the source AST node for the caller
@@ -371,12 +356,11 @@ public final class Environment implements Freezable {
    */
   void enterScope(BaseFunction function, FuncallExpression caller, Frame globals) {
     continuation =
-        new Continuation(continuation, function, caller, lexicalFrame, globalFrame,
-            knownGlobalVariables, isSkylark);
+        new Continuation(
+            continuation, function, caller, lexicalFrame, globalFrame, knownGlobalVariables);
     lexicalFrame = new Frame(mutability(), null);
     globalFrame = globals;
     knownGlobalVariables = new HashSet<>();
-    isSkylark = true;
   }
 
   /**
@@ -387,23 +371,15 @@ public final class Environment implements Freezable {
     lexicalFrame = continuation.lexicalFrame;
     globalFrame = continuation.globalFrame;
     knownGlobalVariables = continuation.knownGlobalVariables;
-    isSkylark = continuation.isSkylark;
     continuation = continuation.continuation;
   }
 
   private final String transitiveHashCode;
 
   /**
-   * Is this Environment being evaluated during the loading phase?
-   * This is fixed during Environment setup, and enables various functions
-   * that are not available during the analysis or workspace phase.
-   */
-  public Phase getPhase() {
-    return phase;
-  }
-
-  /**
    * Checks that the current Environment is in the loading or the workspace phase.
+   * TODO(laurentlb): Move to SkylarkUtils
+   *
    * @param symbol name of the function being only authorized thus.
    */
   public void checkLoadingOrWorkspacePhase(String symbol, Location loc) throws EvalException {
@@ -414,6 +390,8 @@ public final class Environment implements Freezable {
 
   /**
    * Checks that the current Environment is in the loading phase.
+   * TODO(laurentlb): Move to SkylarkUtils
+   *
    * @param symbol name of the function being only authorized thus.
    */
   public void checkLoadingPhase(String symbol, Location loc) throws EvalException {
@@ -483,8 +461,8 @@ public final class Environment implements Freezable {
   }
 
   /**
-   * Constructs an Environment.
-   * This is the main, most basic constructor.
+   * Constructs an Environment. This is the main, most basic constructor.
+   *
    * @param globalFrame a frame for the global Environment
    * @param dynamicFrame a frame for the dynamic Environment
    * @param eventHandler an EventHandler for warnings, errors, etc
@@ -502,8 +480,7 @@ public final class Environment implements Freezable {
       boolean isSkylark,
       @Nullable String fileContentHashCode,
       Phase phase,
-      @Nullable Label callerLabel,
-      String toolsRepository) {
+      @Nullable Label callerLabel) {
     this.globalFrame = Preconditions.checkNotNull(globalFrame);
     this.dynamicFrame = Preconditions.checkNotNull(dynamicFrame);
     Preconditions.checkArgument(globalFrame.mutability().isMutable());
@@ -513,7 +490,6 @@ public final class Environment implements Freezable {
     this.isSkylark = isSkylark;
     this.phase = phase;
     this.callerLabel = callerLabel;
-    this.toolsRepository = toolsRepository;
     this.transitiveHashCode =
         computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
   }
@@ -530,7 +506,6 @@ public final class Environment implements Freezable {
     @Nullable private Map<String, Extension> importedExtensions;
     @Nullable private String fileContentHashCode;
     private Label label;
-    private String toolsRepository;
 
     Builder(Mutability mutability) {
       this.mutability = mutability;
@@ -577,12 +552,6 @@ public final class Environment implements Freezable {
       return this;
     }
 
-    /** Sets the path to the tools repository */
-    public Builder setToolsRepository(String toolsRepository) {
-      this.toolsRepository = toolsRepository;
-      return this;
-    }
-
     /** Builds the Environment. */
     public Environment build() {
       Preconditions.checkArgument(mutability.isMutable());
@@ -594,9 +563,6 @@ public final class Environment implements Freezable {
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      if (phase == Phase.LOADING) {
-        Preconditions.checkState(this.toolsRepository != null);
-      }
       return new Environment(
           globalFrame,
           dynamicFrame,
@@ -605,8 +571,7 @@ public final class Environment implements Freezable {
           isSkylark,
           fileContentHashCode,
           phase,
-          label,
-          toolsRepository);
+          label);
     }
 
     public Builder setCallerLabel(Label label) {
@@ -698,7 +663,7 @@ public final class Environment implements Freezable {
     return this;
   }
 
-  private boolean hasVariable(String varname) {
+  public boolean hasVariable(String varname) {
     return lookup(varname) != null;
   }
 
@@ -754,19 +719,6 @@ public final class Environment implements Freezable {
       return globalValue;
     }
     return dynamicValue;
-  }
-
-  /**
-   * Like {@link #lookup(String)}, but instead of throwing an exception in the case
-   * where <code>varname</code> is not defined, <code>defaultValue</code> is returned instead.
-   */
-  public Object lookup(String varname, Object defaultValue) {
-    Preconditions.checkState(!isSkylark);
-    Object value = lookup(varname);
-    if (value != null) {
-      return value;
-    }
-    return defaultValue;
   }
 
   /**
@@ -875,11 +827,11 @@ public final class Environment implements Freezable {
   /** A read-only Environment.Frame with global constants in it only */
   static final Frame CONSTANTS_ONLY = createConstantsGlobals();
 
-  /** A read-only Environment.Frame with initial globals for the BUILD language */
-  public static final Frame BUILD = createBuildGlobals();
+  /** A read-only Environment.Frame with initial globals */
+  public static final Frame DEFAULT_GLOBALS = createDefaultGlobals();
 
-  /** A read-only Environment.Frame with initial globals for Skylark */
-  public static final Frame SKYLARK = createSkylarkGlobals();
+  /** To be removed when all call-sites are updated. */
+  public static final Frame SKYLARK = DEFAULT_GLOBALS;
 
   private static Environment.Frame createConstantsGlobals() {
     try (Mutability mutability = Mutability.create("CONSTANTS")) {
@@ -889,20 +841,11 @@ public final class Environment implements Freezable {
     }
   }
 
-  private static Environment.Frame createBuildGlobals() {
+  private static Environment.Frame createDefaultGlobals() {
     try (Mutability mutability = Mutability.create("BUILD")) {
       Environment env = Environment.builder(mutability).build();
       Runtime.setupConstants(env);
-      Runtime.setupMethodEnvironment(env, MethodLibrary.buildGlobalFunctions);
-      return env.getGlobals();
-    }
-  }
-
-  private static Environment.Frame createSkylarkGlobals() {
-    try (Mutability mutability = Mutability.create("SKYLARK")) {
-      Environment env = Environment.builder(mutability).setSkylark().build();
-      Runtime.setupConstants(env);
-      Runtime.setupMethodEnvironment(env, MethodLibrary.skylarkGlobalFunctions);
+      Runtime.setupMethodEnvironment(env, MethodLibrary.defaultGlobalFunctions);
       return env.getGlobals();
     }
   }
@@ -920,28 +863,6 @@ public final class Environment implements Freezable {
     };
 
   /**
-   * Parses some String inputLines without a supporting file, returning statements only.
-   * TODO(laurentlb): Remove from Environment
-   * @param inputLines a list of lines of code
-   */
-  @VisibleForTesting
-  public List<Statement> parseFile(String... inputLines) {
-    ParserInputSource input = ParserInputSource.create(Joiner.on("\n").join(inputLines), null);
-    List<Statement> statements;
-    if (isSkylark) {
-      Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
-      ValidationEnvironment valid = new ValidationEnvironment(this);
-      valid.validateAst(result.statements, eventHandler);
-      statements = result.statements;
-    } else {
-      statements = Parser.parseFile(input, eventHandler).statements;
-    }
-    // Force the validation of imports
-    BuildFileAST.fetchLoads(statements, eventHandler);
-    return statements;
-  }
-
-  /**
    * Evaluates code some String input without a supporting file.
    * TODO(laurentlb): Remove from Environment
    * @param input a list of lines of code to evaluate
@@ -957,10 +878,5 @@ public final class Environment implements Freezable {
       ast = BuildFileAST.parseBuildString(eventHandler, input);
     }
     return ast.eval(this);
-  }
-
-  public String getToolsRepository() {
-    checkState(toolsRepository != null);
-    return toolsRepository;
   }
 }

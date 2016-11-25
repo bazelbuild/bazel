@@ -20,9 +20,23 @@ cc_test(
 
 cc_test(
     name = "file_test",
-    srcs = ["file_test.cc"],
+    srcs = [
+        "file_posix_test.cc",
+        "file_test.cc",
+    ],
+    tags = ["manual"],
     deps = [
-        "//src/main/cpp/util",
+        "//src/main/cpp/util:file",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
+    name = "logging_test",
+    srcs = ["logging_test.cc"],
+    deps = [
+        "//src/main/cpp/util:bazel_log_handler",
+        "//src/main/cpp/util:logging",
         "//third_party:gtest",
     ],
 )

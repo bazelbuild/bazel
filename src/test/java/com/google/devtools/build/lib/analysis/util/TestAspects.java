@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -237,7 +238,25 @@ public class TestAspects {
           .allAttributesAspect(ALL_ATTRIBUTES_ASPECT)
           .build();
 
+  /** An aspect that propagates along all attributes and has a tool dependency. */
+  public static class AllAttributesWithToolAspect extends BaseAspect {
 
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION;
+    }
+  }
+
+  public static final NativeAspectClass ALL_ATTRIBUTES_WITH_TOOL_ASPECT =
+      new AllAttributesWithToolAspect();
+  private static final AspectDefinition ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION =
+      new AspectDefinition.Builder("all_attributes_with_tool_aspect")
+          .allAttributesAspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
+          .add(
+              attr("$tool", BuildType.LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .value(Label.parseAbsoluteUnchecked("//a:tool")))
+          .build();
 
   /**
    * An aspect that requires aspects on the attributes of rules it attaches to.
@@ -569,6 +588,29 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("all_attributes_aspect")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** A rule that defines an {@link AllAttributesWithToolAspect} on one of its attributes. */
+  public static class AllAttributesWithToolAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("foo", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .aspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("all_attributes_with_tool_aspect")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();

@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A literal set of targets, using 'blaze build' syntax.  Or, a reference to a
@@ -44,19 +45,38 @@ public final class TargetLiteral extends QueryExpression {
     return LetExpression.isValidVarReference(pattern);
   }
 
+  private <T> void evalVarReference(VariableContext<T> context, Callback<T> callback)
+      throws QueryException, InterruptedException {
+    String varName = LetExpression.getNameFromReference(pattern);
+    Set<T> value = context.get(varName);
+    if (value == null) {
+      throw new QueryException(this, "undefined variable '" + varName + "'");
+    }
+    callback.process(value);
+  }
+
   @Override
   protected <T> void evalImpl(
       QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
           throws QueryException, InterruptedException {
     if (isVariableReference()) {
-      String varName = LetExpression.getNameFromReference(pattern);
-      Set<T> value = context.get(varName);
-      if (value == null) {
-        throw new QueryException(this, "undefined variable '" + varName + "'");
-      }
-      callback.process(value);
+      evalVarReference(context, callback);
     } else {
       env.getTargetsMatchingPattern(this, pattern, callback);
+    }
+  }
+
+  @Override
+  protected <T> void parEvalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    if (isVariableReference()) {
+      evalVarReference(context, callback);
+    } else {
+      env.getTargetsMatchingPatternPar(this, pattern, callback, forkJoinPool);
     }
   }
 

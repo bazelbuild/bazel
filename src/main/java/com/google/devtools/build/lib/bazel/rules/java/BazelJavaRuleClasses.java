@@ -299,12 +299,14 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("jvm_flags", STRING_LIST))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(use_testrunner) -->
-          Use the
-          <code>com.google.testing.junit.runner.BazelTestRunner</code> class as the
-          main entry point for a Java program.
+          Use the test runner (by default
+          <code>com.google.testing.junit.runner.BazelTestRunner</code>) class as the
+          main entry point for a Java program, and provide the test class
+          to the test runner as a value of <code>bazel.test_suite</code>
+          system property.
 
           You can use this to override the default
-          behavior, which is to use <code>BazelTestRunner</code> for
+          behavior, which is to use test runner for
           <code>java_test</code> rules,
           and not use it for <code>java_binary</code> rules.  It is unlikely
           you will want to do this.  One use is for <code>AllTest</code>
@@ -312,6 +314,8 @@ public class BazelJavaRuleClasses {
           before running the tests, for example).  The <code>AllTest</code>
           rule must be declared as a <code>java_binary</code>, but should
           still use the test runner as its main entry point.
+
+          The name of a test runner class can be overriden with <code>main_class</code> attribute.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("use_testrunner", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(main_class) -->

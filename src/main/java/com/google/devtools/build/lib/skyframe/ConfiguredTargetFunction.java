@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -53,9 +54,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
-import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -67,6 +66,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -77,7 +77,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -88,6 +87,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 
 /**
@@ -132,11 +132,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
+  private final Semaphore cpuBoundSemaphore;
 
-  ConfiguredTargetFunction(BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider) {
+  ConfiguredTargetFunction(
+      BuildViewProvider buildViewProvider,
+      RuleClassProvider ruleClassProvider,
+      Semaphore cpuBoundSemaphore) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
+    this.cpuBoundSemaphore = cpuBoundSemaphore;
   }
 
   private static boolean useDynamicConfigurations(BuildConfiguration config) {
@@ -196,6 +200,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
     TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
+
+    // TODO(janakr): this acquire() call may tie up this thread indefinitely, reducing the
+    // parallelism of Skyframe. This is a strict improvement over the prior state of the code, in
+    // which we ran with #processors threads, but ideally we would call #tryAcquire here, and if we
+    // failed, would exit this SkyFunction and restart it when permits were available.
+    cpuBoundSemaphore.acquire();
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions = getConfigConditions(
@@ -221,7 +231,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
               env,
               resolver,
               ctgValue,
-              null,
+              ImmutableList.<Aspect>of(),
               configConditions,
               ruleClassProvider,
               view.getHostConfiguration(configuration),
@@ -257,19 +267,21 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       throw new ConfiguredTargetFunctionException(
           new ConfiguredValueCreationException(e.getMessage(), analysisRootCause));
+    } finally {
+      cpuBoundSemaphore.release();
     }
   }
 
   /**
    * Computes the direct dependencies of a node in the configured target graph (a configured
-   * target or an aspect).
+   * target or an aspects).
    *
    * <p>Returns null if Skyframe hasn't evaluated the required dependencies yet. In this case, the
    * caller should also return null to Skyframe.
    *  @param env the Skyframe environment
    * @param resolver The dependency resolver
    * @param ctgValue The label and the configuration of the node
-   * @param aspect
+   * @param aspects
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *   to apply to deps
@@ -282,18 +294,19 @@ final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
-      Aspect aspect,
+      Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       NestedSetBuilder<Package> transitivePackages,
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
-      throws DependencyEvaluationException, AspectCreationException, InterruptedException {
+      throws DependencyEvaluationException, ConfiguredTargetFunctionException,
+      AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, configuration) pairs.
     OrderedSetMultimap<Attribute, Dependency> depValueNames;
     try {
       depValueNames = resolver.dependentNodeMap(
-          ctgValue, hostConfiguration, aspect, configConditions, transitiveLoadingRootCauses);
+          ctgValue, hostConfiguration, aspects, configConditions, transitiveLoadingRootCauses);
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Skylark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
@@ -328,7 +341,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Merge the dependent configured targets and aspects into a single map.
-    return mergeAspects(depValueNames, depValues, depAspects);
+    try {
+      return mergeAspects(depValueNames, depValues, depAspects);
+    } catch (DuplicateException e) {
+      env.getListener().handle(
+          Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
+
+      throw new ConfiguredTargetFunctionException(
+          new ConfiguredValueCreationException(e.getMessage(), ctgValue.getLabel()));
+    }
   }
 
   /**
@@ -543,14 +564,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
         ImmutableList.Builder<BuildOptions> toOptionsBuilder = ImmutableList.builder();
-        for (BuildOptions options : getDynamicTransitionOptions(ctgOptions, transition)) {
-          if (!sameFragments) {
-            options = options.trim(
-                BuildConfiguration.getOptionsClasses(depFragments, ruleClassProvider));
-          }
-          toOptionsBuilder.add(options);
-        }
-        toOptions = toOptionsBuilder.build();
+        toOptions = getDynamicTransitionOptions(ctgOptions, transition, depFragments,
+            ruleClassProvider, !sameFragments);
         transitionsMap.put(transitionKey, toOptions);
       }
 
@@ -647,16 +662,20 @@ final class ConfiguredTargetFunction implements SkyFunction {
   /**
    * Applies a dynamic configuration transition over a set of build options.
    *
-   * @return the build options for the transitioned configuration. Contains the same fragment
-   *     options as the input.
+   * @return the build options for the transitioned configuration. If trimResults is true,
+   *     only options needed by the required fragments are included. Else the same options as the
+   *     original input are included (with different possible values, of course).
    */
-  private static Collection<BuildOptions> getDynamicTransitionOptions(BuildOptions fromOptions,
-      Attribute.Transition transition) {
+  static List<BuildOptions> getDynamicTransitionOptions(BuildOptions fromOptions,
+      Attribute.Transition transition,
+      Iterable<Class<? extends BuildConfiguration.Fragment>> requiredFragments,
+      RuleClassProvider ruleClassProvider, boolean trimResults) {
+    List<BuildOptions> result;
     if (transition == Attribute.ConfigurationTransition.NONE) {
-      return ImmutableList.<BuildOptions>of(fromOptions);
+      result = ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
       // TODO(bazel-team): safety-check that this never mutates fromOptions.
-      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
+      result = ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof Attribute.SplitTransition) {
       @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
       List<BuildOptions> toOptions =
@@ -665,16 +684,26 @@ final class ConfiguredTargetFunction implements SkyFunction {
         // When the split returns an empty list, it's signaling it doesn't apply to this instance.
         // Check that it's safe to skip the transition and return the original options.
         Verify.verify(transition.defaultsToSelf());
-        return ImmutableList.<BuildOptions>of(fromOptions);
+        result = ImmutableList.<BuildOptions>of(fromOptions);
       } else {
-        return toOptions;
+        result = toOptions;
       }
     } else {
       throw new IllegalStateException(String.format(
           "unsupported dynamic transition type: %s", transition.getClass().getName()));
     }
-  }
 
+    if (!trimResults) {
+      return result;
+    } else {
+      ImmutableList.Builder<BuildOptions> trimmedOptions = ImmutableList.builder();
+      for (BuildOptions toOptions : result) {
+        trimmedOptions.add(toOptions.trim(
+            BuildConfiguration.getOptionsClasses(requiredFragments, ruleClassProvider)));
+      }
+      return trimmedOptions.build();
+    }
+  }
 
   /**
    * Diagnostic helper method for dynamic configurations: checks the config fragments required by
@@ -716,13 +745,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static OrderedSetMultimap<Attribute, ConfiguredTarget> mergeAspects(
       OrderedSetMultimap<Attribute, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
-      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap) {
+      OrderedSetMultimap<SkyKey, ConfiguredAspect> depAspectMap)
+      throws DuplicateException  {
     OrderedSetMultimap<Attribute, ConfiguredTarget> result = OrderedSetMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
       SkyKey depKey = TO_KEYS.apply(dep);
       ConfiguredTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
+
       result.put(entry.getKey(),
           MergedConfiguredTarget.of(depConfiguredTarget, depAspectMap.get(depKey)));
     }
@@ -746,11 +777,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
     OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
     Set<SkyKey> aspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
+      AspectKey key = null;
       for (Entry<AspectDescriptor, BuildConfiguration> depAspect
           : dep.getAspectConfigurations().entrySet()) {
-        aspectKeys.add(createAspectKey(
-            dep.getLabel(), depAspect.getValue(), dep.getConfiguration(),
-            depAspect.getKey().getAspectClass(), depAspect.getKey().getParameters()));
+        key = getNextAspectKey(key, dep, depAspect);
+        aspectKeys.add(key.getSkyKey());
       }
     }
 
@@ -764,14 +795,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (result.containsKey(depKey)) {
         continue;
       }
+      AspectKey key = null;
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (Entry<AspectDescriptor, BuildConfiguration> depAspect
           : dep.getAspectConfigurations().entrySet()) {
-        SkyKey aspectKey = createAspectKey(
-            dep.getLabel(), depAspect.getValue(), dep.getConfiguration(),
-            depAspect.getKey().getAspectClass(),
-            depAspect.getKey().getParameters());
-        AspectValue aspectValue = null;
+        key = getNextAspectKey(key, dep, depAspect);
+        SkyKey aspectKey = key.getSkyKey();
+        AspectValue aspectValue;
         try {
           // TODO(ulfjack): Catch all thrown AspectCreationException and NoSuchThingException
           // instances and merge them into a single Exception to get full root cause data.
@@ -800,17 +830,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
     return result;
   }
 
-  public static SkyKey createAspectKey(
-      Label label,
-      BuildConfiguration aspectConfiguration,
-      BuildConfiguration baseConfiguration,
-      AspectClass aspectClass,
-      AspectParameters parameters) {
-    return AspectValue.key(label,
-        aspectConfiguration,
-        baseConfiguration,
-        aspectClass,
-        parameters);
+  private static AspectKey getNextAspectKey(AspectKey key, Dependency dep,
+      Entry<AspectDescriptor, BuildConfiguration> depAspect) {
+    if (key == null) {
+      key = AspectValue.createAspectKey(dep.getLabel(),
+          dep.getConfiguration(), depAspect.getKey(), depAspect.getValue()
+      );
+    } else {
+      key = AspectValue.createAspectKey(key, depAspect.getKey(), depAspect.getValue());
+    }
+    return key;
   }
 
   private static boolean aspectMatchesConfiguredTarget(ConfiguredTarget dep, Aspect aspect) {

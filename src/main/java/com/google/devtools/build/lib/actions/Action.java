@@ -152,6 +152,32 @@ public interface Action extends ActionExecutionMetadata, Describable {
       throws ActionExecutionException, InterruptedException;
 
   /**
+   * If an action does not know the exact set of inputs ahead of time, it will usually either do:
+   * <ul>
+   * <li> Execution time pruning: The action provides a superset set of inputs at action creation
+   *      time, and prunes inputs during {@link #execute}.
+   * <li> Input discovery: The action provides a subset of inputs at creation time, overwrites
+   *      {@link #discoverInputs} to return a superset of inputs depending on the execution context
+   *      and optionally prunes the inputs at the end of {@link #execute} to a required subset for
+   *      subsequent calls.
+   * </ul>
+   *
+   * This function allows an action that is set up for input discovery, and thus only provides a
+   * minimal set of inputs at creation time, to switch off input discovery depending on the
+   * execution context. To that end the action must:
+   * <ul>
+   * <li>Provide a subset of inputs at creation time
+   * <li>Return {@code null} from {@link #discoverInputs}, indicating no input discovery
+   * <li>Return a superset of inputs that might have been discovered otherwise from here;
+   *     this will usually be the set difference between the full set of inputs the action would get
+   *     when doing only execution time pruning and the minimal subset provided above.
+   * <li>Prune the set of inputs on execute
+   * </ul>
+   */
+  @Nullable
+  Iterable<Artifact> getInputsWhenSkippingInputDiscovery();
+
+  /**
    * Method used to resolve action inputs based on the information contained in the action cache. It
    * will be called iff inputsKnown() is false for the given action instance and there is a related
    * cache entry in the action cache.

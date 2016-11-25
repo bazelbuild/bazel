@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import java.util.Collections;
@@ -126,5 +127,16 @@ public class InMemoryGraphImpl implements InMemoryGraph {
 
   boolean keepsEdges() {
     return keepEdges;
+  }
+
+  @Override
+  public Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason) {
+    ImmutableSet.Builder<SkyKey> builder = ImmutableSet.builder();
+    for (SkyKey key : keys) {
+      if (get(null, reason, key) != null) {
+        builder.add(key);
+      }
+    }
+    return builder.build();
   }
 }

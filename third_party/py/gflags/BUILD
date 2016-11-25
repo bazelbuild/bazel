@@ -12,5 +12,6 @@ py_library(
         "__init__.py",
         "gflags_validators.py",
     ],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
 )

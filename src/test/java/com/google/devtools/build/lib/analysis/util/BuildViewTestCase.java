@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.AspectDescriptor;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
-import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -69,14 +69,15 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SourceManifestAction;
-import com.google.devtools.build.lib.analysis.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options.DynamicConfigsMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -108,7 +109,6 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
@@ -119,10 +119,13 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
+import com.google.devtools.build.lib.skyframe.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -175,7 +178,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected BuildConfigurationCollection masterConfig;
   protected BuildConfiguration targetConfig;  // "target" or "build" config
   private List<String> configurationArgs;
-  private boolean useDynamicConfigs;
+  private DynamicConfigsMode dynamicConfigsMode = DynamicConfigsMode.OFF;
 
   protected OptionsParser optionsParser;
   private PackageCacheOptions packageCacheOptions;
@@ -197,12 +200,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
-    configurationFactory = analysisMock.createConfigurationFactory();
     packageCacheOptions = parsePackageCacheOptions();
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
+    configurationFactory =
+        analysisMock.createConfigurationFactory(ruleClassProvider.getConfigurationFragments());
+
     pkgFactory =
         analysisMock
             .getPackageFactoryForTesting()
@@ -226,7 +231,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             analysisMock.getProductName(),
-            CrossRepositoryLabelViolationStrategy.ERROR);
+            CrossRepositoryLabelViolationStrategy.ERROR,
+            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
     packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 7;
@@ -392,9 +398,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void useConfiguration(String... args) throws Exception {
     String[] actualArgs;
-    if (useDynamicConfigs) {
+    if (dynamicConfigsMode != DynamicConfigsMode.OFF) {
       actualArgs = Arrays.copyOf(args, args.length + 1);
-      actualArgs[args.length] = "--experimental_dynamic_configs=on";
+      actualArgs[args.length] = "--experimental_dynamic_configs="
+          + dynamicConfigsMode.toString().toLowerCase();
     } else {
       actualArgs = args;
     }
@@ -405,10 +412,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations.
+   * Makes subsequent {@link #useConfiguration} calls automatically enable dynamic configurations
+   * in the specified mode.
    */
-  protected final void useDynamicConfigurations() {
-    useDynamicConfigs = true;
+  protected final void useDynamicConfigurations(DynamicConfigsMode mode) {
+    dynamicConfigsMode = mode;
   }
 
   /**
@@ -1061,12 +1069,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(RepositoryName.MAIN),
         (AspectValue.AspectKey)
-            AspectValue.key(
-                    owner.getLabel(),
-                    owner.getConfiguration(),
-                    owner.getConfiguration(),
-                    creatingAspectFactory,
-                    parameters)
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                owner.getLabel(), owner.getConfiguration(),
+                new AspectDescriptor(creatingAspectFactory, parameters), owner.getConfiguration()
+            ))
                 .argument());
   }
 
@@ -1139,12 +1145,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         owner.getConfiguration().getGenfilesDirectory(
             owner.getTarget().getLabel().getPackageIdentifier().getRepository()),
         (AspectValue.AspectKey)
-            AspectValue.key(
-                    owner.getLabel(),
-                    owner.getConfiguration(),
-                    owner.getConfiguration(),
-                    creatingAspectFactory,
-                    params)
+            ActionLookupValue.key(AspectValue.createAspectKey(
+                owner.getLabel(), owner.getConfiguration(),
+                new AspectDescriptor(creatingAspectFactory, params), owner.getConfiguration()
+            ))
                 .argument());
   }
 
@@ -1155,7 +1159,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>This should be used for targets use configurations with C++ fragments.
    */
   protected String stripCppPrefixForDynamicConfigs(String outputPath) {
-    return targetConfig.useDynamicConfigurations()
+    return targetConfig.trimConfigurations()
         ? AnalysisTestUtil.OUTPUT_PATH_CPP_PREFIX_PATTERN.matcher(outputPath).replaceFirst("")
         : outputPath;
   }
@@ -1405,13 +1409,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected ImmutableList<ExtraAction> getTransitiveExtraActionActions(ConfiguredTarget target) {
     ImmutableList.Builder<ExtraAction> result = new ImmutableList.Builder<>();
-    for (ExtraArtifactSet set : target.getProvider(ExtraActionArtifactsProvider.class)
-        .getTransitiveExtraActionArtifacts()) {
-      for (Artifact artifact : set.getArtifacts()) {
-        Action action = getGeneratingAction(artifact);
-        if (action instanceof ExtraAction) {
-          result.add((ExtraAction) action);
-        }
+    for (Artifact artifact :
+        target
+            .getProvider(ExtraActionArtifactsProvider.class)
+            .getTransitiveExtraActionArtifacts()) {
+      Action action = getGeneratingAction(artifact);
+      if (action instanceof ExtraAction) {
+        result.add((ExtraAction) action);
       }
     }
     return result.build();
@@ -1524,10 +1528,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
 
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
-    loadingOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
     viewOptions.keepGoing = keepGoing;
+    viewOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
@@ -1538,7 +1542,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             targets,
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            getTargetConfiguration().getAllLabels(),
             viewOptions.keepGoing,
             /*determineTests=*/false,
             /*callback=*/null);

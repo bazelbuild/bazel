@@ -87,10 +87,12 @@ _bazel_get_options() {
   local lcmd=$1
   _bazel_cmd_options=_bazel_${lcmd}_options
   _bazel_cmd_args=_bazel_${lcmd}_args
-  if [[ ${(P)#_bazel_cmd_options} == 0 ]] \
-          || _cache_invalid BAZEL_${lcmd}_options || _cache_invalid BAZEL_${lcmd}_args \
-          || ! _bazel_safe_retrieve_cache BAZEL_${lcmd}_options ${_bazel_cmd_options} \
-          || ! _retrieve_cache BAZEL_${lcmd}_args ${_bazel_cmd_args}; then
+  if [[ ${(P)#_bazel_cmd_options} != 0 ]]; then
+    return
+  fi
+  if _cache_invalid BAZEL_${lcmd}_options || _cache_invalid BAZEL_${lcmd}_args \
+    || ! _bazel_safe_retrieve_cache BAZEL_${lcmd}_options ${_bazel_cmd_options} \
+    || ! _retrieve_cache BAZEL_${lcmd}_args ${_bazel_cmd_args}; then
     if ! eval "$(b help completion)"; then
       return
     fi
@@ -290,9 +292,11 @@ _get_commands() {
 
 # Completion function for bazel subcommands, called by the completion system.
 _bazel_commands() {
-  if [[ ${#_bazel_cmd_list} == 0 ]] || _cache_invalid BAZEL_commands \
-    || ! _bazel_safe_retrieve_cache BAZEL_commands _bazel_cmd_list; then
-    _get_commands
+  if [[ ${#_bazel_cmd_list} == 0 ]]; then
+    if _cache_invalid BAZEL_commands \
+      || ! _bazel_safe_retrieve_cache BAZEL_commands _bazel_cmd_list; then
+      _get_commands
+    fi
   fi
 
   _describe -t bazel-commands 'Bazel command' _bazel_cmd_list
@@ -300,10 +304,13 @@ _bazel_commands() {
 
 # Completion function for bazel help options, called by the completion system.
 _bazel_help_topic() {
-  if [[ ${#_bazel_cmd_list} == 0 ]] || _cache_invalid BAZEL_commands \
-    || ! _bazel_safe_retrieve_cache BAZEL_commands _bazel_cmd_list; then
-    _get_commands
+  if [[ ${#_bazel_cmd_list} == 0 ]]; then
+    if _cache_invalid BAZEL_commands \
+      || ! _bazel_safe_retrieve_cache BAZEL_commands _bazel_cmd_list; then
+      _get_commands
+    fi
   fi
+
   while [[ $# -gt 0 ]]; do
     if [[ $1 == -- ]]; then
       shift
@@ -318,14 +325,16 @@ _bazel_help_topic() {
 
 # Completion function for bazel info keys, called by the completion system.
 _bazel_info_key() {
-  if [[ ${#_bazel_info_keys_list} == 0 ]] || _cache_invalid BAZEL_info_keys \
-    || ! _bazel_safe_retrieve_cache BAZEL_info_keys _bazel_info_keys_list; then
-    typeset -ga _bazel_info_keys_list
-    # Use `bazel help` instead of `bazel help completion` to get info-key
-    # descriptions.
-    if _bazel_info_keys_list=("${(@f)$(b help info-keys | awk '
-{ printf "%s:", $1; for (i=2; i<=NF; i++) printf "%s ", $i; print "" }')}"); then
-      _store_cache BAZEL_info_keys _bazel_info_keys_list
+  if [[ ${#_bazel_info_keys_list} == 0 ]]; then
+    if _cache_invalid BAZEL_info_keys \
+      || ! _bazel_safe_retrieve_cache BAZEL_info_keys _bazel_info_keys_list; then
+      typeset -ga _bazel_info_keys_list
+      # Use `bazel help` instead of `bazel help completion` to get info-key
+      # descriptions.
+      if _bazel_info_keys_list=("${(@f)$(b help info-keys | awk '
+  { printf "%s:", $1; for (i=2; i<=NF; i++) printf "%s ", $i; print "" }')}"); then
+        _store_cache BAZEL_info_keys _bazel_info_keys_list
+      fi
     fi
   fi
   _describe -t bazel-info 'Key' _bazel_info_keys_list

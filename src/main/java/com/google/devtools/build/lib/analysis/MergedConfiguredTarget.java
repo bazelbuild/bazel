@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
@@ -30,6 +31,17 @@ import javax.annotation.Nullable;
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
   private final TransitiveInfoProviderMap providers;
+
+  /**
+   * This exception is thrown when configured targets and aspects
+   * being merged provide duplicate things that they shouldn't
+   * (output groups or providers).
+   */
+  public static final class DuplicateException extends Exception {
+    public DuplicateException(String message) {
+      super(message);
+    }
+  }
 
   private MergedConfiguredTarget(ConfiguredTarget base, TransitiveInfoProviderMap providers) {
     super(base.getTarget(), base.getConfiguration());
@@ -62,7 +74,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /** Creates an instance based on a configured target and a set of aspects. */
-  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
+  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
+      throws DuplicateException {
     if (Iterables.isEmpty(aspects)) {
       // If there are no aspects, don't bother with creating a proxy object
       return base;
@@ -73,8 +86,15 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         OutputGroupProvider.merge(getAllProviders(base, aspects, OutputGroupProvider.class));
 
     // Merge Skylark providers.
+    ImmutableMap<String, Object> premergedProviders =
+        mergedOutputGroupProvider == null
+        ? ImmutableMap.<String, Object>of()
+        : ImmutableMap.<String, Object>of(
+            OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
     SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
+        SkylarkProviders.merge(
+            premergedProviders,
+            getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(

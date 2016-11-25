@@ -56,7 +56,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   private static final Logger LOG = Logger.getLogger(FakeCppCompileAction.class.getName());
 
-  public static final UUID GUID = UUID.fromString("b2d95c91-1434-47ae-a786-816017de8494");
+  public static final UUID GUID = UUID.fromString("8ab63589-be01-4a39-b770-b98ae8b03493");
 
   private final PathFragment tempOutputFile;
 
@@ -98,7 +98,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         null,
         null,
         null,
-        configuration,
+        configuration.getLocalShellEnvironment(),
+        configuration.isCodeCoverageEnabled(),
         cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.

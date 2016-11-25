@@ -15,25 +15,15 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-
 import java.util.List;
 
 /**
  * An {@link ActionContextProvider} that just provides the {@link ActionContext}s it's given.
  */
-public class SimpleActionContextProvider extends ActionContextProvider {
-
-  /**
-   * Creates an immutable list containing a single SimpleActionContextProvider with the given
-   * contexts as a convenience for BlazeModule.getActionContextProviders().
-   */
-  public static List<ActionContextProvider> of(ActionContext ... contexts) {
-    return ImmutableList.<ActionContextProvider>of(new SimpleActionContextProvider(contexts));
-  }
-
+final class SimpleActionContextProvider extends ActionContextProvider {
   private final List<ActionContext> actionContexts;
 
-  public SimpleActionContextProvider(ActionContext ... contexts) {
+  public SimpleActionContextProvider(ActionContext... contexts) {
     actionContexts = ImmutableList.<ActionContext>copyOf(contexts);
   }
 

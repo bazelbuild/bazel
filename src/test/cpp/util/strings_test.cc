@@ -14,9 +14,10 @@
 #include "src/main/cpp/util/strings.h"
 #include "gtest/gtest.h"
 
-using std::vector;
-
 namespace blaze_util {
+
+using std::string;
+using std::vector;
 
 TEST(BlazeUtil, JoinStrings) {
   vector<string> pieces;

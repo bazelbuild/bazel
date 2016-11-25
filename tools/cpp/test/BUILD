@@ -43,7 +43,7 @@ pkg_tar(
     name = "bazel_cc_configure",
     package_dir = "/opt/workspace",
     strip_prefix = "/",
-    deps = ["//:bazel-srcs"],
+    deps = ["//:bazel-distfile-tar"],
 )
 
 [

@@ -123,7 +123,6 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
       ObjcProvider.Builder objcProviderBuilder,
       NestedSetBuilder<Artifact> filesToBuild) throws InterruptedException {
     new WatchExtensionSupport(ruleContext,
-        WatchOSVersion.OS1,
         extensionDependencyAttributes,
         ObjcRuleClasses.intermediateArtifacts(ruleContext),
         watchExtensionBundleName(ruleContext),

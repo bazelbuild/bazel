@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.Serializable;
@@ -24,7 +24,7 @@ import java.io.Serializable;
  * A {@link SkyKey} is effectively a pair (type, name) that identifies a Skyframe value.
  */
 public final class SkyKey implements Serializable {
-  private static final Interner<SkyKey> SKY_KEY_INTERNER = Interners.newWeakInterner();
+  private static final Interner<SkyKey> SKY_KEY_INTERNER = BlazeInterners.newWeakInterner();
 
   private final SkyFunctionName functionName;
 

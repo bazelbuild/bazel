@@ -46,13 +46,12 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
-DIR="$TEST_SRCDIR"
-RUNFILES_MANIFEST_FILE=$DIR/MANIFEST
+RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
 if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
   function rlocation() {
     if [[ "$1" = /* ]]; then
-      echo $1
+      echo "$1"
     else
       echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
     fi
@@ -60,7 +59,7 @@ if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
 else
   function rlocation() {
     if [[ "$1" = /* ]]; then
-      echo $1
+      echo "$1"
     else
       echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
     fi
@@ -70,11 +69,11 @@ fi
 export -f rlocation
 export RUNFILES_MANIFEST_FILE
 
-if [ ! -z "$TEST_WORKSPACE" ]
-then
+DIR="$TEST_SRCDIR"
+if [ ! -z "$TEST_WORKSPACE" ]; then
   DIR="$DIR"/"$TEST_WORKSPACE"
 fi
-
+[[ -n "$RUNTEST_PRESERVE_CWD" ]] && DIR="$PWD"
 
 
 # normal commands are run in the exec-root where they have access to
@@ -100,6 +99,7 @@ if [[ "$TEST_NAME" = /* ]]; then
 else
   EXE="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
 fi
+[[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
 "${EXE}" "$@" || exitCode=$?

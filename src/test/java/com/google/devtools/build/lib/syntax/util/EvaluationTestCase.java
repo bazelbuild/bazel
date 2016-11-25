@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
+import com.google.devtools.build.lib.syntax.BazelLibrary;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -31,14 +33,14 @@ import com.google.devtools.build.lib.syntax.Expression;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Statement;
+import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestMode;
-
-import org.junit.Before;
-
 import java.util.LinkedList;
 import java.util.List;
+import org.junit.Before;
 
 /**
  * Base class for test cases that use parsing and evaluation services.
@@ -68,12 +70,14 @@ public class EvaluationTestCase {
    * No PythonPreprocessing, mostly empty mutable Environment.
    */
   public Environment newBuildEnvironment() {
-    return Environment.builder(mutability)
-        .setGlobals(Environment.BUILD)
-        .setEventHandler(getEventHandler())
-        .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setGlobals(BazelLibrary.GLOBALS)
+            .setEventHandler(getEventHandler())
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, TestConstants.TOOLS_REPOSITORY);
+    return env;
   }
 
   /**
@@ -83,7 +87,7 @@ public class EvaluationTestCase {
   public Environment newSkylarkEnvironment() {
     return Environment.builder(mutability)
         .setSkylark()
-        .setGlobals(Environment.SKYLARK)
+        .setGlobals(BazelLibrary.GLOBALS)
         .setEventHandler(getEventHandler())
         .build();
   }
@@ -131,7 +135,9 @@ public class EvaluationTestCase {
   }
 
   protected List<Statement> parseFile(String... input) {
-    return env.parseFile(input);
+    BuildFileAST ast = BuildFileAST.parseSkylarkString(getEventHandler(), input);
+    ast = ast.validate(new ValidationEnvironment(env), getEventHandler());
+    return ast.getStatements();
   }
 
   /** Parses an Expression from string without a supporting file */
@@ -429,10 +435,9 @@ public class EvaluationTestCase {
   }
 
   /**
-   * A simple decorator that allows the execution of setup actions before running
-   * a {@code Testable}
+   * A simple decorator that allows the execution of setup actions before running a {@code Testable}
    */
-  class TestableDecorator implements Testable {
+  static class TestableDecorator implements Testable {
     private final SetupActions setup;
     private final Testable decorated;
 

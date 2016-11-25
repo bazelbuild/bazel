@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -27,12 +27,12 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public class AspectCompleteEvent implements SkyValue {
   private final AspectValue aspectValue;
-  private final NestedSet<Label> rootCauses;
+  private final NestedSet<Cause> rootCauses;
 
-  private AspectCompleteEvent(AspectValue aspectValue, NestedSet<Label> rootCauses) {
+  private AspectCompleteEvent(AspectValue aspectValue, NestedSet<Cause> rootCauses) {
     this.aspectValue = aspectValue;
     this.rootCauses =
-        (rootCauses == null) ? NestedSetBuilder.<Label>emptySet(Order.STABLE_ORDER) : rootCauses;
+        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
   }
 
   /**
@@ -45,7 +45,7 @@ public class AspectCompleteEvent implements SkyValue {
   /**
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
-  public static AspectCompleteEvent createFailed(AspectValue value, NestedSet<Label> rootCauses) {
+  public static AspectCompleteEvent createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
     return new AspectCompleteEvent(value, rootCauses);
   }
@@ -64,10 +64,8 @@ public class AspectCompleteEvent implements SkyValue {
     return !rootCauses.isEmpty();
   }
 
-  /**
-   * Get the root causes of the target. May be empty.
-   */
-  public Iterable<Label> getRootCauses() {
+  /** Get the root causes of the target. May be empty. */
+  public Iterable<Cause> getRootCauses() {
     return rootCauses;
   }
 }

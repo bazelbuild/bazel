@@ -15,9 +15,7 @@
 package com.google.devtools.build.buildjar;
 
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-
 import com.sun.tools.javac.main.Main.Result;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -92,6 +90,8 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     return javacOutput.contains("error: cannot access")
         || javacOutput.contains("error: cannot find symbol")
         || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
-        || MISSING_PACKAGE.matcher(javacOutput).find();
+        || MISSING_PACKAGE.matcher(javacOutput).find()
+        // TODO(cushon): -Xdoclint:reference is probably a bad idea
+        || javacOutput.contains("error: reference not found");
   }
 }

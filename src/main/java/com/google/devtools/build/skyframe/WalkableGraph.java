@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -80,10 +81,26 @@ public interface WalkableGraph {
    */
   Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) throws InterruptedException;
 
+  /**
+   * Examines all the given keys. Returns an iterable of keys whose corresponding nodes are
+   * currently available to be fetched.
+   *
+   * <p>Note: An unavailable node does not mean it is not in the graph. It only means it's not ready
+   * to be fetched immediately.
+   */
+  Iterable<SkyKey> getCurrentlyAvailableNodes(Iterable<SkyKey> keys, Reason reason);
+
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
-    EvaluationResult<SkyValue> prepareAndGet(Collection<String> roots, String offset,
-        int numThreads, EventHandler eventHandler) throws InterruptedException;
+    EvaluationResult<SkyValue> prepareAndGet(
+        SkyKey universeKey, int numThreads, EventHandler eventHandler) throws InterruptedException;
+
+    /**
+     * Returns true if this instance has already been used to {@link #prepareAndGet} {@code
+     * universeKey}. If so, cached results from {@link #prepareAndGet} can be re-used safely,
+     * potentially saving some processing time.
+     */
+    boolean isUpToDate(SkyKey universeKey);
 
     /** Returns the {@link SkyKey} that defines this universe. */
     SkyKey getUniverseKey(Collection<String> roots, String offset);

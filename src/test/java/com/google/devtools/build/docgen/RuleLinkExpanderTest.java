@@ -36,8 +36,8 @@ public class RuleLinkExpanderTest {
         .put("Fileset", "fileset")
         .put("proto_library", "protocol-buffer")
         .build();
-    multiPageExpander = new RuleLinkExpander(index, false);
-    singlePageExpander = new RuleLinkExpander(index, true);
+    multiPageExpander = new RuleLinkExpander("product-name", index, false);
+    singlePageExpander = new RuleLinkExpander("product-name", index, true);
   }
 
   private void checkExpandSingle(String docs, String expected) {
@@ -109,6 +109,15 @@ public class RuleLinkExpanderTest {
     checkExpandSingle(
         "<a href=\"${link common-definitions}\">Common Definitions</a>",
         "<a href=\"#common-definitions\">Common Definitions</a>");
+  }
+
+  @Test public void testUserManualRefIncludesProductName() {
+    checkExpandMulti(
+        "<a href=\"${link user-manual#overview}\">Link</a>",
+        "<a href=\"product-name-user-manual.html#overview\">Link</a>");
+    checkExpandSingle(
+        "<a href=\"${link user-manual#overview}\">Link</a>",
+        "<a href=\"product-name-user-manual.html#overview\">Link</a>");
   }
 
   @Test(expected = IllegalArgumentException.class)

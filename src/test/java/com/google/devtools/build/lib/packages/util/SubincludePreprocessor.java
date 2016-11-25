@@ -22,13 +22,11 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.nio.CharBuffer;
 import java.util.Arrays;
@@ -107,7 +105,6 @@ public class SubincludePreprocessor implements Preprocessor {
       byte[] buildFileBytes,
       String packageName,
       Globber globber,
-      Environment.Frame globals,
       Set<String> ruleNames)
       throws IOException, InterruptedException {
     StoredEventHandler eventHandler = new StoredEventHandler();

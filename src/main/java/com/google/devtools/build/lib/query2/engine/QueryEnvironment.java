@@ -159,6 +159,16 @@ public interface QueryEnvironment<T> {
   void getTargetsMatchingPattern(QueryExpression owner, String pattern, Callback<T> callback)
       throws QueryException, InterruptedException;
 
+  /**
+   * Same as {@link #getTargetsMatchingPattern}, but optionally making use of the given
+   * {@link ForkJoinPool} to achieve parallelism.
+   */
+  void getTargetsMatchingPatternPar(
+      QueryExpression owner,
+      String pattern,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException;
+
   /** Ensures the specified target exists. */
   // NOTE(bazel-team): this method is left here as scaffolding from a previous refactoring. It may
   // be possible to remove it.

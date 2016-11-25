@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -49,13 +50,15 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
@@ -65,6 +68,8 @@ import javax.annotation.Nullable;
 
 /** An Aspect which JavaProtoLibrary injects to build Java SPEED protos. */
 public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
+
+  private static final String SPEED_PROTO_TOOLCHAIN_ATTR = ":aspect_java_proto_toolchain";
 
   private static final String SPEED_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
   private static final String SPEED_PROTO_RUNTIME_LABEL = "//external:protobuf/java_runtime";
@@ -89,6 +94,15 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         @Override
         public boolean useHostConfiguration() {
           return true;
+        }
+      };
+
+  private static final Attribute.LateBoundLabel<BuildConfiguration> SPEED_PROTO_TOOLCHAIN_LABEL =
+      new Attribute.LateBoundLabel<BuildConfiguration>(
+          "//tools/proto/toolchains:java", ProtoConfiguration.class) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJava();
         }
       };
 
@@ -129,7 +143,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                     .getFragment(ProtoConfiguration.class, ConfigurationTransition.HOST)
                     .protoCompilerJavaFlags(),
                 javaSemantics,
-                rpcSupport)
+                rpcSupport,
+                ruleContext.getFragment(ProtoConfiguration.class).useToolchainForJavaProto())
             .createProviders());
 
     return aspect.build();
@@ -150,6 +165,12 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                 attr(PROTO_SOURCE_FILE_BLACKLIST_ATTR, LABEL_LIST)
                     .cfg(HOST)
                     .value(BLACKLISTED_PROTOS))
+            .add(
+                attr(SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
+                    // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
+                    // once it's in a Bazel release.
+                    .legacyAllowAnyFileType()
+                    .value(SPEED_PROTO_TOOLCHAIN_LABEL))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
@@ -180,18 +201,21 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
      */
     private final JavaCompilationArgsProvider dependencyCompilationArgs;
     private final String protoCompilerPluginOptions;
+    private final boolean useToolchainForJavaProto;
 
     Impl(
         final RuleContext ruleContext,
         final SupportData supportData,
         String protoCompilerPluginOptions,
         JavaSemantics javaSemantics,
-        RpcSupport rpcSupport) {
+        RpcSupport rpcSupport,
+        boolean useToolchainForJavaProto) {
       this.ruleContext = ruleContext;
       this.supportData = supportData;
       this.protoCompilerPluginOptions = protoCompilerPluginOptions;
       this.javaSemantics = javaSemantics;
       this.rpcSupport = rpcSupport;
+      this.useToolchainForJavaProto = useToolchainForJavaProto;
 
       dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
@@ -251,20 +275,51 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         return false;
       }
 
-      ProtoSourceFileBlacklist protoBlackList =
-          new ProtoSourceFileBlacklist(ruleContext, PROTO_SOURCE_FILE_BLACKLIST_ATTR);
+      final ProtoSourceFileBlacklist protoBlackList;
+      if (useToolchainForJavaProto) {
+        NestedSetBuilder<Artifact> blacklistedProtos = NestedSetBuilder.stableOrder();
+        blacklistedProtos.addTransitive(getProtoToolchainProvider().blacklistedProtos());
+        blacklistedProtos.addTransitive(rpcSupport.getBlacklist(ruleContext));
+
+        protoBlackList = new ProtoSourceFileBlacklist(ruleContext, blacklistedProtos.build());
+      } else {
+        protoBlackList =
+            new ProtoSourceFileBlacklist(
+                ruleContext,
+                ruleContext
+                    .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
+                    .list());
+      }
+
       return protoBlackList.checkSrcs(supportData.getDirectProtoSources(), "java_proto_library");
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
-      ProtoCompileActionBuilder actionBuilder =
-          new ProtoCompileActionBuilder(
-                  ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
-              .allowServices(true)
-              .setLangParameter(
-                  String.format(protoCompilerPluginOptions, sourceJar.getExecPathString()));
-      rpcSupport.mutateProtoCompileAction(ruleContext, sourceJar, actionBuilder);
-      ruleContext.registerAction(actionBuilder.build());
+      if (useToolchainForJavaProto) {
+        ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
+        invocations.add(
+            new ToolchainInvocation(
+                "java", checkNotNull(getProtoToolchainProvider()), sourceJar.getExecPathString()));
+        invocations.addAll(rpcSupport.getToolchainInvocation(ruleContext, sourceJar));
+        ProtoCompileActionBuilder.registerActions(
+            ruleContext,
+            invocations.build(),
+            supportData.getDirectProtoSources(),
+            supportData.getTransitiveImports(),
+            supportData.getProtosInDirectDeps(),
+            ImmutableList.of(sourceJar),
+            "Java (Immutable)",
+            rpcSupport.allowServices(ruleContext));
+      } else {
+        ProtoCompileActionBuilder actionBuilder =
+            new ProtoCompileActionBuilder(
+                    ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
+                .allowServices(true)
+                .setLangParameter(
+                    String.format(protoCompilerPluginOptions, sourceJar.getExecPathString()));
+        rpcSupport.mutateProtoCompileAction(ruleContext, sourceJar, actionBuilder);
+        ruleContext.registerAction(actionBuilder.build());
+      }
     }
 
     private JavaCompilationArgsProvider createJavaCompileAction(
@@ -273,16 +328,34 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
           new JavaLibraryHelper(ruleContext)
               .setOutput(outputJar)
               .addSourceJars(sourceJar)
-              .setJavacOpts(constructJavacOpts());
+              .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
       helper
           .addDep(dependencyCompilationArgs)
-          .addDep(
-              ruleContext.getPrerequisite(
-                  SPEED_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
           .setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      if (useToolchainForJavaProto) {
+        TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+        if (runtime != null) {
+          helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
+        }
+      } else {
+        helper.addDep(
+            ruleContext.getPrerequisite(
+                SPEED_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class));
+      }
+
       rpcSupport.mutateJavaCompileAction(ruleContext, helper);
       return helper.buildCompilationArgsProvider(
-          helper.build(javaSemantics), true /* isReportedAsStrict */);
+          helper.build(
+              javaSemantics,
+              JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+              JavaCompilationHelper.getHostJavabaseInputsNonStatic(ruleContext),
+              JavaCompilationHelper.getInstrumentationJars(ruleContext)),
+          true /* isReportedAsStrict */);
+    }
+
+    private ProtoLangToolchainProvider getProtoToolchainProvider() {
+      return ruleContext.getPrerequisite(
+          SPEED_PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class);
     }
 
     private Artifact getSourceJarArtifact() {
@@ -291,18 +364,6 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
     private Artifact getOutputJarArtifact() {
       return ruleContext.getBinArtifact("lib" + ruleContext.getLabel().getName() + "-speed.jar");
-    }
-
-    /**
-     * Returns javacopts for compiling the Java source files generated by the proto compiler.
-     * Ensures that they are compiled so that they can be used by App Engine targets.
-     */
-    private ImmutableList<String> constructJavacOpts() {
-      JavaToolchainProvider toolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
-      return ImmutableList.<String>builder()
-          .addAll(toolchain.getJavacOptions())
-          .addAll(toolchain.getCompatibleJavacOptions(JavaSemantics.JAVA7_JAVACOPTS_KEY))
-          .build();
     }
 
     private <C extends TransitiveInfoProvider> Iterable<C> getDeps(Class<C> clazz) {

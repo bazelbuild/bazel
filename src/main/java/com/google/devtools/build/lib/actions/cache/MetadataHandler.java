@@ -66,15 +66,6 @@ public interface MetadataHandler {
    */
   void markOmitted(ActionInput output);
 
-  /**
-   * Returns true iff artifact exists.
-   *
-   * <p>It is important to note that implementations may cache non-existence as a side effect of
-   * this method. If there is a possibility an artifact was intentionally omitted then {@link
-   * #artifactOmitted(Artifact)} should be checked first to avoid the side effect.
-   */
-  boolean artifactExists(Artifact artifact);
-
   /** Returns true iff artifact is a regular file. */
   boolean isRegularFile(Artifact artifact);
 

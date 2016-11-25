@@ -9,7 +9,7 @@ Supported platforms:
 
 *   [Ubuntu Linux (Wily 15.10 and Trusty 14.04 LTS)](#ubuntu)
 *   [Mac OS X](#mac-os-x)
-*   [Windows (highly experimental)](windows.md#installing-bazel-on-windows)
+*   [Windows (highly experimental)](#windows)
 
 For other platforms, you can try to [compile from source](#compiling-from-source).
 
@@ -54,7 +54,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 
 ```
 $ echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-$ curl https://bazel.io/bazel-release.pub.gpg | sudo apt-key add -
+$ curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 ```
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.
@@ -216,23 +216,66 @@ $ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
+
+## <a name="windows"></a>Windows
+
+Windows support is highly experimental. Known issues are [marked with
+label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
+on GitHub issues.
+
+We currently support only 64 bit Windows 7 or higher and we compile Bazel as a
+msys2 binary.
+
+Install Bazel on Windows using one of the following methods:
+
+  * [Using Chocolatey](#install-on-windows-chocolatey)
+  * [Using binary distribution](#download-binary-windows)
+  * [Compiling Bazel from source](#compiling-from-source) -- make sure
+    your machine meets the [requirements](windows.md#requirements)
+
+
+### <a name="install-on-windows-chocolatey"></a>Install on Windows using Chocolatey
+
+You can install the unofficial package using the
+[chocolatey](https://chocolatey.org) package manager:
+
+```sh
+choco install bazel
+```
+
+This will install the latest available version of bazel, and dependencies.
+
+This package is experimental; please provide feedback to `@petemounce` in GitHub
+issue tracker. See the [Chocolatey installation and package
+maintenance](windows-chocolatey-maintenance.md) guide for more information.
+
+
+### <a name="download-binary-windows"></a>Download a precompiled binary
+
+We provide binary versions on our
+<a href="https://github.com/bazelbuild/bazel/releases">GitHub releases page</a>
+
+This is merely the Bazel binary. You'll need additional software (e.g. msys2
+shell) and some setup in your environment to run Bazel. See these requirements
+on our [Windows page](windows.md#requirements).
+
+
 ## <a name="compiling-from-source"></a>Compiling from source
 
-If you would like to build Bazel from source, clone the source from GitHub and
-run `./compile.sh` to build it:
+The standard way of compiling a release version of Bazel from source
+is to use a distribution archive. Download `bazel-<VERSION>-dist.zip`
+from
+the [release page](https://github.com/bazelbuild/bazel/releases) for
+the desired version (for releases 0.4.0 and earlier: download the "source
+code" zip archive and note that it will only work for the supported
+architectures as it contains binaries). We recommend to also verify
+the signature made by our
+[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
-```
-$ git clone https://github.com/bazelbuild/bazel.git
-$ cd bazel
-$ ./compile.sh
-```
-
-This will create a bazel binary in `bazel-bin/src/bazel`. This binary is
-self-contained, so it can be copied to a directory on the PATH (e.g.,
+Unzip the archive and call `bash ./compile.sh`; this will create a
+bazel binary in `bazel-bin/src/bazel`. This binary is self-contained,
+so it can be copied to a directory on the PATH (e.g.,
 `/usr/local/bin`) or used in-place.
-
-Check our [continuous integration](http://ci.bazel.io) for the current status of
-the build.
 
 
 ## <a name="jdk7"></a>Using Bazel with JDK 7 (deprecated)

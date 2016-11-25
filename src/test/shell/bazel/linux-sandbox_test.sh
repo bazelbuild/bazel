@@ -17,11 +17,11 @@
 # Test sandboxing spawn strategy
 #
 
-# Load test environment
-src_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${src_dir}/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
-source ${src_dir}/bazel_sandboxing_test_utils.sh \
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/bazel_sandboxing_test_utils.sh" \
   || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 readonly OUT_DIR="${TEST_TMPDIR}/out"
@@ -39,6 +39,11 @@ function set_up {
 function test_basic_functionality() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/echo hi there &> $TEST_log || fail
   expect_log "hi there"
+}
+
+function test_execvp_error_message_contains_path() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /does/not/exist --hello world &> $TEST_log || code=$?
+  expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
 }
 
 function test_default_user_is_nobody() {

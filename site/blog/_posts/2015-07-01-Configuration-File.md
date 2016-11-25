@@ -24,4 +24,4 @@ three paths to master rc files that are read in the following order:
   2. `/path/to/bazel.bazelrc` (alongside bazel rc file), and
   3. `/etc/bazel.bazelrc` (system-wide bazel rc file).
 
-The complete documentation on rc file is [here](http://bazel.io/docs/bazel-user-manual.html#bazelrc).
+The complete documentation on rc file is [here](http://bazel.build/docs/bazel-user-manual.html#bazelrc).

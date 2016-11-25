@@ -565,6 +565,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
                 "srcs",
                 "stamp",
                 "tags",
+                "toolchains",
                 "tools",
                 "visibility")),
         result);
@@ -628,7 +629,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public void testGetExecutablePrerequisite() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._jarjar_bin");
-    assertEquals("jarjar_bin", ((Artifact) result).getFilename());
+    assertThat(((Artifact) result).getFilename()).matches("^jarjar_bin(\\.cmd){0,1}$");
   }
 
   @Test
@@ -645,7 +646,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getCommandFilename()).endsWith("/jarjar_bin");
+    assertThat(action.getCommandFilename()).matches("^.*/jarjar_bin(\\.cmd){0,1}$");
   }
 
   @Test
@@ -1295,5 +1296,77 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object substitutionsUnchecked = eval("action.substitutions");
     assertThat(substitutionsUnchecked).isInstanceOf(SkylarkDict.class);
     assertThat(substitutionsUnchecked).isEqualTo(SkylarkDict.of(null, "a", "b"));
+  }
+
+  private void setUpCoverageInstrumentedTest() throws Exception {
+    scratch.file("test/BUILD",
+        "cc_library(",
+        "  name = 'foo',",
+        "  srcs = ['foo.cc'],",
+        "  deps = [':bar'],",
+        ")",
+        "cc_library(",
+        "  name = 'bar',",
+        "  srcs = ['bar.cc'],",
+        ")");
+  }
+
+  @Test
+  public void testCoverageInstrumentedCoverageDisabled() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--nocollect_code_coverage", "--instrumentation_filter=.");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageInstrumentedFalseForSourceFileLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=.");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    Object result = evalRuleContextCode(ruleContext,
+        "ruleContext.coverage_instrumented(ruleContext.attr.srcs[0])");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageInstrumentedDoesNotMatchFilter() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:bar");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageInstrumentedMatchesFilter() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isTrue();
+  }
+
+  @Test
+  public void testCoverageInstrumentedDoesNotMatchFilterNonDefaultLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=:foo");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    // //test:bar does not match :foo, though //test:foo would.
+    Object result = evalRuleContextCode(ruleContext,
+        "ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageInstrumentedMatchesFilterNonDefaultLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration("--collect_code_coverage", "--instrumentation_filter=:bar");
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    // //test:bar does match :bar, though //test:foo would not.
+    Object result = evalRuleContextCode(ruleContext,
+        "ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    assertThat((Boolean) result).isTrue();
   }
 }

@@ -594,7 +594,8 @@ public final class JavaCompileAction extends AbstractAction {
    * @param outputJar output jar
    * @param compressJar if true compress the output jar
    * @param outputDepsProto the proto file capturing dependency information
-   * @param processorPath the classpath where javac should search for annotation processors
+   * @param processorPath the classpath files where javac should search for annotation processors
+   * @param processorPathDirs the classpath dirs where javac should search for annotation processors
    * @param processorNames the classes that javac should use as annotation processors
    * @param messages the message files for translation
    * @param resources the set of resources to put into the jar
@@ -614,6 +615,7 @@ public final class JavaCompileAction extends AbstractAction {
       final boolean compressJar,
       final Artifact outputDepsProto,
       final List<Artifact> processorPath,
+      final Set<PathFragment> processorPathDirs,
       final List<String> processorNames,
       final Collection<Artifact> messages,
       final Map<PathFragment, Artifact> resources,
@@ -660,8 +662,13 @@ public final class JavaCompileAction extends AbstractAction {
           }
           result.add(Joiner.on(pathSeparator).join(extdirs));
         }
-        if (!processorPath.isEmpty()) {
-          result.addJoinExecPaths("--processorpath", pathSeparator, processorPath);
+        if (!processorPath.isEmpty() || !processorPathDirs.isEmpty()) {
+          ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
+          execPathStrings.addAll(Artifact.toExecPaths(processorPath));
+          for (PathFragment processorPathDir : processorPathDirs) {
+            execPathStrings.add(processorPathDir.toString());
+          }
+          result.addJoinStrings("--processorpath", pathSeparator, execPathStrings.build());
         }
         if (!processorNames.isEmpty()) {
           result.add("--processors", processorNames);
@@ -927,6 +934,7 @@ public final class JavaCompileAction extends AbstractAction {
     private Artifact gensrcOutputJar;
     private Artifact manifestProtoOutput;
     private Artifact outputDepsProto;
+    private Collection<Artifact> additionalOutputs;
     private Artifact paramFile;
     private Artifact metadata;
     private final Collection<Artifact> sourceFiles = new ArrayList<>();
@@ -953,6 +961,7 @@ public final class JavaCompileAction extends AbstractAction {
     private PathFragment tempDirectory;
     private PathFragment classDirectory;
     private final List<Artifact> processorPath = new ArrayList<>();
+    private final Set<PathFragment> processorPathDirs = new LinkedHashSet<>();
     private final List<String> processorNames = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
@@ -1039,12 +1048,18 @@ public final class JavaCompileAction extends AbstractAction {
       Preconditions.checkState(javaExecutable.isAbsolute() ^ !javabaseInputs.isEmpty(),
           javaExecutable);
 
-      ArrayList<Artifact> outputs = new ArrayList<>(Collections2.filter(Arrays.asList(
-          outputJar,
-          metadata,
-          gensrcOutputJar,
-          manifestProtoOutput,
-          outputDepsProto), Predicates.notNull()));
+      ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.<Artifact>builder()
+          .addAll(
+              new ArrayList<>(Collections2.filter(Arrays.asList(
+                  outputJar,
+                  metadata,
+                  gensrcOutputJar,
+                  manifestProtoOutput,
+                  outputDepsProto), Predicates.notNull())));
+      if (additionalOutputs != null) {
+        outputsBuilder.addAll(additionalOutputs);
+      }
+      ImmutableList<Artifact> outputs = outputsBuilder.build();
 
       CustomMultiArgv commonJavaBuilderArgs = commonJavaBuilderArgs(
           semantics,
@@ -1057,6 +1072,7 @@ public final class JavaCompileAction extends AbstractAction {
           compressJar,
           outputDepsProto,
           processorPath,
+          processorPathDirs,
           processorNames,
           translations,
           resources,
@@ -1180,6 +1196,11 @@ public final class JavaCompileAction extends AbstractAction {
       return this;
     }
 
+    public Builder setAdditionalOutputs(Collection<Artifact> outputs) {
+      this.additionalOutputs = outputs;
+      return this;
+    }
+
     public Builder setMetadata(Artifact metadata) {
       this.metadata = metadata;
       return this;
@@ -1290,6 +1311,11 @@ public final class JavaCompileAction extends AbstractAction {
 
     public Builder addProcessorPaths(Collection<Artifact> processorPaths) {
       this.processorPath.addAll(processorPaths);
+      return this;
+    }
+
+    public Builder addProcessorPathDirs(Collection<PathFragment> processorPathDirs) {
+      this.processorPathDirs.addAll(processorPathDirs);
       return this;
     }
 

@@ -16,7 +16,6 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -35,22 +34,27 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/port.h"
 
 using blaze_util::die;
 using blaze_util::pdie;
-using std::vector;
 
 namespace blaze {
+
+using std::string;
+using std::vector;
 
 const char kServerPidFile[] = "server.pid.txt";
 const char kServerPidSymlink[] = "server.pid";
 
 string GetUserName() {
-  const char *user = getenv("USER");
-  if (user && user[0] != '\0') return user;
+  string user = GetEnv("USER");
+  if (!user.empty()) {
+    return user;
+  }
   errno = 0;
   passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
   if (pwent == NULL || pwent->pw_name == NULL) {
@@ -66,144 +70,57 @@ string MakeAbsolute(const string &path) {
     return path;
   }
 
-  char cwdbuf[PATH_MAX];
-  if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-  }
+  string cwd = blaze_util::GetCwd();
 
   // Determine whether the cwd ends with "/" or not.
-  string separator = (cwdbuf[strlen(cwdbuf) - 1] == '/') ? "" : "/";
-  return cwdbuf + separator + path;
+  string separator = cwd.back() == '/' ? "" : "/";
+  return cwd + separator + path;
 }
 
-// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
-// `path` isn't a directory. If check_perms is true, this will also
-// make sure that `path` is owned by the current user and has `mode`
-// permissions (observing the umask). It attempts to run chmod to
-// correct the mode if necessary. If `path` is a symlink, this will
-// check ownership of the link, not the underlying directory.
-static int GetDirectoryStat(const string& path, mode_t mode, bool check_perms) {
-  struct stat filestat = {};
-  if (stat(path.c_str(), &filestat) == -1) {
-    return -1;
-  }
-
-  if (!S_ISDIR(filestat.st_mode)) {
-    errno = ENOTDIR;
-    return -1;
-  }
-
-  if (check_perms) {
-    // If this is a symlink, run checks on the link. (If we did lstat above
-    // then it would return false for ISDIR).
-    struct stat linkstat = {};
-    if (lstat(path.c_str(), &linkstat) != 0) {
-      return -1;
-    }
-    if (linkstat.st_uid != geteuid()) {
-      // The directory isn't owned by me.
-      errno = EACCES;
-      return -1;
-    }
-
-    mode_t mask = umask(022);
-    umask(mask);
-    mode = (mode & ~mask);
-    if ((filestat.st_mode & 0777) != mode
-        && chmod(path.c_str(), mode) == -1) {
-      // errno set by chmod.
-      return -1;
-    }
-  }
-  return 0;
-}
-
-static int MakeDirectories(const string& path, mode_t mode, bool childmost) {
-  if (path.empty() || path == "/") {
-    errno = EACCES;
-    return -1;
-  }
-
-  int retval = GetDirectoryStat(path, mode, childmost);
-  if (retval == 0) {
-    return 0;
-  }
-
-  if (errno == ENOENT) {
-    // Path does not exist, attempt to create its parents, then it.
-    string parent = blaze_util::Dirname(path);
-    if (MakeDirectories(parent, mode, false) == -1) {
-      // errno set by stat.
-      return -1;
-    }
-
-    if (mkdir(path.c_str(), mode) == -1) {
-      if (errno == EEXIST) {
-        if (childmost) {
-          // If there are multiple bazel calls at the same time then the
-          // directory could be created between the MakeDirectories and mkdir
-          // calls. This is okay, but we still have to check the permissions.
-          return GetDirectoryStat(path, mode, childmost);
-        } else {
-          // If this isn't the childmost directory, we don't care what the
-          // permissions were. If it's not even a directory then that error will
-          // get caught when we attempt to create the next directory down the
-          // chain.
-          return 0;
-        }
-      }
-      // errno set by mkdir.
-      return -1;
-    }
-    return 0;
-  }
-
-  return retval;
-}
-
-// mkdir -p path. Returns 0 if the path was created or already exists and could
-// be chmod-ed to exactly the given permissions. If final part of the path is a
-// symlink, this ensures that the destination of the symlink has the desired
-// permissions. It also checks that the directory or symlink is owned by us.
-// On failure, this returns -1 and sets errno.
-int MakeDirectories(const string& path, mode_t mode) {
-  return MakeDirectories(path, mode, true);
-}
-
-// Replaces 'contents' with contents of 'fd' file descriptor.
-// Returns false on error.
-bool ReadFileDescriptor(int fd, string *content) {
+bool ReadFileDescriptor(int fd, string *content, int max_size) {
   content->clear();
   char buf[4096];
   // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read(fd, buf, sizeof buf)) {
+  while (int r = read(fd, buf,
+                      max_size > 0
+                          ? std::min(max_size, static_cast<int>(sizeof buf))
+                          : sizeof buf)) {
     if (r == -1) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
     }
     content->append(buf, r);
+    if (max_size > 0) {
+      if (max_size > r) {
+        max_size -= r;
+      } else {
+        break;
+      }
+    }
   }
   close(fd);
   return true;
 }
 
-// Replaces 'content' with contents of file 'filename'.
-// Returns false on error.
-bool ReadFile(const string &filename, string *content) {
+bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  return ReadFileDescriptor(fd, content);
+  return ReadFileDescriptor(fd, content, max_size);
 }
 
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
 bool WriteFile(const string &content, const string &filename) {
+  return WriteFile(content.data(), content.size(), filename);
+}
+
+bool WriteFile(const void *data, size_t size, const std::string &filename) {
   UnlinkPath(filename);  // We don't care about the success of this.
   int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
   if (fd == -1) {
     return false;
   }
-  int r = write(fd, content.data(), content.size());
+  int r = write(fd, data, size);
   if (r == -1) {
     return false;
   }
@@ -212,7 +129,7 @@ bool WriteFile(const string &content, const string &filename) {
     return false;  // Can fail on NFS.
   }
   errno = saved_errno;  // Caller should see errno from write().
-  return static_cast<uint>(r) == content.size();
+  return static_cast<uint>(r) == size;
 }
 
 bool UnlinkPath(const string &file_path) {
@@ -220,14 +137,13 @@ bool UnlinkPath(const string &file_path) {
 }
 
 bool IsEmacsTerminal() {
-  string emacs = getenv("EMACS") == nullptr ? "" : getenv("EMACS");
-  string inside_emacs =
-      getenv("INSIDE_EMACS") == nullptr ? "" : getenv("INSIDE_EMACS");
+  string emacs = GetEnv("EMACS");
+  string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
   // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
-  return emacs == "t" || inside_emacs != "";
+  return emacs == "t" || !inside_emacs.empty();
 }
 
 // Returns true iff both stdout and stderr are connected to a
@@ -235,9 +151,10 @@ bool IsEmacsTerminal() {
 // (this is computed heuristically based on the values of
 // environment variables).
 bool IsStandardTerminal() {
-  string term = getenv("TERM") == nullptr ? "" : getenv("TERM");
-  if (term == "" || term == "dumb" || term == "emacs" || term == "xterm-mono" ||
-      term == "symbolics" || term == "9term" || IsEmacsTerminal()) {
+  string term = GetEnv("TERM");
+  if (term.empty() || term == "dumb" || term == "emacs" ||
+      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
+      IsEmacsTerminal()) {
     return false;
   }
   return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
@@ -250,10 +167,10 @@ int GetTerminalColumns() {
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
-  const char* columns_env = getenv("COLUMNS");
-  if (columns_env != NULL && columns_env[0] != '\0') {
+  string columns_env = GetEnv("COLUMNS");
+  if (!columns_env.empty()) {
     char* endptr;
-    int columns = blaze_util::strto32(columns_env, &endptr, 10);
+    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
     if (*endptr == '\0') {  // $COLUMNS is a valid number
       return columns;
     }
@@ -290,9 +207,7 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
-bool VerboseLogging() {
-  return getenv("VERBOSE_BLAZE_CLIENT") != NULL;
-}
+bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
 
 // Read the Jvm version from a file descriptor. The read fd
 // should contains a similar output as the java -version output.
@@ -399,7 +314,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
     fflush(stderr);
 
     // Take a clock sample for that start of the waiting time
-    uint64_t st = MonotonicClock();
+    uint64_t st = GetMillisecondsMonotonic();
     // Try to take the lock again (blocking).
     int r;
     do {
@@ -411,8 +326,8 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
            "couldn't acquire file lock");
     }
     // Take another clock sample, calculate elapsed
-    uint64_t et = MonotonicClock();
-    wait_time = (et - st) / 1000000LL;
+    uint64_t et = GetMillisecondsMonotonic();
+    wait_time = et - st;
   }
 
   // Identify ourselves in the lockfile.
@@ -428,6 +343,11 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
 
 void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
+}
+
+bool IsArg(const string& arg) {
+  return blaze_util::starts_with(arg, "-") && (arg != "--help")
+      && (arg != "-help") && (arg != "-h");
 }
 
 }  // namespace blaze

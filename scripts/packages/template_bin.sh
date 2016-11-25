@@ -100,7 +100,7 @@ test_write() {
 if ! which unzip >/dev/null; then
   echo >&2
   echo "unzip not found, please install the corresponding package." >&2
-  echo "See http://bazel.io/docs/install.html for more information on" >&2
+  echo "See http://bazel.build/docs/install.html for more information on" >&2
   echo "dependencies of Bazel." >&2
   exit 1
 fi
@@ -125,7 +125,7 @@ fi
 if [ ! -x "${JAVA_HOME}/bin/javac" ]; then
   echo >&2
   echo "Java not found, please install the corresponding package" >&2
-  echo "See http://bazel.io/docs/install.html for more information on" >&2
+  echo "See http://bazel.build/docs/install.html for more information on" >&2
   echo "dependencies of Bazel." >&2
   exit 1
 fi
@@ -183,6 +183,6 @@ Make sure you have "${bin}" in your path. You can also activate bash
 completion by adding the following line to your ${BASHRC}:
   source ${base}/bin/bazel-complete.bash
 
-See http://bazel.io/docs/getting-started.html to start a new project!
+See http://bazel.build/docs/getting-started.html to start a new project!
 EOF
 exit 0

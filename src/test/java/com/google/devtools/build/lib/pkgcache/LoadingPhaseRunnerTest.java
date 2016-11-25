@@ -25,7 +25,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -613,7 +613,8 @@ public class LoadingPhaseRunnerTest {
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of(),
               analysisMock.getProductName(),
-              CrossRepositoryLabelViolationStrategy.ERROR);
+              CrossRepositoryLabelViolationStrategy.ERROR,
+              ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
       PathPackageLocator pkgLocator = PathPackageLocator.create(
           null, options.packagePath, storedErrors, workspace, workspace);
       PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
@@ -674,7 +675,6 @@ public class LoadingPhaseRunnerTest {
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,
                 options,
-                ImmutableListMultimap.<String, Label>of(),
                 keepGoing,
                 determineTests,
                 loadingCallback);

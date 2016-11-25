@@ -84,7 +84,7 @@ Suggested:
 <pre><code>ERROR: /path/BUILD:6:16: <strong>my\_obj of type 'select' is not iterable.</strong> You can iterate only on string, lists, tuples, or dicts.
 t = [x for x in my\_obj]
                 ^-----
-Related documentation: http://www.bazel.io/docs/be/functions.html#select
+Related documentation: http://www.bazel.build/docs/be/functions.html#select
 </code></pre>
 
 ***
@@ -115,7 +115,7 @@ Suggested:
 glob(["*.cc"], excludes = ["foo.cc"])
                ^-------
                exclude
-Related documentation: http://www.bazel.io/docs/be/functions.html#glob
+Related documentation: http://www.bazel.build/docs/be/functions.html#glob
 </code></pre>
 
 ***
@@ -149,7 +149,7 @@ Suggested:
     deps = ":lib",
            ^-----
            [":lib"]
-Related documentation: http://www.bazel.io/docs/be/c-cpp.html#cc\_library
+Related documentation: http://www.bazel.build/docs/be/c-cpp.html#cc\_library
 </code></pre>
 
 ***
@@ -169,7 +169,7 @@ Suggested:
     deps = VAR,
            ^--
           [VAR]
-Related documentation: http://www.bazel.io/docs/be/c-cpp.html#cc\_library
+Related documentation: http://www.bazel.build/docs/be/c-cpp.html#cc\_library
 </code></pre>
 
 ***
@@ -188,7 +188,7 @@ Suggested:
     deps = ["/test:foo.cc"],
             ^-------------
             "//test:foo.cc"
-Related documentation: http://www.bazel.io/docs/build-ref.html#labels
+Related documentation: http://www.bazel.build/docs/build-ref.html#labels
 </code></pre>
 
 ***
@@ -209,7 +209,7 @@ Current:
 </code></pre>
 Suggested:
 <pre><code>ERROR: /path/BUILD:3:12: <strong>In srcs attribute of //test:name (cc\_library), '//test:x' does not produce any cc\_library srcs files</strong> (expected extension .cc, .cpp, .cxx, .c++, .C, .c, .h, .hh, .hpp, .hxx, .inc, .S, .s, .asm, .a, .pic.a, .lo, .pic.lo, .so, .dylib, .o or .pic.o). <strong>Target //test:x (genrule) generated 'file.ext'</strong>.
-Related documentation: http://www.bazel.io/docs/be/c-cpp.html#cc\_library
+Related documentation: http://www.bazel.build/docs/be/c-cpp.html#cc\_library
 </code></pre>
 
 ***
@@ -227,7 +227,7 @@ Suggested:
 <pre><code>ERROR: /path/BUILD:3:5: <strong>In deps attribute of //test:name (cc\_library), '//base:scheduling\_domain-test' (cc\_library) is marked as testonly.</strong> You may either add:
     testonly = 1
 to //test:name definition, or remove testonly from //base:scheduling\_domain-test, or remove the dependency.
-Related documentation: http://www.bazel.io/docs/be/common-definitions.html#common.testonly
+Related documentation: http://www.bazel.build/docs/be/common-definitions.html#common.testonly
 </code></pre>
 
 ***
@@ -244,7 +244,7 @@ Current:
 Suggested:
 <pre><code>ERROR: /path/BUILD:3:5: <strong>In srcs attribute of //test:name (cc\_library), '//base:arena.cc' (file) is not visible.</strong> You may change the visibility of the file using exports\_file, or expose the file via a library rule, or remove the dependency.
 //base:arena.cc has currently private visibility.
-Related documentation: http://www.bazel.io/docs/be/common-definitions.html#common.visibility
+Related documentation: http://www.bazel.build/docs/be/common-definitions.html#common.visibility
 </code></pre>
 
 ***

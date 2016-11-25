@@ -26,14 +26,12 @@ import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * This class tests the functionality of the PathFragment.
@@ -69,15 +67,16 @@ public class PathFragmentTest {
     InMemoryFileSystem filesystem = new InMemoryFileSystem();
 
     new EqualsTester()
-        .addEqualityGroup(new PathFragment("../relative/path"),
-                          new PathFragment("../relative/path"),
-                          new PathFragment(new File("../relative/path")))
+        .addEqualityGroup(
+            new PathFragment("../relative/path"),
+            new PathFragment("..").getRelative("relative").getRelative("path"),
+            new PathFragment('\0', false, new String[] {"..", "relative", "path"}),
+            new PathFragment(new File("../relative/path")))
         .addEqualityGroup(new PathFragment("something/else"))
         .addEqualityGroup(new PathFragment("/something/else"))
-        .addEqualityGroup(new PathFragment("/"),
-                          new PathFragment("//////"))
-        .addEqualityGroup(new PathFragment(""))
-        .addEqualityGroup(filesystem.getRootDirectory())  // A Path object.
+        .addEqualityGroup(new PathFragment("/"), new PathFragment("//////"))
+        .addEqualityGroup(new PathFragment(""), PathFragment.EMPTY_FRAGMENT)
+        .addEqualityGroup(filesystem.getRootDirectory()) // A Path object.
         .testEquals();
   }
 
@@ -279,6 +278,20 @@ public class PathFragmentTest {
     assertEquals("foo", new PathFragment("/foo").getBaseName());
     assertThat(new PathFragment("/").getBaseName()).isEmpty();
     assertThat(new PathFragment("").getBaseName()).isEmpty();
+  }
+
+  @Test
+  public void testFileExtension() throws Exception {
+    assertThat(new PathFragment("foo.bar").getFileExtension()).isEqualTo("bar");
+    assertThat(new PathFragment("foo.barr").getFileExtension()).isEqualTo("barr");
+    assertThat(new PathFragment("foo.b").getFileExtension()).isEqualTo("b");
+    assertThat(new PathFragment("foo.").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("foo").getFileExtension()).isEmpty();
+    assertThat(new PathFragment(".").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("").getFileExtension()).isEmpty();
+    assertThat(new PathFragment("foo/bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(new PathFragment("foo.bar.baz").getFileExtension()).isEqualTo("baz");
+    assertThat(new PathFragment("foo.bar/baz").getFileExtension()).isEmpty();
   }
 
   private static void assertPath(String expected, PathFragment actual) {

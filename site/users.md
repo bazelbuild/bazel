@@ -74,6 +74,10 @@ in progress.)
 FFruit is a free & open source Android application to the popular service
 [Falling Fruit](https://fallingfruit.org).
 
+## [Gerrit Code Review](https://gerritcodereview.com)
+
+Gerrit is a code review and project management tool for Git based projects.
+
 ## [GRPC](http://www.grpc.io)
 
 A language-and-platform-neutral remote procedure call system. (Bazel is a

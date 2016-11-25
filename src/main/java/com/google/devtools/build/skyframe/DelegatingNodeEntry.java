@@ -141,8 +141,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public void addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
-    getDelegate().addTemporaryDirectDeps(helper);
+  public Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper) {
+    return getDelegate().addTemporaryDirectDeps(helper);
   }
 
   @Override

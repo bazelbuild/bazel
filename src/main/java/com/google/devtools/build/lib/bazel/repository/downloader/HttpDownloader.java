@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -27,11 +27,13 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Proxy;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -39,8 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import javax.annotation.Nullable;
 
 /**
  * Helper class for downloading a file from a URL.
@@ -51,28 +51,18 @@ public class HttpDownloader {
   private static final String UNITS = " KMGTPEY";
   private static final double LOG_OF_KB = Math.log(1024);
 
-  private final String urlString;
-  private final String sha256;
-  private final String type;
-  private final Path outputDirectory;
-  private final EventHandler eventHandler;
   private final ScheduledExecutorService scheduler;
-  private final Map<String, String> clientEnv;
+  private Location ruleUrlAttributeLocation;
 
-  private HttpDownloader(
-      EventHandler eventHandler, String urlString, String sha256, Path outputDirectory,
-      String type, Map<String, String> clientEnv) {
-    this.urlString = urlString;
-    this.sha256 = sha256;
-    this.outputDirectory = outputDirectory;
-    this.eventHandler = eventHandler;
+  protected final RepositoryCache repositoryCache;
+
+  public HttpDownloader(RepositoryCache repositoryCache) {
     this.scheduler = Executors.newScheduledThreadPool(1);
-    this.type = type;
-    this.clientEnv = clientEnv;
+    this.ruleUrlAttributeLocation = null;
+    this.repositoryCache = repositoryCache;
   }
 
-  @Nullable
-  public static Path download(
+  public Path download(
       Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv)
       throws RepositoryFunctionException, InterruptedException {
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
@@ -80,6 +70,8 @@ public class HttpDownloader {
     String sha256;
     String type;
     try {
+      ruleUrlAttributeLocation = rule.getAttributeLocation("url");
+
       url = mapper.get("url", Type.STRING);
       sha256 = mapper.get("sha256", Type.STRING);
       type = mapper.isAttributeValueExplicitlySpecified("type")
@@ -89,82 +81,57 @@ public class HttpDownloader {
     }
 
     try {
-      return new HttpDownloader(eventHandler, url, sha256, outputDirectory, type, clientEnv)
-          .download();
+      return download(url, sha256, type, outputDirectory, eventHandler, clientEnv);
     } catch (IOException e) {
-      throw new RepositoryFunctionException(new IOException("Error downloading from "
-          + url + " to " + outputDirectory + ": " + e.getMessage()),
-          SkyFunctionException.Transience.TRANSIENT);
-    }
-  }
-
-  @SuppressWarnings("unused")
-  @Nullable
-  public static Path download(
-      Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv,
-      RepositoryCache repositoryCache)
-      throws RepositoryFunctionException, InterruptedException {
-
-    /* TODO(jingwen): No-op with the cache controller for now.
-     * This will be the place where we detect cache hits with the sha256 value
-     * and copy the values accordingly.
-     * 
-     * For now, delegating operation to the original download method.
-     */
-    return download(rule, outputDirectory, eventHandler, clientEnv);
-  }
-
-  @Nullable
-  public static Path download(
-      String url, String sha256, String type, Path output, EventHandler eventHandler, Map<String,
-      String> clientEnv)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      return new HttpDownloader(eventHandler, url, sha256, output, type, clientEnv).download();
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(
-          new IOException(
-              "Error downloading from " + url + " to " + output + ": " + e.getMessage()),
-          SkyFunctionException.Transience.TRANSIENT);
+      throw new RepositoryFunctionException(e, SkyFunctionException.Transience.TRANSIENT);
     }
   }
 
   /**
    * Attempt to download a file from the repository's URL. Returns the path to the file downloaded.
+   *
+   * If the SHA256 checksum and path to the repository cache is specified, attempt
+   * to load the file from the RepositoryCache. If it doesn't exist, proceed to
+   * download the file and load it into the cache prior to returning the value.
    */
-  public Path download() throws IOException, InterruptedException {
-    URL url = new URL(urlString);
-    Path destination;
-    if (type == null) {
-      destination = outputDirectory;
-    } else {
-      String filename = new PathFragment(url.getPath()).getBaseName();
-      if (filename.isEmpty()) {
-        filename = "temp";
-      } else if (!type.isEmpty()) {
-        filename += "." + type;
-      }
-      destination = outputDirectory.getRelative(filename);
-    }
+  public Path download(
+      String urlString, String sha256, String type, Path outputDirectory,
+      EventHandler eventHandler, Map<String, String> clientEnv)
+          throws IOException, InterruptedException, RepositoryFunctionException {
+    Path destination = getDownloadDestination(urlString, type, outputDirectory);
 
-    if (!sha256.isEmpty()) {
+    // Used to decide whether to cache the download at the end of this method.
+    boolean isCaching = false;
+
+    if (RepositoryCache.KeyType.SHA256.isValid(sha256)) {
       try {
-        String currentSha256 = getHash(Hashing.sha256().newHasher(), destination);
+        String currentSha256 = RepositoryCache.getChecksum(KeyType.SHA256, destination);
         if (currentSha256.equals(sha256)) {
           // No need to download.
           return destination;
         }
       } catch (IOException e) {
-        // Ignore error trying to hash. We'll just download again.
+        // Ignore error trying to hash. We'll attempt to retrieve from cache or just download again.
+      }
+
+      if (repositoryCache.isEnabled()) {
+        isCaching = true;
+
+        Path cachedDestination = repositoryCache.get(sha256, destination, KeyType.SHA256);
+        if (cachedDestination != null) {
+          // Cache hit!
+          return cachedDestination;
+        }
       }
     }
 
     AtomicInteger totalBytes = new AtomicInteger(0);
-    final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
+    final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes, eventHandler, urlString);
+    final URL url = new URL(urlString);
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString(), clientEnv);
 
     try (OutputStream out = destination.getOutputStream();
-         HttpConnection connection = HttpConnection.createAndConnect(url, this.clientEnv)) {
-      InputStream inputStream = connection.getInputStream();
+         InputStream inputStream = HttpConnector.connect(url, proxy, eventHandler)) {
       int read;
       byte[] buf = new byte[BUFFER_SIZE];
       while ((read = inputStream.read(buf)) > 0) {
@@ -173,11 +140,6 @@ public class HttpDownloader {
         if (Thread.interrupted()) {
           throw new InterruptedException("Download interrupted");
         }
-      }
-      if (connection.getContentLength() != -1
-          && totalBytes.get() != connection.getContentLength()) {
-        throw new IOException("Expected " + formatSize(connection.getContentLength()) + ", got "
-            + formatSize(totalBytes.get()));
       }
     } catch (IOException e) {
       throw new IOException(
@@ -191,30 +153,41 @@ public class HttpDownloader {
       }, 0, TimeUnit.SECONDS);
     }
 
-    compareHashes(destination);
+    if (!sha256.isEmpty()) {
+      RepositoryCache.assertFileChecksum(sha256, destination, KeyType.SHA256);
+    }
+
+    if (isCaching) {
+      repositoryCache.put(sha256, destination, KeyType.SHA256);
+    }
+
     return destination;
   }
 
-  private void compareHashes(Path destination) throws IOException {
-    if (sha256.isEmpty()) {
-      return;
-    }
-    String downloadedSha256;
+  private Path getDownloadDestination(String urlString, String type, Path outputDirectory)
+      throws RepositoryFunctionException {
+    URI uri = null;
     try {
-      downloadedSha256 = getHash(Hashing.sha256().newHasher(), destination);
-    } catch (IOException e) {
-      throw new IOException(
-          "Could not hash file " + destination + ": " + e.getMessage() + ", expected SHA-256 of "
-              + sha256 + ")");
+      uri = new URI(urlString);
+    } catch (URISyntaxException e) {
+      throw new RepositoryFunctionException(
+          new EvalException(ruleUrlAttributeLocation, e), Transience.PERSISTENT);
     }
-    if (!downloadedSha256.equals(sha256)) {
-      throw new IOException(
-          "Downloaded file at " + destination + " has SHA-256 of " + downloadedSha256
-              + ", does not match expected SHA-256 (" + sha256 + ")");
+    if (type == null) {
+      return outputDirectory;
+    } else {
+      String filename = new PathFragment(uri.getPath()).getBaseName();
+      if (filename.isEmpty()) {
+        filename = "temp";
+      } else if (!type.isEmpty()) {
+        filename += "." + type;
+      }
+      return outputDirectory.getRelative(filename);
     }
   }
 
-  private ScheduledFuture<?> getLoggerHandle(final AtomicInteger totalBytes) {
+  private ScheduledFuture<?> getLoggerHandle(
+      final AtomicInteger totalBytes, final EventHandler eventHandler, final String urlString) {
     final Runnable logger = new Runnable() {
       @Override
       public void run() {
@@ -230,7 +203,7 @@ public class HttpDownloader {
     return scheduler.scheduleAtFixedRate(logger, 0, 1, TimeUnit.SECONDS);
   }
 
-  private static String formatSize(int bytes) {
+  private String formatSize(int bytes) {
     if (bytes < KB) {
       return bytes + "B";
     }
@@ -242,18 +215,4 @@ public class HttpDownloader {
         + (UNITS.charAt(logBaseUnitOfBytes) + "B");
   }
 
-  public static String getHash(Hasher hasher, Path path) throws IOException {
-    byte byteBuffer[] = new byte[BUFFER_SIZE];
-    try (InputStream stream = path.getInputStream()) {
-      int numBytesRead = stream.read(byteBuffer);
-      while (numBytesRead != -1) {
-        if (numBytesRead != 0) {
-          // If more than 0 bytes were read, add them to the hash.
-          hasher.putBytes(byteBuffer, 0, numBytesRead);
-        }
-        numBytesRead = stream.read(byteBuffer);
-      }
-    }
-    return hasher.hash().toString();
-  }
 }

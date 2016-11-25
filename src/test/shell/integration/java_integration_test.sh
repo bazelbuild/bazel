@@ -15,23 +15,18 @@
 # limitations under the License.
 #
 # These are end to end tests for building Java.
-
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-source $(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/shell_utils.sh \
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../shell_utils.sh" \
   || { echo "shell_utils.sh not found!" >&2; exit 1; }
+
+# Load the test setup defined in the parent directory
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 set -eu
 
 declare -r runfiles_relative_javabase="$1"
-
-create_and_cd_client
-put_bazel_on_path
-
-write_default_bazelrc
-add_to_bazelrc "build --package_path=%workspace% --embed_changelist=none"
+add_to_bazelrc "build --package_path=%workspace%"
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -199,16 +194,24 @@ function test_compiles_hello_world_from_deploy_jar() {
   write_hello_world_files "$pkg"
 
   bazel build //$pkg/java/hello:hello_deploy.jar || fail "build failed"
-  function check_deploy_jar_works() {
-    "$@"  | grep -q 'Hello, World!' || fail "comparison failed"
-  }
-  function check_arglists() {
-    check_deploy_jar_works "$@" --singlejar
-    check_deploy_jar_works "$@" --wrapper_script_flag=--singlejar
-    check_deploy_jar_works "$@" REGULAR_ARG --wrapper_script_flag=--singlejar
-  }
-  check_arglists bazel run //$pkg/java/hello:hello --
-  check_arglists ${PRODUCT_NAME}-bin/$pkg/java/hello/hello
+
+  bazel run //$pkg/java/hello:hello -- --singlejar | grep -q 'Hello, World!' \
+    || fail "comparison failed"
+  ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- --singlejar | \
+    grep -q 'Hello, World!' || fail "comparison failed"
+
+  bazel run //$pkg/java/hello:hello -- --wrapper_script_flag=--singlejar \
+    | grep -q 'Hello, World!' || fail "comparison failed"
+  ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- \
+    --wrapper_script_flag=--singlejar | grep -q 'Hello, World!' \
+    || fail "comparison failed"
+
+  bazel run //$pkg/java/hello:hello -- REGULAR_ARG \
+    --wrapper_script_flag=--singlejar | grep -q 'Hello, World!' \
+    || fail "comparison failed"
+  ${PRODUCT_NAME}-bin/$pkg/java/hello/hello -- REGULAR_ARG \
+    --wrapper_script_flag=--singlejar | grep -q 'Hello, World!' \
+    || fail "comparison failed"
 }
 
 function test_explicit_bogus_wrapper_args_are_rejected() {
@@ -603,15 +606,13 @@ class ProcessorClient { }
 EOF
 
   bazel build //$pkg/java/test/client:client --use_ijars || fail "build failed"
-  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient.jar \
-    | grep -q " test/Generated.class" \
-    || fail "missing class file from annotation processing"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient.jar > $TEST_log
+  expect_log " test/Generated.class" "missing class file from annotation processing"
 
   bazel build //$pkg/java/test/client:libclient-src.jar --use_ijars \
     || fail "build failed"
-  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient-src.jar \
-    | grep -q " test/Generated.java" \
-    || fail "missing source file from annotation processing"
+  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/test/client/libclient-src.jar > $TEST_log
+  expect_log " test/Generated.java" "missing source file from annotation processing"
 }
 
 function test_jvm_flags_are_passed_verbatim() {

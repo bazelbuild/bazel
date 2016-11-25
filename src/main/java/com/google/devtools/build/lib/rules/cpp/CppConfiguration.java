@@ -1763,6 +1763,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.inmemoryDotdFiles;
   }
 
+  public boolean getSkipUnusedModules() {
+    return cppOptions.skipUnusedModules;
+  }
+
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }
@@ -2035,6 +2039,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean shareNativeDeps() {
     return cppOptions.shareNativeDeps;
+  }
+
+  public boolean isStrictSystemIncludes() {
+    return cppOptions.strictSystemIncludes;
   }
 
   @Override

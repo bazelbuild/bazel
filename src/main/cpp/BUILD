@@ -8,6 +8,8 @@ cc_library(
     name = "blaze_util",
     srcs = [
         "blaze_util.cc",
+        "global_variables.h",
+        "startup_options.h",
     ] + select({
         "//src:darwin": [
             "blaze_util_darwin.cc",
@@ -22,10 +24,10 @@ cc_library(
             "blaze_util_posix.cc",
         ],
         "//src:windows": [
-            "blaze_util_mingw.cc",
+            "blaze_util_windows.cc",
         ],
         "//src:windows_msvc": [
-            "blaze_util_msvc.cc",
+            "blaze_util_windows.cc",
         ],
         "//conditions:default": [
             "blaze_util_linux.cc",
@@ -52,14 +54,7 @@ cc_library(
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
-    ] + select({
-        "//src:darwin": [],
-        "//src:darwin_x86_64": [],
-        "//src:freebsd": [],
-        "//src:windows": [],
-        "//src:windows_msvc": [],
-        "//conditions:default": ["//src/main/cpp/util:file_posix"],
-    }),
+    ],
 )
 
 cc_library(
@@ -100,6 +95,7 @@ cc_binary(
         ],
         "//src:freebsd": [
             "-lprocstat",
+            "-lm",
         ],
         "//conditions:default": [
             "-lrt",
@@ -111,7 +107,7 @@ cc_binary(
         ":blaze_abrupt_exit",
         ":blaze_util",
         "//src/main/cpp/util",
-        "//src/main/cpp/util:md5",
+        "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",

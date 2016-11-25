@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
-
 import javax.annotation.Nullable;
 
 /**
@@ -37,6 +36,10 @@ import javax.annotation.Nullable;
  * file for it.
  */
 public class NewHttpArchiveFunction extends HttpArchiveFunction {
+
+  public NewHttpArchiveFunction(HttpDownloader httpDownloader) {
+    super(httpDownloader);
+  }
 
   @Nullable
   @Override
@@ -57,7 +60,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     }
 
     // Download.
-    Path downloadedPath = HttpDownloader.download(
+    Path downloadedPath = downloader.download(
         rule, outputDirectory, env.getListener(), clientEnvironment);
 
     // Decompress.

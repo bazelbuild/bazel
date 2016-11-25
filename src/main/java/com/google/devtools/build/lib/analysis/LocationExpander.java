@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -49,7 +48,7 @@ import java.util.TreeSet;
  * Note that //mypackage:myhelper should have just one output.
  */
 public class LocationExpander {
-  
+
   /**
    * List of options to tweak the LocationExpander.
    */
@@ -59,7 +58,7 @@ public class LocationExpander {
     /** Allow to take label from the data attribute */
     ALLOW_DATA,
   }
-  
+
   private static final int MAX_PATHS_SHOWN = 5;
   private static final String LOCATION = "$(location";
   private final RuleContext ruleContext;
@@ -106,7 +105,7 @@ public class LocationExpander {
 
   /**
    * Creates location expander helper bound to specific target.
-   * 
+   *
    * @param ruleContext the BUILD rule's context
    * @param options the list of options, see {@link Options}.
    */
@@ -182,7 +181,7 @@ public class LocationExpander {
       message = String.format(" in %s expression", message);
 
       // (2) parse label
-      String labelText = value.substring(start + scannedLength, end);
+      String labelText = value.substring(start + scannedLength, end).trim();
       Label label = parseLabel(labelText, message, reporter);
 
       if (label == null) {
@@ -207,7 +206,7 @@ public class LocationExpander {
 
       restart = end + 1;
     }
-    
+
     return result.toString();
   }
 
@@ -335,7 +334,7 @@ public class LocationExpander {
       PathFragment execPath =
           takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
       if (execPath != null) {  // omit middlemen etc
-        paths.add(execPath.getPathString());
+        paths.add(execPath.getCallablePathString());
       }
     }
     return paths;
@@ -358,7 +357,7 @@ public class LocationExpander {
     }
     return values;
   }
-  
+
   private static interface ErrorReporter {
     void report(RuleContext ctx, String error);
   }

@@ -1,3 +1,54 @@
+## Release 0.4.0 (2016-10-26)
+
+```
+Baseline: 088bbc6
+
+Cherry picks:
+   + b01160c: Stamp Windows release.
+   + 2d6736e: Add --no-tty for gpg signing
+   + 9b1dfb8: Remove .sig file before gpg signing
+   + 81aede1: Reimplement whole archive on Windows
+```
+
+Incompatible changes:
+
+  - Skylark: updating list/dicts while they are being looped over is not
+    allowed. Use an explicit copy if needed ("for x in list(mylist):").
+  - Bazel now uses the --cpu flag to look up Jvms; it falls back
+    to "default" if it can't find a Jvm matching the CPU value.
+  - --command_port=-1 to use AF_UNIX for client/server communications
+    is not supported anymore.
+  - Sandboxed actions can access the network by default, unless their
+    target has a "block-network" tag.
+
+New features:
+
+  - Files now have an "extension" property in Skylark.
+
+Important changes:
+
+  - Added a new flag --sandbox_tmpfs_path, which asks the sandbox to
+    mount an empty, writable directory at a specified path when
+    running actions. (Supported on Linux only for now.)
+  - Update protoc-3.0.0-mingw.exe to a working (statically linked)
+    binary
+  - apple_static_library rule to create multi-architecture static
+    archive files from Objc/C++/Swift dependencies on apple platforms
+  - JS: Add support for localization with closure managed rules.
+  - Create a flag --android_dynamic_mode to turn off dynamic mode
+    during the Android split transition.
+  - Darwin sandboxing is default.
+  - Remove flag --experimental_zip_tree_artifact from j2objc Java
+    annotation processing support.
+  - A few functions are added to BUILD files for consistency (hash,
+    dir,
+      hasattr, getattr) with .bzl files, although they are not very
+    useful.
+  - --watchfs is now a command option; the startup option of the same
+        name is deprecated. I.e., use bazel build --watchfs, not
+    blaze --watchfs
+        build.
+
 ## Release 0.3.2 (2016-10-07)
 
 ```

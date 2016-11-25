@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
@@ -73,8 +72,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
     }
 
     // Determine targets to build:
-    ResolvedTargets<Target> targets = getTargetsToBuild(env,
-        options.getTargetPatterns(), options.getOffset(), options.getCompileOneDependency());
+    ResolvedTargets<Target> targets = getTargetsToBuild(env, options);
 
     // If the --build_tests_only option was specified or we want to run tests, we need to determine
     // the list of targets to test. For that, we remove manual tests and apply the command-line
@@ -185,16 +183,14 @@ final class TargetPatternPhaseFunction implements SkyFunction {
   /**
    * Interpret the command-line arguments.
    *
-   * @param targetPatterns the list of command-line target patterns specified by the user
-   * @param compileOneDependency if true, enables alternative interpretation of targetPatterns; see
-   *     {@link LoadingOptions#compileOneDependency}
+   * @param options the command-line arguments in structured form
    */
   private static ResolvedTargets<Target> getTargetsToBuild(
-      Environment env, List<String> targetPatterns, String offset, boolean compileOneDependency)
-      throws InterruptedException {
+      Environment env, TargetPatternList options) throws InterruptedException {
     List<SkyKey> patternSkyKeys = new ArrayList<>();
     for (TargetPatternSkyKeyOrException keyOrException :
-        TargetPatternValue.keys(targetPatterns, FilteringPolicies.FILTER_MANUAL, offset)) {
+        TargetPatternValue.keys(options.getTargetPatterns(), FilteringPolicies.FILTER_MANUAL,
+            options.getOffset())) {
       try {
         patternSkyKeys.add(keyOrException.getSkyKey());
       } catch (TargetParsingException e) {
@@ -231,8 +227,10 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
-    ResolvedTargets<Target> result = builder.build();
-    if (compileOneDependency) {
+    ResolvedTargets<Target> result = builder
+        .filter(TargetUtils.tagFilter(options.getBuildTargetFilter()))
+        .build();
+    if (options.getCompileOneDependency()) {
       TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
       try {
         return new CompileOneDependencyTransformer(targetProvider)

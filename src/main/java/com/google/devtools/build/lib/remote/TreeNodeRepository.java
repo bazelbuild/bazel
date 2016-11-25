@@ -20,10 +20,10 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.TreeTraverser;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
@@ -172,7 +172,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   }
 
   // Keep only one canonical instance of every TreeNode in the repository.
-  private final Interner<TreeNode> interner = Interners.newWeakInterner();
+  private final Interner<TreeNode> interner = BlazeInterners.newWeakInterner();
   // Merkle hashes are computed and cached by the repository, therefore execRoot must
   // be part of the state.
   private final Path execRoot;

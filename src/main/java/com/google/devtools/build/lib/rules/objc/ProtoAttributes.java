@@ -228,14 +228,14 @@ final class ProtoAttributes {
    */
   Iterable<Artifact> filterWellKnownProtos(Iterable<Artifact> protoFiles) {
     ProtoSourceFileBlacklist wellKnownProtoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES);
+        new ProtoSourceFileBlacklist(ruleContext, getWellKnownTypeProtos());
     return wellKnownProtoBlacklist.filter(protoFiles);
   }
 
   /** Returns whether the given proto is a well known proto or not. */
   boolean isProtoWellKnown(Artifact protoFile) {
     ProtoSourceFileBlacklist wellKnownProtoBlacklist =
-        new ProtoSourceFileBlacklist(ruleContext, ObjcRuleClasses.PROTOBUF_WELL_KNOWN_TYPES);
+        new ProtoSourceFileBlacklist(ruleContext, getWellKnownTypeProtos());
     return wellKnownProtoBlacklist.isBlacklisted(protoFile);
   }
 

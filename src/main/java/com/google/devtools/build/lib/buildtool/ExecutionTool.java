@@ -43,20 +43,20 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionPhaseCompleteEvent;
@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -170,7 +169,7 @@ public class ExecutionTool {
   private final BlazeRuntime runtime;
   private final BuildRequest request;
   private BlazeExecutor executor;
-  private ActionInputFileCache fileCache;
+  private final ActionInputFileCache fileCache;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
 
   private Map<String, SpawnActionContext> spawnStrategyMap =
@@ -187,39 +186,48 @@ public class ExecutionTool {
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
     createToolsSymlinks();
 
-    this.actionContextProviders =
-        getActionContextProvidersFromModules(
-            runtime,
-            new FilesetActionContextImpl.Provider(
-                env.getReporter(), env.getWorkspaceName()),
-            new SimpleActionContextProvider(
-                new SymlinkTreeStrategy(
-                    env.getOutputService(), env.getBlazeWorkspace().getBinTools())));
+    ExecutorBuilder builder = new ExecutorBuilder();
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.executorInit(env, request, builder);
+    }
+    builder.addActionContextProvider(
+        new FilesetActionContextImpl.Provider(env.getReporter(), env.getWorkspaceName()));
+    builder.addActionContext(new SymlinkTreeStrategy(
+                env.getOutputService(), env.getBlazeWorkspace().getBinTools()));
+    // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own, instead
+    // these dependencies should be added to the ActionContextConsumer of the module that actually
+    // depends on them.
+    builder.addActionContextConsumer(
+        new ActionContextConsumer() {
+          @Override
+          public ImmutableMap<String, String> getSpawnActionContexts() {
+            return ImmutableMap.of();
+          }
+
+          @Override
+          public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
+            return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
+                .put(FilesetActionContext.class, "")
+                .put(WorkspaceStatusAction.Context.class, "")
+                .put(SymlinkTreeActionContext.class, "")
+                .build();
+          }
+        });
+
+    ActionInputFileCache cache = builder.getActionInputFileCache();
+    if (cache == null) {
+      // Unfortunately, the exec root cache is not shared with caches in the remote execution
+      // client.
+      cache =
+          new SingleBuildFileCache(
+              env.getExecRoot().getPathString(), env.getDirectories().getFileSystem());
+    }
+    this.fileCache = cache;
+        
+    this.actionContextProviders = builder.getActionContextProviders();
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
-    ImmutableList<ActionContextConsumer> actionContextConsumers =
-        getActionContextConsumersFromModules(
-            runtime,
-            // TODO(philwo) - the ExecutionTool should not add arbitrary dependencies on its own,
-            // instead these dependencies should be added to the ActionContextConsumer of the module
-            // that actually depends on them.
-            new ActionContextConsumer() {
-              @Override
-              public ImmutableMap<String, String> getSpawnActionContexts() {
-                return ImmutableMap.of();
-              }
-
-              @Override
-              public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
-                return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
-                    .put(FilesetActionContext.class, "")
-                    .put(WorkspaceStatusAction.Context.class, "")
-                    .put(SymlinkTreeActionContext.class, "")
-                    .build();
-              }
-            });
-
-    for (ActionContextConsumer consumer : actionContextConsumers) {
+    for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
       // There are many different SpawnActions, and we want to control the action context they use
       // independently from each other, for example, to run genrules locally and Java compile action
       // in prod. Thus, for SpawnActions, we decide the action context to use not only based on the
@@ -257,26 +265,6 @@ public class ExecutionTool {
           strategyConverter.getValidValues(TestActionContext.class));
     }
     strategies.add(context);
-  }
-
-  private static ImmutableList<ActionContextConsumer> getActionContextConsumersFromModules(
-      BlazeRuntime runtime, ActionContextConsumer... extraConsumers) {
-    ImmutableList.Builder<ActionContextConsumer> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextConsumers());
-    }
-    builder.add(extraConsumers);
-    return builder.build();
-  }
-
-  private static ImmutableList<ActionContextProvider> getActionContextProvidersFromModules(
-      BlazeRuntime runtime, ActionContextProvider... extraProviders) {
-    ImmutableList.Builder<ActionContextProvider> builder = ImmutableList.builder();
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      builder.addAll(module.getActionContextProviders());
-    }
-    builder.add(extraProviders);
-    return builder.build();
   }
 
   private static ExecutorInitException makeExceptionForInvalidStrategyValue(String value,
@@ -371,8 +359,7 @@ public class ExecutionTool {
     ActionCache actionCache = getActionCache();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder = createBuilder(
-        request, actionCache, skyframeExecutor, modifiedOutputFiles,
-        analysisResult.getWorkspaceName());
+        request, actionCache, skyframeExecutor, modifiedOutputFiles);
 
     //
     // Execution proper.  All statements below are logically nested in
@@ -602,7 +589,6 @@ public class ExecutionTool {
    * file, iff the --explain flag is specified during a build.
    */
   private static class ExplanationHandler implements EventHandler {
-
     private final PrintWriter log;
 
     private ExplanationHandler(OutputStream log, String optionsDescription) {
@@ -660,8 +646,7 @@ public class ExecutionTool {
   private Builder createBuilder(BuildRequest request,
       ActionCache actionCache,
       SkyframeExecutor skyframeExecutor,
-      ModifiedFileSet modifiedOutputFiles,
-      String workspaceName) {
+      ModifiedFileSet modifiedOutputFiles) {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
     boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
@@ -674,9 +659,6 @@ public class ExecutionTool {
     Preconditions.checkState(options.jobs >= -1);
     int actualJobs = options.jobs == 0 ? 1 : options.jobs;  // Treat 0 jobs as a single task.
 
-    // Unfortunately, the exec root cache is not shared with caches in the remote execution
-    // client.
-    fileCache = createBuildSingleFileCache(env.getDirectories().getExecRoot(workspaceName));
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(skyframeExecutor,
@@ -727,25 +709,6 @@ public class ExecutionTool {
     }
     env.getEventBus().post(new CachesSavedEvent(
         actionCacheSaveTimeInMs, actionCacheSizeInBytes));
-  }
-
-  private ActionInputFileCache createBuildSingleFileCache(Path execRoot) {
-    String cwd = execRoot.getPathString();
-    FileSystem fs = env.getDirectories().getFileSystem();
-
-    ActionInputFileCache cache = null;
-    for (BlazeModule module : runtime.getBlazeModules()) {
-      ActionInputFileCache pluggable = module.createActionInputCache(cwd, fs);
-      if (pluggable != null) {
-        Preconditions.checkState(cache == null);
-        cache = pluggable;
-      }
-    }
-
-    if (cache == null) {
-      cache = new SingleBuildFileCache(cwd, fs);
-    }
-    return cache;
   }
 
   private Reporter getReporter() {

@@ -13,19 +13,19 @@ build.
 
 ## Running Bazel on virtual or physical machines.
 
-For [ci.bazel.io](http://ci.bazel.io), we use
+For [ci.bazel.build](http://ci.bazel.build), we use
 [Google Compute Engine](https://cloud.google.com/compute/) virtual machine for
 our Linux build and a physical Mac mini for our Mac build. Apart from Bazel
 tests that are run using the
 [`./compile.sh`](https://github.com/bazelbuild/bazel/blob/master/compile.sh)
 script, we also run some projects to validate Bazel binaries against: the
 [Bazel Tutorial](https://github.com/bazelbuild/examples/tree/master/tutorial)
-[here](http://ci.bazel.io/job/Tutorial/),
-[re2](https://github.com/google/re2) [here](http://ci.bazel.io/job/re2/),
+[here](http://ci.bazel.build/job/Tutorial/),
+[re2](https://github.com/google/re2) [here](http://ci.bazel.build/job/re2/),
 [protobuf](https://github.com/google/protobuf)
-[here](http://ci.bazel.io/job/protobuf/), and
+[here](http://ci.bazel.build/job/protobuf/), and
 [TensorFlow](https://www.tensorflow.org)
-[here](http://ci.bazel.io/job/TensorFlow/).
+[here](http://ci.bazel.build/job/TensorFlow/).
 
 Bazel is reinstalled each time we run the tutorial or TensorFlow, but the Bazel
 cache is maintained across installs. The setup for those jobs is the following:
@@ -64,7 +64,7 @@ has some feature that are incompatibles with Docker:
   you cannot mount the socket inside the Docker container, then you must disable
   client-server communication by running Bazel in batch mode with the `--batch`
   flag.
-- Bazel [sandboxes all actions on linux by default](http://bazel.io/blog/2015/09/11/sandboxing.html)
+- Bazel [sandboxes all actions on linux by default](http://bazel.build/blog/2015/09/11/sandboxing.html)
   and this needs special privileges in the Docker container (enabled by
   [`--privilege=true`](https://docs.docker.com/engine/reference/run/#runtime-privilege-linux-capabilities-and-lxc-configuration).
   If you cannot enable the namespace sandbox, you can deactivate it in Bazel
@@ -137,11 +137,11 @@ using `test` and `build` commands:
 </table>
 
 These return codes can be used to determine the reason for a failure
-(in [ci.bazel.io](http://ci.bazel.io), we mark builds that have exited with exit
+(in [ci.bazel.build](http://ci.bazel.build), we mark builds that have exited with exit
 code 3 as unstable, and other non zero code as failed).
 
 You can also control how much information about test results Bazel prints out
-with the [`--test_output` flag](http://bazel.io/docs/bazel-user-manual.html#flag--test_output).
+with the [`--test_output` flag](http://bazel.build/docs/bazel-user-manual.html#flag--test_output).
 Generally, printing the output of test that fails with `--test_output=errors` is
 a good setting for a CI system.
 
@@ -153,6 +153,6 @@ Other tests also get [a basic XML output file](https://github.com/bazelbuild/baz
 that contains only the result of the test (success or failure).
 
 To get your test results, you can also use the
-[Bazel dashboard](http://bazel.io/blog/2015/07/29/dashboard-dogfood.html),
+[Bazel dashboard](http://bazel.build/blog/2015/07/29/dashboard-dogfood.html),
 an optional system that automatically uploads Bazel test results to a shared
 server.

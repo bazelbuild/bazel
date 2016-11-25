@@ -59,14 +59,6 @@ done
 TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/swiftstdlibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
-if [ -z "${PATH_INSIDE_ZIP:-}" ] && [ -z "${OUTZIP:-}" ]; then
-  # This is an older bazel binary, massage the arguments to accommodate.
-  # TODO(b/30478247): Remove this when new bazel binary is available.
-  PATH_INSIDE_ZIP="${CMD_ARGS[1]}"
-  OUTZIP=$("${REALPATH}" "${CMD_ARGS[0]}")
-  TOOL_ARGS=("${TOOL_ARGS[@]:2}")
-fi
-
 FULLPATH="$TEMPDIR/$PATH_INSIDE_ZIP"
 
 XCRUN_ARGS=()

@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Utility functions for proto_library and proto aspect implementations.
@@ -104,17 +106,13 @@ public class ProtoCommon {
     return ruleContext.getLabel().getPackageIdentifier().equals(source.getPackageIdentifier());
   }
 
-  public static RunfilesProvider createRunfilesProvider(
+  public static Runfiles.Builder createDataRunfilesProvider(
       final NestedSet<Artifact> transitiveProtoSources, RuleContext ruleContext) {
-    return RunfilesProvider.withData(
-        Runfiles.EMPTY,
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            // TODO(bazel-team): addArtifacts is deprecated, but addTransitive fails
-            // due to nested set ordering restrictions. Figure this out.
-            .addArtifacts(transitiveProtoSources)
-            .build());
+    return new Runfiles.Builder(
+            ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+        // TODO(bazel-team): addArtifacts is deprecated, but addTransitive fails
+        // due to nested set ordering restrictions. Figure this out.
+        .addArtifacts(transitiveProtoSources);
   }
 
   // =================================================================
@@ -159,5 +157,27 @@ public class ProtoCommon {
   public static ImmutableList<Artifact> getGeneratedOutputs(RuleContext ruleContext,
       ImmutableList<Artifact> protoSources, String extension) {
     return getGeneratedOutputs(ruleContext, protoSources, extension, false);
+  }
+
+  /**
+   * Returns the .proto files that are the direct srcs of the direct-dependencies of this rule. If
+   * the current rule is an alias proto_library (=no srcs), we use the direct srcs of the
+   * direct-dependencies of our direct-dependencies.
+   */
+  @Nullable
+  public static NestedSet<Artifact> computeProtosInDirectDeps(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    if (ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list().isEmpty()) {
+      for (ProtoSupportDataProvider provider :
+          ruleContext.getPrerequisites("deps", TARGET, ProtoSupportDataProvider.class)) {
+        result.addTransitive(provider.getSupportData().getProtosInDirectDeps());
+      }
+    } else {
+      for (ProtoSourcesProvider provider :
+          ruleContext.getPrerequisites("deps", TARGET, ProtoSourcesProvider.class)) {
+        result.addAll(provider.getCheckDepsProtoSources());
+      }
+    }
+    return result.build();
   }
 }
