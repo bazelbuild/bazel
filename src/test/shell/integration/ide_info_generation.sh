@@ -21,6 +21,7 @@ BINARY_OUTPUT_GROUP=$2
 BINARY_OUTPUT=$3
 TEXT_OUTPUT_GROUP=$4
 TEXT_OUTPUT=$5
+RESOLVE_OUTPUT_GROUP=$6
 
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -177,7 +178,7 @@ java_library(
 EOF
 
   bazel build //com/google/example:complex \
-        --aspects $ASPECT --output_groups "ide-resolve" \
+        --aspects $ASPECT --output_groups "$RESOLVE_OUTPUT_GROUP" \
     || fail "Expected success"
   [ -e ${PRODUCT_NAME}-bin/com/google/example/libsimple.jar ] \
     || fail "${PRODUCT_NAME}-bin/com/google/example/libsimple.jar not found"
@@ -205,7 +206,7 @@ java_library(
 EOF
 
   bazel build //com/google/example:test \
-        --aspects $ASPECT --output_groups "ide-resolve" \
+        --aspects $ASPECT --output_groups "$RESOLVE_OUTPUT_GROUP" \
         --experimental_show_artifacts \
     || fail "Expected success"
   EXAMPLE_DIR="${PRODUCT_NAME}-bin/com/google/example"

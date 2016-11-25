@@ -151,6 +151,7 @@ sh_test(
         "aswb-build",
         "ide-info-text",
         "aswb-build.txt",
+        "ide-resolve",
     ],
     data = [
         ":test-deps",
@@ -164,10 +165,11 @@ sh_test(
     srcs = ["ide_info_generation.sh"],
     args = [
         "@bazel_tools//tools/ide:intellij_info.bzl%intellij_info_aspect",
-        "ide-info-text",
-        "intellij-build.txt",
-        "ide-info-text",
-        "intellij-build.txt",
+        "intellij-info-text",
+        "intellij-info.txt",
+        "intellij-info-text",
+        "intellij-info.txt",
+        "intellij-resolve",
     ],
     data = [
         ":test-deps",

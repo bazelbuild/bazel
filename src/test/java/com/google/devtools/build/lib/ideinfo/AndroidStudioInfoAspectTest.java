@@ -92,7 +92,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     ArtifactLocation packageManifest = ruleIdeInfo.getJavaRuleIdeInfo().getPackageManifest();
     assertNotNull(packageManifest);
-    assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.manifest");
+
+    if (isNativeTest()) {
+      assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.manifest");
+    } else {
+      assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.java-manifest");
+    }
+
   }
 
   @Test
@@ -492,7 +498,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "   outs = ['gen_srcjar.jar'],",
         "   cmd = '',",
         ")");
-    buildTarget("//com/google/example:imp");
+    buildRuleIdeInfo("//com/google/example:imp");
     assertThat(getIdeResolveFiles())
         .containsExactly(
             "com/google/example/_ijar/imp/com/google/example/gen_jar-ijar.jar",
@@ -854,7 +860,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "  outs = ['AndroidManifest.xml'],",
         "  cmd = '',",
         ")");
-    buildTarget("//com/google/example:lib");
+    buildRuleIdeInfo("//com/google/example:lib");
     assertThat(getIdeResolveFiles())
         .containsExactly(
             "com/google/example/liblib.jar",

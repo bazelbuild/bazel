@@ -148,7 +148,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return toolchainInfo;
   }
 
-  protected void buildTarget(String target) throws Exception {
+  private void buildTarget(String target) throws Exception {
     AnalysisResult analysisResult =
         update(
             ImmutableList.of(target),
@@ -221,7 +221,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       AspectValue aspectValue = aspects.iterator().next();
       this.configuredAspect = aspectValue.getConfiguredAspect();
       OutputGroupProvider provider = configuredAspect.getProvider(OutputGroupProvider.class);
-      NestedSet<Artifact> outputGroup = provider.getOutputGroup("ide-info-text");
+      NestedSet<Artifact> outputGroup = provider.getOutputGroup("intellij-info-text");
       Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
       for (Artifact artifact : outputGroup) {
         Action generatingAction = getGeneratingAction(artifact);
@@ -269,11 +269,13 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected List<String> getIdeResolveFiles() {
-    return getOutputGroupResult(AndroidStudioInfoAspect.IDE_RESOLVE);
+    String name = isNativeTest() ? AndroidStudioInfoAspect.IDE_RESOLVE : "intellij-resolve";
+    return getOutputGroupResult(name);
   }
 
   protected List<String> getIdeCompileFiles() {
-    return getOutputGroupResult(AndroidStudioInfoAspect.IDE_COMPILE);
+    String name = isNativeTest() ? AndroidStudioInfoAspect.IDE_COMPILE : "intellij-compile";
+    return getOutputGroupResult(name);
   }
 
   protected static List<RuleIdeInfo> findJavaToolchain(Map<String, RuleIdeInfo> ruleIdeInfos) {
