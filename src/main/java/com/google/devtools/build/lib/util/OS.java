@@ -22,6 +22,7 @@ public enum OS {
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
   UNKNOWN("unknown", "");
+
   private final String canonicalName;
   private final String detectionName;
 

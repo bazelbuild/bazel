@@ -5,7 +5,6 @@
 3. Download the "jar" link from protobuf-java and put them in `<Bazel tree>/third_party/protobuf/<version>`
 
 * * *
-
 ### Updating `protobuf.bzl` and the `src/` directory:
 
 1. `git clone http://github.com/google/protobuf.git`
