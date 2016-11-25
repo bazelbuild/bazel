@@ -91,14 +91,17 @@ class BlazeUtilTest : public ::testing::Test {
     return fds[0];
   }
 
-  static void AssertReadFileDescriptor2(string input1, string input2) {
+  static void AssertReadFrom2(string input1, string input2) {
     int fd = WriteFileDescriptor2(input1, input2);
     if (fd < 0) {
       FAIL() << "Unable to create a pipe!";
     } else {
       string result;
-      if (!ReadFileDescriptor(fd, &result)) {
-        perror("ReadFileDescriptor");
+      bool success = ReadFrom(
+          [fd](void* buf, int size) { return read(fd, buf, size); }, &result);
+      close(fd);
+      if (!success) {
+        perror("ReadFrom");
         FAIL() << "Unable to read file descriptor!";
       } else {
         ASSERT_EQ(input1 + input2, result);
@@ -106,22 +109,21 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFileDescriptor(string input) {
-    AssertReadFileDescriptor2(input, "");
-  }
+  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
   static void AssertReadJvmVersion(string expected, string input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
   }
 
-  void ReadFileDescriptorTest() const {
-    AssertReadFileDescriptor("DummyJDK Blabla\n"
-                             "More DummyJDK Blabla\n");
-    AssertReadFileDescriptor("dummyjdk version \"1.42.qual\"\n"
-                         "DummyJDK Blabla\n"
-                             "More DummyJDK Blabla\n");
-    AssertReadFileDescriptor2("first_line\n",
-                              "second line version \"1.4.2_0\"\n");
+  void ReadFromTest() const {
+    AssertReadFrom(
+        "DummyJDK Blabla\n"
+        "More DummyJDK Blabla\n");
+    AssertReadFrom(
+        "dummyjdk version \"1.42.qual\"\n"
+        "DummyJDK Blabla\n"
+        "More DummyJDK Blabla\n");
+    AssertReadFrom2("first_line\n", "second line version \"1.4.2_0\"\n");
   }
 
   void ReadJvmVersionTest() const {
@@ -168,9 +170,7 @@ TEST_F(BlazeUtilTest, CheckJavaVersionIsAtLeast) {
   CheckJavaVersionIsAtLeastTest();
 }
 
-TEST_F(BlazeUtilTest, ReadFileDescriptor) {
-  ReadFileDescriptorTest();
-}
+TEST_F(BlazeUtilTest, ReadFrom) { ReadFromTest(); }
 
 TEST_F(BlazeUtilTest, ReadJvmVersion) {
   ReadJvmVersionTest();

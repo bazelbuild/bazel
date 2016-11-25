@@ -77,14 +77,15 @@ string MakeAbsolute(const string &path) {
   return cwd + separator + path;
 }
 
-bool ReadFileDescriptor(int fd, string *content, int max_size) {
+bool ReadFrom(const std::function<int(void *, int)> &read_func, string *content,
+              int max_size) {
   content->clear();
   char buf[4096];
   // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read(fd, buf,
-                      max_size > 0
-                          ? std::min(max_size, static_cast<int>(sizeof buf))
-                          : sizeof buf)) {
+  while (int r = read_func(
+             buf, max_size > 0
+                      ? std::min(max_size, static_cast<int>(sizeof buf))
+                      : sizeof buf)) {
     if (r == -1) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
@@ -98,38 +99,47 @@ bool ReadFileDescriptor(int fd, string *content, int max_size) {
       }
     }
   }
-  close(fd);
   return true;
 }
 
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  return ReadFileDescriptor(fd, content, max_size);
+  bool result =
+      ReadFrom([fd](void *buf, int len) { return read(fd, buf, len); }, content,
+               max_size);
+  close(fd);
+  return result;
 }
 
-// Writes 'content' into file 'filename', and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const string &content, const string &filename) {
-  return WriteFile(content.data(), content.size(), filename);
-}
-
-bool WriteFile(const void *data, size_t size, const std::string &filename) {
+bool WriteFile(const void* data, size_t size, const string &filename) {
   UnlinkPath(filename);  // We don't care about the success of this.
   int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
   if (fd == -1) {
     return false;
   }
-  int r = write(fd, data, size);
-  if (r == -1) {
-    return false;
-  }
+  bool result = WriteTo(
+      [fd](const void *buf, size_t bufsize) { return write(fd, buf, bufsize); },
+      data, size);
   int saved_errno = errno;
   if (close(fd)) {
     return false;  // Can fail on NFS.
   }
   errno = saved_errno;  // Caller should see errno from write().
+  return result;
+}
+
+bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
+             const void *data, size_t size) {
+  int r = write_func(data, size);
+  if (r == -1) {
+    return false;
+  }
   return static_cast<uint>(r) == size;
+}
+
+bool WriteFile(const std::string &content, const std::string &filename) {
+  return WriteFile(content.c_str(), content.size(), filename);
 }
 
 bool UnlinkPath(const string &file_path) {

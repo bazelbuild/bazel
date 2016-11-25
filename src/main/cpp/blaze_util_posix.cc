@@ -261,23 +261,30 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector) {
   if (pipe(fds)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
   }
+  int recv_socket = fds[0];
+  int send_socket = fds[1];
 
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
   } else if (child > 0) {  // we're the parent
-    close(fds[1]);         // parent keeps only the reading side
+    close(send_socket);    // parent keeps only the reading side
     string result;
-    if (!ReadFileDescriptor(fds[0], &result)) {
+    bool success = ReadFrom(
+        [recv_socket](void* buf, int size) {
+          return read(recv_socket, buf, size);
+        },
+        &result);
+    close(recv_socket);
+    if (!success) {
       pdie(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output");
     }
-
     return result;
-  } else {          // We're the child
-    close(fds[0]);  // child keeps only the writing side
+  } else {                 // We're the child
+    close(recv_socket);    // child keeps only the writing side
     // Redirect output to the writing side of the dup.
-    dup2(fds[1], STDOUT_FILENO);
-    dup2(fds[1], STDERR_FILENO);
+    dup2(send_socket, STDOUT_FILENO);
+    dup2(send_socket, STDERR_FILENO);
     // Execute the binary
     ExecuteProgram(exe, args_vector);
     pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
