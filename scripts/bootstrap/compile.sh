@@ -173,10 +173,12 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     else
 
         [ -n "${PROTOC}" ] \
-            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact"
+            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact;\
+ NOTE: development versions are built with 'bazel build //src:bazel'"
 
         [ -n "${GRPC_JAVA_PLUGIN}" ] \
-            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact"
+            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact;\
+ NOTE: development versions are built with 'bazel build //src:bazel'"
 
         [[ -x "${PROTOC-}" ]] \
             || fail "Protobuf compiler not found in ${PROTOC-}"
