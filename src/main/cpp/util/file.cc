@@ -15,6 +15,8 @@
 
 #include <errno.h>
 #include <limits.h>  // PATH_MAX
+
+#include <algorithm>
 #include <cstdlib>
 #include <vector>
 

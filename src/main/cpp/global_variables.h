@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "src/main/cpp/util/port.h"  // pid_t on Windows/MSVC
+
 namespace blaze {
 
 class OptionProcessor;
@@ -52,6 +54,9 @@ struct GlobalVariables {
   // The path of the JVM executable that should be used to launch Blaze.
   std::string jvm_path;
 
+  // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and whereever
+  // else it appears. Find some way to not have to declare a pid_t here, either
+  // by making PID handling platform-independent or some other idea.
   pid_t server_pid;
 
   // Contains the relative paths of all the files in the attached zip, and is

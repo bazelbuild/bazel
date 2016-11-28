@@ -99,9 +99,6 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 // correctly.  (Currently only SIGPIPE uses this mechanism.)
 static volatile sig_atomic_t signal_handler_received_signal = 0;
 
-// A signal-safe version of fprintf(stderr, ...).
-static void sigprintf(const char* format, ...);
-
 // Signal handler.
 static void handler(int signum) {
   int saved_errno = errno;
@@ -111,7 +108,7 @@ static void handler(int signum) {
   switch (signum) {
     case SIGINT:
       if (++sigint_count >= 3) {
-        sigprintf(
+        SigPrintf(
             "\n%s caught third interrupt signal; killed.\n\n",
             SignalHandler::Get().GetGlobals()->options->product_name.c_str());
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
@@ -119,13 +116,13 @@ static void handler(int signum) {
         }
         ExitImmediately(1);
       }
-      sigprintf(
+      SigPrintf(
           "\n%s caught interrupt signal; shutting down.\n\n",
           SignalHandler::Get().GetGlobals()->options->product_name.c_str());
       SignalHandler::Get().CancelServer();
       break;
     case SIGTERM:
-      sigprintf(
+      SigPrintf(
           "\n%s caught terminate signal; shutting down.\n\n",
           SignalHandler::Get().GetGlobals()->options->product_name.c_str());
       SignalHandler::Get().CancelServer();
@@ -134,7 +131,7 @@ static void handler(int signum) {
       signal_handler_received_signal = SIGPIPE;
       break;
     case SIGQUIT:
-      sigprintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
+      SigPrintf("\nSending SIGQUIT to JVM process %d (see %s).\n\n",
                 SignalHandler::Get().GetGlobals()->server_pid,
                 SignalHandler::Get().GetGlobals()->jvm_log_file.c_str());
       kill(SignalHandler::Get().GetGlobals()->server_pid, SIGQUIT);
@@ -172,6 +169,8 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
   }
 }
 
+#endif  // COMPILER_MSVC
+
 // A signal-safe version of fprintf(stderr, ...).
 //
 // WARNING: any output from the blaze client may be interleaved
@@ -182,7 +181,10 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 // Blaze server.
 // Also, it's a good idea to start each message with a newline,
 // in case the Blaze server has written a partial line.
-static void sigprintf(const char *format, ...) {
+void SigPrintf(const char *format, ...) {
+#ifdef COMPILER_MSVC
+  pdie(255, "blaze::SigPrintf is not implemented on Windows");
+#else  // not COMPILER_MSVC
   char buf[1024];
   va_list ap;
   va_start(ap, format);
@@ -191,9 +193,8 @@ static void sigprintf(const char *format, ...) {
   if (write(STDERR_FILENO, buf, r) <= 0) {
     // We don't care, just placate the compiler.
   }
-}
-
 #endif  // COMPILER_MSVC
+}
 
 static void PrintError(const string& op) {
     DWORD last_error = ::GetLastError();

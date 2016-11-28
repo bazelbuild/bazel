@@ -16,10 +16,32 @@
 #include <windows.h>
 
 #include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/file.h"
 
 namespace blaze_util {
 
 using std::string;
+
+class WindowsPipe : public IPipe {
+ public:
+  bool Send(void* buffer, int size) override {
+    // TODO(bazel-team): implement this.
+    pdie(255, "blaze_util::WindowsPipe::Send is not yet implemented");
+    return false;
+  }
+
+  int Receive(void* buffer, int size) override {
+    // TODO(bazel-team): implement this.
+    pdie(255, "blaze_util::WindowsPipe::Receive is not yet implemented");
+    return 0;
+  }
+};
+
+IPipe* CreatePipe() {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::CreatePipe is not implemented on Windows");
+  return nullptr;
+}
 
 bool ReadFile(const string& filename, string* content, int max_size) {
   // TODO(bazel-team): implement this.

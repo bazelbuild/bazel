@@ -47,6 +47,9 @@ cc_library(
         ],
         "//src:freebsd": [
         ],
+        "//src:windows_msvc": [
+            "-Wl,ws2_32.lib",  # for grpc
+        ],
         "//conditions:default": [
             "-lrt",
         ],
@@ -96,6 +99,8 @@ cc_binary(
         "//src:freebsd": [
             "-lprocstat",
             "-lm",
+        ],
+        "//src:windows_msvc": [
         ],
         "//conditions:default": [
             "-lrt",

@@ -44,6 +44,9 @@ class SignalHandler {
   SignalHandler() : _globals(nullptr), _cancel_server(nullptr) {}
 };
 
+// A signal-safe version of fprintf(stderr, ...).
+void SigPrintf(const char *format, ...);
+
 std::string GetProcessIdAsString();
 
 // Get the absolute path to the binary being executed.

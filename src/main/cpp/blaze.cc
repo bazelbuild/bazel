@@ -36,7 +36,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
 
 #include <grpc/grpc.h>
 #include <grpc/support/log.h>
@@ -1071,27 +1070,6 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
   }
 }
 
-// A signal-safe version of fprintf(stderr, ...).
-//
-// WARNING: any output from the blaze client may be interleaved
-// with output from the blaze server.  In --curses mode,
-// the Blaze server often erases the previous line of output.
-// So, be sure to end each such message with TWO newlines,
-// otherwise it may be erased by the next message from the
-// Blaze server.
-// Also, it's a good idea to start each message with a newline,
-// in case the Blaze server has written a partial line.
-static void sigprintf(const char *format, ...) {
-  char buf[1024];
-  va_list ap;
-  va_start(ap, format);
-  int r = vsnprintf(buf, sizeof buf, format, ap);
-  va_end(ap);
-  if (write(STDERR_FILENO, buf, r) <= 0) {
-    // We don't care, just placate the compiler.
-  }
-}
-
 static void CancelServer() {
   blaze_server->Cancel();
 }
@@ -1631,7 +1609,8 @@ void GrpcBlazeServer::Disconnect() {
 void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
   if (!_pipe->Send(&msg, 1)) {
-    sigprintf("\nCould not interrupt server (cannot write to client pipe)\n\n");
+    blaze::SigPrintf(
+        "\nCould not interrupt server (cannot write to client pipe)\n\n");
   }
 }
 
