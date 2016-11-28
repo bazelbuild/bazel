@@ -59,7 +59,6 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       }
       Environment env =
           Environment.builder(mutability)
-              .setSkylark()
               .setGlobals(skylarkAspect.getFuncallEnv().getGlobals())
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,

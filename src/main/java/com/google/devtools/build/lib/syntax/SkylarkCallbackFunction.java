@@ -40,7 +40,6 @@ public class SkylarkCallbackFunction {
       throws EvalException, InterruptedException {
     try (Mutability mutability = Mutability.create("callback %s", callback)) {
       Environment env = Environment.builder(mutability)
-          .setSkylark()
           .setEventHandler(funcallEnv.getEventHandler())
           .setGlobals(funcallEnv.getGlobals())
           .build();

@@ -54,7 +54,6 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
       public Environment newEnvironment() throws Exception {
         Environment env =
             Environment.builder(mutability)
-                .setSkylark()
                 .setEventHandler(getEventHandler())
                 .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
                 .setPhase(Phase.LOADING)

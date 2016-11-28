@@ -86,7 +86,6 @@ public class EvaluationTestCase {
    */
   public Environment newSkylarkEnvironment() {
     return Environment.builder(mutability)
-        .setSkylark()
         .setGlobals(BazelLibrary.GLOBALS)
         .setEventHandler(getEventHandler())
         .build();
@@ -157,7 +156,10 @@ public class EvaluationTestCase {
   }
 
   public Object eval(String... input) throws Exception {
-    return env.eval(input);
+    if (testMode == TestMode.SKYLARK) {
+      return BuildFileAST.eval(env, input);
+    }
+    return BuildFileAST.parseBuildString(env.getEventHandler(), input).eval(env);
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {

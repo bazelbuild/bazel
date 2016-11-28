@@ -93,7 +93,6 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
               .setGlobals(rule.getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
-              .setSkylark()
               .setEventHandler(env.getListener())
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext = new SkylarkRepositoryContext(

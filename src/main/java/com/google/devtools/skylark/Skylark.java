@@ -15,6 +15,7 @@ package com.google.devtools.skylark;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -44,7 +45,6 @@ class Skylark {
   private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env =
       Environment.builder(mutability)
-          .setSkylark()
           .setGlobals(Environment.DEFAULT_GLOBALS)
           .setEventHandler(PRINT_HANDLER)
           .build();
@@ -74,7 +74,7 @@ class Skylark {
     String input;
     while ((input = prompt()) != null) {
       try {
-        Object result = env.eval(input);
+        Object result = BuildFileAST.eval(env, input);
         if (result != null) {
           System.out.println(Printer.repr(result));
         }
@@ -86,7 +86,7 @@ class Skylark {
 
   public static void main(String[] args) {
     if (args.length == 0) {
-       new Skylark().readEvalPrintLoop();
+      new Skylark().readEvalPrintLoop();
     } else {
       System.err.println("no argument expected");
       System.exit(1);

@@ -36,37 +36,37 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
- * An Environment is the main entry point to evaluating code in the BUILD language or Skylark.
- * It embodies all the state that is required to evaluate such code,
- * except for the current instruction pointer, which is an {@link ASTNode}
- * whose {@link Statement#exec exec} or {@link Expression#eval eval} method is invoked with
- * this Environment, in a straightforward direct-style AST-walking interpreter.
- * {@link Continuation}-s are explicitly represented, but only partly, with another part being
- * implicit in a series of try-catch statements, to maintain the direct style. One notable trick
- * is how a {@link UserDefinedFunction} implements returning values as the function catching a
- * {@link ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the body.
+ * An Environment is the main entry point to evaluating code in the BUILD language or Skylark. It
+ * embodies all the state that is required to evaluate such code, except for the current instruction
+ * pointer, which is an {@link ASTNode} whose {@link Statement#exec exec} or {@link Expression#eval
+ * eval} method is invoked with this Environment, in a straightforward direct-style AST-walking
+ * interpreter. {@link Continuation}-s are explicitly represented, but only partly, with another
+ * part being implicit in a series of try-catch statements, to maintain the direct style. One
+ * notable trick is how a {@link UserDefinedFunction} implements returning values as the function
+ * catching a {@link ReturnStatement.ReturnException} thrown by a {@link ReturnStatement} in the
+ * body.
  *
  * <p>Every Environment has a {@link Mutability} field, and must be used within a function that
- * creates and closes this {@link Mutability} with the try-with-resource pattern.
- * This {@link Mutability} is also used when initializing mutable objects within that Environment;
- * when closed at the end of the computation freezes the Environment and all those objects that
- * then become forever immutable. The pattern enforces the discipline that there should be no
- * dangling mutable Environment, or concurrency between interacting Environment-s.
- * It is also an error to try to mutate an Environment and its objects from another Environment,
- * before the {@link Mutability} is closed.
+ * creates and closes this {@link Mutability} with the try-with-resource pattern. This {@link
+ * Mutability} is also used when initializing mutable objects within that Environment; when closed
+ * at the end of the computation freezes the Environment and all those objects that then become
+ * forever immutable. The pattern enforces the discipline that there should be no dangling mutable
+ * Environment, or concurrency between interacting Environment-s. It is also an error to try to
+ * mutate an Environment and its objects from another Environment, before the {@link Mutability} is
+ * closed.
  *
- * <p>One creates an Environment using the {@link #builder} function, then
- * populates it with {@link #setup}, {@link #setupDynamic} and sometimes {@link #setupOverride},
- * before to evaluate code in it with {@link #eval}, or with {@link BuildFileAST#exec}
- * (where the AST was obtained by passing a {@link ValidationEnvironment} constructed from the
- * Environment to {@link BuildFileAST#parseBuildFile} or {@link BuildFileAST#parseSkylarkFile}).
- * When the computation is over, the frozen Environment can still be queried with {@link #lookup}.
+ * <p>One creates an Environment using the {@link #builder} function, then populates it with {@link
+ * #setup}, {@link #setupDynamic} and sometimes {@link #setupOverride}, before to evaluate code in
+ * it with {@link BuildFileAST#eval}, or with {@link BuildFileAST#exec} (where the AST was obtained
+ * by passing a {@link ValidationEnvironment} constructed from the Environment to {@link
+ * BuildFileAST#parseBuildFile} or {@link BuildFileAST#parseSkylarkFile}). When the computation is
+ * over, the frozen Environment can still be queried with {@link #lookup}.
  *
  * <p>Final fields of an Environment represent its dynamic state, i.e. state that remains the same
- * throughout a given evaluation context, and don't change with source code location,
- * while mutable fields embody its static state, that change with source code location.
- * The seeming paradox is that the words "dynamic" and "static" refer to the point of view
- * of the source code, and here we have a dual point of view.
+ * throughout a given evaluation context, and don't change with source code location, while mutable
+ * fields embody its static state, that change with source code location. The seeming paradox is
+ * that the words "dynamic" and "static" refer to the point of view of the source code, and here we
+ * have a dual point of view.
  */
 public final class Environment implements Freezable {
 
@@ -313,12 +313,6 @@ public final class Environment implements Freezable {
   private final Map<String, Extension> importedExtensions;
 
   /**
-   * Is this Environment being executed in Skylark context?
-   * TODO(laurentlb): Remove from Environment
-   */
-  private boolean isSkylark;
-
-  /**
    * Is this Environment being executed during the loading phase? Many builtin functions are only
    * enabled during the loading phase, and check this flag.
    * TODO(laurentlb): Remove from Environment
@@ -467,7 +461,6 @@ public final class Environment implements Freezable {
    * @param dynamicFrame a frame for the dynamic Environment
    * @param eventHandler an EventHandler for warnings, errors, etc
    * @param importedExtensions Extension-s from which to import bindings with load()
-   * @param isSkylark true if in Skylark context
    * @param fileContentHashCode a hash for the source file being evaluated, if any
    * @param phase the current phase
    * @param callerLabel the label this environment came from
@@ -477,7 +470,6 @@ public final class Environment implements Freezable {
       Frame dynamicFrame,
       EventHandler eventHandler,
       Map<String, Extension> importedExtensions,
-      boolean isSkylark,
       @Nullable String fileContentHashCode,
       Phase phase,
       @Nullable Label callerLabel) {
@@ -487,7 +479,6 @@ public final class Environment implements Freezable {
     Preconditions.checkArgument(dynamicFrame.mutability().isMutable());
     this.eventHandler = eventHandler;
     this.importedExtensions = importedExtensions;
-    this.isSkylark = isSkylark;
     this.phase = phase;
     this.callerLabel = callerLabel;
     this.transitiveHashCode =
@@ -499,7 +490,6 @@ public final class Environment implements Freezable {
    */
   public static class Builder {
     private final Mutability mutability;
-    private boolean isSkylark = false;
     private Phase phase = Phase.ANALYSIS;
     @Nullable private Frame parent;
     @Nullable private EventHandler eventHandler;
@@ -511,10 +501,11 @@ public final class Environment implements Freezable {
       this.mutability = mutability;
     }
 
-    /** Enables Skylark for code read in this Environment. */
+    /**
+     * Obsolete, doesn't do anything.
+     * TODO(laurentlb): To be removed once call-sites have been updated
+     */
     public Builder setSkylark() {
-      Preconditions.checkState(!isSkylark);
-      isSkylark = true;
       return this;
     }
 
@@ -568,7 +559,6 @@ public final class Environment implements Freezable {
           dynamicFrame,
           eventHandler,
           importedExtensions,
-          isSkylark,
           fileContentHashCode,
           phase,
           label);
@@ -861,22 +851,4 @@ public final class Environment implements Freezable {
             !EventKind.ERRORS_AND_WARNINGS.contains(event.getKind()), event);
       }
     };
-
-  /**
-   * Evaluates code some String input without a supporting file.
-   * TODO(laurentlb): Remove from Environment
-   * @param input a list of lines of code to evaluate
-   * @return the value of the last statement if it's an Expression or else null
-   */
-  @Nullable public Object eval(String... input) throws EvalException, InterruptedException {
-    BuildFileAST ast;
-    if (isSkylark) {
-      ast = BuildFileAST.parseSkylarkString(eventHandler, input);
-      ValidationEnvironment valid = new ValidationEnvironment(this);
-      valid.validateAst(ast.getStatements(), eventHandler);
-    } else {
-      ast = BuildFileAST.parseBuildString(eventHandler, input);
-    }
-    return ast.eval(this);
-  }
 }

@@ -72,6 +72,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -85,6 +86,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -292,14 +294,14 @@ public class EnvironmentTest extends EvaluationTestCase {
     // We don't even get a runtime exception trying to modify these,
     // because we get compile-time exceptions even before we reach runtime!
     try {
-      env.eval("special_var = 41");
+      BuildFileAST.eval(env, "special_var = 41");
       throw new AssertionError("failed to fail");
     } catch (IllegalArgumentException e) {
       assertThat(e.getMessage()).contains("ERROR 1:1: Variable special_var is read only");
     }
 
     try {
-      env.eval("def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
+      BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
       assertThat(e.getMessage()).contains("Variable 'global_var' is referenced before assignment. "

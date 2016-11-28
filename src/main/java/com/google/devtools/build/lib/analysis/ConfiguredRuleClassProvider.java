@@ -727,7 +727,6 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Map<String, Extension> importMap) {
     Environment env =
         Environment.builder(mutability)
-            .setSkylark()
             .setGlobals(globals)
             .setEventHandler(eventHandler)
             .setFileContentHashCode(astFileContentHashCode)

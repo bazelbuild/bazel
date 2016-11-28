@@ -339,6 +339,14 @@ public class BuildFileAST extends ASTNode {
     return last;
   }
 
+  public static Object eval(Environment env, String... input)
+      throws EvalException, InterruptedException {
+    BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
+    ValidationEnvironment valid = new ValidationEnvironment(env);
+    valid.validateAst(ast.getStatements(), env.getEventHandler());
+    return ast.eval(env);
+  }
+
   /**
    * Returns a hash code calculated from the string content of the source file of this AST.
    */
