@@ -2211,9 +2211,16 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Returns user-specified test environment variables and their values, as
-   * set by the --test_env options.
+   * Returns user-specified test environment variables and their values, as set by the --test_env
+   * options.
    */
+  @SkylarkCallable(
+    name = "test_env",
+    structField = true,
+    doc =
+        "A dictionary containing user-specified test environment variables and their values, "
+            + "as set by the --test_env options."
+  )
   public ImmutableMap<String, String> getTestEnv() {
     return testEnvironment;
   }
