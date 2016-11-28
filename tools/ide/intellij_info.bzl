@@ -488,7 +488,7 @@ def build_java_toolchain_ide_info(target):
 
 ##### Main aspect function
 
-def _aspect_impl_helper(target, ctx, for_test):
+def _aspect_impl(target, ctx):
   """Aspect implementation function."""
   rule_attrs = ctx.rule.attr
 
@@ -521,12 +521,9 @@ def _aspect_impl_helper(target, ctx, for_test):
   intellij_info_text = set()
   intellij_resolve_files = set()
   intellij_compile_files = target.output_group("files_to_compile_INTERNAL_")
-  intellij_infos = dict()
   for dep in prerequisites:
     intellij_info_text = intellij_info_text | dep.intellij_info_files.intellij_info_text
     intellij_resolve_files = intellij_resolve_files | dep.intellij_info_files.intellij_resolve_files
-    if for_test:
-      intellij_infos.update(dep.intellij_infos)
 
   # Collect python-specific information
   (py_rule_ide_info, py_resolve_files) = build_py_rule_ide_info(target, ctx)
@@ -581,10 +578,6 @@ def _aspect_impl_helper(target, ctx, for_test):
   output = ctx.new_file(target.label.name + ".intellij-info.txt")
   ctx.file_action(output, info.to_proto())
   intellij_info_text = intellij_info_text | set([output])
-  if for_test:
-    intellij_infos[str(target.label)] = info
-  else:
-    intellij_infos = None
 
   # Return providers.
   return struct_omit_none(
@@ -598,35 +591,23 @@ def _aspect_impl_helper(target, ctx, for_test):
         intellij_info_text = intellij_info_text,
         intellij_resolve_files = intellij_resolve_files,
       ),
-      intellij_infos = intellij_infos,
       export_deps = export_deps,
     )
 
-def _aspect_impl(target, ctx):
-  return _aspect_impl_helper(target, ctx, for_test=False)
-
-def _test_aspect_impl(target, ctx):
-  return _aspect_impl_helper(target, ctx, for_test=True)
-
-def _aspect_def(impl):
-  return aspect(
-      attrs = {
-          "_package_parser": attr.label(
-              default = tool_label("//tools/android:PackageParser"),
-              cfg = "host",
-              executable = True,
-              allow_files = True),
-          "_jar_filter": attr.label(
-              default = tool_label("//tools/android:JarFilter"),
-              cfg = "host",
-              executable = True,
-              allow_files = True),
-      },
-      attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
-      fragments = ["cpp"],
-      implementation = impl,
-  )
-
-
-intellij_info_aspect = _aspect_def(_aspect_impl)
-intellij_info_test_aspect = _aspect_def(_test_aspect_impl)
+intellij_info_aspect = aspect(
+    attrs = {
+        "_package_parser": attr.label(
+            default = tool_label("//tools/android:PackageParser"),
+            cfg = "host",
+            executable = True,
+            allow_files = True),
+        "_jar_filter": attr.label(
+            default = tool_label("//tools/android:JarFilter"),
+            cfg = "host",
+            executable = True,
+            allow_files = True),
+    },
+    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
+    fragments = ["cpp"],
+    implementation = _aspect_impl,
+)
