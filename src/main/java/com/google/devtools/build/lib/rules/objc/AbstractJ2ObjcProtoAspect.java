@@ -82,7 +82,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    AspectDefinition.Builder builder = new AspectDefinition.Builder("J2ObjcProtoAspect")
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(this)
         .requireProvider(ProtoSourcesProvider.class)
         .requiresConfigurationFragments(
             AppleConfiguration.class,
@@ -125,7 +125,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     if (!checkShouldCreateAspect(ruleContext)) {
-      return new ConfiguredAspect.Builder(getName(), ruleContext).build();
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
     }
 
     ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
@@ -195,7 +195,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
     NestedSet<Artifact> j2ObjcTransitiveClassMappingFiles = j2ObjcTransitiveClassMappingFiles(
         ruleContext, classMappingFiles);
 
-    return new ConfiguredAspect.Builder(getName(), ruleContext)
+    return new ConfiguredAspect.Builder(this, parameters, ruleContext)
         .addProviders(
             new J2ObjcMappingFileProvider(
                 j2ObjcTransitiveHeaderMappingFiles,

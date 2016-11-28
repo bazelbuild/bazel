@@ -125,7 +125,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     ConfiguredAspect.Builder aspect =
-        new ConfiguredAspect.Builder(getClass().getSimpleName(), ruleContext);
+        new ConfiguredAspect.Builder(this, parameters, ruleContext);
 
     if (!rpcSupport.checkAttributes(ruleContext, parameters)) {
       return aspect.build();
@@ -153,7 +153,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
-        new AspectDefinition.Builder(getClass().getSimpleName())
+        new AspectDefinition.Builder(this)
             .attributeAspect("deps", this)
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)

@@ -106,7 +106,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return addAdditionalAttributes(new AspectDefinition.Builder("J2ObjCAspect"))
+    return addAdditionalAttributes(new AspectDefinition.Builder(this))
         .attributeAspect("deps", this, j2ObjcProtoAspect)
         .attributeAspect("exports", this, j2ObjcProtoAspect)
         .attributeAspect("runtime_deps", this, j2ObjcProtoAspect)
@@ -167,7 +167,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(NAME, ruleContext);
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
     JavaCompilationArgsProvider compilationArgsProvider =
         base.getProvider(JavaCompilationArgsProvider.class);
     JavaSourceInfoProvider sourceInfoProvider =

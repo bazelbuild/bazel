@@ -60,7 +60,7 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
       throw new IllegalStateException(e);
     }
 
-    return new AspectDefinition.Builder("JackAspect")
+    return new AspectDefinition.Builder(this)
         .requireProvider(JavaSourceInfoProvider.class)
         .add(attr(":android_sdk", LABEL)
               .allowedRuleClasses("android_sdk")
@@ -76,7 +76,7 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters params) {
     if (base.getProvider(JackLibraryProvider.class) != null) {
-      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
+      return new ConfiguredAspect.Builder(this, params, ruleContext).build();
     }
     JavaSourceInfoProvider sourceProvider = base.getProvider(JavaSourceInfoProvider.class);
     PathFragment rulePath = ruleContext.getLabel().toPathFragment();
@@ -116,7 +116,7 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
         JavaCommon.isNeverLink(ruleContext)
             ? jackHelper.compileAsNeverlinkLibrary()
             : jackHelper.compileAsLibrary();
-    return new ConfiguredAspect.Builder(NAME, ruleContext).addProvider(result).build();
+    return new ConfiguredAspect.Builder(this, params, ruleContext).addProvider(result).build();
   }
 
   /** Gets a list of targets on the given LABEL_LIST attribute if it exists, else an empty list. */

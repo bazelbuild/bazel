@@ -89,7 +89,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     ConfiguredAspect.Builder aspect =
-        new ConfiguredAspect.Builder(getClass().getSimpleName(), ruleContext);
+        new ConfiguredAspect.Builder(this, parameters, ruleContext);
 
     // Get SupportData, which is provided by the proto_library rule we attach to.
     SupportData supportData =
@@ -103,7 +103,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
-        new AspectDefinition.Builder(getClass().getSimpleName())
+        new AspectDefinition.Builder(this)
             .attributeAspect("deps", this)
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProvider(ProtoSourcesProvider.class)

@@ -35,7 +35,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return new AspectDefinition.Builder(NAME)
+    return new AspectDefinition.Builder(this)
         .attributeAspect("deps", this)
         .build();
   }
@@ -44,7 +44,8 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
-    ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(NAME, ruleContext);
+    ConfiguredAspect.Builder aspectBuilder = new ConfiguredAspect.Builder(
+        this, parameters, ruleContext);
 
     ObjcProtoProvider.Builder aspectObjcProtoProvider = new ObjcProtoProvider.Builder();
 
