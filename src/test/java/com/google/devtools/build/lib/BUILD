@@ -136,6 +136,7 @@ java_test(
         ] + ALL_WINDOWS_TESTS,
     ),
     data = glob(["vfs/*.zip"]),
+    flaky = True,
     tags = [
         "foundations",
         "no_windows",
