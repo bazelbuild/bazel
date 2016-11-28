@@ -181,6 +181,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return generateLinkmap;
   }
 
+  @SkylarkCallable(
+    name = "run_memleaks",
+    structField = true,
+    doc = "Returns a boolean indicating whether memleaks should be run during tests or not."
+  )
   public boolean runMemleaks() {
     return runMemleaks;
   }
