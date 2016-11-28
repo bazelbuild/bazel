@@ -837,9 +837,10 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       return this;
     }
 
-    /** Sets the environment variables to be inherited fromt he client environment. */
+    /** Sets the environment variables to be inherited from the client environment. */
     public Builder setClientEnvironmentVariables(Set<String> clientEnvironmentVariables) {
       this.clientEnvironmentVariables = ImmutableSet.copyOf(clientEnvironmentVariables);
+      this.useDefaultShellEnvironment = false;
       return this;
     }
 
@@ -857,6 +858,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      */
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
+      this.clientEnvironmentVariables = null;
       this.useDefaultShellEnvironment  = true;
       return this;
     }
