@@ -52,7 +52,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public boolean explicitJreDeps;
 
   @Option(name = "experimental_j2objc_annotation_processing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "undocumented",
       help = "Whether to enable j2objc Java annotation processing."
       )
