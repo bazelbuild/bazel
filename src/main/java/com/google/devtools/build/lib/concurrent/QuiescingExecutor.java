@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.concurrent;
 
 import com.google.common.annotations.VisibleForTesting;
-
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 
@@ -52,6 +51,9 @@ public interface QuiescingExecutor extends Executor {
    *                         If false, just wait for them to terminate normally.
    */
   void awaitQuiescence(boolean interruptWorkers) throws InterruptedException;
+
+  /** Return the number of tasks which are not completed (running or waiting to be executed). */
+  long getRemainingTasksCount();
 
   /** Get latch that is released if a task throws an exception. Used only in tests. */
   @VisibleForTesting
