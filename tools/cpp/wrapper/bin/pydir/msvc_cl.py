@@ -33,7 +33,7 @@ GCCPATTERNS = [
     ('-Os', ['/O1']),
     ('-O2', ['/O2']),
     ('-g0', []),
-    ('-g', ['/MTd']),
+    ('-g', ['$DEBUG_RT']),
     ('-fexceptions', ['/U_HAS_EXCEPTIONS', '/D_HAS_EXCEPTIONS=1', '/EHsc']),
     ('-fomit-frame-pointer', ['/Oy']),
     ('-fno-rtti', ['/GR-']),
