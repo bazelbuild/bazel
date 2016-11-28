@@ -190,6 +190,18 @@ ATTRIBUTE_NORETURN void ExitImmediately(int exit_code);
 // Ensure we have open file descriptors for stdin/stdout/stderr.
 void SetupStdStreams();
 
+std::string GetUserName();
+
+// Returns true iff the current terminal is running inside an Emacs.
+bool IsEmacsTerminal();
+
+// Returns true iff the current terminal can support color and cursor movement.
+bool IsStandardTerminal();
+
+// Returns the number of columns of the terminal to which stdout is
+// connected, or 80 if there is no such terminal.
+int GetTerminalColumns();
+
 }  // namespace blaze
 
 #endif  // BAZEL_SRC_MAIN_CPP_BLAZE_UTIL_PLATFORM_H_

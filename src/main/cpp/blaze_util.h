@@ -35,8 +35,6 @@ extern const char kServerPidFile[];
 // used to write PID symlinks will probably no longer be in use.
 extern const char kServerPidSymlink[];
 
-std::string GetUserName();
-
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
 //
@@ -45,16 +43,6 @@ std::string GetUserName();
 //   MakeAbsolute("/foo") ---> "/foo"
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
 std::string MakeAbsolute(const std::string &path);
-
-// Returns true iff the current terminal is running inside an Emacs.
-bool IsEmacsTerminal();
-
-// Returns true iff the current terminal can support color and cursor movement.
-bool IsStandardTerminal();
-
-// Returns the number of columns of the terminal to which stdout is
-// connected, or 80 if there is no such terminal.
-int GetTerminalColumns();
 
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.

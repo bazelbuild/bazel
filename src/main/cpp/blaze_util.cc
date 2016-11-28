@@ -16,19 +16,10 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <pwd.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/file.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include <sstream>
 
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
@@ -50,20 +41,6 @@ using std::vector;
 const char kServerPidFile[] = "server.pid.txt";
 const char kServerPidSymlink[] = "server.pid";
 
-string GetUserName() {
-  string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
-  }
-  errno = 0;
-  passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == NULL || pwent->pw_name == NULL) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "$USER is not set, and unable to look up name of current user");
-  }
-  return pwent->pw_name;
-}
-
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
   if (path.empty() || path[0] == '/' || (isalpha(path[0]) && path[1] == ':')) {
@@ -75,48 +52,6 @@ string MakeAbsolute(const string &path) {
   // Determine whether the cwd ends with "/" or not.
   string separator = cwd.back() == '/' ? "" : "/";
   return cwd + separator + path;
-}
-
-bool IsEmacsTerminal() {
-  string emacs = GetEnv("EMACS");
-  string inside_emacs = GetEnv("INSIDE_EMACS");
-  // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
-  // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
-  // e.g. "25.1.1,comint").  So we check both variables for maximum
-  // compatibility.
-  return emacs == "t" || !inside_emacs.empty();
-}
-
-// Returns true iff both stdout and stderr are connected to a
-// terminal, and it can support color and cursor movement
-// (this is computed heuristically based on the values of
-// environment variables).
-bool IsStandardTerminal() {
-  string term = GetEnv("TERM");
-  if (term.empty() || term == "dumb" || term == "emacs" ||
-      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
-      IsEmacsTerminal()) {
-    return false;
-  }
-  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
-}
-
-// Returns the number of columns of the terminal to which stdout is
-// connected, or $COLUMNS (default 80) if there is no such terminal.
-int GetTerminalColumns() {
-  struct winsize ws;
-  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
-    return ws.ws_col;
-  }
-  string columns_env = GetEnv("COLUMNS");
-  if (!columns_env.empty()) {
-    char* endptr;
-    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
-    if (*endptr == '\0') {  // $COLUMNS is a valid number
-      return columns;
-    }
-  }
-  return 80;  // default if not a terminal.
 }
 
 const char* GetUnaryOption(const char *arg,

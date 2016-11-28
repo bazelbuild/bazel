@@ -17,7 +17,9 @@
 
 #ifndef COMPILER_MSVC
 #include <fcntl.h>
+#include <pwd.h>
 #include <sys/cygwin.h>
+#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
@@ -40,6 +42,7 @@
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/cpp/util/numbers.h"
 
 namespace blaze {
 
@@ -1362,6 +1365,89 @@ void ReleaseLock(BlazeLock* blaze_lock) {
   pdie(255, "blaze::AcquireLock is not implemented on Windows");
 #else  // not COMPILER_MSVC
   close(blaze_lock->lockfd);
+#endif  // COMPILER_MSVC
+}
+
+#ifdef GetUserName
+// By including <windows.h>, we have GetUserName defined either as
+// GetUserNameA or GetUserNameW.
+#undef GetUserName
+#endif
+
+string GetUserName() {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze::GetUserName is not implemented on Windows");
+  return "";
+#else  // not COMPILER_MSVC
+  string user = GetEnv("USER");
+  if (!user.empty()) {
+    return user;
+  }
+  errno = 0;
+  passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
+  if (pwent == NULL || pwent->pw_name == NULL) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "$USER is not set, and unable to look up name of current user");
+  }
+  return pwent->pw_name;
+#endif  // COMPILER_MSVC
+}
+
+bool IsEmacsTerminal() {
+#ifdef COMPILER_MSVC
+  pdie(255, "blaze::IsEmacsTerminal is not implemented on Windows");
+  return false;
+#else  // not COMPILER_MSVC
+  string emacs = GetEnv("EMACS");
+  string inside_emacs = GetEnv("INSIDE_EMACS");
+  // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
+  // do that and instead sets INSIDE_EMACS=<stuff> (where <stuff> can look like
+  // e.g. "25.1.1,comint").  So we check both variables for maximum
+  // compatibility.
+  return emacs == "t" || !inside_emacs.empty();
+#endif  // COMPILER_MSVC
+}
+
+// Returns true iff both stdout and stderr are connected to a
+// terminal, and it can support color and cursor movement
+// (this is computed heuristically based on the values of
+// environment variables).
+bool IsStandardTerminal() {
+#ifdef COMPILER_MSVC
+  pdie(255, "blaze::IsStandardTerminal is not implemented on Windows");
+  return false;
+#else  // not COMPILER_MSVC
+  string term = GetEnv("TERM");
+  if (term.empty() || term == "dumb" || term == "emacs" ||
+      term == "xterm-mono" || term == "symbolics" || term == "9term" ||
+      IsEmacsTerminal()) {
+    return false;
+  }
+  return isatty(STDOUT_FILENO) && isatty(STDERR_FILENO);
+#endif  // COMPILER_MSVC
+}
+
+// Returns the number of columns of the terminal to which stdout is
+// connected, or $COLUMNS (default 80) if there is no such terminal.
+int GetTerminalColumns() {
+#ifdef COMPILER_MSVC
+  pdie(255, "blaze::GetTerminalColumns is not implemented on Windows");
+  return 0;
+#else  // not COMPILER_MSVC
+  struct winsize ws;
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
+    return ws.ws_col;
+  }
+  string columns_env = GetEnv("COLUMNS");
+  if (!columns_env.empty()) {
+    char* endptr;
+    int columns = blaze_util::strto32(columns_env.c_str(), &endptr, 10);
+    if (*endptr == '\0') {  // $COLUMNS is a valid number
+      return columns;
+    }
+  }
+  return 80;  // default if not a terminal.
 #endif  // COMPILER_MSVC
 }
 
