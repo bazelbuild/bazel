@@ -46,37 +46,6 @@ std::string GetUserName();
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
 std::string MakeAbsolute(const std::string &path);
 
-// Replaces 'content' with contents of file 'filename'.
-// If `max_size` is positive, the method reads at most that many bytes;
-// otherwise the method reads the whole file.
-// Returns false on error. Can be called from a signal handler.
-bool ReadFile(const std::string &filename, std::string *content,
-              int max_size = 0);
-
-// Replaces 'content' with data read from a source using `read_func`.
-// If `max_size` is positive, the method reads at most that many bytes;
-// otherwise the method reads everything.
-// Returns false on error. Can be called from a signal handler.
-bool ReadFrom(const std::function<int(void *, int)> &read_func,
-              std::string *content, int max_size = 0);
-
-// Writes 'content' into file 'filename', and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const std::string &content, const std::string &filename);
-
-// Writes `size` bytes from `data` into file 'filename' and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const void* data, size_t size, const std::string &filename);
-
-// Writes `size` bytes from `data` into a destination using `write_func`.
-// Returns false on failure, sets errno.
-bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
-             const void *data, size_t size);
-
-// Unlinks the file given by 'file_path'.
-// Returns true on success. In case of failure sets errno.
-bool UnlinkPath(const std::string &file_path);
-
 // Returns true iff the current terminal is running inside an Emacs.
 bool IsEmacsTerminal();
 

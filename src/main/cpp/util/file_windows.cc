@@ -21,6 +21,24 @@ namespace blaze_util {
 
 using std::string;
 
+bool ReadFile(const string& filename, string* content, int max_size) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::ReadFile is not implemented on Windows");
+  return false;
+}
+
+bool WriteFile(const void* data, size_t size, const string& filename) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::WriteFile is not implemented on Windows");
+  return false;
+}
+
+bool UnlinkPath(const string& file_path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::UnlinkPath is not implemented on Windows");
+  return false;
+}
+
 string Which(const string &executable) {
   pdie(255, "blaze_util::Which is not implemented on Windows");
   return "";

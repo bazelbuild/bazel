@@ -74,7 +74,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
   string filename(filename_ref);  // file
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   string contents;
-  if (!ReadFile(filename, &contents)) {
+  if (!blaze_util::ReadFile(filename, &contents)) {
     // We checked for file readability before, so this is unexpected.
     blaze_util::StringPrintf(error,
         "Unexpected error reading .blazerc file '%s'", filename.c_str());

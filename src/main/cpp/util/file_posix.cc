@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "src/main/cpp/util/file_platform.h"
 
+#include <errno.h>
 #include <dirent.h>  // DIR, dirent, opendir, closedir
 #include <fcntl.h>   // O_RDONLY
 #include <limits.h>  // PATH_MAX
@@ -75,6 +76,38 @@ IPipe* CreatePipe() {
   }
 
   return new PosixPipe(fd[0], fd[1]);
+}
+
+bool ReadFile(const string &filename, string *content, int max_size) {
+  int fd = open(filename.c_str(), O_RDONLY);
+  if (fd == -1) return false;
+  bool result =
+      ReadFrom([fd](void *buf, int len) { return read(fd, buf, len); }, content,
+               max_size);
+  close(fd);
+  return result;
+}
+
+bool WriteFile(const void *data, size_t size, const string &filename) {
+  UnlinkPath(filename);  // We don't care about the success of this.
+  int fd =
+      open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0755);  // chmod +x
+  if (fd == -1) {
+    return false;
+  }
+  bool result = WriteTo(
+      [fd](const void *buf, size_t bufsize) { return write(fd, buf, bufsize); },
+      data, size);
+  int saved_errno = errno;
+  if (close(fd)) {
+    return false;  // Can fail on NFS.
+  }
+  errno = saved_errno;  // Caller should see errno from write().
+  return result;
+}
+
+bool UnlinkPath(const string &file_path) {
+  return unlink(file_path.c_str()) == 0;
 }
 
 string Which(const string &executable) {

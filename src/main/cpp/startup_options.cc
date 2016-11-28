@@ -383,17 +383,17 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
     const vector<string> &user_options, string *error) const {
   // Configure logging
   const string propFile = output_base + "/javalog.properties";
-  if (!WriteFile(
-      "handlers=java.util.logging.FileHandler\n"
-      ".level=INFO\n"
-      "java.util.logging.FileHandler.level=INFO\n"
-      "java.util.logging.FileHandler.pattern="
-      + output_base + "/java.log\n"
-      "java.util.logging.FileHandler.limit=50000\n"
-      "java.util.logging.FileHandler.count=1\n"
-      "java.util.logging.FileHandler.formatter="
-      "java.util.logging.SimpleFormatter\n",
-      propFile)) {
+  if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
+                             ".level=INFO\n"
+                             "java.util.logging.FileHandler.level=INFO\n"
+                             "java.util.logging.FileHandler.pattern=" +
+                                 output_base +
+                                 "/java.log\n"
+                                 "java.util.logging.FileHandler.limit=50000\n"
+                                 "java.util.logging.FileHandler.count=1\n"
+                                 "java.util.logging.FileHandler.formatter="
+                                 "java.util.logging.SimpleFormatter\n",
+                             propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);

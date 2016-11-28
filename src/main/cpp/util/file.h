@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,22 @@ class IPipe {
   // If `size` is negative, returns -1.
   virtual int Receive(void *buffer, int size) = 0;
 };
+
+// Replaces 'content' with data read from a source using `read_func`.
+// If `max_size` is positive, the method reads at most that many bytes;
+// otherwise the method reads everything.
+// Returns false on error. Can be called from a signal handler.
+bool ReadFrom(const std::function<int(void *, int)> &read_func,
+              std::string *content, int max_size = 0);
+
+// Writes `size` bytes from `data` into file 'filename' and makes it executable.
+// Returns false on failure, sets errno.
+bool WriteFile(const void *data, size_t size, const std::string &filename);
+
+// Writes `size` bytes from `data` into a destination using `write_func`.
+// Returns false on failure, sets errno.
+bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
+             const void *data, size_t size);
 
 // Returns the part of the path before the final "/".  If there is a single
 // leading "/" in the path, the result will be the leading "/".  If there is

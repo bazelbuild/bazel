@@ -576,7 +576,7 @@ static void VerifyJavaVersionAndSetJvm() {
   string version_spec_file = blaze_util::JoinPath(
       GetEmbeddedBinariesRoot(globals->options->install_base), "java.version");
   string version_spec = "";
-  if (ReadFile(version_spec_file, &version_spec)) {
+  if (blaze_util::ReadFile(version_spec_file, &version_spec)) {
     blaze_util::StripWhitespace(&version_spec);
     // A version specification is given, get version of java.
     string jvm_version = GetJvmVersion(exe);
@@ -608,7 +608,7 @@ static void StartServer(BlazeServerStartup** server_startup) {
   // for the existing server. If might be that the server dies and the cmdline
   // file stays there, but that is not a problem, since we always check the
   // server, too.
-  WriteFile(argument_string, server_dir + "/cmdline");
+  blaze_util::WriteFile(argument_string, server_dir + "/cmdline");
 
   // unless we restarted for a new-version, mark this as initial start
   if (globals->restart_reason == NO_RESTART) {
@@ -621,8 +621,8 @@ static void StartServer(BlazeServerStartup** server_startup) {
   // we can still print errors to the terminal.
   GoToWorkspace();
 
-  ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file.c_str(),
-                server_dir, server_startup);
+  ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file, server_dir,
+                server_startup);
 }
 
 // Replace this process with blaze in standalone/batch mode.
@@ -701,7 +701,7 @@ static int GetServerPid(const string &server_dir) {
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
   string bufstr;
   int result;
-  if (!blaze::ReadFile(pid_file, &bufstr, 32) ||
+  if (!blaze_util::ReadFile(pid_file, &bufstr, 32) ||
       !blaze_util::safe_strto32(bufstr, &result)) {
     return -1;
   }
@@ -805,7 +805,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
            "couldn't create '%s'", path.c_str());
     }
 
-    if (!blaze::WriteFile(data, size, path)) {
+    if (!blaze_util::WriteFile(data, size, path)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nFailed to write zipped file \"%s\": %s", path.c_str(),
           strerror(errno));
@@ -914,8 +914,9 @@ static void ExtractData(const string &self_path) {
     // Now rename the completed installation to its final name. If this
     // fails due to an ENOTEMPTY then we assume another good
     // installation snuck in before us.
-    if (rename(tmp_install.c_str(), globals->options->install_base.c_str()) == -1
-        && errno != ENOTEMPTY) {
+    if (rename(tmp_install.c_str(), globals->options->install_base.c_str()) ==
+            -1 &&
+        errno != ENOTEMPTY) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "install base directory '%s' could not be renamed into place",
            tmp_install.c_str());
@@ -1017,7 +1018,7 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer* server) {
   // worse, its behavior differs slightly between kernels (in some, when longer
   // command lines are truncated, the last 4 bytes are replaced with
   // "..." + NUL.
-  ReadFile(cmdline_path, &joined_arguments);
+  blaze_util::ReadFile(cmdline_path, &joined_arguments);
   vector<string> arguments = blaze_util::Split(joined_arguments, '\0');
 
   // These strings contain null-separated command line arguments. If they are
@@ -1045,7 +1046,7 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
   // installation is running.
   string installation_path = globals->options->output_base + "/install";
   string prev_installation;
-  bool ok = ReadDirectorySymlink(installation_path.c_str(), &prev_installation);
+  bool ok = ReadDirectorySymlink(installation_path, &prev_installation);
   if (!ok || !CompareAbsolutePaths(
           prev_installation, globals->options->install_base)) {
     if (server->Connected()) {
@@ -1053,9 +1054,9 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
     }
 
     globals->restart_reason = NEW_VERSION;
-    UnlinkPath(installation_path.c_str());
-    if (!SymlinkDirectories(globals->options->install_base.c_str(),
-                            installation_path.c_str())) {
+    blaze_util::UnlinkPath(installation_path);
+    if (!SymlinkDirectories(globals->options->install_base,
+                            installation_path)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to create installation symlink '%s'",
            installation_path.c_str());
@@ -1364,7 +1365,7 @@ bool GrpcBlazeServer::Connect() {
   std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
   std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!ReadFile(server_dir + "/command_port", &port)) {
+  if (!blaze_util::ReadFile(server_dir + "/command_port", &port)) {
     return false;
   }
 
@@ -1375,11 +1376,12 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/request_cookie", &request_cookie_)) {
+  if (!blaze_util::ReadFile(server_dir + "/request_cookie", &request_cookie_)) {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/response_cookie", &response_cookie_)) {
+  if (!blaze_util::ReadFile(server_dir + "/response_cookie",
+                            &response_cookie_)) {
     return false;
   }
 

@@ -16,6 +16,7 @@
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/singlejar/input_jar.h"
@@ -324,7 +325,7 @@ TEST_F(OutputJarSimpleTest, Resources) {
 // --classpath_resources
 TEST_F(OutputJarSimpleTest, ClasspathResources) {
   string res1_path = OutputFilePath("cp_res");
-  ASSERT_TRUE(blaze::WriteFile("line1\nline2\n", res1_path));
+  ASSERT_TRUE(blaze_util::WriteFile("line1\nline2\n", res1_path));
   string out_path = OutputFilePath("out.jar");
   CreateOutput(out_path, {"--classpath_resources", res1_path.c_str()});
   string res = GetEntryContents(out_path, "cp_res");

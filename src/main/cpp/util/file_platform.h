@@ -25,6 +25,21 @@ class IPipe;
 
 IPipe* CreatePipe();
 
+// Replaces 'content' with contents of file 'filename'.
+// If `max_size` is positive, the method reads at most that many bytes;
+// otherwise the method reads the whole file.
+// Returns false on error. Can be called from a signal handler.
+bool ReadFile(const std::string &filename, std::string *content,
+              int max_size = 0);
+
+// Writes 'content' into file 'filename', and makes it executable.
+// Returns false on failure, sets errno.
+bool WriteFile(const std::string &content, const std::string &filename);
+
+// Unlinks the file given by 'file_path'.
+// Returns true on success. In case of failure sets errno.
+bool UnlinkPath(const std::string &file_path);
+
 // Checks each element of the PATH variable for executable. If none is found, ""
 // is returned.  Otherwise, the full path to executable is returned. Can die if
 // looking up PATH fails.

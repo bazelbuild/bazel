@@ -244,7 +244,7 @@ void ExecuteDaemon(const string& exe,
   string pid_string = GetProcessIdAsString();
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
 
-  if (!WriteFile(pid_string, pid_file)) {
+  if (!blaze_util::WriteFile(pid_string, pid_file)) {
     // The exit code does not matter because we are already in the daemonized
     // server. The output of this operation will end up in jvm.out .
     pdie(0, "Cannot write PID file");
@@ -270,7 +270,7 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector) {
   } else if (child > 0) {  // we're the parent
     close(send_socket);    // parent keeps only the reading side
     string result;
-    bool success = ReadFrom(
+    bool success = blaze_util::ReadFrom(
         [recv_socket](void* buf, int size) {
           return read(recv_socket, buf, size);
         },

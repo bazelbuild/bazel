@@ -37,6 +37,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -584,7 +585,7 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
 
   string pid_string = ToString(processInfo.dwProcessId);
   string pid_file = blaze_util::JoinPath(server_dir, kServerPidFile);
-  if (!WriteFile(pid_string, pid_file)) {
+  if (!blaze_util::WriteFile(pid_string, pid_file)) {
     // Not a lot we can do if this fails
     fprintf(stderr, "Cannot write PID file %s\n", pid_file.c_str());
   }
