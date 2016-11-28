@@ -19,20 +19,15 @@ java_import(
     runtime_deps = ["//third_party:netty"],
 )
 
-filegroup(
+cc_binary(
     name = "grpc-java-plugin",
-    srcs = select({
-        "//third_party:windows_mingw": ["protoc-gen-grpc-java-0.15.0-windows-x86_32.exe"],
-        "//third_party:windows_msys64_mingw64": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:windows_msys64": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:windows_clang": ["protoc-gen-grpc-java-0.15.0-windows-x86_64.exe"],
-        "//third_party:darwin": ["protoc-gen-grpc-java-0.15.0-osx-x86_64.exe"],
-        "//third_party:k8": ["protoc-gen-grpc-java-0.15.0-linux-x86_64.exe"],
-        "//third_party:piii": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:arm": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:freebsd": ["protoc-gen-grpc-java-0.15.0-linux-x86_32.exe"],
-        "//third_party:s390x": ["protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe"],
-    }),
+    srcs = [
+        "compiler/src/java_plugin/cpp/java_generator.cpp",
+        "compiler/src/java_plugin/cpp/java_generator.h",
+        "compiler/src/java_plugin/cpp/java_plugin.cpp",
+    ],
+    copts = ["-w"],
+    deps = ["//third_party/protobuf:protoc_lib"],
 )
 
 cc_binary(

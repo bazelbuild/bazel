@@ -11,17 +11,12 @@ How to update the C++ sources of gRPC:
 
 How to update the Java plugin:
 
-Download it from Maven central. The project is called `protoc-gen-grpc-java`
-and the version is `0.15.0` .
+1. Take version `0.15.0` from https://github.com/grpc/grpc-java
+   commit hash is `b7d816fb3d0d38e`
+2. `cp -R <grpg-java git tree>/compiler/src/java_plugin third_party/grpc-java/compiler/src`
 
 How to update the Java code:
 
 Download it from Maven central. The jars are called `grpc-core`, `grpc-netty`,
 `grpc-protobuf`, `grpc-protobuf-lite`, `grpc-stub` and the version is
 `0.15.0`.
-
-* * *
-How to update the Linux s390x 64-bit Java plugin:
-
-1. Build Java plugin version `0.15.0` from https://github.com/grpc/grpc-java .
-2. `cp <gRPC git tree>/compiler/build/artifacts/java_plugin/protoc-gen-grpc-java.exe <Bazel tree>/third_party/grpc/protoc-gen-grpc-java-0.15.0-linux-s390x_64.exe`
