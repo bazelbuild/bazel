@@ -452,15 +452,14 @@ public abstract class CompilationSupport {
       Optional<CompilationArtifacts> compilationArtifacts) {
     // TODO(bazel-team): Include textual headers in the module map when Xcode 6 support is
     // dropped.
+    // TODO(b/32225593): Include private headers in the module map.
     Iterable<Artifact> publicHeaders = attributes.hdrs();
-    Iterable<Artifact> privateHeaders = ImmutableList.of();
     if (compilationArtifacts.isPresent()) {
       CompilationArtifacts artifacts = compilationArtifacts.get();
       publicHeaders = Iterables.concat(publicHeaders, artifacts.getAdditionalHdrs());
-      privateHeaders = Iterables.concat(privateHeaders, artifacts.getPrivateHdrs());
     }
     CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-    registerGenerateModuleMapAction(moduleMap, publicHeaders, privateHeaders);
+    registerGenerateModuleMapAction(moduleMap, publicHeaders);
 
     return this;
   }
@@ -869,20 +868,17 @@ public abstract class CompilationSupport {
 
   /**
    * Registers an action that will generate a clang module map.
-   *
    * @param moduleMap the module map to generate
    * @param publicHeaders the headers that should be directly accessible by dependers
-   * @param privateHeaders the headers that should only be directly accessible by this module
    */
   private void registerGenerateModuleMapAction(
-      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders, Iterable<Artifact> privateHeaders) {
+      CppModuleMap moduleMap, Iterable<Artifact> publicHeaders) {
     publicHeaders = Iterables.filter(publicHeaders, MODULE_MAP_HEADER);
-    privateHeaders = Iterables.filter(privateHeaders, MODULE_MAP_HEADER);
     ruleContext.registerAction(
         new CppModuleMapAction(
             ruleContext.getActionOwner(),
             moduleMap,
-            privateHeaders,
+            ImmutableList.<Artifact>of(),
             publicHeaders,
             attributes.moduleMapsForDirectDeps(),
             ImmutableList.<PathFragment>of(),

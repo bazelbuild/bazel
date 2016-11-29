@@ -809,4 +809,29 @@ EOF
   expect_log "ios/top.swift:1:1: error: expressions are not allowed at the top level"
 }
 
+# Test that it's possible to import Clang module of a target that contains private headers.
+function test_import_module_with_private_hdrs() {
+  rm -rf ios
+  mkdir -p ios
+  touch ios/Foo.h ios/Foo_Private.h
+
+cat >ios/main.swift <<EOF
+import ios_lib
+EOF
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+objc_library(name = "lib",
+             srcs = ["Foo_Private.h"],
+             hdrs = ["Foo.h"])
+
+swift_library(name = "swiftmodule",
+              srcs = ["main.swift"],
+              deps = [":lib"])
+EOF
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:swiftmodule >$TEST_log 2>&1 || fail "should build"
+}
+
 run_suite "apple_tests"
