@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
@@ -53,7 +56,11 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /** Skylark API for the repository_rule's context. */
@@ -447,10 +454,11 @@ public class SkylarkRepositoryContext {
     parameters = {
       @Param(
         name = "url",
-        type = String.class,
-        doc =
-            "URL to the file to download. There is no authentication."
-                + " Redirection are followed."
+        allowedTypes = {
+          @ParamType(type = String.class),
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+        },
+        doc = "List of mirror URLs referencing the same file."
       ),
       @Param(
         name = "output",
@@ -482,18 +490,28 @@ public class SkylarkRepositoryContext {
       ),
     }
   )
-  public void download(String url, Object output, String sha256, Boolean executable)
-      throws RepositoryFunctionException, EvalException, InterruptedException {
+  public void download(
+      Object url, Object output, String sha256, Boolean executable)
+          throws RepositoryFunctionException, EvalException, InterruptedException {
+    validateSha256(sha256);
+    List<URL> urls = getUrls(url);
     SkylarkPath outputPath = getPath("download()", output);
     try {
       checkInOutputDirectory(outputPath);
       makeDirectories(outputPath.getPath());
-
-      httpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener(),
+      httpDownloader.download(
+          urls,
+          sha256,
+          Optional.<String>absent(),
+          outputPath.getPath(),
+          env.getListener(),
           osObject.getEnvironmentVariables());
       if (executable) {
         outputPath.getPath().setExecutable(true);
       }
+    } catch (InterruptedException e) {
+      throw new RepositoryFunctionException(
+          new IOException("thread interrupted"), Transience.TRANSIENT);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -505,11 +523,11 @@ public class SkylarkRepositoryContext {
     parameters = {
       @Param(
         name = "url",
-        type = String.class,
-        doc =
-            "a URL referencing an archive file containing a Bazel repository."
-                + " Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported."
-                + " There is no support for authentication. Redirections are followed."
+        allowedTypes = {
+          @ParamType(type = String.class),
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+        },
+        doc = "List of mirror URLs referencing the same file."
       ),
       @Param(
         name = "output",
@@ -542,8 +560,8 @@ public class SkylarkRepositoryContext {
         doc =
             "the archive type of the downloaded file."
                 + " By default, the archive type is determined from the file extension of the URL."
-                + " If the file has no extension, you can explicitly specify either"
-                + "\"zip\", \"jar\", \"tar.gz\", or \"tgz\" here."
+                + " If the file has no extension, you can explicitly specify either \"zip\","
+                + " \"jar\", \"war\", \"tar.gz\", \"tgz\", \"tar.bz2\", or \"tar.xz\" here."
       ),
       @Param(
         name = "stripPrefix",
@@ -560,8 +578,11 @@ public class SkylarkRepositoryContext {
     }
   )
   public void downloadAndExtract(
-      String url, Object output, String sha256, String type, String stripPrefix)
-      throws RepositoryFunctionException, InterruptedException, EvalException {
+      Object url, Object output, String sha256, String type, String stripPrefix)
+          throws RepositoryFunctionException, InterruptedException, EvalException {
+    validateSha256(sha256);
+    List<URL> urls = getUrls(url);
+
     // Download to outputDirectory and delete it after extraction
     SkylarkPath outputPath = getPath("download_and_extract()", output);
     checkInOutputDirectory(outputPath);
@@ -569,8 +590,14 @@ public class SkylarkRepositoryContext {
 
     Path downloadedPath;
     try {
-      downloadedPath = httpDownloader.download(url, sha256, type, outputPath.getPath(),
-          env.getListener(), osObject.getEnvironmentVariables());
+      downloadedPath =
+          httpDownloader.download(
+              urls,
+              sha256,
+              Optional.of(type),
+              outputPath.getPath(),
+              env.getListener(),
+              osObject.getEnvironmentVariables());
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -592,6 +619,43 @@ public class SkylarkRepositoryContext {
               "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
           Transience.TRANSIENT);
     }
+  }
+
+  private static void validateSha256(String sha256) throws RepositoryFunctionException {
+    if (!sha256.isEmpty() && !KeyType.SHA256.isValid(sha256)) {
+      throw new RepositoryFunctionException(
+          new IOException("Invalid SHA256 checksum"), Transience.TRANSIENT);
+    }
+  }
+
+  private static List<URL> getUrls(Object urlOrList) throws RepositoryFunctionException {
+    List<String> urlStrings;
+    if (urlOrList instanceof String) {
+      urlStrings = ImmutableList.of((String) urlOrList);
+    } else {
+      @SuppressWarnings("unchecked")
+      List<String> list = (List<String>) urlOrList;
+      urlStrings = list;
+    }
+    if (urlStrings.isEmpty()) {
+      throw new RepositoryFunctionException(new IOException("urls not set"), Transience.PERSISTENT);
+    }
+    List<URL> urls = new ArrayList<>();
+    for (String urlString : urlStrings) {
+      URL url;
+      try {
+        url = new URL(urlString);
+      } catch (MalformedURLException e) {
+        throw new RepositoryFunctionException(
+            new IOException("Bad URL: " + urlString), Transience.PERSISTENT);
+      }
+      if (!HttpUtils.isUrlSupportedByDownloader(url)) {
+        throw new RepositoryFunctionException(
+            new IOException("Unsupported protocol: " + url.getProtocol()), Transience.PERSISTENT);
+      }
+      urls.add(url);
+    }
+    return urls;
   }
 
   // This is just for test to overwrite the path environment

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository.cache;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
@@ -48,7 +49,7 @@ public class RepositoryCache {
     }
 
     public boolean isValid(@Nullable String checksum) {
-      return checksum != null && checksum.matches(regexp);
+      return !Strings.isNullOrEmpty(checksum) && checksum.matches(regexp);
     }
 
     public Path getCachePath(Path parentDirectory) {
@@ -58,7 +59,7 @@ public class RepositoryCache {
     public Hasher newHasher() {
       return hashFunction.newHasher();
     }
-    
+
     @Override
     public String toString() {
       return stringRepr;

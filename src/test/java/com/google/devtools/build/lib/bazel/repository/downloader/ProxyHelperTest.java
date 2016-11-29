@@ -21,46 +21,43 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.net.Proxy;
+import java.net.URL;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for @{link ProxyHelper}.
+ * Tests for {@link ProxyHelper}.
  */
 @RunWith(JUnit4.class)
 public class ProxyHelperTest {
 
   @Test
   public void testCreateIfNeededHttpLowerCase() throws Exception {
-    Map<String, String> env = ImmutableMap.<String, String>builder()
-        .put("http_proxy", "http://my.example.com").build();
-    Proxy proxy = ProxyHelper.createProxyIfNeeded("http://www.something.com", env);
+    ProxyHelper helper = new ProxyHelper(ImmutableMap.of("http_proxy", "http://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:80");
   }
 
   @Test
   public void testCreateIfNeededHttpUpperCase() throws Exception {
-    Map<String, String> env = ImmutableMap.<String, String>builder()
-        .put("HTTP_PROXY", "http://my.example.com").build();
-    Proxy proxy = ProxyHelper.createProxyIfNeeded("http://www.something.com", env);
+    ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTP_PROXY", "http://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("http://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:80");
   }
 
   @Test
   public void testCreateIfNeededHttpsLowerCase() throws Exception {
-    Map<String, String> env = ImmutableMap.<String, String>builder()
-        .put("https_proxy", "https://my.example.com").build();
-    Proxy proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
+    ProxyHelper helper = new ProxyHelper(ImmutableMap.of("https_proxy", "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:443");
   }
 
   @Test
   public void testCreateIfNeededHttpsUpperCase() throws Exception {
-    Map<String, String> env = ImmutableMap.<String, String>builder()
-        .put("HTTPS_PROXY", "https://my.example.com").build();
-    Proxy proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
+    ProxyHelper helper = new ProxyHelper(ImmutableMap.of("HTTPS_PROXY", "https://my.example.com"));
+    Proxy proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
     assertThat(proxy.toString()).endsWith("my.example.com:443");
   }
 
@@ -72,7 +69,8 @@ public class ProxyHelperTest {
     proxy = ProxyHelper.createProxy("");
     assertEquals(Proxy.NO_PROXY, proxy);
     Map<String, String> env = ImmutableMap.of();
-    proxy = ProxyHelper.createProxyIfNeeded("https://www.something.com", env);
+    ProxyHelper helper = new ProxyHelper(env);
+    proxy = helper.createProxyIfNeeded(new URL("https://www.something.com"));
     assertEquals(Proxy.NO_PROXY, proxy);
   }
 

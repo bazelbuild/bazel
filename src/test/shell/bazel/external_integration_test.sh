@@ -191,10 +191,9 @@ function test_http_archive_tar_xz() {
 }
 
 function test_http_archive_no_server() {
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = 'dummy')
+http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -212,7 +211,7 @@ EOF
   chmod +x zoo/female.sh
 
   bazel fetch //zoo:breeding-program >& $TEST_log && fail "Expected fetch to fail"
-  expect_log "Connection refused"
+  expect_log "Unknown host: bad.example"
 }
 
 function test_http_archive_mismatched_sha256() {
@@ -229,8 +228,11 @@ function test_http_archive_mismatched_sha256() {
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$wrong_sha256')
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
+)
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -249,7 +251,7 @@ EOF
 
   bazel fetch //zoo:breeding-program >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
-  expect_log "does not match expected SHA-256"
+  expect_log "Checksum"
 }
 
 # Bazel should not re-download the .zip unless the user requests it or the
@@ -338,7 +340,7 @@ EOF
 http_file(
     name = 'toto',
     url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
@@ -356,7 +358,7 @@ function test_http_404() {
 http_file(
     name = 'toto',
     url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
@@ -476,7 +478,7 @@ EOF
 function test_invalid_rule() {
   # http_jar with missing URL field.
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', sha256 = 'dummy')
+http_jar(name = 'endangered', sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"

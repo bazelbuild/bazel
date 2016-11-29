@@ -14,89 +14,109 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Strings.nullToEmpty;
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.io.ByteStreams;
 import com.google.common.math.IntMath;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.Sleeper;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InterruptedIOException;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.Proxy;
 import java.net.SocketTimeoutException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.zip.GZIPInputStream;
+import java.util.Locale;
+import java.util.Map;
 import javax.annotation.Nullable;
+import javax.annotation.WillClose;
 
-/** Utility class for connecting to HTTP servers for downloading files. */
-final class HttpConnector {
+/**
+ * Class for establishing connections to HTTP servers for downloading files.
+ *
+ * <p>This class must be used in conjunction with {@link HttpConnectorMultiplexer}.
+ *
+ * <p>Instances are thread safe and can be reused.
+ */
+@ThreadSafe
+class HttpConnector {
 
   private static final int MAX_RETRIES = 8;
-  private static final int MAX_REDIRECTS = 20;
+  private static final int MAX_REDIRECTS = 40;
   private static final int MIN_RETRY_DELAY_MS = 100;
-  private static final int CONNECT_TIMEOUT_MS = 1000;
+  private static final int MIN_CONNECT_TIMEOUT_MS = 1000;
   private static final int MAX_CONNECT_TIMEOUT_MS = 10000;
   private static final int READ_TIMEOUT_MS = 20000;
   private static final ImmutableSet<String> COMPRESSED_EXTENSIONS =
       ImmutableSet.of("bz2", "gz", "jar", "tgz", "war", "xz", "zip");
 
-  /**
-   * Connects to HTTP (or file) URL with GET request and lazily returns payload.
-   *
-   * <p>This routine supports gzip, redirects, retries, and exponential backoff. It's designed to
-   * recover fast from transient errors. However please note that this this reliability magic only
-   * applies to the connection and header reading phase.
-   *
-   * @param url URL to download, which can be file, http, or https
-   * @param proxy HTTP proxy to use or {@link Proxy#NO_PROXY} if none is desired
-   * @param eventHandler Bazel event handler for reporting real-time progress on retries
-   * @throws IOException if response returned ≥400 after max retries or ≥300 after max redirects
-   * @throws InterruptedException if thread is being cast into oblivion
-   */
-  static InputStream connect(
-      URL url, Proxy proxy, EventHandler eventHandler)
-          throws IOException, InterruptedException {
-    checkNotNull(proxy);
-    checkNotNull(eventHandler);
-    if (isProtocol(url, "file")) {
-      return url.openConnection().getInputStream();
+  private final Locale locale;
+  private final EventHandler eventHandler;
+  private final ProxyHelper proxyHelper;
+  private final Sleeper sleeper;
+
+  HttpConnector(
+      Locale locale, EventHandler eventHandler, ProxyHelper proxyHelper, Sleeper sleeper) {
+    this.locale = locale;
+    this.eventHandler = eventHandler;
+    this.proxyHelper = proxyHelper;
+    this.sleeper = sleeper;
+  }
+
+  URLConnection connect(
+      URL originalUrl, ImmutableMap<String, String> requestHeaders)
+          throws IOException {
+    if (Thread.interrupted()) {
+      throw new InterruptedIOException();
     }
-    if (!isHttp(url)) {
-      throw new IOException("Protocol must be http, https, or file");
+    URL url = originalUrl;
+    if (HttpUtils.isProtocol(url, "file")) {
+      return url.openConnection();
     }
     List<Throwable> suppressions = new ArrayList<>();
     int retries = 0;
     int redirects = 0;
-    int connectTimeout = CONNECT_TIMEOUT_MS;
+    int connectTimeout = MIN_CONNECT_TIMEOUT_MS;
     while (true) {
       HttpURLConnection connection = null;
       try {
-        connection = (HttpURLConnection) url.openConnection(proxy);
-        if (!COMPRESSED_EXTENSIONS.contains(getExtension(url.getPath()))) {
-          connection.setRequestProperty("Accept-Encoding", "gzip");
+        connection = (HttpURLConnection)
+            url.openConnection(proxyHelper.createProxyIfNeeded(url));
+        boolean isAlreadyCompressed =
+            COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
+                || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
+        for (Map.Entry<String, String> entry : requestHeaders.entrySet()) {
+          if (isAlreadyCompressed && Ascii.equalsIgnoreCase(entry.getKey(), "Accept-Encoding")) {
+            // We're not going to ask for compression if we're downloading a file that already
+            // appears to be compressed.
+            continue;
+          }
+          connection.setRequestProperty(entry.getKey(), entry.getValue());
         }
         connection.setConnectTimeout(connectTimeout);
+        // The read timeout is always large because it stays in effect after this method.
         connection.setReadTimeout(READ_TIMEOUT_MS);
+        // Java tries to abstract HTTP error responses for us. We don't want that. So we're going
+        // to try and undo any IOException that doesn't appepar to be a legitimate I/O exception.
         int code;
         try {
           connection.connect();
           code = connection.getResponseCode();
         } catch (FileNotFoundException ignored) {
           code = connection.getResponseCode();
+        } catch (UnknownHostException e) {
+          String message = "Unknown host: " + e.getMessage();
+          eventHandler.handle(Event.progress(message));
+          throw new UnrecoverableHttpException(message);
         } catch (IllegalArgumentException e) {
           // This will happen if the user does something like specify a port greater than 2^16-1.
           throw new UnrecoverableHttpException(e.getMessage());
@@ -106,163 +126,115 @@ final class HttpConnector {
           }
           code = connection.getResponseCode();
         }
-        if (code == 200) {
-          return getInputStream(connection);
-        } else if (code == 301 || code == 302) {
+        // 206 means partial content and only happens if caller specified Range. See RFC7233 § 4.1.
+        if (code == 200 || code == 206) {
+          return connection;
+        } else if (code == 301 || code == 302 || code == 307) {
           readAllBytesAndClose(connection.getInputStream());
           if (++redirects == MAX_REDIRECTS) {
+            eventHandler.handle(Event.progress("Redirect loop detected in " + originalUrl));
             throw new UnrecoverableHttpException("Redirect loop detected");
           }
-          url = getLocation(connection);
-        } else if (code < 500) {
+          url = HttpUtils.getLocation(connection);
+          if (code == 301) {
+            originalUrl = url;
+          }
+        } else if (code == 403) {
+          // jart@ has noticed BitBucket + Amazon AWS downloads frequently flake with this code.
+          throw new IOException(describeHttpResponse(connection));
+        } else if (code == 408) {
+          // The 408 (Request Timeout) status code indicates that the server did not receive a
+          // complete request message within the time that it was prepared to wait. Server SHOULD
+          // send the "close" connection option (Section 6.1 of [RFC7230]) in the response, since
+          // 408 implies that the server has decided to close the connection rather than continue
+          // waiting.  If the client has an outstanding request in transit, the client MAY repeat
+          // that request on a new connection. Quoth RFC7231 § 6.5.7
+          throw new IOException(describeHttpResponse(connection));
+        } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
+                    || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
+                    || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
+                    || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
+          // This is a permanent error so we're not going to retry.
           readAllBytesAndClose(connection.getErrorStream());
           throw new UnrecoverableHttpException(describeHttpResponse(connection));
         } else {
+          // However we will retry on some 5xx errors, particularly 500 and 503.
           throw new IOException(describeHttpResponse(connection));
         }
-      } catch (InterruptedIOException e) {
-        throw new InterruptedException();
       } catch (UnrecoverableHttpException e) {
         throw e;
-      } catch (UnknownHostException e) {
-        throw new IOException("Unknown host: " + e.getMessage());
       } catch (IOException e) {
         if (connection != null) {
+          // If we got here, it means we might not have consumed the entire payload of the
+          // response, if any. So we're going to force this socket to disconnect and not be
+          // reused. This is particularly important if multiple threads end up establishing
+          // connections to multiple mirrors simultaneously for a large file. We don't want to
+          // download that large file twice.
           connection.disconnect();
         }
+        // We don't respect the Retry-After header (RFC7231 § 7.1.3) because it's rarely used and
+        // tends to be too conservative when it is. We're already being good citizens by using
+        // exponential backoff. Furthermore RFC law didn't use the magic word "MUST".
+        int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
         if (e instanceof SocketTimeoutException) {
+          eventHandler.handle(Event.progress("Timeout connecting to " + url));
           connectTimeout = Math.min(connectTimeout * 2, MAX_CONNECT_TIMEOUT_MS);
+          // If we got connect timeout, we're already doing exponential backoff, so no point
+          // in sleeping too.
+          timeout = 1;
+        } else if (e instanceof InterruptedIOException) {
+          // Please note that SocketTimeoutException is a subtype of InterruptedIOException.
+          throw e;
         }
         if (++retries == MAX_RETRIES) {
+          if (!(e instanceof SocketTimeoutException)) {
+            eventHandler
+                .handle(Event.progress(format("Error connecting to %s: %s", url, e.getMessage())));
+          }
           for (Throwable suppressed : suppressions) {
             e.addSuppressed(suppressed);
           }
           throw e;
         }
+        // Java 7 allows us to create a tree of all errors that led to the ultimate failure.
         suppressions.add(e);
-        int timeout = IntMath.pow(2, retries) * MIN_RETRY_DELAY_MS;
-        eventHandler.handle(Event.progress(
-            String.format("Failed to connect to %s trying again in %,dms: %s",
-                url, timeout, e)));
-        TimeUnit.MILLISECONDS.sleep(timeout);
+        eventHandler.handle(
+            Event.progress(format("Failed to connect to %s trying again in %,dms", url, timeout)));
+        url = originalUrl;
+        try {
+          sleeper.sleepMillis(timeout);
+        } catch (InterruptedException translated) {
+          throw new InterruptedIOException();
+        }
       } catch (RuntimeException e) {
         if (connection != null) {
           connection.disconnect();
         }
+        eventHandler.handle(Event.progress(format("Unknown error connecting to %s: %s", url, e)));
         throw e;
       }
     }
   }
 
-  private static String describeHttpResponse(HttpURLConnection connection) throws IOException {
-    return String.format(
-        "%s returned %s %s",
+  private String describeHttpResponse(HttpURLConnection connection) throws IOException {
+    return format(
+        "%s returned %d %s",
         connection.getRequestMethod(),
         connection.getResponseCode(),
-        nullToEmpty(connection.getResponseMessage()));
+        Strings.nullToEmpty(connection.getResponseMessage()));
   }
 
-  private static void readAllBytesAndClose(@Nullable InputStream stream) throws IOException {
+  private String format(String format, Object... args) {
+    return String.format(locale, format, args);
+  }
+
+  // Exhausts all bytes in an HTTP to make it easier for Java infrastructure to reuse sockets.
+  private static void readAllBytesAndClose(
+      @WillClose @Nullable InputStream stream)
+          throws IOException {
     if (stream != null) {
-      // TODO: Replace with ByteStreams#exhaust when Guava 20 comes out.
-      byte[] buf = new byte[8192];
-      while (stream.read(buf) != -1) {}
+      ByteStreams.exhaust(stream);
       stream.close();
     }
   }
-
-  private static InputStream getInputStream(HttpURLConnection connection) throws IOException {
-    // See RFC2616 § 3.5 and § 14.11
-    switch (firstNonNull(connection.getContentEncoding(), "identity")) {
-      case "identity":
-        return connection.getInputStream();
-      case "gzip":
-      case "x-gzip":
-        // Some web servers will send Content-Encoding: gzip even when we didn't request it, iff
-        // the file is a .gz file.
-        if (connection.getURL().getPath().endsWith(".gz")) {
-          return connection.getInputStream();
-        } else {
-          return new GZIPInputStream(connection.getInputStream());
-        }
-      default:
-        throw new UnrecoverableHttpException(
-            "Unsupported and unrequested Content-Encoding: " + connection.getContentEncoding());
-    }
-  }
-
-  @VisibleForTesting
-  static URL getLocation(HttpURLConnection connection) throws IOException {
-    String newLocation = connection.getHeaderField("Location");
-    if (newLocation == null) {
-      throw new IOException("Remote redirect missing Location.");
-    }
-    URL result = mergeUrls(URI.create(newLocation), connection.getURL());
-    if (!isHttp(result)) {
-      throw new IOException("Bad Location: " + newLocation);
-    }
-    return result;
-  }
-
-  private static URL mergeUrls(URI preferred, URL original) throws IOException {
-    // If the Location value provided in a 3xx (Redirection) response does not have a fragment
-    // component, a user agent MUST process the redirection as if the value inherits the fragment
-    // component of the URI reference used to generate the request target (i.e., the redirection
-    // inherits the original reference's fragment, if any). Quoth RFC7231 § 7.1.2
-    String protocol = firstNonNull(preferred.getScheme(), original.getProtocol());
-    String userInfo = preferred.getUserInfo();
-    String host = preferred.getHost();
-    int port;
-    if (host == null) {
-      host = original.getHost();
-      port = original.getPort();
-      userInfo = original.getUserInfo();
-    } else {
-      port = preferred.getPort();
-      if (userInfo == null
-          && host.equals(original.getHost())
-          && port == original.getPort()) {
-        userInfo = original.getUserInfo();
-      }
-    }
-    String path = preferred.getPath();
-    String query = preferred.getQuery();
-    String fragment = preferred.getFragment();
-    if (fragment == null) {
-      fragment = original.getRef();
-    }
-    URL result;
-    try {
-      result = new URI(protocol, userInfo, host, port, path, query, fragment).toURL();
-    } catch (URISyntaxException | MalformedURLException e) {
-      throw new IOException("Could not merge " + preferred + " into " + original);
-    }
-    return result;
-  }
-
-  private static boolean isHttp(URL url) {
-    return isProtocol(url, "http") || isProtocol(url, "https");
-  }
-
-  private static boolean isProtocol(URL url, String protocol) {
-    // An implementation should accept uppercase letters as equivalent to lowercase in scheme names
-    // (e.g., allow "HTTP" as well as "http") for the sake of robustness. Quoth RFC3986 § 3.1
-    return Ascii.equalsIgnoreCase(protocol, url.getProtocol());
-  }
-
-  private static String getExtension(String path) {
-    int index = path.lastIndexOf('.');
-    if (index == -1) {
-      return "";
-    }
-    return path.substring(index + 1);
-  }
-
-  private static final class UnrecoverableHttpException extends IOException {
-    UnrecoverableHttpException(String message) {
-      super(message);
-    }
-  }
-
-  private HttpConnector() {}
 }

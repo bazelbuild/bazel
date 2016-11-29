@@ -12,23 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository.downloader;
+package com.google.devtools.build.lib.util;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
+import java.util.concurrent.TimeUnit;
 
-/** Test suite for downloader package. */
-@RunWith(Suite.class)
-@SuiteClasses({
-  HashInputStreamTest.class,
-  HttpConnectorMultiplexerIntegrationTest.class,
-  HttpConnectorMultiplexerTest.class,
-  HttpConnectorTest.class,
-  HttpStreamTest.class,
-  HttpUtilsTest.class,
-  ProgressInputStreamTest.class,
-  ProxyHelperTest.class,
-  RetryingInputStreamTest.class,
-})
-class DownloaderTestSuite {}
+/** Production implementation of {@link Sleeper} */
+public final class JavaSleeper implements Sleeper {
+
+  @Override
+  public void sleepMillis(long milliseconds) throws InterruptedException {
+    Preconditions.checkArgument(milliseconds >= 0, "sleeper can't time travel");
+    TimeUnit.MILLISECONDS.sleep(milliseconds);
+  }
+}

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.devtools.build.lib.events.Location;
 import java.util.Arrays;
+import javax.annotation.Nullable;
 
 /**
  * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access
@@ -77,6 +78,7 @@ public class AttributeContainer {
   /**
    * Returns an attribute value by name, or null on no match.
    */
+  @Nullable
   public Object getAttr(String attrName) {
     Integer idx = ruleClass.getAttributeIndex(attrName);
     return idx != null ? attributeValues[idx] : null;

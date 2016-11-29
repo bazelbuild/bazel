@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.workspace;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -37,24 +38,31 @@ public class HttpFileRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(url) -->
-         A URL to a file that will be made available to Bazel.
+        (Deprecated) A URL to a file that will be made available to Bazel.
 
-         <p>This must be an http or https URL. Authentication is not supported.</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("url", STRING).mandatory())
+        <p>This value has the same meaning as a <code>urls</code> list with a single item. This
+        must not be specified if <code>urls</code> is also specified.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("url", STRING))
+        /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(urls) -->
+        List of mirror URLs referencing the same file that will be made available to Bazel.
+
+        <p>This must be an http, https, or file URL. Authentication is not supported.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("urls", STRING_LIST))
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(sha256) -->
-         The expected SHA-256 of the file downloaded.
+        The expected SHA-256 of the file downloaded.
 
-         <p>This must match the SHA-256 of the file downloaded. <em>It is a security risk to
-         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
-         your build non-hermetic. It is optional to make development easier but should be set
-         before shipping.</p>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <p>This must match the SHA-256 of the file downloaded. <em>It is a security risk to
+        omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+        your build non-hermetic. It is optional to make development easier but should be set
+        before shipping.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING))
         /* <!-- #BLAZE_RULE(http_file).ATTRIBUTE(executable) -->
-         If the downloaded file should be made executable. Defaults to False.
+        If the downloaded file should be made executable. Defaults to False.
 
-         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("executable", BOOLEAN))
         .setWorkspaceOnly()
         .build();

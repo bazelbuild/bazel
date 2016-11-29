@@ -14,21 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
-import org.junit.runners.Suite.SuiteClasses;
+import java.io.IOException;
 
-/** Test suite for downloader package. */
-@RunWith(Suite.class)
-@SuiteClasses({
-  HashInputStreamTest.class,
-  HttpConnectorMultiplexerIntegrationTest.class,
-  HttpConnectorMultiplexerTest.class,
-  HttpConnectorTest.class,
-  HttpStreamTest.class,
-  HttpUtilsTest.class,
-  ProgressInputStreamTest.class,
-  ProxyHelperTest.class,
-  RetryingInputStreamTest.class,
-})
-class DownloaderTestSuite {}
+final class UnrecoverableHttpException extends IOException {
+  UnrecoverableHttpException(String message) {
+    super(message);
+  }
+}

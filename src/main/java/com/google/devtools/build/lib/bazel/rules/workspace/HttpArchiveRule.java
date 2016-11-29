@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.workspace;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -36,12 +37,19 @@ public class HttpArchiveRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(url) -->
-         A URL referencing an archive file containing a Bazel repository.
+         (Deprecated) A URL referencing an archive file containing a Bazel repository.
 
-         <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
-         for authentication.</p>
+         <p>This value has the same meaning as a <code>urls</code> list with a single item. This
+         must not be specified if <code>urls</code> is also specified.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("url", STRING).mandatory())
+        .add(attr("url", STRING))
+        /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(urls) -->
+        List of mirror URLs referencing the same archive file containing a Bazel repository.
+
+        <p>This must be an http, https, or file URL. Archives of type .zip, .jar, .war, .tar.gz,
+        .tgz, tar.bz2, or tar.xz are supported. There is no support for authentication.</p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("urls", STRING_LIST))
         /* <!-- #BLAZE_RULE(http_archive).ATTRIBUTE(sha256) -->
          The expected SHA-256 hash of the file downloaded.
 
