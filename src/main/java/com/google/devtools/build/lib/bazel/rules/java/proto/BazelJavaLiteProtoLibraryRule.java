@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.bazel.rules.java.proto;
 
+import static com.google.devtools.build.lib.bazel.rules.java.proto.BazelJavaLiteProtoAspect.DEFAULT_PROTO_TOOLCHAIN_LABEL;
 import static com.google.devtools.build.lib.packages.Aspect.INJECTING_RULE_KIND_PARAMETER_KEY;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR;
-import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.PROTO_TOOLCHAIN_LABEL;
+import static com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect.getProtoToolchainLabel;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.common.base.Function;
@@ -81,7 +82,7 @@ public class BazelJavaLiteProtoLibraryRule implements RuleDefinition {
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ProtoLangToolchainProvider.class))
-                .value(PROTO_TOOLCHAIN_LABEL))
+                .value(getProtoToolchainLabel(DEFAULT_PROTO_TOOLCHAIN_LABEL)))
         .build();
   }
 

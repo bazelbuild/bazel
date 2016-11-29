@@ -97,27 +97,32 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         }
       };
 
-  private static final Attribute.LateBoundLabel<BuildConfiguration> SPEED_PROTO_TOOLCHAIN_LABEL =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          "//tools/proto/toolchains:java", ProtoConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJava();
-        }
-      };
+  private static Attribute.LateBoundLabel<BuildConfiguration> getSpeedProtoToolchainLabel(
+      String defaultValue) {
+    return new Attribute.LateBoundLabel<BuildConfiguration>(
+        defaultValue, ProtoConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJava();
+      }
+    };
+  }
 
   private final JavaSemantics javaSemantics;
 
   @Nullable private final String jacocoLabel;
   private final RpcSupport rpcSupport;
+  private final String defaultSpeedProtoToolchainLabel;
 
   protected JavaProtoAspect(
       JavaSemantics javaSemantics,
       @Nullable String jacocoLabel,
-      RpcSupport rpcSupport) {
+      RpcSupport rpcSupport,
+      String defaultSpeedProtoToolchainLabel) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
     this.rpcSupport = rpcSupport;
+    this.defaultSpeedProtoToolchainLabel = defaultSpeedProtoToolchainLabel;
   }
 
   @Override
@@ -170,7 +175,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
                     // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
                     // once it's in a Bazel release.
                     .legacyAllowAnyFileType()
-                    .value(SPEED_PROTO_TOOLCHAIN_LABEL))
+                    .value(getSpeedProtoToolchainLabel(defaultSpeedProtoToolchainLabel)))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)

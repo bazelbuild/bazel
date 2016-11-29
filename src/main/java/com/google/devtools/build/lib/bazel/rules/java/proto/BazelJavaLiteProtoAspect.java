@@ -19,7 +19,11 @@ import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
 
 /** An Aspect which BazelJavaLiteProtoLibrary injects to build Java Lite protos. */
 public class BazelJavaLiteProtoAspect extends JavaLiteProtoAspect {
+
+  public static final String DEFAULT_PROTO_TOOLCHAIN_LABEL =
+      "@com_google_protobuf_javalite//:javalite_toolchain";
+
   public BazelJavaLiteProtoAspect() {
-    super(BazelJavaSemantics.INSTANCE, null /* jacocoLabel */);
+    super(BazelJavaSemantics.INSTANCE, null /* jacocoLabel */, DEFAULT_PROTO_TOOLCHAIN_LABEL);
   }
 }

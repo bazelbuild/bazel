@@ -115,7 +115,7 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "proto_toolchain_for_javalite",
-      defaultValue = "//tools/proto/toolchains:javalite",
+      defaultValue = "@com_google_protobuf_javalite//:javalite_toolchain",
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos"
@@ -124,7 +124,7 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "proto_toolchain_for_java",
-      defaultValue = "//tools/proto/toolchains:java",
+      defaultValue = "@com_google_protobuf_java//:java_toolchain",
       category = "flags",
       converter = BuildConfiguration.EmptyToNullLabelConverter.class,
       help = "Label of proto_lang_toolchain() which describes how to compile Java protos"

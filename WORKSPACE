@@ -59,3 +59,8 @@ bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
 bind(name = "protobuf/java_runtime", actual = "//third_party/protobuf:protobuf")
 bind(name = "protobuf/javalite_runtime", actual = "//third_party/protobuf:protobuf-lite")
 bind(name = "proto/toolchains/java", actual = "//third_party/protobuf:java_toolchain")
+new_local_repository(
+    name = "com_google_protobuf_java",
+    path = "./third_party/protobuf/3.0.0/",
+    build_file = "./third_party/protobuf/3.0.0/com_google_protobuf_java.BUILD",
+)

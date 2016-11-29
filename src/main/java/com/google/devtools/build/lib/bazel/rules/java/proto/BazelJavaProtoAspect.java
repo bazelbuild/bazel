@@ -37,7 +37,8 @@ public class BazelJavaProtoAspect extends JavaProtoAspect {
     super(
         BazelJavaSemantics.INSTANCE,
         null, /* jacocoAttr */
-        new NoopRpcSupport());
+        new NoopRpcSupport(),
+        "@com_google_protobuf_java//:java_toolchain");
   }
 
   private static class NoopRpcSupport
