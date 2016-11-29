@@ -390,8 +390,11 @@ static void MakeFilesystemMostlyReadOnly() {
       // /proc, /proc/sys/fs/binfmt_misc and /proc, with the latter /proc being
       // the one that an outer sandbox has mounted on top of its parent /proc.
       // In that case, we're not allowed to remount /proc/sys/fs/binfmt_misc,
-      // because it is hidden.
-      if (errno != EACCES && errno != EINVAL) {
+      // because it is hidden. If we get ESTALE, the mount is a broken NFS
+      // mount. In the ideal case, the user would either fix or remove that
+      // mount, but in cases where that's not possible, we should just ignore
+      // it.
+      if (errno != EACCES && errno != EINVAL && errno != ESTALE) {
         DIE("remount(NULL, %s, NULL, %d, NULL)", ent->mnt_dir, mountFlags);
       }
     }
