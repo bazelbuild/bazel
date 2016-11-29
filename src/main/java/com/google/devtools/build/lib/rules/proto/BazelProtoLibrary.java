@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -52,9 +52,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             transitiveImports, transitiveImports, protoSources, checkDepsProtoSources);
 
     NestedSet<Artifact> protosInDirectDeps =
-        ruleContext.attributes().get("strict_proto_deps", BOOLEAN)
-            ? ProtoCommon.computeProtosInDirectDeps(ruleContext)
-            : null;
+        areDepsStrict(ruleContext) ? ProtoCommon.computeProtosInDirectDeps(ruleContext) : null;
 
     final SupportData supportData =
         SupportData.create(
@@ -69,7 +67,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder result = new RuleConfiguredTargetBuilder(ruleContext);
 
-    if (checkDepsProtoSources.isEmpty()) {
+    if (checkDepsProtoSources.isEmpty() || !outputDescriptorSetFlagEnabled(ruleContext)) {
       result.setFilesToBuild(NestedSetBuilder.<Artifact>create(STABLE_ORDER));
     } else {
       Artifact descriptorSetOutput =
@@ -96,5 +94,12 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         .addProvider(ProtoSupportDataProvider.class, new ProtoSupportDataProvider(supportData))
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, sourcesProvider)
         .build();
+  }
+
+  private boolean outputDescriptorSetFlagEnabled(RuleContext ruleContext) {
+    return ruleContext
+        .getConfiguration()
+        .getFragment(ProtoConfiguration.class)
+        .outputDescriptorSet();
   }
 }

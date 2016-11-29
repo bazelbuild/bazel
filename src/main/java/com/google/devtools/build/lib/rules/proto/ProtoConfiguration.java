@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
@@ -142,6 +143,25 @@ public class ProtoConfiguration extends Fragment {
     )
     public boolean useToolchainForJavaProto;
 
+    @Option(
+      name = "strict_proto_deps",
+      defaultValue = "error",
+      converter = BuildConfiguration.StrictDepsConverter.class,
+      category = "semantics",
+      help =
+          "If true, checks that a proto_library target explicitly declares all directly "
+              + "used targets as dependencies."
+    )
+    public StrictDepsMode strictProtoDeps;
+
+    @Option(
+      name = "output_descriptor_set",
+      defaultValue = "true",
+      category = "experimental",
+      help = "When true, a proto_library will produce a descriptor set proto in its outputs."
+    )
+    public boolean outputDescriptorSet;
+
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
@@ -156,6 +176,8 @@ public class ProtoConfiguration extends Fragment {
       host.protoToolchainForJava = protoToolchainForJava;
       host.protoToolchainForJavaLite = protoToolchainForJavaLite;
       host.useToolchainForJavaProto = useToolchainForJavaProto;
+      host.strictProtoDeps = strictProtoDeps;
+      host.outputDescriptorSet = outputDescriptorSet;
       return host;
     }
   }
@@ -191,6 +213,8 @@ public class ProtoConfiguration extends Fragment {
   private final Label protoToolchainForJava;
   private final Label protoToolchainForJavaLite;
   private final boolean useToolchainForJavaProto;
+  private final StrictDepsMode strictProtoDeps;
+  private final boolean outputDescriptorSet;
 
   public ProtoConfiguration(Options options) {
     this.experimentalProtoExtraActions = options.experimentalProtoExtraActions;
@@ -203,6 +227,8 @@ public class ProtoConfiguration extends Fragment {
     this.protoToolchainForJava = options.protoToolchainForJava;
     this.protoToolchainForJavaLite = options.protoToolchainForJavaLite;
     this.useToolchainForJavaProto = options.useToolchainForJavaProto;
+    this.strictProtoDeps = options.strictProtoDeps;
+    this.outputDescriptorSet = options.outputDescriptorSet;
   }
 
   public ImmutableList<String> protocOpts() {
@@ -248,5 +274,13 @@ public class ProtoConfiguration extends Fragment {
 
   public boolean useToolchainForJavaProto() {
     return useToolchainForJavaProto;
+  }
+
+  public StrictDepsMode strictProtoDeps() {
+    return strictProtoDeps;
+  }
+
+  public boolean outputDescriptorSet() {
+    return outputDescriptorSet;
   }
 }

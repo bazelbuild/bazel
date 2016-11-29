@@ -15,18 +15,23 @@
 package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -179,5 +184,41 @@ public class ProtoCommon {
       }
     }
     return result.build();
+  }
+
+  /**
+   * Decides whether this proto_library should check for strict proto deps.
+   *
+   * <p>Takes into account command-line flags, package-level attributes and rule attributes.
+   */
+  @VisibleForTesting
+  public static boolean areDepsStrict(RuleContext ruleContext) {
+    BuildConfiguration.StrictDepsMode flagValue =
+        ruleContext.getFragment(ProtoConfiguration.class).strictProtoDeps();
+    if (flagValue == BuildConfiguration.StrictDepsMode.OFF) {
+      return false;
+    }
+    if (flagValue == BuildConfiguration.StrictDepsMode.ERROR
+        || flagValue == BuildConfiguration.StrictDepsMode.WARN) {
+      return true;
+    }
+
+    TriState attrValue = ruleContext.attributes().get("strict_proto_deps", TRISTATE);
+    if (attrValue == TriState.NO) {
+      return false;
+    }
+    if (attrValue == TriState.YES) {
+      return true;
+    }
+
+    ImmutableSet<String> pkgFeatures = ruleContext.getRule().getPackage().getFeatures();
+    if (pkgFeatures.contains("disable_strict_proto_deps_NO")) {
+      return false;
+    }
+    if (pkgFeatures.contains("disable_strict_proto_deps_YES")) {
+      return true;
+    }
+
+    return false;
   }
 }
