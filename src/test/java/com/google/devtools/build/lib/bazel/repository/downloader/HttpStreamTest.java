@@ -126,7 +126,7 @@ public class HttpStreamTest {
     try (HttpStream stream = streamFactory.create(connection, AURL, BAD_CHECKSUM, reconnector)) {
       thrown.expect(IOException.class);
       thrown.expectMessage("Checksum");
-      toByteArray(stream);
+      ByteStreams.exhaust(stream);
       fail("Should have thrown error before close()");
     }
   }
