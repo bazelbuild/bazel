@@ -10,7 +10,7 @@ FILES = [
     "java_compilation",
     "crosstool_config",
     "extra_actions_base",
-    "android_studio_ide_info",
+    "intellij_ide_info",
     "package_manifest",
     "test_status",
     "plmerge",

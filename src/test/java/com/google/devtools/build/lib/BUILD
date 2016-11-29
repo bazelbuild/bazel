@@ -679,7 +679,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/protobuf:android_studio_ide_info_java_proto",
+        "//src/main/protobuf:intellij_ide_info_java_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

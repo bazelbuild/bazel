@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect.PrerequisiteAttr;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.CIdeInfo;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.TargetIdeInfo;
 
 /**
  * Methods to handle differences between blaze and bazel in the {@link AndroidStudioInfoAspect}.
@@ -31,7 +31,7 @@ public interface AndroidStudioInfoSemantics {
   void augmentPrerequisiteAttrs(ImmutableList.Builder<PrerequisiteAttr> builder);
 
   void augmentRuleInfo(
-      RuleIdeInfo.Builder builder,
+      TargetIdeInfo.Builder builder,
       ConfiguredTarget base,
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> ideResolveArtifacts);
@@ -39,7 +39,7 @@ public interface AndroidStudioInfoSemantics {
   boolean suppressJavaRuleInfo(ConfiguredTarget base);
 
   void augmentCppRuleInfo(
-      CRuleIdeInfo.Builder builder,
+      CIdeInfo.Builder builder,
       ConfiguredTarget base,
       RuleContext ruleContext,
       CppCompilationContext cppCompilationContext,

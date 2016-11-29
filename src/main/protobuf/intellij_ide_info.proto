@@ -17,8 +17,7 @@ syntax = "proto3";
 package blaze;
 
 
-option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
-
+option java_package = "com.google.devtools.intellij.ideinfo";
 
 message ArtifactLocation {
   string relative_path = 2;
@@ -34,7 +33,7 @@ message LibraryArtifact {
   ArtifactLocation source_jar = 3;
 }
 
-message JavaRuleIdeInfo {
+message JavaIdeInfo {
   repeated LibraryArtifact jars = 1;
   repeated LibraryArtifact generated_jars = 2;
   ArtifactLocation package_manifest = 3;
@@ -43,7 +42,7 @@ message JavaRuleIdeInfo {
   LibraryArtifact filtered_gen_jar = 6;
 }
 
-message CRuleIdeInfo {
+message CIdeInfo {
   repeated ArtifactLocation source = 1;
 
   repeated string transitive_include_directory = 3;
@@ -51,12 +50,12 @@ message CRuleIdeInfo {
   repeated string transitive_define = 5;
   repeated string transitive_system_include_directory = 6;
 
-  repeated string rule_copt = 7;
-  repeated string rule_define = 8;
-  repeated string rule_include = 9;
+  repeated string target_copt = 7;
+  repeated string target_define = 8;
+  repeated string target_include = 9;
 }
 
-message AndroidRuleIdeInfo {
+message AndroidIdeInfo {
   repeated ArtifactLocation resources = 1;
   ArtifactLocation apk = 3;
   repeated ArtifactLocation dependency_apk = 4;
@@ -70,7 +69,7 @@ message AndroidRuleIdeInfo {
   string idl_import_root = 13;
 }
 
-message PyRuleIdeInfo {
+message PyIdeInfo {
   repeated ArtifactLocation sources = 1;
 }
 
@@ -110,20 +109,20 @@ message JavaToolchainIdeInfo {
   string target_version = 2;
 }
 
-message RuleIdeInfo {
+message TargetIdeInfo {
   string label = 1;
   repeated string dependencies = 4;
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
-  JavaRuleIdeInfo java_rule_ide_info = 7;
-  AndroidRuleIdeInfo android_rule_ide_info = 8;
+  JavaIdeInfo java_ide_info = 7;
+  AndroidIdeInfo android_ide_info = 8;
 
   repeated string tags = 9;
   repeated string runtime_deps = 10;
 
   ArtifactLocation build_file_artifact_location = 11;
 
-  CRuleIdeInfo c_rule_ide_info = 12;
+  CIdeInfo c_ide_info = 12;
   CToolchainIdeInfo c_toolchain_ide_info = 13;
 
   string kind_string = 14;
@@ -133,5 +132,5 @@ message RuleIdeInfo {
   ProtoLibraryLegacyJavaIdeInfo proto_library_legacy_java_ide_info = 16;
   JavaToolchainIdeInfo java_toolchain_ide_info = 17;
 
-  PyRuleIdeInfo py_rule_ide_info = 18;
+  PyIdeInfo py_ide_info = 18;
 }

@@ -130,11 +130,11 @@ def jars_from_output(output):
 def replace_empty_path_with_dot(pathString):
   return "." if len(pathString) == 0 else pathString
 
-def sources_from_rule(context):
+def sources_from_target(context):
   """
-  Get the list of sources from a rule as artifact locations.
+  Get the list of sources from a target as artifact locations.
 
-  Returns the list of sources as artifact locations for a rule or an empty list if no sources are
+  Returns the list of sources as artifact locations for a target or an empty list if no sources are
   present.
   """
 
@@ -195,64 +195,64 @@ def tool_label(label_str):
 
 ##### Builders for individual parts of the aspect output
 
-def build_py_rule_ide_info(target, ctx):
-  """Build PyRuleIdeInfo.
+def build_py_ide_info(target, ctx):
+  """Build PyIdeInfo.
 
-  Returns a tuple of (PyRuleIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the rule is not a python rule).
+  Returns a tuple of (PyIdeInfo proto, a set of intellij-resolve-files).
+  (or (None, empty set) if the target is not a python rule).
   """
   if not hasattr(target, "py"):
     return (None, set())
 
-  sources = sources_from_rule(ctx)
+  sources = sources_from_target(ctx)
   transitive_sources = target.py.transitive_sources
 
-  py_rule_ide_info = struct_omit_none(
+  py_ide_info = struct_omit_none(
       sources = sources,
   )
-  return (py_rule_ide_info, transitive_sources)
+  return (py_ide_info, transitive_sources)
 
-def build_c_rule_ide_info(target, ctx):
-  """Build CRuleIdeInfo.
+def build_c_ide_info(target, ctx):
+  """Build CIdeInfo.
 
-  Returns a tuple of (CRuleIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the rule is not a C rule).
+  Returns a tuple of (CIdeInfo proto, a set of intellij-resolve-files).
+  (or (None, empty set) if the target is not a C rule).
   """
   if not hasattr(target, "cc"):
     return (None, set())
 
-  sources = sources_from_rule(ctx)
+  sources = sources_from_target(ctx)
 
-  rule_includes = []
+  target_includes = []
   if hasattr(ctx.rule.attr, "includes"):
-    rule_includes = ctx.rule.attr.includes
-  rule_defines = []
+    target_includes = ctx.rule.attr.includes
+  target_defines = []
   if hasattr(ctx.rule.attr, "defines"):
-    rule_defines = ctx.rule.attr.defines
-  rule_copts = []
+    target_defines = ctx.rule.attr.defines
+  target_copts = []
   if hasattr(ctx.rule.attr, "copts"):
-    rule_copts = ctx.rule.attr.copts
+    target_copts = ctx.rule.attr.copts
 
   cc_provider = target.cc
 
-  c_rule_ide_info = struct_omit_none(
+  c_ide_info = struct_omit_none(
       source = sources,
-      rule_include = rule_includes,
-      rule_define = rule_defines,
-      rule_copt = rule_copts,
+      target_include = target_includes,
+      target_define = target_defines,
+      target_copt = target_copts,
       transitive_include_directory = cc_provider.include_directories,
       transitive_quote_include_directory = cc_provider.quote_include_directories,
       transitive_define = cc_provider.defines,
       transitive_system_include_directory = cc_provider.system_include_directories,
   )
   intellij_resolve_files = cc_provider.transitive_headers
-  return (c_rule_ide_info, intellij_resolve_files)
+  return (c_ide_info, intellij_resolve_files)
 
 def build_c_toolchain_ide_info(target, ctx):
   """Build CToolchainIdeInfo.
 
   Returns a pair of (CToolchainIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the rule is not a cc_toolchain rule).
+  (or (None, empty set) if the target is not a cc_toolchain rule).
   """
 
   if ctx.rule.kind != "cc_toolchain":
@@ -276,19 +276,19 @@ def build_c_toolchain_ide_info(target, ctx):
   )
   return (c_toolchain_ide_info, set())
 
-def build_java_rule_ide_info(target, ctx):
+def build_java_ide_info(target, ctx):
   """
-  Build JavaRuleIdeInfo.
+  Build JavaIdeInfo.
 
   Returns a pair of
-  (JavaRuleIdeInfo proto, a set of ide-info-files, a set of intellij-resolve-files).
-  (or (None, empty set, empty set) if the rule is not Java rule).
+  (JavaIdeInfo proto, a set of ide-info-files, a set of intellij-resolve-files).
+  (or (None, empty set, empty set) if the target is not Java rule).
   """
   if not hasattr(target, "java") or ctx.rule.kind == "proto_library":
     return (None, set(), set())
 
   ide_info_files = set()
-  sources = sources_from_rule(ctx)
+  sources = sources_from_target(ctx)
 
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   output_jars = [jar for output in target.java.outputs.jars for jar in jars_from_output(output)]
@@ -327,7 +327,7 @@ def build_java_rule_ide_info(target, ctx):
     )
     intellij_resolve_files = intellij_resolve_files | filtered_gen_resolve_files
 
-  java_rule_ide_info = struct_omit_none(
+  java_ide_info = struct_omit_none(
       sources = sources,
       jars = jars,
       jdeps = jdeps,
@@ -335,7 +335,7 @@ def build_java_rule_ide_info(target, ctx):
       package_manifest = artifact_location(package_manifest),
       filtered_gen_jar = filtered_gen_jar,
   )
-  return (java_rule_ide_info, ide_info_files, intellij_resolve_files)
+  return (java_ide_info, ide_info_files, intellij_resolve_files)
 
 def build_java_package_manifest(ctx, target, source_files, suffix):
   """Builds the java package manifest for the given source files."""
@@ -421,17 +421,17 @@ def divide_java_sources(ctx):
 
   return java_sources, gen_java_sources, srcjars
 
-def build_android_rule_ide_info(target, ctx, legacy_resource_label):
-  """Build AndroidRuleIdeInfo.
+def build_android_ide_info(target, ctx, legacy_resource_label):
+  """Build AndroidIdeInfo.
 
-  Returns a pair of (AndroidRuleIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the rule is not Android rule).
+  Returns a pair of (AndroidIdeInfo proto, a set of intellij-resolve-files).
+  (or (None, empty set) if the target is not Android rule).
   """
   if not hasattr(target, "android"):
     return (None, set())
 
   android = target.android
-  android_rule_ide_info = struct_omit_none(
+  android_ide_info = struct_omit_none(
       java_package = android.java_package,
       idl_import_root = android.idl.import_root if hasattr(android.idl, "import_root") else None,
       manifest = artifact_location(android.manifest),
@@ -449,7 +449,7 @@ def build_android_rule_ide_info(target, ctx, legacy_resource_label):
   if android.manifest and not android.manifest.is_source:
     intellij_resolve_files = intellij_resolve_files | set([android.manifest])
 
-  return (android_rule_ide_info, intellij_resolve_files)
+  return (android_ide_info, intellij_resolve_files)
 
 def build_test_info(target, ctx):
   """Build TestInfo"""
@@ -526,24 +526,24 @@ def _aspect_impl(target, ctx):
     intellij_resolve_files = intellij_resolve_files | dep.intellij_info_files.intellij_resolve_files
 
   # Collect python-specific information
-  (py_rule_ide_info, py_resolve_files) = build_py_rule_ide_info(target, ctx)
+  (py_ide_info, py_resolve_files) = build_py_ide_info(target, ctx)
   intellij_resolve_files = intellij_resolve_files | py_resolve_files
 
   # Collect C-specific information
-  (c_rule_ide_info, c_resolve_files) = build_c_rule_ide_info(target, ctx)
+  (c_ide_info, c_resolve_files) = build_c_ide_info(target, ctx)
   intellij_resolve_files = intellij_resolve_files | c_resolve_files
 
   (c_toolchain_ide_info, c_toolchain_resolve_files) = build_c_toolchain_ide_info(target, ctx)
   intellij_resolve_files = intellij_resolve_files | c_toolchain_resolve_files
 
   # Collect Java-specific information
-  (java_rule_ide_info, java_ide_info_files, java_resolve_files) = build_java_rule_ide_info(
+  (java_ide_info, java_ide_info_files, java_resolve_files) = build_java_ide_info(
       target, ctx)
   intellij_info_text = intellij_info_text | java_ide_info_files
   intellij_resolve_files = intellij_resolve_files | java_resolve_files
 
   # Collect Android-specific information
-  (android_rule_ide_info, android_resolve_files) = build_android_rule_ide_info(
+  (android_ide_info, android_resolve_files) = build_android_ide_info(
       target, ctx, legacy_resource_label)
   intellij_resolve_files = intellij_resolve_files | android_resolve_files
 
@@ -556,22 +556,22 @@ def _aspect_impl(target, ctx):
   # Collect test info
   test_info = build_test_info(target, ctx)
 
-  # Build RuleIdeInfo proto
+  # Build TargetIdeInfo proto
   info = struct_omit_none(
       label = str(target.label),
       kind_string = ctx.rule.kind,
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
       build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
-      c_rule_ide_info = c_rule_ide_info,
+      c_ide_info = c_ide_info,
       c_toolchain_ide_info = c_toolchain_ide_info,
-      java_rule_ide_info = java_rule_ide_info,
-      android_rule_ide_info = android_rule_ide_info,
+      java_ide_info = java_ide_info,
+      android_ide_info = android_ide_info,
       tags = ctx.rule.attr.tags,
       test_info = test_info,
       proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
-      py_rule_ide_info = py_rule_ide_info,
+      py_ide_info = py_ide_info,
   )
 
   # Output the ide information file.

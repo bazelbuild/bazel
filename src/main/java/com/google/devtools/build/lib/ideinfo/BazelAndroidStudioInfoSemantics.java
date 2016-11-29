@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect.PrerequisiteAttr;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.CRuleIdeInfo.Builder;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.CIdeInfo.Builder;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.TargetIdeInfo;
 
 /**
  * Bazel specific semantics for the {@link AndroidStudioInfoAspect} aspect.
@@ -42,10 +42,11 @@ public class BazelAndroidStudioInfoSemantics implements AndroidStudioInfoSemanti
   }
 
   @Override
-  public void augmentRuleInfo(RuleIdeInfo.Builder builder, ConfiguredTarget base,
+  public void augmentRuleInfo(
+      TargetIdeInfo.Builder builder,
+      ConfiguredTarget base,
       RuleContext ruleContext,
-      NestedSetBuilder<Artifact> ideResolveArtifacts) {
-  }
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {}
 
   @Override
   public boolean suppressJavaRuleInfo(ConfiguredTarget base) {
