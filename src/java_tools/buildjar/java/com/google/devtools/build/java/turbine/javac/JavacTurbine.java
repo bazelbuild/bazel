@@ -141,7 +141,7 @@ public class JavacTurbine implements AutoCloseable {
     // Compile-time jars always use Java 8
     argbuilder.add("-source");
     argbuilder.add("8");
-    argbuilder.add("-source");
+    argbuilder.add("-target");
     argbuilder.add("8");
 
     ImmutableList<Path> processorpath;
