@@ -417,6 +417,14 @@ sh_test(
     tags = ["manual"],
 )
 
+sh_test(
+    name = "rule_test_test",
+    size = "medium",
+    srcs = ["rule_test_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
