@@ -300,7 +300,7 @@ function release_to_gcs() {
     create_index_html "${dir}/${release_name}/rc${rc}" \
         >"${dir}/${release_name}/rc${rc}"/index.html
     cd ${dir}
-    "${gs}" cp -m -a public-read -r . "gs://${GCS_BUCKET}"
+    "${gs}" -m cp -a public-read -r . "gs://${GCS_BUCKET}"
     cd "${prev_dir}"
     rm -fr "${dir}"
     trap - EXIT
