@@ -270,12 +270,9 @@ public class CppCompileActionBuilder {
     // something that uses A (a header of it), we mark A and all of its transitive deps as inputs.
     // We still don't need to rebuild A, as none of its inputs have changed, but we do rebuild B
     // now and then the two modules are out of sync.
-    // We also have to disable this for fake C++ compile actions as those currently do a build first
-    // before discovering inputs and thus would not declare their inputs properly.
     boolean shouldPruneModules =
         shouldScanIncludes
             && useHeaderModules
-            && !fake
             && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE);
     if (useHeaderModules && !shouldPruneModules) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
