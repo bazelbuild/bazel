@@ -276,8 +276,7 @@ public class CppCompileActionBuilder {
         shouldScanIncludes
             && useHeaderModules
             && !fake
-            && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE)
-            && featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES);
+            && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE);
     if (useHeaderModules && !shouldPruneModules) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
     }
