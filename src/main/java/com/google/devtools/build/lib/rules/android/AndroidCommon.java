@@ -563,9 +563,7 @@ public class AndroidCommon {
       // Use a fast-path R class generator for android_binary with local resources, where there is
       // a bottleneck. For legacy resources, the srcjar and R class compiler don't match up
       // (the legacy srcjar requires the createJarJar step below).
-      boolean useRClassGenerator =
-          getAndroidConfig(ruleContext).useRClassGenerator()
-          && isBinary && !resourceApk.isLegacy();
+      boolean useRClassGenerator = isBinary && !resourceApk.isLegacy();
       compileResources(javaSemantics, resourceApk, resourcesJar, artifactsBuilder, attributes,
           filesBuilder, jarsProducedForRuntime, useRClassGenerator);
       if (resourceApk.isLegacy()) {
