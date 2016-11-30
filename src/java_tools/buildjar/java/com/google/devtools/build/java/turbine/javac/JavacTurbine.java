@@ -135,6 +135,15 @@ public class JavacTurbine implements AutoCloseable {
     // Disable debug info
     argbuilder.add("-g:none");
 
+    // Enable MethodParameters
+    argbuilder.add("-parameters");
+
+    // Compile-time jars always use Java 8
+    argbuilder.add("-source");
+    argbuilder.add("8");
+    argbuilder.add("-source");
+    argbuilder.add("8");
+
     ImmutableList<Path> processorpath;
     if (!turbineOptions.processors().isEmpty()) {
       argbuilder.add("-processor");
