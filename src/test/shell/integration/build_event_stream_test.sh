@@ -81,6 +81,17 @@ function test_test_summary() {
   expect_not_log 'aborted'
 }
 
+function test_build_only() {
+  # When building but not testing a test, there won't be a test summary
+  # (as nothing was tested), so it should not be announced.
+  # Still, no event should only be chained in by progress events.
+  bazel build --experimental_build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel build failed"
+  expect_not_log 'aborted'
+  expect_not_log 'test_summary '
+  expect_log_once '^progress'
+}
+
 function test_multiple_transports() {
   # Verifies usage of multiple build event transports at the same time
     outdir=$(mktemp -d ${TEST_TMPDIR}/bazel.XXXXXXXX)

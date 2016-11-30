@@ -48,7 +48,6 @@ import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -58,7 +57,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
@@ -110,8 +108,14 @@ public class SkyframeBuilder implements Builder {
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
     ExecutionProgressReceiver executionProgressReceiver =
-        new ExecutionProgressReceiver(Preconditions.checkNotNull(builtTargets),
-            countTestActions(exclusiveTests), skyframeExecutor.getEventBus());
+        new ExecutionProgressReceiver(
+            Preconditions.checkNotNull(builtTargets),
+            countTestActions(exclusiveTests),
+            ImmutableSet.<ConfiguredTarget>builder()
+                .addAll(parallelTests)
+                .addAll(exclusiveTests)
+                .build(),
+            skyframeExecutor.getEventBus());
     skyframeExecutor
         .getEventBus()
         .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));

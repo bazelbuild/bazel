@@ -32,7 +32,6 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.text.NumberFormat;
 import java.util.Collections;
 import java.util.Locale;
@@ -55,6 +54,7 @@ public final class ExecutionProgressReceiver
   private final Object activityIndicator = new Object();
   /** Number of exclusive tests. To be accounted for in progress messages. */
   private final int exclusiveTestsCount;
+  private final Set<ConfiguredTarget> testedTargets;
   private final EventBus eventBus;
 
   static {
@@ -63,14 +63,18 @@ public final class ExecutionProgressReceiver
   }
 
   /**
-   * {@code builtTargets} is accessed through a synchronized set, and so no other access to it
-   * is permitted while this receiver is active.
+   * {@code builtTargets} is accessed through a synchronized set, and so no other access to it is
+   * permitted while this receiver is active.
    */
   ExecutionProgressReceiver(
-      Set<ConfiguredTarget> builtTargets, int exclusiveTestsCount, EventBus eventBus) {
+      Set<ConfiguredTarget> builtTargets,
+      int exclusiveTestsCount,
+      Set<ConfiguredTarget> testedTargets,
+      EventBus eventBus) {
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.exclusiveTestsCount = exclusiveTestsCount;
     this.eventBus = eventBus;
+    this.testedTargets = testedTargets;
   }
 
   @Override
@@ -98,7 +102,11 @@ public final class ExecutionProgressReceiver
       if (value != null) {
         ConfiguredTarget target = value.getConfiguredTarget();
         builtTargets.add(target);
-        eventBus.post(TargetCompleteEvent.createSuccessful(target));
+        if (testedTargets.contains(target)) {
+          eventBus.post(TargetCompleteEvent.createSuccessfulTestTarget(target));
+        } else {
+          eventBus.post(TargetCompleteEvent.createSuccessfulTarget(target));
+        }
       }
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();

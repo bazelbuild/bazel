@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
@@ -35,8 +34,10 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
+  private final boolean isTest;
 
-  private TargetCompleteEvent(ConfiguredTarget target, NestedSet<Cause> rootCauses) {
+  private TargetCompleteEvent(
+      ConfiguredTarget target, NestedSet<Cause> rootCauses, boolean isTest) {
     this.target = target;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
@@ -46,21 +47,26 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
       postedAfterBuilder.add(BuildEventId.fromCause(cause));
     }
     this.postedAfter = postedAfterBuilder.build();
+    this.isTest = isTest;
   }
 
-  /**
-   * Construct a successful target completion event.
-   */
-  public static TargetCompleteEvent createSuccessful(ConfiguredTarget ct) {
-    return new TargetCompleteEvent(ct, null);
+  /** Construct a successful target completion event. */
+  public static TargetCompleteEvent createSuccessfulTarget(ConfiguredTarget ct) {
+    return new TargetCompleteEvent(ct, null, false);
   }
+
+  /** Construct a successful target completion event for a target that will be tested. */
+  public static TargetCompleteEvent createSuccessfulTestTarget(ConfiguredTarget ct) {
+    return new TargetCompleteEvent(ct, null, true);
+  }
+
 
   /**
    * Construct a target completion event for a failed target, with the given non-empty root causes.
    */
   public static TargetCompleteEvent createFailed(ConfiguredTarget ct, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
-    return new TargetCompleteEvent(ct, rootCauses);
+    return new TargetCompleteEvent(ct, rootCauses, false);
   }
 
   /**
@@ -93,7 +99,7 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
     for (Cause cause : getRootCauses()) {
       childrenBuilder.add(BuildEventId.fromCause(cause));
     }
-    if (TargetUtils.isTestRule(target.getTarget())) {
+    if (isTest) {
       childrenBuilder.add(BuildEventId.testSummary(target.getTarget().getLabel()));
     }
     return childrenBuilder.build();
