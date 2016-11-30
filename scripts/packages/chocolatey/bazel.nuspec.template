@@ -62,7 +62,7 @@ Supply like `--params="/option:value ..."` ([see docs for --params](https://gith
 
 * `msys2Path` (optional, defaults to c:\tools\msys64) - override this if msys2 is installed elsewhere.
 </description>
-    <releaseNotes>https://github.com/bazelbuild/bazel/releases/tag/$tvVersion</releaseNotes>
+    <releaseNotes>$tvReleaseNotesUri</releaseNotes>
     <!-- =============================== -->
 
     <!-- Specifying dependencies and version ranges? https://docs.nuget.org/create/versioning#specifying-version-ranges-in-.nuspec-files -->
