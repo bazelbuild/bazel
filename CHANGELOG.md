@@ -1,3 +1,48 @@
+## Release 0.4.2 (2016-11-30)
+
+```
+Baseline: 2a26c3c
+
+Cherry picks:
+   + a79581e: Add gpu compile support to MSVC wrapper script
+   + 4c67807: Improve reliability/performance of Bazel downloads
+   + ed7ced0: Support multiple mirror URLs for external repos
+```
+
+Incompatible changes:
+
+  - Callback functions in Skylark no longer support the cfg
+    parameter. This is a cleanup and only affects the signatures of
+    callbacks, since the parameter hasn't been set since September
+    2016.
+
+Important changes:
+
+  - Prevent spurious recompiles, e.g. with changing --test_arg.
+  - proto_library now produces a descriptor set, when built on the
+    command-line.
+  - Add ctx.coverage_instrumented function to Skylark, to indicate
+    whether a specific targets should be instrumented for code
+    coverage data collection.
+  - Use --loading_phase_threads to control the number of threads used
+    during the loading/analysis phase.
+  - Structs in Skylark are tested for structural equality instead of
+    reference equality.
+  - Skylark implementations of http_archive, new_http_archive, and
+    http_file.
+  - Labels like "@foo//:foo" can now be written as "@foo" in build
+    files
+  - Alias proto_library's produce a descriptor set that contains all
+    srcs of its dependencies.
+  - External downloads now retry with exponential backoff and support
+    gzip content-encoding.
+  - proto_library supports strict proto deps.
+  - A urls attribute has been added to repository rules to support
+    multiple mirror URLs for reliably downloading files.
+  - Top level @androidsdk support library targets have been replaced
+    by @androidsdk//<group id>:<artifact id>-<version> for Android
+    SDK Support and Google Play Services libraries.
+
 ## Release 0.4.1 (2016-11-21)
 
 ```
