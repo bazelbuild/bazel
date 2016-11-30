@@ -1566,6 +1566,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.getFragment(AndroidConfiguration.class).useSingleJarForMultidex()) {
       ruleContext.registerAction(singleJarSpawnActionBuilder(ruleContext)
           .addArgument("--exclude_build_data")
+          .addArgument("--dont_change_compression")
           .addArgument("--sources")
           .addInputArgument(inputZip)
           .addArgument("--output")
