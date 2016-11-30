@@ -1059,9 +1059,7 @@ public final class PackageFactory {
     Collection<Target> targets = context.pkgBuilder.getTargets();
     Location loc = ast.getLocation();
 
-    // Sort by name.
-    SkylarkDict<String, SkylarkDict<String, Object>> rules =
-        SkylarkDict.<String, SkylarkDict<String, Object>>of(env);
+    SkylarkDict<String, SkylarkDict<String, Object>> rules = SkylarkDict.of(env);
     for (Target t : targets) {
       if (t instanceof Rule) {
         SkylarkDict<String, Object> m = targetDict(t, loc, env);
