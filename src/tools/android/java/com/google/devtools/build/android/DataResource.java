@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
-
 import java.io.IOException;
 
 /**
@@ -42,4 +41,7 @@ public interface DataResource extends DataValue {
   void writeResourceToClass(
       FullyQualifiedName key,
       AndroidResourceClassWriter resourceClassWriter);
+  
+  /** Overwrite another {@link DataResource}. */
+  DataResource overwrite(DataResource other);
 }

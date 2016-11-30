@@ -42,6 +42,7 @@ public class DataValueFile implements DataResource, DataAsset {
   public static DataValueFile of(DataSource source) {
     return new DataValueFile(source);
   }
+
   /**
    * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
    */
@@ -98,6 +99,22 @@ public class DataValueFile implements DataResource, DataAsset {
   @Override
   public DataResource combineWith(DataResource resource) {
     throw new IllegalArgumentException(getClass() + " does not combine.");
+  }
+
+  @Override
+  public DataResource overwrite(DataResource resource) {
+    if (equals(resource)) {
+      return this;
+    }
+    return of(source.overwrite(resource.source()));
+  }
+
+  @Override
+  public DataAsset overwrite(DataAsset asset) {
+    if (equals(asset)) {
+      return this;
+    }
+    return of(source.overwrite(asset.source()));
   }
 
   @Override

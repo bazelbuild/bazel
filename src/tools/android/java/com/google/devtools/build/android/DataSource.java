@@ -14,7 +14,10 @@
 package com.google.devtools.build.android;
 
 import com.android.SdkConstants;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.proto.SerializeFormat.ProtoSource;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -32,14 +35,16 @@ public class DataSource implements Comparable<DataSource> {
     return of(path);
   }
 
-  public static DataSource of(Path source) {
-    return new DataSource(source);
+  public static DataSource of(Path sourcePath) {
+    return new DataSource(sourcePath, ImmutableSet.<DataSource>of());
   }
 
   private final Path path;
+  private final ImmutableSet<DataSource> overrides;
 
-  private DataSource(Path path) {
+  private DataSource(Path path, ImmutableSet<DataSource> overrides) {
     this.path = path;
+    this.overrides = overrides;
   }
 
   public Path getPath() {
@@ -58,12 +63,13 @@ public class DataSource implements Comparable<DataSource> {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    return Objects.equal(path, ((DataSource) o).path);
+    return Objects.equal(path, ((DataSource) o).path)
+        && Objects.equal(overrides, ((DataSource) o).overrides);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(path);
+    return Objects.hashCode(path, overrides);
   }
 
   @Override
@@ -92,7 +98,30 @@ public class DataSource implements Comparable<DataSource> {
     return this;
   }
 
+  public DataSource overwrite(DataSource... sources) {
+    ImmutableSet<DataSource> overrides =
+        ImmutableSet.<DataSource>builder().addAll(this.overrides).add(sources).build();
+    Preconditions.checkArgument(!overrides.contains(this));
+    return new DataSource(path, overrides);
+  }
+
+  public ImmutableSet<DataSource> overrides() {
+    return overrides;
+  }
+
   public boolean isInValuesFolder() {
     return path.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_VALUES);
+  }
+
+  public boolean hasOveridden(DataSource source) {
+    return overrides.contains(source);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(getClass())
+        .add("path", path)
+        .add("overrides", overrides)
+        .toString();
   }
 }

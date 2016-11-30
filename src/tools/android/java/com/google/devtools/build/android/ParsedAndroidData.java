@@ -176,10 +176,15 @@ public class ParsedAndroidData {
     @Override
     public void consume(K key, V value) {
       if (target.containsKey(key)) {
-        conflicts.add(MergeConflict.between(key, value, target.get(key)));
+        V other = target.get(key);
+        conflicts.add(MergeConflict.between(key, value, other));
+        if (!other.source().hasOveridden(value.source())) {
+          // Only replace it if the previous value has explicitly replaced the current.
+          target.put(key, value);
+        }
+      } else {
+        target.put(key, value);
       }
-      // Always record the value, conflict or not, to maintain backwards compatibility.
-      target.put(key, value);
     }
   }
 
@@ -463,12 +468,16 @@ public class ParsedAndroidData {
     return assets;
   }
 
-  boolean containsOverwritable(DataKey name) {
+  public boolean containsOverwritable(DataKey name) {
     return overwritingResources.containsKey(name);
   }
 
   public boolean containsCombineable(DataKey key) {
     return combiningResources.containsKey(key);
+  }
+  
+  public DataResource getOverwritable(DataKey name) {
+    return overwritingResources.get(name);
   }
 
   Iterable<Entry<DataKey, DataResource>> iterateOverwritableEntries() {
@@ -502,5 +511,9 @@ public class ParsedAndroidData {
 
   ImmutableSet<MergeConflict> conflicts() {
     return conflicts;
+  }
+
+  public DataAsset getAsset(DataKey key) {
+    return assets.get(key);
   }
 }

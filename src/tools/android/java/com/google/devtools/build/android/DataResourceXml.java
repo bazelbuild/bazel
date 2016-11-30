@@ -311,12 +311,16 @@ public class DataResourceXml implements DataResource {
     }
     DataResourceXml xmlResource = (DataResourceXml) resource;
     return createWithNamespaces(
-        combineSources(xmlResource.source),
+        source.combine(xmlResource.source),
         xml.combineWith(xmlResource.xml),
         namespaces.union(xmlResource.namespaces));
   }
 
-  private DataSource combineSources(DataSource otherSource) {
-    return source.combine(otherSource);
+  @Override
+  public DataResource overwrite(DataResource resource) {
+    if (equals(resource)) {
+      return this;
+    }
+    return createWithNamespaces(source.overwrite(resource.source()), xml, namespaces);
   }
 }

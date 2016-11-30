@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-
 import com.android.annotations.VisibleForTesting;
 import com.android.annotations.concurrency.Immutable;
-
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
+import java.io.IOException;
 import java.util.Objects;
 
 /**
@@ -80,6 +80,13 @@ public class MergeConflict {
 
   DataValue second() {
     return second;
+  }
+
+  boolean isValidWith(SourceChecker checker) throws IOException {
+    return !first.equals(second)
+        && !first.source().hasOveridden(second.source())
+        && !second.source().hasOveridden(first.source())
+        && !checker.checkEquality(first.source(), second.source());
   }
 
   @Override
