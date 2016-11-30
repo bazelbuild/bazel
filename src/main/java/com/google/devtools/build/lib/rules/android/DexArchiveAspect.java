@@ -112,7 +112,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result = new AspectDefinition.Builder(this)
         // Actually we care about JavaRuntimeJarProvider, but rules don't advertise that provider.
-        .requireProvider(JavaCompilationArgsProvider.class)
+        .requireProviders(JavaCompilationArgsProvider.class)
         // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
         .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))

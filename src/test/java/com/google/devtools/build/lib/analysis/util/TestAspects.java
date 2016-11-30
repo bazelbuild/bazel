@@ -24,6 +24,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -117,6 +119,14 @@ public class TestAspects {
   public static final class RequiredProvider implements TransitiveInfoProvider {
   }
 
+  /**
+   * Another very simple provider used in tests that check whether the logic that attaches aspects
+   * depending on whether a configured target has a provider works or not.
+   */
+  @Immutable
+  public static final class RequiredProvider2 implements TransitiveInfoProvider {
+  }
+
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     result.add(me);
@@ -156,6 +166,24 @@ public class TestAspects {
       }
 
       return builder.build();
+    }
+  }
+
+  /**
+   * A simple rule configured target factory that exports provider {@link RequiredProvider2}.
+   */
+  public static class DummyRuleFactory2 implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+      return new RuleConfiguredTargetBuilder(ruleContext)
+              .addProvider(
+                  new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
+              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+              .setRunfilesSupport(null, null)
+              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+              .addProvider(new RequiredProvider())
+              .addProvider(new RequiredProvider2())
+              .build();
     }
   }
 
@@ -203,7 +231,7 @@ public class TestAspects {
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER)
           .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
-          .requireProvider(RequiredProvider.class)
+          .requireProviders(RequiredProvider.class)
           .build();
 
   /**
@@ -286,6 +314,17 @@ public class TestAspects {
   }
 
   /**
+   * An aspect that requires provider sets {{@link RequiredProvider}} and
+   * {{@link RequiredProvider2}}.
+   */
+  public static class AspectRequiringProviderSets extends BaseAspect {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION;
+    }
+  }
+
+  /**
    * An aspect that has a definition depending on parameters provided by originating rule.
    */
   public static class ParametrizedDefinitionAspect extends NativeAspectClass
@@ -334,9 +373,18 @@ public class TestAspects {
 
   private static final AspectRequiringProvider ASPECT_REQUIRING_PROVIDER =
       new AspectRequiringProvider();
+  private static final AspectRequiringProviderSets ASPECT_REQUIRING_PROVIDER_SETS =
+      new AspectRequiringProviderSets();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)
-          .requireProvider(RequiredProvider.class)
+          .requireProviders(RequiredProvider.class)
+          .build();
+  private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION =
+      new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
+          .requireProviderSets(
+              ImmutableList.of(
+                  ImmutableSet.<Class<?>>of(RequiredProvider.class),
+                  ImmutableSet.<Class<?>>of(RequiredProvider2.class)))
           .build();
 
   /**
@@ -479,6 +527,30 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("aspect_requiring_provider")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines an {@link AspectRequiringProviderSets} on one of its attributes.
+   */
+  public static class AspectRequiringProviderSetsRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ASPECT_REQUIRING_PROVIDER_SETS))
+          .add(attr("baz", STRING))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("aspect_requiring_provider_sets")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
@@ -729,6 +801,29 @@ public class TestAspects {
           .build();
     }
   }
+
+  /**
+   * A rule that advertises another, different provider and implements it.
+   */
+  public static class HonestRule2 implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .advertiseProvider(RequiredProvider2.class)
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("honest2")
+          .factoryClass(DummyRuleFactory2.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
 
   /**
    * Rule with an implcit dependency.

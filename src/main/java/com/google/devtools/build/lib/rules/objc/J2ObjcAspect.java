@@ -110,8 +110,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .attributeAspect("deps", this, j2ObjcProtoAspect)
         .attributeAspect("exports", this, j2ObjcProtoAspect)
         .attributeAspect("runtime_deps", this, j2ObjcProtoAspect)
-        .requireProvider(JavaSourceInfoProvider.class)
-        .requireProvider(JavaCompilationArgsProvider.class)
+        .requireProviders(JavaSourceInfoProvider.class, JavaCompilationArgsProvider.class)
         .requiresConfigurationFragments(
             AppleConfiguration.class, J2ObjcConfiguration.class, ObjcConfiguration.class)
         .requiresHostConfigurationFragments(Jvm.class)

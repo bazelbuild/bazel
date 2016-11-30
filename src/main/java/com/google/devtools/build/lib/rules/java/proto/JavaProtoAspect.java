@@ -161,7 +161,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         new AspectDefinition.Builder(this)
             .attributeAspect("deps", this)
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
-            .requireProvider(ProtoSourcesProvider.class)
+            .requireProviders(ProtoSourcesProvider.class)
             .add(
                 attr(SPEED_PROTO_RUNTIME_ATTR, LABEL)
                     .legacyAllowAnyFileType()

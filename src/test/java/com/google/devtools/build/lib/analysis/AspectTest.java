@@ -163,6 +163,21 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectCreatedIfAtLeastOneSetOfAdvertisedProvidersArePresent() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.HonestRule2(), new TestAspects.AspectRequiringProviderSetsRule());
+
+    pkg("a",
+        "aspect_requiring_provider_sets(name='a', foo=[':b', ':c'])",
+        "honest(name='b', foo=[])",
+        "honest2(name='c', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("rule //a:a", "aspect //a:b", "aspect //a:c");
+  }
+
+  @Test
   public void aspectWithParametrizedDefinition() throws Exception {
     setRulesAvailableInTests(
         new TestAspects.BaseRule(),

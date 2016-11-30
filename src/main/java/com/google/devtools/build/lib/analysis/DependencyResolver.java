@@ -537,11 +537,22 @@ public abstract class DependencyResolver {
         extractAspectCandidates(aspects, attributeAndOwner.attribute, originalRule);
     RuleClass ruleClass = ((Rule) target).getRuleClassObject();
     ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
+
     for (Aspect aspectCandidate : aspectCandidates) {
-      if (ruleClass.canHaveAnyProvider() || Sets.difference(
-              aspectCandidate.getDefinition().getRequiredProviders(),
-              ruleClass.getAdvertisedProviders())
-          .isEmpty()) {
+      boolean requireAspect = ruleClass.canHaveAnyProvider();
+
+      if (!requireAspect) {
+        ImmutableList<ImmutableSet<Class<?>>> providersList =
+            aspectCandidate.getDefinition().getRequiredProviders();
+        for (ImmutableSet<Class<?>> providers : providersList) {
+          if (Sets.difference(providers, ruleClass.getAdvertisedProviders()).isEmpty()) {
+            requireAspect = true;
+            break;
+          }
+        }
+      }
+
+      if (requireAspect) {
         result.add(
             new AspectDescriptor(
                 aspectCandidate.getAspectClass(),

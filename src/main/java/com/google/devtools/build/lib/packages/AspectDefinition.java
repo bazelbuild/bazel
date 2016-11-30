@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,8 +55,8 @@ import javax.annotation.Nullable;
 public final class AspectDefinition {
 
   private final AspectClass aspectClass;
-  private final ImmutableSet<Class<?>> requiredProviders;
-  private final ImmutableSet<String> requiredProviderNames;
+  private final ImmutableList<ImmutableSet<Class<?>>> requiredProviderSets;
+  private final ImmutableList<ImmutableSet<String>> requiredProviderNameSets;
   private final ImmutableMap<String, Attribute> attributes;
   private final PropagationFunction attributeAspects;
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
@@ -68,16 +67,22 @@ public final class AspectDefinition {
 
   private AspectDefinition(
       AspectClass aspectClass,
-      ImmutableSet<Class<?>> requiredProviders,
+      ImmutableList<ImmutableSet<Class<?>>> requiredProviderSets,
       ImmutableMap<String, Attribute> attributes,
       PropagationFunction attributeAspects,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
     this.aspectClass = aspectClass;
-    this.requiredProviders = requiredProviders;
-    this.requiredProviderNames = toStringSet(requiredProviders);
+    this.requiredProviderSets = requiredProviderSets;
     this.attributes = attributes;
     this.attributeAspects = attributeAspects;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
+
+    ImmutableList.Builder<ImmutableSet<String>> requiredProviderNameSetsBuilder =
+        new ImmutableList.Builder<>();
+    for (ImmutableSet<Class<?>> requiredProviderSet : requiredProviderSets) {
+      requiredProviderNameSetsBuilder.add(toStringSet(requiredProviderSet));
+    }
+    this.requiredProviderNameSets = requiredProviderNameSetsBuilder.build();
   }
 
   public String getName() {
@@ -98,8 +103,9 @@ public final class AspectDefinition {
   }
 
   /**
-   * Returns the set of {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}
-   * instances that must be present on a configured target so that this aspect can be applied to it.
+   * Returns the list of {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}
+   * sets. All required providers from at least one set must be present on a configured target so
+   * that this aspect can be applied to it.
    *
    * <p>We cannot refer to that class here due to our dependency structure, so this returns a set
    * of unconstrained class objects.
@@ -107,14 +113,15 @@ public final class AspectDefinition {
    * <p>If a configured target does not have a required provider, the aspect is silently not created
    * for it.
    */
-  public ImmutableSet<Class<?>> getRequiredProviders() {
-    return requiredProviders;
+  public ImmutableList<ImmutableSet<Class<?>>> getRequiredProviders() {
+    return requiredProviderSets;
   }
 
   /**
-   * Returns the set of class names of
-   * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider} instances that must be
-   * present on a configured target so that this aspect can be applied to it.
+   * Returns the list of class name sets of
+   * {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider}. All required providers
+   * from at least one set must be present on a configured target so that this aspect can be applied
+   * to it.
    *
    * <p>This set is a mirror of the set returned by {@link #getRequiredProviders}, but contains the
    * names of the classes rather than the class objects themselves.
@@ -122,8 +129,8 @@ public final class AspectDefinition {
    * <p>If a configured target does not have a required provider, the aspect is silently not created
    * for it.
    */
-  public ImmutableSet<String> getRequiredProviderNames() {
-    return requiredProviderNames;
+  public ImmutableList<ImmutableSet<String>> getRequiredProviderNames() {
+    return requiredProviderNameSets;
   }
 
   /**
@@ -166,11 +173,19 @@ public final class AspectDefinition {
     for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
-      if (!canHaveAnyProvider && !advertisedProviders.containsAll(
-          candidateClass.getDefinition().getRequiredProviderNames())) {
-        continue;
+      if (!canHaveAnyProvider) {
+        ImmutableList<ImmutableSet<String>> providerNamesList =
+            candidateClass.getDefinition().getRequiredProviderNames();
+
+        for (ImmutableSet<String> providerNames : providerNamesList) {
+          if (advertisedProviders.containsAll(providerNames)) {
+            addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
+            break;
+          }
+        }
+      } else {
+        addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
       }
-      addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
     }
     return ImmutableMultimap.copyOf(result);
   }
@@ -228,7 +243,7 @@ public final class AspectDefinition {
   public static final class Builder {
     private final AspectClass aspectClass;
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
-    private final Set<Class<?>> requiredProviders = new LinkedHashSet<>();
+    private ImmutableList<ImmutableSet<Class<?>>> requiredProviderSets = ImmutableList.of();
     private final Multimap<String, AspectClass> attributeAspects = LinkedHashMultimap.create();
     private ImmutableCollection<AspectClass> allAttributesAspects = null;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
@@ -239,10 +254,25 @@ public final class AspectDefinition {
     }
 
     /**
-     * Asserts that this aspect can only be evaluated for rules that supply the specified provider.
+     * Asserts that this aspect can only be evaluated for rules that supply all of the providers
+     * from at least one set of required providers.
      */
-    public Builder requireProvider(Class<?> requiredProvider) {
-      this.requiredProviders.add(requiredProvider);
+    public Builder requireProviderSets(Iterable<? extends Set<Class<?>>> providerSets) {
+      ImmutableList.Builder<ImmutableSet<Class<?>>> requiredProviderSetsBuilder =
+          ImmutableList.builder();
+      for (Iterable<Class<?>> providerSet : providerSets) {
+        requiredProviderSetsBuilder.add(ImmutableSet.copyOf(providerSet));
+      }
+      requiredProviderSets = requiredProviderSetsBuilder.build();
+      return this;
+    }
+
+    /**
+     * Asserts that this aspect can only be evaluated for rules that supply all of the specified
+     * providers.
+     */
+    public Builder requireProviders(Class<?>... requiredProviders) {
+      requireProviderSets(ImmutableList.of(ImmutableSet.copyOf(requiredProviders)));
       return this;
     }
 
@@ -412,7 +442,15 @@ public final class AspectDefinition {
      * <p>The builder object is reusable afterwards.
      */
     public AspectDefinition build() {
-      return new AspectDefinition(aspectClass, ImmutableSet.copyOf(requiredProviders),
+      // If there is no required provider set, we still need to at least provide one empty set of
+      // providers. We consider this case specially because aspects with no required providers
+      // should match all rules, and having an empty set faciliates the matching logic.
+      ImmutableList<ImmutableSet<Class<?>>> requiredProviders =
+          requiredProviderSets.isEmpty()
+          ? ImmutableList.of(ImmutableSet.<Class<?>>of())
+          : requiredProviderSets;
+
+      return new AspectDefinition(aspectClass, ImmutableList.copyOf(requiredProviders),
           ImmutableMap.copyOf(attributes),
           allAttributesAspects != null
               ? new AllAttributesPropagationFunction(allAttributesAspects)
