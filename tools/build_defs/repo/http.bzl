@@ -35,14 +35,11 @@ def _http_archive_impl(ctx):
   if ctx.attr.build_file and ctx.attr.build_file_content:
     ctx.fail("Only one of build_file and build_file_content can be provided.")
 
-  # TODO(dzc,jart): Implement fallback URLs when available.
-  if len(ctx.attr.urls) > 1:
-    ctx.fail("Multiple urls are not yet supported.")
-  url = ctx.attr.urls[0]
-  ctx.download_and_extract(url, "", ctx.attr.sha256, ctx.attr.type,
+  ctx.download_and_extract(ctx.attr.urls, "", ctx.attr.sha256, ctx.attr.type,
                            ctx.attr.strip_prefix)
   ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name=ctx.name))
   if ctx.attr.build_file:
+    print("ctx.attr.build_file %s" % str(ctx.attr.build_file))
     ctx.symlink(ctx.attr.build_file, "BUILD")
   else:
     ctx.file("BUILD", ctx.attr.build_file_content)
@@ -59,11 +56,8 @@ filegroup(
 
 def _http_file_impl(ctx):
   """Implementation of the http_file rule."""
-  # TODO(dzc,jart): Implement fallback URLs when available.
-  if len(ctx.attr.urls) > 1:
-    ctx.fail("Multiple urls are not yet supported.")
-  url = ctx.attr.urls[0]
-  ctx.download(url, "file/downloaded", ctx.attr.sha256, ctx.attr.executable)
+  ctx.download(ctx.attr.urls, "file/downloaded", ctx.attr.sha256,
+               ctx.attr.executable)
   ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name=ctx.name))
   ctx.file("file/BUILD", _HTTP_FILE_BUILD)
 
@@ -123,7 +117,7 @@ Examples:
       name = "my_ssl",
       urls = ["http://example.com/openssl.zip"],
       sha256 = "03a58ac630e59778f328af4bcc4acb4f80208ed4",
-      build_file = "openssl.BUILD",
+      build_file = "//:openssl.BUILD",
   )
   ```
 
