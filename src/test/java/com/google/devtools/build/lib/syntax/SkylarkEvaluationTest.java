@@ -919,7 +919,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "  for a in d:",
         "    s += a",
         "  return s",
-        "s = foo()").testLookup("s", "cab");
+        "s = foo()").testLookup("s", "abc");
   }
 
   @Test

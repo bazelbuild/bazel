@@ -1432,9 +1432,9 @@ public class MethodLibrary {
     objectType = SkylarkDict.class,
     returnType = MutableList.class,
     doc =
-        "Returns the list of values:"
+        "Returns the list of values. Dictionaries are always sorted by their keys:"
             + "<pre class=\"language-python\">"
-            + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"a\", \"b\", \"c\"]</pre>\n",
+            + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n",
     parameters = {@Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
     useEnvironment = true
   )
@@ -1450,9 +1450,9 @@ public class MethodLibrary {
     objectType = SkylarkDict.class,
     returnType = MutableList.class,
     doc =
-        "Returns the list of key-value tuples:"
+        "Returns the list of key-value tuples. Dictionaries are always sorted by their keys:"
             + "<pre class=\"language-python\">"
-            + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(2, \"a\"), (4, \"b\"), (1, \"c\")]"
+            + "{2: \"a\", 4: \"b\", 1: \"c\"}.items() == [(1, \"c\"), (2, \"a\"), (4, \"b\")]"
             + "</pre>\n",
     parameters = {@Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
     useEnvironment = true
@@ -1470,8 +1470,8 @@ public class MethodLibrary {
 
   @SkylarkSignature(name = "keys", objectType = SkylarkDict.class,
       returnType = MutableList.class,
-      doc = "Returns the list of keys:"
-          + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [2, 4, 1]"
+      doc = "Returns the list of keys. Dictionaries are always sorted by their keys:"
+          + "<pre class=\"language-python\">{2: \"a\", 4: \"b\", 1: \"c\"}.keys() == [1, 2, 4]"
           + "</pre>\n",
       parameters = {
         @Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
@@ -1482,11 +1482,9 @@ public class MethodLibrary {
     @SuppressWarnings("unchecked")
     public MutableList<?> invoke(SkylarkDict<?, ?> self,
         Environment env) throws EvalException {
-      List<Object> list = Lists.newArrayListWithCapacity(self.size());
-      for (Map.Entry<?, ?> entries : self.entrySet()) {
-        list.add(entries.getKey());
-      }
-      return new MutableList(list, env);
+      return new MutableList(
+          Ordering.natural().sortedCopy((Set<Comparable<?>>) (Set<?>) self.keySet()),
+          env);
     }
   };
 
