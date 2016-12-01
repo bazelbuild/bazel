@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.cmdline.Label;
+
 /** This class contains Bazel-specific functions to extend or interoperate with Skylark. */
 public final class SkylarkUtils {
 
@@ -23,6 +25,7 @@ public final class SkylarkUtils {
   }
 
   private static final String BAZEL_INFO_KEY = "$bazel";
+  private static final String CALLER_LABEL_KEY = "$caller_label";
 
   private static BazelInfo getInfo(Environment env) {
     Object info = env.lookup(BAZEL_INFO_KEY);
@@ -45,5 +48,24 @@ public final class SkylarkUtils {
 
   public static String getToolsRepository(Environment env) {
     return getInfo(env).toolsRepository;
+  }
+
+  public static void setCallerLabel(Environment env, Label label) {
+    // We cannot store this information in BazelInfo, because we need to
+    // have it in the local environment (not the global environment).
+    try {
+      env.update(CALLER_LABEL_KEY, label);
+    } catch (EvalException e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  /**
+   * Gets the label of the BUILD file that is using this environment. For example, if a target
+   * //foo has a dependency on //bar which is a Skylark rule defined in //rules:my_rule.bzl being
+   * evaluated in this environment, then this would return //foo.
+   */
+  public static Label getCallerLabel(Environment env) {
+    return (Label) env.lookup(CALLER_LABEL_KEY);
   }
 }
