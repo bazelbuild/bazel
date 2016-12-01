@@ -145,7 +145,7 @@ bool IsSharedLibrary(const string &filename) {
 
 string GetDefaultHostJavabase() {
   // if JAVA_HOME is defined, then use it as default.
-  string javahome = getenv("JAVA_HOME");
+  string javahome = GetEnv("JAVA_HOME");
   return !javahome.empty() ? javahome : "/usr/local/openjdk8";
 }
 
