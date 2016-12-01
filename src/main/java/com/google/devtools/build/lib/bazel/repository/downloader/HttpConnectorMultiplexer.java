@@ -20,6 +20,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.bazel.repository.downloader.RetryingInputStream.Reconnector;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
@@ -61,7 +62,11 @@ final class HttpConnectorMultiplexer {
   private static final int MAX_THREADS_PER_CONNECT = 2;
   private static final long FAILOVER_DELAY_MS = 2000;
   private static final ImmutableMap<String, String> REQUEST_HEADERS =
-      ImmutableMap.of("Accept-Encoding", "gzip");
+      ImmutableMap.of(
+          "Accept-Encoding",
+          "gzip",
+          "User-Agent",
+          "Bazel/" + BlazeVersionInfo.instance().getReleaseName());
 
   private final EventHandler eventHandler;
   private final HttpConnector connector;
