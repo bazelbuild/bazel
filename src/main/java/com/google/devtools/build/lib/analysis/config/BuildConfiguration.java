@@ -1120,29 +1120,6 @@ public final class BuildConfiguration {
   private final Map<String, OptionDetails> transitiveOptionsMap;
 
   /**
-   * Returns {@code true} if this configuration is semantically equal to the other, including
-   * checking that both have the same sets of fragments and options.
-   */
-  @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    } else if (!(other instanceof BuildConfiguration)) {
-      return false;
-    } else {
-      BuildConfiguration otherConfig = (BuildConfiguration) other;
-      return actionsEnabled == otherConfig.actionsEnabled
-          && fragments.values().equals(otherConfig.fragments.values())
-          && buildOptions.getOptions().equals(otherConfig.buildOptions.getOptions());
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(actionsEnabled, fragments, buildOptions.getOptions());
-  }
-
-  /**
    * Returns true if this configuration is semantically equal to the other, with
    * the possible exception that the other has fewer fragments.
    *

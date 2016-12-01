@@ -426,7 +426,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final void createBuildView() throws Exception {
     Preconditions.checkNotNull(masterConfig);
-    Preconditions.checkState(getHostConfiguration().equals(getTargetConfiguration())
+    Preconditions.checkState(getHostConfiguration() == getTargetConfiguration()
         || getHostConfiguration().isHostConfiguration(),
         "Host configuration %s is not a host configuration' "
         + "and does not match target configuration %s",
