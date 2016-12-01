@@ -38,12 +38,40 @@ bool stat_file(const char* path, Stat* result) {
 #else   // not COMPILER_MSVC
   struct stat statst;
   if (stat(path, &statst) < 0) {
+    fprintf(stderr, "Cannot stat file %s: %s\n", path, strerror(errno));
     return false;
   }
   result->total_size = statst.st_size;
   result->file_mode = statst.st_mode;
   result->is_directory = (statst.st_mode & S_IFDIR) != 0;
   return true;
+#endif  // COMPILER_MSVC
+}
+
+bool write_file(const char* path, mode_t perm, const void* data, size_t size) {
+#ifdef COMPILER_MSVC
+  // TODO(laszlocsomor) 2016-12-01: implement this and other methods, in order
+  // to close https://github.com/bazelbuild/bazel/issues/2157.
+  fprintf(stderr, "Not yet implemented on Windows\n");
+  return false;
+#else   // not COMPILER_MSVC
+  int fd = open(path, O_CREAT | O_WRONLY, perm);
+  if (fd < 0) {
+    fprintf(stderr, "Cannot open file %s for writing: %s\n",
+            path, strerror(errno));
+    return false;
+  }
+  bool result = true;
+  if (write(fd, data, size) != size) {
+    fprintf(stderr, "Cannot write %zu bytes to file %s: %s\n",
+            size, path, strerror(errno));
+    result = false;
+  }
+  if (close(fd)) {
+    fprintf(stderr, "Cannot close file %s: %s\n", path, strerror(errno));
+    result = false;
+  }
+  return result;
 #endif  // COMPILER_MSVC
 }
 

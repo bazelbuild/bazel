@@ -35,7 +35,14 @@ struct Stat {
 
 // Writes stat data into `result` about the file under `path`.
 // Returns true upon success: file is found and can be stat'ed.
+// Returns false upon failure and reports the error to stderr.
 bool stat_file(const char* path, Stat* result);
+
+// Writes `size` bytes from `data` into file under `path`.
+// The file is created or overwritten and is set to have `perm` permissions.
+// Returns true upon success: file is created and all data is written.
+// Returns false upon failure and reports the error to stderr.
+bool write_file(const char* path, mode_t perm, const void* data, size_t size);
 
 }  // namespace devtools_ijar
 

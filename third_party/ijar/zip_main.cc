@@ -37,13 +37,6 @@
 
 namespace devtools_ijar {
 
-#define SYSCALL(expr)  do { \
-                         if ((expr) < 0) { \
-                           perror(#expr); \
-                           abort(); \
-                         } \
-                       } while (0)
-
 //
 // A ZipExtractorProcessor that extract files in the ZIP file.
 //
@@ -142,20 +135,12 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   }
   if (extract_) {
     char path[PATH_MAX];
-    int fd;
     concat_path(path, PATH_MAX, output_root_, filename);
     // Directories created must have executable bit set and be owner writeable.
     // Otherwise, we cannot write or create any file inside.
     mkdirs(path, perm | S_IWUSR | S_IXUSR);
-    if (!isdir) {
-      fd = open(path, O_CREAT | O_WRONLY, perm);
-      if (fd < 0) {
-        fprintf(stderr, "Cannot open file %s for writing: %s\n",
-                path, strerror(errno));
-        abort();
-      }
-      SYSCALL(write(fd, data, size));
-      SYSCALL(close(fd));
+    if (!isdir && !write_file(path, perm, data, size)) {
+      abort();
     }
   }
 }
@@ -230,7 +215,6 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
   file_stat.file_mode = 0666;
   if (file != NULL) {
     if (!stat_file(file, &file_stat)) {
-      fprintf(stderr, "Cannot stat file %s: %s.\n", file, strerror(errno));
       return -1;
     }
   }
@@ -293,7 +277,6 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
 char **read_filelist(char *filename) {
   Stat file_stat;
   if (!stat_file(filename, &file_stat)) {
-    fprintf(stderr, "Cannot stat file %s: %s.\n", filename, strerror(errno));
     return NULL;
   }
 
