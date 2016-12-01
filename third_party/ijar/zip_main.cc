@@ -21,13 +21,13 @@
 //
 
 #include <errno.h>
-#include <fcntl.h>
 #include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include <memory>
 #include <set>
 #include <string>
@@ -158,23 +158,6 @@ void basename(const char *path, char *output, size_t output_size) {
   output[output_size-1] = 0;
 }
 
-// copy size bytes from file descriptor fd into buffer.
-int copy_file_to_buffer(int fd, size_t size, void *buffer) {
-  size_t nb_read = 0;
-  while (nb_read < size) {
-    size_t to_read = size - nb_read;
-    if (to_read > 16384 /* 16K */) {
-      to_read = 16384;
-    }
-    ssize_t r = read(fd, static_cast<uint8_t *>(buffer) + nb_read, to_read);
-    if (r < 0) {
-      return -1;
-    }
-    nb_read += r;
-  }
-  return 0;
-}
-
 // Execute the extraction (or just listing if just v is provided)
 int extract(char *zipfile, char* exdir, char **files, bool verbose,
             bool extract) {
@@ -254,19 +237,9 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
   if (isdir || file_stat.total_size == 0) {
     builder->FinishFile(0);
   } else {
-    // read the input file
-    int fd = open(file, O_RDONLY);
-    if (fd < 0) {
-      fprintf(stderr, "Can't open file %s for reading: %s.\n", file,
-              strerror(errno));
+    if (!read_file(file, buffer, file_stat.total_size)) {
       return -1;
     }
-    if (copy_file_to_buffer(fd, file_stat.total_size, buffer) < 0) {
-      fprintf(stderr, "Can't read file %s: %s.\n", file, strerror(errno));
-      close(fd);
-      return -1;
-    }
-    close(fd);
     builder->FinishFile(file_stat.total_size, compress, true);
   }
   return 0;
@@ -280,20 +253,10 @@ char **read_filelist(char *filename) {
     return NULL;
   }
 
-  int fd = open(filename, O_RDONLY);
-  if (fd < 0) {
-    fprintf(stderr, "Can't open file %s for reading: %s.\n", filename,
-            strerror(errno));
-    return NULL;
-  }
-
   char *data = static_cast<char *>(malloc(file_stat.total_size));
-  if (copy_file_to_buffer(fd, file_stat.total_size, data) < 0) {
-    fprintf(stderr, "Can't read file %s: %s.\n", filename, strerror(errno));
-    close(fd);
+  if (!read_file(filename, data, file_stat.total_size)) {
     return NULL;
   }
-  close(fd);
 
   int nb_entries = 1;
   for (int i = 0; i < file_stat.total_size; i++) {

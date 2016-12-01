@@ -44,6 +44,11 @@ bool stat_file(const char* path, Stat* result);
 // Returns false upon failure and reports the error to stderr.
 bool write_file(const char* path, mode_t perm, const void* data, size_t size);
 
+// Reads at most `size` bytes into `buffer` from the file under `path`.
+// Returns true upon success: file is opened and all data is read.
+// Returns false upon failure and reports the error to stderr.
+bool read_file(const char* path, void* buffer, size_t size);
+
 }  // namespace devtools_ijar
 
 #endif  // THIRD_PARTY_IJAR_PLATFORM_UTILS_H_
