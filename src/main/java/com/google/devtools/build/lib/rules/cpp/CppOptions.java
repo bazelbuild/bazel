@@ -316,6 +316,15 @@ public class CppOptions extends FragmentOptions {
   public List<String> linkoptList;
 
   @Option(
+    name = "ltoindexopt",
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    help = "Additional option to pass to the LTO indexing step (under --features=thin_lto)."
+  )
+  public List<String> ltoindexoptList;
+
+  @Option(
     name = "stripopt",
     allowMultiple = true,
     defaultValue = "",

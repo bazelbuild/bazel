@@ -319,6 +319,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> testOnlyLinkFlags;
 
   private final ImmutableList<String> linkOptions;
+  private final ImmutableList<String> ltoindexOptions;
 
   private final ImmutableList<String> objcopyOptions;
   private final ImmutableList<String> ldOptions;
@@ -586,6 +587,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       linkoptsBuilder.add(sysrootFlag);
     }
     this.linkOptions = linkoptsBuilder.build();
+
+    ImmutableList.Builder<String> ltoindexoptsBuilder = ImmutableList.builder();
+    ltoindexoptsBuilder.addAll(cppOptions.ltoindexoptList);
+    this.ltoindexOptions = ltoindexoptsBuilder.build();
 
     ImmutableList.Builder<String> coptsBuilder = ImmutableList.<String>builder()
         .addAll(toolchain.getCompilerFlagList())
@@ -1454,6 +1459,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       + "inferred from the command-line options.")
   public ImmutableList<String> getLinkOptions() {
     return linkOptions;
+  }
+
+  /** Returns the set of command-line LTO indexing options. */
+  public ImmutableList<String> getLTOIndexOptions() {
+    return ltoindexOptions;
   }
 
   /**
