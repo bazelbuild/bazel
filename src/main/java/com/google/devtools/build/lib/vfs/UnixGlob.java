@@ -44,7 +44,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
@@ -71,7 +70,7 @@ public final class UnixGlob {
     GlobVisitor visitor =
         (threadPool == null)
             ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption, -1);
+            : new GlobVisitor(threadPool, checkForInterruption);
     return visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
@@ -85,7 +84,7 @@ public final class UnixGlob {
     GlobVisitor visitor =
         (threadPool == null)
             ? new GlobVisitor(checkForInterruption)
-            : new GlobVisitor(threadPool, checkForInterruption, -1);
+            : new GlobVisitor(threadPool, checkForInterruption);
     visitor.glob(base, patterns, excludeDirectories, dirPred, syscalls);
     return visitor.getNumGlobTasksForTesting();
   }
@@ -97,10 +96,9 @@ public final class UnixGlob {
       Predicate<Path> dirPred,
       FilesystemCalls syscalls,
       boolean checkForInterruption,
-      ThreadPoolExecutor threadPool,
-      int maxDirectoriesToEagerlyVisit) {
+      ThreadPoolExecutor threadPool) {
     Preconditions.checkNotNull(threadPool, "%s %s", base, patterns);
-    return new GlobVisitor(threadPool, checkForInterruption, maxDirectoriesToEagerlyVisit)
+    return new GlobVisitor(threadPool, checkForInterruption)
         .globAsync(base, patterns, excludeDirectories, dirPred, syscalls);
   }
 
@@ -309,7 +307,6 @@ public final class UnixGlob {
     private ThreadPoolExecutor threadPool;
     private AtomicReference<? extends FilesystemCalls> syscalls =
         new AtomicReference<>(DEFAULT_SYSCALLS);
-    private int maxDirectoriesToEagerlyVisit = -1;
 
     /**
      * Creates a glob builder with the given base path.
@@ -390,11 +387,6 @@ public final class UnixGlob {
       return this;
     }
 
-    public Builder setMaxDirectoriesToEagerlyVisit(int maxDirectoriesToEagerlyVisit) {
-      this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
-      return this;
-    }
-
     /**
      * Executes the glob.
      */
@@ -439,8 +431,7 @@ public final class UnixGlob {
           pathFilter,
           syscalls.get(),
           checkForInterrupt,
-          threadPool,
-          maxDirectoriesToEagerlyVisit);
+          threadPool);
     }
   }
 
@@ -507,21 +498,17 @@ public final class UnixGlob {
     private final AtomicLong totalOps = new AtomicLong(0);
     private final AtomicLong pendingOps = new AtomicLong(0);
     private final AtomicReference<IOException> failure = new AtomicReference<>();
-    private final int maxDirectoriesToEagerlyVisit;
-    private final AtomicInteger visitedDirectories = new AtomicInteger(0);
     private volatile boolean canceled = false;
 
     GlobVisitor(
         ThreadPoolExecutor executor,
-        boolean failFastOnInterrupt,
-        int maxDirectoriesToEagerlyVisit) {
+        boolean failFastOnInterrupt) {
       this.executor = executor;
       this.result = new GlobFuture(this, failFastOnInterrupt);
-      this.maxDirectoriesToEagerlyVisit = maxDirectoriesToEagerlyVisit;
     }
 
     GlobVisitor(boolean failFastOnInterrupt) {
-      this(null, failFastOnInterrupt, -1);
+      this(null, failFastOnInterrupt);
     }
 
     /**
@@ -555,14 +542,6 @@ public final class UnixGlob {
 
     private static boolean isRecursivePattern(String pattern) {
       return "**".equals(pattern);
-    }
-
-    /**
-     * Whether or not to store the results of this glob. If this glob is being done purely to warm
-     * the filesystem, we do not store the results, since it would take unnecessary memory.
-     */
-    private boolean storeGlobResults() {
-      return maxDirectoriesToEagerlyVisit == -1;
     }
 
     /**
@@ -780,7 +759,7 @@ public final class UnixGlob {
       }
 
       if (idx == context.patternParts.length) { // Base case.
-        if (storeGlobResults() && !(context.excludeDirectories && baseIsDir)) {
+        if (!(context.excludeDirectories && baseIsDir)) {
           results.add(base);
         }
 
@@ -792,10 +771,6 @@ public final class UnixGlob {
         return;
       }
 
-      if (maxDirectoriesToEagerlyVisit > -1
-          && visitedDirectories.incrementAndGet() > maxDirectoriesToEagerlyVisit) {
-        return;
-      }
       final String pattern = context.patternParts[idx];
 
       // ** is special: it can match nothing at all.
@@ -843,7 +818,7 @@ public final class UnixGlob {
             context.queueGlob(child, childIsDir, idx + 1);
           } else {
             // Instead of using an async call, just repeat the base case above.
-            if (storeGlobResults() && idx + 1 == context.patternParts.length) {
+            if (idx + 1 == context.patternParts.length) {
               results.add(child);
             }
           }

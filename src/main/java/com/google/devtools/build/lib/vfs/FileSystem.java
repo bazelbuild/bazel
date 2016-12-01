@@ -827,4 +827,12 @@ public abstract class FileSystem {
    */
   protected abstract void createFSDependentHardLink(Path linkPath, Path originalPath)
       throws IOException;
+
+  /**
+   * Prefetch all directories and symlinks within the package
+   * rooted at "path".  Enter at most "maxDirs" total directories.
+   * Specializations for high-latency remote filesystems may wish to
+   * implement this in order to warm the filesystem's internal caches.
+   */
+  protected void prefetchPackageAsync(Path path, int maxDirs) { }
 }

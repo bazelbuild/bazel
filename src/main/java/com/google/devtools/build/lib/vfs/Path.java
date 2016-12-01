@@ -1227,6 +1227,10 @@ public class Path implements Comparable<Path>, Serializable {
     fileSystem.chmod(this, mode);
   }
 
+  public void prefetchPackageAsync(int maxDirs) {
+    fileSystem.prefetchPackageAsync(this, maxDirs);
+  }
+
   /**
    * Compare Paths of the same file system using their PathFragments.
    *
