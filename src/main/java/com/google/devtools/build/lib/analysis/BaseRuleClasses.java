@@ -187,12 +187,14 @@ public class BaseRuleClasses {
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
             .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints()
             .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
         )
         .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
             .allowedFileTypes(FileTypeSet.NO_FILE)
+            .dontCheckConstraints()
             .nonconfigurable("special logic for constraints and select: see ConstraintSemantics")
         );
   }
@@ -244,7 +246,9 @@ public class BaseRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("deps", LABEL_LIST).legacyAllowAnyFileType())
-          .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("data", LABEL_LIST).cfg(DATA)
+              .allowedFileTypes(FileTypeSet.ANY_FILE)
+              .dontCheckConstraints())
           .build();
     }
 

@@ -241,16 +241,6 @@ public final class RuleClass {
       "$" + COMPATIBLE_ENVIRONMENT_ATTR;
 
   /**
-   * Checks if an attribute is part of the constraint system.
-   */
-  public static boolean isConstraintAttribute(String attr) {
-    return RESTRICTED_ENVIRONMENT_ATTR.equals(attr)
-        || COMPATIBLE_ENVIRONMENT_ATTR.equals(attr)
-        || DEFAULT_RESTRICTED_ENVIRONMENT_ATTR.equals(attr)
-        || DEFAULT_COMPATIBLE_ENVIRONMENT_ATTR.equals(attr);
-  }
-
-  /**
    * A support class to make it easier to create {@code RuleClass} instances.
    * This class follows the 'fluent builder' pattern.
    *

@@ -233,7 +233,8 @@ public class BazelJavaRuleClasses {
           .add(
               attr("resources", LABEL_LIST)
                   .orderIndependent()
-                  .allowedFileTypes(FileTypeSet.ANY_FILE))
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .dontCheckConstraints())
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_strip_prefix) -->
           The path prefix to strip from Java resources.
           <p>

@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -293,11 +294,18 @@ public final class Attribute implements Comparable<Attribute> {
     SKIP_PREREQ_VALIDATOR_CHECKS,
 
     /**
-     * Whether we should check constraints on dependencies under this attribute
-     * (see {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics}). If set,
-     * the attribute is constraint-enforced even if default enforcement policy would skip it.
+     * Whether we should check constraints on this attribute even if default enforcement policy
+     * would skip it. See
+     * {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for more on
+     * constraints.
      */
-    CHECK_CONSTRAINTS,
+    CHECK_CONSTRAINTS_OVERRIDE,
+
+    /**
+     * Whether we should skip constraints checking on this attribute even if default enforcement
+     * policy would check it.
+     */
+    SKIP_CONSTRAINTS_OVERRIDE,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -738,16 +746,31 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Enforces constraint checking on dependencies under this attribute. Not calling this method
-     * does <i>not</i> mean the attribute won't be enforced. This method simply overrides default
-     * enforcement policy, so it's useful for special-case attributes that would otherwise be
-     * skipped.
+     * Enforces constraint checking on this attribute even if default enforcement policy would skip
+     * it. If default policy checks the attribute, this is a no-op.
+     *
+     * <p>Most attributes are enforced by default, so in the common case this call is unnecessary.
      *
      * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
-     * for default enforcement policy.
+     * for enforcement policy details.
      */
     public Builder<TYPE> checkConstraints() {
-      return setPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS, "check_constraints");
+      Verify.verify(!propertyFlags.contains(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE),
+          "constraint checking is already overridden to be skipped");
+      return setPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE, "check_constraints");
+    }
+
+    /**
+     * Skips constraint checking on this attribute even if default enforcement policy would check
+     * it. If default policy skips the attribute, this is a no-op.
+     *
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
+     * for enforcement policy details.
+     */
+    public Builder<TYPE> dontCheckConstraints() {
+      Verify.verify(!propertyFlags.contains(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE),
+          "constraint checking is already overridden to be checked");
+      return setPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE, "dont_check_constraints");
     }
 
     /**
@@ -1932,7 +1955,11 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   public boolean checkConstraintsOverride() {
-    return getPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS);
+    return getPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE);
+  }
+
+  public boolean skipConstraintsOverride() {
+    return getPropertyFlag(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE);
   }
 
   /**

@@ -739,16 +739,14 @@ public class ConstraintSemantics {
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : attributes.getAttributeNames()) {
       Attribute attrDef = attributes.getAttributeDefinition(attr);
-      Type<?> attrType = attributes.getAttributeType(attr);
-
-      // TODO(bazel-team): support a user-definable API for choosing which attributes are checked
+      if ((attrDef.getType() != BuildType.LABEL && attrDef.getType() != BuildType.LABEL_LIST)
+          || attrDef.skipConstraintsOverride()) {
+        continue;
+      }
       if (!attrDef.checkConstraintsOverride()) {
-        if ((attrType != BuildType.LABEL && attrType != BuildType.LABEL_LIST)
-            || RuleClass.isConstraintAttribute(attr)
-            || attr.equals("visibility")
-            // Use the same implicit deps check that query uses. This facilitates running queries to
-            // determine exactly which rules need to be constraint-annotated for depot migrations.
-            || !DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
+        // Use the same implicit deps check that query uses. This facilitates running queries to
+        // determine exactly which rules need to be constraint-annotated for depot migrations.
+        if (!DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
             // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
             // because --nodistinct_host_configuration subverts that call.
             || attrDef.getConfigurationTransition() == Attribute.ConfigurationTransition.HOST) {
@@ -756,7 +754,8 @@ public class ConstraintSemantics {
         }
       }
 
-      Set<Label> selectOnlyDepsForThisAttribute = getDepsOnlyInSelects(ruleContext, attr, attrType);
+      Set<Label> selectOnlyDepsForThisAttribute =
+          getDepsOnlyInSelects(ruleContext, attr, attributes.getAttributeType(attr));
       for (TransitiveInfoCollection dep :
           ruleContext.getPrerequisites(attr, RuleConfiguredTarget.Mode.DONT_CHECK)) {
         // Output files inherit the environment spec of their generating rule.
