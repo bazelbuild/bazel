@@ -671,6 +671,15 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Returns true iff the rule, or any attached aspect, has an attribute with the given name and
+   * type.
+   */
+  public boolean isAttrDefined(String attrName, Type<?> type) {
+    Attribute attribute = getAttribute(attrName);
+    return attribute != null && attribute.getType() == type;
+  }
+
+  /**
    * Returns the dependencies through a {@code LABEL_DICT_UNARY} attribute as a map from
    * a string to a {@link TransitiveInfoCollection}.
    */

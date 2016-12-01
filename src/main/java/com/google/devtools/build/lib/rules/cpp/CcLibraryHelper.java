@@ -869,7 +869,7 @@ public final class CcLibraryHelper {
     Preconditions.checkState(
         // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
         ruleContext.getRule().getRuleClass().equals("cc_inc_library")
-        || ruleContext.getRule().isAttrDefined(":lipo_context_collector", BuildType.LABEL));
+            || ruleContext.isAttrDefined(":lipo_context_collector", BuildType.LABEL));
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :

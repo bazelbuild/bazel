@@ -958,6 +958,21 @@ java_test(
 )
 
 java_test(
+    name = "CcProtoLibraryTest",
+    srcs = glob(["rules/cpp/proto/CcProtoLibraryTest.java"]),
+    tags = ["rules"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:ProtoCcHeaderProvider",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "objc-rules-tests",
     srcs = glob(["rules/objc/XcodeProviderTest.java"]),
     tags = ["rules"],

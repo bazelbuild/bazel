@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -34,7 +36,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
@@ -247,7 +248,7 @@ public class CppHelper {
    * if there is no such attribute (this is currently not an error).
    */
   @Nullable public static CcToolchainProvider getToolchain(RuleContext ruleContext) {
-    if (ruleContext.attributes().getAttributeDefinition(":cc_toolchain") == null) {
+    if (!ruleContext.isAttrDefined(":cc_toolchain", LABEL)) {
       // TODO(bazel-team): Report an error or throw an exception in this case.
       return null;
     }
@@ -384,7 +385,7 @@ public class CppHelper {
       scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
-    if (ruleContext.attributes().has("malloc", BuildType.LABEL)) {
+    if (ruleContext.attributes().has("malloc", LABEL)) {
       TransitiveInfoCollection malloc = mallocForTarget(ruleContext);
       TransitiveLipoInfoProvider provider = malloc.getProvider(TransitiveLipoInfoProvider.class);
       if (provider != null) {

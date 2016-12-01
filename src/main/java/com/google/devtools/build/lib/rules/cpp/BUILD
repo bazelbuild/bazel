@@ -7,7 +7,10 @@ package(
 
 java_library(
     name = "cpp",
-    srcs = glob(["**/*.java"]),
+    srcs = glob([
+        "*.java",
+        "transitions/*.java",
+    ]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:collect",
@@ -15,6 +18,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:proto-rules",
         "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:util",

@@ -133,6 +133,15 @@ public class ProtoConfiguration extends Fragment {
     public Label protoToolchainForJava;
 
     @Option(
+      name = "proto_toolchain_for_cc",
+      defaultValue = "@com_google_protobuf_cc//:cc_toolchain",
+      category = "flags",
+      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
+      help = "Label of proto_lang_toolchain() which describes how to compile C++ protos"
+    )
+    public Label protoToolchainForCc;
+
+    @Option(
       name = "use_toolchain_for_java_proto",
       defaultValue = "false",
       category = "experimental",
@@ -213,6 +222,7 @@ public class ProtoConfiguration extends Fragment {
   private final Label protoToolchainForJava;
   private final Label protoToolchainForJavaLite;
   private final boolean useToolchainForJavaProto;
+  private final Label protoToolchainForCc;
   private final StrictDepsMode strictProtoDeps;
   private final boolean outputDescriptorSet;
 
@@ -227,6 +237,7 @@ public class ProtoConfiguration extends Fragment {
     this.protoToolchainForJava = options.protoToolchainForJava;
     this.protoToolchainForJavaLite = options.protoToolchainForJavaLite;
     this.useToolchainForJavaProto = options.useToolchainForJavaProto;
+    this.protoToolchainForCc = options.protoToolchainForCc;
     this.strictProtoDeps = options.strictProtoDeps;
     this.outputDescriptorSet = options.outputDescriptorSet;
   }
@@ -274,6 +285,10 @@ public class ProtoConfiguration extends Fragment {
 
   public boolean useToolchainForJavaProto() {
     return useToolchainForJavaProto;
+  }
+
+  public Label protoToolchainForCc() {
+    return protoToolchainForCc;
   }
 
   public StrictDepsMode strictProtoDeps() {

@@ -77,7 +77,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
                 .direct_compile_time_input()
                 .allowedFileTypes(FileType.of(".proto"), FileType.of(".protodevel")))
         .add(attr("strict_proto_deps", TRISTATE).undocumented("for migration only"))
-        .advertiseProvider(ProtoSourcesProvider.class)
+        .advertiseProvider(ProtoSourcesProvider.class, ProtoSupportDataProvider.class)
         .build();
   }
 
