@@ -14,6 +14,7 @@ filegroup(
         "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
+        "//third_party/java/jacoco:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/jdk/langtools:srcs",
         "//third_party/java/jdk/javabuilder:srcs",
@@ -148,6 +149,11 @@ java_import(
 java_import(
     name = "asm-util",
     jars = ["asm/asm-util-5.0.4.jar"],
+)
+
+java_import(
+    name = "asm-tree",
+    jars = ["asm/asm-tree-5.0.4.jar"],
 )
 
 java_plugin(
