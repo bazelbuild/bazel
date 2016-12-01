@@ -555,7 +555,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     }
 
     for (Attribute dependentAttribute : dependentAttributes) {
-      if (ruleContext.getAttribute(dependentAttribute.getName()) != null) {
+      if (ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL_LIST)
+          || ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL)) {
         builder.addDepObjcProviders(ruleContext.getPrerequisites(
             dependentAttribute.getName(),
             dependentAttribute.getAccessMode(),
@@ -581,7 +582,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     xcodeSupport.addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC);
 
     for (Attribute dependentAttribute : dependentAttributes) {
-      if (ruleContext.getAttribute(dependentAttribute.getName()) != null) {
+      if (ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL_LIST)
+          || ruleContext.attributes().has(dependentAttribute.getName(), BuildType.LABEL)) {
         xcodeSupport.addDependencies(xcodeProviderBuilder, dependentAttribute);
       }
     }

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 
 import java.util.Collection;
@@ -91,8 +90,7 @@ public final class ProguardLibrary {
    * Collects the unvalidated proguard specs exported by this rule.
    */
   private Collection<Artifact> collectLocalProguardSpecs() {
-    Attribute attribute = ruleContext.getAttribute(LOCAL_SPEC_ATTRIBUTE);
-    if (attribute == null || attribute.getType() != BuildType.LABEL_LIST) {
+    if (!ruleContext.attributes().has(LOCAL_SPEC_ATTRIBUTE, BuildType.LABEL_LIST)) {
       return ImmutableList.of();
     }
     return ruleContext.getPrerequisiteArtifacts(LOCAL_SPEC_ATTRIBUTE, Mode.TARGET).list();
@@ -102,10 +100,8 @@ public final class ProguardLibrary {
    * Collects the proguard specs exported by dependencies on the given LABEL_LIST/LABEL attribute.
    */
   private NestedSet<Artifact> collectProguardSpecsFromAttribute(String attributeName, Mode mode) {
-    Attribute attribute = ruleContext.getAttribute(attributeName);
-    if (attribute == null
-        || (attribute.getType() != BuildType.LABEL_LIST
-            && attribute.getType() != BuildType.LABEL)) {
+    if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)
+        && !ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
     NestedSetBuilder<Artifact> dependencySpecsBuilder = NestedSetBuilder.naiveLinkOrder();

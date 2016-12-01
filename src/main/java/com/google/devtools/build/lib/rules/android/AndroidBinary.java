@@ -532,7 +532,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     Iterable<Artifact> dataDeps = ImmutableList.of();
-    if (ruleContext.getAttribute("data") != null
+    if (ruleContext.attributes().has("data", BuildType.LABEL_LIST)
         && ruleContext.getAttributeMode("data") == Mode.DATA) {
       dataDeps = ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list();
     }

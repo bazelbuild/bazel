@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.syntax.Type;
@@ -204,7 +205,7 @@ public final class DataBinding {
     if (DataBinding.isEnabled(ruleContext)) {
       dataBindingMetadataOutputs.addAll(getMetadataOutputs(ruleContext));
     }
-    if (ruleContext.getAttribute("exports") != null) {
+    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
       for (UsesDataBindingProvider provider : ruleContext.getPrerequisites("exports",
           RuleConfiguredTarget.Mode.TARGET, UsesDataBindingProvider.class)) {
         dataBindingMetadataOutputs.addAll(provider.getMetadataOutputs());
