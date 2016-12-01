@@ -224,14 +224,6 @@ public class CppRuleClasses {
   public static final String TRANSITIVE_MODULE_MAPS = "transitive_module_maps";
 
   /**
-   * A string constant for switching on that a header module file includes information about
-   * all its dependencies, so we do not need to pass all transitive dependent header modules on
-   * the command line.
-   */
-  public static final String HEADER_MODULE_INCLUDES_DEPENDENCIES =
-      "header_module_includes_dependencies";
-
-  /**
    * A string constant for the no_legacy_features feature.
    *
    * <p>If this feature is enabled, Bazel will not extend the crosstool configuration with the

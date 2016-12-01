@@ -686,8 +686,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getSourceArtifact("module/j.cc"));
     assertThat(jObjectAction.getMainIncludeScannerSource()).isEqualTo(
         getSourceArtifact("module/j.cc"));
-    assertThat(getHeaderModuleFlags(jObjectAction.getCompilerOptions()))
-        .containsExactly("b.pic.pcm", "g.pic.pcm");
+    assertThat(getHeaderModules(jObjectAction.getContext().getTransitiveModules(true)))
+        .containsExactly(
+            getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"),
+            getBinArtifact("_objs/g/module/g.pic.pcm", "//module:g"));
   }
 
   @Test
@@ -723,8 +725,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("c.cppmap", "//nomodule:e"));
     assertThat(getHeaderModules(cObjectAction.getContext().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-    assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions()))
-        .containsExactly("b.pic.pcm");
 
     getConfiguredTarget("//nomodule:d");
     Artifact dObjectArtifact = getBinArtifact("_objs/d/nomodule/d.pic.o", "//nomodule:d");
@@ -738,8 +738,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("d.cppmap", "//nomodule:d"));
     assertThat(getHeaderModules(dObjectAction.getContext().getTransitiveModules(true)))
         .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-    assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions()))
-        .containsExactly("b.pic.pcm");
   }
 
   @Test
@@ -766,9 +764,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getGenfilesArtifact("b.cppmap", "//module:b"),
             getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions()))
-        .containsExactly("b.pic.pcm");
-
+    assertThat(getHeaderModules(cObjectAction.getContext().getTransitiveModules(true)))
+        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
+    
     getConfiguredTarget("//nomodule:d");
     Artifact dObjectArtifact = getBinArtifact("_objs/d/nomodule/d.pic.o", "//nomodule:d");
     CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
@@ -776,25 +774,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly(
             getGenfilesArtifact("c.cppmap", "//nomodule:c"),
             getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions()))
-        .containsExactly("b.pic.pcm");
-  }
-
-  @Test
-  public void testTopLevelHeaderModules() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION
-                + "feature { name: 'header_module_includes_dependencies' }");
-    useConfiguration("--cpu=k8");
-    setupPackagesForModuleTests(/*useHeaderModules=*/false);
-    getConfiguredTarget("//module:j");
-    Artifact jObjectArtifact = getBinArtifact("_objs/j/module/j.pic.o", "//module:j");
-    CppCompileAction jObjectAction = (CppCompileAction) getGeneratingAction(jObjectArtifact);
-    assertThat(getHeaderModuleFlags(jObjectAction.getCompilerOptions()))
-        .containsExactly("g.pic.pcm");
+    assertThat(getHeaderModules(dObjectAction.getContext().getTransitiveModules(true)))
+        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
   }
 
   private void writeSimpleCcLibrary() throws Exception {

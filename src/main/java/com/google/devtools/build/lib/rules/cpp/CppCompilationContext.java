@@ -210,10 +210,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     return usePic ? picModuleInfo.transitiveModules : moduleInfo.transitiveModules;
   }
 
-  public Set<Artifact> getTopLevelModules(boolean usePic) {
-    return usePic ? picModuleInfo.getTopLevelModules() : moduleInfo.getTopLevelModules();
-  }
-
   public Collection<Artifact> getUsedModules(boolean usePic, Set<Artifact> usedHeaders) {
     return usePic
         ? picModuleInfo.getUsedModules(usedHeaders)
@@ -782,13 +778,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * All transitive modules that this context depends on, excluding headerModule.
      */
     private final NestedSet<Artifact> transitiveModules;
-    
-    /**
-     * All implied modules that this context depends on, i.e. all transitiveModules, that are also
-     * a dependency of other transitiveModules.
-     */
-    private final NestedSet<Artifact> impliedModules;
-    
+
     /**
      * All information about mapping transitive headers to transitive modules.
      */
@@ -799,25 +789,12 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         ImmutableSet<Artifact> modularHeaders,
         ImmutableSet<Artifact> textualHeaders,
         NestedSet<Artifact> transitiveModules,
-        NestedSet<Artifact> impliedModules,
         NestedSet<TransitiveModuleHeaders> transitiveModuleHeaders) {
       this.headerModule = headerModule;
       this.modularHeaders = modularHeaders;
       this.textualHeaders = textualHeaders;
       this.transitiveModules = transitiveModules;
-      this.impliedModules = impliedModules;
       this.transitiveModuleHeaders = transitiveModuleHeaders;
-    }
-
-    public Set<Artifact> getTopLevelModules() {
-      Set<Artifact> impliedModules = this.impliedModules.toSet();
-      Set<Artifact> topLevelModules = new LinkedHashSet<>();
-      for (Artifact module : transitiveModules) {
-        if (!impliedModules.contains(module)) {
-          topLevelModules.add(module);
-        }
-      }
-      return topLevelModules;
     }
 
     public Collection<Artifact> getUsedModules(Set<Artifact> usedHeaders) {
@@ -858,7 +835,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       private final Set<Artifact> modularHeaders = new LinkedHashSet<>();
       private final Set<Artifact> textualHeaders = new LinkedHashSet<>();
       private NestedSetBuilder<Artifact> transitiveModules = NestedSetBuilder.stableOrder();
-      private NestedSetBuilder<Artifact> impliedModules = NestedSetBuilder.stableOrder();
       private NestedSetBuilder<TransitiveModuleHeaders> transitiveModuleHeaders =
           NestedSetBuilder.stableOrder();
 
@@ -889,7 +865,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         modularHeaders.addAll(other.modularHeaders);
         textualHeaders.addAll(other.textualHeaders);
         transitiveModules.addTransitive(other.transitiveModules);
-        impliedModules.addTransitive(other.impliedModules);
         transitiveModuleHeaders.addTransitive(other.transitiveModuleHeaders);
         return this;
       }
@@ -900,12 +875,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       public Builder addTransitive(ModuleInfo moduleInfo) {
         if (moduleInfo.headerModule != null) {
           transitiveModules.add(moduleInfo.headerModule);
-          impliedModules.addTransitive(moduleInfo.transitiveModules);
-        } else {
-          impliedModules.addTransitive(moduleInfo.impliedModules);
         }
         transitiveModules.addTransitive(moduleInfo.transitiveModules);
-        impliedModules.addTransitive(moduleInfo.impliedModules);
         transitiveModuleHeaders.addTransitive(moduleInfo.transitiveModuleHeaders);
         return this;
       }
@@ -922,7 +893,6 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
             modularHeaders,
             ImmutableSet.copyOf(this.textualHeaders),
             transitiveModules,
-            impliedModules.build(),
             transitiveModuleHeaders.build());
       }
     }
