@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 #include <memory>
 #include <set>
@@ -161,17 +160,16 @@ void basename(const char *path, char *output, size_t output_size) {
 // Execute the extraction (or just listing if just v is provided)
 int extract(char *zipfile, char* exdir, char **files, bool verbose,
             bool extract) {
-  char cwd[PATH_MAX];
-  if (getcwd(cwd, PATH_MAX) == NULL) {
-    fprintf(stderr, "getcwd() failed: %s.\n", strerror(errno));
+  std::string cwd = get_cwd();
+  if (cwd.empty()) {
     return -1;
   }
 
   char output_root[PATH_MAX];
   if (exdir != NULL) {
-    concat_path(output_root, PATH_MAX, cwd, exdir);
+    concat_path(output_root, PATH_MAX, cwd.c_str(), exdir);
   } else {
-    strncpy(output_root, cwd, PATH_MAX);
+    strncpy(output_root, cwd.c_str(), PATH_MAX);
   }
 
   UnzipProcessor processor(output_root, files, verbose, extract);

@@ -29,6 +29,8 @@
 
 namespace devtools_ijar {
 
+using std::string;
+
 bool stat_file(const char* path, Stat* result) {
 #ifdef COMPILER_MSVC
   // TODO(laszlocsomor) 2016-12-01: implement this and other methods, in order
@@ -110,6 +112,23 @@ bool read_file(const char* path, void* buffer, size_t size) {
     result = false;
   }
   return result;
+#endif  // COMPILER_MSVC
+}
+
+string get_cwd() {
+#ifdef COMPILER_MSVC
+  // TODO(laszlocsomor) 2016-12-01: implement this and other methods, in order
+  // to close https://github.com/bazelbuild/bazel/issues/2157.
+  fprintf(stderr, "Not yet implemented on Windows\n");
+  return "";
+#else   // not COMPILER_MSVC
+  char cwd[PATH_MAX];
+  if (getcwd(cwd, PATH_MAX) == NULL) {
+    fprintf(stderr, "getcwd() failed: %s\n", strerror(errno));
+    return "";
+  } else {
+    return string(cwd);
+  }
 #endif  // COMPILER_MSVC
 }
 

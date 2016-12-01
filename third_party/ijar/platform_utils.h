@@ -49,6 +49,10 @@ bool write_file(const char* path, mode_t perm, const void* data, size_t size);
 // Returns false upon failure and reports the error to stderr.
 bool read_file(const char* path, void* buffer, size_t size);
 
+// Returns the current working directory.
+// Returns the empty string upon failure and reports the error to stderr.
+std::string get_cwd();
+
 }  // namespace devtools_ijar
 
 #endif  // THIRD_PARTY_IJAR_PLATFORM_UTILS_H_
