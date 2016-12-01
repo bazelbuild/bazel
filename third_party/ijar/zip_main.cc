@@ -94,31 +94,6 @@ void concat_path(char* out, const size_t size,
   }
 }
 
-// Do a recursive mkdir of all folders of path except the last path
-// segment (if path ends with a / then the last path segment is empty).
-// All folders are created using "mode" for creation mode.
-void mkdirs(const char *path, mode_t mode) {
-  char path_[PATH_MAX];
-  Stat file_stat;
-  strncpy(path_, path, PATH_MAX);
-  path_[PATH_MAX-1] = 0;
-  char *pointer = path_;
-  while ((pointer = strchr(pointer, '/')) != NULL) {
-    if (path_ != pointer) {  // skip leading slash
-      *pointer = 0;
-      if (!stat_file(path_, &file_stat)) {
-        if (mkdir(path_, mode) < 0) {
-          fprintf(stderr, "Cannot create folder %s: %s\n",
-                  path_, strerror(errno));
-          abort();
-        }
-      }
-      *pointer = '/';
-    }
-    pointer++;
-  }
-}
-
 void UnzipProcessor::Process(const char* filename, const u4 attr,
                              const u1* data, const size_t size) {
   mode_t mode = zipattr_to_mode(attr);
@@ -135,10 +110,8 @@ void UnzipProcessor::Process(const char* filename, const u4 attr,
   if (extract_) {
     char path[PATH_MAX];
     concat_path(path, PATH_MAX, output_root_, filename);
-    // Directories created must have executable bit set and be owner writeable.
-    // Otherwise, we cannot write or create any file inside.
-    mkdirs(path, perm | S_IWUSR | S_IXUSR);
-    if (!isdir && !write_file(path, perm, data, size)) {
+    if (!make_dirs(path, perm) ||
+        (!isdir && !write_file(path, perm, data, size))) {
       abort();
     }
   }

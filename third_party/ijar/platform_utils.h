@@ -53,6 +53,14 @@ bool read_file(const char* path, void* buffer, size_t size);
 // Returns the empty string upon failure and reports the error to stderr.
 std::string get_cwd();
 
+// Do a recursive mkdir of all folders of path except the last path
+// segment (if path ends with a / then the last path segment is empty).
+// All folders are created using "perm" for creation mode, and are writable and
+// openable by the current user.
+// Returns true if all directories were created and permissions set.
+// Returns false upon failure and reports the error to stderr.
+bool make_dirs(const char* path, mode_t perm);
+
 }  // namespace devtools_ijar
 
 #endif  // THIRD_PARTY_IJAR_PLATFORM_UTILS_H_

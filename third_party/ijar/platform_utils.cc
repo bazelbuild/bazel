@@ -132,4 +132,35 @@ string get_cwd() {
 #endif  // COMPILER_MSVC
 }
 
+bool make_dirs(const char* path, mode_t mode) {
+#ifdef COMPILER_MSVC
+  // TODO(laszlocsomor) 2016-12-01: implement this and other methods, in order
+  // to close https://github.com/bazelbuild/bazel/issues/2157.
+  fprintf(stderr, "Not yet implemented on Windows\n");
+  return false;
+#else   // not COMPILER_MSVC
+  // Directories created must have executable bit set and be owner writeable.
+  // Otherwise, we cannot write or create any file inside.
+  mode |= S_IWUSR | S_IXUSR;
+  char path_[PATH_MAX];
+  Stat file_stat;
+  strncpy(path_, path, PATH_MAX);
+  path_[PATH_MAX - 1] = 0;
+  char* pointer = path_;
+  while ((pointer = strchr(pointer, '/')) != NULL) {
+    if (path_ != pointer) {  // skip leading slash
+      *pointer = 0;
+      if (!stat_file(path_, &file_stat) && mkdir(path_, mode) < 0) {
+        fprintf(stderr, "Cannot create folder %s: %s\n",
+                path_, strerror(errno));
+        return false;
+      }
+      *pointer = '/';
+    }
+    pointer++;
+  }
+  return true;
+#endif  // COMPILER_MSVC
+}
+
 }  // namespace devtools_ijar
