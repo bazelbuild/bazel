@@ -755,7 +755,7 @@ public class SkylarkRuleClassFunctions {
           throws EvalException {
         Label parentLabel = null;
         if (relativeToCallerRepository) {
-          parentLabel = SkylarkUtils.getCallerLabel(env);
+          parentLabel = env.getCallerLabel();
         } else {
           parentLabel = env.getGlobals().label();
         }
