@@ -265,7 +265,7 @@ public final class LinkCommandLine extends CommandLine {
   }
 
 
-  private static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
+  public static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
       List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
