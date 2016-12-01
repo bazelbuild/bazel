@@ -109,16 +109,31 @@ message JavaToolchainIdeInfo {
   string target_version = 2;
 }
 
-message TargetIdeInfo {
+message TargetKey {
   string label = 1;
-  repeated string dependencies = 4;
+  string aspect_id = 2;
+}
+
+message Dependency {
+  enum DependencyType {
+    COMPILE_TIME = 0;
+    RUNTIME = 1;
+  }
+
+  TargetKey target = 1;
+  DependencyType dependency_type = 2;
+}
+
+message TargetIdeInfo {
+  string label = 1 [deprecated = true];
+  repeated string dependencies = 4 [deprecated = true];
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
   JavaIdeInfo java_ide_info = 7;
   AndroidIdeInfo android_ide_info = 8;
 
   repeated string tags = 9;
-  repeated string runtime_deps = 10;
+  repeated string runtime_deps = 10 [deprecated = true];
 
   ArtifactLocation build_file_artifact_location = 11;
 
@@ -133,4 +148,8 @@ message TargetIdeInfo {
   JavaToolchainIdeInfo java_toolchain_ide_info = 17;
 
   PyIdeInfo py_ide_info = 18;
+
+  TargetKey key = 19;
+
+  repeated Dependency deps = 20;
 }
