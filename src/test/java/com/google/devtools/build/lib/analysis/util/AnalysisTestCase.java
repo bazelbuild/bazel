@@ -95,7 +95,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     SKYFRAME_LOADING_PHASE,
     // Dynamic configurations that only include the fragments a target needs to properly analyze.
     DYNAMIC_CONFIGURATIONS,
-    // Dynamic configurations that always include all fragments even for targets don't need them.
+    // Dynamic configurations that always include all fragments even when targets don't need them.
     DYNAMIC_CONFIGURATIONS_NOTRIM
   }
 

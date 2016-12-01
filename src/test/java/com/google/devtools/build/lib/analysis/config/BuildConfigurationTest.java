@@ -297,10 +297,9 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testNoDistinctHostConfigurationUnsupportedWithDynamicConfigs() throws Exception {
-    String expectedError =
-        "--nodistinct_host_configuration does not currently work with dynamic configurations";
-    checkError(expectedError,
+  public void testNoDistinctHostConfigurationUnsupportedWithTrimmedConfigs() throws Exception {
+    checkError(
+        "--nodistinct_host_configuration does not currently work with dynamic configurations",
         "--nodistinct_host_configuration", "--experimental_dynamic_configs=on");
     assertThat(create("--nodistinct_host_configuration", "--experimental_dynamic_configs=notrim"))
         .isNotNull();
