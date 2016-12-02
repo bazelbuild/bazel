@@ -181,8 +181,9 @@ def _file_exists(ctx, filename):
 def _mvn_download(ctx, paths, fully_qualified_name):
   # If a custom settings file exists, we'll use that. If not, Maven will use the default settings.
   mvn_flags = ""
-  if hasattr(ctx.attr, "settings") and ctx.attr.settings != "":
-    mvn_flags += "-s %s " % ctx.attr.settings
+  if hasattr(ctx.attr, "settings") and ctx.attr.settings != None:
+    ctx.symlink(ctx.attr.settings, "settings.xml")
+    mvn_flags += "-s %s " % "settings.xml"
 
   # dependency:get step. Downloads the artifact into the local repository.
   mvn_get = MVN_PLUGIN + ":get"
@@ -262,7 +263,7 @@ _common_maven_rule_attrs = {
         mandatory = True,
     ),
     "sha1": attr.string(default = ""),
-    "settings": attr.string(default = "")
+    "settings": attr.label(default = None)
 }
 
 def _maven_jar_impl(ctx):

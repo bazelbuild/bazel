@@ -46,9 +46,12 @@ EOF
 }
 
 # This function takes an optional url argument: mirror. If one is passed, a
-# mirror of maven central will be set for the url.
+# mirror of maven central will be set for the url. It also creates a `BUILD`
+# file in the same directory as $local_maven_settings so that it can be used as
+# a label in WORKSPACE.
 function setup_local_maven_settings_xml() {
-  local_maven_settings_xml=$(pwd)/settings.xml
+  local_maven_settings_xml=settings.xml
+  touch $(pwd)/BUILD
   cat > $local_maven_settings_xml <<EOF
 <!-- # DO NOT EDIT: automatically generated settings.xml for maven_dependency_plugin -->
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
@@ -89,7 +92,7 @@ maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
     sha1 = '$sha1',
-    settings = '$local_maven_settings_xml',
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -132,7 +135,7 @@ maven_aar(
     name = "herbivore",
     artifact = "com.example.carnivore:herbivore:1.21",
     sha1 = "$sha1",
-    settings = "$local_maven_settings_xml",
+    settings = "//:$local_maven_settings_xml",
 )
 EOF
   bazel build //java/com/app || fail "Expected build to succeed"
@@ -155,7 +158,7 @@ load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
-    settings = '$local_maven_settings_xml',
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -176,7 +179,7 @@ load("@bazel_tools//tools/build_defs/repo:maven_rules.bzl", "maven_jar")
 maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
-    settings = '$local_maven_settings_xml',
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -202,7 +205,7 @@ maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:1.24",
     sha1 = '$wrong_sha1',
-    settings = '$local_maven_settings_xml',
+    settings = '//:$local_maven_settings_xml',
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
@@ -225,7 +228,7 @@ maven_jar(
     name = 'endangered',
     artifact = "com.example.carnivore:carnivore:$version",
     server = "attr_not_implemented",
-    settings = "$local_maven_settings_xml",
+    settings = "//:$local_maven_settings_xml",
 )
 
 bind(name = 'mongoose', actual = '@endangered//jar')
