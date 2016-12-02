@@ -87,7 +87,13 @@ COPTS = [
     "-Wno-error=unused-variable",
 ]
 
-LINK_OPTS = ["-lpthread"]
+LINK_OPTS = select({
+    "//src:freebsd": [
+        "-lpthread",
+        "-lm",
+    ],
+    "//conditions:default": ["-lpthread"],
+})
 
 cc_library(
     name = "protobuf_lite",
