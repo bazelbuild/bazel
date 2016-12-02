@@ -163,6 +163,29 @@ function create_deploy_jar() {
   run "$JAR" cmf $output/MANIFEST.MF $output/$name.jar $packages "$@"
 }
 
+HOW_TO_BOOTSTRAP='
+
+--------------------------------------------------------------------------------
+NOTE: This failure is likely occuring if you are trying to bootstrap bazel from
+a developer checkout. Those checkouts do not include the generated output of
+the protoc compiler (as we prefer not to version generated files).
+
+* To build a developer version of bazel, do
+
+    bazel build //src:bazel
+
+* To bootstrap your first bazel binary, please download a dist archive from our
+  release page at https://github.com/bazelbuild/bazel/releases and run
+  compile.sh on the unpacked archive.
+
+The full install instructions to install a release version of bazel can be found
+at https://bazel.build/versions/master/docs/install.html#compiling-from-source
+For a rationale, why the bootstrap process is organized in this way, see
+https://bazel.build/designs/2016/10/11/distribution-artifact.html
+--------------------------------------------------------------------------------
+
+'
+
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
 
     if [ -d derived/src/java ]
@@ -173,12 +196,10 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     else
 
         [ -n "${PROTOC}" ] \
-            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact;\
- NOTE: development versions are built with 'bazel build //src:bazel'"
+            || fail "Must specify PROTOC if not bootstrapping from the distribution artifact${HOW_TO_BOOTSTRAP}"
 
         [ -n "${GRPC_JAVA_PLUGIN}" ] \
-            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact;\
- NOTE: development versions are built with 'bazel build //src:bazel'"
+            || fail "Must specify GRPC_JAVA_PLUGIN if not bootstrapping from the distribution artifact${HOW_TO_BOOTSTRAP}"
 
         [[ -x "${PROTOC-}" ]] \
             || fail "Protobuf compiler not found in ${PROTOC-}"
