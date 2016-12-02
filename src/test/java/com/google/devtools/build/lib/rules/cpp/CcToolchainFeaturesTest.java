@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.IntegerValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
@@ -522,6 +523,52 @@ public class CcToolchainFeaturesTest {
                 createStructureVariables(
                     "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
         .containsExactly("-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfTrueExpandsIfOne() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_true: 'struct.bool'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_false: 'struct.bool'"
+                    + "  flag: '-X%{struct.foo}'"
+                    + "  flag: '-Y%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("bool", new IntegerValue(1))
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfTrueExpandsIfZero() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_true: 'struct.bool'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_false: 'struct.bool'"
+                    + "  flag: '-X%{struct.foo}'"
+                    + "  flag: '-Y%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("bool", new IntegerValue(0))
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-XfooValue", "-YbarValue");
   }
 
   @Test
