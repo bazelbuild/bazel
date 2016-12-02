@@ -120,8 +120,6 @@ function bazel_build() {
     JAVA_VERSION=1.8
   fi
 
-  setup_android_repositories
-
   # Build the packages
   local ARGS=
   if [[ $PLATFORM == "darwin" ]] && \
