@@ -205,6 +205,15 @@ The following items are upcoming changes.
   error, just like in Python 3. Note that this means you will be unable to
   sort lists that contain mixed types of values.
 
+* The structure of the set that you get back from using the `+` or `|` operator
+  is changing. Previously `a + b`, where `a` is a set, would include as its
+  direct items all of `a`'s direct items. Under the upcoming way, the result
+  will only include `a` as a single transitive entity. This will alter the
+  visible iteration order of the returned set. Most notably,
+  `set([1, 2]) + set([3, 4] + set([5, 6])` will return elements in the order
+  `1 2 3 4 5 6` instead of `3 4 5 6 1 2`. This change is associated with a fix
+  that improves set union to be O(1) time.
+
 * The set datatype will be renamed in order to avoid confusion with Python's
   set datatype, which behaves very differently.
 
