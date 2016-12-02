@@ -33,6 +33,12 @@ struct Stat {
   bool is_directory;
 };
 
+// Converts a Stat object to ZIP attributes.
+inline u4 stat_to_zipattr(const Stat& file_stat) {
+  return (((u4)file_stat.file_mode) << 16) |
+         (file_stat.is_directory != 0 ? 0x10 : 0);
+}
+
 // Writes stat data into `result` about the file under `path`.
 // Returns true upon success: file is found and can be stat'ed.
 // Returns false upon failure and reports the error to stderr.

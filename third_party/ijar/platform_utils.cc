@@ -59,14 +59,14 @@ bool write_file(const char* path, mode_t perm, const void* data, size_t size) {
 #else   // not COMPILER_MSVC
   int fd = open(path, O_CREAT | O_WRONLY, perm);
   if (fd < 0) {
-    fprintf(stderr, "Cannot open file %s for writing: %s\n",
-            path, strerror(errno));
+    fprintf(stderr, "Cannot open file %s for writing: %s\n", path,
+            strerror(errno));
     return false;
   }
   bool result = true;
   if (write(fd, data, size) != size) {
-    fprintf(stderr, "Cannot write %zu bytes to file %s: %s\n",
-            size, path, strerror(errno));
+    fprintf(stderr, "Cannot write %zu bytes to file %s: %s\n", size, path,
+            strerror(errno));
     result = false;
   }
   if (close(fd)) {
@@ -87,8 +87,8 @@ bool read_file(const char* path, void* buffer, size_t size) {
   // read the input file
   int fd = open(path, O_RDONLY);
   if (fd < 0) {
-    fprintf(stderr, "Can't open file %s for reading: %s\n",
-            path, strerror(errno));
+    fprintf(stderr, "Can't open file %s for reading: %s\n", path,
+            strerror(errno));
     return false;
   }
   bool result = true;
@@ -100,8 +100,8 @@ bool read_file(const char* path, void* buffer, size_t size) {
     }
     ssize_t r = read(fd, static_cast<uint8_t*>(buffer) + nb_read, to_read);
     if (r < 0) {
-      fprintf(stderr, "Can't read %zu bytes from file %s: %s\n",
-              to_read, path, strerror(errno));
+      fprintf(stderr, "Can't read %zu bytes from file %s: %s\n", to_read, path,
+              strerror(errno));
       result = false;
       break;
     }
@@ -151,8 +151,8 @@ bool make_dirs(const char* path, mode_t mode) {
     if (path_ != pointer) {  // skip leading slash
       *pointer = 0;
       if (!stat_file(path_, &file_stat) && mkdir(path_, mode) < 0) {
-        fprintf(stderr, "Cannot create folder %s: %s\n",
-                path_, strerror(errno));
+        fprintf(stderr, "Cannot create folder %s: %s\n", path_,
+                strerror(errno));
         return false;
       }
       *pointer = '/';

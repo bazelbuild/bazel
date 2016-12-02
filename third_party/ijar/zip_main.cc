@@ -96,9 +96,8 @@ void concat_path(char* out, const size_t size,
 
 void UnzipProcessor::Process(const char* filename, const u4 attr,
                              const u1* data, const size_t size) {
-  mode_t mode = zipattr_to_mode(attr);
-  mode_t perm = mode & 0777;
-  bool isdir = (mode & S_IFDIR) != 0;
+  mode_t perm = zipattr_to_perm(attr);
+  bool isdir = zipattr_is_dir(attr);
   if (attr == 0) {
     // Fallback when the external attribute is not set.
     isdir = filename[strlen(filename)-1] == '/';
@@ -164,9 +163,7 @@ int extract(char *zipfile, char* exdir, char **files, bool verbose,
 // add a file to the zip
 int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
              char *zip_path, bool flatten, bool verbose, bool compress) {
-  Stat file_stat;
-  file_stat.total_size = 0;
-  file_stat.file_mode = 0666;
+  Stat file_stat = {0, 0666, false};
   if (file != NULL) {
     if (!stat_file(file, &file_stat)) {
       return -1;
@@ -204,7 +201,7 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
     printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
   }
 
-  u1 *buffer = builder->NewFile(path, mode_to_zipattr(file_stat.file_mode));
+  u1 *buffer = builder->NewFile(path, stat_to_zipattr(file_stat));
   if (isdir || file_stat.total_size == 0) {
     builder->FinishFile(0);
   } else {
