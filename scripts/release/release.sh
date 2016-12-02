@@ -97,48 +97,24 @@ function release_note_editor() {
 
 # Create the release commit by changing the CHANGELOG file
 function create_release_commit() {
-  local release_title="$1"
-  local release_name="$2"
-  local relnotes="$3"
-  local tmpfile="$4"
-  local baseline="$5"
-  shift 5
-  local cherrypicks=$@
+  local infos=$(generate_release_message "${1}")
   local changelog_path="$PWD/CHANGELOG.md"
 
-  version_info=$(create_revision_information $baseline $cherrypicks)
   # CHANGELOG.md
-  cat >${tmpfile} <<EOF
-## ${release_title}
-
-EOF
-  if [ -n "${version_info}" ]; then
-    cat >>${tmpfile} <<EOF
-\`\`\`
-${version_info}
-\`\`\`
-EOF
-  fi
-  cat >>${tmpfile} <<EOF
-
-${relnotes}
-EOF
-
+  local tmpfile="$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)"
+  trap "rm -f ${tmpfile}" EXIT
+  echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
     echo >>${tmpfile}
     cat "${changelog_path}" >>${tmpfile}
   fi
-  cat ${tmpfile} > ${changelog_path}
+  cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
-  # Commit message
-  cat >${tmpfile} <<EOF
-${release_title}
+  rm -f "${tmpfile}"
+  trap - EXIT
 
-${version_info}
-
-${relnotes}
-EOF
-  git commit --no-verify -F ${tmpfile} --no-edit --author "${RELEASE_AUTHOR}"
+  # Commit
+  git commit --no-verify -m "${infos}" --no-edit --author "${RELEASE_AUTHOR}"
 }
 
 function apply_cherry_picks() {
@@ -174,7 +150,6 @@ function create_release() {
   shift 2
   local origin_branch=$(git_get_branch)
   local branch_name="release-${release_name}"
-  local release_title="Release ${release_name} ($(date +%Y-%m-%d))"
   local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
   local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
   trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
@@ -204,20 +179,21 @@ function create_release() {
 
   echo "Creating release notes"
   echo "${RELEASE_NOTE_MESSAGE}" > ${tmpfile}
-  echo "# ${release_title}" >> ${tmpfile}
+  echo "# $(get_release_title "${release_name}rc${rc}")" >> ${tmpfile}
   echo >> ${tmpfile}
   create_release_notes "${tmpfile2}" >> ${tmpfile}
   release_note_editor ${tmpfile} "${origin_branch}" "${branch_name}"
   local relnotes="$(cat ${tmpfile})"
 
-  create_release_commit "${release_title}" "${release_name}" \
-      "${relnotes}" "${tmpfile}" "${baseline}" $@
   release_name=$(set_release_name "${release_name}" "${rc}")
   # Add the release notes
   git notes --ref=release-notes add -f -m "${relnotes}"
+
+  # Return to the original branch
   git checkout ${origin_branch} &> /dev/null
   echo "Created ${release_name} on branch ${branch_name}."
 
+  # Clean-up
   rm -f ${tmpfile} ${tmpfile2}
   trap - EXIT
 }
@@ -256,7 +232,8 @@ function do_release() {
   echo -n "You are about to release branch ${branch} in tag ${tag_name}, confirm? [y/N] "
   read answer
   if [ "$answer" = "y" -o "$answer" = "Y" ]; then
-    # Remove release "candidate"
+    echo "Creating the release commit"
+    create_release_commit "${tag_name}"
     set_release_name "${tag_name}"
     echo "Creating the tag"
     git tag ${tag_name}

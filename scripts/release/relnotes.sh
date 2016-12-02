@@ -99,11 +99,6 @@ function generate_release_notes() {
   done
 }
 
-# fmt behaves differently on *BSD and on GNU/Linux, use fold.
-function wrap_text() {
-  fold -s -w $1 | sed 's/ *$//'
-}
-
 # Returns the list of release notes in arguments into a list of points in
 # a markdown list. The release notes are wrapped to 70 characters so it
 # displays nicely in a git history.
@@ -145,32 +140,4 @@ function create_release_notes() {
       { echo "Initial release."; return 0; }
   [ -n "${last_release}" ] || { echo "Initial release."; return 0; }
   release_notes ${last_release}
-}
-
-# Create the revision information given a list of commits. The first
-# commit should be the baseline, and the other one are the cherry-picks.
-# The result is of the form:
-# Baseline: BASELINE_COMMIT
-#
-# Cherry picks:
-#    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
-#                    message will be wrapped into 70 columns.
-#    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
-function create_revision_information() {
-  echo "Baseline: $(git rev-parse --short "${1}")"
-  first=1
-  shift
-  while [ -n "${1-}" ]; do
-    if [[ "$first" -eq 1 ]]; then
-      echo -e "\nCherry picks:"
-      first=0
-    fi
-
-    local hash="$(git rev-parse --short "${1}")"
-    local subject=$(git show -s --pretty=format:%s $hash)
-    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
-    echo "   + $hash: $lines" | head -1
-    echo "$lines" | tail -n +2 | sed 's/^/              /'
-    shift
-  done
 }

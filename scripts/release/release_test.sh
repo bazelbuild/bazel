@@ -62,7 +62,7 @@ function create() {
   local new_branch=$(git_get_branch)
   assert_equals "$old_branch" "$new_branch"
   assert_contains "Created $name.* on branch release-$name." $TEST_log
-  git show -s --pretty=format:%B "release-$name" >$TEST_log
+  get_full_release_notes "release-$name" >$TEST_log
 }
 
 function push() {
@@ -80,8 +80,6 @@ function push() {
 function release() {
   local tag=$1
   local branch=$(git_get_branch)
-  local changelog=$(cat CHANGELOG.md)
-  local commit=$(git show -s --pretty=format:%B $branch)
   echo y | ${RELEASE_SCRIPT} release || fail "Failed to release ${branch}"
   assert_equals master "$(git_get_branch)"
   git tag >$TEST_log
@@ -91,7 +89,7 @@ function release() {
   git --git-dir=${GERRIT_ROOT} tag >$TEST_log
   expect_not_log $tag
   # Test commit is everywhere
-  assert_equals "$commit" "$(git show -s --pretty=format:%B $tag)"
+  local commit="$(git show -s --pretty=format:%B $tag)"
   assert_equals "$commit" "$(git show -s --pretty=format:%B master)"
   assert_equals "$commit" \
       "$(git --git-dir=${GITHUB_ROOT} show -s --pretty=format:%B $tag)"
@@ -101,7 +99,7 @@ function release() {
       "$(git --git-dir=${GERRIT_ROOT} show -s --pretty=format:%B master)"
 
   # Now test for CHANGELOG.md file in master branch
-  assert_equals "$changelog" "$(git show $tag:CHANGELOG.md)"
+  local changelog="$(git show $tag:CHANGELOG.md)"
   assert_equals "$changelog" "$(git show master:CHANGELOG.md)"
   assert_equals "$changelog" \
       "$(git --git-dir=${GITHUB_ROOT} show $tag:CHANGELOG.md)"
@@ -116,7 +114,7 @@ function abandon() {
   local tag="$1"
   local branch="release-$tag"
   git checkout "$branch"
-  local changelog="$(git show master:CHANGELOG.md)"
+  local changelog="$(git show master:CHANGELOG.md || true)"
   local master_sha1=$(git rev-parse master)
   echo y | ${RELEASE_SCRIPT} abandon || fail "Failed to abandon release ${branch}"
   assert_equals master "$(git_get_branch)"
@@ -151,7 +149,7 @@ function test_release_workflow() {
   export EDITOR=true
   # Initial release
   create v0 965c392
-  expect_log "Release v0"
+  expect_log "Release v0rc1"
   expect_log "Initial release"
   # Push the release branch
   push v0
@@ -177,7 +175,7 @@ Important changes:
 # Every line starting with a # will be removed as well as every
 # empty line at the start and at the end.
 
-# Release v1 ($(date +%Y-%m-%d))
+# Release v1rc1 ($(date +%Y-%m-%d))
 
 ${RELNOTES}
 
@@ -202,7 +200,7 @@ cat ${TEST_TMPDIR}/replacement.log >\$1
 EOF
   chmod +x ${EDITOR}
   create v1 1170dc6 0540fde
-  local header='Release v1 ('$(date +%Y-%m-%d)')
+  local header='Release v1rc1 ('$(date +%Y-%m-%d)')
 
 Baseline: 1170dc6
 
@@ -219,7 +217,7 @@ Cherry picks:
   # Test creating a second candidate
   echo "#!$(which true)" >${EDITOR}
   create v1 1170dc6 0540fde cef25c4
-  header='Release v1 ('$(date +%Y-%m-%d)')
+  header='Release v1rc2 ('$(date +%Y-%m-%d)')
 
 Baseline: 1170dc6
 
@@ -249,7 +247,7 @@ echo 'Dummy release' >\$1
 EOF
   # Create release
   create --force_rc=2 v2 2464526
-  expect_log "Release v2"
+  expect_log "Release v2rc2"
   expect_log "Baseline: 2464526"
   assert_equals 2 "$(get_release_candidate release-v2)"
   # Abandon it
@@ -261,7 +259,7 @@ EOF
   chmod +x .git/hooks/commit-msg
   # Re-create release
   create v2 2464526
-  expect_log "Release v2"
+  expect_log "Release v2rc1"
   expect_log "Baseline: 2464526"
   expect_not_log "HOOK-SHOULD-BE-IGNORED"
   # Push

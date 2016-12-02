@@ -24,6 +24,7 @@ source ${SCRIPT_DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 setup_git_repository
 
 ### Load the relnotes script
+source ${SCRIPT_DIR}/common.sh || { echo "common.sh not found!" >&2; exit 1; }
 source ${SCRIPT_DIR}/relnotes.sh || { echo "relnotes.sh not found!" >&2; exit 1; }
 
 ### Tests method
@@ -207,8 +208,8 @@ Cherry picks:
    + 14d905b: Add --with_aspect_deps flag to blaze query. This flag
               should produce additional information about aspect
               dependencies when --output is set to {xml, proto}.'
-   assert_equals "$expected" \
-              "$(create_revision_information 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e bb59d88 14d905b5cce9a1bbc2911331809b03679b23dad1)"
+  actual="$(create_revision_information 965c392ab1d68d5bc23fdef3d86d635ec9d2da8e bb59d88 14d905b5cce9a1bbc2911331809b03679b23dad1)"
+  assert_equals "$expected" "$actual"
 }
 
 run_suite "Release notes generation tests"

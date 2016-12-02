@@ -49,6 +49,35 @@ function get_release_name() {
   git notes --ref=release show "$@" 2>/dev/null | xargs echo || true
 }
 
+# Get the short hash of a commit
+function git_commit_shorthash() {
+  git rev-parse --short "${1}"
+}
+
+# Get the subject (first line of the commit message) of a commit
+function git_commit_subject() {
+  git show -s --pretty=format:%s "$@"
+}
+
+# Get the list of commit hashes between two revisions
+function git_log_hash() {
+  local baseline="$1"
+  local head="$2"
+  shift 2
+  git log --pretty=format:%H "${baseline}".."${head}" "$@"
+}
+
+# Extract the full release name from the git notes
+function get_full_release_name() {
+  local name="$(get_release_name "$@")"
+  local rc="$(get_release_candidate "$@")"
+  if [ -n "${rc}" ]; then
+    echo "${name}rc${rc}"
+  else
+    echo "${name}"
+  fi
+}
+
 # Extract the release notes from the git notes
 function get_release_notes() {
   git notes --ref=release-notes show "$@" 2>/dev/null || true
@@ -65,4 +94,99 @@ function get_release_branch() {
     exit 1
   fi
   echo "${branch_name}"
+}
+
+# fmt behaves differently on *BSD and on GNU/Linux, use fold.
+function wrap_text() {
+  fold -s -w $1 | sed 's/ *$//'
+}
+
+# Create the revision information given a list of commits. The first
+# commit should be the baseline, and the other ones are the cherry-picks.
+# The result is of the form:
+# Baseline: BASELINE_COMMIT
+#
+# Cherry picks:
+#    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
+#                    message will be wrapped into 70 columns.
+#    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
+function create_revision_information() {
+  echo "Baseline: $(git_commit_shorthash "${1}")"
+  local first=1
+  shift
+  while [ -n "${1-}" ]; do
+    if [[ "$first" -eq 1 ]]; then
+      echo -e "\nCherry picks:"
+      first=0
+    fi
+    local hash="$(git_commit_shorthash "${1}")"
+    local subject="$(git_commit_subject $hash)"
+    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
+    echo "   + $hash: $lines" | head -1
+    echo "$lines" | tail -n +2 | sed 's/^/              /'
+    shift
+  done
+}
+
+# Get the baseline of master.
+# Args: $1: release branch, default to HEAD
+function get_release_baseline() {
+  git merge-base master "${1:-HEAD}"
+}
+
+# Get the list of cherry-picks since master
+# Args:
+#   $1: branch, default to HEAD
+#   $2: baseline change, default to $(get_release_baseline $1)
+function get_cherrypicks() {
+  local branch="${1:-HEAD}"
+  local baseline="${2:-$(get_release_baseline "${branch}")}"
+  # List of changes since the baseline on the release branch
+  local changes="$(git_log_hash "${baseline}" "${branch}" --reverse)"
+  # List of changes since the baseline on the master branch, and their patch-id
+  local master_changes="$(git_log_hash "${baseline}" master | xargs git show | git patch-id)"
+  # Now for each changes on the release branch
+  for i in ${changes}; do
+    # Find the change with the same patch-id on the master branch
+    echo "${master_changes}" \
+      | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
+      | cut -d " " -f 2
+  done
+}
+
+# Generate the title of the release with the date from the release name ($1).
+function get_release_title() {
+  echo "Release ${1} ($(date +%Y-%m-%d))"
+}
+
+# Generate the release message to be added to the changelog
+# from the release notes for release $1
+function generate_release_message() {
+  local release_name="$1"
+  local branch="${2:-HEAD}"
+  local baseline="$(get_release_baseline "${branch}")"
+  local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
+
+cat <<EOF
+$(get_release_title "$release_name")
+
+$(create_revision_information $baseline $cherrypicks)
+
+$(get_release_notes "${branch}")
+EOF
+}
+
+# Returns the release notes for the CHANGELOG.md taken from either from
+# the notes for a release candidate or from the commit message for a
+# full release.
+function get_full_release_notes() {
+  local release_name="$(get_full_release_name "$@")"
+
+  if [[ "${release_name}" =~ rc[0-9]+$ ]]; then
+    # Release candidate, we need to generate from the notes
+    generate_release_message "${release_name}" "$@"
+  else
+    # Full release, returns the commit message
+    git_commit_msg "$@"
+  fi
 }
