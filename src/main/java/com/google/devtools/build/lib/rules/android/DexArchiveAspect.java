@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -157,6 +158,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
     JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
     if (jarProvider != null) {
+      boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
       for (Artifact jar : jarProvider.getRuntimeJars()) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
@@ -164,14 +166,16 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           // need to write unique artifacts for each flag combination. Here, it is convenient to
           // distinguish them by putting the flags that were used for creating the artifacts into
           // their filenames.
-          String filename = jar.getFilename() + Joiner.on("").join(incrementalDexopts) + ".dex.zip";
+          String uniqueFilename =
+              (basenameClash ? jar.getRootRelativePathString() : jar.getFilename())
+              + Joiner.on("").join(incrementalDexopts) + ".dex.zip";
           Artifact dexArchive =
               createDexArchiveAction(
                   ruleContext,
                   ASPECT_DEXBUILDER_PREREQ,
                   desugaredJars.apply(jar),
                   incrementalDexopts,
-                  AndroidBinary.getDxArtifact(ruleContext, filename));
+                  AndroidBinary.getDxArtifact(ruleContext, uniqueFilename));
           dexArchives.addDexArchive(incrementalDexopts, dexArchive, jar);
         }
       }
@@ -205,8 +209,10 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           .getCompileTimeJars();
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
+
+      boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
       for (Artifact jar : jarProvider.getRuntimeJars()) {
-        Artifact desugared = createDesugarAction(ruleContext, jar, bootclasspath,
+        Artifact desugared = createDesugarAction(ruleContext, basenameClash, jar, bootclasspath,
             compileTimeClasspath);
         newlyDesugared.put(jar, desugared);
         desugaredJars.addDesugaredJar(jar, desugared);
@@ -214,6 +220,19 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     }
     result.addProvider(desugaredJars.build());
     return Functions.forMap(newlyDesugared);
+  }
+
+  private static boolean checkBasenameClash(ImmutableList<Artifact> artifacts) {
+    if (artifacts.size() <= 1) {
+      return false;
+    }
+    HashSet<String> seen = new HashSet<>();
+    for (Artifact artifact : artifacts) {
+      if (!seen.add(artifact.getFilename())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static <T extends TransitiveInfoProvider> IterablesChain<T> collectPrerequisites(
@@ -243,6 +262,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private Artifact createDesugarAction(
       RuleContext ruleContext,
+      boolean disambiguateBasenames,
       Artifact jar,
       ImmutableList<Artifact> bootclasspath,
       NestedSet<Artifact> compileTimeClasspath) {
@@ -252,7 +272,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
         jar,
         bootclasspath,
         compileTimeClasspath,
-        AndroidBinary.getDxArtifact(ruleContext, jar.getFilename() + "_desugared.jar"));
+        AndroidBinary.getDxArtifact(ruleContext,
+            (disambiguateBasenames ? jar.getRootRelativePathString() : jar.getFilename())
+            + "_desugared.jar"));
   }
 
   /**
