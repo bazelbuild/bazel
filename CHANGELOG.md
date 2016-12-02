@@ -1,3 +1,28 @@
+## Release 0.4.2 (2016-12-02)
+
+```
+Baseline: 6331a94
+
+Cherry picks:
+   + 7b835d9: Do not patch WORKSPACE in the release process
+```
+
+Incompatible changes:
+
+  - Callback functions in Skylark no longer support the cfg
+    parameter. This is a cleanup and only affects the signatures of
+    callbacks, since the parameter hasn't been set since September
+    2016.
+
+Important changes:
+
+  - Alias proto_library's produce a descriptor set that contains all
+    srcs of its dependencies.
+  - proto_library supports strict proto deps.
+  - Top level @androidsdk support library targets have been replaced
+    by @androidsdk//<group id>:<artifact id>-<version> for Android
+    SDK Support and Google Play Services libraries.
+
 ## Release 0.4.1 (2016-11-21)
 
 ```
