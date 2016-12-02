@@ -846,13 +846,20 @@ public final class BuildConfiguration {
     /**
      * Values for --experimental_dynamic_configs.
      */
-    public static enum DynamicConfigsMode {
+    public enum DynamicConfigsMode {
       /** Don't use dynamic configurations. */
       OFF,
       /** Use dynamic configurations, including only the fragments each rule needs. */
       ON,
       /** Use dynamic configurations, always including all fragments known to Blaze. */
       NOTRIM,
+      /**
+       * Use untrimmed dynamic configurations unless an {@link Options} fragment needs static
+       * configurations. This is used to exempt features that don't yet work with dynamic configs.
+       */
+      // TODO(gregce): make this mode unnecesary by making everything compatible with dynamic
+      // configs. b/23280991 tracks the effort (LIPO is the main culprit).
+      NOTRIM_PARTIAL
     }
 
     /**

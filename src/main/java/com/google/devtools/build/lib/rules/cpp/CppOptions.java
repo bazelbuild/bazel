@@ -689,4 +689,14 @@ public class CppOptions extends FragmentOptions {
   public LipoMode getLipoMode() {
     return lipoMode;
   }
+
+  /**
+   * FDO/LIPO is not yet compatible with dynamic configurations.
+   **/
+  @Override
+  public boolean useStaticConfigurationsOverride() {
+    // --lipo=binary is technically possible without FDO, even though it doesn't do anything.
+    return isFdo() || getLipoMode() == LipoMode.BINARY;
+  }
+
 }

@@ -125,4 +125,12 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
       return null;
     }
   }
+
+  /**
+   * Returns {@code true} if static configurations should be used with
+   * {@link BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL}.
+   */
+  public boolean useStaticConfigurationsOverride() {
+    return false;
+  }
 }
