@@ -39,9 +39,15 @@ a lot of time in a patch.
    See the
    <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html">Gerrit documentation</a>
    for more information about uploading changes.
-<li>Complete a code review with a
-   <a href="governance.html#core-contributors">core contributor</a>. Amend your existing
-   commit and re-push to make changes to your patch.
+<li>Wait for a Bazel team member to assign you a reviewer.
+   It should be done in 2 business days (excluding holidays in the USA and
+   Germany). If you do not get a reviewer within that time frame, you can ask
+   for one by sending a mail to
+   <a href="mailto:bazel-sheriff@googlegroups.com">bazel-sheriff@googlegroups.com</a>.
+   You can also assign yourself a reviewer if you know who the reviewer should
+   be (e.g., because they reviewed an earlier related change).
+<li>Complete a code review. Amend your existing commit and re-push to make
+   changes to your patch.
 <li>An engineer at Google applies the patch to our internal version control
    system.
 <li>The patch is exported as a Git commit, at which point the Gerrit code review
