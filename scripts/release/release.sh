@@ -57,12 +57,9 @@ function set_release_name() {
   git notes --ref=release remove 2>/dev/null || true
   git notes --ref=release-candidate remove 2>/dev/null || true
   git notes --ref=release append -m "$1"
-  local relname="$1"
   if [[ ! -z "${2-}" ]]; then
     git notes --ref=release-candidate append -m "$2"
-    relname="${relname}RC${2}"
   fi
-  echo "$relname"
 }
 
 # Trim empty lines at the beginning and the end of the buffer.
@@ -76,21 +73,16 @@ function trim_empty_lines() {
 # Launch the editor and return the edited release notes
 function release_note_editor() {
   local tmpfile="$1"
-  local origin_branch="$2"
-  local branch_name="${3-}"
+  local branch_name="${2-}"
   $EDITOR ${tmpfile} || {
     echo "Editor failed, cancelling release creation..." >&2
-    git checkout -q ${origin_branch} >/dev/null
-    [ -z "${branch_name}" ] || git branch -D ${branch_name}
-    exit 1
+    return 1
   }
   # Stripping the release notes
   local relnotes="$(cat ${tmpfile} | grep -v '^#' | trim_empty_lines)"
   if [ -z "${relnotes}" ]; then
     echo "Release notes are empty, cancelling release creation..." >&2
-    git checkout -q ${origin_branch} >/dev/null
-    [ -z "${branch_name}" ] || git branch -D ${branch_name}
-    exit 1
+    return 1
   fi
   echo "${relnotes}" >${tmpfile}
 }
@@ -137,6 +129,19 @@ function apply_cherry_picks() {
   return 0
 }
 
+# Find out the last release since the fork between "${1:-HEAD}" from master.
+function find_last_release() {
+  local branch="${1:-HEAD}"
+  local baseline="${2:-$(get_release_baseline "${branch}")}"
+  local changes="$(git log --pretty=format:%H "${baseline}~".."${branch}")"
+  for i in ${changes}; do
+    if git notes --ref=release show $i &>/dev/null; then
+      echo $i
+      return 0
+    fi
+  done
+}
+
 # Execute the create command:
 #   Create a new release named "$1" with "$2" as the baseline commit.
 function create_release() {
@@ -150,24 +155,10 @@ function create_release() {
   shift 2
   local origin_branch=$(git_get_branch)
   local branch_name="release-${release_name}"
-  local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
 
   fetch
-  # Get the rc number (1 by default)
-  local rc=1
-  if [ -z "${force_rc}" ]; then
-    if [ -n "$(git branch --list --column ${branch_name})" ]; then
-      rc=$(($(get_release_candidate "${branch_name}")+1))
-    fi
-  else
-    rc=${force_rc}
-  fi
 
-  # Save the changelog so we compute the relnotes against HEAD.
-  git show master:CHANGELOG.md >${tmpfile2} 2>/dev/null || echo >${tmpfile2}
-
+  local last_release="$(git rev-parse --verify "${branch_name}" 2>/dev/null || true)"
   echo "Creating new release branch ${branch_name} for release ${release_name}"
   git checkout -B ${branch_name} ${baseline}
 
@@ -177,21 +168,77 @@ function create_release() {
     exit 1
   }
 
+  setup_git_notes "${force_rc}" "${release_name}" "${last_release}" || {
+    git checkout ${origin_branch}
+    git branch -D ${branch_name}
+    exit 1
+  }
+
+  # Return to the original branch
+  echo "Created $(get_full_release_name) on branch ${branch_name}."
+  git checkout ${origin_branch} &> /dev/null
+}
+
+# Setup the git notes for a release.
+# It looks in the history since the merge base with master to find
+# the latest release candidate and create the git notes for:
+#   the release name (ref=release)
+#   the release candidate number (ref=release-candidate)
+#   the release notes (ref=release-notes)
+# Args:
+#   $1: set to a number to force the release candidate number (default
+#       is taken by increasing the previous release candidate number).
+#   $2: (optional) Specify the release name (default is taken by the
+#       last release candidate or the branch name, e.g. if the branch
+#       name is release-v1, then the name will be 'v1').
+#   $3: (optional) Specify the commit for last release.
+function setup_git_notes() {
+  local force_rc="$1"
+  local branch_name="$(git_get_branch)"
+
+  # Figure out where we are in release: find the rc, the baseline, cherrypicks
+  # and release name.
+  local rc=${force_rc:-1}
+  local baseline="$(get_release_baseline)"
+  local cherrypicks="$(get_cherrypicks "HEAD" "${baseline}")"
+  local last_release="${3-$(find_last_release "HEAD" "${baseline}")}"
+  local release_name="${2-}"
+  if [ -n "${last_release}" ]; then
+    if [ -z "${force_rc}" ]; then
+      rc=$(($(get_release_candidate "${last_release}")+1))
+    fi
+    if [ -z "${release_name}" ]; then
+      release_name="$(get_release_name "${last_release}")"
+    fi
+  elif [ -z "${release_name}" ]; then
+    if [[ "${branch_name}" =~ ^release-(.*)$ ]]; then
+      release_name="${BASH_REMATCH[1]}"
+    else
+      echo "Cannot determine the release name." >&2
+      echo "Please create a release branch with the name release-<name>." >&2
+      return 1
+    fi
+  fi
+
+  # Edit the release notes
+  local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
+  local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
+  trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
+
+  # Save the changelog so we compute the relnotes against HEAD.
+  git show master:CHANGELOG.md >${tmpfile2} 2>/dev/null || echo >${tmpfile2}
+
   echo "Creating release notes"
   echo "${RELEASE_NOTE_MESSAGE}" > ${tmpfile}
   echo "# $(get_release_title "${release_name}rc${rc}")" >> ${tmpfile}
   echo >> ${tmpfile}
-  create_release_notes "${tmpfile2}" >> ${tmpfile}
-  release_note_editor ${tmpfile} "${origin_branch}" "${branch_name}"
+  create_release_notes "${tmpfile2}" "${baseline}" ${cherrypicks} >> ${tmpfile}
+  release_note_editor ${tmpfile} "${branch_name}" || return 1
   local relnotes="$(cat ${tmpfile})"
 
-  release_name=$(set_release_name "${release_name}" "${rc}")
-  # Add the release notes
+  # Add the git notes
+  set_release_name "${release_name}" "${rc}"
   git notes --ref=release-notes add -f -m "${relnotes}"
-
-  # Return to the original branch
-  git checkout ${origin_branch} &> /dev/null
-  echo "Created ${release_name} on branch ${branch_name}."
 
   # Clean-up
   rm -f ${tmpfile} ${tmpfile2}
