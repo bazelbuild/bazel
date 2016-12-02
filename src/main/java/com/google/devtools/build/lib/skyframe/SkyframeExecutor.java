@@ -475,7 +475,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * expensive, and is on the critical path of null builds.
    */
   protected final PerBuildSyscallCache getPerBuildSyscallCache(int concurrencyLevel) {
-    if (lastConcurrencyLevel == concurrencyLevel) {
+    if (perBuildSyscallCache != null && lastConcurrencyLevel == concurrencyLevel) {
       perBuildSyscallCache.clear();
       return perBuildSyscallCache;
     }
@@ -1479,7 +1479,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     for (AspectValueKey aspectKey : aspectKeys) {
       keys.add(aspectKey.getSkyKey());
     }
-    return buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
+    EvaluationResult<ActionLookupValue> result =
+        buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
+    // Get rid of any memory retained by the cache -- all loading is done.
+    perBuildSyscallCache = null;
+    return result;
   }
 
   /**
