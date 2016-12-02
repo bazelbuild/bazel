@@ -53,6 +53,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -63,6 +65,9 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -206,6 +211,9 @@ public class CppCompileAction extends AbstractAction
    * execution.
    */
   private Collection<Artifact> additionalInputs = null;
+
+  /** Set when a two-stage input discovery is used. */
+  private Collection<Artifact> usedModules = null;
 
   private CcToolchainFeatures.Variables overwrittenVariables = null;
 
@@ -504,8 +512,18 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      Collection<Artifact> usedModules = context.getUsedModules(usePic, initialResultSet);
+      Set<Artifact> usedModules = Sets.newLinkedHashSet();
+      for (CppCompilationContext.TransitiveModuleHeaders usedModule :
+          context.getUsedModules(usePic, initialResultSet)) {
+        usedModules.add(usedModule.getModule());
+        if (!cppConfiguration.getPruneMoreModules()) {
+          usedModules.addAll(usedModule.getTransitiveModules());
+        }
+      }
       initialResultSet.addAll(usedModules);
+      if (cppConfiguration.getPruneMoreModules()) {
+        this.usedModules = usedModules;
+      }
       initialResult = initialResultSet;
     }
 
@@ -530,6 +548,39 @@ public class CppCompileAction extends AbstractAction
       result.addAll(initialResult);
     }
     return result;
+  }
+
+  @Override
+  public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
+      throws ActionExecutionException, InterruptedException {
+    if (this.usedModules == null) {
+      return null;
+    }
+    Map<Artifact, SkyKey> skyKeys = new HashMap<>();
+    for (Artifact artifact : this.usedModules) {
+      skyKeys.put(artifact, ActionLookupValue.key((ActionLookupKey) artifact.getArtifactOwner()));
+    }
+    Map<SkyKey, SkyValue> skyValues = env.getValues(skyKeys.values());
+    Set<Artifact> additionalModules = Sets.newLinkedHashSet();
+    for (Artifact artifact : this.usedModules) {
+      SkyKey skyKey = skyKeys.get(artifact);
+      ActionLookupValue value = (ActionLookupValue) skyValues.get(skyKey);
+      Preconditions.checkNotNull(
+          value, "Owner %s of %s not in graph %s", artifact.getArtifactOwner(), artifact, skyKey);
+      CppCompileAction action = (CppCompileAction) value.getGeneratingAction(artifact);
+      for (Artifact input : action.getInputs()) {
+        if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+          additionalModules.add(input);
+        }
+      }
+    }
+    this.additionalInputs =
+        new ImmutableList.Builder<Artifact>()
+            .addAll(this.additionalInputs)
+            .addAll(additionalModules)
+            .build();
+    this.usedModules = null;
+    return additionalModules;
   }
 
   @Override
@@ -1169,7 +1220,6 @@ public class CppCompileAction extends AbstractAction
   public void execute(
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
- 
     if (useHeaderModules) {
       // If modules pruning is used, modules will be supplied via additionalInputs, otherwise they
       // are regular inputs.

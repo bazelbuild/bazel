@@ -384,7 +384,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     ActionExecutionContext actionExecutionContext = null;
     try {
       if (action.discoversInputs()) {
-        if (!state.hasDiscoveredInputs()) {
+        if (state.discoveredInputs == null) {
           try {
             state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
                 perActionFileCache, metadataHandler, env);
@@ -403,6 +403,24 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+
+          // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
+          // files with addDiscoveredInputs() and then have waited for those files to be available
+          // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
+          // inputs to discover even more inputs and then potentially also wait for those to be
+          // available.
+          if (state.discoveredInputsStage2 == null) {
+            state.discoveredInputsStage2 = action.discoverInputsStage2(env);
+          }
+          if (state.discoveredInputsStage2 != null) {
+            addDiscoveredInputs(state.inputArtifactData, state.discoveredInputsStage2, env);
+            if (env.valuesMissing()) {
+              return null;
+            }
+            perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+            metadataHandler =
+                new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+          }
         } else {
           // The action generally tries to discover its inputs during execution. If there are any
           // additional inputs necessary to execute the action, make sure they are available now.
@@ -736,6 +754,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
     Token token = null;
     Iterable<Artifact> discoveredInputs = null;
+    Iterable<Artifact> discoveredInputsStage2 = null;
     ActionExecutionValue value = null;
 
     boolean hasCollectedInputs() {
@@ -746,14 +765,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       boolean result = inputArtifactData != null;
       Preconditions.checkState(result == (expandedArtifacts != null), this);
       return result;
-    }
-
-    // This will always be false for actions that don't discover their inputs, but we never restart
-    // those actions in any case. For actions that do discover their inputs, they either discover
-    // them before execution, in which case discoveredInputs will be non-null if that has already
-    // happened, or after execution, in which case we set discoveredInputs then.
-    boolean hasDiscoveredInputs() {
-      return discoveredInputs != null;
     }
 
     boolean hasCheckedActionCache() {

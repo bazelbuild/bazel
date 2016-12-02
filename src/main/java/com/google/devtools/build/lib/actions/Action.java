@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.profiler.Describable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -149,6 +150,18 @@ public interface Action extends ActionExecutionMetadata, Describable {
    */
   @Nullable
   Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException;
+
+  /**
+   * Used in combination with {@link #discoverInputs} if inputs need to be found before execution in
+   * multiple steps. Returns null if two-stage input discovery isn't necessary.
+   *
+   * <p>Any deps requested here must not change unless one of the action's inputs changes.
+   * Otherwise, changes to nodes that should cause re-execution of actions might be prevented by the
+   * action cache.
+   */
+  @Nullable
+  Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
       throws ActionExecutionException, InterruptedException;
 
   /**

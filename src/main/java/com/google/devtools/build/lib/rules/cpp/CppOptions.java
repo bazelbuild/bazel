@@ -546,6 +546,14 @@ public class CppOptions extends FragmentOptions {
   public boolean skipUnusedModules;
 
   @Option(
+    name = "experimental_prune_more_modules",
+    defaultValue = "false",
+    category = "experimental",
+    help = "If enabled, modules pruning is used when building modules themselves."
+  )
+  public boolean pruneMoreModules;
+
+  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",

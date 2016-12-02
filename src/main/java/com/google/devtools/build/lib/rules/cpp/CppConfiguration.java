@@ -1777,6 +1777,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.skipUnusedModules;
   }
 
+  public boolean getPruneMoreModules() {
+    return cppOptions.pruneMoreModules;
+  }
+
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }
