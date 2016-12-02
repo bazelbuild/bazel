@@ -125,7 +125,6 @@ import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch2ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatchExtensionBinaryRule;
-import com.google.devtools.build.lib.rules.objc.BazelJ2ObjcProtoAspect;
 import com.google.devtools.build.lib.rules.objc.ExperimentalObjcLibraryRule;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
@@ -663,12 +662,8 @@ public class BazelRuleClassProvider {
         @Override
         public void init(Builder builder) {
           String toolsRepository = checkNotNull(builder.getToolsRepository());
+          J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(toolsRepository);
 
-          BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect =
-              new BazelJ2ObjcProtoAspect(toolsRepository);
-          J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(toolsRepository, bazelJ2ObjcProtoAspect);
-
-          builder.addNativeAspectClass(bazelJ2ObjcProtoAspect);
           builder.addNativeAspectClass(j2ObjcAspect);
           builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
           builder.addRuleDefinition(new J2ObjcLibraryRule(j2ObjcAspect));

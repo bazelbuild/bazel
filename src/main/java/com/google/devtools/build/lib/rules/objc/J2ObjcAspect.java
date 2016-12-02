@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -58,37 +59,51 @@ import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraCompileArgs;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
+import com.google.devtools.build.lib.rules.proto.ProtoCommon;
+import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
+import com.google.devtools.build.lib.rules.proto.SupportData;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
-/**
- * J2ObjC transpilation aspect for Java rules.
- */
+/** J2ObjC transpilation aspect for Java and proto rules. */
 public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "J2ObjcAspect";
   private final String toolsRepository;
-  private final AbstractJ2ObjcProtoAspect j2ObjcProtoAspect;
 
   private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
       "-fno-strict-overflow");
 
-  public J2ObjcAspect(String toolsRepository, AbstractJ2ObjcProtoAspect j2ObjcProtoAspect) {
+  public J2ObjcAspect(String toolsRepository) {
     this.toolsRepository = toolsRepository;
-    this.j2ObjcProtoAspect = j2ObjcProtoAspect;
   }
 
-  private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
-      new Attribute(":jre_lib", Mode.TARGET),
-      new Attribute("deps", Mode.TARGET),
-      new Attribute("exports", Mode.TARGET),
-      new Attribute("runtime_deps", Mode.TARGET));
+  private static final Iterable<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
+      ImmutableList.of(
+          new Attribute(":jre_lib", Mode.TARGET),
+          new Attribute("deps", Mode.TARGET),
+          new Attribute("exports", Mode.TARGET),
+          new Attribute("runtime_deps", Mode.TARGET));
+
+  private static final Iterable<Attribute> PROTO_DEPENDENT_ATTRIBUTES =
+      ImmutableList.of(
+          new Attribute("$protobuf_lib", Mode.TARGET), new Attribute("deps", Mode.TARGET));
 
   private static final Label JRE_CORE_LIB =
       Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_core_lib");
 
   private static final Label JRE_EMUL_LIB =
       Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib");
+
+  private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$j2objc_proto_blacklist";
+
+  /** Flags passed to J2ObjC proto compiler plugin. */
+  protected static final Iterable<String> J2OBJC_PLUGIN_PARAMS =
+      ImmutableList.of("file_dir_mapping", "generate_class_mappings");
 
   private static final LateBoundLabel<BuildConfiguration> JRE_LIB =
       new LateBoundLabel<BuildConfiguration>(JRE_CORE_LIB, J2ObjcConfiguration.class) {
@@ -101,18 +116,41 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   /** Adds additional attribute aspects and attributes to the given AspectDefinition.Builder. */
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
-    return builder;
+    return builder.add(
+        attr("$j2objc_plugin", LABEL)
+            .cfg(HOST)
+            .exec()
+            .value(
+                Label.parseAbsoluteUnchecked(
+                    toolsRepository + "//third_party/java/j2objc:proto_plugin")));
+  }
+
+  /** Returns whether this aspect should generate J2ObjC protos from this proto rule */
+  protected boolean shouldAttachToProtoRule(RuleContext ruleContext) {
+    return true;
+  }
+
+  /** Returns whether this aspect allows proto services to be generated from this proto rule */
+  protected boolean shouldAllowProtoServices(RuleContext ruleContext) {
+    return true;
   }
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return addAdditionalAttributes(new AspectDefinition.Builder(this))
-        .attributeAspect("deps", this, j2ObjcProtoAspect)
-        .attributeAspect("exports", this, j2ObjcProtoAspect)
-        .attributeAspect("runtime_deps", this, j2ObjcProtoAspect)
-        .requireProviders(JavaSourceInfoProvider.class, JavaCompilationArgsProvider.class)
+        .attributeAspect("deps", this)
+        .attributeAspect("exports", this)
+        .attributeAspect("runtime_deps", this)
+        .requireProviderSets(
+            ImmutableList.of(
+                ImmutableSet.<Class<?>>of(
+                    JavaSourceInfoProvider.class, JavaCompilationArgsProvider.class),
+                ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class)))
         .requiresConfigurationFragments(
-            AppleConfiguration.class, J2ObjcConfiguration.class, ObjcConfiguration.class)
+            AppleConfiguration.class,
+            J2ObjcConfiguration.class,
+            ObjcConfiguration.class,
+            ProtoConfiguration.class)
         .requiresHostConfigurationFragments(Jvm.class)
         .add(
             attr("$j2objc", LABEL)
@@ -138,6 +176,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
         .add(attr(":jre_lib", LABEL).value(JRE_LIB))
         .add(
+            attr("$protobuf_lib", LABEL)
+                .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:proto_runtime")))
+        .add(
             attr("$xcrunwrapper", LABEL)
                 .cfg(HOST)
                 .exec()
@@ -159,6 +200,12 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .cfg(HOST)
                 .exec()
                 .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/zip:zipper")))
+        .add(
+            ProtoSourceFileBlacklist.blacklistFilegroupAttribute(
+                PROTO_SOURCE_FILE_BLACKLIST_ATTR,
+                ImmutableList.of(
+                    Label.parseAbsoluteUnchecked(
+                        toolsRepository + "//tools/j2objc:j2objc_proto_blacklist"))))
         .build();
   }
 
@@ -166,57 +213,45 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
-    JavaCompilationArgsProvider compilationArgsProvider =
-        base.getProvider(JavaCompilationArgsProvider.class);
-    JavaSourceInfoProvider sourceInfoProvider =
-        base.getProvider(JavaSourceInfoProvider.class);
-    JavaGenJarsProvider genJarProvider =
-        base.getProvider(JavaGenJarsProvider.class);
-    ImmutableSet<Artifact> javaInputFiles = ImmutableSet.<Artifact>builder()
-        .addAll(sourceInfoProvider.getSourceFiles())
-        .addAll(sourceInfoProvider.getSourceJars())
-        .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
-        .build();
-
-    Optional<Artifact> genSrcJar;
-    boolean annotationProcessingEnabled = ruleContext.getFragment(J2ObjcConfiguration.class)
-        .annotationProcessingEnabled();
-    if (genJarProvider != null && annotationProcessingEnabled) {
-      genSrcJar = Optional.fromNullable(genJarProvider.getGenSourceJar());
+    if (isProtoRule(base)) {
+      if (shouldAttachToProtoRule(ruleContext)) {
+        return proto(base, ruleContext, parameters);
+      } else {
+        return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
+      }
     } else {
-      genSrcJar = Optional.<Artifact>absent();
+      return java(base, ruleContext, parameters);
     }
+  }
 
-    XcodeProvider xcodeProvider;
+  private ConfiguredAspect buildAspect(
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      AspectParameters parameters,
+      J2ObjcSource j2ObjcSource,
+      J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider,
+      Iterable<Attribute> depAttributes)
+      throws InterruptedException {
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
     ObjcCommon common;
+    XcodeProvider xcodeProvider;
 
-    if (!javaInputFiles.isEmpty()) {
-      J2ObjcSource j2ObjcSource = buildJ2ObjcSource(ruleContext, javaInputFiles, genSrcJar);
-      J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
-          depJ2ObjcMappingFileProvider(ruleContext);
-      createJ2ObjcTranspilationAction(
-          ruleContext,
-          depJ2ObjcMappingFileProvider.getHeaderMappingFiles(),
-          depJ2ObjcMappingFileProvider.getClassMappingFiles(),
-          javaInputFiles,
-          compilationArgsProvider,
-          j2ObjcSource,
-          genSrcJar);
+    if (!Iterables.isEmpty(j2ObjcSource.getObjcSrcs())) {
+      common =
+          common(
+              ruleContext,
+              j2ObjcSource.getObjcSrcs(),
+              j2ObjcSource.getObjcHdrs(),
+              j2ObjcSource.getHeaderSearchPaths(),
+              depAttributes);
 
-      common = common(
-          ruleContext,
-          j2ObjcSource.getObjcSrcs(),
-          j2ObjcSource.getObjcHdrs(),
-          j2ObjcSource.getHeaderSearchPaths(),
-          DEPENDENT_ATTRIBUTES);
-
-      xcodeProvider = xcodeProvider(
-          ruleContext,
-          common,
-          j2ObjcSource.getObjcHdrs(),
-          j2ObjcSource.getHeaderSearchPaths(),
-          DEPENDENT_ATTRIBUTES);
+      xcodeProvider =
+          xcodeProvider(
+              ruleContext,
+              common,
+              j2ObjcSource.getObjcHdrs(),
+              j2ObjcSource.getHeaderSearchPaths(),
+              depAttributes);
 
       try {
         new LegacyCompilationSupport(ruleContext)
@@ -227,56 +262,172 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext.ruleError(e.getMessage());
       }
     } else {
-      common = common(
-          ruleContext,
-          ImmutableList.<Artifact>of(),
-          ImmutableList.<Artifact>of(),
-          ImmutableList.<PathFragment>of(),
-          DEPENDENT_ATTRIBUTES);
-      xcodeProvider = xcodeProvider(
-          ruleContext,
-          common,
-          ImmutableList.<Artifact>of(),
-          ImmutableList.<PathFragment>of(),
-          DEPENDENT_ATTRIBUTES);
+      common =
+          common(
+              ruleContext,
+              ImmutableList.<Artifact>of(),
+              ImmutableList.<Artifact>of(),
+              ImmutableList.<PathFragment>of(),
+              depAttributes);
+      xcodeProvider =
+          xcodeProvider(
+              ruleContext,
+              common,
+              ImmutableList.<Artifact>of(),
+              ImmutableList.<PathFragment>of(),
+              depAttributes);
     }
 
     return builder
-        .addProvider(j2ObjcMappingFileProvider(ruleContext, !javaInputFiles.isEmpty()))
+        .addProvider(
+            exportedJ2ObjcMappingFileProvider(base, ruleContext, directJ2ObjcMappingFileProvider))
         .addProvider(common.getObjcProvider())
         .addProvider(xcodeProvider)
         .build();
   }
 
-  private J2ObjcMappingFileProvider j2ObjcMappingFileProvider(RuleContext ruleContext,
-      boolean hasTranslatedSource) {
-    J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
-        depJ2ObjcMappingFileProvider(ruleContext);
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = depJ2ObjcMappingFileProvider;
-    if (hasTranslatedSource) {
-      // J2ObjC merges all input header mapping files into the output header mapping file, so we
-      // only need to export the output header mapping file here.
-      NestedSet<Artifact> headerMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
-          .add(j2ObjcOutputHeaderMappingFile(ruleContext))
-          .build();
-      NestedSet<Artifact> dependencyMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
-          .add(j2ObjcOutputDependencyMappingFile(ruleContext))
-          .addTransitive(depJ2ObjcMappingFileProvider.getDependencyMappingFiles())
-          .build();
+  private ConfiguredAspect java(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+      throws InterruptedException {
+    JavaCompilationArgsProvider compilationArgsProvider =
+        base.getProvider(JavaCompilationArgsProvider.class);
+    JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
+    JavaGenJarsProvider genJarProvider = base.getProvider(JavaGenJarsProvider.class);
+    ImmutableSet<Artifact> javaInputFiles =
+        ImmutableSet.<Artifact>builder()
+            .addAll(sourceInfoProvider.getSourceFiles())
+            .addAll(sourceInfoProvider.getSourceJars())
+            .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
+            .build();
 
-      NestedSet<Artifact> archiveSourceMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
-          .add(j2ObjcOutputArchiveSourceMappingFile(ruleContext))
-          .addTransitive(depJ2ObjcMappingFileProvider.getArchiveSourceMappingFiles())
-          .build();
-
-      j2ObjcMappingFileProvider = new J2ObjcMappingFileProvider(
-          headerMappingFiles,
-          depJ2ObjcMappingFileProvider.getClassMappingFiles(),
-          dependencyMappingFiles,
-          archiveSourceMappingFiles);
+    Optional<Artifact> genSrcJar;
+    boolean annotationProcessingEnabled =
+        ruleContext.getFragment(J2ObjcConfiguration.class).annotationProcessingEnabled();
+    if (genJarProvider != null && annotationProcessingEnabled) {
+      genSrcJar = Optional.fromNullable(genJarProvider.getGenSourceJar());
+    } else {
+      genSrcJar = Optional.<Artifact>absent();
     }
 
-    return j2ObjcMappingFileProvider;
+    J2ObjcSource j2ObjcSource = javaJ2ObjcSource(ruleContext, javaInputFiles, genSrcJar);
+    J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
+        depJ2ObjcMappingFileProvider(ruleContext);
+
+    J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider;
+    if (Iterables.isEmpty(j2ObjcSource.getObjcSrcs())) {
+      directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
+    } else {
+      directJ2ObjcMappingFileProvider =
+          createJ2ObjcTranspilationAction(
+              ruleContext,
+              javaInputFiles,
+              depJ2ObjcMappingFileProvider,
+              compilationArgsProvider,
+              j2ObjcSource,
+              genSrcJar);
+    }
+    return buildAspect(
+        base,
+        ruleContext,
+        parameters,
+        j2ObjcSource,
+        directJ2ObjcMappingFileProvider,
+        JAVA_DEPENDENT_ATTRIBUTES);
+  }
+
+  private ConfiguredAspect proto(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+      throws InterruptedException {
+    ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
+    ImmutableList<Artifact> protoSources = protoSourcesProvider.getDirectProtoSources();
+
+    // Avoid pulling in any generated files from blacklisted protos.
+    ProtoSourceFileBlacklist protoBlacklist =
+        new ProtoSourceFileBlacklist(
+            ruleContext,
+            ruleContext
+                .getPrerequisiteArtifacts(PROTO_SOURCE_FILE_BLACKLIST_ATTR, Mode.HOST)
+                .list());
+    ImmutableList<Artifact> filteredProtoSources =
+        ImmutableList.copyOf(protoBlacklist.filter(protoSources));
+    J2ObjcSource j2ObjcSource = protoJ2ObjcSource(ruleContext, filteredProtoSources);
+
+    J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider;
+    if (Iterables.isEmpty(j2ObjcSource.getObjcSrcs())) {
+      directJ2ObjcMappingFileProvider = new J2ObjcMappingFileProvider.Builder().build();
+    } else {
+      directJ2ObjcMappingFileProvider =
+          createJ2ObjcProtoCompileActions(base, ruleContext, filteredProtoSources, j2ObjcSource);
+    }
+
+    return buildAspect(
+        base,
+        ruleContext,
+        parameters,
+        j2ObjcSource,
+        directJ2ObjcMappingFileProvider,
+        PROTO_DEPENDENT_ATTRIBUTES);
+  }
+
+  private static J2ObjcMappingFileProvider exportedJ2ObjcMappingFileProvider(
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider) {
+    J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
+        depJ2ObjcMappingFileProvider(ruleContext);
+
+    NestedSetBuilder<Artifact> exportedHeaderMappingFiles =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directJ2ObjcMappingFileProvider.getHeaderMappingFiles());
+
+    NestedSetBuilder<Artifact> exportedClassMappingFiles =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directJ2ObjcMappingFileProvider.getClassMappingFiles())
+            .addTransitive(depJ2ObjcMappingFileProvider.getClassMappingFiles());
+
+    NestedSetBuilder<Artifact> exportedDependencyMappingFiles =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directJ2ObjcMappingFileProvider.getDependencyMappingFiles())
+            .addTransitive(depJ2ObjcMappingFileProvider.getDependencyMappingFiles());
+
+    NestedSetBuilder<Artifact> archiveSourceMappingFiles =
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(directJ2ObjcMappingFileProvider.getArchiveSourceMappingFiles())
+            .addTransitive(depJ2ObjcMappingFileProvider.getArchiveSourceMappingFiles());
+
+    // J2ObjC merges all transitive input header mapping files into one header mapping file,
+    // so we only need to re-export other dependent output header mapping files in proto rules and
+    // rules where J2ObjC is not run (e.g., no sources).
+    if (isProtoRule(base) || exportedHeaderMappingFiles.isEmpty()) {
+      exportedHeaderMappingFiles.addTransitive(
+          depJ2ObjcMappingFileProvider.getHeaderMappingFiles());
+    }
+
+    return new J2ObjcMappingFileProvider(
+        exportedHeaderMappingFiles.build(),
+        exportedClassMappingFiles.build(),
+        exportedDependencyMappingFiles.build(),
+        archiveSourceMappingFiles.build());
+  }
+
+  private static J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> depsHeaderMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsClassMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsDependencyMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsArchiveSourceMappingsBuilder = NestedSetBuilder.stableOrder();
+
+    for (J2ObjcMappingFileProvider mapping : getJ2ObjCMappings(ruleContext)) {
+      depsHeaderMappingsBuilder.addTransitive(mapping.getHeaderMappingFiles());
+      depsClassMappingsBuilder.addTransitive(mapping.getClassMappingFiles());
+      depsDependencyMappingsBuilder.addTransitive(mapping.getDependencyMappingFiles());
+      depsArchiveSourceMappingsBuilder.addTransitive(mapping.getArchiveSourceMappingFiles());
+    }
+
+    return new J2ObjcMappingFileProvider(
+        depsHeaderMappingsBuilder.build(),
+        depsClassMappingsBuilder.build(),
+        depsDependencyMappingsBuilder.build(),
+        depsArchiveSourceMappingsBuilder.build());
   }
 
   private List<Artifact> genJarOutputs(RuleContext ruleContext) {
@@ -293,11 +444,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         j2objcGenJarTranslatedHeaderFiles(ruleContext).getExecPathString());
   }
 
-  private void createJ2ObjcTranspilationAction(
+  private J2ObjcMappingFileProvider createJ2ObjcTranspilationAction(
       RuleContext ruleContext,
-      NestedSet<Artifact> depsHeaderMappingFiles,
-      NestedSet<Artifact> depsClassMappingFiles,
       Iterable<Artifact> sources,
+      J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider,
       JavaCompilationArgsProvider compArgsProvider,
       J2ObjcSource j2ObjcSource,
       Optional<Artifact> genSrcJar) {
@@ -330,6 +480,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .getTranslationFlags();
     argBuilder.add(translationFlags);
 
+    NestedSet<Artifact> depsHeaderMappingFiles =
+        depJ2ObjcMappingFileProvider.getHeaderMappingFiles();
     if (!depsHeaderMappingFiles.isEmpty()) {
       argBuilder.addJoinExecPaths("--header-mapping", ",", depsHeaderMappingFiles);
     }
@@ -337,6 +489,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact outputHeaderMappingFile = j2ObjcOutputHeaderMappingFile(ruleContext);
     argBuilder.addExecPath("--output-header-mapping", outputHeaderMappingFile);
 
+    NestedSet<Artifact> depsClassMappingFiles = depJ2ObjcMappingFileProvider.getClassMappingFiles();
     if (!depsClassMappingFiles.isEmpty()) {
       argBuilder.addJoinExecPaths("--mapping", ",", depsClassMappingFiles);
     }
@@ -394,26 +547,53 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addOutput(archiveSourceMappingFile);
 
     ruleContext.registerAction(builder.build(ruleContext));
-  }
-
-  private J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> depsHeaderMappingsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> depsClassMappingsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> depsDependencyMappingsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> depsArchiveSourceMappingsBuilder = NestedSetBuilder.stableOrder();
-
-    for (J2ObjcMappingFileProvider mapping : getJ2ObjCMappings(ruleContext)) {
-      depsHeaderMappingsBuilder.addTransitive(mapping.getHeaderMappingFiles());
-      depsClassMappingsBuilder.addTransitive(mapping.getClassMappingFiles());
-      depsDependencyMappingsBuilder.addTransitive(mapping.getDependencyMappingFiles());
-      depsArchiveSourceMappingsBuilder.addTransitive(mapping.getArchiveSourceMappingFiles());
-    }
 
     return new J2ObjcMappingFileProvider(
-        depsHeaderMappingsBuilder.build(),
-        depsClassMappingsBuilder.build(),
-        depsDependencyMappingsBuilder.build(),
-        depsArchiveSourceMappingsBuilder.build());
+        NestedSetBuilder.<Artifact>stableOrder().add(outputHeaderMappingFile).build(),
+        NestedSetBuilder.<Artifact>stableOrder().build(),
+        NestedSetBuilder.<Artifact>stableOrder().add(outputDependencyMappingFile).build(),
+        NestedSetBuilder.<Artifact>stableOrder().add(archiveSourceMappingFile).build());
+  }
+
+  private J2ObjcMappingFileProvider createJ2ObjcProtoCompileActions(
+      ConfiguredTarget base,
+      RuleContext ruleContext,
+      Iterable<Artifact> filteredProtoSources,
+      J2ObjcSource j2ObjcSource) {
+    Iterable<Artifact> outputHeaderMappingFiles =
+        ProtoCommon.getGeneratedOutputs(
+            ruleContext, ImmutableList.copyOf(filteredProtoSources), ".j2objc.mapping");
+    Iterable<Artifact> outputClassMappingFiles =
+        ProtoCommon.getGeneratedOutputs(
+            ruleContext, ImmutableList.copyOf(filteredProtoSources), ".clsmap.properties");
+    ImmutableList<Artifact> outputs =
+        ImmutableList.<Artifact>builder()
+            .addAll(j2ObjcSource.getObjcSrcs())
+            .addAll(j2ObjcSource.getObjcHdrs())
+            .addAll(outputHeaderMappingFiles)
+            .addAll(outputClassMappingFiles)
+            .build();
+
+    String langPluginParameter =
+        String.format(
+            "%s:%s",
+            Joiner.on(',').join(J2OBJC_PLUGIN_PARAMS),
+            ruleContext.getConfiguration().getGenfilesFragment().getPathString());
+
+    SupportData supportData = base.getProvider(ProtoSupportDataProvider.class).getSupportData();
+
+    ProtoCompileActionBuilder actionBuilder =
+        new ProtoCompileActionBuilder(ruleContext, supportData, "J2ObjC", "j2objc", outputs)
+            .setLangPluginName("$j2objc_plugin")
+            .setLangPluginParameter(langPluginParameter)
+            .allowServices(shouldAllowProtoServices(ruleContext));
+    ruleContext.registerAction(actionBuilder.build());
+
+    return new J2ObjcMappingFileProvider(
+        NestedSetBuilder.<Artifact>stableOrder().addAll(outputHeaderMappingFiles).build(),
+        NestedSetBuilder.<Artifact>stableOrder().addAll(outputClassMappingFiles).build(),
+        NestedSetBuilder.<Artifact>stableOrder().build(),
+        NestedSetBuilder.<Artifact>stableOrder().build());
   }
 
   private static List<? extends J2ObjcMappingFileProvider> getJ2ObjCMappings(RuleContext context) {
@@ -471,24 +651,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
-  private static Artifact j2ObjcGenJarSourceZip(RuleContext ruleContext) {
-    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".genjar_source.zip");
-  }
-
-  private static Artifact j2ObjcGenJarSourceZipManifest(RuleContext ruleContext) {
-    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".genjar_source.txt");
-  }
-
-  private static Artifact j2ObjcGenJarHeaderZip(RuleContext ruleContext) {
-    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".genjar_header.zip");
-  }
-
-  private static Artifact j2ObjcGenJarHeaderZipManifest(RuleContext ruleContext) {
-    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".genjar_header.txt");
-  }
-
-  private J2ObjcSource buildJ2ObjcSource(RuleContext ruleContext,
-      Iterable<Artifact> javaInputSourceFiles, Optional<Artifact> genSrcJar) {
+  private static J2ObjcSource javaJ2ObjcSource(
+      RuleContext ruleContext,
+      Iterable<Artifact> javaInputSourceFiles,
+      Optional<Artifact> genSrcJar) {
     PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
     PathFragment objcFileRootExecPath = ruleContext
         .getConfiguration()
@@ -520,8 +686,35 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         Iterables.concat(headerSearchPaths, genJarFileHeaderSearchPaths.asSet()));
   }
 
-  private Iterable<Artifact> getOutputObjcFiles(RuleContext ruleContext,
-      Iterable<Artifact> javaSrcs, PathFragment objcFileRootRelativePath, String suffix) {
+  private static J2ObjcSource protoJ2ObjcSource(
+      RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
+    PathFragment objcFileRootExecPath =
+        ruleContext
+            .getConfiguration()
+            .getGenfilesDirectory(ruleContext.getRule().getRepository())
+            .getExecPath();
+    Iterable<PathFragment> headerSearchPaths =
+        J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
+            ruleContext, objcFileRootExecPath, protoSources);
+
+    return new J2ObjcSource(
+        ruleContext.getTarget().getLabel(),
+        ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.m"),
+        ProtoCommon.getGeneratedOutputs(ruleContext, protoSources, ".j2objc.pb.h"),
+        objcFileRootExecPath,
+        SourceType.PROTO,
+        headerSearchPaths);
+  }
+
+  private static boolean isProtoRule(ConfiguredTarget base) {
+    return base.getProvider(ProtoSourcesProvider.class) != null;
+  }
+
+  private static Iterable<Artifact> getOutputObjcFiles(
+      RuleContext ruleContext,
+      Iterable<Artifact> javaSrcs,
+      PathFragment objcFileRootRelativePath,
+      String suffix) {
     ImmutableList.Builder<Artifact> objcSources = ImmutableList.builder();
 
     for (Artifact javaSrc : javaSrcs) {
