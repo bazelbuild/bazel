@@ -285,6 +285,13 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
+  /**
+   * Adds a "declared provider" defined in Skylark to the rule.
+   * Use this method for declared providers defined in Skyark.
+   *
+   * Use {@link #addNativeDeclaredProvider(SkylarkClassObject)} in definitions of
+   * native rules.
+   */
   public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
       SkylarkClassObject provider, Location loc) throws EvalException {
     SkylarkClassObjectConstructor constructor = provider.getConstructor();
@@ -298,6 +305,13 @@ public final class RuleConfiguredTargetBuilder {
     return this;
   }
 
+  /**
+   * Adds a "declared provider" defined in native code to the rule.
+   * Use this method for declared providers in definitions of native rules.
+   *
+   * Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)}
+   * for Skylark rule implementations.
+   */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
     SkylarkClassObjectConstructor constructor = provider.getConstructor();
     Preconditions.checkState(constructor.isExported());
