@@ -72,21 +72,26 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
           StringBuilder stringBuilder = new StringBuilder();
           if (libraryArtifact.hasJar()) {
             stringBuilder.append("<jar:");
-            stringBuilder.append(libraryArtifact.getJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getJar()));
             stringBuilder.append(">");
           }
           if (libraryArtifact.hasInterfaceJar()) {
             stringBuilder.append("<ijar:");
-            stringBuilder.append(libraryArtifact.getInterfaceJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getInterfaceJar()));
             stringBuilder.append(">");
           }
           if (libraryArtifact.hasSourceJar()) {
             stringBuilder.append("<source:");
-            stringBuilder.append(libraryArtifact.getSourceJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getSourceJar()));
             stringBuilder.append(">");
           }
 
           return stringBuilder.toString();
+        }
+
+        private String artifactLocationPath(ArtifactLocation artifact) {
+          String relativePath = artifact.getRelativePath();
+          return artifact.getIsExternal() ? relativePath + "[external]" : relativePath;
         }
       };
 
