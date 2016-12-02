@@ -69,7 +69,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
-    return BuildOptions.of(testFragments, optionsParser);
+    return BuildOptions.applyStaticConfigOverride(BuildOptions.of(testFragments, optionsParser));
   }
 
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {
