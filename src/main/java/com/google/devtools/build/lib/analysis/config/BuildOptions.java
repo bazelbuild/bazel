@@ -149,6 +149,25 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
+   * Returns a cloned instance that disables dynamic configurations if both
+   * {@link BuildConfiguration.Options.DynamicConfigsMode} is {@code NOTRIM_PARTIAL} and
+   * {@link #useStaticConfigurationsOverride()} is true. Otherwise it returns the input
+   * instance unchanged.
+   */
+  public static BuildOptions applyStaticConfigOverride(BuildOptions buildOptions) {
+    if (buildOptions.useStaticConfigurationsOverride()
+        && buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
+            == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL) {
+      // It's not, generally speaking, safe to mutate BuildOptions instances when the original
+      // reference might persist.
+      buildOptions = buildOptions.clone();
+      buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations =
+          BuildConfiguration.Options.DynamicConfigsMode.OFF;
+    }
+    return buildOptions;
+  }
+
+  /**
    * Returns the actual instance of a FragmentOptions class.
    */
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
