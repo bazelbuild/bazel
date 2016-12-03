@@ -50,6 +50,61 @@ int some_function();
 EOF
 }
 
+function test_cc_library_include_prefix_external_repository() {
+  r="$TEST_TMPDIR/r"
+  mkdir -p "$TEST_TMPDIR/r/foo/v1"
+  echo "#define FOO 42" > "$TEST_TMPDIR/r/foo/v1/foo.h"
+  cat > "$TEST_TMPDIR/r/foo/BUILD" <<EOF
+cc_library(
+  name = "foo",
+  hdrs = ["v1/foo.h"],
+  include_prefix = "foolib",
+  strip_include_prefix = "v1",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+  name = "foo",
+  path = "$TEST_TMPDIR/r",
+)
+EOF
+
+  cat > BUILD <<EOF
+cc_binary(
+  name = "ok",
+  srcs = ["ok.cc"],
+  deps = ["@foo//foo"],
+)
+
+cc_binary(
+  name = "bad",
+  srcs = ["bad.cc"],
+  deps = ["@foo//foo"],
+)
+EOF
+
+  cat > ok.cc <<EOF
+#include <stdio.h>
+#include "foolib/foo.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  cat > bad.cc <<EOF
+#include <stdio.h>
+#include "foo/v1/foo.h"
+int main() {
+  printf("FOO is %d\n", FOO);
+}
+EOF
+
+  bazel build :bad && fail "Should not have found include at repository-relative path"
+  bazel build :ok || fail "Should have found include at synthetic path"
+}
+
 function test_cc_inc_library_propagates_includes() {
   bazel build --verbose_failures //package:inc >& $TEST_log \
     || fail "Should build"

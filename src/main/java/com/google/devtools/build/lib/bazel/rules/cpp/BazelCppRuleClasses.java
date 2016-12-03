@@ -496,6 +496,29 @@ public class BazelCppRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("hdrs", LABEL_LIST).orderIndependent().direct_compile_time_input()
               .allowedFileTypes(FileTypeSet.ANY_FILE))
+          /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(strip_include_prefix) -->
+          The prefix to strip from the paths of the headers of this rule.
+
+          <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+          at their path with this prefix cut off.
+
+          <p>If it's a relative path, it's taken as a package-relative one. If it's an absolute one,
+          it's understood as a repository-relative path.
+
+          <p>The prefix in the <code>include_prefix</code> attribute is added after this prefix is
+          stripped.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("strip_include_prefix", STRING))
+          /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(include_prefix) -->
+          The prefix to add to the paths of the headers of this rule.
+
+          <p>When set, the headers in the <code>hdrs</code> attribute of this rule are accessible
+          at is the value of this attribute prepended to their repository-relative path.
+
+          <p>The prefix in the <code>strip_include_prefix</code> attribute is removed beforethis
+          prefix is added.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("include_prefix", STRING))
           /* <!-- #BLAZE_RULE($cc_library).ATTRIBUTE(textual_hdrs) -->
            The list of header files published by
            this library to be textually included by sources in dependent rules.
