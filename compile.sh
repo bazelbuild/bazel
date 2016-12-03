@@ -143,7 +143,7 @@ if [ $DO_SRCS_TEST ]; then
   log "Querying //:srcs"
   ${BAZEL} query 'kind("source file", deps(//:srcs))' 2>/dev/null \
     | grep -v '^@' \
-    | sed -e 's|^//||' | sed 's|^:||' | sed 's|:|/|' \
+    | sed -e 's|^//||' | sed -e 's|^:||' | sed -e 's|:|/|' \
     | sort -u >"${OUTPUT_DIR}/srcs-query"
 
   log "Finding all files"
@@ -152,7 +152,7 @@ if [ $DO_SRCS_TEST ]; then
   SRCS_EXCLUDES=${SRCS_EXCLUDES-XXXXXXXXXXXXXX1268778dfsdf4}
   # See file BUILD for the list of grep -v exceptions.
   # tools/defaults package is hidden by Bazel so cannot be put in the srcs.
-  find . -type f | sed 's|./||' \
+  find . -type f | sed -e 's|./||' \
     | grep -v '^bazel-' | grep -v '^WORKSPACE.user.bzl' \
     | grep -v '^\.' | grep -v '^out/' | grep -v '^output/' \
     | grep -v '^derived' \
@@ -161,7 +161,7 @@ if [ $DO_SRCS_TEST ]; then
     | sort -u >"${OUTPUT_DIR}/srcs-find"
 
   log "Diffing"
-  res="$(diff -U 0 "${OUTPUT_DIR}/srcs-find" "${OUTPUT_DIR}/srcs-query" | sed 's|^-||' | grep -Ev '^(@@|\+\+|--)' || true)"
+  res="$(diff -U 0 "${OUTPUT_DIR}/srcs-find" "${OUTPUT_DIR}/srcs-query" | sed -e 's|^-||' | grep -Ev '^(@@|\+\+|--)' || true)"
 
   if [ -n "${res}" ]; then
     fail "//:srcs filegroup do not contains all the sources, missing:
