@@ -16,6 +16,7 @@
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 
 #include <stdint.h>
+#include <time.h>
 
 #include <string>
 
