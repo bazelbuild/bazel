@@ -82,6 +82,9 @@ public class AarImport implements RuleConfiguredTargetFactory {
     FileProvider resourcesProvider = new FileProvider(
         new NestedSetBuilder<Artifact>(Order.NAIVE_LINK_ORDER).add(resources).build());
 
+    Artifact resourcesZip =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
+
     ResourceApk resourceApk = androidManifest.packWithDataAndResources(
         ruleContext,
         new LocalResourceContainer.Builder(ruleContext)
@@ -91,11 +94,15 @@ public class AarImport implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+        resourcesZip,
         /* alwaysExportManifest = */ true);
 
+    // There isn't really any use case for building an aar_import target on its own, so the files to
+    // build could be empty. The resources zip and merged jars are added here as a sanity check for
+    // Bazel developers so that `bazel build java/com/my_aar_import` will fail if the resource
+    // processing or jar merging steps fail.
     NestedSetBuilder<Artifact> filesToBuildBuilder =
-        NestedSetBuilder.<Artifact>stableOrder().add(resources).add(mergedJar);
+        NestedSetBuilder.<Artifact>stableOrder().add(resourcesZip).add(mergedJar);
 
     Artifact nativeLibs = createAarArtifact(ruleContext, "native_libs.zip");
     ruleContext.registerAction(createAarNativeLibsFilterActions(ruleContext, aar, nativeLibs));
