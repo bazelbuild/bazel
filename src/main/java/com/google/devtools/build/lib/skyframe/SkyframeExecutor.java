@@ -1882,7 +1882,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               patternParsingValue.getFilteredTargets(),
               patternParsingValue.getTestFilteredTargets(),
               time,
-              targetPatterns));
+              targetPatterns,
+              patternParsingValue.getTargets()));
       if (callback != null) {
         callback.notifyTargets(patternParsingValue.getTargets());
       }
