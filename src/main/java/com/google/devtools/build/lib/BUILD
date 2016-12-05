@@ -134,6 +134,7 @@ java_library(
         "profiler/*.java",
         "vfs/*.java",
     ]),
+    visibility = ["//visibility:public"],
     deps = [
         ":base-util",
         ":clock",
