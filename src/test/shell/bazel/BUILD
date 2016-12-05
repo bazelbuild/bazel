@@ -69,6 +69,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    tags = ["manual"],
 )
 
 sh_test(
