@@ -222,26 +222,41 @@ function setup_git_notes() {
 
   # Edit the release notes
   local tmpfile=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  local tmpfile2=$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)
-  trap 'rm -f ${tmpfile} ${tmpfile2}' EXIT
-
-  # Save the changelog so we compute the relnotes against HEAD.
-  git show master:CHANGELOG.md >${tmpfile2} 2>/dev/null || echo >${tmpfile2}
+  trap "rm -f ${tmpfile}" EXIT
 
   echo "Creating release notes"
+
+  # Save the changelog so we compute the relnotes against HEAD.
+  git show master:CHANGELOG.md >${tmpfile} 2>/dev/null || echo >${tmpfile}
+  # Compute the new release notes
+  local relnotes="$(create_release_notes "${tmpfile}" "${baseline}" ${cherrypicks})"
+
+  # Try to merge the release notes if there was a previous release
+  if [ -n "${last_release}" ]; then
+    # Compute the previous release notes
+    local last_baseline="$(get_release_baseline "${last_release}")"
+    local last_cherrypicks="$(get_cherrypicks "${last_release}" \
+      "${last_baseline}")"
+    git checkout -q "${last_release}"
+    local last_relnotes="$(create_release_notes "${tmpfile}")"
+    git checkout -q "${branch_name}"
+    local last_savedrelnotes="$(get_release_notes "${last_release}")"
+    relnotes="$(merge_release_notes "${branch_name}" "${relnotes}" \
+      "${last_relnotes}" "${last_savedrelnotes}")"
+  fi
   echo "${RELEASE_NOTE_MESSAGE}" > ${tmpfile}
   echo "# $(get_release_title "${release_name}rc${rc}")" >> ${tmpfile}
   echo >> ${tmpfile}
-  create_release_notes "${tmpfile2}" "${baseline}" ${cherrypicks} >> ${tmpfile}
+  echo "${relnotes}" >>"${tmpfile}"
   release_note_editor ${tmpfile} "${branch_name}" || return 1
-  local relnotes="$(cat ${tmpfile})"
+  relnotes="$(cat ${tmpfile})"
 
   # Add the git notes
   set_release_name "${release_name}" "${rc}"
   git notes --ref=release-notes add -f -m "${relnotes}"
 
   # Clean-up
-  rm -f ${tmpfile} ${tmpfile2}
+  rm -f ${tmpfile}
   trap - EXIT
 }
 

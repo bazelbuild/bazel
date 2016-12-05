@@ -145,6 +145,50 @@ function abandon() {
 
 }
 
+function test_merge_release_notes() {
+  local RELNOTES='Incompatible changes:
+
+  - Remove deprecated "make var" INCDIR
+
+Important changes:
+
+  - Use a default implementation of a progress message, rather than
+    defaulting to null for all SpawnActions.'
+  local NEW_RELNOTES="${RELNOTES}"'
+  - Attribute error messages related to Android resources are easier
+    to understand now.'
+  local REPLACEMENT="Test replacement."
+
+  assert_equals '<<<<<<< HEAD
+Incompatible changes:
+
+  - Remove deprecated "make var" INCDIR
+
+Important changes:
+
+  - Use a default implementation of a progress message, rather than
+    defaulting to null for all SpawnActions.
+  - Attribute error messages related to Android resources are easier
+    to understand now.
+=======
+Test replacement.
+>>>>>>> master-merge-notes-1' "$(merge_release_notes master "${NEW_RELNOTES}" "${RELNOTES}" "${REPLACEMENT}")"
+
+  assert_equals "${NEW_RELNOTES}" \
+    "$(merge_release_notes master "${NEW_RELNOTES}" "${RELNOTES}" "${RELNOTES}")"
+
+  assert_equals "${RELNOTES}"'
+<<<<<<< HEAD
+  - Attribute error messages related to Android resources are easier
+    to understand now.
+=======
+  - Merge conflict.
+>>>>>>> master-merge-notes-1' "$(merge_release_notes master "${NEW_RELNOTES}" "${RELNOTES}" "${RELNOTES}
+  - Merge conflict.")"
+
+}
+
+
 function test_release_workflow() {
   export EDITOR=true
   # Initial release
@@ -215,7 +259,27 @@ Cherry picks:
   push v1
 
   # Test creating a second candidate
-  echo "#!$(which true)" >${EDITOR}
+  RELNOTES="${RELNOTES}"'
+  - Attribute error messages related to Android resources are easier
+    to understand now.'
+
+  # There should be a merge conflict
+  cat >${TEST_TMPDIR}/expected.log <<EOF
+# Editing release notes
+# Modify the release notes to make them suitable for the release.
+# Every line starting with a # will be removed as well as every
+# empty line at the start and at the end.
+
+# Release v1rc2 ($(date +%Y-%m-%d))
+
+<<<<<<< HEAD
+${RELNOTES}
+=======
+Test replacement
+>>>>>>> release-v1-merge-notes-1
+EOF
+  echo "${RELNOTES}" >${TEST_TMPDIR}/replacement.log
+
   create v1 1170dc6 0540fde cef25c4
   header='Release v1rc2 ('$(date +%Y-%m-%d)')
 
@@ -228,9 +292,6 @@ Cherry picks:
               resources are easier to understand now.
 
 '
-  RELNOTES="${RELNOTES}"'
-  - Attribute error messages related to Android resources are easier
-    to understand now.'
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
   assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
   assert_equals 2 "$(get_release_candidate release-v1)"
