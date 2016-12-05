@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# For this tests to run do the following:
+# 1. Uncomment the 2 lines regarding android integration tests in the WORKSPACE
+# file.
+# 2. Set the environment variables ANDROID_HOME and ANDROID_NDK accordingly to
+# your Android SDK and NDK home directories.
+# 3. Run scripts/workspace_user.sh.
+#
+# Note that if the environment is not set up as above android_integration_test
+# will silently be ignored and will be shown as passing.
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
