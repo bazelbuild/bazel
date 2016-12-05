@@ -35,7 +35,7 @@ Install Bazel on Ubuntu using one of the following methods:
   * [Using binary installer](#install-with-installer-ubuntu)
   * [Compiling Bazel from source](#compiling-from-source)
 
-### <a name="install-on-ubuntu"></a> Using Bazel custom API repository (recommended)
+### <a name="install-on-ubuntu"></a> Using Bazel custom APT repository (recommended)
 
 #### 1. Install JDK 8
 
