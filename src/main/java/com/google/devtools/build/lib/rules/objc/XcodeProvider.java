@@ -18,13 +18,13 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_IMPOR
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.CC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_FOR_XCODEGEN;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_SEARCH_PATH_ONLY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.GENERAL_RESOURCE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_DYLIB;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.SDK_FRAMEWORK;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -651,7 +651,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
             .addAllBuildSetting(xcodeprojBuildSettings)
             .addAllBuildSetting(AppleToolchain.defaultWarningsForXcode())
             .addAllSdkFramework(SdkFramework.names(objcProvider.get(SDK_FRAMEWORK)))
-            .addAllFramework(PathFragment.safePathStrings(objcProvider.get(STATIC_FRAMEWORK_DIR)))
+            .addAllFramework(PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_DIR)))
             .addAllFrameworkSearchPathOnly(
                 PathFragment.safePathStrings(objcProvider.get(FRAMEWORK_SEARCH_PATH_ONLY)))
             .addAllXcassetsDir(PathFragment.safePathStrings(objcProvider.get(XCASSETS_DIR)))
