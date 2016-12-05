@@ -29,10 +29,17 @@ while [ ! -f WORKSPACE ]; do
   fi
 done
 
-: ${ANDROID_BUILD_TOOLS_VERSION:="21.1.1"}
-: ${ANDROID_API_LEVEL:="19"}
+function highest_build_tools_version() {
+  ls $ANDROID_HOME/build-tools | sort -t . -k 1n -k 2n -k 3n | tail -n 1
+}
+
+function highest_api_level() {
+  ls $ANDROID_HOME/platforms | cut -d '-' -f 2 | sort -n | tail -n 1
+}
 
 if [ -n "${ANDROID_HOME:-}" ]; then
+  : ${ANDROID_BUILD_TOOLS_VERSION:=$(highest_build_tools_version)}
+  : ${ANDROID_API_LEVEL:=$(highest_api_level)}
   cat <<EOF >WORKSPACE.user.bzl
 def android_sdk():
   native.android_sdk_repository(
