@@ -234,6 +234,29 @@ function test_android_binary_clang() {
   check_soname
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/1928.
+function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
+  create_new_workspace
+  setup_android_support
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.test"/>
+EOF
+  mkdir res
+  zip test.aar AndroidManifest.xml res/
+  cat > BUILD <<EOF
+aar_import(
+  name = "test",
+  aar = "test.aar",
+)
+EOF
+  # Building aar_import invokes the AndroidResourceProcessingAction with a
+  # TreeArtifact of the AAR resources as the input. Since there are no
+  # resources, the Bazel sandbox should create an empty directory. If the
+  # directory is not created, the action thinks that its inputs do not exist and
+  # crashes.
+  bazel build :test
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later

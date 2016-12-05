@@ -187,6 +187,17 @@ public final class SpawnHelpers {
       }
     }
 
+    // ActionInputHelper#expandArtifacts above expands empty TreeArtifacts into an empty list.
+    // However, actions that accept TreeArtifacts as inputs generally expect that the empty
+    // directory is created. So here we explicitly mount the directories of the TreeArtifacts as
+    // inputs.
+    for (ActionInput input : spawn.getInputFiles()) {
+      if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
+        PathFragment mount = new PathFragment(input.getExecPathString());
+        mounts.put(mount, execRoot.getRelative(mount));
+      }
+    }
+
     for (ActionInput input : inputs) {
       if (input.getExecPathString().contains("internal/_middlemen/")) {
         continue;
