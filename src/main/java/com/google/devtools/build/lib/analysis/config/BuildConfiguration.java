@@ -85,6 +85,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TreeMap;
@@ -1080,6 +1081,8 @@ public final class BuildConfiguration {
   private final ImmutableMap<String, String> testEnvironment;
   private final ImmutableMap<String, String> commandLineBuildVariables;
 
+  private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
+
   /**
    * Helper container for {@link #transitiveOptionsMap} below.
    */
@@ -1137,6 +1140,33 @@ public final class BuildConfiguration {
                 && actionsEnabled == other.actionsEnabled
                 && fragments.values().containsAll(other.fragments.values())
                 && buildOptions.getOptions().containsAll(other.buildOptions.getOptions()));
+  }
+
+  /**
+   * Returns {@code true} if this configuration is semantically equal to the other, including
+   * checking that both have the same sets of fragments and options.
+   */
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof BuildConfiguration)) {
+      return false;
+    }
+    BuildConfiguration otherConfig = (BuildConfiguration) other;
+    return actionsEnabled == otherConfig.actionsEnabled
+        && fragments.values().equals(otherConfig.fragments.values())
+        && buildOptions.getOptions().equals(otherConfig.buildOptions.getOptions());
+  }
+
+  private int computeHashCode() {
+    return Objects.hash(actionsEnabled, fragments, buildOptions.getOptions());
+  }
+
+  @Override
+  public int hashCode() {
+    return hashCode;
   }
 
   /**
@@ -1295,6 +1325,7 @@ public final class BuildConfiguration {
     globalMakeEnv = globalMakeEnvBuilder.build();
 
     checksum = Fingerprint.md5Digest(buildOptions.computeCacheKey());
+    hashCode = computeHashCode();
   }
 
   /**
