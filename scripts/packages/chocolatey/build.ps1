@@ -11,14 +11,17 @@ if ($mode -eq "release") {
   $tvVersion = $version
   $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
   $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($tvVersion)/$($tvFilename)"
+  $tvReleaseNotesUri = "https://github.com/bazelbuild/bazel/releases/tag/$tvVersion"
 } elseif ($mode -eq "rc") {
   $tvVersion = "$($version)-rc$($rc)"
   $tvFilename = "bazel-$($version)rc$($rc)-windows-x86_64.zip"
   $tvUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/$($tvFilename)"
+  $tvReleaseNotesUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/index.html"
 } elseif ($mode -eq "local") {
   $tvVersion = $version
   $tvFilename = "bazel-$($tvVersion)-windows-x86_64.zip"
   $tvUri = "http://localhost:8000/$($tvFilename)"
+  $tvReleaseNotesUri = "http://localhost:8000/dummy"
 } else {
   throw "mode parameter '$mode' unsupported. Please use local, rc, or release."
 }
