@@ -117,6 +117,8 @@ public abstract class AbstractConfiguredTarget
         // accessible in Skylark.
         return SkylarkNestedSet.of(
             Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
+      case ASPECTS_FIELD:
+        return ImmutableList.<String>of();
       case DEFAULT_RUNFILES_FIELD:
         return RunfilesProvider.DEFAULT_RUNFILES.apply(this);
       case DATA_RUNFILES_FIELD:
@@ -172,6 +174,7 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public ImmutableCollection<String> getKeys() {
-    return ImmutableList.of(DATA_RUNFILES_FIELD, DEFAULT_RUNFILES_FIELD, LABEL_FIELD, FILES_FIELD);
+    return ImmutableList.of(
+        DATA_RUNFILES_FIELD, DEFAULT_RUNFILES_FIELD, LABEL_FIELD, FILES_FIELD, ASPECTS_FIELD);
   }
 }

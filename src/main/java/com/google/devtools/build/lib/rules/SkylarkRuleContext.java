@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.AspectDescriptor;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImp
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
@@ -146,7 +146,7 @@ public final class SkylarkRuleContext {
   private final FragmentCollection fragments;
 
   private final FragmentCollection hostFragments;
-  private final SkylarkAspect skylarkAspect;
+  private final AspectDescriptor aspectDescriptor;
 
   private final SkylarkDict<String, String> makeVariables;
   private final SkylarkRuleAttributesCollection attributesCollection;
@@ -158,18 +158,18 @@ public final class SkylarkRuleContext {
 
   /**
    * Creates a new SkylarkRuleContext using ruleContext.
-   * @param skylarkAspect aspect for which the context is created, or <code>null</code>
+   * @param aspectDescriptor aspect for which the context is created, or <code>null</code>
    *        if it is for a rule.
    * @throws InterruptedException
    */
-  public SkylarkRuleContext(RuleContext ruleContext, @Nullable SkylarkAspect skylarkAspect)
+  public SkylarkRuleContext(RuleContext ruleContext, @Nullable AspectDescriptor aspectDescriptor)
       throws EvalException, InterruptedException {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.fragments = new FragmentCollection(ruleContext, ConfigurationTransition.NONE);
     this.hostFragments = new FragmentCollection(ruleContext, ConfigurationTransition.HOST);
-    this.skylarkAspect = skylarkAspect;
+    this.aspectDescriptor = aspectDescriptor;
 
-    if (skylarkAspect == null) {
+    if (aspectDescriptor == null) {
       Collection<Attribute> attributes = ruleContext.getRule().getAttributes();
       HashMap<String, Object> outputsBuilder = new HashMap<>();
       if (ruleContext.getRule().getRuleClassObject().outputsDefaultExecutable()) {
@@ -248,8 +248,8 @@ public final class SkylarkRuleContext {
   }
 
   @Nullable
-  public SkylarkAspect getSkylarkAspect() {
-    return skylarkAspect;
+  public AspectDescriptor getAspectDescriptor() {
+    return aspectDescriptor;
   }
 
   private Function<Attribute, Object> attributeValueExtractorForRule(
@@ -585,6 +585,19 @@ public final class SkylarkRuleContext {
     }
     return ruleAttributesCollection;
   }
+
+  @SkylarkCallable(structField = true,
+      name = "aspect_id",
+      doc = "Returns a string uniquely identifying this aspect"
+          + " Only available in aspect implementation functions.")
+  public String aspectId() throws EvalException {
+    if (ruleAttributesCollection == null) {
+      throw new EvalException(
+          Location.BUILTIN, "'aspect' is only available in aspect implementations");
+    }
+    return aspectDescriptor.getDescription();
+  }
+
 
   @SkylarkCallable(structField = true,
       doc = "Dictionary (String to String) of configuration variables")

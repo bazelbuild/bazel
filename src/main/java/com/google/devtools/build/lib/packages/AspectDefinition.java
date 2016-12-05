@@ -73,6 +73,7 @@ public final class AspectDefinition {
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
     this.aspectClass = aspectClass;
     this.requiredProviderSets = requiredProviderSets;
+
     this.attributes = attributes;
     this.attributeAspects = attributeAspects;
     this.configurationFragmentPolicy = configurationFragmentPolicy;

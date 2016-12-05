@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
-
+import com.google.protobuf.TextFormat;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 /**
@@ -66,5 +68,36 @@ public final class AspectDescriptor {
     AspectDescriptor that = (AspectDescriptor) obj;
     return Objects.equals(aspectClass, that.aspectClass)
         && Objects.equals(aspectParameters, that.aspectParameters);
+  }
+
+  /**
+   * Creates a presentable description of this aspect, avaliable
+   * to Skylark via "Target.aspects".
+   *
+   * The description is designed to be unique for each aspect descriptor,
+   * but not to be parseable.
+   */
+  public String getDescription() {
+    if (aspectParameters.isEmpty()) {
+      return aspectClass.getName();
+    }
+
+    StringBuilder builder = new StringBuilder(aspectClass.getName());
+    builder.append('[');
+    ImmutableMultimap<String, String> attributes = aspectParameters.getAttributes();
+    boolean first = true;
+    for (Entry<String, String> attribute : attributes.entries()) {
+      if (!first) {
+        builder.append(',');
+      } else {
+        first = false;
+      }
+      builder.append(attribute.getKey());
+      builder.append("=\"");
+      builder.append(TextFormat.escapeDoubleQuotesAndBackslashes(attribute.getValue()));
+      builder.append("\"");
+    }
+    builder.append(']');
+    return builder.toString();
   }
 }
