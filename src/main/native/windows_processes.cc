@@ -121,7 +121,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   HANDLE thread = INVALID_HANDLE_VALUE;
   HANDLE event = INVALID_HANDLE_VALUE;
   PROCESS_INFORMATION process_info = {0};
-  STARTUPINFO startup_info = {0};
+  STARTUPINFOA startup_info = {0};
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
   if (java_env != NULL) {
@@ -145,7 +145,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   if (stdout_redirect != NULL) {
     result->stdout_.close();
 
-    stdout_process = CreateFile(
+    stdout_process = CreateFileA(
         stdout_redirect,
         FILE_APPEND_DATA,
         0,
@@ -170,7 +170,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     if (!strcmp(stdout_redirect, stderr_redirect)) {
       stderr_process = stdout_process;
     } else {
-      stderr_process = CreateFile(
+      stderr_process = CreateFileA(
           stderr_redirect,
           FILE_APPEND_DATA,
           0,
@@ -218,7 +218,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   startup_info.hStdError = stderr_process;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
-  BOOL ok = CreateProcess(
+  BOOL ok = CreateProcessA(
       NULL,
       mutable_commandline,
       NULL,

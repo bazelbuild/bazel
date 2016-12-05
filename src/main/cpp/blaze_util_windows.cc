@@ -14,6 +14,7 @@
 
 #include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
+#include <stdarg.h>  // va_start, va_end, va_list
 
 #ifndef COMPILER_MSVC
 #include <fcntl.h>
@@ -231,7 +232,7 @@ string GetSelfPath() {
   const size_t PATH_MAX = 4096;
 #endif  // COMPILER_MSVC
   char buffer[PATH_MAX] = {};
-  if (!GetModuleFileName(0, buffer, sizeof(buffer))) {
+  if (!GetModuleFileNameA(0, buffer, sizeof(buffer))) {
     pdie(255, "Error %u getting executable file name\n", GetLastError());
   }
 
@@ -420,7 +421,7 @@ string RunProgram(
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFO startupInfo = {0};
+  STARTUPINFOA startupInfo = {0};
 
   startupInfo.hStdError = pipe_write;
   startupInfo.hStdOutput = pipe_write;
@@ -428,7 +429,7 @@ string RunProgram(
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
-  bool ok = CreateProcess(
+  bool ok = CreateProcessA(
       NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
       //                 _Inout_opt_ LPTSTR                lpCommandLine,
       cmdline.cmdline,
@@ -525,7 +526,7 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = CreateFile(
+  HANDLE output_file = CreateFileA(
       ConvertPath(daemon_output).c_str(),  // lpFileName
       GENERIC_READ | GENERIC_WRITE,        // dwDesiredAccess
       // So that the file can be read while the server is running
@@ -549,7 +550,7 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFO startupInfo = {0};
+  STARTUPINFOA startupInfo = {0};
 
   startupInfo.hStdInput = pipe_read;
   startupInfo.hStdError = output_file;
@@ -561,9 +562,9 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   // Propagate BAZEL_SH environment variable to a sub-process.
   // todo(dslomov): More principled approach to propagating
   // environment variables.
-  SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
+  SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
-  bool ok = CreateProcess(
+  bool ok = CreateProcessA(
       NULL,  // _In_opt_    LPCTSTR               lpApplicationName,
       //                 _Inout_opt_ LPTSTR                lpCommandLine,
       cmdline.cmdline,
@@ -654,13 +655,13 @@ void ExecuteProgram(
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
-  STARTUPINFO startupInfo = {0};
+  STARTUPINFOA startupInfo = {0};
   PROCESS_INFORMATION processInfo = {0};
 
   // Propagate BAZEL_SH environment variable to a sub-process.
   // todo(dslomov): More principled approach to propagating
   // environment variables.
-  SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
+  SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
@@ -678,7 +679,7 @@ void ExecuteProgram(
     pdie(255, "Error %u while setting up job\n", GetLastError());
   }
 
-  bool success = CreateProcess(
+  bool success = CreateProcessA(
       NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
       //                 _Inout_opt_ LPTSTR                lpCommandLine,
       cmdline.cmdline,
@@ -799,7 +800,7 @@ typedef struct {
 } REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
 HANDLE OpenDirectory(const string& path, bool readWrite) {
-  HANDLE result = ::CreateFile(
+  HANDLE result = ::CreateFileA(
       path.c_str(),
       readWrite ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ,
       0,
@@ -819,7 +820,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   string name = ConvertPath(posix_name);
 
   // Junctions are directories, so create one
-  if (!::CreateDirectory(name.c_str(), NULL)) {
+  if (!::CreateDirectoryA(name.c_str(), NULL)) {
     PrintError("CreateDirectory(" + name + ")");
     return false;
   }
