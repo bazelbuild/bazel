@@ -188,7 +188,6 @@ Test replacement.
 
 }
 
-
 function test_release_workflow() {
   export EDITOR=true
   # Initial release
@@ -320,6 +319,171 @@ EOF
   chmod +x .git/hooks/commit-msg
   # Re-create release
   create v2 2464526
+  expect_log "Release v2rc1"
+  expect_log "Baseline: 2464526"
+  expect_not_log "HOOK-SHOULD-BE-IGNORED"
+  # Push
+  push v2
+  # Abandon it
+  abandon v2
+}
+
+function generate_rc() {
+  local force_rc=
+  if [[ "$1" =~ ^--force_rc=[0-9]+$ ]]; then
+    force_rc="$1"
+    shift
+  fi
+  local name="$1"
+  shift
+  if (git rev-parse --verify "release-$name" &>/dev/null); then
+    git checkout release-"$name"
+  else
+    git checkout -b release-"$name" $1
+    shift
+  fi
+  for i in "$@"; do
+    git cherry-pick $i
+  done
+  ${RELEASE_SCRIPT} generate-rc $force_rc &> $TEST_log \
+    || fail "Failed to cut release $name"
+  get_full_release_notes "release-$name" >$TEST_log
+  git checkout master
+}
+
+# Same test as before with the workflow for the git user
+function test_git_release_workflow() {
+  export EDITOR=true
+  # Initial release
+  generate_rc v0 965c392
+
+  expect_log "Release v0rc1"
+  expect_log "Initial release"
+  # Push the release branch
+  push v0
+  # Do the initial release
+  release v0
+
+  # Second release.
+
+  # First we need to edit the logs
+  export EDITOR=${TEST_TMPDIR}/editor.sh
+  local RELNOTES='Incompatible changes:
+
+  - Remove deprecated "make var" INCDIR
+
+Important changes:
+
+  - Use a default implementation of a progress message, rather than
+    defaulting to null for all SpawnActions.'
+
+  cat >${TEST_TMPDIR}/expected.log <<EOF
+# Editing release notes
+# Modify the release notes to make them suitable for the release.
+# Every line starting with a # will be removed as well as every
+# empty line at the start and at the end.
+
+# Release v1rc1 ($(date +%Y-%m-%d))
+
+${RELNOTES}
+
+EOF
+
+  echo "Test replacement" >${TEST_TMPDIR}/replacement.log
+
+  cat >${EDITOR} <<EOF
+#!/bin/bash
+
+# 1. Assert the file is correct
+if [ "\$(cat \$1)" != "\$(cat ${TEST_TMPDIR}/expected.log)" ]; then
+  echo "Expected:" >&2
+  cat ${TEST_TMPDIR}/expected.log >&2
+  echo "Got:" >&2
+  cat \$1 >&2
+  exit 1
+fi
+
+# 2. write the replacement in the input file
+cat ${TEST_TMPDIR}/replacement.log >\$1
+EOF
+  chmod +x ${EDITOR}
+  generate_rc v1 1170dc6 0540fde
+  local header='Release v1rc1 ('$(date +%Y-%m-%d)')
+
+Baseline: 1170dc6
+
+Cherry picks:
+   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
+              from BUILD_EMBED_LABEL into Info.plist.
+
+'
+  assert_equals "${header}Test replacement" "$(cat ${TEST_log})"
+  assert_equals "Test replacement" "$(get_release_notes release-v1)"
+  assert_equals 1 "$(get_release_candidate release-v1)"
+  push v1
+
+  # Test creating a second candidate
+  RELNOTES="${RELNOTES}"'
+  - Attribute error messages related to Android resources are easier
+    to understand now.'
+
+  # There should be a merge conflict
+  cat >${TEST_TMPDIR}/expected.log <<EOF
+# Editing release notes
+# Modify the release notes to make them suitable for the release.
+# Every line starting with a # will be removed as well as every
+# empty line at the start and at the end.
+
+# Release v1rc2 ($(date +%Y-%m-%d))
+
+<<<<<<< HEAD
+${RELNOTES}
+=======
+Test replacement
+>>>>>>> release-v1-merge-notes-1
+EOF
+  echo "${RELNOTES}" >${TEST_TMPDIR}/replacement.log
+
+  generate_rc v1 cef25c4
+  header='Release v1rc2 ('$(date +%Y-%m-%d)')
+
+Baseline: 1170dc6
+
+Cherry picks:
+   + 0540fde: Extract version numbers that look like "..._1.2.3_..."
+              from BUILD_EMBED_LABEL into Info.plist.
+   + cef25c4: RELNOTES: Attribute error messages related to Android
+              resources are easier to understand now.
+
+'
+  assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
+  assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
+  assert_equals 2 "$(get_release_candidate release-v1)"
+
+  # Push the release
+  push v1
+  release v1
+
+  # Third release to test abandon
+  cat >${EDITOR} <<EOF
+#!/bin/bash
+# Make sure we have release notes or the release will be cancelled.
+echo 'Dummy release' >\$1
+EOF
+  # Create release
+  generate_rc --force_rc=2 v2 2464526
+  expect_log "Release v2rc2"
+  expect_log "Baseline: 2464526"
+  assert_equals 2 "$(get_release_candidate release-v2)"
+  # Abandon it
+  abandon v2
+  # Add a commit hook to test if it is ignored
+  cat <<'EOF' >.git/hooks/commit-msg
+echo HOOK-SHOULD-BE-IGNORED >>$1
+EOF
+  chmod +x .git/hooks/commit-msg
+  # Re-create release
+  generate_rc v2 2464526
   expect_log "Release v2rc1"
   expect_log "Baseline: 2464526"
   expect_not_log "HOOK-SHOULD-BE-IGNORED"

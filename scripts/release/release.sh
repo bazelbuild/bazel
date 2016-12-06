@@ -338,6 +338,8 @@ function abandon_release() {
   echo -n "You are about to abandon release ${tag_name}, confirm? [y/N] "
   read answer
   if [ "$answer" = "y" -o "$answer" = "Y" ]; then
+    git notes --ref=release remove 2>/dev/null || true
+    git notes --ref=release-candidate remove 2>/dev/null || true
     git checkout -q master >/dev/null
     cleanup_branches ${tag_name}
   fi
@@ -353,6 +355,13 @@ Available commands are:
       COMMIT1 ... COMMITN. The release candidate number will be
       computed from existing release branch unless --force_rc is
       specified.
+  - generate-rc [--force_rc=RC]: generate a release candidate out of
+      the current branch, the branch should be named "release-XXX"
+      where "XXX" is the name of the release. This branch should be
+      a fork of master in which some cherry-picks where taken from
+      master. --force_rc can be used to override the RC number
+      (by default it tries to look for latest release and increment
+      the rc number).
   - push: push the current release branch to release repositories.
   - release: do the actual release of the current release branch.
   - abandon: abandon the current release branch.
@@ -399,6 +408,14 @@ case $cmd in
     ;;
   release)
     do_release
+    ;;
+  generate-rc)
+    force_rc=
+    if [[ "${1-}" =~ ^--force_rc=([0-9]*)$ ]]; then
+      force_rc=${BASH_REMATCH[1]}
+      shift 1
+    fi
+    setup_git_notes "${force_rc}"
     ;;
   abandon)
     abandon_release
