@@ -243,12 +243,22 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(STABLE_ORDER, "root_merge_zip", Artifact.class);
 
   /**
-   * Exec paths of {@code .framework} directories corresponding to frameworks to link. These cause
-   * -F arguments (framework search paths) to be added to each compile action, and -framework (link
-   * framework) arguments to be added to each link action.
+   * Exec paths of {@code .framework} directories corresponding to static frameworks to link. These
+   * cause -F arguments (framework search paths) to be added to each compile action, and
+   * -framework (link framework) arguments to be added to each link action. These differ from
+   * dynamic frameworks in that they are statically linked into the binary.
    */
-  public static final Key<PathFragment> FRAMEWORK_DIR =
+  public static final Key<PathFragment> STATIC_FRAMEWORK_DIR =
       new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
+  
+  /**
+   * Exec paths of {@code .framework} directories corresponding to dynamic frameworks to link. These
+   * cause -F arguments (framework search paths) to be added to each compile action, and
+   * -framework (link framework) arguments to be added to each link action. These differ from
+   * static frameworks in that they are not statically linked into the binary.
+   */
+  public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
+      new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
 
   /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to include in search
@@ -382,11 +392,11 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           BUNDLE_FILE,
           BUNDLE_IMPORT_DIR,
           DEFINE,
+          DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           DEBUG_SYMBOLS,
           DEBUG_SYMBOLS_PLIST,
           EXPORTED_DEBUG_ARTIFACTS,
-          FRAMEWORK_DIR,
           FRAMEWORK_SEARCH_PATH_ONLY,
           FORCE_LOAD_LIBRARY,
           GENERAL_RESOURCE_DIR,
@@ -411,6 +421,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           SDK_DYLIB,
           SDK_FRAMEWORK,
           SOURCE,
+          STATIC_FRAMEWORK_DIR,
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,

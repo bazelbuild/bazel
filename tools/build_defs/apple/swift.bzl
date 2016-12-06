@@ -210,6 +210,8 @@ def _swift_library_impl(ctx):
     files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
     objc_files += files
     framework_dirs += _parent_dirs(objc.framework_dir)
+    # TODO(cparsons): Remove getattr call once dynamic_framework_dir is stable.
+    framework_dirs += _parent_dirs(getattr(objc, "dynamic_framework_dir", []))
 
     # objc_library#copts is not propagated to its dependencies and so it is not
     # collected here. In theory this may lead to un-importable targets (since
