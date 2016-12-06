@@ -195,7 +195,7 @@ function test_sdk_library_deps() {
   cat > java/a/BUILD<<EOF
 android_library(
     name = "a",
-    deps = ["//external:android/mediarouter_v7"],
+    deps = ["@androidsdk//com.android.support:mediarouter-v7-24.0.0"],
 )
 EOF
 

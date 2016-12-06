@@ -49,112 +49,6 @@ def create_android_sdk_rules(
       ], exclude_directories = 0),
   )
 
-  native.java_import(
-      name = "appcompat_v7_import",
-      jars = ["extras/android/support/v7/appcompat/libs/android-support-v7-appcompat.jar"]
-  )
-
-  native.android_library(
-      name = "appcompat_v7",
-      custom_package = "android.support.v7.appcompat",
-      manifest = "extras/android/support/v7/appcompat/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/appcompat/res/**"]),
-      deps = [":appcompat_v7_import"]
-  )
-
-  native.java_import(
-      name = "customtabs_import",
-      jars = ["extras/android/support/customtabs/libs/android-support-customtabs.jar"],
-  )
-
-  native.android_library(
-      name = "customtabs",
-      custom_package = "android.support.customtabs",
-      manifest = "extras/android/support/customtabs/AndroidManifest.xml",
-      deps = [":customtabs_import"]
-  )
-
-  native.java_import(
-      name = "design_import",
-      jars = ["extras/android/support/design/libs/android-support-design.jar"],
-  )
-
-  native.android_library(
-      name = "design",
-      custom_package = "android.support.design",
-      manifest = "extras/android/support/design/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/design/res/**"]),
-      deps = [":design_import", ":appcompat_v7"]
-  )
-
-  native.java_import(
-      name = "mediarouter_v7_import",
-      jars = ["extras/android/support/v7/mediarouter/libs/android-support-v7-mediarouter.jar"]
-  )
-
-  native.android_library(
-      name = "mediarouter_v7",
-      custom_package = "android.support.v7.mediarouter",
-      manifest = "extras/android/support/v7/mediarouter/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/mediarouter/res/**"]),
-      deps = [
-          ":appcompat_v7",
-          ":mediarouter_v7_import",
-      ]
-  )
-
-  native.java_import(
-      name = "cardview_v7_import",
-      jars = ["extras/android/support/v7/cardview/libs/android-support-v7-cardview.jar"]
-  )
-
-  native.android_library(
-      name = "cardview_v7",
-      custom_package = "android.support.v7.cardview",
-      manifest = "extras/android/support/v7/cardview/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/cardview/res/**"]),
-      deps = [":cardview_v7_import"]
-  )
-
-  native.java_import(
-      name = "gridlayout_v7_import",
-      jars = ["extras/android/support/v7/gridlayout/libs/android-support-v7-gridlayout.jar"]
-  )
-
-  native.android_library(
-      name = "gridlayout_v7",
-      custom_package = "android.support.v7.gridlayout",
-      manifest = "extras/android/support/v7/gridlayout/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/gridlayout/res/**"]),
-      deps = [":gridlayout_v7_import"]
-  )
-
-  native.java_import(
-      name = "palette_v7_import",
-      jars = ["extras/android/support/v7/palette/libs/android-support-v7-palette.jar"]
-  )
-
-  native.android_library(
-      name = "palette_v7",
-      custom_package = "android.support.v7.palette",
-      manifest = "extras/android/support/v7/palette/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/palette/res/**"]),
-      deps = [":palette_v7_import"]
-  )
-
-  native.java_import(
-      name = "recyclerview_v7_import",
-      jars = ["extras/android/support/v7/recyclerview/libs/android-support-v7-recyclerview.jar"]
-  )
-
-  native.android_library(
-      name = "recyclerview_v7",
-      custom_package = "android.support.v7.recyclerview",
-      manifest = "extras/android/support/v7/recyclerview/AndroidManifest.xml",
-      resource_files = native.glob(["extras/android/support/v7/recyclerview/res/**"]),
-      deps = [":recyclerview_v7_import"]
-  )
-
   if api_level >= 23:
     # Android 23 removed most of org.apache.http from android.jar and moved it
     # to a separate jar.
@@ -162,16 +56,6 @@ def create_android_sdk_rules(
         name = "org_apache_http_legacy",
         jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level]
     )
-
-  native.java_import(
-      name = "appcompat_v4",
-      jars = ["extras/android/support/v4/android-support-v4.jar"]
-  )
-
-  native.java_import(
-      name = "appcompat_v13",
-      jars = ["extras/android/support/v13/android-support-v13.jar"]
-  )
 
   native.android_sdk(
       name = "sdk",
@@ -304,18 +188,3 @@ def create_android_sdk_rules(
       name = "dx_jar_import",
       jars = [":dx_jar"],
   )
-
-  GOOGLE_PLAY_SERVICES_DIR = "extras/google/google_play_services/libproject/google-play-services_lib"
-
-  native.java_import(
-      name = "google_play_services_lib",
-      jars = [GOOGLE_PLAY_SERVICES_DIR + "/libs/google-play-services.jar"])
-
-  native.android_library(
-      name = "google_play_services",
-      custom_package = "com.google.android.gms",
-      manifest = GOOGLE_PLAY_SERVICES_DIR + "/AndroidManifest.xml",
-      exports_manifest = 1,
-      resource_files = native.glob([GOOGLE_PLAY_SERVICES_DIR + "/res/**"]),
-      proguard_specs = [GOOGLE_PLAY_SERVICES_DIR + "/proguard.txt"],
-      deps = [":google_play_services_lib"])
