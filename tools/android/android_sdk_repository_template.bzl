@@ -188,7 +188,7 @@ def create_android_sdk_rules(
       annotations_jar = "tools/support/annotations.jar",
       main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
       apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
-      apksigner = "@bazel_tools//third_party/java/apksig:embedded_apksigner",
+      apksigner = ":apksigner",
       zipalign = ":zipalign_binary",
       jack = ":fail",
       jill = ":fail",
@@ -204,6 +204,12 @@ def create_android_sdk_rules(
       name = "proguard_binary",
       main_class = "proguard.ProGuard",
       runtime_deps = [":proguard_import"]
+  )
+
+  native.java_binary(
+      name = "apksigner",
+      main_class = "com.android.apksigner.ApkSignerTool",
+      runtime_deps = ["build-tools/%s/lib/apksigner.jar" % build_tools_directory],
   )
 
   native.filegroup(

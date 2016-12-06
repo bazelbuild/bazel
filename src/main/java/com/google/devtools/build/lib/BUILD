@@ -586,6 +586,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_java_proto",
+        "//third_party:android_common_25_0_0",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:joda_time",
