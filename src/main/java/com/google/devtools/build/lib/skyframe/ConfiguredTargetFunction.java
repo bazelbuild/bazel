@@ -80,6 +80,8 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -485,15 +487,23 @@ final class ConfiguredTargetFunction implements SkyFunction {
         ctgValue.getConfiguration().fragmentClasses();
     BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
 
-    // Stores the trimmed versions of each dependency. This method must preserve the original label
-    // ordering of each attribute. For example, if originalDeps.get("data") is [":a", ":b"], the
-    // trimmed variant must also be [":a", ":b"] in the same order. Because we may not actualize
-    // the results in order (some results need Skyframe-evaluated configurations while others can
-    // be computed trivially), we dump them all into this map, then as a final step iterate through
-    // the original list and pluck out values from here for the final value.
+    // Stores the dynamically configured versions of each dependency. This method must preserve the
+    // original label ordering of each attribute. For example, if originalDeps.get("data") is
+    // [":a", ":b"], the dynamic variant must also be [":a", ":b"] in the same order. Because we may
+    // not actualize the results in order (some results need Skyframe-evaluated configurations while
+    // others can be computed trivially), we dump them all into this map, then as a final step
+    // iterate through the original list and pluck out values from here for the final value.
+    //
+    // For split transitions, originaldeps.get("data") = [":a", ":b"] can produce the output
+    // [":a"<config1>, ":a"<config2>, ..., ":b"<config1>, ":b"<config2>, ...]. All instances of ":a"
+    // still appear before all instances of ":b". But the [":a"<config1>, ":a"<config2>"] subset may
+    // be in any (deterministic) order. In particular, this may not be the same order as
+    // SplitTransition.split. If needed, this code can be modified to use that order, but that
+    // involves more runtime in performance-critical code, so we won't make that change without a
+    // clear need.
     //
     // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
-    Multimap<AttributeAndLabel, Dependency> trimmedDeps = LinkedHashMultimap.create();
+    Multimap<AttributeAndLabel, Dependency> dynamicDeps = LinkedHashMultimap.create();
 
     // Performance optimization: This method iterates over originalDeps twice. By storing
     // AttributeAndLabel instances in this list, we avoid having to recreate them the second time
@@ -540,7 +550,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         if (transition == Attribute.ConfigurationTransition.NONE) {
           // The dep uses the same exact configuration.
           putOnlyEntry(
-              trimmedDeps,
+              dynamicDeps,
               attributeAndLabel,
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
@@ -552,7 +562,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // to incur multiple host transitions. So we aggressively optimize to avoid hurting
           // analysis time.
           putOnlyEntry(
-              trimmedDeps,
+              dynamicDeps,
               attributeAndLabel,
               Dependency.withConfigurationAndAspects(
                   dep.getLabel(), hostConfiguration, dep.getAspects()));
@@ -564,7 +574,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
       FragmentsAndTransition transitionKey = new FragmentsAndTransition(depFragments, transition);
       List<BuildOptions> toOptions = transitionsMap.get(transitionKey);
       if (toOptions == null) {
-        ImmutableList.Builder<BuildOptions> toOptionsBuilder = ImmutableList.builder();
         toOptions = getDynamicTransitionOptions(ctgOptions, transition, depFragments,
             ruleClassProvider, !sameFragments);
         transitionsMap.put(transitionKey, toOptions);
@@ -575,7 +584,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (sameFragments && toOptions.size() == 1
           && Iterables.getOnlyElement(toOptions).equals(ctgOptions)) {
         putOnlyEntry(
-            trimmedDeps,
+            dynamicDeps,
             attributeAndLabel,
             Dependency.withConfigurationAndAspects(
                 dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
@@ -607,9 +616,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
           Dependency resolvedDep = Dependency.withConfigurationAndAspects(originalDep.getLabel(),
               trimmedConfig.getConfiguration(), originalDep.getAspects());
           if (attr.attribute.hasSplitConfigurationTransition()) {
-            trimmedDeps.put(attr, resolvedDep);
+            dynamicDeps.put(attr, resolvedDep);
           } else {
-            putOnlyEntry(trimmedDeps, attr, resolvedDep);
+            putOnlyEntry(dynamicDeps, attr, resolvedDep);
           }
         }
       }
@@ -617,21 +626,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new DependencyEvaluationException(e);
     }
 
-    // Re-assemble the output map with the same value ordering (e.g. each attribute's dep labels
-    // appear in the same order) as the input.
-    Iterator<AttributeAndLabel> iterator = attributesAndLabels.iterator();
-    OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
-    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
-      AttributeAndLabel attrAndLabel = iterator.next();
-      if (depsEntry.getValue().hasStaticConfiguration()) {
-        result.put(attrAndLabel.attribute, depsEntry.getValue());
-      } else {
-        Collection<Dependency> trimmedAttrDeps = trimmedDeps.get(attrAndLabel);
-        Verify.verify(!trimmedAttrDeps.isEmpty());
-        result.putAll(depsEntry.getKey(), trimmedAttrDeps);
-      }
-    }
-    return result;
+    return sortDynamicallyConfiguredDeps(originalDeps, dynamicDeps, attributesAndLabels);
   }
 
   /**
@@ -734,6 +729,51 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
   }
 
+  /**
+   * Determines the output ordering of each <attribute, depLabel> ->
+   * [dep<config1>, dep<config2>, ...] collection produced by a split transition.
+   */
+  private static final Comparator DYNAMIC_SPLIT_DEP_ORDERING =
+      new Comparator<Dependency>() {
+        @Override
+        public int compare(Dependency d1, Dependency d2) {
+          return d1.getConfiguration().getMnemonic().compareTo(d2.getConfiguration().getMnemonic());
+        }
+      };
+
+  /**
+   * Helper method for {@link #getDynamicConfigurations}: returns a copy of the output deps
+   * using the same key and value ordering as the input deps.
+   *
+   * @param originalDeps the input deps with the ordering to preserve
+   * @param dynamicDeps the unordered output deps
+   * @param attributesAndLabels collection of <attribute, depLabel> pairs guaranteed to match
+   *   the ordering of originalDeps.entries(). This is a performance optimization: see
+   *   {@link #getDynamicConfigurations#attributesAndLabels} for details.
+   */
+  private static OrderedSetMultimap<Attribute, Dependency> sortDynamicallyConfiguredDeps(
+      OrderedSetMultimap<Attribute, Dependency> originalDeps,
+      Multimap<AttributeAndLabel, Dependency> dynamicDeps,
+      ArrayList<AttributeAndLabel> attributesAndLabels) {
+    Iterator<AttributeAndLabel> iterator = attributesAndLabels.iterator();
+    OrderedSetMultimap<Attribute, Dependency> result = OrderedSetMultimap.create();
+    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
+      AttributeAndLabel attrAndLabel = iterator.next();
+      if (depsEntry.getValue().hasStaticConfiguration()) {
+        result.put(attrAndLabel.attribute, depsEntry.getValue());
+      } else {
+        Collection<Dependency> dynamicAttrDeps = dynamicDeps.get(attrAndLabel);
+        Verify.verify(!dynamicAttrDeps.isEmpty());
+        if (dynamicAttrDeps.size() > 1) {
+          List<Dependency> sortedSplitList = new ArrayList<>(dynamicAttrDeps);
+          Collections.sort(sortedSplitList, DYNAMIC_SPLIT_DEP_ORDERING);
+          dynamicAttrDeps = sortedSplitList;
+        }
+        result.putAll(depsEntry.getKey(), dynamicAttrDeps);
+      }
+    }
+    return result;
+  }
 
   /**
    * Merges the each direct dependency configured target with the aspects associated with it.
