@@ -14,11 +14,23 @@
 //
 // INTERNAL header file for use by C++ code in this package.
 
-#ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_ERROR_HANDLING_H__
-#define BAZEL_SRC_MAIN_NATIVE_WINDOWS_ERROR_HANDLING_H__
+#ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
+#define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 
+#include <jni.h>
+
+#include <memory>
 #include <string>
 
-std::string GetLastErrorString(const std::string& cause);
+namespace windows_util {
 
-#endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_ERROR_HANDLING_H__
+using std::string;
+using std::unique_ptr;
+
+string GetLastErrorString(const string& cause);
+
+unique_ptr<wchar_t[]> JstringToWstring(JNIEnv* env, const jstring& jstr);
+
+}  // namespace windows_util
+
+#endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
