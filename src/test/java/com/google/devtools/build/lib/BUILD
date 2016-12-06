@@ -1215,7 +1215,7 @@ java_library(
     name = "ExampleWorker-lib",
     srcs = glob(["worker/ExampleWorker*.java"]),
     visibility = [
-        "//src/test/shell/bazel:__pkg__",
+        "//src/test/shell/integration:__pkg__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
@@ -1228,7 +1228,7 @@ java_binary(
     name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
     visibility = [
-        "//src/test/shell/bazel:__pkg__",
+        "//src/test/shell/integration:__pkg__",
     ],
     runtime_deps = [
         ":ExampleWorker-lib",
