@@ -20,9 +20,7 @@ import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.ArtifactLocation;
 import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.CIdeInfo;
 import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.CToolchainIdeInfo;
@@ -62,7 +60,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(Paths.get(location.getRelativePath()).toString())
         .isEqualTo(Paths.get("com/google/example/BUILD").toString());
     assertThat(location.getIsSource()).isTrue();
-    assertThat(location.getIsExternal()).isFalse();
     assertThat(targetIdeInfo.getKindString()).isEqualTo("java_library");
     assertThat(relativePathsForJavaSourcesOf(targetIdeInfo))
         .containsExactly("com/google/example/simple/Simple.java");
@@ -100,6 +97,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     } else {
       assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.java-manifest");
     }
+
   }
 
   @Test
@@ -1812,59 +1810,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "  name='foo',",
         ")");
     buildIdeInfo("//com/google/example:foo");
-  }
-
-  @Test
-  public void testExternalRootCorrectlyIdentified() throws Exception {
-    ArtifactLocation location =
-        AndroidStudioInfoAspect.makeArtifactLocation(
-            Root.asSourceRoot(outputBase, false), new PathFragment("external/foo/bar.jar"));
-    assertThat(location.getIsExternal()).isTrue();
-  }
-
-  @Test
-  public void testNonExternalRootCorrectlyIdentified() throws Exception {
-    ArtifactLocation location =
-        AndroidStudioInfoAspect.makeArtifactLocation(
-            Root.asSourceRoot(rootDirectory, true), new PathFragment("foo/bar.jar"));
-    assertThat(location.getIsExternal()).isFalse();
-  }
-
-  @Test
-  public void testExternalTarget() throws Exception {
-    scratch.file(
-        "/r/BUILD", "java_import(", "    name = 'junit',", "    jars = ['junit.jar'],", ")");
-    scratch.file("/r/junit.jar");
-
-    // AnalysisMock adds required toolchains, etc. to WORKSPACE, so retain the previous contents.
-    String oldContents = scratch.readFile("WORKSPACE");
-    scratch.overwriteFile("WORKSPACE", oldContents + "\nlocal_repository(name='r', path='/r')");
-    invalidatePackages();
-
-    scratch.file(
-        "com/google/example/BUILD",
-        "java_library(",
-        "    name = 'junit',",
-        "    exports = ['@r//:junit'],",
-        ")");
-
-    Map<String, TargetIdeInfo> targetIdeInfos = buildIdeInfo("//com/google/example:junit");
-    assertThat(
-            getTargetIdeInfoAndVerifyLabel("//com/google/example:junit", targetIdeInfos)
-                .getBuildFileArtifactLocation()
-                .getIsExternal())
-        .isFalse();
-
-    TargetIdeInfo targetInfo = getTargetIdeInfoAndVerifyLabel("@r//:junit", targetIdeInfos);
-    assertThat(targetInfo.getBuildFileArtifactLocation().getIsExternal()).isTrue();
-    assertThat(targetInfo.getBuildFileArtifactLocation().getRelativePath()).startsWith("external");
-
-    JavaIdeInfo javaInfo = targetInfo.getJavaIdeInfo();
-    assertThat(javaInfo.getJarsList()).hasSize(1);
-    ArtifactLocation jar = javaInfo.getJars(0).getJar();
-    assertThat(jar.getIsSource()).isTrue();
-    assertThat(jar.getIsExternal()).isTrue();
-    assertThat(jar.getRelativePath()).isEqualTo("external/r/junit.jar");
   }
 
   /**
