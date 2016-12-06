@@ -182,9 +182,10 @@ $ bazel build //ios-app:ios-app --ios_multi_cpus=armv7,arm64
 This will build the app "fat". If you would prefer just to build for
 your specific device architecture you can designate a single architecture.
 
-If you would like to select a specific Xcode version/SDK version you can do so
-with the `--xcode_version=7.2 --ios_sdk_version=9.2` options. Make sure that
-the Xcode version that you select has the appropriate SDK installed in it.
+If you would like to select a specific Xcode version you can do so
+with the `--xcode_version=7.2` option. If for some reason you need to specify
+a specific SDK version you can use the `--ios_sdk_version=9.2` option, but the
+`--xcode_version` should be sufficient in most circumstances.
 
 If you would like to specify a minimum version of iOS to run against, you can
 do so with the `--ios_minimum_os=7.0` option.
