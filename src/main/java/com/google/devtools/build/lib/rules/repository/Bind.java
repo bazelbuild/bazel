@@ -19,7 +19,11 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
+import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -43,6 +47,9 @@ public class Bind implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration(),
         actual,
         ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
-            AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual)));
+            AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getLabel(), actual),
+            VisibilityProvider.class, new VisibilityProviderImpl(
+                NestedSetBuilder.create(Order.STABLE_ORDER, PackageSpecification.everything()))));
+
   }
 }

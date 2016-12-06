@@ -1649,13 +1649,12 @@ public final class RuleContext extends TargetContext
       String msgReason = reason != null ? " (" + reason + ")" : "";
       if (isWarning) {
         return String.format(
-            "%s'%s'%s is unexpected here%s; continuing anyway",
-            msgPrefix, prerequisite.getLabel(), AliasProvider.printVisibilityChain(prerequisite),
+            "%s%s is unexpected here%s; continuing anyway",
+            msgPrefix, AliasProvider.printLabelWithAliasChain(prerequisite),
             msgReason);
       }
-      return String.format(
-          "%s'%s'%s is misplaced here%s", msgPrefix, prerequisite.getLabel(),
-          AliasProvider.printVisibilityChain(prerequisite), msgReason);
+      return String.format("%s%s is misplaced here%s",
+          msgPrefix, AliasProvider.printLabelWithAliasChain(prerequisite), msgReason);
     }
 
     private void reportBadPrerequisite(Attribute attribute, String targetKind,

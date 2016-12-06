@@ -247,8 +247,8 @@ EOF
 cat > BUILD <<EOF
 load("//:rule.bzl", "test_rule")
 
-filegroup(name = "x1")
-filegroup(name = "x2")
+filegroup(name = "x1", visibility = ["//visibility:public"])
+filegroup(name = "x2", visibility = ["//visibility:public"])
 test_rule(
     name = "tr",
     deps = ["//external:x1", "//external:x2"],

@@ -195,29 +195,22 @@ public class BazelRuleClassProvider {
     private void validateDirectPrerequisiteVisibility(
         RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
       Rule rule = context.getRule();
-      if (rule.getLabel().getPackageFragment().equals(Label.EXTERNAL_PACKAGE_NAME)) {
-        // //external: labels are special. They have access to everything and visibility is checked
-        // at the edge that points to the //external: label.
-        return;
-      }
       Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
       if (!context.getRule().getLabel().getPackageIdentifier().equals(
-              prerequisite.getTarget().getLabel().getPackageIdentifier())
+              AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
           && !context.isVisible(prerequisite)) {
         if (!context.getConfiguration().checkVisibility()) {
           context.ruleWarning(String.format("Target '%s' violates visibility of target "
-              + "'%s'. Continuing because --nocheck_visibility is active",
-              rule.getLabel(), prerequisiteLabel));
+              + "%s. Continuing because --nocheck_visibility is active",
+              rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite)));
         } else {
           // Oddly enough, we use reportError rather than ruleError here.
           context.reportError(rule.getLocation(),
-              String.format("Target '%s' is not visible from target '%s'%s. Check "
+              String.format("Target %s is not visible from target '%s'. Check "
                   + "the visibility declaration of the former target if you think "
                   + "the dependency is legitimate",
-                  prerequisiteLabel,
-                  rule.getLabel(),
-                  AliasProvider.printVisibilityChain(prerequisite)));
+                  AliasProvider.printLabelWithAliasChain(prerequisite),
+                  rule.getLabel()));
         }
       }
 
@@ -230,9 +223,9 @@ public class BazelRuleClassProvider {
                 + rule.getRuleClass()
                 + " rule "
                 + rule.getLabel()
-                + ": package group '"
-                + prerequisiteLabel
-                + "' is misplaced here "
+                + ": package group "
+                + AliasProvider.printLabelWithAliasChain(prerequisite)
+                + " is misplaced here "
                 + "(they are only allowed in the visibility attribute)");
       }
     }
@@ -248,12 +241,11 @@ public class BazelRuleClassProvider {
       }
 
       Target prerequisiteTarget = prerequisite.getTarget();
-      Label prerequisiteLabel = prerequisiteTarget.getLabel();
       String thisPackage = rule.getLabel().getPackageName();
 
       if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
-        String message = "non-test target '" + rule.getLabel() + "' depends on testonly target '"
-            + prerequisiteLabel + "'" + AliasProvider.printVisibilityChain(prerequisite)
+        String message = "non-test target '" + rule.getLabel() + "' depends on testonly target "
+            + AliasProvider.printLabelWithAliasChain(prerequisite)
             + " and doesn't have testonly attribute set";
         if (thisPackage.startsWith("experimental/")) {
           context.ruleWarning(message);

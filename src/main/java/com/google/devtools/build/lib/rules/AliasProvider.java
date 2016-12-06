@@ -68,12 +68,12 @@ public final class AliasProvider implements TransitiveInfoProvider {
     return aliasChain;
   }
 
-  public static String printVisibilityChain(ConfiguredTarget target) {
+  public static String printLabelWithAliasChain(ConfiguredTarget target) {
     AliasProvider aliasProvider = target.getProvider(AliasProvider.class);
-    if (aliasProvider == null) {
-      return "";
-    }
+    String suffix = aliasProvider == null
+        ? ""
+        : " (aliased through '" + Joiner.on("' -> '").join(aliasProvider.getAliasChain()) + "')";
 
-    return " (aliased through '" + Joiner.on("' -> '").join(aliasProvider.getAliasChain()) + "')";
+    return "'" + target.getLabel() + "'" + suffix;
   }
 }
