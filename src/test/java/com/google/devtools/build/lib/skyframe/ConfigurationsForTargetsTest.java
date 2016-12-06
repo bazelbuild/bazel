@@ -50,8 +50,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.List;
-
+import java.util.Collection;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -210,12 +209,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    *
    * <p>Throws an exception if the attribute can't be found.
    */
-  private List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
+  private Collection<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     Multimap<Attribute, ConfiguredTarget> allDeps = getConfiguredDeps(targetLabel);
     for (Attribute attribute : allDeps.keySet()) {
       if (attribute.getName().equals(attrName)) {
-        return ImmutableList.copyOf(allDeps.get(attribute));
+        return allDeps.get(attribute);
       }
     }
     throw new AssertionError(
@@ -260,47 +259,6 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     ConfiguredTarget genIn = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "srcs"));
     assertThat(genIn.getConfiguration()).isNull();
-  }
-
-  @Test
-  public void targetDeps() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "cc_library(name = 'dep1', srcs = ['dep1.cc'])",
-        "cc_library(name = 'dep2', srcs = ['dep2.cc'])",
-        "cc_binary(name = 'binary', srcs = ['main.cc'], deps = [':dep1', ':dep2'])");
-    List<ConfiguredTarget> deps = getConfiguredDeps("//a:binary", "deps");
-    assertThat(deps).hasSize(2);
-    for (ConfiguredTarget dep : deps) {
-      assertThat(getTargetConfiguration().equalsOrIsSupersetOf(dep.getConfiguration())).isTrue();
-    }
-  }
-
-  @Test
-  public void hostDeps() throws Exception {
-    scratch.file(
-        "a/BUILD",
-        "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
-        "genrule(name = 'gen', srcs = [], cmd = '', outs = ['gen.out'], tools = [':host_tool'])");
-    ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
-    assertThat(toolDep.getConfiguration().isHostConfiguration()).isTrue();
-  }
-
-  @Test
-  public void splitDeps() throws Exception {
-    scratch.file(
-        "java/a/BUILD",
-        "cc_library(name = 'lib', srcs = ['lib.cc'])",
-        "android_binary(name='a', manifest = 'mainfest.xml', deps = [':lib'])");
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
-    List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
-    assertThat(deps).hasSize(2);
-    assertThat(
-        ImmutableList.<String>of(
-            deps.get(0).getConfiguration().getCpu(),
-            deps.get(1).getConfiguration().getCpu()))
-        .containsExactly("armeabi-v7a", "k8")
-        .inOrder(); // We don't care what order split deps are listed, but it must be deterministic.
   }
 
   /** Runs the same test with trimmed dynamic configurations. */
