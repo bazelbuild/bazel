@@ -21,7 +21,6 @@
 
 #include <sys/types.h>
 
-#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>

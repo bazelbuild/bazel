@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
 
 #include "src/main/cpp/util/port.h"
 
