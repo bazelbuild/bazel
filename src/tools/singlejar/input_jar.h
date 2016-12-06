@@ -26,11 +26,11 @@
 
 /*
  * An input jar. The usage pattern is:
- *   InputJar input_jar("path/to/file");
- *   if (!input_jar.Open()) { fail...}
+ *   InputJar input_jar;
+ *   if (!input_jar.Open("path/to/file")) { fail...}
  *   CDH *dir_entry;
  *   LH *local_header;
- *   while (dir_entry = input_jar.NextExtry(&local_header)) {
+ *   while (dir_entry = input_jar.NextEntry(&local_header)) {
  *     // process entry.
  *   }
  *   input_jar.Close(); // actually, called by destructor, too.
