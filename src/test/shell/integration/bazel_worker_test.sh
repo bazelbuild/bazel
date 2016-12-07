@@ -249,7 +249,7 @@ EOF
   assert_equals "1" $work_count
 
   echo "Second run" >> $TEST_log
-  bazel build :hello_world_2 &>> $TEST_log \
+  bazel build :hello_world_2 &> $TEST_log \
     || fail "build failed"
   worker_uuid_2=$(cat $BINS/hello_world_2.out | grep UUID | cut -d' ' -f2)
   work_count=$(cat $BINS/hello_world_2.out | grep COUNTER | cut -d' ' -f2)
