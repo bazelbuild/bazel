@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -39,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -57,6 +54,7 @@ import javax.annotation.Nullable;
  * //src/java_tools/buildjar/java/com/google/devtools/build/java/turbine}.
  */
 public class JavaHeaderCompileAction extends SpawnAction {
+
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpuIo(/*memoryMb=*/ 750.0, /*cpuUsage=*/ 0.5, /*ioUsage=*/ 0.0);
 
@@ -278,49 +276,55 @@ public class JavaHeaderCompileAction extends SpawnAction {
         directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
         compileTimeDependencyArtifacts.clear();
       }
-      List<String> jvmArgs =
-          ImmutableList.<String>builder()
-              .add("-Xverify:none")
-              .addAll(javaToolchain.getJvmOptions())
-              .add("-Xbootclasspath/p:" + javacJar.getExecPath().getPathString())
-              .build();
       PathFragment paramFilePath = ParameterFile.derivePath(outputJar.getRootRelativePath());
       Artifact paramsFile = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
               paramFilePath, outputJar.getRoot());
       Action parameterFileWriteAction = new ParameterFileWriteAction(
           ruleContext.getActionOwner(), paramsFile, commandLine,
           ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1);
-      CommandLine turbineCommandLine = CustomCommandLine.builder()
-          .addPath(ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable())
-          .add(jvmArgs)
-          .addExecPath("-jar", javaToolchain.getHeaderCompiler())
-          .addPaths("@%s", paramsFile.getExecPath())
-
-          .build();
+      CommandLine turbineCommandLine =
+          getBaseArgs(javaToolchain).addPaths("@%s", paramsFile.getExecPath()).build();
       Iterable<Artifact> tools = ImmutableList.of(javacJar, javaToolchain.getHeaderCompiler());
-      JavaHeaderCompileAction javaHeaderCompileAction = new JavaHeaderCompileAction(
-          ruleContext.getActionOwner(),
-          tools,
+      NestedSet<Artifact> directInputs =
           NestedSetBuilder.<Artifact>stableOrder()
               .addTransitive(javabaseInputs)
-              .addTransitive(classpathEntries)
               .addAll(bootclasspathEntries)
-              .addAll(processorPath)
               .addAll(sourceJars)
               .addAll(sourceFiles)
               .addTransitive(directJars)
               .addAll(tools)
+              .build();
+      NestedSet<Artifact> transitiveInputs =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .addTransitive(directInputs)
+              .addTransitive(classpathEntries)
+              .addAll(bootclasspathEntries)
+              .addAll(processorPath)
               .addAll(compileTimeDependencyArtifacts)
               .add(paramsFile)
-              .build(),
-          new ArrayList<>(Collections2.filter(Arrays.asList(
-              outputJar,
-              outputDepsProto), Predicates.notNull())),
-          turbineCommandLine,
-          "Compiling Java headers " + outputJar.prettyPrint() + " ("
-              + (sourceFiles.size() + sourceJars.size()) + " files)"
-      );
+              .build();
+      JavaHeaderCompileAction javaHeaderCompileAction =
+          new JavaHeaderCompileAction(
+              ruleContext.getActionOwner(),
+              tools,
+              transitiveInputs,
+              ImmutableList.of(outputJar, outputDepsProto),
+              turbineCommandLine,
+              "Compiling Java headers "
+                  + outputJar.prettyPrint()
+                  + " ("
+                  + (sourceFiles.size() + sourceJars.size())
+                  + " files)");
       ruleContext.registerAction(parameterFileWriteAction, javaHeaderCompileAction);
+    }
+
+    private CustomCommandLine.Builder getBaseArgs(JavaToolchainProvider javaToolchain) {
+      return CustomCommandLine.builder()
+          .addPath(ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable())
+          .add("-Xverify:none")
+          .add(javaToolchain.getJvmOptions())
+          .addPaths("-Xbootclasspath/p:%s", javacJar.getExecPath())
+          .addExecPath("-jar", javaToolchain.getHeaderCompiler());
     }
 
     /** Builds the header compiler command line. */
