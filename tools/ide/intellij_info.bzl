@@ -67,11 +67,33 @@ def artifact_location(file):
   """Creates an ArtifactLocation proto from a File."""
   if file == None:
     return None
+
   return struct_omit_none(
-      relative_path = file.short_path,
+      relative_path = get_relative_path(file),
       is_source = file.is_source,
+      is_external = is_external(file.owner),
       root_execution_path_fragment = file.root.path if not file.is_source else None,
   )
+
+def is_external(label):
+  """Determines whether a label corresponds to an external artifact."""
+  return label.workspace_root.startswith("external")
+
+def get_relative_path(artifact):
+  """A temporary workaround to find the root-relative path from an artifact.
+
+  This is required because 'short_path' is incorrect for external source artifacts.
+
+  Args:
+    artifact: the input artifact
+  Returns:
+    string: the root-relative path for this artifact.
+  """
+  # TODO(bazel-team): remove this workaround when Artifact::short_path is fixed.
+  if artifact.is_source and is_external(artifact.owner) and artifact.short_path.startswith(".."):
+    # short_path is '../repo_name/path', we want 'external/repo_name/path'
+    return "external" + artifact.short_path[2:]
+  return artifact.short_path
 
 def source_directory_tuple(resource_file):
   """Creates a tuple of (source directory, is_source, root execution path)."""
@@ -94,11 +116,12 @@ def all_unique_source_directories(resources):
                            root_execution_path_fragment = root_execution_path_fragment)
           for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
 
-def build_file_artifact_location(build_file_path):
+def build_file_artifact_location(ctx):
   """Creates an ArtifactLocation proto representing a location of a given BUILD file."""
   return struct(
-      relative_path = build_file_path,
+      relative_path = ctx.build_file_path,
       is_source = True,
+      is_external = is_external(ctx.label)
   )
 
 def library_artifact(java_output):
@@ -562,7 +585,7 @@ def _aspect_impl(target, ctx):
       kind_string = ctx.rule.kind,
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
-      build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
+      build_file_artifact_location = build_file_artifact_location(ctx),
       c_ide_info = c_ide_info,
       c_toolchain_ide_info = c_toolchain_ide_info,
       java_ide_info = java_ide_info,

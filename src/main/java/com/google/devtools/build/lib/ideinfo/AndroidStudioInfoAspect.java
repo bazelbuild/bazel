@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -328,7 +329,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     outputBuilder.setLabel(base.getLabel().toString());
 
     outputBuilder.setBuildFileArtifactLocation(
-        makeArtifactLocation(ruleContext.getRule().getPackage()));
+        makeArtifactLocation(ruleContext.getRule().getPackage(), ruleContext.getLabel()));
 
     outputBuilder.setKindString(ruleContext.getRule().getRuleClass());
 
@@ -620,21 +621,25 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   }
 
   public static ArtifactLocation makeArtifactLocation(Artifact artifact) {
-    return makeArtifactLocation(artifact.getRoot(), artifact.getRootRelativePath());
+    return makeArtifactLocation(
+        artifact.getRoot(), artifact.getRootRelativePath(), isExternal(artifact.getOwner()));
   }
 
-  private static ArtifactLocation makeArtifactLocation(Package pkg) {
+  private static ArtifactLocation makeArtifactLocation(Package pkg, Label label) {
     Root root =
         Root.asSourceRoot(pkg.getSourceRoot(), pkg.getPackageIdentifier().getRepository().isMain());
     PathFragment relativePath = pkg.getBuildFile().getPath().relativeTo(root.getPath());
-    return makeArtifactLocation(root, relativePath);
+    return makeArtifactLocation(root, relativePath, isExternal(label));
   }
 
-  private static ArtifactLocation makeArtifactLocation(Root root, PathFragment relativePath) {
+  @VisibleForTesting
+  static ArtifactLocation makeArtifactLocation(
+      Root root, PathFragment relativePath, boolean isExternal) {
     return ArtifactLocation.newBuilder()
         .setRootExecutionPathFragment(root.getExecPath().toString())
         .setRelativePath(relativePath.toString())
         .setIsSource(root.isSourceRoot())
+        .setIsExternal(isExternal)
         .build();
   }
 
@@ -643,7 +648,13 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         .setRootExecutionPathFragment(resourceDir.getRootExecutionPathFragment().toString())
         .setRelativePath(resourceDir.getRelativePath().toString())
         .setIsSource(resourceDir.isSource())
+        .setIsExternal(false)
         .build();
+  }
+
+  /** Returns whether this {@link Label} refers to an external repository. */
+  private static boolean isExternal(Label label) {
+    return label.getWorkspaceRoot().startsWith("external");
   }
 
   private JavaIdeInfo makeJavaIdeInfo(
