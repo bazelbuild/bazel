@@ -301,7 +301,7 @@ public abstract class NativeDepsHelper {
       fp.addString(input.getExecPathString());
     }
     for (String feature : features) {
-      fp.addStrings(feature);
+      fp.addString(feature);
     }
     return new PathFragment("_nativedeps/" + fp.hexDigestAndReset());
   }

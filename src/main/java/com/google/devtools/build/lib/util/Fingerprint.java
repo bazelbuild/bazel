@@ -249,21 +249,6 @@ public final class Fingerprint {
   }
 
   /**
-   * Updates the digest with inputs by iterating over them and invoking
-   * {@code #addString(String)} on each element.
-   *
-   * @param inputs the inputs with which to update the digest
-   */
-  public Fingerprint addStrings(String... inputs) {
-    addInt(inputs.length);
-    for (String input : inputs) {
-      addString(input);
-    }
-
-    return this;
-  }
-
-  /**
    * Updates the digest with inputs which are pairs in a map, by iterating over
    * the map entries and invoking {@code #addString(String)} on each key and
    * value.
