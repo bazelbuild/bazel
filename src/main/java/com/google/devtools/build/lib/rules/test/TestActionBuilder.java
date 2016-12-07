@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -36,11 +38,9 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
-
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -207,7 +207,17 @@ public final class TestActionBuilder {
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(PrerequisiteArtifacts.nestedSet(
-          ruleContext, "$coverage_support", Mode.HOST));
+          ruleContext, "$coverage_support", Mode.DONT_CHECK));
+      // We don't add this attribute to non-supported test target
+      if (ruleContext.isAttrDefined("$lcov_merger", LABEL)) {
+        Artifact lcovMerger = ruleContext.getPrerequisiteArtifact("$lcov_merger", Mode.TARGET);
+        if (lcovMerger != null) {
+          inputsBuilder.addTransitive(
+              PrerequisiteArtifacts.nestedSet(ruleContext, "$lcov_merger", Mode.TARGET));
+          // Pass this LcovMerger_deploy.jar path to collect_coverage.sh
+          testEnv.put("LCOV_MERGER", lcovMerger.getExecPathString());
+        }
+      }
 
       Artifact instrumentedFileManifest =
           InstrumentedFileManifestAction.getInstrumentedFileManifest(ruleContext,

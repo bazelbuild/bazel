@@ -58,6 +58,19 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
+        // Input files for test actions collecting code coverage
+        .add(
+            attr("$lcov_merger", LABEL)
+                .value(env.getLabel("@bazel_tools//tools/test:LcovMerger_deploy.jar")))
+        // Used in the one-per-build coverage report generation action.
+        .add(
+            attr("$jacoco_runtime", LABEL)
+                .value(env.getLabel("@bazel_tools//third_party/java/jacoco:blaze-agent")))
+        .add(
+            attr("$jacocorunner", LABEL)
+                .value(
+                    env.getLabel(
+                        "@bazel_tools//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>

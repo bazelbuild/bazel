@@ -217,6 +217,20 @@ public final class JavaCompilationHelper {
   }
 
   /**
+   * Returns the instrumentation metadata files to be generated for a given output jar.
+   *
+   * <p>Only called if the output jar actually needs to be instrumented.
+   */
+  @Nullable
+  private static Artifact createInstrumentationMetadataArtifact(
+      RuleContext ruleContext, Artifact outputJar) {
+    PathFragment packageRelativePath = outputJar.getRootRelativePath().relativeTo(
+        ruleContext.getPackageDirectory());
+    return ruleContext.getPackageRelativeArtifact(
+        FileSystemUtils.replaceExtension(packageRelativePath, ".em"), outputJar.getRoot());
+  }
+
+  /**
    * Creates the Action that compiles Java source files and optionally instruments them for
    * coverage.
    *
@@ -246,13 +260,14 @@ public final class JavaCompilationHelper {
    * @return the instrumentation metadata artifact or null if instrumentation is
    *         disabled
    */
+  @Nullable
   public Artifact createInstrumentationMetadata(Artifact outputJar,
       JavaCompilationArtifacts.Builder javaArtifactsBuilder) {
     // If we need to instrument the jar, add additional output (the coverage metadata file) to the
     // JavaCompileAction.
     Artifact instrumentationMetadata = null;
     if (shouldInstrumentJar()) {
-      instrumentationMetadata = semantics.createInstrumentationMetadataArtifact(
+      instrumentationMetadata = createInstrumentationMetadataArtifact(
           getRuleContext(), outputJar);
 
       if (instrumentationMetadata != null) {

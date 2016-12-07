@@ -234,19 +234,6 @@ public interface JavaSemantics {
   ImmutableList<Artifact> collectResources(RuleContext ruleContext);
 
   /**
-   * Creates the instrumentation metadata artifact for the specified output .jar .
-   */
-  @Nullable
-  Artifact createInstrumentationMetadataArtifact(RuleContext ruleContext, Artifact outputJar);
-
-  /**
-   * May add extra command line options to the Java compile command line.
-   */
-  void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
-      CustomCommandLine.Builder result, Label targetLabel);
-
-
-  /**
    * Constructs the command line to call SingleJar to join all artifacts from
    * {@code classpath} (java code) and {@code resources} into {@code output}.
    */
