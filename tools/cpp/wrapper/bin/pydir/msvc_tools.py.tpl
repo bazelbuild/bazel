@@ -161,7 +161,7 @@ class ArgParser(object):
 
     opt_option = self.GetOptionValue('O')
     opt = ['-g', '-G']
-    if (len(opt_option) > 0 and int(opt_option[0]) > 0):
+    if (len(opt_option) > 0 and opt_option[0] != 'd'):
       opt = ['-O2']
 
     include_options = self.GetOptionValue('I')
