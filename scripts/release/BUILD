@@ -46,6 +46,7 @@ sh_test(
         "//:git",
         "//src/test/shell:bashunit",
     ],
+    shard_count = 2,
     tags = ["need_git"],
     deps = [":release"],
 )

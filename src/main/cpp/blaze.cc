@@ -714,7 +714,7 @@ static void StartServerAndConnect(BlazeServer *server) {
 
   // The server dir has the socket, so we don't allow access by other
   // users.
-  if (!MakeDirectories(server_dir, 0700)) {
+  if (!blaze_util::MakeDirectories(server_dir, 0700)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "server directory '%s' could not be created", server_dir.c_str());
   }
@@ -799,7 +799,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
   virtual void Process(const char *filename, const devtools_ijar::u4 attr,
                        const devtools_ijar::u1 *data, const size_t size) {
     string path = blaze_util::JoinPath(embedded_binaries_, filename);
-    if (!MakeDirectories(blaze_util::Dirname(path), 0777)) {
+    if (!blaze_util::MakeDirectories(blaze_util::Dirname(path), 0777)) {
       pdie(blaze_exit_code::INTERNAL_ERROR,
            "couldn't create '%s'", path.c_str());
     }
@@ -820,7 +820,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
 static void ActuallyExtractData(const string &argv0,
                                 const string &embedded_binaries) {
   ExtractBlazeZipProcessor processor(embedded_binaries);
-  if (!MakeDirectories(embedded_binaries, 0777)) {
+  if (!blaze_util::MakeDirectories(embedded_binaries, 0777)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "couldn't create '%s'",
          embedded_binaries.c_str());
   }
@@ -1177,7 +1177,7 @@ static void ComputeBaseDirectories(const string &self_path) {
 
   const char *output_base = globals->options->output_base.c_str();
   if (!blaze_util::PathExists(globals->options->output_base)) {
-    if (!MakeDirectories(globals->options->output_base, 0777)) {
+    if (!blaze_util::MakeDirectories(globals->options->output_base, 0777)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "Output base directory '%s' could not be created",
            output_base);

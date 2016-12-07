@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.rules.objc.ObjcCommon.uniqueContainers;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MERGE_ZIP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -132,7 +132,7 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
             // linker actions but not added to the final bundle.
             .addAll(STATIC_FRAMEWORK_FILE, frameworkImports)
             .addAll(
-                FRAMEWORK_DIR,
+                STATIC_FRAMEWORK_DIR,
                 uniqueContainers(frameworkImports, ObjcCommon.FRAMEWORK_CONTAINER_TYPE))
             .build();
 

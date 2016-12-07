@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.android.repository.Revision;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,6 +46,8 @@ import javax.annotation.Nullable;
  * Implementation of the {@code android_sdk_repository} rule.
  */
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
+  private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
+
   @Override
   public boolean isLocal(Rule rule) {
     return true;
@@ -84,6 +88,12 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
 
     } else {
       buildToolsVersion = buildToolsDirectory;
+    }
+
+    try {
+      assertValidBuildToolsVersion(rule, buildToolsVersion);
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
 
     String template = getStringResource("android_sdk_repository_template.txt");
@@ -156,6 +166,28 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       String error = String.format(
           "Could not read %s in Android SDK: %s", sourcePropertiesFilePath, e.getMessage());
       throw new RepositoryFunctionException(new IOException(error), Transience.PERSISTENT);
+    }
+  }
+
+  private static void assertValidBuildToolsVersion(Rule rule, String buildToolsVersion)
+      throws EvalException {
+    try {
+      Revision buildToolsRevision = Revision.parseRevision(buildToolsVersion);
+      if (buildToolsRevision.compareTo(MIN_BUILD_TOOLS_REVISION) < 0) {
+        throw new EvalException(
+            rule.getAttributeLocation("build_tools_version"),
+            String.format(
+                "Bazel requires Android build tools version %s or newer, %s was provided",
+                MIN_BUILD_TOOLS_REVISION,
+                buildToolsRevision));
+      }
+    } catch (NumberFormatException e) {
+      throw new EvalException(
+          rule.getAttributeLocation("build_tools_version"),
+          String.format(
+              "Bazel does not recognize Android build tools version %s",
+              buildToolsVersion),
+          e);
     }
   }
 }

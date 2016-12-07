@@ -92,6 +92,14 @@ function test_build_only() {
   expect_log_once '^progress'
 }
 
+function test_build_test_suite() {
+  # Sucessfully building a test suite should not have any unexpected events;
+  # so we expect to see only one progress event.
+  bazel build --experimental_build_event_text_file=$TEST_log pkg:suite \
+    || fail "bazel build failed"
+  expect_log_once '^progress'
+}
+
 function test_multiple_transports() {
   # Verifies usage of multiple build event transports at the same time
     outdir=$(mktemp -d ${TEST_TMPDIR}/bazel.XXXXXXXX)

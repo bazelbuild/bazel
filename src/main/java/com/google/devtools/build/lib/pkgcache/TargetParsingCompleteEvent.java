@@ -35,6 +35,7 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   private final ImmutableSet<Target> targets;
   private final ImmutableSet<Target> filteredTargets;
   private final ImmutableSet<Target> testFilteredTargets;
+  private final ImmutableSet<Target> expandedTargets;
   private final long timeInMs;
 
   /**
@@ -47,12 +48,14 @@ public class TargetParsingCompleteEvent implements BuildEvent {
       Collection<Target> filteredTargets,
       Collection<Target> testFilteredTargets,
       long timeInMs,
-      List<String> originalTargetPattern) {
+      List<String> originalTargetPattern,
+      Collection<Target> expandedTargets) {
     this.timeInMs = timeInMs;
     this.targets = ImmutableSet.copyOf(targets);
     this.filteredTargets = ImmutableSet.copyOf(filteredTargets);
     this.testFilteredTargets = ImmutableSet.copyOf(testFilteredTargets);
     this.originalTargetPattern = ImmutableList.copyOf(originalTargetPattern);
+    this.expandedTargets = ImmutableSet.copyOf(expandedTargets);
   }
 
   @VisibleForTesting
@@ -62,7 +65,8 @@ public class TargetParsingCompleteEvent implements BuildEvent {
         ImmutableSet.<Target>of(),
         ImmutableSet.<Target>of(),
         0,
-        ImmutableList.<String>of());
+        ImmutableList.<String>of(),
+        targets);
   }
 
   /**
@@ -107,7 +111,7 @@ public class TargetParsingCompleteEvent implements BuildEvent {
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
     ImmutableList.Builder childrenBuilder = ImmutableList.builder();
-    for (Target target : targets) {
+    for (Target target : expandedTargets) {
       // Test suits won't produce a target-complete event, so do not anounce their
       // completion as children.
       if (!TargetUtils.isTestSuiteRule(target)) {

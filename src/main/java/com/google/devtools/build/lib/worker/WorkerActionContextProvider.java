@@ -28,16 +28,14 @@ final class WorkerActionContextProvider extends ActionContextProvider {
 
   public WorkerActionContextProvider(
       CommandEnvironment env, BuildRequest buildRequest, WorkerPool workers) {
-    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
-    int maxRetries = buildRequest.getOptions(WorkerOptions.class).workerMaxRetries;
-
     this.strategies =
         ImmutableList.<ActionContext>of(
             new WorkerSpawnStrategy(
                 env.getDirectories(),
                 workers,
-                verboseFailures,
-                maxRetries));
+                buildRequest.getOptions(ExecutionOptions.class).verboseFailures,
+                buildRequest.getOptions(WorkerOptions.class).workerMaxRetries,
+                buildRequest.getOptions(WorkerOptions.class).workerVerbose));
   }
 
   @Override

@@ -24,7 +24,7 @@ import java.util.concurrent.ForkJoinPool;
 /**
  * A loadfiles(x) query expression, which computes the set of .bzl files
  * for each target in set x.  The result is unordered.  This
- * operator is typically used for determinining what files or packages to check
+ * operator is typically used for determining what files or packages to check
  * out.
  *
  * <pre>expr ::= LOADFILES '(' expr ')'</pre>

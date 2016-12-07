@@ -299,6 +299,31 @@ public class RClassGeneratorTest {
     );
   }
 
+  @Test
+  public void emptyPackage() throws Exception {
+    boolean finalFields = true;
+    // Make sure we handle an empty package string.
+    SymbolLoader symbolValues = createSymbolFile("R.txt", "int string some_string 0x7f200000");
+    SymbolLoader symbolsInLibrary = symbolValues;
+    Path out = temp.resolve("classes");
+    Files.createDirectories(out);
+    RClassGenerator writer =
+        RClassGenerator.fromSymbols(
+            out, "", symbolValues, ImmutableList.of(symbolsInLibrary), finalFields);
+    writer.write();
+
+    Path packageDir = out.resolve("");
+    checkFilesInPackage(packageDir, "R.class", "R$string.class");
+    Class<?> outerClass = checkTopLevelClass(out, "R", "R$string");
+    checkInnerClass(
+        out,
+        "R$string",
+        outerClass,
+        ImmutableMap.of("some_string", 0x7f200000),
+        ImmutableMap.<String, List<Integer>>of(),
+        finalFields);
+  }
+
   // Test utilities
 
   private Path createFile(String name, String... contents) throws IOException {

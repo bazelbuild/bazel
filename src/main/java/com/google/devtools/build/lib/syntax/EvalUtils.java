@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -72,6 +73,9 @@ public final class EvalUtils {
       o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
       o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
+      if (o1 instanceof ClassObject && o2 instanceof ClassObject) {
+        throw new ComparisonException("Cannot compare structs");
+      }
       if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
         throw new ComparisonException("Cannot compare sets");
       }
@@ -312,6 +316,15 @@ public final class EvalUtils {
       return ((SkylarkList) o).getImmutableList();
     } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
+      if (o instanceof SkylarkDict) {
+        // SkylarkDicts handle ordering themselves
+        SkylarkDict<?, ?> dict = (SkylarkDict) o;
+        List<Object> list = Lists.newArrayListWithCapacity(dict.size());
+        for (Map.Entry<?, ?> entries : dict.entrySet()) {
+          list.add(entries.getKey());
+        }
+        return  ImmutableList.copyOf(list);
+      }
       // For determinism, we sort the keys.
       try {
         return SKYLARK_COMPARATOR.sortedCopy(((Map<?, ?>) o).keySet());

@@ -34,7 +34,7 @@ public class WindowsFileOperations {
   public static boolean isJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
     String[] error = new String[] {null};
-    switch (nativeIsJunction(path, error)) {
+    switch (nativeIsJunction(asLongPath(path), error)) {
       case IS_JUNCTION_YES:
         return true;
       case IS_JUNCTION_NO:
@@ -42,5 +42,9 @@ public class WindowsFileOperations {
       default:
         throw new IOException(error[0]);
     }
+  }
+
+  static String asLongPath(String path) {
+    return "\\\\?\\" + path.replace('/', '\\');
   }
 }

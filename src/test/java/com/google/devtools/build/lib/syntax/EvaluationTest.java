@@ -146,7 +146,11 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("'hello' == 'bye'", false)
         .testStatement("None == None", true)
         .testStatement("[1, 2] == [1, 2]", true)
-        .testStatement("[1, 2] == [2, 1]", false);
+        .testStatement("[1, 2] == [2, 1]", false)
+        .testStatement("{'a': 1, 'b': 2} == {'b': 2, 'a': 1}", true)
+        .testStatement("{'a': 1, 'b': 2} == {'a': 1}", false)
+        .testStatement("{'a': 1, 'b': 2} == {'a': 1, 'b': 2, 'c': 3}", false)
+        .testStatement("{'a': 1, 'b': 2} == {'a': 1, 'b': 3}", false);
   }
 
   @Test
@@ -157,7 +161,11 @@ public class EvaluationTest extends EvaluationTestCase {
         .testStatement("'hello' != 'hel' + 'lo'", false)
         .testStatement("'hello' != 'bye'", true)
         .testStatement("[1, 2] != [1, 2]", false)
-        .testStatement("[1, 2] != [2, 1]", true);
+        .testStatement("[1, 2] != [2, 1]", true)
+        .testStatement("{'a': 1, 'b': 2} != {'b': 2, 'a': 1}", false)
+        .testStatement("{'a': 1, 'b': 2} != {'a': 1}", true)
+        .testStatement("{'a': 1, 'b': 2} != {'a': 1, 'b': 2, 'c': 3}", true)
+        .testStatement("{'a': 1, 'b': 2} != {'a': 1, 'b': 3}", true);
   }
 
   @Test
@@ -272,7 +280,10 @@ public class EvaluationTest extends EvaluationTestCase {
         .update(kwargs.getName(), kwargs)
         .testEval(
             "kwargs(foo=1, bar='bar', wiz=[1,2,3]).items()",
-            "[('bar', 'bar'), ('foo', 1), ('wiz', [1, 2, 3])]");
+            "[('foo', 1), ('bar', 'bar'), ('wiz', [1, 2, 3])]")
+        .testEval(
+            "kwargs(wiz=[1,2,3], bar='bar', foo=1).items()",
+            "[('wiz', [1, 2, 3]), ('bar', 'bar'), ('foo', 1)]");
   }
 
   @Test

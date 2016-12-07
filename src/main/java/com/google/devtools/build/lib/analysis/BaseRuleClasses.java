@@ -132,7 +132,6 @@ public class BaseRuleClasses {
               env.getToolsLabel("//tools/test:runtime"))))
           // Input files for test actions collecting code coverage
           .add(attr("$coverage_support", LABEL)
-              .cfg(HOST)
               .value(env.getLabel("//tools/defaults:coverage_support")))
           // Used in the one-per-build coverage report generation action.
           .add(attr("$coverage_report_generator", LABEL)

@@ -18,6 +18,7 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
 
 #include "src/main/cpp/util/port.h"
 
@@ -173,11 +174,6 @@ std::string GetHashedBaseDir(const std::string& root,
 // This method ensures that the directory is created, is owned by the current
 // user, and not accessible to anyone else.
 void CreateSecureOutputRoot(const std::string& path);
-
-// mkdir -p path. All newly created directories use the given mode.
-// `mode` should be an octal permission mask, e.g. 0755
-// Returns false on failure, sets errno.
-bool MakeDirectories(const std::string &path, unsigned int mode);
 
 std::string GetEnv(const std::string& name);
 

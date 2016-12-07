@@ -22,7 +22,7 @@
 #include <atomic>
 #include <string>
 
-#include "src/main/native/windows_error_handling.h"
+#include "src/main/native/windows_util.h"
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
@@ -121,7 +121,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   HANDLE thread = INVALID_HANDLE_VALUE;
   HANDLE event = INVALID_HANDLE_VALUE;
   PROCESS_INFORMATION process_info = {0};
-  STARTUPINFO startup_info = {0};
+  STARTUPINFOA startup_info = {0};
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
 
   if (java_env != NULL) {
@@ -138,14 +138,14 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   }
 
   if (!CreatePipe(&stdin_process, &result->stdin_, &sa, 0)) {
-    result->error_ = GetLastErrorString("CreatePipe(stdin)");
+    result->error_ = windows_util::GetLastErrorString("CreatePipe(stdin)");
     goto cleanup;
   }
 
   if (stdout_redirect != NULL) {
     result->stdout_.close();
 
-    stdout_process = CreateFile(
+    stdout_process = CreateFileA(
         stdout_redirect,
         FILE_APPEND_DATA,
         0,
@@ -155,12 +155,12 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
         NULL);
 
     if (stdout_process == INVALID_HANDLE_VALUE) {
-      result->error_ = GetLastErrorString("CreateFile(stdout)");
+      result->error_ = windows_util::GetLastErrorString("CreateFile(stdout)");
       goto cleanup;
     }
   } else {
     if (!CreatePipe(&result->stdout_.handle_, &stdout_process, &sa, 0)) {
-      result->error_ = GetLastErrorString("CreatePipe(stdout)");
+      result->error_ = windows_util::GetLastErrorString("CreatePipe(stdout)");
       goto cleanup;
     }
   }
@@ -170,7 +170,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     if (!strcmp(stdout_redirect, stderr_redirect)) {
       stderr_process = stdout_process;
     } else {
-      stderr_process = CreateFile(
+      stderr_process = CreateFileA(
           stderr_redirect,
           FILE_APPEND_DATA,
           0,
@@ -180,13 +180,13 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
           NULL);
 
       if (stderr_process == INVALID_HANDLE_VALUE) {
-        result->error_ = GetLastErrorString("CreateFile(stderr)");
+        result->error_ = windows_util::GetLastErrorString("CreateFile(stderr)");
         goto cleanup;
       }
     }
   } else {
     if (!CreatePipe(&result->stderr_.handle_, &stderr_process, &sa, 0)) {
-      result->error_ = GetLastErrorString("CreatePipe(stderr)");
+      result->error_ = windows_util::GetLastErrorString("CreatePipe(stderr)");
       goto cleanup;
     }
   }
@@ -196,7 +196,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   // allowed. Thus, we don't need to do any more setup here.
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
-    result->error_ = GetLastErrorString("CreateJobObject()");
+    result->error_ = windows_util::GetLastErrorString("CreateJobObject()");
     goto cleanup;
   }
 
@@ -209,8 +209,9 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       JobObjectExtendedLimitInformation,
       &job_info,
       sizeof(job_info))) {
-      result->error_ = GetLastErrorString("SetInformationJobObject()");
-      goto cleanup;
+    result->error_ =
+        windows_util::GetLastErrorString("SetInformationJobObject()");
+    goto cleanup;
   }
 
   startup_info.hStdInput = stdin_process;
@@ -218,7 +219,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   startup_info.hStdError = stderr_process;
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
-  BOOL ok = CreateProcess(
+  BOOL ok = CreateProcessA(
       NULL,
       mutable_commandline,
       NULL,
@@ -233,7 +234,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       &process_info);
 
   if (!ok) {
-    result->error_ = GetLastErrorString("CreateProcess()");
+    result->error_ = windows_util::GetLastErrorString("CreateProcess()");
     goto cleanup;
   }
 
@@ -253,14 +254,15 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       CloseHandle(result->job_);
       result->job_ = INVALID_HANDLE_VALUE;
     } else {
-      result->error_ = GetLastErrorString("AssignProcessToJobObject()");
+      result->error_ =
+          windows_util::GetLastErrorString("AssignProcessToJobObject()");
       goto cleanup;
     }
   }
 
   // Now that we put the process in a new job object, we can start executing it
   if (ResumeThread(thread) == -1) {
-    result->error_ = GetLastErrorString("ResumeThread()");
+    result->error_ = windows_util::GetLastErrorString("ResumeThread()");
     goto cleanup;
   }
 
@@ -325,7 +327,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
 
   if (!::WriteFile(process->stdin_, bytes + offset, length, &bytes_written,
                    NULL)) {
-    process->error_ = GetLastErrorString("WriteFile()");
+    process->error_ = windows_util::GetLastErrorString("WriteFile()");
     bytes_written = -1;
   }
 
@@ -377,7 +379,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
       stream->error_ = "";
       bytes_read = 0;
     } else {
-      stream->error_ = GetLastErrorString("ReadFile()");
+      stream->error_ = windows_util::GetLastErrorString("ReadFile()");
       bytes_read = -1;
     }
   } else {
@@ -394,7 +396,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetExitCode(
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
   DWORD exit_code;
   if (!GetExitCodeProcess(process->process_, &exit_code)) {
-    process->error_ = GetLastErrorString("GetExitCodeProcess()");
+    process->error_ = windows_util::GetLastErrorString("GetExitCodeProcess()");
     return -1;
   }
 
@@ -471,12 +473,13 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
     // In theory, CloseHandle() on process->job_ would work, too, since we set
     // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
     if (!TerminateJobObject(process->job_, 0)) {
-      process->error_ = GetLastErrorString("TerminateJobObject()");
+      process->error_ =
+          windows_util::GetLastErrorString("TerminateJobObject()");
       return JNI_FALSE;
     }
   } else if (process->process_ != INVALID_HANDLE_VALUE) {
     if (!TerminateProcess(process->process_, 1)) {
-      process->error_ = GetLastErrorString("TerminateProcess()");
+      process->error_ = windows_util::GetLastErrorString("TerminateProcess()");
       return JNI_FALSE;
     }
   }

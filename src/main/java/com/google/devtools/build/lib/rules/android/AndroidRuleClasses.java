@@ -76,8 +76,6 @@ public final class AndroidRuleClasses {
       fromTemplates("lib%{name}.jack");
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR =
       fromTemplates("%{name}.aar");
-  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR_CLASSES_JAR =
-      fromTemplates("%{name}_aar/classes.jar");
   /**
    * Source Jar for {@link #ANDROID_RESOURCES_CLASS_JAR}, which should be the same as
    * {@link #ANDROID_JAVA_SOURCE_JAR}.

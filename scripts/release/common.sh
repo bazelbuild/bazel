@@ -190,3 +190,39 @@ function get_full_release_notes() {
     git_commit_msg "$@"
   fi
 }
+
+# Merge three release notes using branch $1 as a base
+# Args:
+#   $1 the branch name to use to play on
+#   $2 the new generated release notes
+#   $3 the last generated release notes
+#   $4 the last edited release notes
+function merge_release_notes() {
+  local branch_name="$1"
+  local relnotes="$2"
+  local last_relnotes="$3"
+  local last_savedrelnotes="$4"
+  if [ "${last_relnotes}" == "${last_savedrelnotes}" ]; then
+    echo "${relnotes}"
+  else
+    # Merge the three release notes, use git merge for it
+    git checkout -q -b "${branch_name}-merge-notes-1"
+    echo "${last_relnotes}" >.relnotes
+    git add .relnotes
+    git commit -q -m "last_relnotes" --allow-empty
+    echo "${last_savedrelnotes}" >.relnotes
+    git add .relnotes
+    git commit -q -m "last_savedrelnotes" --allow-empty
+    git checkout -q -b "${branch_name}-merge-notes-2" HEAD~
+    echo "${relnotes}" >.relnotes
+    git add .relnotes
+    git commit -q -m "relnotes" --allow-empty
+    git merge -q --no-commit "${branch_name}-merge-notes-1" &>/dev/null || true
+    cat .relnotes
+
+    # Clean-up
+    git merge --abort || true &>/dev/null
+    git checkout -q "${branch_name}"
+    git branch -D ${branch_name}-merge-notes-{1,2} >/dev/null
+  fi
+}

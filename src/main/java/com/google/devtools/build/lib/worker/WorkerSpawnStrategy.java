@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.worker;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -49,7 +50,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.protobuf.ByteString;
+import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -57,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 /**
  * A spawn action context that launches Spawns the first time they are used in a persistent mode and
@@ -67,6 +73,94 @@ import java.util.concurrent.atomic.AtomicReference;
   contextType = SpawnActionContext.class
 )
 public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
+
+  /**
+   * An input stream filter that records the first X bytes read from its wrapped stream.
+   *
+   * <p>The number bytes to record can be set via {@link #startRecording(int)}}, which also discards
+   * any already recorded data. The recorded data can be retrieved via {@link
+   * #getRecordedDataAsString(Charset)}.
+   */
+  private static final class RecordingInputStream extends FilterInputStream {
+    private static final Pattern NON_PRINTABLE_CHARS =
+        Pattern.compile("[^\\p{Print}\\t\\r\\n]", Pattern.UNICODE_CHARACTER_CLASS);
+
+    private ByteArrayOutputStream recordedData;
+    private int maxRecordedSize;
+
+    protected RecordingInputStream(InputStream in) {
+      super(in);
+    }
+
+    /**
+     * Returns the maximum number of bytes that can still be recorded in our buffer (but not more
+     * than {@code size}).
+     */
+    private int getRecordableBytes(int size) {
+      if (recordedData == null) {
+        return 0;
+      }
+      return Math.min(maxRecordedSize - recordedData.size(), size);
+    }
+
+    @Override
+    public int read() throws IOException {
+      int bytesRead = super.read();
+      if (getRecordableBytes(bytesRead) > 0) {
+        recordedData.write(bytesRead);
+      }
+      return bytesRead;
+    }
+
+    @Override
+    public int read(byte[] b) throws IOException {
+      int bytesRead = super.read(b);
+      int recordableBytes = getRecordableBytes(bytesRead);
+      if (recordableBytes > 0) {
+        recordedData.write(b, 0, recordableBytes);
+      }
+      return bytesRead;
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+      int bytesRead = super.read(b, off, len);
+      int recordableBytes = getRecordableBytes(bytesRead);
+      if (recordableBytes > 0) {
+        recordedData.write(b, off, recordableBytes);
+      }
+      return bytesRead;
+    }
+
+    public void startRecording(int maxSize) {
+      recordedData = new ByteArrayOutputStream(maxSize);
+      maxRecordedSize = maxSize;
+    }
+
+    /**
+     * Reads whatever remaining data is available on the input stream if we still have space left in
+     * the recording buffer, in order to maximize the usefulness of the recorded data for the
+     * caller.
+     */
+    public void readRemaining() {
+      try {
+        byte[] dummy = new byte[getRecordableBytes(available())];
+        read(dummy);
+      } catch (IOException e) {
+        // Ignore.
+      }
+    }
+
+    /**
+     * Returns the recorded data as a string, where non-printable characters are replaced with a '?'
+     * symbol.
+     */
+    public String getRecordedDataAsString(Charset charsetName) throws UnsupportedEncodingException {
+      String recordedString = recordedData.toString(charsetName.name());
+      return NON_PRINTABLE_CHARS.matcher(recordedString).replaceAll("?").trim();
+    }
+  }
+
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
@@ -79,16 +173,19 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final int maxRetries;
+  private final boolean workerVerbose;
 
   public WorkerSpawnStrategy(
       BlazeDirectories blazeDirs,
       WorkerPool workers,
       boolean verboseFailures,
-      int maxRetries) {
+      int maxRetries,
+      boolean workerVerbose) {
     this.workers = Preconditions.checkNotNull(workers);
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.maxRetries = maxRetries;
+    this.workerVerbose = workerVerbose;
   }
 
   @Override
@@ -259,7 +356,21 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
       request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
-      response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
+
+      RecordingInputStream recordingStream = new RecordingInputStream(worker.getInputStream());
+      recordingStream.startRecording(4096);
+      try {
+        response = WorkResponse.parseDelimitedFrom(recordingStream);
+      } catch (IOException e2) {
+        // If protobuf couldn't parse the response, try to print whatever the failing worker wrote
+        // to stdout - it's probably a stack trace or some kind of error message that will help the
+        // user figure out why the compiler is failing.
+        recordingStream.readRemaining();
+        String data = recordingStream.getRecordedDataAsString(Charsets.UTF_8);
+        eventHandler.handle(
+            Event.warn("Worker process returned an unparseable WorkResponse:\n" + data));
+        throw e2;
+      }
 
       if (writeOutputFiles != null
           && !writeOutputFiles.compareAndSet(null, WorkerSpawnStrategy.class)) {
@@ -270,7 +381,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
       if (response == null) {
         throw new UserExecException(
-            "Worker process did not return a correct WorkResponse. This is probably caused by a "
+            "Worker process did not return a WorkResponse. This is probably caused by a "
                 + "bug in the worker, writing unexpected other data to stdout.");
       }
     } catch (IOException e) {
@@ -282,12 +393,19 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       if (retriesLeft > 0) {
         // The worker process failed, but we still have some retries left. Let's retry with a fresh
         // worker.
-        eventHandler.handle(
-            Event.warn(
-                key.getMnemonic()
-                    + " worker failed ("
-                    + Throwables.getStackTraceAsString(e)
-                    + "), invalidating and retrying with new worker..."));
+        if (workerVerbose) {
+          eventHandler.handle(
+              Event.warn(
+                  key.getMnemonic()
+                      + " worker failed ("
+                      + Throwables.getStackTraceAsString(e)
+                      + "), invalidating and retrying with new worker..."));
+        } else {
+          eventHandler.handle(
+              Event.warn(
+                  key.getMnemonic()
+                      + " worker failed, invalidating and retrying with new worker..."));
+        }
         return execInWorker(eventHandler, key, request, retriesLeft - 1, writeOutputFiles);
       } else {
         throw e;

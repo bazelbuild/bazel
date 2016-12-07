@@ -79,7 +79,9 @@ fi
 # normal commands are run in the exec-root where they have access to
 # the entire source tree. By chdir'ing to the runfiles root, tests only
 # have direct access to their declared dependencies.
-cd "$DIR" || { echo "Could not chdir $DIR"; exit 1; }
+if [ -z "$COVERAGE_DIR" ]; then
+  cd "$DIR" || { echo "Could not chdir $DIR"; exit 1; }
+fi
 
 # This header marks where --test_output=streamed will start being printed.
 echo "-----------------------------------------------------------------------------"
@@ -90,19 +92,27 @@ echo "--------------------------------------------------------------------------
 # If the test is at the top of the tree, we have to add '.' to $PATH,
 PATH=".:$PATH"
 
-
-TEST_NAME=$1
-shift
+if [ -z "$COVERAGE_DIR" ]; then
+  TEST_NAME=$1
+  shift
+else
+  TEST_NAME=$2
+fi
 
 if [[ "$TEST_NAME" = /* ]]; then
-  EXE="${TEST_NAME}"
+  TEST_PATH="${TEST_NAME}"
 else
-  EXE="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
+  TEST_PATH="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
 fi
 [[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
-"${EXE}" "$@" || exitCode=$?
+if [ -z "$COVERAGE_DIR" ]; then
+  "${TEST_PATH}" "$@" || exitCode=$?
+else
+  "$1" "$TEST_PATH" "${@:3}" || exitCode=$?
+fi
+
 
 if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
   # Create a default XML output file if the test runner hasn't generated it

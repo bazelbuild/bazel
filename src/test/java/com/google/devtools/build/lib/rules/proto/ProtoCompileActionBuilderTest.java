@@ -85,6 +85,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             supportData.getProtosInDirectDeps(),
+            "//foo:bar",
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
 
@@ -123,6 +124,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             supportData.getProtosInDirectDeps(),
+            "//foo:bar",
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
 
@@ -132,6 +134,8 @@ public class ProtoCompileActionBuilderTest {
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
             "--direct_dependencies=import1.proto",
+            "--direct_dependencies_violation_msg=%s is imported, "
+                + "but //foo:bar doesn't directly depend on a proto_library that 'srcs' it.",
             "source_file.proto")
         .inOrder();
   }
@@ -152,6 +156,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             supportData.getProtosInDirectDeps(),
+            "//foo:bar",
             false /* allowServices */,
             ImmutableList.of("--foo", "--bar") /* protocOpts */);
 
@@ -193,6 +198,7 @@ public class ProtoCompileActionBuilderTest {
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
             supportData.getProtosInDirectDeps(),
+            "//foo:bar",
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
 
@@ -237,6 +243,7 @@ public class ProtoCompileActionBuilderTest {
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
           supportData.getProtosInDirectDeps(),
+          "//foo:bar",
           true /* allowServices */,
           ImmutableList.<String>of() /* protocOpts */);
       fail("Expected an exception");

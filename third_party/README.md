@@ -172,7 +172,8 @@ a minimal set of extra dependencies.
 
 ## [javac](https://github.com/google/error-prone-javac)
 
-* Version: 1.9.0-dev-r2973-2 (javac7.jar) and 1.9.0-dev-r2644-2 (javac.jar)
+* Version: 1.9.0-dev-r2973-2 (javac7.jar) and 1.9.0-dev-r2644-2 (javac.jar) and
+  javac-9-dev-r3297-1 (javac-9-dev-r3297-1.jar)
 * License: GNU GPL v2 with Classpath exception (plus other licenses, see third_party/java/jdk/langtools/LICENSE file).
 
 ## [jarjar](https://code.google.com/p/jarjar/)

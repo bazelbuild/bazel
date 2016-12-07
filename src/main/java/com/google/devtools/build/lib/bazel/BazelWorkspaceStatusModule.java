@@ -150,13 +150,19 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     private static byte[] printStatusMap(Map<String, String> map) {
-      return Joiner.on("\n").join(Iterables.transform(map.entrySet(),
-          new Function<Map.Entry<String, String>, String>() {
-            @Override
-            public String apply(@Nullable Entry<String, String> entry) {
-              return entry.getKey() + " " + entry.getValue();
-            }
-          })).getBytes(StandardCharsets.UTF_8);
+      String s =
+          Joiner.on("\n")
+              .join(
+                  Iterables.transform(
+                      map.entrySet(),
+                      new Function<Map.Entry<String, String>, String>() {
+                        @Override
+                        public String apply(@Nullable Entry<String, String> entry) {
+                          return entry.getKey() + " " + entry.getValue();
+                        }
+                      }));
+      s += "\n";
+      return s.getBytes(StandardCharsets.UTF_8);
     }
 
     @Override

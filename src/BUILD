@@ -148,9 +148,11 @@ genrule(
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:embedded_tools",
         "//third_party/ijar",
         "//third_party/java/apkbuilder:embedded_tools",
         "//third_party/java/apksig:embedded_tools",
+        "//third_party/java/jacoco:srcs",
     ] + select({
         ":darwin": [
             ":darwin_tools",
@@ -284,6 +286,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/java_tools/buildjar:srcs",
+        "//src/java_tools/junitrunner/java/com/google/testing/coverage:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/junit4:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal:srcs",

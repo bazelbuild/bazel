@@ -14,6 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# For this tests to run do the following:
+# 1. Uncomment the 2 lines regarding android integration tests in the WORKSPACE
+# file.
+# 2. Set the environment variables ANDROID_HOME and ANDROID_NDK accordingly to
+# your Android SDK and NDK home directories.
+# 3. Run scripts/workspace_user.sh.
+#
+# Note that if the environment is not set up as above android_integration_test
+# will silently be ignored and will be shown as passing.
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../../integration_test_setup.sh" \
@@ -185,7 +195,7 @@ function test_sdk_library_deps() {
   cat > java/a/BUILD<<EOF
 android_library(
     name = "a",
-    deps = ["//external:android/mediarouter_v7"],
+    deps = ["@androidsdk//com.android.support:mediarouter-v7-24.0.0"],
 )
 EOF
 
@@ -222,6 +232,29 @@ function test_android_binary_clang() {
       || fail "build failed"
   check_num_sos
   check_soname
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/1928.
+function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
+  create_new_workspace
+  setup_android_support
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.test"/>
+EOF
+  mkdir res
+  zip test.aar AndroidManifest.xml res/
+  cat > BUILD <<EOF
+aar_import(
+  name = "test",
+  aar = "test.aar",
+)
+EOF
+  # Building aar_import invokes the AndroidResourceProcessingAction with a
+  # TreeArtifact of the AAR resources as the input. Since there are no
+  # resources, the Bazel sandbox should create an empty directory. If the
+  # directory is not created, the action thinks that its inputs do not exist and
+  # crashes.
+  bazel build :test
 }
 
 # ndk r10 and earlier

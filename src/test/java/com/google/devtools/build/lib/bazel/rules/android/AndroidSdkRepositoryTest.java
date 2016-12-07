@@ -44,8 +44,8 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "android_sdk_repository(",
         "    name = 'mysdk',",
         "    path = '/sdk',",
-        "    build_tools_version = '24.0.0',",
-        "    api_level = 24,",
+        "    build_tools_version = '25.0.0',",
+        "    api_level = 25,",
         ")");
   }
 

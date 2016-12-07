@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -27,19 +28,19 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.Builder;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -78,6 +80,9 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final String JAVABUILDER_CLASS_NAME =
       "com.google.devtools.build.buildjar.BazelJavaBuilder";
+
+  private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
+      "com.google.testing.coverage.JacocoCoverageRunner";
 
   private BazelJavaSemantics() {
   }
@@ -159,17 +164,6 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public Artifact createInstrumentationMetadataArtifact(
-      RuleContext ruleContext, Artifact outputJar) {
-    return null;
-  }
-
-  @Override
-  public void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
-      Builder result, Label targetLabel) {
-  }
-
-  @Override
   public Artifact createStubAction(
       RuleContext ruleContext,
       final JavaCommon javaCommon,
@@ -207,6 +201,20 @@ public class BazelJavaSemantics implements JavaSemantics {
             return buffer.toString();
           }
         });
+
+    JavaCompilationArtifacts javaArtifacts = javaCommon.getJavaCompilationArtifacts();
+    String path =
+        javaArtifacts.getInstrumentedJar() != null
+            ? "${JAVA_RUNFILES}/"
+                + workspacePrefix
+                + javaArtifacts.getInstrumentedJar().getRootRelativePath().getPathString()
+            : "";
+    arguments.add(
+        Substitution.of(
+            "%set_jacoco_metadata%",
+            ruleContext.getConfiguration().isCodeCoverageEnabled()
+                ? "export JACOCO_METADATA_JAR=" + path
+                : ""));
 
     arguments.add(Substitution.of("%java_start_class%",
         ShellEscaper.escapeString(javaStartClass)));
@@ -415,12 +423,79 @@ public class BazelJavaSemantics implements JavaSemantics {
     return jvmFlags.build();
   }
 
+  /**
+   * Returns whether coverage has instrumented artifacts.
+   */
+  public static boolean hasInstrumentationMetadata(JavaTargetAttributes.Builder attributes) {
+    return !attributes.getInstrumentationMetadata().isEmpty();
+  }
+
+  // TODO(yueg): refactor this (only mainClass different for now)
   @Override
-  public String addCoverageSupport(JavaCompilationHelper helper,
+  public String addCoverageSupport(
+      JavaCompilationHelper helper,
       JavaTargetAttributes.Builder attributes,
-      Artifact executable, Artifact instrumentationMetadata,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder, String mainClass) {
-    return mainClass;
+      Artifact executable,
+      Artifact instrumentationMetadata,
+      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
+      String mainClass)
+      throws InterruptedException {
+    // This method can be called only for *_binary/*_test targets.
+    Preconditions.checkNotNull(executable);
+    // Add our own metadata artifact (if any).
+    if (instrumentationMetadata != null) {
+      attributes.addInstrumentationMetadataEntries(ImmutableList.of(instrumentationMetadata));
+    }
+
+    if (!hasInstrumentationMetadata(attributes)) {
+      return mainClass;
+    } else {
+      Artifact instrumentedJar =
+          helper
+              .getRuleContext()
+              .getBinArtifact(helper.getRuleContext().getLabel().getName() + "_instrumented.jar");
+
+      // Create an instrumented Jar. This will be referenced on the runtime classpath prior
+      // to all other Jars.
+      JavaCommon.createInstrumentedJarAction(
+          helper.getRuleContext(),
+          this,
+          attributes.getInstrumentationMetadata(),
+          instrumentedJar,
+          mainClass);
+      javaArtifactsBuilder.setInstrumentedJar(instrumentedJar);
+
+      // Add the coverage runner to the list of dependencies when compiling in coverage mode.
+      TransitiveInfoCollection runnerTarget =
+          helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
+      if (runnerTarget.getProvider(JavaCompilationArgsProvider.class) != null) {
+        helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
+      } else {
+        helper
+            .getRuleContext()
+            .ruleError(
+                "this rule depends on "
+                    + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
+                    + " which is not a java_library rule, or contains errors");
+      }
+      // In offline instrumentation mode, add the Jacoco runtime to the classpath as well (this
+      // jar is not included by the coverage runner). Note that $jacoco is provided via a
+      // filegroup because the same jar can be used for online instrumentation, by simply adding
+      // it to -javaagent and -Xbootclasspath/p (similar to the Reverifier setup). The $jacoco jar
+      // has a "Premain-Class:" entry in its manifest, which would get erased by ijar filtering,
+      // hence the filegroup.
+      TransitiveInfoCollection agentTarget =
+          helper.getRuleContext().getPrerequisite("$jacoco_runtime", Mode.TARGET);
+      NestedSet<Artifact> filesToBuild =
+          agentTarget.getProvider(FileProvider.class).getFilesToBuild();
+      for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
+        attributes.addRuntimeClassPathEntry(jar);
+      }
+    }
+
+    // We do not add the instrumented jar to the runtime classpath, but provide it in the shell
+    // script via an environment variable.
+    return JACOCO_COVERAGE_RUNNER_MAIN_CLASS;
   }
 
   @Override

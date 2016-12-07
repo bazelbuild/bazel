@@ -232,7 +232,8 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
             patternParsingValue.getFilteredTargets(),
             patternParsingValue.getTestFilteredTargets(),
             targetPatternEvalTime,
-            targetPatterns));
+            targetPatterns,
+            patternParsingValue.getTargets()));
     if (callback != null) {
       callback.notifyTargets(patternParsingValue.getTargets());
     }

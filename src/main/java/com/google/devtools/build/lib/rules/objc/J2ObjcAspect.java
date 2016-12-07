@@ -143,8 +143,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .attributeAspect("runtime_deps", this)
         .requireProviderSets(
             ImmutableList.of(
-                ImmutableSet.<Class<?>>of(
-                    JavaSourceInfoProvider.class, JavaCompilationArgsProvider.class),
+                ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
                 ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class)))
         .requiresConfigurationFragments(
             AppleConfiguration.class,
@@ -293,13 +292,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         base.getProvider(JavaCompilationArgsProvider.class);
     JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
     JavaGenJarsProvider genJarProvider = base.getProvider(JavaGenJarsProvider.class);
-    ImmutableSet<Artifact> javaInputFiles =
-        ImmutableSet.<Artifact>builder()
-            .addAll(sourceInfoProvider.getSourceFiles())
-            .addAll(sourceInfoProvider.getSourceJars())
-            .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
-            .build();
-
+    ImmutableSet<Artifact> javaInputFiles;
+    if (sourceInfoProvider == null) {
+      javaInputFiles = ImmutableSet.<Artifact>of();
+    } else {
+      javaInputFiles = ImmutableSet.<Artifact>builder()
+          .addAll(sourceInfoProvider.getSourceFiles())
+          .addAll(sourceInfoProvider.getSourceJars())
+          .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
+          .build();
+    }
     Optional<Artifact> genSrcJar;
     boolean annotationProcessingEnabled =
         ruleContext.getFragment(J2ObjcConfiguration.class).annotationProcessingEnabled();

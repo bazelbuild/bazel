@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.Target;
-
 import javax.annotation.Nullable;
 
 /**
@@ -35,6 +34,11 @@ public interface ConfiguredTarget extends TransitiveInfoCollection {
    *  All <code>ConfiguredTarget</code>s have a "label" field.
    */
   String LABEL_FIELD = "label";
+
+  /**
+   *  All <code>ConfiguredTarget</code>s have a "aspect_ids" field.
+   */
+  String ASPECTS_FIELD = "aspect_ids";
 
   /**
    *  All <code>ConfiguredTarget</code>s have a "files" field.

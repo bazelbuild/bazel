@@ -69,6 +69,7 @@ sh_test(
     data = [
         ":test-deps",
     ],
+    tags = ["manual"],
 )
 
 sh_test(
@@ -100,6 +101,13 @@ sh_test(
     srcs = ["bazel_test_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
+    tags = ["local"],
+)
+
+sh_test(
+    name = "bazel_coverage_test",
+    srcs = ["bazel_coverage_test.sh"],
+    data = [":test-deps"],
     tags = ["local"],
 )
 
@@ -315,38 +323,6 @@ sh_test(
     srcs = ["bazel_sandboxing_cpp_test.sh"],
     data = [":test-deps"],
     tags = ["local"],
-)
-
-sh_test(
-    name = "bazel_worker_test",
-    size = "large",
-    srcs = ["bazel_worker_test.sh"],
-    args = [
-        "--worker_sandboxing=no",
-        "non-sandboxed",
-    ],
-    data = [
-        ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
-    ],
-    shard_count = 3,
-    tags = ["jdk8"],
-)
-
-sh_test(
-    name = "bazel_sandboxed_worker_test",
-    size = "large",
-    srcs = ["bazel_worker_test.sh"],
-    args = [
-        "--worker_sandboxing",
-        "sandboxed",
-    ],
-    data = [
-        ":test-deps",
-        "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
-    ],
-    shard_count = 3,
-    tags = ["jdk8"],
 )
 
 sh_test(

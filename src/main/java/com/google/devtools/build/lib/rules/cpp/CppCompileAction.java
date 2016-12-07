@@ -1026,6 +1026,17 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  /** Sets module file flags based on the action's inputs. */
+  protected void setModuleFileFlags() {
+    if (useHeaderModules) {
+      // If modules pruning is used, modules will be supplied via additionalInputs, otherwise they
+      // are regular inputs.
+      Preconditions.checkNotNull(additionalInputs);
+      this.overwrittenVariables =
+          getOverwrittenVariables(shouldPruneModules ? additionalInputs : getInputs());
+    }
+  }
+
   /**
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
@@ -1220,13 +1231,7 @@ public class CppCompileAction extends AbstractAction
   public void execute(
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
-    if (useHeaderModules) {
-      // If modules pruning is used, modules will be supplied via additionalInputs, otherwise they
-      // are regular inputs.
-      Preconditions.checkNotNull(additionalInputs);
-      this.overwrittenVariables =
-          getOverwrittenVariables(shouldPruneModules ? additionalInputs : getInputs());
-    }
+    setModuleFileFlags();
 
     Executor executor = actionExecutionContext.getExecutor();
     CppCompileActionContext.Reply reply;

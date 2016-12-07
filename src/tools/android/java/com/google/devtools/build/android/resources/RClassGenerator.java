@@ -71,11 +71,12 @@ public class RClassGenerator {
       String packageName,
       SymbolLoader values,
       Collection<SymbolLoader> packageSymbols,
-      boolean finalFields) throws IOException {
+      boolean finalFields)
+      throws IOException {
     Table<String, String, SymbolEntry> symbolsTable = getAllSymbols(packageSymbols);
     Table<String, String, SymbolEntry> valuesTable = getSymbols(values);
-    Map<ResourceType, List<FieldInitializer>> initializers = getInitializers(symbolsTable,
-        valuesTable);
+    Map<ResourceType, List<FieldInitializer>> initializers =
+        getInitializers(symbolsTable, valuesTable);
     return new RClassGenerator(outFolder, packageName, initializers, finalFields);
   }
 
@@ -99,15 +100,13 @@ public class RClassGenerator {
   }
 
   private static Table<String, String, SymbolEntry> getAllSymbols(
-      Collection<SymbolLoader> symbolLoaders)
-      throws IOException {
+      Collection<SymbolLoader> symbolLoaders) throws IOException {
     Table<String, String, SymbolEntry> symbols = HashBasedTable.create();
     for (SymbolLoader symbolLoader : symbolLoaders) {
       symbols.putAll(getSymbols(symbolLoader));
     }
     return symbols;
   }
-
 
   private static Table<String, String, SymbolEntry> getSymbols(SymbolLoader symbolLoader)
       throws IOException {
@@ -116,20 +115,17 @@ public class RClassGenerator {
       Method getSymbols = SymbolLoader.class.getDeclaredMethod("getSymbols");
       getSymbols.setAccessible(true);
       @SuppressWarnings("unchecked")
-      Table<String, String, SymbolEntry> result = (Table<String, String, SymbolEntry>)
-          getSymbols.invoke(symbolLoader);
+      Table<String, String, SymbolEntry> result =
+          (Table<String, String, SymbolEntry>) getSymbols.invoke(symbolLoader);
       return result;
     } catch (ReflectiveOperationException e) {
       throw new IOException(e);
     }
   }
 
-  /**
-   * Convert the {@link SymbolLoader} data, to a map of {@link FieldInitializer}.
-   */
+  /** Convert the {@link SymbolLoader} data, to a map of {@link FieldInitializer}. */
   private static Map<ResourceType, List<FieldInitializer>> getInitializers(
-      Table<String, String, SymbolEntry> symbols,
-      Table<String, String, SymbolEntry> values) {
+      Table<String, String, SymbolEntry> symbols, Table<String, String, SymbolEntry> values) {
     Map<ResourceType, List<FieldInitializer>> initializers = new EnumMap<>(ResourceType.class);
     for (String typeName : symbols.rowKeySet()) {
       ResourceType resourceType = ResourceType.getEnum(typeName);
@@ -156,22 +152,20 @@ public class RClassGenerator {
           initializers.add(IntFieldInitializer.of(value.getName(), value.getValue()));
         } else {
           Preconditions.checkArgument(value.getType().equals("int[]"));
-          initializers
-              .add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
+          initializers.add(IntArrayFieldInitializer.of(value.getName(), value.getValue()));
         }
       } else {
         // Value may be missing if resource overriding eliminates resources at the binary
         // level, which were originally present at the library level.
-        logger.fine(String.format("Skipping R.%s.%s -- value not known in binary's R.txt",
-                                  typeName, symbolName));
+        logger.fine(
+            String.format(
+                "Skipping R.%s.%s -- value not known in binary's R.txt", typeName, symbolName));
       }
     }
     return initializers;
   }
 
-  /**
-   * Builds the bytecode and writes out the R.class file, and R$inner.class files.
-   */
+  /** Builds the bytecode and writes out the R.class file, and R$inner.class files. */
   public void write() throws IOException {
     Iterable<String> folders = PACKAGE_SPLITTER.split(packageName);
     Path packageDir = outFolder;
@@ -187,7 +181,7 @@ public class RClassGenerator {
     Path rClassFile = packageDir.resolve(SdkConstants.FN_COMPILED_RESOURCE_CLASS);
 
     String packageWithSlashes = packageName.replaceAll("\\.", "/");
-    String rClassName = packageWithSlashes + "/R";
+    String rClassName = packageWithSlashes.isEmpty() ? "R" : (packageWithSlashes + "/R");
     ClassWriter classWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
     classWriter.visit(
         JAVA_VERSION,
@@ -221,7 +215,8 @@ public class RClassGenerator {
       List<FieldInitializer> initializers,
       Path packageDir,
       String fullyQualifiedOuterClass,
-      String innerClass) throws IOException {
+      String innerClass)
+      throws IOException {
     ClassWriter innerClassWriter = new ClassWriter(ClassWriter.COMPUTE_MAXS);
     String fullyQualifiedInnerClass =
         writeInnerClassHeader(fullyQualifiedOuterClass, innerClass, innerClassWriter);
@@ -245,8 +240,8 @@ public class RClassGenerator {
     Files.write(innerFile, innerClassWriter.toByteArray());
   }
 
-  private String writeInnerClassHeader(String fullyQualifiedOuterClass, String innerClass,
-      ClassWriter innerClassWriter) {
+  private String writeInnerClassHeader(
+      String fullyQualifiedOuterClass, String innerClass, ClassWriter innerClassWriter) {
     String fullyQualifiedInnerClass = fullyQualifiedOuterClass + "$" + innerClass;
     innerClassWriter.visit(
         JAVA_VERSION,
@@ -266,12 +261,9 @@ public class RClassGenerator {
   }
 
   private static void writeConstructor(ClassWriter classWriter) {
-    MethodVisitor constructor = classWriter.visitMethod(
-        Opcodes.ACC_PUBLIC,
-        "<init>",
-        "()V",
-        null, /* signature */
-        null /* exceptions */);
+    MethodVisitor constructor =
+        classWriter.visitMethod(
+            Opcodes.ACC_PUBLIC, "<init>", "()V", null, /* signature */ null /* exceptions */);
     constructor.visitCode();
     constructor.visitVarInsn(Opcodes.ALOAD, 0);
     constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, SUPER_CLASS, "<init>", "()V", false);
@@ -281,26 +273,18 @@ public class RClassGenerator {
   }
 
   private static void writeStaticClassInit(
-      ClassWriter classWriter,
-      String className,
-      List<FieldInitializer> initializers) {
-    MethodVisitor visitor = classWriter.visitMethod(
-        Opcodes.ACC_STATIC,
-        "<clinit>",
-        "()V",
-        null,  /* signature */
-        null /* exceptions */);
+      ClassWriter classWriter, String className, List<FieldInitializer> initializers) {
+    MethodVisitor visitor =
+        classWriter.visitMethod(
+            Opcodes.ACC_STATIC, "<clinit>", "()V", null, /* signature */ null /* exceptions */);
     visitor.visitCode();
     int stackSlotsNeeded = 0;
     InstructionAdapter insts = new InstructionAdapter(visitor);
     for (FieldInitializer fieldInit : initializers) {
-      stackSlotsNeeded = Math.max(
-          stackSlotsNeeded,
-          fieldInit.writeCLInit(insts, className));
+      stackSlotsNeeded = Math.max(stackSlotsNeeded, fieldInit.writeCLInit(insts, className));
     }
     insts.areturn(Type.VOID_TYPE);
     visitor.visitMaxs(stackSlotsNeeded, 0);
     visitor.visitEnd();
   }
-
 }

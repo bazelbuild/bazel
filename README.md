@@ -33,11 +33,12 @@ Find more background about Bazel in our [FAQ](http://bazel.build/faq.html).
   * How to [extend Bazel](http://bazel.build/docs/skylark/index.html)
   * The test environment is described on the page [writing tests](http://bazel.build/docs/test-encyclopedia.html)
 
-## About the Bazel project:
+## About the Bazel project
 
   * How to [contribute to Bazel](http://bazel.build/contributing.html)
   * Our [governance plan](http://bazel.build/governance.html)
   * Future plans are in the [roadmap](http://bazel.build/roadmap.html)
-  * For each feature, which level of [support](http://bazel.build/support.html) to expect.
+  * For each feature, which level of [support](http://bazel.build/support.html) to expect
+  * [Current Bazel Release Candidate](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aopen%20label%3A%22Release%20blocker%22%20label%3A%22type%3A%20process%22)
 
 [![Build Status](http://ci.bazel.io/buildStatus/icon?job=bazel-tests)](http://ci.bazel.io/job/bazel-tests)

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -631,13 +630,11 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
     return makeArtifactLocation(root, relativePath);
   }
 
-  @VisibleForTesting
-  static ArtifactLocation makeArtifactLocation(Root root, PathFragment relativePath) {
+  private static ArtifactLocation makeArtifactLocation(Root root, PathFragment relativePath) {
     return ArtifactLocation.newBuilder()
         .setRootExecutionPathFragment(root.getExecPath().toString())
         .setRelativePath(relativePath.toString())
         .setIsSource(root.isSourceRoot())
-        .setIsExternal(!root.isMainRepo())
         .build();
   }
 
@@ -646,7 +643,6 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
         .setRootExecutionPathFragment(resourceDir.getRootExecutionPathFragment().toString())
         .setRelativePath(resourceDir.getRelativePath().toString())
         .setIsSource(resourceDir.isSource())
-        .setIsExternal(false)
         .build();
   }
 

@@ -620,29 +620,21 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
 
-    boolean stripBinaries =
-        (cppOptions.stripBinaries == StripMode.ALWAYS)
-            || ((cppOptions.stripBinaries == StripMode.SOMETIMES)
-                && (compilationMode == CompilationMode.FASTBUILD));
-
     fullyStaticLinkFlags = new FlagList(
-        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC,
-                               ldExecutable, stripBinaries),
+        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC, ldExecutable),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
         ImmutableList.<String>of());
     mostlyStaticLinkFlags = new FlagList(
-        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC,
-                               ldExecutable, stripBinaries),
+        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC, ldExecutable),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
         ImmutableList.<String>of());
     mostlyStaticSharedLinkFlags = new FlagList(
         configureLinkerOptions(compilationMode, lipoMode,
-                               LinkingMode.MOSTLY_STATIC_LIBRARIES, ldExecutable, stripBinaries),
+                               LinkingMode.MOSTLY_STATIC_LIBRARIES, ldExecutable),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
         ImmutableList.<String>of());
     dynamicLinkFlags = new FlagList(
-        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC,
-                               ldExecutable, stripBinaries),
+        configureLinkerOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC, ldExecutable),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
         ImmutableList.<String>of());
     testOnlyLinkFlags = ImmutableList.copyOf(toolchain.getTestOnlyLinkerFlagList());
@@ -1120,7 +1112,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   ImmutableList<String> configureLinkerOptions(
       CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode,
-      PathFragment ldExecutable, boolean stripBinaries) {
+      PathFragment ldExecutable) {
     List<String> result = new ArrayList<>();
     result.addAll(commonLinkOptions);
 

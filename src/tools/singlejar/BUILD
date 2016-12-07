@@ -123,11 +123,11 @@ cc_test(
     srcs = [
         "options.h",
         "options_test.cc",
-        ":token_stream",
     ],
     deps = [
         ":options",
         ":test_util",
+        ":token_stream",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -166,7 +166,6 @@ cc_test(
         ":options",
         ":output_jar",
         ":test_util",
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -176,10 +175,10 @@ cc_test(
     name = "token_stream_test",
     srcs = [
         "token_stream_test.cc",
-        ":token_stream",
     ],
     deps = [
         ":test_util",
+        ":token_stream",
         "//third_party:gtest",
     ],
 )
@@ -271,9 +270,11 @@ cc_library(
         "diag.h",
         "options.cc",
         "options.h",
-        ":token_stream",
     ],
     hdrs = ["options.h"],
+    deps = [
+        ":token_stream",
+    ],
 )
 
 cc_library(
@@ -300,18 +301,15 @@ cc_library(
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
 )
 
-filegroup(
+cc_library(
     name = "token_stream",
-    srcs = [
-        "diag.h",
-        "token_stream.h",
-    ],
+    srcs = ["diag.h"],
+    hdrs = ["token_stream.h"],
 )
 
 filegroup(

@@ -70,11 +70,17 @@ public class CcCommonTest extends BuildViewTestCase {
   @Before
   public final void createBuildFiles() throws Exception {
     // Having lots of setUp code leads to bad running time. Don't add anything here!
-    scratch.file("empty/BUILD", "cc_library(name = 'emptylib')", "cc_binary(name = 'emptybinary')");
+    scratch.file("empty/BUILD",
+        "cc_library(name = 'emptylib')",
+        "cc_binary(name = 'emptybinary')");
 
-    scratch.file("foo/BUILD", "cc_library(name = 'foo',", "           srcs = ['foo.cc'])");
+    scratch.file("foo/BUILD",
+        "cc_library(name = 'foo',",
+        "           srcs = ['foo.cc'])");
 
-    scratch.file("bar/BUILD", "cc_library(name = 'bar',", "           srcs = ['bar.cc'])");
+    scratch.file("bar/BUILD",
+        "cc_library(name = 'bar',",
+        "           srcs = ['bar.cc'])");
   }
 
   @Test
@@ -820,6 +826,73 @@ public class CcCommonTest extends BuildViewTestCase {
     assertThat(action.getLinkCommandLine().getLinkopts()).containsExactly(
         String.format("-Wl,@%s/genfiles/a/a.lds", getTargetConfiguration().getOutputDirectory(
             RepositoryName.MAIN).getExecPath().getPathString()));
+  }
+
+  @Test
+  public void testIncludeManglingSmoke() throws Exception {
+    scratch.file(
+        "third_party/a/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['v1/b/c.h'], strip_include_prefix='v1', include_prefix='lib')");
+
+    ConfiguredTarget lib = getConfiguredTarget("//third_party/a");
+    CppCompilationContext context = lib.getProvider(CppCompilationContext.class);
+    assertThat(ActionsTestUtil.prettyArtifactNames(context.getDeclaredIncludeSrcs()))
+        .containsExactly("third_party/a/_virtual_includes/a/lib/b/c.h");
+    assertThat(context.getIncludeDirs()).containsExactly(
+        getTargetConfiguration().getBinFragment().getRelative("third_party/a/_virtual_includes/a"));
+  }
+
+  @Test
+  public void testUpLevelReferencesInIncludeMangling() throws Exception {
+    scratch.file(
+        "third_party/a/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='sip', srcs=['a.h'], strip_include_prefix='a/../b')",
+        "cc_library(name='ip', srcs=['a.h'], include_prefix='a/../b')",
+        "cc_library(name='ipa', srcs=['a.h'], include_prefix='/foo')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a:sip");
+    assertContainsEvent("should not contain uplevel references");
+
+    eventCollector.clear();
+    getConfiguredTarget("//third_party/a:ip");
+    assertContainsEvent("should not contain uplevel references");
+
+    eventCollector.clear();
+    getConfiguredTarget("//third_party/a:ipa");
+    assertContainsEvent("should be a relative path");
+  }
+
+  @Test
+  public void testAbsoluteAndRelativeStripPrefix() throws Exception {
+    scratch.file("third_party/a/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='relative', hdrs=['v1/b.h'], strip_include_prefix='v1')",
+        "cc_library(name='absolute', hdrs=['v1/b.h'], strip_include_prefix='/third_party')");
+
+    CppCompilationContext relative = getConfiguredTarget("//third_party/a:relative")
+        .getProvider(CppCompilationContext.class);
+    CppCompilationContext absolute = getConfiguredTarget("//third_party/a:absolute")
+        .getProvider(CppCompilationContext.class);
+
+    assertThat(ActionsTestUtil.prettyArtifactNames(relative.getDeclaredIncludeSrcs()))
+        .containsExactly("third_party/a/_virtual_includes/relative/b.h");
+    assertThat(ActionsTestUtil.prettyArtifactNames(absolute.getDeclaredIncludeSrcs()))
+        .containsExactly("third_party/a/_virtual_includes/absolute/a/v1/b.h");
+  }
+
+  @Test
+  public void testArtifactNotUnderStripPrefix() throws Exception {
+    scratch.file("third_party/a/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['v1/b.h'], strip_include_prefix='v2')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//third_party/a:a");
+    assertContainsEvent(
+        "header 'third_party/a/v1/b.h' is not under the specified strip prefix 'third_party/a/v2'");
   }
 
   /**

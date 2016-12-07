@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoLibrary;
 import javax.annotation.Nullable;
@@ -66,6 +67,7 @@ public class BazelJavaProtoLibraryRule implements RuleDefinition {
                 .allowedFileTypes()
                 .aspect(javaProtoAspect, ASPECT_PARAMETERS))
         .add(attr("strict_deps", BOOLEAN).value(true).undocumented("for migration"))
+        .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }
 

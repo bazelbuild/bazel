@@ -116,7 +116,7 @@ public class WindowsFileOperationsTest {
       WindowsFileOperations.isJunction(root + "/non-existent");
       fail("expected to throw");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("GetFileAttributesA");
+      assertThat(e.getMessage()).contains("GetFileAttributes");
     }
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");

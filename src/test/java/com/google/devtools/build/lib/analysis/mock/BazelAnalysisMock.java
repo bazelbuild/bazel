@@ -131,10 +131,51 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "java_import(name = 'jarjar_import',",
         "            jars = [ 'jarjar.jar' ])");
 
+    config.create(
+        "/bazel_tools_workspace/src/java_tools/junitrunner/java/com/google/testing/coverage/BUILD",
+        "java_binary(name = 'JacocoCoverage', srcs = [",
+            "'BranchCoverageDetail.java',",
+            "'BranchDetailAnalyzer.java',",
+            "'BranchExp.java',",
+            "'ClassProbesMapper.java',",
+            "'CovExp.java',",
+            "'JacocoCoverageRunner.java',",
+            "'JacocoLCOVFormatter.java',",
+            "'MethodProbesMapper.java',",
+            "'ProbeExp.java',],",
+          "deps = [",
+            "':bitfield',",
+            "'//third_party/java/jacoco:blaze-agent-neverlink',",
+            "'//third_party/java/jacoco:core',",
+            "'//third_party/java/jacoco:report'],)",
+        "java_library(name = 'bitfield', srcs = ['BitField.java', 'IllegalStringException.java'],",
+          "deps = ['//third_party:apache_commons_lang'])");
+    config.create(
+        "/bazel_tools_workspace/third_party/java/jacoco/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['notice'])",
+        "java_import(name = 'blaze-agent', jars = ['jacocoagent.jar'],)",
+        "java_import(name = 'blaze-agent-neverlink', jars = ['jacocoagent.jar'], neverlink = 1)",
+        "java_import(name = 'core', jars = ['org.jacoco.core-0.7.5.201505241946.jar'],",
+          "srcjar = 'org.jacoco.core-0.7.5.201505241946-src.jar', exports = [",
+            "'//third_party:asm', '//third_party:asm-commons', '//third_party:asm-tree'])",
+        "java_import(name = 'report', jars = ['org.jacoco.report-0.7.5.201505241946.jar'],",
+          "srcjar = 'org.jacoco.report-0.7.5.201505241946-src.jar', exports = [",
+            "':core', '//third_party:asm'])");
+    config.create(
+        "/bazel_tools_workspace/third_party/BUILD",
+        "java_import(name = 'asm', jars = ['asm/asm-5.0.4.jar'])",
+        "java_import(name = 'asm-commons', jars = ['asm/asm-commons-5.0.4.jar'])",
+        "java_import(name = 'asm-tree', jars = ['asm/asm-tree-5.0.4.jar'])",
+        "java_import(name='apache_commons_lang',jars=['apache_commons_lang/commons-lang-2.6.jar'])");
+
     config.create("/bazel_tools_workspace/tools/test/BUILD",
-        "filegroup(name = 'runtime')",
-        "filegroup(name = 'coverage_support')",
+        "filegroup(name = 'runtime', srcs = ['test-setup.sh'],)",
+        "filegroup(name='coverage_support', srcs=['collect_coverage.sh',':LcovMerger_deploy.jar'])",
         "filegroup(name = 'coverage_report_generator', srcs = ['coverage_report_generator.sh'])");
+//        "java_binary(name = 'LcovMerger',"
+//            + "srcs = glob(['LcovMerger/**/*.java']),"
+//            + "main_class = 'com.google.devtools.lcovmerger.Main')");
 
     config.create(
         "/bazel_tools_workspace/tools/python/BUILD",

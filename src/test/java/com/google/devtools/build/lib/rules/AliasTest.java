@@ -79,7 +79,7 @@ public class AliasTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//c:c");
     assertContainsEvent(
-        "Target '//a:a' is not visible from target '//c:c' (aliased through '//b:b')");
+        "Target '//a:a' (aliased through '//b:b') is not visible from target '//c:c'");
   }
 
   @Test
@@ -96,7 +96,18 @@ public class AliasTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//d:d");
     assertContainsEvent(
-        "Target '//a:a' is not visible from target '//d:d' (aliased through '//c:c' -> '//b:b')");
+        "Target '//a:a' (aliased through '//c:c' -> '//b:b') is not visible from target '//d:d'");
+  }
+
+  @Test
+  public void testAliasWithPrivateVisibilityAccessibleFromSamePackage() throws Exception {
+    scratch.file("a/BUILD", "exports_files(['af'])");
+    scratch.file("b/BUILD",
+        "package(default_visibility=['//visibility:private'])",
+        "alias(name='al', actual='//a:af')",
+        "filegroup(name='ta', srcs=[':al'])");
+
+    getConfiguredTarget("//b:tf");
   }
 
   @Test

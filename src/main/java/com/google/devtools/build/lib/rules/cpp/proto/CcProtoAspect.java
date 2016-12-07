@@ -285,6 +285,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
           supportData.getDirectProtoSources(),
           supportData.getTransitiveImports(),
           supportData.getProtosInDirectDeps(),
+          ruleContext.getLabel().getCanonicalForm(),
           outputs,
           "C++",
           true /* allowServices */);

@@ -20,6 +20,7 @@ import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.io.Files;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -162,12 +163,11 @@ public class AndroidResourceMergingAction {
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       VariantType packageType = VariantType.LIBRARY;
-      String packageName = options.packageForR;
       AndroidResourceClassWriter resourceClassWriter =
           new AndroidResourceClassWriter(
               new AndroidFrameworkAttrIdJar(aaptConfigOptions.androidJar),
               generatedSources,
-              packageName);
+              Strings.nullToEmpty(options.packageForR));
       resourceClassWriter.setIncludeClassFile(true);
       resourceClassWriter.setIncludeJavaFile(false);
 
