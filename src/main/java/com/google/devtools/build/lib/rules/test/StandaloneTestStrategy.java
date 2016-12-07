@@ -35,9 +35,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -53,8 +52,8 @@ import java.util.Map;
 @ExecutionStrategy(contextType = TestActionContext.class, name = { "standalone" })
 public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
-  private static final String COLLECT_COVERAGE =
-      "external/bazel_tools/tools/coverage/collect-coverage.sh";
+  public static final String COLLECT_COVERAGE =
+      "external/bazel_tools/tools/test/collect_coverage.sh";
 
   private final Path workspace;
 
@@ -70,6 +69,9 @@ public class StandaloneTestStrategy extends TestStrategy {
   @Override
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
+    Path execRoot = actionExecutionContext.getExecutor().getExecRoot();
+    Path coverageDir = execRoot.getRelative(TestStrategy.getCoverageDirectory(action));
+
     Path runfilesDir = null;
     try {
       runfilesDir =
@@ -83,12 +85,11 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw new TestExecException(e.getMessage());
     }
 
-    Path testTmpDir = TestStrategy.getTmpRoot(
-        workspace, actionExecutionContext.getExecutor().getExecRoot(), executionOptions)
-        .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
+    Path testTmpDir =
+        TestStrategy.getTmpRoot(workspace, execRoot, executionOptions)
+            .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
-    Path execRoot = actionExecutionContext.getExecutor().getExecRoot();
     TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
     Map<String, String> env =
         getEnv(action, execRoot, runfilesDir, testTmpDir, resolvedPaths.getXmlOutputPath());
@@ -114,17 +115,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Executor executor = actionExecutionContext.getExecutor();
 
     try {
-      if (testTmpDir.exists(Symlinks.NOFOLLOW)) {
-        FileSystemUtils.deleteTree(testTmpDir);
-      }
-      FileSystemUtils.createDirectoryAndParents(testTmpDir);
-    } catch (IOException e) {
-      executor.getEventHandler().handle(Event.error("Could not create TEST_TMPDIR: " + e));
-      throw new EnvironmentalExecException("Could not create TEST_TMPDIR " + testTmpDir, e);
-    }
-
-    try {
-      FileSystemUtils.createDirectoryAndParents(workingDirectory);
+      prepareFileSystem(action, testTmpDir, coverageDir, workingDirectory);
 
       ResourceSet resources =
           action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
@@ -172,13 +163,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     if (!action.isEnableRunfiles()) {
       vars.put("RUNFILES_MANIFEST_ONLY", "1");
     }
+
+    PathFragment coverageDir = TestStrategy.getCoverageDirectory(action);
     if (isCoverageMode(action)) {
-      vars.put("COVERAGE_MANIFEST",
-          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
+      vars.put("COVERAGE_DIR", coverageDir.toString());
       vars.put("COVERAGE_OUTPUT_FILE", action.getCoverageData().getExecPathString());
-      // Instruct test-setup.sh not to cd into the runfiles directory.
-      vars.put("RUNTEST_PRESERVE_CWD", "1");
     }
+
     return vars;
   }
 
@@ -230,6 +221,10 @@ public class StandaloneTestStrategy extends TestStrategy {
           action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getXmlOutputPath());
       if (details != null) {
         builder.setTestCase(details);
+      }
+      
+      if (isCoverageMode(action)) {
+        builder.setHasCoverage(true);
       }
 
       return builder.build();

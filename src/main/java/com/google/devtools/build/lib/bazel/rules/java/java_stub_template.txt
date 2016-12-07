@@ -207,6 +207,11 @@ else
   CLASSPATH=%classpath%
 fi
 
+# If using Jacoco in offline instrumentation mode, the CLASSPATH contains instrumented files.
+# We need to make the metadata jar with uninstrumented classes available for generating
+# the lcov-compatible coverage report, and we don't want it on the classpath.
+%set_jacoco_metadata%
+
 if [[ -n "$JVM_DEBUG_PORT" ]]; then
   JVM_DEBUG_SUSPEND=${DEFAULT_JVM_DEBUG_SUSPEND:-"y"}
   JVM_DEBUG_FLAGS="-agentlib:jdwp=transport=dt_socket,server=y,suspend=${JVM_DEBUG_SUSPEND},address=${JVM_DEBUG_PORT}"

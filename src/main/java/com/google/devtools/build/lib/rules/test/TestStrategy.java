@@ -58,6 +58,8 @@ import javax.annotation.Nullable;
  * A strategy for executing a {@link TestRunnerAction}.
  */
 public abstract class TestStrategy implements TestActionContext {
+  public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
+
   public static final String TEST_SETUP_BASENAME = "test-setup.sh";
 
   /**
@@ -168,6 +170,27 @@ public abstract class TestStrategy implements TestActionContext {
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
+  /** Returns true if coverage data should be gathered. */
+  protected static boolean isMicroCoverageMode(TestRunnerAction action) {
+    return action.getMicroCoverageData() != null;
+  }
+
+  /**
+   * Returns directory to store coverage results for the given action relative to the execution
+   * root. This directory is used to store all coverage results related to the test execution with
+   * exception of the locally generated *.gcda files. Those are stored separately using relative
+   * path within coverage directory.
+   *
+   * <p>Coverage directory name for the given test runner action is constructed as: {@code $(blaze
+   * info execution_root)/_coverage/target_path/test_log_name} where {@code test_log_name}
+   * is usually a target name but potentially can include extra suffix, such as a shard number (if
+   * test execution was sharded).
+   */
+  protected static PathFragment getCoverageDirectory(TestRunnerAction action) {
+    return COVERAGE_TMP_ROOT.getRelative(
+        FileSystemUtils.removeExtension(action.getTestLog().getRootRelativePath()));
+  }
+
   /**
    * Returns mutable map of default testing shell environment. By itself it is incomplete and is
    * modified further by the specific test strategy implementations (mostly due to the fact that
@@ -196,6 +219,15 @@ public abstract class TestStrategy implements TestActionContext {
     String testFilter = action.getExecutionSettings().getTestFilter();
     if (testFilter != null) {
       env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
+    }
+
+    if (isCoverageMode(action)) {
+      env.put(
+          "COVERAGE_MANIFEST",
+          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
+      // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
+      env.put("RUNTEST_PRESERVE_CWD", "1");
+      env.put("MICROCOVERAGE_REQUESTED", isMicroCoverageMode(action) ? "true" : "false");
     }
 
     return env;

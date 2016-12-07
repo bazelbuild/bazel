@@ -89,6 +89,8 @@ import java.util.logging.Logger;
  */
 @ThreadCompatible @Immutable
 public final class JavaCompileAction extends AbstractAction {
+  private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
+
   private static final String GUID = "786e174d-ed97-4e79-9f61-ae74430714cf";
 
   private static final ResourceSet LOCAL_RESOURCES =
@@ -994,6 +996,36 @@ public final class JavaCompileAction extends AbstractAction {
           ruleContext.getConfiguration(), semantics);
     }
 
+    /**
+     * May add extra command line options to the Java compile command line.
+     */
+    private static void buildJavaCommandLine(
+        Collection<Artifact> outputs,
+        BuildConfiguration configuration,
+        CustomCommandLine.Builder result,
+        Label targetLabel) {
+      Artifact metadata = null;
+      for (Artifact artifact : outputs) {
+        if (artifact.getExecPathString().endsWith(".em")) {
+          metadata = artifact;
+          break;
+        }
+      }
+
+      if (metadata == null) {
+        return;
+      }
+
+      result.add("--post_processor");
+      result.addExecPath(JACOCO_INSTRUMENTATION_PROCESSOR, metadata);
+      result.addPath(
+          configuration
+              .getCoverageMetadataDirectory(targetLabel.getPackageIdentifier().getRepository())
+              .getExecPath());
+      result.add("-*Test");
+      result.add("-*TestCase");
+    }
+
     public JavaCompileAction build() {
       // TODO(bazel-team): all the params should be calculated before getting here, and the various
       // aggregation code below should go away.
@@ -1094,7 +1126,7 @@ public final class JavaCompileAction extends AbstractAction {
           strictJavaDeps,
           compileTimeDependencyArtifacts
       );
-      semantics.buildJavaCommandLine(
+      buildJavaCommandLine(
           outputs, configuration, paramFileContentsBuilder, targetLabel);
       CommandLine paramFileContents = paramFileContentsBuilder.build();
       Action parameterFileWriteAction = new ParameterFileWriteAction(owner, paramFile,
