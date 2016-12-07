@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Md5Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -109,6 +108,11 @@ public class ActionMetadataHandler implements MetadataHandler {
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
 
   private final ImmutableSet<Artifact> outputs;
+
+  /**
+   * The timestamp granularity monitor for this build.
+   * Use {@link #getTimestampGranularityMonitor(Artifact)} to fetch this member.
+   */
   private final TimestampGranularityMonitor tsgm;
 
   @VisibleForTesting
@@ -127,6 +131,19 @@ public class ActionMetadataHandler implements MetadataHandler {
     } catch (IOException e) {
       return null;
     }
+  }
+
+  /**
+   * Gets the {@link TimestampGranularityMonitor} to use for a given artifact.
+   *
+   * <p>If the artifact is of type "constant metadata", this returns null so that changes to such
+   * artifacts do not tickle the timestamp granularity monitor, delaying the build for no reason.
+   *
+   * @param artifact the artifact for which to fetch the timestamp granularity monitor
+   * @return the timestamp granularity monitor to use, which may be null
+   */
+  private TimestampGranularityMonitor getTimestampGranularityMonitor(Artifact artifact) {
+    return artifact.isConstantMetadata() ? null : tsgm;
   }
 
   private static Metadata metadataFromValue(FileArtifactValue value) throws FileNotFoundException {
@@ -307,11 +324,7 @@ public class ActionMetadataHandler implements MetadataHandler {
       // should be single threaded and there should be no race condition.
       // The current design of ActionMetadataHandler makes this hard to enforce.
       Set<PathFragment> paths = null;
-      try {
-        paths = TreeArtifactValue.explodeDirectory(artifact);
-      } catch (TreeArtifactException e) {
-        throw new IllegalStateException(e);
-      }
+      paths = TreeArtifactValue.explodeDirectory(artifact);
       Set<TreeFileArtifact> diskFiles = ActionInputHelper.asTreeFileArtifacts(artifact, paths);
       if (!diskFiles.equals(registeredContents)) {
         // There might be more than one error here. We first look for missing output files.
@@ -322,13 +335,13 @@ public class ActionMetadataHandler implements MetadataHandler {
           // Currently it's hard to report this error without refactoring, since checkOutputs()
           // likes to substitute its own error messages upon catching IOException, and falls
           // through to unrecoverable error behavior on any other exception.
-          throw new IllegalStateException("Output file " + missingFiles.iterator().next()
+          throw new IOException("Output file " + missingFiles.iterator().next()
               + " was registered, but not present on disk");
         }
 
         Set<TreeFileArtifact> extraFiles = Sets.difference(diskFiles, registeredContents);
         // extraFiles cannot be empty
-        throw new IllegalStateException(
+        throw new IOException(
             "File " + extraFiles.iterator().next().getParentRelativePath()
             + ", present in TreeArtifact " + artifact + ", was not registered");
       }
@@ -357,7 +370,17 @@ public class ActionMetadataHandler implements MetadataHandler {
         // We do not cache exceptions besides nonexistence here, because it is unlikely that the
         // file will be requested from this cache too many times.
         if (fileValue == null) {
-          fileValue = constructFileValue(treeFileArtifact, /*statNoFollow=*/ null);
+          try {
+            fileValue = constructFileValue(treeFileArtifact, /*statNoFollow=*/ null);
+          } catch (FileNotFoundException e) {
+            String errorMessage = String.format(
+                "Failed to resolve relative path %s inside TreeArtifact %s. "
+                + "The associated file is either missing or is an invalid symlink.",
+                treeFileArtifact.getParentRelativePath(),
+                treeFileArtifact.getParent().getExecPathString());
+            throw new IOException(errorMessage, e);
+          }
+
           // A minor hack: maybeStoreAdditionalData will force the data to be stored
           // in additionalOutputData.
           maybeStoreAdditionalData(treeFileArtifact, fileValue, null);
@@ -381,11 +404,7 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
 
     Set<PathFragment> paths = null;
-    try {
-      paths = TreeArtifactValue.explodeDirectory(artifact);
-    } catch (TreeArtifactException e) {
-      throw new IllegalStateException(e);
-    }
+    paths = TreeArtifactValue.explodeDirectory(artifact);
     // If you're reading tree artifacts from disk while outputDirectoryListings are being injected,
     // something has gone terribly wrong.
     Object previousDirectoryListing =
@@ -421,7 +440,8 @@ public class ActionMetadataHandler implements MetadataHandler {
         // from the filesystem, this FileValue will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
         fileValue = fileValueFromArtifact(artifact,
-            FileStatusWithDigestAdapter.adapt(statNoFollow), tsgm);
+            FileStatusWithDigestAdapter.adapt(statNoFollow),
+            getTimestampGranularityMonitor(artifact));
         // Ensure the digest supplied matches the actual digest if it exists.
         byte[] fileDigest = fileValue.getDigest();
         if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
@@ -482,12 +502,6 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public boolean artifactExists(Artifact artifact) {
-    Preconditions.checkState(!artifactOmitted(artifact), artifact);
-    return getMetadataMaybe(artifact) != null;
-  }
-
-  @Override
   public boolean isRegularFile(Artifact artifact) {
     // Currently this method is used only for genrule input directory checks. If we need to call
     // this on output artifacts too, this could be more efficient.
@@ -538,7 +552,8 @@ public class ActionMetadataHandler implements MetadataHandler {
   /** Constructs a new FileValue, saves it, and checks inconsistent data. */
   FileValue constructFileValue(Artifact artifact, @Nullable FileStatusWithDigest statNoFollow)
       throws IOException {
-    FileValue value = fileValueFromArtifact(artifact, statNoFollow, tsgm);
+    FileValue value = fileValueFromArtifact(artifact, statNoFollow,
+        getTimestampGranularityMonitor(artifact));
     FileValue oldFsValue = outputArtifactData.putIfAbsent(artifact, value);
     checkInconsistentData(artifact, oldFsValue, null);
     return value;

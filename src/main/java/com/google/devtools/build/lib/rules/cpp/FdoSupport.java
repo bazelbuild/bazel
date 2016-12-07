@@ -514,8 +514,7 @@ public class FdoSupport {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addVariable("fdo_instrument_path",
-          fdoInstrument.getPathString());
+      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument.getPathString());
     }
 
     // Optimization phase
@@ -530,16 +529,16 @@ public class FdoSupport {
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
-          buildVariables.addVariable("fdo_profile_path",
-              getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
+          buildVariables.addStringVariable(
+              "fdo_profile_path", getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
           if (fdoMode == FdoMode.LLVM_FDO) {
-            buildVariables.addVariable("fdo_profile_path",
+            buildVariables.addStringVariable(
+                "fdo_profile_path",
                 getLLVMProfilePath(fdoProfile, fdoRootExecPath).getPathString());
           } else {
-            buildVariables.addVariable("fdo_profile_path",
-                fdoRootExecPath.getPathString());
+            buildVariables.addStringVariable("fdo_profile_path", fdoRootExecPath.getPathString());
           }
         }
       }
@@ -698,8 +697,7 @@ public class FdoSupport {
       CcToolchainFeatures.Variables.Builder buildVariables
       ) {
     if (featureConfiguration.isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      buildVariables.addVariable("fdo_instrument_path",
-          fdoInstrument.getPathString());
+      buildVariables.addStringVariable("fdo_instrument_path", fdoInstrument.getPathString());
     }
   }
 

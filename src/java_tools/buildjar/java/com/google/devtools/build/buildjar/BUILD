@@ -47,7 +47,10 @@ java_library(
 java_library(
     name = "buildjar",
     srcs = glob(
-        ["*.java"],
+        [
+            "*.java",
+            "instrumentation/*.java",
+        ],
         exclude = [
             "InvalidCommandLineException.java",
             "JarOwner.java",
@@ -66,6 +69,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
+        "//third_party/java/jacoco:core",
         "//third_party/java/jdk/langtools:javac",
     ],
 )
@@ -125,10 +129,10 @@ bootstrap_java_library(
     name = "skylark-deps",
     jars = [
         "//third_party:auto_value-jars",
-        "//third_party:error_prone-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
+        "//third_party/java/jacoco:core-jars",
     ],
     neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     srcjars = [
@@ -166,7 +170,7 @@ bootstrap_java_library(
     jars = [
         "//third_party:jsr305-jars",
         "//third_party:auto_value-jars",
-        "//third_party:guava-jars",
+        "//third_party:bootstrap_guava_and_error_prone-jars",
     ],
 )
 

@@ -505,9 +505,8 @@ public final class BuildConfiguration {
         help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
     public boolean stampBinaries;
 
-    // TODO(bazel-team): delete from OSS tree
-    // This default value is always overwritten in the case of "blaze coverage" by
-    // CoverageCommand.setDefaultInstrumentationFilter()
+    // This default value is always overwritten in the case of "bazel coverage" by
+    // CoverageCommand.setDefaultInstrumentationFilter().
     @Option(name = "instrumentation_filter",
         converter = RegexFilter.RegexFilterConverter.class,
         defaultValue = "-/javatests[/:]",
@@ -768,14 +767,14 @@ public final class BuildConfiguration {
         defaultValue = "true",
         category = "strategy",
         help = "Build all the tools used during the build for a distinct configuration from "
-            + "that used for the target program.  By default, the same configuration is used "
-            + "for host and target programs, but this may cause undesirable rebuilds of tool "
+            + "that used for the target program. When this is disabled, the same configuration "
+            + "is used for host and target programs. This may cause undesirable rebuilds of tools "
             + "such as the protocol compiler (and then everything downstream) whenever a minor "
-            + "change is made to the target configuration, such as setting the linker options.  "
-            + "When this flag is specified, a distinct configuration will be used to build the "
-            + "tools, preventing undesired rebuilds.  However, certain libraries will then "
+            + "change is made to the target configuration, such as setting the linker options. "
+            + "When this enabled (the default), a distinct configuration will be used to build the "
+            + "tools, preventing undesired rebuilds. However, certain libraries will then "
             + "need to be compiled twice, once for each configuration, which may cause some "
-            + "builds to be slower.  As a rule of thumb, this option is likely to benefit "
+            + "builds to be slower. As a rule of thumb, this option is likely to benefit "
             + "users that make frequent changes in configuration (e.g. opt/dbg).  "
             + "Please read the user manual for the full explanation.")
     public boolean useDistinctHostConfiguration;
@@ -847,13 +846,20 @@ public final class BuildConfiguration {
     /**
      * Values for --experimental_dynamic_configs.
      */
-    public static enum DynamicConfigsMode {
+    public enum DynamicConfigsMode {
       /** Don't use dynamic configurations. */
       OFF,
       /** Use dynamic configurations, including only the fragments each rule needs. */
       ON,
       /** Use dynamic configurations, always including all fragments known to Blaze. */
       NOTRIM,
+      /**
+       * Use untrimmed dynamic configurations unless an {@link Options} fragment needs static
+       * configurations. This is used to exempt features that don't yet work with dynamic configs.
+       */
+      // TODO(gregce): make this mode unnecesary by making everything compatible with dynamic
+      // configs. b/23280991 tracks the effort (LIPO is the main culprit).
+      NOTRIM_PARTIAL
     }
 
     /**
@@ -1186,7 +1192,7 @@ public final class BuildConfiguration {
               + ".blazerc or continuous build"));
     }
 
-    if (useDynamicConfigurations() && !options.useDistinctHostConfiguration) {
+    if (trimConfigurations() && !options.useDistinctHostConfiguration) {
       reporter.handle(Event.error(
           "--nodistinct_host_configuration does not currently work with dynamic configurations"));
     }
@@ -2212,9 +2218,16 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Returns user-specified test environment variables and their values, as
-   * set by the --test_env options.
+   * Returns user-specified test environment variables and their values, as set by the --test_env
+   * options.
    */
+  @SkylarkCallable(
+    name = "test_env",
+    structField = true,
+    doc =
+        "A dictionary containing user-specified test environment variables and their values, "
+            + "as set by the --test_env options."
+  )
   public ImmutableMap<String, String> getTestEnv() {
     return testEnvironment;
   }
@@ -2228,7 +2241,10 @@ public final class BuildConfiguration {
   }
 
   @SkylarkCallable(name = "coverage_enabled", structField = true,
-      doc = "A boolean that tells whether code coverage is enabled.")
+      doc = "A boolean that tells whether code coverage is enabled for this run. Note that this "
+          + "does not compute whether a specific rule should be instrumented for code coverage "
+          + "data collection. For that, see the <a href=\"ctx.html#coverage_instrumented\"><code>"
+          + "ctx.coverage_instrumented</code></a> function.")
   public boolean isCodeCoverageEnabled() {
     return options.collectCodeCoverage;
   }

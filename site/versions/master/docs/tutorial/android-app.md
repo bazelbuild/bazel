@@ -256,7 +256,7 @@ $ ls $WORKSPACE/bazel-bin/android
 
 You can now deploy the app to a connected Android device or emulator from the
 command line using the
-[`bazel mobile-install`](http://bazel.io/docs/bazel-user-manual.html#mobile-install)
+[`bazel mobile-install`](http://bazel.build/docs/bazel-user-manual.html#mobile-install)
 command. This command uses the Android Debug Bridge (`adb`) to communicate with
 the device. You must set up your device to use `adb` following the instructions
 in
@@ -270,7 +270,7 @@ $ bazel mobile-install //android:android
 ```
 
 Note that the `mobile-install` subcommand also supports the
-[`--incremental`](http://bazel.io/docs/bazel-user-manual.html#mobile-install)
+[`--incremental`](http://bazel.build/docs/bazel-user-manual.html#mobile-install)
 flag that can be used to deploy only those parts of the app that have changed
 since the last deployment.
 

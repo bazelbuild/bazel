@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -55,6 +53,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue;
+import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -65,6 +65,9 @@ import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -164,10 +167,8 @@ public class CppCompileAction extends AbstractAction
    */
   public static final String CLIF_MATCH = "clif-match";
 
-  // TODO(ulfjack): this is only used to get the local shell environment and to check if coverage is
-  // enabled. Move those two things to local fields and drop this. Accessing anything other than
-  // these fields can impact correctness!
-  private final BuildConfiguration configuration;
+  private final ImmutableMap<String, String> localShellEnvironment;
+  private final boolean isCodeCoverageEnabled;
   protected final Artifact outputFile;
   private final Label sourceLabel;
   private final Artifact optionalSourceFile;
@@ -175,6 +176,7 @@ public class CppCompileAction extends AbstractAction
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
   private final boolean usePic;
+  private final boolean useHeaderModules;
   private final CppCompilationContext context;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
@@ -209,7 +211,10 @@ public class CppCompileAction extends AbstractAction
    * execution.
    */
   private Collection<Artifact> additionalInputs = null;
-  
+
+  /** Set when a two-stage input discovery is used. */
+  private Collection<Artifact> usedModules = null;
+
   private CcToolchainFeatures.Variables overwrittenVariables = null;
 
   private ImmutableList<Artifact> resolvedInputs = ImmutableList.<Artifact>of();
@@ -236,7 +241,6 @@ public class CppCompileAction extends AbstractAction
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
    *     if Fission mode is disabled)
    * @param optionalSourceFile an additional optional source file (null if unneeded)
-   * @param configuration the build configurations
    * @param cppConfiguration TODO(bazel-team): Add parameter description.
    * @param context the compilation context
    * @param actionContext TODO(bazel-team): Add parameter description.
@@ -264,6 +268,7 @@ public class CppCompileAction extends AbstractAction
       boolean shouldScanIncludes,
       boolean shouldPruneModules,
       boolean usePic,
+      boolean useHeaderModules,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
       Artifact outputFile,
@@ -271,7 +276,8 @@ public class CppCompileAction extends AbstractAction
       @Nullable Artifact gcnoFile,
       @Nullable Artifact dwoFile,
       Artifact optionalSourceFile,
-      BuildConfiguration configuration,
+      ImmutableMap<String, String> localShellEnvironment,
+      boolean isCodeCoverageEnabled,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
@@ -292,14 +298,15 @@ public class CppCompileAction extends AbstractAction
             ruleContext,
             mandatoryInputs,
             context.getTransitiveCompilationPrerequisites(),
-            featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+            useHeaderModules && !cppConfiguration.getSkipUnusedModules()
                 ? context.getTransitiveModules(usePic)
                 : null,
             optionalSourceFile,
             lipoScannables),
         CollectionUtils.asListWithoutNulls(
             outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
-    this.configuration = configuration;
+    this.localShellEnvironment = localShellEnvironment;
+    this.isCodeCoverageEnabled = isCodeCoverageEnabled;
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
@@ -314,6 +321,7 @@ public class CppCompileAction extends AbstractAction
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
     this.usePic = usePic;
+    this.useHeaderModules = useHeaderModules;
     this.inputsKnown = !shouldScanIncludes;
     this.cppCompileCommandLine =
         new CppCompileCommandLine(
@@ -358,7 +366,6 @@ public class CppCompileAction extends AbstractAction
       }
 
       // One starting ../ is okay for getting to a sibling repository.
-      PathFragment originalInclude = include;
       if (include.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
         include = include.relativeTo(Label.EXTERNAL_PATH_PREFIX);
       }
@@ -433,10 +440,6 @@ public class CppCompileAction extends AbstractAction
     return builtinIncludeFiles;
   }
 
-  public List<Artifact> getadditionalIncludeScannables() {
-    return additionalIncludeScannables;
-  }
-
   public String getHostSystemName() {
     return cppConfiguration.getHostSystemName();
   }
@@ -444,6 +447,21 @@ public class CppCompileAction extends AbstractAction
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
+  }
+
+  @Override
+  public ImmutableSet<Artifact> getMandatoryOutputs() {
+    // Never prune orphaned modules files. To cut down critical paths, CppCompileActions do not
+    // add modules files as inputs. Instead they rely on input discovery to recognize the needed
+    // ones. However, orphan detection runs before input discovery and thus module files would be
+    // discarded as orphans.
+    // This is strictly better than marking all transitive modules as inputs, which would also
+    // effectively disable orphan detection for .pcm files.
+    if (cppConfiguration.getSkipUnusedModules()
+        && CppFileTypes.CPP_MODULE.matches(outputFile.getFilename())) {
+      return ImmutableSet.of(outputFile);
+    }
+    return super.getMandatoryOutputs();
   }
 
   @Override
@@ -494,18 +512,21 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      List<String> usedModulePaths = Lists.newArrayList();
-      for (Artifact usedModule : context.getUsedModules(usePic, initialResultSet)) {
-        initialResultSet.add(usedModule);
-        usedModulePaths.add(usedModule.getExecPathString());
+      Set<Artifact> usedModules = Sets.newLinkedHashSet();
+      for (CppCompilationContext.TransitiveModuleHeaders usedModule :
+          context.getUsedModules(usePic, initialResultSet)) {
+        usedModules.add(usedModule.getModule());
+        if (!cppConfiguration.getPruneMoreModules()) {
+          usedModules.addAll(usedModule.getTransitiveModules());
+        }
       }
-      CcToolchainFeatures.Variables.Builder variableBuilder =
-          new CcToolchainFeatures.Variables.Builder();
-      variableBuilder.addSequenceVariable("module_files", usedModulePaths);
-      this.overwrittenVariables = variableBuilder.build();
+      initialResultSet.addAll(usedModules);
+      if (cppConfiguration.getPruneMoreModules()) {
+        this.usedModules = usedModules;
+      }
       initialResult = initialResultSet;
     }
-    
+
     this.additionalInputs = initialResult;
     // In some cases, execution backends need extra files for each included file. Add them
     // to the set of inputs the caller may need to be aware of.
@@ -527,6 +548,48 @@ public class CppCompileAction extends AbstractAction
       result.addAll(initialResult);
     }
     return result;
+  }
+
+  @Override
+  public Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
+      throws ActionExecutionException, InterruptedException {
+    if (this.usedModules == null) {
+      return null;
+    }
+    Map<Artifact, SkyKey> skyKeys = new HashMap<>();
+    for (Artifact artifact : this.usedModules) {
+      skyKeys.put(artifact, ActionLookupValue.key((ActionLookupKey) artifact.getArtifactOwner()));
+    }
+    Map<SkyKey, SkyValue> skyValues = env.getValues(skyKeys.values());
+    Set<Artifact> additionalModules = Sets.newLinkedHashSet();
+    for (Artifact artifact : this.usedModules) {
+      SkyKey skyKey = skyKeys.get(artifact);
+      ActionLookupValue value = (ActionLookupValue) skyValues.get(skyKey);
+      Preconditions.checkNotNull(
+          value, "Owner %s of %s not in graph %s", artifact.getArtifactOwner(), artifact, skyKey);
+      CppCompileAction action = (CppCompileAction) value.getGeneratingAction(artifact);
+      for (Artifact input : action.getInputs()) {
+        if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+          additionalModules.add(input);
+        }
+      }
+    }
+    this.additionalInputs =
+        new ImmutableList.Builder<Artifact>()
+            .addAll(this.additionalInputs)
+            .addAll(additionalModules)
+            .build();
+    this.usedModules = null;
+    return additionalModules;
+  }
+
+  @Override
+  public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
+    if (useHeaderModules && cppConfiguration.getSkipUnusedModules()) {
+      this.additionalInputs = context.getTransitiveModules(usePic).toCollection();
+      return this.additionalInputs;
+    }
+    return null;
   }
 
   @Override
@@ -683,8 +746,8 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getEnvironment() {
-    Map<String, String> environment = new LinkedHashMap<>(configuration.getLocalShellEnvironment());
-    if (configuration.isCodeCoverageEnabled()) {
+    Map<String, String> environment = new LinkedHashMap<>(localShellEnvironment);
+    if (isCodeCoverageEnabled) {
       environment.put("PWD", "/proc/self/cwd");
     }
 
@@ -807,7 +870,9 @@ public class CppCompileAction extends AbstractAction
     if (optionalSourceFile != null) {
       allowedIncludes.add(optionalSourceFile);
     }
-    Iterable<PathFragment> ignoreDirs = getValidationIgnoredDirs();
+    Iterable<PathFragment> ignoreDirs = cppConfiguration.isStrictSystemIncludes()
+        ? cppConfiguration.getBuiltInIncludeDirectories()
+        : getValidationIgnoredDirs();
 
     // Copy the sets to hash sets for fast contains checking.
     // Avoid immutable sets here to limit memory churn.
@@ -961,6 +1026,25 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  /**
+   * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
+   * their exec paths are added to the value "module_files".
+   */
+  private static CcToolchainFeatures.Variables getOverwrittenVariables(
+      Iterable<Artifact> potentialModules) {
+    ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
+    for (Artifact input : potentialModules) {
+      if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
+        usedModulePaths.add(input.getExecPathString());
+      }
+    }
+    CcToolchainFeatures.Variables.Builder variableBuilder =
+        new CcToolchainFeatures.Variables.Builder();
+    variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
+    return variableBuilder.build();
+  }
+
+  // Keep in sync with {@link ObjcCompileAction#resolveInputsFromCache}
   @Override
   public Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver,
@@ -1002,6 +1086,10 @@ public class CppCompileAction extends AbstractAction
       }
     }
     return inputs;
+  }
+
+  @Override protected void setInputs(Iterable<Artifact> inputs) {
+    super.setInputs(inputs);
   }
 
   @Override
@@ -1097,8 +1185,16 @@ public class CppCompileAction extends AbstractAction
     Fingerprint f = new Fingerprint();
     f.addUUID(actionClassId);
     f.addStringMap(getEnvironment());
-    f.addStrings(getArgv());
     f.addStrings(executionRequirements);
+
+    // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
+    // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
+    // the command line. However, these actually don't have an influence on the compile itself and
+    // so ignoring them for the cache key calculation does not affect correctness. The compile
+    // itself is fully determined by the input source files and module maps.
+    // A better long-term solution would be to make the compiler to find them automatically and
+    // never hand in the .pcm files explicitly on the command line in the first place.
+    f.addStrings(cppCompileCommandLine.getArgv(getInternalOutputFile(), null));
 
     /*
      * getArgv() above captures all changes which affect the compilation
@@ -1124,6 +1220,14 @@ public class CppCompileAction extends AbstractAction
   public void execute(
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
+    if (useHeaderModules) {
+      // If modules pruning is used, modules will be supplied via additionalInputs, otherwise they
+      // are regular inputs.
+      Preconditions.checkNotNull(additionalInputs);
+      this.overwrittenVariables =
+          getOverwrittenVariables(shouldPruneModules ? additionalInputs : getInputs());
+    }
+
     Executor executor = actionExecutionContext.getExecutor();
     CppCompileActionContext.Reply reply;
     try {
@@ -1141,7 +1245,7 @@ public class CppCompileAction extends AbstractAction
     NestedSet<Artifact> discoveredInputs =
         discoverInputsFromDotdFiles(execRoot, scanningContext.getArtifactResolver(), reply);
     reply = null; // Clear in-memory .d files early.
-    
+
     // Post-execute "include scanning", which modifies the action inputs to match what the compile
     // action actually used by incorporating the results of .d file parsing.
     //
@@ -1383,11 +1487,11 @@ public class CppCompileAction extends AbstractAction
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
       CcToolchainFeatures.Variables updatedVariables = variables;
-      if (overwrittenVariables != null) {
+      if (variables != null && overwrittenVariables != null) {
         CcToolchainFeatures.Variables.Builder variablesBuilder =
             new CcToolchainFeatures.Variables.Builder();
         variablesBuilder.addAll(variables);
-        variablesBuilder.addAll(overwrittenVariables);
+        variablesBuilder.addAndOverwriteAll(overwrittenVariables);
         updatedVariables = variablesBuilder.build();
       }
       addFilteredOptions(

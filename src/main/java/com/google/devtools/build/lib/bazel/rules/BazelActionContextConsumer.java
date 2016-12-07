@@ -44,6 +44,7 @@ public class BazelActionContextConsumer implements ActionContextConsumer {
 
     // Default strategies for certain mnemonics - they can be overridden by --strategy= flags.
     contexts.put("Javac", "worker");
+    contexts.put("Closure", "worker");
 
     for (Map.Entry<String, String> strategy : options.strategy) {
       String strategyName = strategy.getValue();

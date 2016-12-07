@@ -5,7 +5,7 @@ title: Distribution Artifact for Bazel
 
 # Distribution Artifact for Bazel
 
-**Status**: Not implemented
+**Status**: Implemented
 
 **Author**: [Klaus Aehlig](mailto:aehlig@google.com)
 

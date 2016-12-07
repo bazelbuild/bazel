@@ -34,14 +34,11 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.ArtifactLocation;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.LibraryArtifact;
+import com.google.devtools.intellij.ideinfo.IntellijIdeInfo.TargetIdeInfo;
 import com.google.protobuf.TextFormat;
-
-import org.junit.Before;
-
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -52,8 +49,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
 
 /**
  * Provides utils for AndroidStudioInfoAspectTest.
@@ -75,21 +72,26 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
           StringBuilder stringBuilder = new StringBuilder();
           if (libraryArtifact.hasJar()) {
             stringBuilder.append("<jar:");
-            stringBuilder.append(libraryArtifact.getJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getJar()));
             stringBuilder.append(">");
           }
           if (libraryArtifact.hasInterfaceJar()) {
             stringBuilder.append("<ijar:");
-            stringBuilder.append(libraryArtifact.getInterfaceJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getInterfaceJar()));
             stringBuilder.append(">");
           }
           if (libraryArtifact.hasSourceJar()) {
             stringBuilder.append("<source:");
-            stringBuilder.append(libraryArtifact.getSourceJar().getRelativePath());
+            stringBuilder.append(artifactLocationPath(libraryArtifact.getSourceJar()));
             stringBuilder.append(">");
           }
 
           return stringBuilder.toString();
+        }
+
+        private String artifactLocationPath(ArtifactLocation artifact) {
+          String relativePath = artifact.getRelativePath();
+          return artifact.getIsExternal() ? relativePath + "[external]" : relativePath;
         }
       };
 
@@ -112,30 +114,34 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return sb.toString();
   }
 
-  protected static Iterable<String> relativePathsForJavaSourcesOf(RuleIdeInfo ruleIdeInfo) {
-    return relativePathsForSources(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList());
+  protected static Iterable<String> relativePathsForJavaSourcesOf(TargetIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getJavaIdeInfo().getSourcesList());
   }
 
-  protected static Iterable<String> relativePathsForCSourcesOf(RuleIdeInfo ruleIdeInfo) {
-    return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getSourceList());
+  protected static Iterable<String> relativePathsForCSourcesOf(TargetIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getCIdeInfo().getSourceList());
+  }
+
+  protected static Iterable<String> relativePathsForPySourcesOf(TargetIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getPyIdeInfo().getSourcesList());
   }
 
   private static Iterable<String> relativePathsForSources(List<ArtifactLocation> sourcesList) {
     return transform(sourcesList, ARTIFACT_TO_RELATIVE_PATH);
   }
 
-  protected RuleIdeInfo getRuleInfoAndVerifyLabel(
-      String target, Map<String, RuleIdeInfo> ruleIdeInfos) {
-    RuleIdeInfo ruleIdeInfo = ruleIdeInfos.get(target);
+  protected TargetIdeInfo getTargetIdeInfoAndVerifyLabel(
+      String target, Map<String, TargetIdeInfo> ruleIdeInfos) {
+    TargetIdeInfo ruleIdeInfo = ruleIdeInfos.get(target);
     assertThat(ruleIdeInfo).named(target).isNotNull();
     assertThat(ruleIdeInfo.getLabel()).isEqualTo(target);
     return ruleIdeInfo;
   }
 
-  protected Entry<String, RuleIdeInfo> getCcToolchainRuleAndVerifyThereIsOnlyOne(
-      Map<String, RuleIdeInfo> ruleIdeInfos) {
-    Entry<String, RuleIdeInfo> toolchainInfo = null;
-    for (Entry<String, RuleIdeInfo> entry : ruleIdeInfos.entrySet()) {
+  protected Entry<String, TargetIdeInfo> getCcToolchainRuleAndVerifyThereIsOnlyOne(
+      Map<String, TargetIdeInfo> ruleIdeInfos) {
+    Entry<String, TargetIdeInfo> toolchainInfo = null;
+    for (Entry<String, TargetIdeInfo> entry : ruleIdeInfos.entrySet()) {
       if (entry.getValue().getKindString().equals("cc_toolchain")) {
         // Make sure we only have 1.
         assertThat(toolchainInfo).isNull();
@@ -147,7 +153,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return toolchainInfo;
   }
 
-  protected void buildTarget(String target) throws Exception {
+  private void buildTarget(String target) throws Exception {
     AnalysisResult analysisResult =
         update(
             ImmutableList.of(target),
@@ -185,21 +191,21 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
 
 
   /**
-   * Returns a map of (label as string) -> RuleIdeInfo for each rule in the transitive
-   * closure of the passed target.
+   * Returns a map of (label as string) -> TargetIdeInfo for each rule in the transitive closure of
+   * the passed target.
    */
-  protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
+  protected Map<String, TargetIdeInfo> buildIdeInfo(String target) throws Exception {
     if (isNativeTest()) {
       buildTarget(target);
       AndroidStudioInfoFilesProvider provider =
           configuredAspect.getProvider(AndroidStudioInfoFilesProvider.class);
       Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
-      Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
+      Map<String, TargetIdeInfo> ruleIdeInfos = new HashMap<>();
       for (Artifact artifact : artifacts) {
         Action generatingAction = getGeneratingAction(artifact);
         if (generatingAction instanceof BinaryFileWriteAction) {
           BinaryFileWriteAction writeAction = (BinaryFileWriteAction) generatingAction;
-          RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(writeAction.getSource().openStream());
+          TargetIdeInfo ruleIdeInfo = TargetIdeInfo.parseFrom(writeAction.getSource().openStream());
           ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
         } else {
           verifyPackageManifestSpawnAction(generatingAction);
@@ -220,15 +226,15 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       AspectValue aspectValue = aspects.iterator().next();
       this.configuredAspect = aspectValue.getConfiguredAspect();
       OutputGroupProvider provider = configuredAspect.getProvider(OutputGroupProvider.class);
-      NestedSet<Artifact> outputGroup = provider.getOutputGroup("ide-info-text");
-      Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
+      NestedSet<Artifact> outputGroup = provider.getOutputGroup("intellij-info-text");
+      Map<String, TargetIdeInfo> ruleIdeInfos = new HashMap<>();
       for (Artifact artifact : outputGroup) {
         Action generatingAction = getGeneratingAction(artifact);
         if (generatingAction instanceof FileWriteAction) {
           String fileContents = ((FileWriteAction) generatingAction).getFileContents();
-          RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
+          TargetIdeInfo.Builder builder = TargetIdeInfo.newBuilder();
           TextFormat.getParser().merge(fileContents, builder);
-          RuleIdeInfo ruleIdeInfo = builder.build();
+          TargetIdeInfo ruleIdeInfo = builder.build();
           ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
         } else {
           verifyPackageManifestSpawnAction(generatingAction);
@@ -268,16 +274,18 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected List<String> getIdeResolveFiles() {
-    return getOutputGroupResult(AndroidStudioInfoAspect.IDE_RESOLVE);
+    String name = isNativeTest() ? AndroidStudioInfoAspect.IDE_RESOLVE : "intellij-resolve";
+    return getOutputGroupResult(name);
   }
 
   protected List<String> getIdeCompileFiles() {
-    return getOutputGroupResult(AndroidStudioInfoAspect.IDE_COMPILE);
+    String name = isNativeTest() ? AndroidStudioInfoAspect.IDE_COMPILE : "intellij-compile";
+    return getOutputGroupResult(name);
   }
 
-  protected static List<RuleIdeInfo> findJavaToolchain(Map<String, RuleIdeInfo> ruleIdeInfos) {
-    List<RuleIdeInfo> result = Lists.newArrayList();
-    for (RuleIdeInfo ruleIdeInfo : ruleIdeInfos.values()) {
+  protected static List<TargetIdeInfo> findJavaToolchain(Map<String, TargetIdeInfo> ruleIdeInfos) {
+    List<TargetIdeInfo> result = Lists.newArrayList();
+    for (TargetIdeInfo ruleIdeInfo : ruleIdeInfos.values()) {
       if (ruleIdeInfo.getKindString().equals("java_toolchain")) {
         result.add(ruleIdeInfo);
       }
@@ -286,11 +294,4 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected abstract boolean isNativeTest();
-
-  // We only need to test legacy functionality for the native aspect.
-  // To make it easier to tally missing skylark aspect functionality,
-  // we give this switch a different name.
-  protected boolean testLegacyAswbPluginVersionCompatibility() {
-    return isNativeTest();
-  }
 }

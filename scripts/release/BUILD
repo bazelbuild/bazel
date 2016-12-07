@@ -9,7 +9,10 @@ filegroup(
 
 sh_library(
     name = "relnotes",
-    srcs = ["relnotes.sh"],
+    srcs = [
+        "common.sh",
+        "relnotes.sh",
+    ],
 )
 
 sh_test(
@@ -30,7 +33,6 @@ sh_test(
 sh_library(
     name = "release",
     srcs = [
-        "common.sh",
         "release.sh",
     ],
     deps = [":relnotes"],

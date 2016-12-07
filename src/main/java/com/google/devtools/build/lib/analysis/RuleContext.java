@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -106,6 +107,7 @@ import javax.annotation.Nullable;
  */
 public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
+
   /**
    * The configured version of FilesetEntry.
    */
@@ -147,13 +149,14 @@ public final class RuleContext extends TargetContext
   private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
+  @Nullable private final String aspectName;
+  @Nullable private final AspectParameters aspectParameters;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
   private final ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap;
   private final ImmutableMap<Label, ConfigMatchingProvider> configConditions;
-  private final AttributeMap attributes;
+  private final AspectAwareAttributeMapper attributes;
   private final ImmutableSet<String> features;
   private final String ruleClassNameForLogging;
-  private final ImmutableMap<String, Attribute> aspectAttributes;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final Class<? extends BuildConfiguration.Fragment> universalFragment;
@@ -178,15 +181,16 @@ public final class RuleContext extends TargetContext
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
+    this.aspectName = builder.getAspectName();
+    this.aspectParameters = builder.getAspectParameters();
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
     this.universalFragment = universalFragment;
     this.targetMap = targetMap;
     this.filesetEntryMap = filesetEntryMap;
     this.configConditions = configConditions;
-    this.attributes = attributes;
+    this.attributes = new AspectAwareAttributeMapper(attributes, aspectAttributes);
     this.features = getEnabledFeatures();
     this.ruleClassNameForLogging = ruleClassNameForLogging;
-    this.aspectAttributes = aspectAttributes;
     this.skylarkProviderRegistry = builder.skylarkProviderRegistry;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
@@ -268,11 +272,17 @@ public final class RuleContext extends TargetContext
    * Attributes from aspects.
    */
   public ImmutableMap<String, Attribute> getAspectAttributes() {
-    return aspectAttributes;
+    return attributes.getAspectAttributes();
   }
 
   /**
-   * Accessor for the Rule's attribute values.
+   * Accessor for the attributes of the rule and its aspects.
+   *
+   * <p>The rule's native attributes can be queried both on their structure / existence and values
+   * Aspect attributes can only be queried on their structure.
+   *
+   * <p>This should be the sole interface for reading rule/aspect attributes in {@link RuleContext}.
+   * Don't expose other access points through new public methods.
    */
   public AttributeMap attributes() {
     return attributes;
@@ -322,7 +332,7 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     if (actionOwner == null) {
-      actionOwner = createActionOwner(rule, getConfiguration());
+      actionOwner = createActionOwner(rule, aspectName, aspectParameters, getConfiguration());
     }
     return actionOwner;
   }
@@ -398,9 +408,15 @@ public final class RuleContext extends TargetContext
   }
 
   @VisibleForTesting
-  public static ActionOwner createActionOwner(Rule rule, BuildConfiguration configuration) {
-    return new ActionOwner(
+  public static ActionOwner createActionOwner(
+      Rule rule,
+      @Nullable String aspectName,
+      @Nullable AspectParameters aspectParameters,
+      BuildConfiguration configuration) {
+    return ActionOwner.create(
         rule.getLabel(),
+        aspectName,
+        aspectParameters,
         rule.getLocation(),
         configuration.getMnemonic(),
         rule.getTargetKind(),
@@ -646,16 +662,11 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the Attribute associated with this name, if it's a valid attribute for this rule,
-   * or is associated with an attached aspect. Otherwise returns null.
+   * Returns true iff the rule, or any attached aspect, has an attribute with the given name and
+   * type.
    */
-  @Nullable
-  public Attribute getAttribute(String attributeName) {
-    Attribute result = getRule().getAttributeDefinition(attributeName);
-    if (result != null) {
-      return result;
-    }
-    return aspectAttributes.get(attributeName);
+  public boolean isAttrDefined(String attrName, Type<?> type) {
+    return attributes().has(attrName, type);
   }
 
   /**
@@ -663,8 +674,7 @@ public final class RuleContext extends TargetContext
    * a string to a {@link TransitiveInfoCollection}.
    */
   public Map<String, TransitiveInfoCollection> getPrerequisiteMap(String attributeName) {
-    Attribute attributeDefinition = getAttribute(attributeName);
-    Preconditions.checkState(attributeDefinition.getType() == BuildType.LABEL_DICT_UNARY);
+    Preconditions.checkState(attributes().has(attributeName, BuildType.LABEL_DICT_UNARY));
 
     ImmutableMap.Builder<String, TransitiveInfoCollection> result = ImmutableMap.builder();
     Map<String, Label> dict = attributes().get(attributeName, BuildType.LABEL_DICT_UNARY);
@@ -687,7 +697,7 @@ public final class RuleContext extends TargetContext
    */
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
       Mode mode) {
-    Attribute attributeDefinition = getAttribute(attributeName);
+    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     if ((mode == Mode.TARGET) && (attributeDefinition.hasSplitConfigurationTransition())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
@@ -715,7 +725,7 @@ public final class RuleContext extends TargetContext
       getSplitPrerequisites(String attributeName) {
     checkAttribute(attributeName, Mode.SPLIT);
 
-    Attribute attributeDefinition = getAttribute(attributeName);
+    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     @SuppressWarnings("unchecked") // Attribute.java doesn't have the BuildOptions symbol.
     SplitTransition<BuildOptions> transition =
         (SplitTransition<BuildOptions>) attributeDefinition.getSplitTransition(rule);
@@ -852,7 +862,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName, Mode mode) {
-    Attribute ruleDefinition = getAttribute(attributeName);
+    Attribute ruleDefinition = attributes().getAttributeDefinition(attributeName);
 
     if (ruleDefinition == null) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
@@ -1049,7 +1059,7 @@ public final class RuleContext extends TargetContext
   }
 
   private void checkAttribute(String attributeName, Mode mode) {
-    Attribute attributeDefinition = getAttribute(attributeName);
+    Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
@@ -1091,7 +1101,7 @@ public final class RuleContext extends TargetContext
    * This is intended for Skylark, where the Mode is implicitly chosen.
    */
   public Mode getAttributeMode(String attributeName) {
-    Attribute attributeDefinition = getAttribute(attributeName);
+    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
     if (attributeDefinition == null) {
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
@@ -1402,6 +1412,7 @@ public final class RuleContext extends TargetContext
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
     @Nullable private final String aspectName;
+    @Nullable private final AspectParameters aspectParameters;
     private final ErrorReporter reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private ImmutableMap<Label, ConfigMatchingProvider> configConditions;
@@ -1413,6 +1424,7 @@ public final class RuleContext extends TargetContext
         AnalysisEnvironment env,
         Rule rule,
         @Nullable String aspectName,
+        @Nullable AspectParameters aspectParameters,
         BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
@@ -1420,6 +1432,7 @@ public final class RuleContext extends TargetContext
       this.env = Preconditions.checkNotNull(env);
       this.rule = Preconditions.checkNotNull(rule);
       this.aspectName = aspectName;
+      this.aspectParameters = aspectParameters;
       this.configurationFragmentPolicy = Preconditions.checkNotNull(configurationFragmentPolicy);
       this.configuration = Preconditions.checkNotNull(configuration);
       this.hostConfiguration = Preconditions.checkNotNull(hostConfiguration);
@@ -1923,6 +1936,16 @@ public final class RuleContext extends TargetContext
       if (attribute.performPrereqValidatorCheck()) {
         prerequisiteValidator.validate(this, prerequisite, attribute);
       }
+    }
+
+    @Nullable
+    public AspectParameters getAspectParameters() {
+      return aspectParameters;
+    }
+
+    @Nullable
+    public String getAspectName() {
+      return aspectName;
     }
   }
 

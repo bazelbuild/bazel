@@ -16,9 +16,10 @@
 
 set -eu
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up_jobcount() {
   tmp=$(mktemp -d ${TEST_TMPDIR}/testjobs.XXXXXXXX)
@@ -291,6 +292,29 @@ EOF
 
   xml_log=bazel-testlogs/dir/test/test.xml
   [ -s $xml_log ] || fail "$xml_log was not present after test"
+}
+
+# Simple test that we actually enforce testonly, see #1923.
+function test_testonly_is_enforced() {
+  mkdir -p testonly
+  cat <<'EOF' >testonly/BUILD
+genrule(
+    name = "testonly",
+    srcs = [],
+    cmd = "echo testonly | tee $@",
+    outs = ["testonly.txt"],
+    testonly = 1,
+)
+genrule(
+    name = "not-testonly",
+    srcs = [":testonly"],
+    cmd = "echo should fail | tee $@",
+    outs = ["not-testonly.txt"],
+)
+EOF
+    bazel build //testonly &>$TEST_log || fail "Building //testonly failed"
+    bazel build //testonly:not-testonly &>$TEST_log && fail "Should have failed" || true
+    expect_log "'//testonly:not-testonly' depends on testonly target '//testonly:testonly'"
 }
 
 function test_always_xml_output() {

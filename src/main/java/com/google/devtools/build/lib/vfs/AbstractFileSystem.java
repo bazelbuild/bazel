@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.FileAccessException;
-
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -25,10 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * This class implements the FileSystem interface using direct calls to the
- * UNIX filesystem.
- */
+/** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
 abstract class AbstractFileSystem extends FileSystem {
 
@@ -40,7 +36,7 @@ abstract class AbstractFileSystem extends FileSystem {
     // This loop is a workaround for an apparent bug in FileInputStream.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
-    for (;;) {
+    for (; ; ) {
       try {
         return createFileInputStream(path);
       } catch (FileNotFoundException e) {
@@ -53,40 +49,16 @@ abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
-  /**
-   * Returns either normal or profiled FileInputStream.
-   */
+  /** Returns either normal or profiled FileInputStream. */
   private InputStream createFileInputStream(Path path) throws FileNotFoundException {
     final String name = path.toString();
-    if (profiler.isActive() && (profiler.isProfiling(ProfilerTask.VFS_READ) ||
-        profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_READ)
+            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
         // Replace default FileInputStream instance with the custom one that does profiling.
-        return new FileInputStream(name) {
-          @Override public int read() throws IOException {
-            long startTime = Profiler.nanoTimeMaybe();
-            try {
-              // Note that FileInputStream#read() does *not* call any of our overriden methods,
-              // so there's no concern with double counting here.
-              return super.read();
-            } finally {
-              profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
-            }
-          }
-
-          @Override public int read(byte b[]) throws IOException {
-            return read(b, 0, b.length);
-          }
-          @Override public int read(byte b[], int off, int len) throws IOException {
-            long startTime = Profiler.nanoTimeMaybe();
-            try {
-              return super.read(b, off, len);
-            } finally {
-              profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
-            }
-          }
-        };
+        return new ProfiledFileInputStream(name);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
@@ -97,29 +69,18 @@ abstract class AbstractFileSystem extends FileSystem {
   }
 
   /**
-   * Returns either normal or profiled FileOutputStream. Should be used by subclasses
-   * to create default OutputStream instance.
+   * Returns either normal or profiled FileOutputStream. Should be used by subclasses to create
+   * default OutputStream instance.
    */
   protected OutputStream createFileOutputStream(Path path, boolean append)
       throws FileNotFoundException {
     final String name = path.toString();
-    if (profiler.isActive() && (profiler.isProfiling(ProfilerTask.VFS_WRITE) ||
-        profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
+    if (profiler.isActive()
+        && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
+            || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new FileOutputStream(name, append) {
-          @Override public void write(byte b[]) throws IOException {
-            write(b, 0, b.length);
-          }
-          @Override public void write(byte b[], int off, int len) throws IOException {
-            long startTime = Profiler.nanoTimeMaybe();
-            try {
-              super.write(b, off, len);
-            } finally {
-              profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
-            }
-          }
-        };
+        return new ProfiledFileOutputStream(name, append);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
@@ -141,6 +102,66 @@ abstract class AbstractFileSystem extends FileSystem {
           throw new FileAccessException(e.getMessage());
         }
         throw e;
+      }
+    }
+  }
+
+  private static final class ProfiledFileInputStream extends FileInputStream {
+    private final String name;
+
+    public ProfiledFileInputStream(String name) throws FileNotFoundException {
+      super(name);
+      this.name = name;
+    }
+
+    @Override
+    public int read() throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        // Note that FileInputStream#read() does *not* call any of our overriden methods,
+        // so there's no concern with double counting here.
+        return super.read();
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+      }
+    }
+
+    @Override
+    public int read(byte[] b) throws IOException {
+      return read(b, 0, b.length);
+    }
+
+    @Override
+    public int read(byte[] b, int off, int len) throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        return super.read(b, off, len);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_READ, name);
+      }
+    }
+  }
+
+  private static final class ProfiledFileOutputStream extends FileOutputStream {
+    private final String name;
+
+    public ProfiledFileOutputStream(String name, boolean append) throws FileNotFoundException {
+      super(name, append);
+      this.name = name;
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      write(b, 0, b.length);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      long startTime = Profiler.nanoTimeMaybe();
+      try {
+        super.write(b, off, len);
+      } finally {
+        profiler.logSimpleTask(startTime, ProfilerTask.VFS_WRITE, name);
       }
     }
   }

@@ -20,29 +20,32 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * Test summary entry. Stores summary information for a single test rule.
- * Also used to sort summary output by status.
+ * Test summary entry. Stores summary information for a single test rule. Also used to sort summary
+ * output by status.
  *
- * <p>Invariant:
- * All TestSummary mutations should be performed through the Builder.
- * No direct TestSummary methods (except the constructor) may mutate the object.
+ * <p>Invariant: All TestSummary mutations should be performed through the Builder. No direct
+ * TestSummary methods (except the constructor) may mutate the object.
  */
 @VisibleForTesting // Ideally package-scoped.
-public class TestSummary implements Comparable<TestSummary> {
+public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   /**
    * Builder class responsible for creating and altering TestSummary objects.
    */
@@ -445,5 +448,30 @@ public class TestSummary implements Comparable<TestSummary> {
     return status == BlazeTestStatus.PASSED
         ? Mode.INFO
         : (status == BlazeTestStatus.FLAKY ? Mode.WARNING : Mode.ERROR);
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.testSummary(target.getTarget().getLabel());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+    BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
+        BuildEventStreamProtos.TestSummary.newBuilder().setTotalRunCount(totalRuns());
+    for (Path path : getFailedLogs()) {
+      summaryBuilder.addFailed(
+          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+    }
+    for (Path path : getPassedLogs()) {
+      summaryBuilder.addPassed(
+          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+    }
+    return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
   }
 }

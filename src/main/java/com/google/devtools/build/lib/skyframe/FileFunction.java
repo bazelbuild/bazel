@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.FileStateValue.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -62,52 +63,34 @@ public class FileFunction implements SkyFunction {
     // symlink cycle, we want to detect that quickly as it gives a more informative error message
     // than we'd get doing bogus filesystem operations.
     if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
-      Pair<RootedPath, FileStateValue> resolvedState = null;
-
-      try {
-        resolvedState = resolveFromAncestors(rootedPath, env);
-      } catch (FileOutsidePackageRootsException e) {
-        // When getting a FileOutsidePackageRootsException caused by an external file symlink
-        // somewhere in this file's path, rethrow an exception with this file's path, so the error
-        // message mentions this file instead of the first ancestor path where the external file
-        // error is observed
-        throw new FileFunctionException(
-            new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
-      }
-
+      Pair<RootedPath, FileStateValue> resolvedState = resolveFromAncestors(rootedPath, env);
       if (resolvedState == null) {
         return null;
       }
       realRootedPath = resolvedState.getFirst();
       realFileStateValue = resolvedState.getSecond();
+      if (realFileStateValue.getType() == Type.NONEXISTENT) {
+        return FileValue.value(
+            rootedPath,
+            FileStateValue.NONEXISTENT_FILE_STATE_NODE,
+            realRootedPath,
+            realFileStateValue);
+      }
     }
 
-    FileStateValue fileStateValue = null;
-
-    try {
-      fileStateValue =
-          (FileStateValue)
-              env.getValueOrThrow(
-                  FileStateValue.key(rootedPath), FileOutsidePackageRootsException.class);
-    } catch (FileOutsidePackageRootsException e) {
-      throw new FileFunctionException(
-          new FileOutsidePackageRootsException(rootedPath), Transience.PERSISTENT);
+    FileStateValue fileStateValue;
+    if (rootedPath.equals(realRootedPath)) {
+      fileStateValue = Preconditions.checkNotNull(realFileStateValue, rootedPath);
+    } else {
+      fileStateValue = (FileStateValue) env.getValue(FileStateValue.key(rootedPath));
+      if (fileStateValue == null) {
+        return null;
+      }
     }
 
-    if (fileStateValue == null) {
-      return null;
-    }
     if (realFileStateValue == null) {
       realRootedPath = rootedPath;
       realFileStateValue = fileStateValue;
-    } else if (rootedPath.equals(realRootedPath) && !fileStateValue.equals(realFileStateValue)) {
-      String message = String.format(
-          "Some filesystem operations implied %s was a %s but others made us think it was a %s",
-          rootedPath.asPath().getPathString(),
-          fileStateValue.prettyPrint(),
-          realFileStateValue.prettyPrint());
-      throw new FileFunctionException(new InconsistentFilesystemException(message),
-          Transience.TRANSIENT);
     }
 
     ArrayList<RootedPath> symlinkChain = new ArrayList<>();
@@ -133,7 +116,7 @@ public class FileFunction implements SkyFunction {
   @Nullable
   private static Pair<RootedPath, FileStateValue> resolveFromAncestors(
       RootedPath rootedPath, Environment env)
-      throws FileFunctionException, FileOutsidePackageRootsException, InterruptedException {
+      throws FileFunctionException, InterruptedException {
     PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
@@ -141,11 +124,7 @@ public class FileFunction implements SkyFunction {
       RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
           relativePath.getParentDirectory());
 
-      parentFileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  FileValue.key(parentRootedPath), FileOutsidePackageRootsException.class);
-
+      parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));
       if (parentFileValue == null) {
         return null;
       }
@@ -161,8 +140,7 @@ public class FileFunction implements SkyFunction {
     }
     FileStateValue realFileStateValue =
         (FileStateValue)
-            env.getValueOrThrow(
-                FileStateValue.key(realRootedPath), FileOutsidePackageRootsException.class);
+            env.getValue(FileStateValue.key(realRootedPath));
 
     if (realFileStateValue == null) {
       return null;
@@ -278,17 +256,7 @@ public class FileFunction implements SkyFunction {
       throw new FileFunctionException(Preconditions.checkNotNull(fse, rootedPath));
     }
 
-    try {
-      return resolveFromAncestors(symlinkTargetRootedPath, env);
-    } catch (FileOutsidePackageRootsException e) {
-      // At this point we know this file node is a symlink leading to an external file. Mark the
-      // exception to be a specific SymlinkOutsidePackageRootsException. The error will be bubbled
-      // up further but no path information will be updated again. This allows preserving the
-      // information about the symlink crossing the internal/external boundary.
-      throw new FileFunctionException(
-          new SymlinkOutsidePackageRootsException(rootedPath, symlinkTargetRootedPath),
-          Transience.PERSISTENT);
-    }
+    return resolveFromAncestors(symlinkTargetRootedPath, env);
   }
 
   private static final Predicate<RootedPath> isPathPredicate(final Path path) {

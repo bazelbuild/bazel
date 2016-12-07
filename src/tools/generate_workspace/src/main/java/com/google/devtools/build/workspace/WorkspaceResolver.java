@@ -33,9 +33,11 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Resolver;
@@ -59,16 +61,20 @@ public class WorkspaceResolver {
   WorkspaceResolver(Resolver resolver, EventHandler handler) {
     this.resolver = resolver;
     this.handler = handler;
+    ServerBuilder serverBuilder = new ServerBuilder();
     ConfiguredRuleClassProvider.Builder ruleClassBuilder =
         new ConfiguredRuleClassProvider.Builder();
     List<BlazeModule> blazeModules = BlazeRuntime.createModules(BazelMain.BAZEL_MODULES);
-    ImmutableList.Builder<EnvironmentExtension> environmentExtensions = ImmutableList.builder();
     for (BlazeModule blazeModule : blazeModules) {
+      try {
+        blazeModule.serverInit(null, serverBuilder);
+      } catch (AbruptExitException e) {
+        throw new RuntimeException(e);
+      }
       blazeModule.initializeRuleClasses(ruleClassBuilder);
-      environmentExtensions.add(blazeModule.getPackageEnvironmentExtension());
     }
     this.ruleClassProvider = ruleClassBuilder.build();
-    this.environmentExtensions = environmentExtensions.build();
+    this.environmentExtensions = serverBuilder.getEnvironmentExtensions();
   }
 
   /** Converts the WORKSPACE file content into an ExternalPackage. */

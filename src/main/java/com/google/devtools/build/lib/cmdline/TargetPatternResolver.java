@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A callback interface that is used during the process of converting target patterns (such as
@@ -88,7 +90,23 @@ public interface TargetPatternResolver<T> {
       String directory,
       boolean rulesOnly,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback, Class<E> exceptionClass)
+      BatchCallback<T, E> callback,
+      Class<E> exceptionClass)
+      throws TargetParsingException, E, InterruptedException;
+
+  /**
+   * Same as {@link #findTargetsBeneathDirectory}, but optionally making use of the given
+   * {@link ForkJoinPool} to achieve parallelism.
+   */
+  <E extends Exception> void findTargetsBeneathDirectoryPar(
+      RepositoryName repository,
+      String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<T, E> callback,
+      Class<E> exceptionClass,
+      ForkJoinPool forkJoinPool)
       throws TargetParsingException, E, InterruptedException;
 
   /**

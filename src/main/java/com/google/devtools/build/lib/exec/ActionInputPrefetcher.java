@@ -17,6 +17,13 @@ import com.google.devtools.build.lib.actions.ActionInput;
 
 /** Prefetches files to local disk. */
 public interface ActionInputPrefetcher {
+  public static final ActionInputPrefetcher NONE =
+      new ActionInputPrefetcher() {
+        @Override
+        public void prefetchFile(ActionInput input) {
+          // Do nothing.
+        }
+      };
 
   /**
    * Initiates best-effort prefetching of the given input. This should not block.

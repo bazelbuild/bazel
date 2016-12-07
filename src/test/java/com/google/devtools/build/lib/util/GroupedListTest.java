@@ -23,16 +23,14 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class GroupedListTest {
@@ -92,6 +90,33 @@ public class GroupedListTest {
             size1 == size2, elementsEqual(array, secondList));
       }
     }
+  }
+
+  @Test
+  public void listWithOneUniqueElementStoredBare() {
+    GroupedList<String> groupedListWithDuplicateInGroup = new GroupedList<>();
+    groupedListWithDuplicateInGroup.append(GroupedListHelper.create("a"));
+    GroupedListHelper<String> helper = new GroupedListHelper<>();
+    helper.startGroup();
+    helper.add("b");
+    helper.add("b");
+    helper.endGroup();
+    groupedListWithDuplicateInGroup.append(helper);
+    GroupedList<String> groupedListWithNoDuplicates = new GroupedList<>();
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("a"));
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("b"));
+    assertThat(groupedListWithNoDuplicates).isEqualTo(groupedListWithDuplicateInGroup);
+  }
+
+  @Test
+  public void listWithNoNewElementsStoredEmpty() {
+    GroupedList<String> groupedListWithEmptyGroup = new GroupedList<>();
+    GroupedListHelper<String> helper = GroupedListHelper.create("a");
+    helper.add("a");
+    groupedListWithEmptyGroup.append(helper);
+    GroupedList<String> groupedListWithNoDuplicates = new GroupedList<>();
+    groupedListWithNoDuplicates.append(GroupedListHelper.create("a"));
+    assertThat(groupedListWithNoDuplicates).isEqualTo(groupedListWithEmptyGroup);
   }
 
   @Test
@@ -162,6 +187,22 @@ public class GroupedListTest {
   }
 
   @Test
+  public void sizeWithDuplicatesInAndOutOfGroups() {
+    GroupedList<String> groupedList = new GroupedList<>();
+    GroupedListHelper<String> helper = new GroupedListHelper<>();
+    helper.add("1");
+    helper.startGroup();
+    helper.add("1");
+    helper.add("2");
+    helper.add("3");
+    helper.endGroup();
+    helper.add("3");
+    groupedList.append(helper);
+    assertThat(groupedList.numElements()).isEqualTo(3);
+    assertThat(groupedList.listSize()).isEqualTo(2);
+  }
+
+  @Test
   public void removeMakesEmpty() {
     GroupedList<String> groupedList = new GroupedList<>();
     assertTrue(groupedList.isEmpty());
@@ -226,7 +267,13 @@ public class GroupedListTest {
 
   private static Object createAndCompress(Collection<String> list) {
     GroupedList<String> result = new GroupedList<>();
-    result.append(GroupedListHelper.create(list));
+    GroupedListHelper<String> helper = new GroupedListHelper<>();
+    helper.startGroup();
+    for (String item : list) {
+      helper.add(item);
+    }
+    helper.endGroup();
+    result.append(helper);
     return result.compress();
   }
 

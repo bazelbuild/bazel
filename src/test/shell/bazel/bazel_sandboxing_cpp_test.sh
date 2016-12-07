@@ -17,11 +17,11 @@
 # Test C++ builds with the sandboxing spawn strategy.
 #
 
-# Load test environment
-src_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source ${src_dir}/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
-source ${src_dir}/bazel_sandboxing_test_utils.sh \
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source ${CURRENT_DIR}/bazel_sandboxing_test_utils.sh \
   || { echo "bazel_sandboxing_test_utils.sh not found!" >&2; exit 1; }
 
 function set_up {

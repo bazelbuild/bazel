@@ -16,21 +16,16 @@
 #
 # This test exercises action progress reporting.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 set -eu
 
-create_and_cd_client
-put_bazel_on_path
-write_default_bazelrc
-
-cat >>"$bazelrc" <<EOF
-build --workspace_status_command="$(which true)" --nostamp
-build --show_progress_rate_limit=-1
-build --genrule_strategy=local
-EOF
+add_to_bazelrc "build --workspace_status_command="$(which true)" --nostamp"
+add_to_bazelrc "build --show_progress_rate_limit=-1"
+add_to_bazelrc "build --genrule_strategy=local"
 
 # Match progress messages like [42 / 1,337]
 declare -r PROGRESS_RX="\[[0-9, /]\+\]"

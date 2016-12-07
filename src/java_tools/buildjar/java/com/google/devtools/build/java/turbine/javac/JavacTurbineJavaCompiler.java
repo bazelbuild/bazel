@@ -16,16 +16,13 @@ package com.google.devtools.build.java.turbine.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
-
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.Context;
-
 import java.util.Queue;
-
 import javax.annotation.Nullable;
 import javax.tools.JavaFileObject;
 
@@ -54,7 +51,7 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
     if (!prune) {
       return result;
     }
-    TreePruner.prune(result);
+    TreePruner.prune(context, result);
     return result;
   }
 

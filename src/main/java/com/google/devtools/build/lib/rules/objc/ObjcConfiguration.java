@@ -77,6 +77,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean deviceDebugEntitlements;
   private final boolean experimentalObjcLibrary;
   private final boolean experimentalUseCrosstoolForBinary;
+  private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -111,6 +112,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
     this.experimentalUseCrosstoolForBinary = objcOptions.experimentalUseCrosstoolForBinary;
+    this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
@@ -179,6 +181,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return generateLinkmap;
   }
 
+  @SkylarkCallable(
+    name = "run_memleaks",
+    structField = true,
+    doc = "Returns a boolean indicating whether memleaks should be run during tests or not."
+  )
   public boolean runMemleaks() {
     return runMemleaks;
   }
@@ -211,24 +218,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         return fastbuildOptions;
       case OPT:
         return OPT_COPTS;
-      default:
-        throw new AssertionError();
-    }
-  }
-
-  /**
-   * Returns the default set of swiftc options for the current compilation mode.
-   */
-  @SkylarkCallable(name = "swift_copts_for_current_compilation_mode", structField = true,
-      doc = "Returns a list of default options to use for compiling Swift in the current mode.")
-  public ImmutableList<String> getSwiftCoptsForCompilationMode() {
-    switch (compilationMode) {
-      case DBG:
-        return ImmutableList.of("-Onone", "-DDEBUG=1", "-g");
-      case FASTBUILD:
-        return ImmutableList.of("-Onone", "-DDEBUG=1");
-      case OPT:
-        return ImmutableList.of("-O", "-DNDEBUG=1");
       default:
         throw new AssertionError();
     }
@@ -327,7 +316,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useDeviceDebugEntitlements() {
     return deviceDebugEntitlements && compilationMode != CompilationMode.OPT;
   }
-  
+
   /**
    * Returns true if all objc_library targets should be configured as if they were
    * experimental_objc_library targets.
@@ -335,12 +324,19 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public boolean useExperimentalObjcLibrary() {
     return experimentalObjcLibrary;
   }
-  
+
   /** Returns true if objc_binary targets should use the crosstool for compiling and archiving. */
   public boolean useCrosstoolForBinary() {
     return experimentalUseCrosstoolForBinary;
   }
-  
+
+  /** Returns true if apple_binary targets should generate and link Objc protos. */
+  @SkylarkCallable(name = "enable_apple_binary_native_protos", structField = true,
+      doc = "Returns whether apple_binary should generate and link protos natively.")
+  public boolean enableAppleBinaryNativeProtos() {
+    return enableAppleBinaryNativeProtos;
+  }
+
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;

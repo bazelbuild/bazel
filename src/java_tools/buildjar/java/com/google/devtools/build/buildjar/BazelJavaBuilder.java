@@ -1,4 +1,4 @@
-// Copyright 2007 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.classloader.ClassLoaderMaskingPlugin;
@@ -43,6 +44,7 @@ public abstract class BazelJavaBuilder {
    * The main method of the BazelJavaBuilder.
    */
   public static void main(String[] args) {
+    AbstractPostProcessor.addPostProcessor("jacoco", new JacocoInstrumentationProcessor());
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
       System.exit(runPersistentWorker());
     } else {

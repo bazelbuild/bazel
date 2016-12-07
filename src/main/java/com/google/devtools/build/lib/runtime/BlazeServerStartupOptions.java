@@ -252,8 +252,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(name = "command_port",
       defaultValue = "0",
       category = "undocumented",
-      help = "Port to start up the gRPC command server on. If 0, let the kernel choose. If -1, "
-          + "use a custom protocol on an AF_UNIX socket.")
+      help = "Port to start up the gRPC command server on. If 0, let the kernel choose.")
   public int commandPort;
 
   @Option(name = "product_name",
@@ -275,4 +274,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
       category = "undocumented",
       help = "Whether or not to write the command.log file")
   public boolean writeCommandLog;
+
+  @Option(name = "client_debug",
+      defaultValue = "false", // NOTE: purely decorative!
+      category = "server startup",
+      help = "If true, log debug information from the client to stderr")
+  public boolean clientDebug;
+
+  @Option(name = "connect_timeout_secs",
+      defaultValue = "10",
+      category = "server startup",
+      help = "The amount of time the client waits for each attempt to connect to the server")
+  public int connectTimeoutSecs;
 }

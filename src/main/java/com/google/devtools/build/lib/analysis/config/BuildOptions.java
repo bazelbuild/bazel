@@ -210,6 +210,19 @@ public final class BuildOptions implements Cloneable, Serializable {
   }
 
   /**
+   * Returns {@code true} if static configurations should be used with
+   * {@link BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL}.
+   */
+  public boolean useStaticConfigurationsOverride() {
+    for (FragmentOptions fragment : fragmentOptionsMap.values()) {
+      if (fragment.useStaticConfigurationsOverride()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * The cache key for the options collection. Recomputes cache key every time it's called.
    */
   public String computeCacheKey() {

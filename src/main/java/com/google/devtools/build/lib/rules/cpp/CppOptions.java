@@ -316,6 +316,15 @@ public class CppOptions extends FragmentOptions {
   public List<String> linkoptList;
 
   @Option(
+    name = "ltoindexopt",
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    help = "Additional option to pass to the LTO indexing step (under --features=thin_lto)."
+  )
+  public List<String> ltoindexoptList;
+
+  @Option(
     name = "stripopt",
     allowMultiple = true,
     defaultValue = "",
@@ -527,6 +536,24 @@ public class CppOptions extends FragmentOptions {
   public boolean inmemoryDotdFiles;
 
   @Option(
+    name = "experimental_skip_unused_modules",
+    defaultValue = "false",
+    category = "experimental",
+    help =
+        "If enabled, not all transitive modules automatically become an action's inputs. Instead,"
+            + " input discovery adds just the required ones."
+  )
+  public boolean skipUnusedModules;
+
+  @Option(
+    name = "experimental_prune_more_modules",
+    defaultValue = "false",
+    category = "experimental",
+    help = "If enabled, modules pruning is used when building modules themselves."
+  )
+  public boolean pruneMoreModules;
+
+  @Option(
     name = "experimental_omitfp",
     defaultValue = "false",
     category = "semantics",
@@ -545,6 +572,16 @@ public class CppOptions extends FragmentOptions {
             + "will be shared among different targets"
   )
   public boolean shareNativeDeps;
+
+  @Option(
+    name = "strict_system_includes",
+    defaultValue = "false",
+    category = "strategy",
+    help =
+        "If true, headers found through system include paths (-isystem) are also required to be "
+        + "declared."
+  )
+  public boolean strictSystemIncludes;
 
   @Override
   public FragmentOptions getHost(boolean fallback) {
@@ -652,4 +689,14 @@ public class CppOptions extends FragmentOptions {
   public LipoMode getLipoMode() {
     return lipoMode;
   }
+
+  /**
+   * FDO/LIPO is not yet compatible with dynamic configurations.
+   **/
+  @Override
+  public boolean useStaticConfigurationsOverride() {
+    // --lipo=binary is technically possible without FDO, even though it doesn't do anything.
+    return isFdo() || getLipoMode() == LipoMode.BINARY;
+  }
+
 }

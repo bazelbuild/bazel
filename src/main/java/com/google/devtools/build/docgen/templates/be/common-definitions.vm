@@ -18,7 +18,7 @@ many functions or build rules below.
 <div class="toc">
   <h1>Contents</h1>
   <ul>
-    <li><a href="#sh-tokenization">Borne shell tokenization</a></li>
+    <li><a href="#sh-tokenization">Bourne shell tokenization</a></li>
     <li><a href="#label-expansion">Label Expansion</a></li>
     <li><a href="#common-attributes">Attributes common to all build rules</a></li>
     <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>

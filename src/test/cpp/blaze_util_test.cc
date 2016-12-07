@@ -21,17 +21,27 @@
 #include <vector>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "gtest/gtest.h"
 
 namespace blaze {
+
+using std::string;
 
 static bool Symlink(const string& old_path, const string& new_path) {
   return symlink(old_path.c_str(), new_path.c_str()) == 0;
 }
 
 static bool CreateEmptyFile(const string& path) {
-  int fd = open(path.c_str(), O_CREAT | O_WRONLY);
+  // From the man page of open (man 2 open):
+  // int open(const char *pathname, int flags, mode_t mode);
+  //
+  // mode specifies the permissions to use in case a new file is created.
+  // This argument must be supplied when O_CREAT is specified in flags;
+  // if O_CREAT is not specified, then mode is ignored.
+  int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0700);
   if (fd == -1) {
     return false;
   }
@@ -82,14 +92,17 @@ class BlazeUtilTest : public ::testing::Test {
     return fds[0];
   }
 
-  static void AssertReadFileDescriptor2(string input1, string input2) {
+  static void AssertReadFrom2(string input1, string input2) {
     int fd = WriteFileDescriptor2(input1, input2);
     if (fd < 0) {
       FAIL() << "Unable to create a pipe!";
     } else {
       string result;
-      if (!ReadFileDescriptor(fd, &result)) {
-        perror("ReadFileDescriptor");
+      bool success = blaze_util::ReadFrom(
+          [fd](void* buf, int size) { return read(fd, buf, size); }, &result);
+      close(fd);
+      if (!success) {
+        perror("ReadFrom");
         FAIL() << "Unable to read file descriptor!";
       } else {
         ASSERT_EQ(input1 + input2, result);
@@ -97,22 +110,21 @@ class BlazeUtilTest : public ::testing::Test {
     }
   }
 
-  static void AssertReadFileDescriptor(string input) {
-    AssertReadFileDescriptor2(input, "");
-  }
+  static void AssertReadFrom(string input) { AssertReadFrom2(input, ""); }
 
   static void AssertReadJvmVersion(string expected, string input) {
     ASSERT_EQ(expected, ReadJvmVersion(input));
   }
 
-  void ReadFileDescriptorTest() const {
-    AssertReadFileDescriptor("DummyJDK Blabla\n"
-                             "More DummyJDK Blabla\n");
-    AssertReadFileDescriptor("dummyjdk version \"1.42.qual\"\n"
-                         "DummyJDK Blabla\n"
-                             "More DummyJDK Blabla\n");
-    AssertReadFileDescriptor2("first_line\n",
-                              "second line version \"1.4.2_0\"\n");
+  void ReadFromTest() const {
+    AssertReadFrom(
+        "DummyJDK Blabla\n"
+        "More DummyJDK Blabla\n");
+    AssertReadFrom(
+        "dummyjdk version \"1.42.qual\"\n"
+        "DummyJDK Blabla\n"
+        "More DummyJDK Blabla\n");
+    AssertReadFrom2("first_line\n", "second line version \"1.4.2_0\"\n");
   }
 
   void ReadJvmVersionTest() const {
@@ -159,9 +171,7 @@ TEST_F(BlazeUtilTest, CheckJavaVersionIsAtLeast) {
   CheckJavaVersionIsAtLeastTest();
 }
 
-TEST_F(BlazeUtilTest, ReadFileDescriptor) {
-  ReadFileDescriptorTest();
-}
+TEST_F(BlazeUtilTest, ReadFrom) { ReadFromTest(); }
 
 TEST_F(BlazeUtilTest, ReadJvmVersion) {
   ReadJvmVersionTest();
@@ -174,12 +184,12 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   ASSERT_STRNE(NULL, test_src_dir);
 
   string dir = blaze_util::JoinPath(tmp_dir, "x/y/z");
-  int ok = MakeDirectories(dir, 0755);
-  ASSERT_EQ(0, ok);
+  bool ok = MakeDirectories(dir, 0755);
+  ASSERT_TRUE(ok);
 
   // Changing permissions on an existing dir should work.
   ok = MakeDirectories(dir, 0750);
-  ASSERT_EQ(0, ok);
+  ASSERT_TRUE(ok);
   struct stat filestat = {};
   ASSERT_EQ(0, stat(dir.c_str(), &filestat));
   ASSERT_EQ(0750, filestat.st_mode & 0777);
@@ -188,27 +198,27 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   // TODO(ulfjack): Fix this!
 //  string srcdir = blaze_util::JoinPath(test_src_dir, "x/y/z");
 //  ok = MakeDirectories(srcdir, 0755);
-//  ASSERT_EQ(-1, ok);
+//  ASSERT_FALSE(ok);
 //  ASSERT_EQ(EACCES, errno);
 
   // Can't make a dir out of a file.
   string non_dir = blaze_util::JoinPath(dir, "w");
   ASSERT_TRUE(CreateEmptyFile(non_dir));
   ok = MakeDirectories(non_dir, 0755);
-  ASSERT_EQ(-1, ok);
+  ASSERT_FALSE(ok);
   ASSERT_EQ(ENOTDIR, errno);
 
   // Valid symlink should work.
   string symlink = blaze_util::JoinPath(tmp_dir, "z");
   ASSERT_TRUE(Symlink(dir, symlink));
   ok = MakeDirectories(symlink, 0755);
-  ASSERT_EQ(0, ok);
+  ASSERT_TRUE(ok);
 
   // Error: Symlink to a file.
   symlink = blaze_util::JoinPath(tmp_dir, "w");
   ASSERT_TRUE(Symlink(non_dir, symlink));
   ok = MakeDirectories(symlink, 0755);
-  ASSERT_EQ(-1, ok);
+  ASSERT_FALSE(ok);
   ASSERT_EQ(ENOTDIR, errno);
 
   // Error: Symlink to a dir with wrong perms.
@@ -218,13 +228,13 @@ TEST_F(BlazeUtilTest, MakeDirectories) {
   // These perms will force a chmod()
   // TODO(ulfjack): Fix this!
 //  ok = MakeDirectories(symlink, 0000);
-//  ASSERT_EQ(-1, ok);
+//  ASSERTFALSE(ok);
 //  ASSERT_EQ(EPERM, errno);
 
   // Edge cases.
-  ASSERT_EQ(-1, MakeDirectories("", 0755));
+  ASSERT_FALSE(MakeDirectories("", 0755));
   ASSERT_EQ(EACCES, errno);
-  ASSERT_EQ(-1, MakeDirectories("/", 0755));
+  ASSERT_FALSE(MakeDirectories("/", 0755));
   ASSERT_EQ(EACCES, errno);
 }
 
@@ -235,7 +245,7 @@ TEST_F(BlazeUtilTest, HammerMakeDirectories) {
   string path = blaze_util::JoinPath(tmp_dir, "x/y/z");
   // TODO(ulfjack): Fix this!
 //  ASSERT_LE(0, fork());
-//  ASSERT_EQ(0, MakeDirectories(path, 0755));
+//  ASSERT_TRUE(MakeDirectories(path, 0755));
 }
 
 }  // namespace blaze

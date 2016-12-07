@@ -15,9 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
-
+import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.Closeable;
-
 import javax.annotation.Nullable;
 
 /**
@@ -55,7 +54,7 @@ public interface DiffAwareness extends Closeable {
    *     {@link DiffAwareness} instance. The {@link DiffAwareness} is expected to close itself in
    *     this case.
    */
-  View getCurrentView() throws BrokenDiffAwarenessException;
+  View getCurrentView(OptionsClassProvider options) throws BrokenDiffAwarenessException;
 
   /**
    * Returns the set of files of interest that have been modified between the given two views.

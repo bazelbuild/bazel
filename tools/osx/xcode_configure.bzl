@@ -91,7 +91,17 @@ def _darwin_build_file(repository_ctx):
     return VERSION_CONFIG_STUB
 
   xcodeloc_src_path = str(repository_ctx.path(Label(repository_ctx.attr.xcode_locator)))
-  repository_ctx.execute(["xcrun", "clang", "-fobjc-arc", "-framework", "CoreServices", "-framework", "Foundation", "-o", "xcode-locator-bin", xcodeloc_src_path])
+  xcrun_result = repository_ctx.execute(["xcrun", "clang", "-fobjc-arc", "-framework",
+                                         "CoreServices", "-framework", "Foundation", "-o",
+                                         "xcode-locator-bin", xcodeloc_src_path],
+                                        5, {"SDKROOT": "", "IPHONEOS_DEPLOYMENT_TARGET": ""})
+
+  if (xcrun_result.return_code != 0):
+    print(
+        "Generating xcode-locator-bin failed, return code {code}, stderr: {err}".format(
+            code=xcrun_result.return_code,
+            err=xcrun_result.stderr))
+    return VERSION_CONFIG_STUB
 
   xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"])
   if (xcode_locator_result.return_code != 0):

@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "java_proto_library", "cc_grpc_library")
-load("//third_party/protobuf:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf/3.0.0:protobuf.bzl", "py_proto_library")
 
 FILES = [
     "build",
@@ -10,7 +10,7 @@ FILES = [
     "java_compilation",
     "crosstool_config",
     "extra_actions_base",
-    "android_studio_ide_info",
+    "intellij_ide_info",
     "package_manifest",
     "test_status",
     "plmerge",
@@ -54,4 +54,12 @@ py_proto_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "dist_jars",
+    srcs = [
+        "command_server_java_proto_srcjar",
+        "remote_protocol_java_proto_srcjar",
+    ] + [s + "_java_proto_srcjar" for s in FILES],
 )

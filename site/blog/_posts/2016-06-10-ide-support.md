@@ -8,7 +8,7 @@ With the 0.3 release, we finally have all machinery in place that allows
 implementing integration with Bazel in IDEs. Simultaneous with that
 Bazel release we are also making public two IDE plugins:
 
-*   [Tulsi](http://tulsi.bazel.io): Bazel support for Xcode.
+*   [Tulsi](http://tulsi.bazel.build): Bazel support for Xcode.
 *   [e4b](https://github.com/bazelbuild/e4b): a sample Bazel plugin for Eclipse.
 
 In this post, we will look into how Bazel enables IDE integration

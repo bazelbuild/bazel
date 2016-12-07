@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
@@ -91,7 +92,8 @@ public final class SkylarkAttr {
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. It can be either \"data\" or \"host\".";
+      "configuration of the attribute. It can be either \"data\", \"host\", or \"target\". "
+          + "This parameter is required if <code>executable</code> is True.";
 
   private static final String DEFAULT_ARG = "default";
   private static final String DEFAULT_DOC = "the default value of the attribute.";
@@ -202,8 +204,10 @@ public final class SkylarkAttr {
     if (containsNonNoneKey(arguments, EXECUTABLE_ARG) && (Boolean) arguments.get(EXECUTABLE_ARG)) {
       builder.setPropertyFlag("EXECUTABLE");
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
-        String message = "Argument `cfg = \"host\"` or `cfg = \"data\"` is required if"
-            + " `executable = True` is provided for a label";
+        String message = "Argument `cfg = \"host\"`, `cfg = \"data\"`, or `cfg = \"target\"` "
+            + "is required if `executable = True` is provided for a label. Please see "
+            + "https://www.bazel.build/versions/master/docs/skylark/rules.html#configurations "
+            + "for more details.";
         env.handleEvent(Event.warn(loc, message));
       }
     }
@@ -270,16 +274,17 @@ public final class SkylarkAttr {
       Object trans = arguments.get(CONFIGURATION_ARG);
       if (trans instanceof ConfigurationTransition) {
         // TODO(laurentlb): Deprecated, to be removed in August 2016.
-        String message = "Variables HOST_CFG and DATA_CFG are deprecated in favor of strings"
-            + " \"host\" and \"data\" correspondingly";
+        String message = "Variables HOST_CFG and DATA_CFG are deprecated in favor of strings "
+            + "\"host\" and \"data\" correspondingly";
         env.handleEvent(Event.warn(loc, message));
         builder.cfg((ConfigurationTransition) trans);
       } else if (trans.equals("data")) {
         builder.cfg(ConfigurationTransition.DATA);
       } else if (trans.equals("host")) {
         builder.cfg(ConfigurationTransition.HOST);
-      } else {
-        throw new EvalException(ast.getLocation(), "cfg must be either 'data' or 'host'.");
+      } else if (!trans.equals("target")) {
+        throw new EvalException(ast.getLocation(),
+            "cfg must be either 'data', 'host', or 'target'.");
       }
     }
     return builder;
@@ -517,7 +522,7 @@ public final class SkylarkAttr {
         positional = false,
         doc =
             "This is similar to <code>allow_files</code>, with the restriction that the label must "
-                + "correspond to a single <a href=\"file.html\">File</a>. "
+                + "correspond to a single <a href=\"File.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
@@ -554,7 +559,7 @@ public final class SkylarkAttr {
         positional = false,
         doc =
             "Deprecated: Use <code>allow_single_file</code> instead. "
-                + "If True, the label must correspond to a single <a href=\"file.html\">File</a>. "
+                + "If True, the label must correspond to a single <a href=\"File.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
@@ -1255,28 +1260,58 @@ public final class SkylarkAttr {
     name = "attr_defintion",
     category = SkylarkModuleCategory.NONE,
     doc =
-        "Representation of a definition of an attribute; constructed by <code>attr.*</code>"
-            + " functions. They are only for use with <a href=\"globals.html#rule\">rule</a> or "
+        "Representation of a definition of an attribute; constructed by <code>attr.*</code> "
+            + "functions. They are only for use with <a href=\"globals.html#rule\">rule</a> or "
             + "<a href=\"globals.html#aspect\">aspect</a>."
 
   )
   public static final class Descriptor {
     private final Attribute.Builder<?> attributeBuilder;
     private final ImmutableList<SkylarkAspect> aspects;
+
+    /**
+     * This lock guards {@code attributeBuilder} field.
+     *
+     * {@link Attribute.Builder} class is not thread-safe for concurrent modification.
+     * This class, together with its enclosing {@link SkylarkAttr} class, do not let
+     * anyone else access the {@code attributeBuilder}, however {@link #exportAspects(Location)}
+     * method actually modifies the {@code attributeBuilder}. Therefore all read- and write-accesses
+     * to {@code attributeBuilder} are protected with this lock.
+     *
+     * For example, {@link #hasDefault()} method only reads from {@link #attributeBuilder},
+     * but we have no guarantee that it is safe to do so concurrently with adding aspects
+     * in {@link #exportAspects(Location)}.
+     */
+    private final Object lock = new Object();
     boolean exported;
 
-    public Descriptor(Attribute.Builder<?> attributeBuilder) {
+    private Descriptor(Attribute.Builder<?> attributeBuilder) {
       this(attributeBuilder, ImmutableList.<SkylarkAspect>of());
     }
 
-    public Descriptor(Attribute.Builder<?> attributeBuilder, ImmutableList<SkylarkAspect> aspects) {
+    private Descriptor(
+        Attribute.Builder<?> attributeBuilder, ImmutableList<SkylarkAspect> aspects) {
       this.attributeBuilder = attributeBuilder;
       this.aspects = aspects;
       exported = false;
     }
 
-    public Attribute.Builder<?> getAttributeBuilder() {
-      return attributeBuilder;
+    public boolean hasDefault() {
+      synchronized (lock) {
+        return attributeBuilder.isValueSet();
+      }
+    }
+
+    public AttributeValueSource getValueSource() {
+      synchronized (lock) {
+        return attributeBuilder.getValueSource();
+      }
+    }
+
+    public Attribute build(String name) {
+      synchronized (lock) {
+        return attributeBuilder.build(name);
+      }
     }
 
     public ImmutableList<SkylarkAspect> getAspects() {
@@ -1284,19 +1319,20 @@ public final class SkylarkAttr {
     }
 
     public void exportAspects(Location definitionLocation) throws EvalException {
-      if (exported) {
-        // Only export an attribute definiton once.
-        return;
-      }
-      Attribute.Builder<?> attributeBuilder = getAttributeBuilder();
-      for (SkylarkAspect skylarkAspect : getAspects()) {
-        if (!skylarkAspect.isExported()) {
-          throw new EvalException(definitionLocation,
-              "All aspects applied to rule dependencies must be top-level values");
+      synchronized (lock) {
+        if (exported) {
+          // Only export an attribute definiton once.
+          return;
         }
-        attributeBuilder.aspect(skylarkAspect, definitionLocation);
+        for (SkylarkAspect skylarkAspect : getAspects()) {
+          if (!skylarkAspect.isExported()) {
+            throw new EvalException(definitionLocation,
+                "All aspects applied to rule dependencies must be top-level values");
+          }
+          attributeBuilder.aspect(skylarkAspect, definitionLocation);
+        }
+        exported = true;
       }
-      exported = true;
     }
   }
 

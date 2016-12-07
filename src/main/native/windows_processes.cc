@@ -323,8 +323,8 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeWriteStdin(
   jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_written;
 
-  if (!WriteFile(process->stdin_, bytes + offset, length, &bytes_written,
-      NULL)) {
+  if (!::WriteFile(process->stdin_, bytes + offset, length, &bytes_written,
+                   NULL)) {
     process->error_ = GetLastErrorString("WriteFile()");
     bytes_written = -1;
   }
@@ -368,7 +368,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeReadStream(
 
   jbyte* bytes = env->GetByteArrayElements(java_bytes, NULL);
   DWORD bytes_read;
-  if (!ReadFile(stream->handle_, bytes + offset, length, &bytes_read, NULL)) {
+  if (!::ReadFile(stream->handle_, bytes + offset, length, &bytes_read, NULL)) {
     // Check if either the other end closed the pipe or we did it with
     // NativeOutputStream.close() . In the latter case, we'll get a "system
     // call interrupted" error.

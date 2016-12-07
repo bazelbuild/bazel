@@ -23,25 +23,19 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.events.EventHandler;
-
 import java.util.Collection;
-
 import javax.annotation.Nullable;
 
 /**
  * A factory class to create coverage report actions.
  */
 public interface CoverageReportActionFactory {
-
   /**
-   * Wraps the necessary actions to get a coverage report as well as the final
-   * output artifacts.
-   * The lcovWriteAction creates a file containing a set of lcov files.
-   * This file is used as an input artifact for coverageReportAction.
-   * We are only interested about the output artifacts from
+   * Wraps the necessary actions to get a coverage report as well as the final output artifacts.
+   * The lcovWriteAction creates a file containing a set of lcov files. This file is used as an
+   * input artifact for coverageReportAction. We are only interested about the output artifacts from
    * coverageReportAction.
    */
-
   public static final class CoverageReportActionsWrapper {
     private final ActionAnalysisMetadata lcovWriteAction;
     private final ActionAnalysisMetadata coverageReportAction;

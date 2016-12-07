@@ -319,6 +319,9 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
 
   /**
    * Returns true iff the rule class has an attribute with the given name and type.
+   *
+   * <p>Note: RuleContext also has isAttrDefined(), which takes Aspects into account. Whenever
+   * possible, use RuleContext.isAttrDefined() instead of this method.
    */
   public boolean isAttrDefined(String attrName, Type<?> type) {
     return ruleClass.hasAttr(attrName, type);

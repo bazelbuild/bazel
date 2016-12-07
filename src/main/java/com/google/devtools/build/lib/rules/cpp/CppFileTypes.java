@@ -33,6 +33,9 @@ public final class CppFileTypes {
       FileTypeSet.of(CppFileTypes.CPP_SOURCE, CppFileTypes.C_SOURCE);
 
   public static final FileType CPP_HEADER = FileType.of(".h", ".hh", ".hpp", ".hxx", ".inc");
+  public static final FileType PCH = FileType.of(".pch");
+  public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
+  
   public static final FileType CPP_TEXTUAL_INCLUDE = FileType.of(".inc");
 
   public static final FileType PIC_PREPROCESSED_C = FileType.of(".pic.i");
@@ -76,17 +79,25 @@ public final class CppFileTypes {
     };
 
   public static final FileType PIC_ARCHIVE = FileType.of(".pic.a");
-  public static final FileType ARCHIVE = new FileType() {
-      final String ext = ".a";
-      @Override
-      public boolean apply(String filename) {
-        return filename.endsWith(ext) && !PIC_ARCHIVE.matches(filename);
-      }
-      @Override
-      public List<String> getExtensions() {
-        return ImmutableList.of(ext);
-      }
-    };
+  public static final FileType ARCHIVE =
+      new FileType() {
+        final List<String> extensions = ImmutableList.of(".a", ".lib");
+
+        @Override
+        public boolean apply(String filename) {
+          for (String ext : extensions) {
+            if (filename.endsWith(ext) && !PIC_ARCHIVE.matches(filename)) {
+              return true;
+            }
+          }
+          return false;
+        }
+
+        @Override
+        public List<String> getExtensions() {
+          return ImmutableList.copyOf(extensions);
+        }
+      };
 
   public static final FileType ALWAYS_LINK_PIC_LIBRARY = FileType.of(".pic.lo");
   public static final FileType ALWAYS_LINK_LIBRARY = new FileType() {

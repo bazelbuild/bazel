@@ -18,10 +18,11 @@
 #ifndef BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
 #define BAZEL_SRC_MAIN_CPP_GLOBAL_VARIABLES_H_
 
-#include <signal.h>
 #include <sys/types.h>
 #include <string>
 #include <vector>
+
+#include "src/main/cpp/util/port.h"  // pid_t on Windows/MSVC
 
 namespace blaze {
 
@@ -53,14 +54,10 @@ struct GlobalVariables {
   // The path of the JVM executable that should be used to launch Blaze.
   std::string jvm_path;
 
+  // TODO(laszlocsomor) 2016-11-28: move pid_t usage out of here and whereever
+  // else it appears. Find some way to not have to declare a pid_t here, either
+  // by making PID handling platform-independent or some other idea.
   pid_t server_pid;
-
-  volatile sig_atomic_t sigint_count;
-
-  // The number of the last received signal that should cause the client
-  // to shutdown.  This is saved so that the client's WTERMSIG can be set
-  // correctly.  (Currently only SIGPIPE uses this mechanism.)
-  volatile sig_atomic_t received_signal;
 
   // Contains the relative paths of all the files in the attached zip, and is
   // populated during GetInstallBase().

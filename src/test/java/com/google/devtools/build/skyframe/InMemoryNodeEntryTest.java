@@ -709,7 +709,14 @@ public class InMemoryNodeEntryTest {
         .addReverseDepAndCheckIfDone(null)
         .isEqualTo(DependencyState.NEEDS_SCHEDULING);
     for (Set<SkyKey> depGroup : groupedDirectDeps) {
-      entry.addTemporaryDirectDeps(GroupedListHelper.create(depGroup));
+      GroupedListHelper<SkyKey> helper = new GroupedListHelper<>();
+      helper.startGroup();
+      for (SkyKey item : depGroup) {
+        helper.add(item);
+      }
+      helper.endGroup();
+
+      entry.addTemporaryDirectDeps(helper);
       for (int i = 0; i < depGroup.size(); i++) {
         entry.signalDep();
       }

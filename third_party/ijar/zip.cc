@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "third_party/ijar/mapped_file.h"
+#include "third_party/ijar/platform_utils.h"
 #include "third_party/ijar/zip.h"
 #include "third_party/ijar/zlib_client.h"
 
@@ -1119,18 +1120,18 @@ ZipBuilder* ZipBuilder::Create(const char* zip_file, u8 estimated_size) {
 u8 ZipBuilder::EstimateSize(char const* const* files,
                             char const* const* zip_paths,
                             int nb_entries) {
-  struct stat statst;
+  Stat file_stat;
   // Digital signature field size = 6, End of central directory = 22, Total = 28
   u8 size = 28;
   // Count the size of all the files in the input to estimate the size of the
   // output.
   for (int i = 0; i < nb_entries; i++) {
-    statst.st_size = 0;
-    if (files[i] != NULL && stat(files[i], &statst) != 0) {
+    file_stat.total_size = 0;
+    if (files[i] != NULL && !stat_file(files[i], &file_stat)) {
       fprintf(stderr, "File %s does not seem to exist.", files[i]);
       return 0;
     }
-    size += statst.st_size;
+    size += file_stat.total_size;
     // Add sizes of Zip meta data
     // local file header = 30 bytes
     // data descriptor = 12 bytes

@@ -1,6 +1,9 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs"],
+    srcs = glob(["**"]) + [
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
+    ],
     visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )
 
@@ -22,6 +25,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",

@@ -40,10 +40,12 @@ import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedInputStream;
+import java.io.BufferedWriter;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.URI;
@@ -129,7 +131,9 @@ public class JavacTurbineTest {
   void compile() throws IOException {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
     }
   }
@@ -166,6 +170,7 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x9",
       "  public static main([Ljava/lang/String;)V",
+      "    // parameter  args",
       "}",
       ""
     };
@@ -312,6 +317,7 @@ public class JavacTurbineTest {
         "",
         "  // access flags 0x9",
         "  public static main([Ljava/lang/String;)V",
+        "    // parameter  args",
         "}",
         ""
       };
@@ -442,7 +448,13 @@ public class JavacTurbineTest {
     JavacTool tool = JavacTool.create();
 
     JavacTask task =
-        tool.getTask(new PrintWriter(System.err, true), fm, null, options, null, units);
+        tool.getTask(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8)), true),
+            fm,
+            null,
+            options,
+            null,
+            units);
     assertThat(task.call()).isTrue();
 
     try (JarOutputStream jos = new JarOutputStream(Files.newOutputStream(jar))) {
@@ -538,7 +550,9 @@ public class JavacTurbineTest {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
       Context context = turbine.context;
 
@@ -625,7 +639,9 @@ public class JavacTurbineTest {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
     try (JavacTurbine turbine =
-        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
+        new JavacTurbine(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(System.err, UTF_8))),
+            optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_FULL_CLASSPATH);
       Context context = turbine.context;
 
@@ -739,6 +755,7 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x9",
       "  public static valueOf(Ljava/lang/String;)LTheEnum;",
+      "    // parameter mandated  name",
       "}",
       ""
     };
@@ -1067,7 +1084,7 @@ public class JavacTurbineTest {
     // don't set up any source files
     compile();
     Map<String, byte[]> outputs = collectOutputs();
-    assertThat(outputs.keySet()).containsExactly("dummy");
+    assertThat(outputs.keySet()).isEmpty();
   }
 
   /** An annotation processor that violates the contract. */
@@ -1292,6 +1309,94 @@ public class JavacTurbineTest {
       "",
       "  // access flags 0x1",
       "  public call()Ljava/lang/String;",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void enumDecl() throws Exception {
+    addSourceLines(
+        "P.java",
+        "import java.util.function.Predicate;",
+        "enum P implements Predicate<String> {",
+        "  INSTANCE {",
+        "    @Override",
+        "    public boolean test(String s) {",
+        "      return NoSuch.method();",
+        "    }",
+        "  }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    String text = textify(outputs.get("P.class"));
+    String[] expected = {
+      "// class version 52.0 (52)",
+      "// access flags 0x4420",
+      "// signature Ljava/lang/Enum<LP;>;Ljava/util/function/Predicate<Ljava/lang/String;>;",
+      "// declaration: P extends java.lang.Enum<P>"
+          + " implements java.util.function.Predicate<java.lang.String>",
+      "abstract enum P extends java/lang/Enum  implements java/util/function/Predicate  {",
+      "",
+      "  // access flags 0x4000",
+      "  enum INNERCLASS P$1 null null",
+      "",
+      "  // access flags 0x4019",
+      "  public final static enum LP; INSTANCE",
+      "",
+      "  // access flags 0x9",
+      "  public static values()[LP;",
+      "",
+      "  // access flags 0x9",
+      "  public static valueOf(Ljava/lang/String;)LP;",
+      "    // parameter mandated  name",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void lambdaBody() throws Exception {
+    addSourceLines(
+        "P.java",
+        "import java.util.function.Predicate;",
+        "enum P {",
+        "  INSTANCE(x -> {",
+        "    return false;",
+        "  });",
+        "  P(Predicate<String> p) {}",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    String text = textify(outputs.get("P.class"));
+    String[] expected = {
+      "// class version 52.0 (52)",
+      "// access flags 0x4030",
+      "// signature Ljava/lang/Enum<LP;>;",
+      "// declaration: P extends java.lang.Enum<P>",
+      "final enum P extends java/lang/Enum  {",
+      "",
+      "  // access flags 0x19",
+      "  public final static INNERCLASS java/lang/invoke/MethodHandles$Lookup"
+          + " java/lang/invoke/MethodHandles Lookup",
+      "",
+      "  // access flags 0x4019",
+      "  public final static enum LP; INSTANCE",
+      "",
+      "  // access flags 0x9",
+      "  public static values()[LP;",
+      "",
+      "  // access flags 0x9",
+      "  public static valueOf(Ljava/lang/String;)LP;",
+      "    // parameter mandated  name",
       "}",
       ""
     };

@@ -64,6 +64,7 @@ final class ProtobufSupport {
   private final RuleContext ruleContext;
   private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
+  private final IntermediateArtifacts intermediateArtifacts;
 
   // Each entry of this map represents a generation action and a compilation action. The input set
   // are dependencies of the output set. The output set is always a subset of, or the same set as,
@@ -90,7 +91,7 @@ final class ProtobufSupport {
    * @param ruleContext context this proto library is constructed in
    */
   public ProtobufSupport(RuleContext ruleContext) throws RuleErrorException {
-    this(ruleContext, null);
+    this(ruleContext, ruleContext.getConfiguration());
   }
 
   /**
@@ -109,6 +110,8 @@ final class ProtobufSupport {
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.inputsToOutputsMap = getInputsToOutputsMap();
+    this.intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
   }
 
   /**
@@ -132,25 +135,26 @@ final class ProtobufSupport {
   }
 
   private void registerModuleMapGenerationAction() {
-    IntermediateArtifacts moduleMapIntermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     CompilationArtifacts.Builder moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
-            .setIntermediateArtifacts(moduleMapIntermediateArtifacts)
+            .setIntermediateArtifacts(intermediateArtifacts)
             .setPchFile(Optional.<Artifact>absent())
             .addAdditionalHdrs(getProtobufHeaders())
             .addAdditionalHdrs(
                 getGeneratedProtoOutputs(inputsToOutputsMap.values(), ".pbobjc.h"));
 
-    new CompilationSupport(
+    new LegacyCompilationSupport(
             ruleContext,
-            ObjcRuleClasses.intermediateArtifacts(ruleContext),
+            intermediateArtifacts,
             new CompilationAttributes.Builder().build())
         .registerGenerateModuleMapAction(Optional.of(moduleMapCompilationArtifacts.build()));
   }
 
-  /** Registers the actions that will compile the generated code. */
-  public ProtobufSupport registerCompilationActions() {
+  /**
+   * Registers the actions that will compile the generated code.
+   */
+  public ProtobufSupport registerCompilationActions()
+      throws RuleErrorException, InterruptedException {
     int actionId = 0;
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
@@ -164,8 +168,11 @@ final class ProtobufSupport {
 
       ObjcCommon common = getCommon(intermediateArtifacts, compilationArtifacts);
 
-      new CompilationSupport(
-              ruleContext, intermediateArtifacts, new CompilationAttributes.Builder().build())
+      new LegacyCompilationSupport(
+              ruleContext,
+              buildConfiguration,
+              intermediateArtifacts,
+              new CompilationAttributes.Builder().build())
           .registerCompileAndArchiveActions(common, userHeaderSearchPaths);
 
       actionId++;
@@ -210,12 +217,11 @@ final class ProtobufSupport {
 
     Iterable<PathFragment> userHeaderSearchPaths =
         ImmutableList.of(getWorkspaceRelativeOutputDir());
-    IntermediateArtifacts moduleMapIntermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
-    ObjcCommon.Builder commonBuilder =
-        new ObjcCommon.Builder(ruleContext)
-            .setIntermediateArtifacts(moduleMapIntermediateArtifacts)
-            .setHasModuleMap();
+    ObjcCommon.Builder commonBuilder = new ObjcCommon.Builder(ruleContext);
+
+    if (!isLinkingTarget()) {
+      commonBuilder.setIntermediateArtifacts(intermediateArtifacts).setHasModuleMap();
+    }
 
     int actionId = 0;
     for (ImmutableSet<Artifact> inputProtos : inputsToOutputsMap.keySet()) {
@@ -249,8 +255,6 @@ final class ProtobufSupport {
     }
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     new XcodeSupport(ruleContext, intermediateArtifacts, getXcodeLabel(getBundledProtosSuffix()))
         .addXcodeSettings(xcodeProviderBuilder, getObjcProvider().get(), LIBRARY_STATIC);
 
@@ -417,7 +421,7 @@ final class ProtobufSupport {
         ruleContext,
         getUniqueBundledProtosSuffix(actionId),
         getUniqueBundledProtosPrefix(actionId),
-        ruleContext.getConfiguration());
+        buildConfiguration);
   }
 
   private ObjcCommon getCommon(
@@ -514,10 +518,7 @@ final class ProtobufSupport {
   }
 
   private String getGenfilesPathString() {
-    if (buildConfiguration != null) {
-      return buildConfiguration.getGenfilesDirectory().getExecPathString();
-    }
-    return ruleContext.getConfiguration().getGenfilesDirectory().getExecPathString();
+    return buildConfiguration.getGenfilesDirectory().getExecPathString();
   }
 
   private PathFragment getWorkspaceRelativeOutputDir() {
@@ -527,7 +528,7 @@ final class ProtobufSupport {
     PathFragment rootRelativeOutputDir = ruleContext.getUniqueDirectory(UNIQUE_DIRECTORY_NAME);
 
     return new PathFragment(
-        ruleContext.getBinOrGenfilesDirectory().getExecPath(), rootRelativeOutputDir);
+        buildConfiguration.getBinDirectory().getExecPath(), rootRelativeOutputDir);
   }
 
   private Iterable<Artifact> getGeneratedProtoOutputs(
@@ -547,27 +548,18 @@ final class ProtobufSupport {
       if (outputFile != null) {
         builder.add(
             ruleContext.getUniqueDirectoryArtifact(
-                UNIQUE_DIRECTORY_NAME, outputFile, ruleContext.getBinOrGenfilesDirectory()));
+                UNIQUE_DIRECTORY_NAME, outputFile, buildConfiguration.getBinDirectory()));
+
       }
     }
     return builder.build();
   }
 
   private Iterable<ObjcProtoProvider> getObjcProtoProviders() {
-    if (buildConfiguration != null) {
-      return ruleContext
-          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class)
-          .get(buildConfiguration);
-    }
     return ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
   }
 
   private Iterable<ProtoSourcesProvider> getProtoSourcesProviders() {
-    if (buildConfiguration != null) {
-      return ruleContext
-          .getPrerequisitesByConfiguration("deps", Mode.SPLIT, ProtoSourcesProvider.class)
-          .get(buildConfiguration);
-    }
     return ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
   }
 

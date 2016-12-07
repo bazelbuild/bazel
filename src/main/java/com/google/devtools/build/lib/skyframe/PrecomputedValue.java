@@ -58,7 +58,7 @@ public final class PrecomputedValue implements SkyValue {
     }
 
     void inject(Injectable injectable) {
-      injectable.inject(ImmutableMap.of(precomputed.key, new PrecomputedValue(supplier.get())));
+      injectable.inject(precomputed.key, new PrecomputedValue(supplier.get()));
     }
   }
 
@@ -179,7 +179,7 @@ public final class PrecomputedValue implements SkyValue {
      * Injects a new variable value.
      */
     public void set(Injectable injectable, T value) {
-      injectable.inject(ImmutableMap.of(key, new PrecomputedValue(value)));
+      injectable.inject(key, new PrecomputedValue(value));
     }
   }
 }

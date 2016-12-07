@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.vfs;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -96,6 +97,28 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
   // #getDirectoryEntries}.  Then this field becomes redundant.
   @ThreadSafe
   private static class ZipPath extends Path {
+
+    private enum Factory implements PathFactory {
+      INSTANCE {
+        @Override
+        public Path createRootPath(FileSystem filesystem) {
+          Preconditions.checkArgument(filesystem instanceof ZipFileSystem);
+          return new ZipPath((ZipFileSystem) filesystem);
+        }
+
+        @Override
+        public Path createChildPath(Path parent, String childName) {
+          Preconditions.checkState(parent instanceof ZipPath);
+          return new ZipPath((ZipFileSystem) parent.getFileSystem(), childName, (ZipPath) parent);
+        }
+
+        @Override
+        public TranslatedPath translatePath(Path parent, String child) {
+          return new TranslatedPath(parent, child);
+        }
+      };
+    }
+
     /**
      * Non-null iff this file/directory exists.  Set by setZipEntry for files
      * explicitly mentioned in the zipfile's table of contents, or implicitly
@@ -104,12 +127,12 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
     ZipEntry entry = null;
 
     // Root path.
-    ZipPath(ZipFileSystem fileSystem) {
+    private ZipPath(ZipFileSystem fileSystem) {
       super(fileSystem);
     }
 
     // Non-root paths.
-    ZipPath(ZipFileSystem fileSystem, String name, ZipPath parent) {
+    private ZipPath(ZipFileSystem fileSystem, String name, ZipPath parent) {
       super(fileSystem, name, parent);
     }
 
@@ -127,11 +150,6 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
         // Note, the ZipEntry for the root path is called "//", but that's ok.
         path.setZipEntry(new ZipEntry(path + "/")); // trailing "/" => isDir
       }
-    }
-
-    @Override
-    protected ZipPath createChildPath(String childName) {
-      return new ZipPath((ZipFileSystem) getFileSystem(), childName, this);
     }
   }
 
@@ -157,8 +175,8 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
   }
 
   @Override
-  protected Path createRootPath() {
-    return new ZipPath(this);
+  protected PathFactory getPathFactory() {
+    return ZipPath.Factory.INSTANCE;
   }
 
   /** Returns the ZipEntry associated with a given path name, if any. */

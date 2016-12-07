@@ -22,5 +22,6 @@ int main(int argc, const char *argv[]) {
   std::unique_ptr<blaze::StartupOptions> startup_options(
       new blaze::StartupOptions());
   return blaze::Main(argc, argv,
-                     new blaze::OptionProcessor(std::move(startup_options)));
+                     new blaze::OptionProcessor(std::move(startup_options)),
+                     nullptr /* TODO(b/32939567): Enable Bazel logging. */);
 }

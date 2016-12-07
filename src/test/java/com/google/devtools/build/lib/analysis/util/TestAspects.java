@@ -24,6 +24,8 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -116,6 +119,14 @@ public class TestAspects {
   public static final class RequiredProvider implements TransitiveInfoProvider {
   }
 
+  /**
+   * Another very simple provider used in tests that check whether the logic that attaches aspects
+   * depending on whether a configured target has a provider works or not.
+   */
+  @Immutable
+  public static final class RequiredProvider2 implements TransitiveInfoProvider {
+  }
+
   private static NestedSet<String> collectAspectData(String me, RuleContext ruleContext) {
     NestedSetBuilder<String> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     result.add(me);
@@ -159,6 +170,24 @@ public class TestAspects {
   }
 
   /**
+   * A simple rule configured target factory that exports provider {@link RequiredProvider2}.
+   */
+  public static class DummyRuleFactory2 implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+      return new RuleConfiguredTargetBuilder(ruleContext)
+              .addProvider(
+                  new RuleInfo(collectAspectData("rule " + ruleContext.getLabel(), ruleContext)))
+              .setFilesToBuild(NestedSetBuilder.<Artifact>create(Order.STABLE_ORDER))
+              .setRunfilesSupport(null, null)
+              .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+              .addProvider(new RequiredProvider())
+              .addProvider(new RequiredProvider2())
+              .build();
+    }
+  }
+
+  /**
    * A base class for mock aspects to reduce boilerplate.
    */
   public abstract static class BaseAspect extends NativeAspectClass
@@ -169,7 +198,7 @@ public class TestAspects {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
-      return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(
               new AspectInfo(
                   collectAspectData("aspect " + ruleContext.getLabel() + information, ruleContext)))
@@ -179,7 +208,7 @@ public class TestAspects {
 
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
   private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("simple").build();
+      new AspectDefinition.Builder(SIMPLE_ASPECT).build();
 
   /**
    * A very simple aspect.
@@ -193,16 +222,16 @@ public class TestAspects {
 
   public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT = new ExtraAttributeAspect();
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("extra_attribute")
+      new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT)
           .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
           .build();
 
   private static final ExtraAttributeAspectRequiringProvider
     EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
   private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
-      new AspectDefinition.Builder("extra_attribute_with_provider")
+      new AspectDefinition.Builder(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER)
           .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
-          .requireProvider(RequiredProvider.class)
+          .requireProviders(RequiredProvider.class)
           .build();
 
   /**
@@ -217,7 +246,7 @@ public class TestAspects {
 
   public static final AttributeAspect ATTRIBUTE_ASPECT = new AttributeAspect();
   private static final AspectDefinition ATTRIBUTE_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("attribute")
+      new AspectDefinition.Builder(ATTRIBUTE_ASPECT)
       .attributeAspect("foo", ATTRIBUTE_ASPECT)
       .build();
 
@@ -233,11 +262,29 @@ public class TestAspects {
   }
   public static final NativeAspectClass ALL_ATTRIBUTES_ASPECT = new AllAttributesAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("all_attributes_aspect")
+      new AspectDefinition.Builder(ALL_ATTRIBUTES_ASPECT)
           .allAttributesAspect(ALL_ATTRIBUTES_ASPECT)
           .build();
 
+  /** An aspect that propagates along all attributes and has a tool dependency. */
+  public static class AllAttributesWithToolAspect extends BaseAspect {
 
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION;
+    }
+  }
+
+  public static final NativeAspectClass ALL_ATTRIBUTES_WITH_TOOL_ASPECT =
+      new AllAttributesWithToolAspect();
+  private static final AspectDefinition ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
+          .allAttributesAspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
+          .add(
+              attr("$tool", BuildType.LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .value(Label.parseAbsoluteUnchecked("//a:tool")))
+          .build();
 
   /**
    * An aspect that requires aspects on the attributes of rules it attaches to.
@@ -267,6 +314,17 @@ public class TestAspects {
   }
 
   /**
+   * An aspect that requires provider sets {{@link RequiredProvider}} and
+   * {{@link RequiredProvider2}}.
+   */
+  public static class AspectRequiringProviderSets extends BaseAspect {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION;
+    }
+  }
+
+  /**
    * An aspect that has a definition depending on parameters provided by originating rule.
    */
   public static class ParametrizedDefinitionAspect extends NativeAspectClass
@@ -275,7 +333,7 @@ public class TestAspects {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
-          new AspectDefinition.Builder("parametrized_definition_aspect")
+          new AspectDefinition.Builder(PARAMETRIZED_DEFINITION_ASPECT)
               .attributeAspect("foo", this);
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
@@ -304,7 +362,7 @@ public class TestAspects {
         information.append(dep.getLabel());
       }
       information.append("]");
-      return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext)
           .addProvider(new AspectInfo(collectAspectData(information.toString(), ruleContext)))
           .build();
     }
@@ -315,9 +373,18 @@ public class TestAspects {
 
   private static final AspectRequiringProvider ASPECT_REQUIRING_PROVIDER =
       new AspectRequiringProvider();
+  private static final AspectRequiringProviderSets ASPECT_REQUIRING_PROVIDER_SETS =
+      new AspectRequiringProviderSets();
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
-      new AspectDefinition.Builder("requiring_provider")
-          .requireProvider(RequiredProvider.class)
+      new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER)
+          .requireProviders(RequiredProvider.class)
+          .build();
+  private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_SETS_DEFINITION =
+      new AspectDefinition.Builder(ASPECT_REQUIRING_PROVIDER_SETS)
+          .requireProviderSets(
+              ImmutableList.of(
+                  ImmutableSet.<Class<?>>of(RequiredProvider.class),
+                  ImmutableSet.<Class<?>>of(RequiredProvider2.class)))
           .build();
 
   /**
@@ -330,7 +397,7 @@ public class TestAspects {
     public ConfiguredAspect create(
         ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
       ruleContext.ruleWarning("Aspect warning on " + base.getTarget().getLabel());
-      return new ConfiguredAspect.Builder("warning", ruleContext).build();
+      return new ConfiguredAspect.Builder(this, parameters, ruleContext).build();
     }
 
     @Override
@@ -341,7 +408,7 @@ public class TestAspects {
 
   public static final WarningAspect WARNING_ASPECT = new WarningAspect();
   private static final AspectDefinition WARNING_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("warning")
+      new AspectDefinition.Builder(WARNING_ASPECT)
       .attributeAspect("bar", WARNING_ASPECT)
       .build();
 
@@ -366,7 +433,7 @@ public class TestAspects {
 
   public static final ErrorAspect ERROR_ASPECT = new ErrorAspect();
   private static final AspectDefinition ERROR_ASPECT_DEFINITION =
-      new AspectDefinition.Builder("error")
+      new AspectDefinition.Builder(ERROR_ASPECT)
       .attributeAspect("bar", ERROR_ASPECT)
       .build();
 
@@ -460,6 +527,30 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("aspect_requiring_provider")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines an {@link AspectRequiringProviderSets} on one of its attributes.
+   */
+  public static class AspectRequiringProviderSetsRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
+              .aspect(ASPECT_REQUIRING_PROVIDER_SETS))
+          .add(attr("baz", STRING))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("aspect_requiring_provider_sets")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
@@ -569,6 +660,29 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("all_attributes_aspect")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** A rule that defines an {@link AllAttributesWithToolAspect} on one of its attributes. */
+  public static class AllAttributesWithToolAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("foo", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .aspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("all_attributes_with_tool_aspect")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
@@ -687,6 +801,29 @@ public class TestAspects {
           .build();
     }
   }
+
+  /**
+   * A rule that advertises another, different provider and implements it.
+   */
+  public static class HonestRule2 implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .advertiseProvider(RequiredProvider2.class)
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("honest2")
+          .factoryClass(DummyRuleFactory2.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
 
   /**
    * Rule with an implcit dependency.

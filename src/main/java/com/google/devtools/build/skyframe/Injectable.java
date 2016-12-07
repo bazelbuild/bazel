@@ -20,4 +20,5 @@ import java.util.Map;
  */
 public interface Injectable {
   void inject(Map<SkyKey, ? extends SkyValue> values);
+  void inject(SkyKey key, SkyValue value);
 }

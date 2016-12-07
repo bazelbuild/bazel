@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps.ERROR;
 import static com.google.devtools.build.buildjar.javac.plugins.dependency.ImplicitDependencyExtractor.getPlatformJars;
 
@@ -32,6 +33,7 @@ import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -51,12 +53,11 @@ import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 
 /**
- * A plugin for BlazeJavaCompiler that checks for types referenced directly
- * in the source, but included through transitive dependencies. To get this
- * information, we hook into the type attribution phase of the BlazeJavaCompiler
- * (thus the overhead is another tree scan with the classic visitor). The
- * constructor takes a map from jar names to target names, only for the jars that
- * come from transitive dependencies (Blaze computes this information).
+ * A plugin for BlazeJavaCompiler that checks for types referenced directly in the source, but
+ * included through transitive dependencies. To get this information, we hook into the type
+ * attribution phase of the BlazeJavaCompiler (thus the overhead is another tree scan with the
+ * classic visitor). The constructor takes a map from jar names to target names, only for the jars
+ * that come from transitive dependencies (Blaze computes this information).
  */
 public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
@@ -73,7 +74,6 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private final Set<JCTree.JCCompilationUnit> toplevels;
   /** Marks seen ASTs */
   private final Set<JCTree> trees;
-
   /** Computed missing dependencies */
   private final Set<JarOwner> missingTargets;
 
@@ -84,16 +84,14 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private PrintWriter errWriter;
 
   /**
-   * On top of javac, we keep Blaze-specific information in the form of two
-   * maps. Both map jars (exactly as they appear on the classpath) to target
-   * names, one is used for direct dependencies, the other for the transitive
-   * dependencies.
+   * On top of javac, we keep Blaze-specific information in the form of two maps. Both map jars
+   * (exactly as they appear on the classpath) to target names, one is used for direct dependencies,
+   * the other for the transitive dependencies.
    *
-   * <p>This enables the detection of dependency issues. For instance, when a
-   * type com.Foo is referenced in the source and it's coming from an indirect
-   * dependency, we emit a warning flagging that dependency. Also, we can check
-   * whether the direct dependencies were actually necessary, i.e. if their
-   * associated jars were used at all for looking up class definitions.
+   * <p>This enables the detection of dependency issues. For instance, when a type com.Foo is
+   * referenced in the source and it's coming from an indirect dependency, we emit a warning
+   * flagging that dependency. Also, we can check whether the direct dependencies were actually
+   * necessary, i.e. if their associated jars were used at all for looking up class definitions.
    */
   public StrictJavaDepsPlugin(DependencyModule dependencyModule) {
     this.dependencyModule = dependencyModule;
@@ -107,15 +105,17 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   public void init(Context context, Log log, JavaCompiler compiler) {
     super.init(context, log, compiler);
     errWriter = log.getWriter(WriterKind.ERROR);
-    this.fileManager = context.get(JavaFileManager.class);
-    implicitDependencyExtractor = new ImplicitDependencyExtractor(
-        dependencyModule.getUsedClasspath(), dependencyModule.getImplicitDependenciesMap(),
-        fileManager);
+    fileManager = context.get(JavaFileManager.class);
+    implicitDependencyExtractor =
+        new ImplicitDependencyExtractor(
+            dependencyModule.getUsedClasspath(),
+            dependencyModule.getImplicitDependenciesMap(),
+            fileManager);
     checkingTreeScanner = context.get(CheckingTreeScanner.class);
     if (checkingTreeScanner == null) {
       Set<String> platformJars = getPlatformJars(fileManager);
-      checkingTreeScanner = new CheckingTreeScanner(
-          dependencyModule, log, missingTargets, platformJars, fileManager);
+      checkingTreeScanner =
+          new CheckingTreeScanner(dependencyModule, log, missingTargets, platformJars, fileManager);
       context.put(CheckingTreeScanner.class, checkingTreeScanner);
     }
     initTargetMap();
@@ -132,27 +132,34 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * We want to make another pass over the AST and "type-check" the usage
-   * of direct/transitive dependencies after the type attribution phase.
+   * We want to make another pass over the AST and "type-check" the usage of direct/transitive
+   * dependencies after the type attribution phase.
    */
   @Override
   public void postAttribute(Env<AttrContext> env) {
-    // We want to generate warnings/errors as if we were javac, and in order to
-    // use the internal log properly, we need to set its current source file
-    // information. The useSource call does just that, and is a common pattern
-    // from JavaCompiler: set source to current file and save the previous
-    // value, do work and generate warnings, reset source.
-    JavaFileObject prev = log.useSource(
-        env.enclClass.sym.sourcefile != null
-            ? env.enclClass.sym.sourcefile
-            : env.toplevel.sourcefile);
-    if (trees.add(env.tree)) {
-      checkingTreeScanner.scan(env.tree);
+    JavaFileObject previousSource =
+        log.useSource(
+            env.enclClass.sym.sourcefile != null
+                ? env.enclClass.sym.sourcefile
+                : env.toplevel.sourcefile);
+    boolean previousExemption = checkingTreeScanner.isStrictDepsExempt;
+    try {
+      ProcessorDependencyMode mode = isAnnotationProcessorExempt(env.toplevel);
+      if (mode == ProcessorDependencyMode.EXEMPT_NORECORD) {
+        return;
+      }
+      checkingTreeScanner.isStrictDepsExempt |= mode == ProcessorDependencyMode.EXEMPT_RECORD;
+      if (trees.add(env.tree)) {
+        checkingTreeScanner.scan(env.tree);
+      }
+      if (toplevels.add(env.toplevel)) {
+        checkingTreeScanner.scan(env.toplevel.getImports());
+        dependencyModule.addPackage(env.toplevel.packge);
+      }
+    } finally {
+      checkingTreeScanner.isStrictDepsExempt = previousExemption;
+      log.useSource(previousSource);
     }
-    if (toplevels.add(env.toplevel)) {
-      checkingTreeScanner.scan(env.toplevel.getImports());
-    }
-    log.useSource(prev);
   }
 
   @Override
@@ -178,10 +185,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * An AST visitor that implements our strict_java_deps checks. For now, it
-   * only emits warnings for types loaded from jar files provided by transitive
-   * (indirect) dependencies. Each type is considered only once, so at most one
-   * warning is generated for it.
+   * An AST visitor that implements our strict_java_deps checks. For now, it only emits warnings for
+   * types loaded from jar files provided by transitive (indirect) dependencies. Each type is
+   * considered only once, so at most one warning is generated for it.
    */
   private static class CheckingTreeScanner extends TreeScanner {
 
@@ -209,13 +215,11 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     /** We only emit one warning/error per class symbol */
     private final Set<ClassSymbol> seenClasses = new HashSet<>();
+
     private final Set<JarOwner> seenTargets = new HashSet<>();
 
     /** The set of jars on the compilation bootclasspath. */
     private final Set<String> platformJars;
-
-    /** The set of generators we exempt from this testing. */
-    private final Set<String> exemptGenerators;
 
     /** Was the node being visited generated by an exempt annotation processor? */
     private boolean isStrictDepsExempt = false;
@@ -233,17 +237,13 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       this.directDependenciesMap = dependencyModule.getExplicitDependenciesMap();
       this.platformJars = platformJars;
       this.fileManager = fileManager;
-      this.exemptGenerators = dependencyModule.getExemptGenerators();
     }
 
     Set<ClassSymbol> getSeenClasses() {
       return seenClasses;
     }
 
-    /**
-     * Checks an AST node denoting a class type against direct/transitive
-     * dependencies.
-     */
+    /** Checks an AST node denoting a class type against direct/transitive dependencies. */
     private void checkTypeLiteral(JCTree node) {
       if (node == null || node.type.tsym == null) {
         return;
@@ -255,7 +255,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       // If this type symbol comes from a class file loaded from a jar, check
       // whether that jar was a direct dependency and error out otherwise.
       if (jarName != null && seenClasses.add(sym.enclClass())) {
-         collectExplicitDependency(jarName, node, sym);
+        collectExplicitDependency(jarName, node, sym);
       }
     }
 
@@ -293,10 +293,8 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
       if (!directDependenciesMap.containsKey(jarName)) {
         // Also update the dependency proto
-        Dependency dep = Dependency.newBuilder()
-            .setPath(jarName)
-            .setKind(Dependency.Kind.EXPLICIT)
-            .build();
+        Dependency dep =
+            Dependency.newBuilder().setPath(jarName).setKind(Dependency.Kind.EXPLICIT).build();
         directDependenciesMap.put(jarName, dep);
       }
     }
@@ -313,9 +311,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
     }
 
-    /**
-     * Visits an identifier in the AST. We only care about type symbols.
-     */
+    /** Visits an identifier in the AST. We only care about type symbols. */
     @Override
     public void visitIdent(JCTree.JCIdent tree) {
       if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
@@ -324,26 +320,15 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     }
 
     /**
-     * Visits a field selection in the AST. We care because in some cases types
-     * may appear fully qualified and only inside a field selection
-     * (e.g., "com.foo.Bar.X", we want to catch the reference to Bar).
+     * Visits a field selection in the AST. We care because in some cases types may appear fully
+     * qualified and only inside a field selection (e.g., "com.foo.Bar.X", we want to catch the
+     * reference to Bar).
      */
     @Override
     public void visitSelect(JCTree.JCFieldAccess tree) {
       scan(tree.selected);
       if (tree.sym != null && tree.sym.kind == Kinds.Kind.TYP) {
         checkTypeLiteral(tree);
-      }
-    }
-
-    /**
-     * Visits an import statement. Static imports must not be omitted, as they
-     * are the only place we'll see the containing class references.
-     */
-    @Override
-    public void visitImport(JCTree.JCImport tree) {
-      if (tree.isStatic()) {
-        scan(tree.getQualifiedIdentifier());
       }
     }
 
@@ -355,54 +340,48 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       }
       scan(tree.body);
     }
+  }
 
-    private static final String DAGGER_PROCESSOR_PREFIX = "dagger.";
+  private static final String DAGGER_PROCESSOR_PREFIX = "dagger.";
 
-    enum ProcessorDependencyMode {
-      DEFAULT,
-      EXEMPT_RECORD,
-      EXEMPT_NORECORD;
-    }
-
-    public ProcessorDependencyMode isAnnotationProcessorExempt(JCTree.JCClassDecl tree) {
-      if (tree.sym == null) {
-        return ProcessorDependencyMode.DEFAULT;
-      }
-      Generated generated = tree.sym.getAnnotation(Generated.class);
-      if (generated == null) {
-        return ProcessorDependencyMode.DEFAULT;
-      }
-      for (String value : generated.value()) {
-        // Relax strict deps for dagger-generated code (b/17979436).
-        if (value.startsWith(DAGGER_PROCESSOR_PREFIX)) {
-          return ProcessorDependencyMode.EXEMPT_NORECORD;
-        }
-        if (exemptGenerators.contains(value)) {
-          return ProcessorDependencyMode.EXEMPT_RECORD;
-        }
-      }
-      return ProcessorDependencyMode.DEFAULT;
-    }
-
-    @Override
-    public void visitClassDef(JCTree.JCClassDecl tree) {
-      ProcessorDependencyMode mode = isAnnotationProcessorExempt(tree);
-      if (mode == ProcessorDependencyMode.EXEMPT_NORECORD) {
-        return;
-      }
-      boolean previous = isStrictDepsExempt;
-      try {
-        isStrictDepsExempt |= mode == ProcessorDependencyMode.EXEMPT_RECORD;
-        super.visitClassDef(tree);
-      } finally {
-        isStrictDepsExempt = previous;
-      }
-    }
+  enum ProcessorDependencyMode {
+    DEFAULT,
+    EXEMPT_RECORD,
+    EXEMPT_NORECORD;
   }
 
   /**
-   * Returns the canonical version of the target name. Package private for testing.
+   * Returns true if the compilation unit contains a single top-level class generated by an exempt
+   * annotation processor (according to its {@link @Generated} annotation).
+   *
+   * <p>Annotation processors are expected to never generate more than one top level class, as
+   * required by the style guide.
    */
+  public ProcessorDependencyMode isAnnotationProcessorExempt(JCTree.JCCompilationUnit unit) {
+    if (unit.getTypeDecls().size() != 1) {
+      return ProcessorDependencyMode.DEFAULT;
+    }
+    Symbol sym = TreeInfo.symbolFor(getOnlyElement(unit.getTypeDecls()));
+    if (sym == null) {
+      return ProcessorDependencyMode.DEFAULT;
+    }
+    Generated generated = sym.getAnnotation(Generated.class);
+    if (generated == null) {
+      return ProcessorDependencyMode.DEFAULT;
+    }
+    for (String value : generated.value()) {
+      // Relax strict deps for dagger-generated code (b/17979436).
+      if (value.startsWith(DAGGER_PROCESSOR_PREFIX)) {
+        return ProcessorDependencyMode.EXEMPT_NORECORD;
+      }
+      if (dependencyModule.getExemptGenerators().contains(value)) {
+        return ProcessorDependencyMode.EXEMPT_RECORD;
+      }
+    }
+    return ProcessorDependencyMode.DEFAULT;
+  }
+
+  /** Returns the canonical version of the target name. Package private for testing. */
   static String canonicalizeTarget(String target) {
     String replacement = targetMap.getProperty(target);
     if (replacement != null) {
@@ -434,9 +413,9 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   }
 
   /**
-   * Returns the name of the jar file from which the given class symbol was
-   * loaded, if available, and null otherwise. Implicitly filters out jars
-   * from the compilation bootclasspath.
+   * Returns the name of the jar file from which the given class symbol was loaded, if available,
+   * and null otherwise. Implicitly filters out jars from the compilation bootclasspath.
+   *
    * @param platformJars jars on javac's bootclasspath
    */
   static String getJarName(
@@ -465,9 +444,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return name;
   }
 
-  /**
-   * Returns true if the given classSymbol corresponds to one of the sources being compiled.
-   */
+  /** Returns true if the given classSymbol corresponds to one of the sources being compiled. */
   private static boolean haveSourceForSymbol(ClassSymbol classSymbol) {
     if (classSymbol.sourcefile == null) {
       return false;

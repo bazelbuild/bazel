@@ -46,7 +46,7 @@ def create_android_sdk_rules(
           "sources",
           "system-images",
           "tools",
-      ]),
+      ], exclude_directories = 0),
   )
 
   native.java_import(
@@ -192,7 +192,7 @@ def create_android_sdk_rules(
       zipalign = ":zipalign_binary",
       jack = ":fail",
       jill = ":fail",
-      resource_extractor = ":fail"
+      resource_extractor = "@bazel_tools//tools/android:resource_extractor",
   )
 
   native.java_import(

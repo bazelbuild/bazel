@@ -21,8 +21,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -128,6 +130,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
             .handle(
                 Event.warn(
                     spawn.getMnemonic() + " unsupported operation for action cache (" + e + ")"));
+      } catch (StatusRuntimeException e) {
+        actionExecutionContext
+            .getExecutor()
+            .getEventHandler()
+            .handle(Event.warn(spawn.getMnemonic() + " failed uploading results (" + e + ")"));
       }
     }
   }
@@ -147,6 +154,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     }
   }
 
+  @Override
+  public String toString() {
+    return "remote";
+  }
+
   /** Executes the given {@code spawn}. */
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
@@ -158,7 +170,10 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
 
     ActionKey actionKey = null;
     String mnemonic = spawn.getMnemonic();
-    EventHandler eventHandler = actionExecutionContext.getExecutor().getEventHandler();
+    Executor executor = actionExecutionContext.getExecutor();
+    EventHandler eventHandler = executor.getEventHandler();
+    executor.getEventBus().post(
+        ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "remote"));
 
     try {
       // Temporary hack: the TreeNodeRepository should be created and maintained upstream!

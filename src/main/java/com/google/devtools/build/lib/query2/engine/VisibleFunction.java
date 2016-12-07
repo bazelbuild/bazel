@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.Processor;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
@@ -51,24 +52,46 @@ public class VisibleFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.EXPRESSION);
   }
 
+  private static class ProcessorImpl<T> implements Processor<T> {
+    private final QueryEnvironment<T> env;
+    private final Set<T> toSet;
+
+    private ProcessorImpl(QueryEnvironment<T> env, Set<T> toSet) {
+      this.env = env;
+      this.toSet = toSet;
+    }
+
+    @Override
+    public void process(Iterable<T> partialResult, Callback<T> callback)
+        throws QueryException, InterruptedException {
+      for (T t : partialResult) {
+        if (visibleToAll(env, toSet, t)) {
+          callback.process(ImmutableList.of(t));
+        }
+      }
+    }
+  }
+
+  private static <T> void doEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      List<Argument> args,
+      Callback<T> callback) throws QueryException, InterruptedException {
+    Set<T> toSet = QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    env.eval(
+        args.get(1).getExpression(),
+        context,
+        QueryUtil.compose(new ProcessorImpl<T>(env, toSet), callback));
+  }
+
   @Override
   public <T> void eval(
-      final QueryEnvironment<T> env,
+      QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback) throws QueryException, InterruptedException {
-    final Set<T> toSet = QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    env.eval(args.get(1).getExpression(), context, new Callback<T>() {
-      @Override
-      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
-        for (T t : partialResult) {
-          if (visibleToAll(env, toSet, t)) {
-            callback.process(ImmutableList.of(t));
-          }
-        }
-      }
-    });
+      Callback<T> callback) throws QueryException, InterruptedException {
+    doEval(env, context, args, callback);
   }
 
   @Override
@@ -79,7 +102,7 @@ public class VisibleFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
+    doEval(env, context, args, callback);
   }
 
   /** Returns true if {@code target} is visible to all targets in {@code toSet}. */

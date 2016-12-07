@@ -23,16 +23,14 @@
 
 namespace blaze_util {
 
-using std::string;
-
 extern const unsigned char kAsciiPropertyBits[256];
 #define kApb kAsciiPropertyBits
 
 static inline bool ascii_isspace(unsigned char c) { return kApb[c] & 0x08; }
 
-bool starts_with(const string &haystack, const string &needle);
+bool starts_with(const std::string &haystack, const std::string &needle);
 
-bool ends_with(const string &haystack, const string &needle);
+bool ends_with(const std::string &haystack, const std::string &needle);
 
 // Matches a prefix (which must be a char* literal!) against the beginning of
 // str. Returns a pointer past the prefix, or NULL if the prefix wasn't matched.
@@ -41,9 +39,10 @@ bool ends_with(const string &haystack, const string &needle);
 //
 // The ""'s catch people who don't pass in a literal for "prefix"
 #ifndef strprefix
-#define strprefix(str, prefix) \
-  (strncmp(str, prefix, sizeof("" prefix "")-1) == 0 ? \
-      str + sizeof(prefix)-1 : NULL)
+#define strprefix(str, prefix)                         \
+  (strncmp(str, prefix, sizeof("" prefix "") - 1) == 0 \
+       ? str + sizeof(prefix) - 1                      \
+       : NULL)
 #endif
 
 // Matches a prefix; returns a pointer past the prefix, or NULL if not found.
@@ -54,55 +53,57 @@ bool ends_with(const string &haystack, const string &needle);
 // (Like strprefix() and strcaseprefix() but not restricted to searching for
 // char* literals). Templated so searching a const char* returns a const char*,
 // and searching a non-const char* returns a non-const char*.
-template<class CharStar>
-inline CharStar var_strprefix(CharStar str, const char* prefix) {
+template <class CharStar>
+inline CharStar var_strprefix(CharStar str, const char *prefix) {
   const int len = strlen(prefix);
-  return strncmp(str, prefix, len) == 0 ?  str + len : NULL;
+  return strncmp(str, prefix, len) == 0 ? str + len : NULL;
 }
 
 // Returns a mutable char* pointing to a string's internal buffer, which may not
 // be null-terminated. Returns NULL for an empty string. If not non-null,
 // writing through this pointer will modify the string.
-inline char* string_as_array(string* str) {
+inline char *string_as_array(std::string *str) {
   // DO NOT USE const_cast<char*>(str->data())! See the unittest for why.
   return str->empty() ? NULL : &*str->begin();
 }
 
 // Join the elements of pieces separated by delimeter.  Returns the joined
 // string in output.
-void JoinStrings(
-    const std::vector<string> &pieces, const char delimeter, string *output);
+void JoinStrings(const std::vector<std::string> &pieces, const char delimeter,
+                 std::string *output);
 
 // Splits contents by delimeter.  Skips empty subsections.
-std::vector<string> Split(const string &contents, const char delimeter);
+std::vector<std::string> Split(const std::string &contents,
+                               const char delimeter);
 
 // Same as above, but adds results to output.
-void SplitStringUsing(
-    const string &contents, const char delimeter, std::vector<string> *output);
+void SplitStringUsing(const std::string &contents, const char delimeter,
+                      std::vector<std::string> *output);
 
 // Same as above, but adds results to output. Returns number of elements added.
-size_t SplitQuotedStringUsing(const string &contents, const char delimeter,
-                              std::vector<string> *output);
+size_t SplitQuotedStringUsing(const std::string &contents, const char delimeter,
+                              std::vector<std::string> *output);
 
 // Global replace of oldsub with newsub.
-void Replace(const string &oldsub, const string &newsub, string *str);
+void Replace(const std::string &oldsub, const std::string &newsub,
+             std::string *str);
 
 // Removes whitespace from both ends of a string.
-void StripWhitespace(string *str);
+void StripWhitespace(std::string *str);
 
 // Tokenizes str on whitespace and places the tokens in words. Splits on spaces,
 // newlines, carriage returns, and tabs. Respects single and double quotes (that
 // is, "a string of 'some stuff'" would be 4 tokens). If the comment character
 // is found (outside of quotes), the rest of the string will be ignored. Any
 // token can be escaped with \, e.g., "this\\ is\\ one\\ token".
-void Tokenize(
-    const string &str, const char &comment, std::vector<string> *words);
+void Tokenize(const std::string &str, const char &comment,
+              std::vector<std::string> *words);
 
 // Evaluate a format string and store the result in 'str'.
-void StringPrintf(string *str, const char *format, ...);
+void StringPrintf(std::string *str, const char *format, ...);
 
 // Convert str to lower case. No locale handling, this is just for ASCII.
-void ToLower(string* str);
+void ToLower(std::string *str);
 
 }  // namespace blaze_util
 

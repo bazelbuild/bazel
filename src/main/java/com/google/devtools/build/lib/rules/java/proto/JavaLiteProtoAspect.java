@@ -30,9 +30,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.FilesToRunProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -49,13 +48,14 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaLibraryHelper;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSupportDataProvider;
 import com.google.devtools.build.lib.rules.proto.SupportData;
@@ -64,31 +64,31 @@ import javax.annotation.Nullable;
 /** An Aspect which JavaLiteProtoLibrary injects to build Java Lite protos. */
 public class JavaLiteProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
 
-  public static final String LITE_PROTO_RUNTIME_ATTR = "$aspect_java_lib";
-  public static final String LITE_PROTO_RUNTIME_LABEL = "//external:protobuf/javalite_runtime";
+  public static final String PROTO_TOOLCHAIN_ATTR = ":aspect_proto_toolchain_for_javalite";
 
-  private static final Attribute.LateBoundLabel<BuildConfiguration> JAVA_LITE_PLUGIN =
-      new Attribute.LateBoundLabel<BuildConfiguration>((Label) null, ProtoConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(ProtoConfiguration.class).protoCompilerJavaLitePlugin();
-        }
-
-        @Override
-        public boolean useHostConfiguration() {
-          return true;
-        }
-      };
-  private static final String PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR =
-      ":proto_compiler_java_lite_plugin";
+  public static Attribute.LateBoundLabel<BuildConfiguration> getProtoToolchainLabel(
+      String defaultValue) {
+    return new Attribute.LateBoundLabel<BuildConfiguration>(
+        defaultValue, ProtoConfiguration.class) {
+      @Override
+      public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+        return configuration.getFragment(ProtoConfiguration.class).protoToolchainForJavaLite();
+      }
+    };
+  }
 
   private final JavaSemantics javaSemantics;
 
   @Nullable private final String jacocoLabel;
+  private final String defaultProtoToolchainLabel;
 
-  public JavaLiteProtoAspect(JavaSemantics javaSemantics, @Nullable String jacocoLabel) {
+  public JavaLiteProtoAspect(
+      JavaSemantics javaSemantics,
+      @Nullable String jacocoLabel,
+      String defaultProtoToolchainLabel) {
     this.javaSemantics = javaSemantics;
     this.jacocoLabel = jacocoLabel;
+    this.defaultProtoToolchainLabel = defaultProtoToolchainLabel;
   }
 
   @Override
@@ -96,7 +96,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     ConfiguredAspect.Builder aspect =
-        new ConfiguredAspect.Builder(getClass().getSimpleName(), ruleContext);
+        new ConfiguredAspect.Builder(this, parameters, ruleContext);
 
     // Get SupportData, which is provided by the proto_library rule we attach to.
     SupportData supportData =
@@ -110,24 +110,21 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
-        new AspectDefinition.Builder(getClass().getSimpleName())
+        new AspectDefinition.Builder(this)
             .attributeAspect("deps", this)
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
-            .requireProvider(ProtoSourcesProvider.class)
+            .requireProviders(ProtoSourcesProvider.class)
             .add(
-                attr(LITE_PROTO_RUNTIME_ATTR, LABEL)
-                    .legacyAllowAnyFileType()
-                    .value(parseAbsoluteUnchecked(LITE_PROTO_RUNTIME_LABEL)))
+                attr(PROTO_TOOLCHAIN_ATTR, LABEL)
+                    .mandatoryNativeProviders(
+                        ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                            ProtoLangToolchainProvider.class))
+                    .value(getProtoToolchainLabel(defaultProtoToolchainLabel)))
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
                     .allowedRuleClasses("java_toolchain")
-                    .value(JavaSemantics.JAVA_TOOLCHAIN))
-            .add(
-                attr(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, LABEL)
-                    .cfg(HOST)
-                    .exec()
-                    .value(JAVA_LITE_PLUGIN));
+                    .value(JavaSemantics.JAVA_TOOLCHAIN));
 
     Attribute.Builder<Label> jacocoAttr = attr("$jacoco_instrumentation", LABEL).cfg(HOST);
 
@@ -207,24 +204,17 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
     }
 
     private void createProtoCompileAction(Artifact sourceJar) {
-      ProtoCompileActionBuilder actionBuilder =
-          new ProtoCompileActionBuilder(
-                  ruleContext, supportData, "Java", "java", ImmutableList.of(sourceJar))
-              .allowServices(true)
-              .setLangParameter(
-                  String.format(
-                      ruleContext
-                          .getFragment(ProtoConfiguration.class, HOST)
-                          .protoCompilerJavaLiteFlags(),
-                      sourceJar.getExecPathString()));
-
-      FilesToRunProvider plugin =
-          ruleContext.getExecutablePrerequisite(PROTO_COMPILER_JAVA_LITE_PLUGIN_ATTR, Mode.HOST);
-      if (plugin != null) {
-        actionBuilder.setAdditionalTools(ImmutableList.of(plugin));
-      }
-
-      ruleContext.registerAction(actionBuilder.build());
+      ProtoCompileActionBuilder.registerActions(
+          ruleContext,
+          ImmutableList.of(
+              new ProtoCompileActionBuilder.ToolchainInvocation(
+                  "javalite", getProtoToolchainProvider(), sourceJar.getExecPathString())),
+          supportData.getDirectProtoSources(),
+          supportData.getTransitiveImports(),
+          supportData.getProtosInDirectDeps(),
+          ImmutableList.of(sourceJar),
+          "JavaLite",
+          true /* allowServices */);
     }
 
     private JavaCompilationArgsProvider createJavaCompileAction(
@@ -233,15 +223,25 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
           new JavaLibraryHelper(ruleContext)
               .setOutput(outputJar)
               .addSourceJars(sourceJar)
-              .setJavacOpts(getAndroidCompatibleJavacOpts());
+              .setJavacOpts(ProtoJavacOpts.constructJavacOpts(ruleContext));
       helper.addDep(dependencyCompilationArgs);
-      helper
-          .addDep(
-              ruleContext.getPrerequisite(
-                  LITE_PROTO_RUNTIME_ATTR, Mode.TARGET, JavaCompilationArgsProvider.class))
-          .setCompilationStrictDepsMode(StrictDepsMode.OFF);
-      JavaCompilationArgs artifacts = helper.build(javaSemantics);
+      TransitiveInfoCollection runtime = getProtoToolchainProvider().runtime();
+      if (runtime != null) {
+        helper.addDep(runtime.getProvider(JavaCompilationArgsProvider.class));
+      }
+      helper.setCompilationStrictDepsMode(StrictDepsMode.OFF);
+      JavaCompilationArgs artifacts = helper.build(
+          javaSemantics,
+          JavaCompilationHelper.getJavaToolchainProvider(ruleContext),
+          JavaCompilationHelper.getHostJavabaseInputsNonStatic(ruleContext),
+          JavaCompilationHelper.getInstrumentationJars(ruleContext));
       return helper.buildCompilationArgsProvider(artifacts, true /* isReportedAsStrict */);
+    }
+
+    private ProtoLangToolchainProvider getProtoToolchainProvider() {
+      return checkNotNull(
+          ruleContext.getPrerequisite(
+              PROTO_TOOLCHAIN_ATTR, TARGET, ProtoLangToolchainProvider.class));
     }
 
     private Artifact getSourceJarArtifact() {
@@ -250,22 +250,6 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
 
     private Artifact getOutputJarArtifact() {
       return ruleContext.getBinArtifact("lib" + ruleContext.getLabel().getName() + "-lite.jar");
-    }
-
-    /**
-     * Returns javacopts for compiling the Java source files generated by the proto compiler.
-     * Ensures that they are compiled so that they can be used by Android targets.
-     *
-     * <p>See java_toolchain.compatible_javacopts for the javacopts required for android.
-     */
-    private ImmutableList<String> getAndroidCompatibleJavacOpts() {
-      JavaToolchainProvider toolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
-      ImmutableList.Builder<String> listBuilder = ImmutableList.builder();
-      listBuilder.addAll(toolchain.getJavacOptions());
-      // TODO(b/30890416): Get this from AndroidSemantics.getJavacArguments()
-      listBuilder.addAll(
-          toolchain.getCompatibleJavacOptions("android"));
-      return listBuilder.build();
     }
 
     private <C extends TransitiveInfoProvider> Iterable<C> getDeps(Class<C> clazz) {

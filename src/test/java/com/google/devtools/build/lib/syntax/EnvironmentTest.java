@@ -47,10 +47,10 @@ public class EnvironmentTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testLookupWithDefault() throws Exception {
-    assertEquals(21, getEnvironment().lookup("VERSION", 21));
+  public void testHasVariable() throws Exception {
+    assertThat(getEnvironment().hasVariable("VERSION")).isFalse();
     update("VERSION", 42);
-    assertEquals(42, getEnvironment().lookup("VERSION", 21));
+    assertThat(getEnvironment().hasVariable("VERSION")).isTrue();
   }
 
   @Test
@@ -72,6 +72,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test update through API, reference through interpreter:
   @Test
   public void testReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -85,6 +86,7 @@ public class EnvironmentTest extends EvaluationTestCase {
   // Test assign and reference through interpreter:
   @Test
   public void testAssignAndReference() throws Exception {
+    setFailFast(false);
     try {
       eval("foo");
       fail();
@@ -100,10 +102,12 @@ public class EnvironmentTest extends EvaluationTestCase {
     Environment outerEnv;
     Environment innerEnv;
     try (Mutability mut = Mutability.create("outer")) {
-      outerEnv = Environment.builder(mut)
-          .setGlobals(Environment.BUILD).build()
-          .update("foo", "bar")
-          .update("wiz", 3);
+      outerEnv =
+          Environment.builder(mut)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .build()
+              .update("foo", "bar")
+              .update("wiz", 3);
     }
     try (Mutability mut = Mutability.create("inner")) {
       innerEnv = Environment.builder(mut)
@@ -112,15 +116,68 @@ public class EnvironmentTest extends EvaluationTestCase {
           .update("quux", 42);
     }
 
-    assertEquals(Sets.newHashSet("foo", "wiz",
-            "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
-            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+    assertEquals(
+        Sets.newHashSet(
+            "foo",
+            "wiz",
+            "False",
+            "None",
+            "True",
+            "-",
+            "all",
+            "any",
+            "bool",
+            "dict",
+            "dir",
+            "enumerate",
+            "fail",
+            "getattr",
+            "hasattr",
+            "hash",
+            "int",
+            "len",
+            "list",
+            "max",
+            "min",
+            "print",
+            "range",
+            "repr",
+            "reversed",
+            "sorted",
+            "str",
+            "zip"),
         outerEnv.getVariableNames());
-    assertEquals(Sets.newHashSet("foo", "wiz", "quux",
-            "False", "None", "True",
-            "-", "all", "any", "bool", "dict", "enumerate", "fail", "int", "len", "list", "max",
-            "min", "print", "range", "repr", "reversed", "select", "set", "sorted", "str", "zip"),
+    assertEquals(
+        Sets.newHashSet(
+            "foo",
+            "wiz",
+            "quux",
+            "False",
+            "None",
+            "True",
+            "-",
+            "all",
+            "any",
+            "bool",
+            "dict",
+            "dir",
+            "enumerate",
+            "fail",
+            "getattr",
+            "hasattr",
+            "hash",
+            "int",
+            "len",
+            "list",
+            "max",
+            "min",
+            "print",
+            "range",
+            "repr",
+            "reversed",
+            "sorted",
+            "str",
+            "zip"),
         innerEnv.getVariableNames());
   }
 
@@ -145,8 +202,11 @@ public class EnvironmentTest extends EvaluationTestCase {
   public void testFrozen() throws Exception {
     Environment env;
     try (Mutability mutability = Mutability.create("testFrozen")) {
-      env = Environment.builder(mutability)
-          .setGlobals(Environment.BUILD).setEventHandler(Environment.FAIL_FAST_HANDLER).build();
+      env =
+          Environment.builder(mutability)
+              .setGlobals(Environment.DEFAULT_GLOBALS)
+              .setEventHandler(Environment.FAIL_FAST_HANDLER)
+              .build();
       env.update("x", 1);
       assertEquals(env.lookup("x"), 1);
       env.update("y", 2);
@@ -234,14 +294,14 @@ public class EnvironmentTest extends EvaluationTestCase {
     // We don't even get a runtime exception trying to modify these,
     // because we get compile-time exceptions even before we reach runtime!
     try {
-      env.eval("special_var = 41");
+      BuildFileAST.eval(env, "special_var = 41");
       throw new AssertionError("failed to fail");
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("ERROR 1:1: Variable special_var is read only");
+      assertThat(e.getMessage()).contains("ERROR 1:1: Variable special_var is read only");
     }
 
     try {
-      env.eval("def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
+      BuildFileAST.eval(env, "def foo(x): x += global_var; global_var = 36; return x", "foo(1)");
       throw new AssertionError("failed to fail");
     } catch (EvalExceptionWithStackTrace e) {
       assertThat(e.getMessage()).contains("Variable 'global_var' is referenced before assignment. "

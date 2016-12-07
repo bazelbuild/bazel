@@ -18,18 +18,13 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -38,38 +33,6 @@ import java.util.List;
  */
 public class BlazeTestUtils {
   private BlazeTestUtils() {}
-
-  /**
-   * Populates the _embedded_binaries/ directory, containing all binaries/libraries, by symlinking
-   * directories#getEmbeddedBinariesRoot() to the test's runfiles tree.
-   */
-  public static BinTools getIntegrationBinTools(BlazeDirectories directories) throws IOException {
-    Path embeddedDir = directories.getEmbeddedBinariesRoot();
-    FileSystemUtils.createDirectoryAndParents(embeddedDir);
-
-    Path runfiles = directories.getFileSystem().getPath(BlazeTestUtils.runfilesDir());
-    // Copy over everything in embedded_scripts.
-    Collection<Path> files = new ArrayList<>();
-    for (String embeddedScriptPath : TestConstants.EMBEDDED_SCRIPTS_PATHS) {
-      Path embeddedScripts = runfiles.getRelative(embeddedScriptPath);
-      if (embeddedScripts.exists()) {
-        files.addAll(embeddedScripts.getDirectoryEntries());
-      } else {
-        System.err.println("test does not have " + embeddedScripts);
-      }
-    }
-
-    for (Path fromFile : files) {
-      try {
-        embeddedDir.getChild(fromFile.getBaseName()).createSymbolicLink(fromFile);
-      } catch (IOException e) {
-        System.err.println("Could not symlink: " + e.getMessage());
-      }
-    }
-
-    return BinTools.forIntegrationTesting(
-        directories, embeddedDir.toString(), TestConstants.EMBEDDED_TOOLS);
-  }
 
   /**
    * Writes a FilesetRule to a String array.

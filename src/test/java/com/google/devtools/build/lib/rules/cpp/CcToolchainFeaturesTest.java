@@ -27,22 +27,25 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.IntegerValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.protobuf.TextFormat;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for toolchain features.
@@ -69,10 +72,10 @@ public class CcToolchainFeaturesTest {
     Variables.Builder variables = new Variables.Builder();
     for (String name : entryMap.keySet()) {
       Collection<String> value = entryMap.get(name);
-      if (value.size() > 1) {
-        variables.addSequenceVariable(name, value);
+      if (value.size() == 1) {
+        variables.addStringVariable(name, value.iterator().next());
       } else {
-        variables.addVariable(name, value.iterator().next());
+        variables.addStringSequenceVariable(name, ImmutableList.copyOf(value));
       }
     }
     return variables.build();
@@ -195,7 +198,7 @@ public class CcToolchainFeaturesTest {
         "    " + groups, 
         "  }",
         "}").getFeatureConfiguration("a");
-    return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);    
+    return configuration.getCommandLine(CppCompileAction.CPP_COMPILE, variables);
   }
   
   private List<String> getCommandLineForFlag(String value, Variables variables) throws Exception {
@@ -205,7 +208,7 @@ public class CcToolchainFeaturesTest {
   private String getExpansionOfFlag(String value, Variables variables) throws Exception {
     return getCommandLineForFlag(value, variables).get(0);
   }
-  
+
   private String getFlagParsingError(String value) throws Exception {
     try {
       getExpansionOfFlag(value);
@@ -226,6 +229,17 @@ public class CcToolchainFeaturesTest {
     }
   }
 
+  private String getFlagGroupsExpansionError(String flagGroups, Variables variables)
+      throws Exception {
+    try {
+      getCommandLineForFlagGroups(flagGroups, variables).get(0);
+      fail("Expected ExpansionException");
+      return "";
+    } catch (ExpansionException e) {
+      return e.getMessage();
+    }
+  }
+
   @Test
   public void testVariableExpansion() throws Exception {
     assertThat(getExpansionOfFlag("%%")).isEqualTo("%");
@@ -238,18 +252,327 @@ public class CcToolchainFeaturesTest {
     assertThat(getFlagParsingError("% ")).contains("expected '{'");
     assertThat(getFlagParsingError("%{")).contains("expected variable name");
     assertThat(getFlagParsingError("%{}")).contains("expected variable name");
-    assertThat(getCommandLineForFlag("%{v}",
-        new Variables.Builder().addSequenceVariable("v", ImmutableList.<String>of()).build()))
+    assertThat(
+            getCommandLineForFlag(
+                "%{v}",
+                new Variables.Builder()
+                    .addStringSequenceVariable("v", ImmutableList.<String>of())
+                    .build()))
         .isEmpty();
-    assertThat(getFlagExpansionError("%{v}", createVariables())).contains("unknown variable 'v'");
-    assertThat(getFlagExpansionError("%{v}", new Variables.Builder()
-        .addSequenceVariable("v", ImmutableList.<String>of("1"))
-        .addVariable("v", "2").build()))
-        .contains("variable 'v'");
+    assertThat(getFlagExpansionError("%{v}", createVariables()))
+        .contains("Invalid toolchain configuration: Cannot find variable named 'v'");
+  }
+
+  private Variables createStructureSequenceVariables(String name, StructureBuilder... values) {
+    SequenceBuilder builder = new SequenceBuilder();
+    for (StructureBuilder value : values) {
+      builder.addValue(value.build());
+    }
+    return new Variables.Builder().addCustomBuiltVariable(name, builder).build();
+  }
+
+  private Variables createStructureVariables(String name, StructureBuilder value) {
+    return new Variables.Builder().addCustomBuiltVariable(name, value).build();
   }
 
   @Test
-  public void testListVariableExpansion() throws Exception {
+  public void testSimpleStructureVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { flag: '-A%{struct.foo}' flag: '-B%{struct.bar}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testNestedStructureVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { flag: '-A%{struct.foo.bar}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureBuilder()
+                        .addField("foo", new StructureBuilder().addField("bar", "fooBarValue")))))
+        .containsExactly("-AfooBarValue");
+  }
+
+  @Test
+  public void testAccessingStructureAsStringFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{struct}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .isEqualTo(
+            "Invalid toolchain configuration: Cannot expand variable 'struct': expected string, "
+                + "found structure");
+  }
+
+  @Test
+  public void testAccessingStringValueAsStructureFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{stringVar.foo}' }",
+                createVariables("stringVar", "stringVarValue")))
+        .isEqualTo(
+            "Invalid toolchain configuration: Cannot expand variable 'stringVar.foo': variable "
+                + "'stringVar' is string, expected structure");
+  }
+
+  @Test
+  public void testAccessingSequenceAsStructureFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{sequence.foo}' }",
+                createVariables("sequence", "foo1", "sequence", "foo2")))
+        .isEqualTo(
+            "Invalid toolchain configuration: Cannot expand variable 'sequence.foo': variable "
+                + "'sequence' is sequence, expected structure");
+  }
+
+  @Test
+  public void testAccessingMissingStructureFieldFails() throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { flag: '-A%{struct.missing}' }",
+                createStructureVariables(
+                    "struct", new StructureBuilder().addField("bar", "barValue"))))
+        .isEqualTo(
+            "Invalid toolchain configuration: Cannot expand variable 'struct.missing': structure "
+                + "struct doesn't have a field named 'missing'");
+  }
+
+  @Test
+  public void testSequenceOfStructuresExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'structs' flag: '-A%{structs.foo}' }",
+                createStructureSequenceVariables(
+                    "structs",
+                    new StructureBuilder().addField("foo", "foo1Value"),
+                    new StructureBuilder().addField("foo", "foo2Value"))))
+        .containsExactly("-Afoo1Value", "-Afoo2Value");
+  }
+
+  @Test
+  public void testStructureOfSequencesExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'struct.sequences'"
+                    + "  flag: '-A%{struct.sequences.foo}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new StructureBuilder()
+                        .addField(
+                            "sequences",
+                            new SequenceBuilder()
+                                .addValue(new StructureBuilder().addField("foo", "foo1Value"))
+                                .addValue(new StructureBuilder().addField("foo", "foo2Value"))))))
+        .containsExactly("-Afoo1Value", "-Afoo2Value");
+  }
+
+  @Test
+  public void testDottedNamesNotAlwaysMeanStructures() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'struct.sequence'"
+                    + "  flag_group {"
+                    + "    iterate_over: 'other_sequence'"
+                    + "    flag_group {"
+                    + "      flag: '-A%{struct.sequence} -B%{other_sequence}'"
+                    + "    }"
+                    + "  }"
+                    + "}",
+                new Variables.Builder()
+                    .addCustomBuiltVariable(
+                        "struct",
+                        new StructureBuilder()
+                            .addField("sequence", ImmutableList.of("first", "second")))
+                    .addStringSequenceVariable("other_sequence", ImmutableList.of("foo", "bar"))
+                    .build()))
+        .containsExactly("-Afirst -Bfoo", "-Afirst -Bbar", "-Asecond -Bfoo", "-Asecond -Bbar");
+  }
+
+  // <p>TODO(b/32655571): Get rid of this test once implicit iteration is not supported.
+  // It's there only to document a known limitation of the system.
+  @Test
+  public void testVariableLookupIsBrokenForImplicitStructFieldIteration() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { flag: '-A%{struct.sequence}' }",
+                createStructureVariables(
+                    "struct",
+                    new StructureBuilder().addField("sequence", ImmutableList.of("foo", "bar")))))
+        .containsExactly("-Afoo", "-Abar");
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructsExpandsIfPresent() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructsDoesntExpandIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructsDoesntCrashIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent'"
+                    + "  flag: '-A%{nonexistent.foo}'"
+                    + "  flag: '-B%{nonexistent.bar}'"
+                    + "}",
+                createVariables()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldDoesntCrashIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'nonexistent.nonexistant_field'"
+                    + "  flag: '-A%{nonexistent.foo}'"
+                    + "  flag: '-B%{nonexistent.bar}'"
+                    + "}",
+                createVariables()))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldExpandsIfPresent() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct.foo'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldDoesntExpandIfMissing() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_all_available: 'struct.foo'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+        .isEmpty();
+  }
+
+  @Test
+  public void testExpandIfAllAvailableWithStructFieldScopesRight() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  flag_group {"
+                    + "    expand_if_all_available: 'struct.foo'"
+                    + "    flag: '-A%{struct.foo}'"
+                    + "  }"
+                    + "  flag_group { "
+                    + "    flag: '-B%{struct.bar}'"
+                    + "  }"
+                    + "}",
+                createStructureVariables(
+                    "struct", new Variables.StructureBuilder().addField("bar", "barValue"))))
+        .containsExactly("-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfTrueExpandsIfOne() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_true: 'struct.bool'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_false: 'struct.bool'"
+                    + "  flag: '-X%{struct.foo}'"
+                    + "  flag: '-Y%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("bool", new IntegerValue(1))
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-AfooValue", "-BbarValue");
+  }
+
+  @Test
+  public void testExpandIfTrueExpandsIfZero() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  expand_if_true: 'struct.bool'"
+                    + "  flag: '-A%{struct.foo}'"
+                    + "  flag: '-B%{struct.bar}'"
+                    + "}"
+                    + "flag_group {"
+                    + "  expand_if_false: 'struct.bool'"
+                    + "  flag: '-X%{struct.foo}'"
+                    + "  flag: '-Y%{struct.bar}'"
+                    + "}",
+                createStructureVariables(
+                    "struct",
+                    new Variables.StructureBuilder()
+                        .addField("bool", new IntegerValue(0))
+                        .addField("foo", "fooValue")
+                        .addField("bar", "barValue"))))
+        .containsExactly("-XfooValue", "-YbarValue");
+  }
+
+  @Test
+  public void testLegacyListVariableExpansion() throws Exception {
     assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2");
     assertThat(getCommandLineForFlag("%{v1} %{v2}",
@@ -258,6 +581,64 @@ public class CcToolchainFeaturesTest {
     assertThat(getFlagExpansionError("%{v1} %{v2}",
         createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
         .contains("'v1' and 'v2'");
+  }
+
+  @Test
+  public void testListVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'v' flag: '%{v}' }",
+                createVariables("v", "1", "v", "2")))
+        .containsExactly("1", "2");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithNonListVariable() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b")))
+        .containsExactly("a1 b", "a2 b");
+  }
+
+  @Test
+  public void testNestedListVariableExpansion() throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'v1'"
+                    + "  flag_group {"
+                    + "    iterate_over: 'v2'"
+                    + "    flag: '%{v1} %{v2}'"
+                    + "  }"
+                    + "}",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .containsExactly("a1 b1", "a1 b2", "a2 b1", "a2 b2");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableFails()
+      throws Exception {
+    assertThat(
+            getFlagGroupsExpansionError(
+                "flag_group { iterate_over: 'v1' flag: '%{v1} %{v2}' }",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .contains("Cannot expand variable 'v2': expected string, found sequence");
+  }
+
+  @Test
+  public void testListVariableExpansionMixedWithImplicitlyAccessedListVariableWithinFlagGroupWorks()
+      throws Exception {
+    assertThat(
+            getCommandLineForFlagGroups(
+                "flag_group {"
+                    + "  iterate_over: 'v1'"
+                    + "  flag_group {"
+                    + "    flag: '-A%{v1} -B%{v2}'"
+                    + "  }"
+                    + "}",
+                createVariables("v1", "a1", "v1", "a2", "v2", "b1", "v2", "b2")))
+        .containsExactly("-Aa1 -Bb1", "-Aa1 -Bb2", "-Aa2 -Bb1", "-Aa2 -Bb2");
   }
 
   @Test
@@ -284,35 +665,34 @@ public class CcToolchainFeaturesTest {
     }
   }
   
-  private Variables.Sequence createNestedSequence(int depth, int count, String prefix) {
+  private VariableValueBuilder createNestedSequence(int depth, int count, String prefix) {
     if (depth == 0) {
-      Variables.ValueSequence.Builder builder = new Variables.ValueSequence.Builder();
+      StringSequenceBuilder builder = new StringSequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
         builder.addValue(value);
       }
-      return builder.build();
-
+      return builder;
     } else {
-      Variables.NestedSequence.Builder builder = new Variables.NestedSequence.Builder();
+      SequenceBuilder builder = new SequenceBuilder();
       for (int i = 0; i < count; ++i) {
         String value = prefix + i;
-        builder.addSequence(createNestedSequence(depth - 1, count, value));
+        builder.addValue(createNestedSequence(depth - 1, count, value));
       }
-      return builder.build();
+      return builder;
     }
   }
 
   private Variables createNestedVariables(String name, int depth, int count) {
     return new Variables.Builder()
-        .addSequence(name, createNestedSequence(depth, count, "")).build();
+        .addCustomBuiltVariable(name, createNestedSequence(depth, count, ""))
+        .build();
   }
 
   @Test
   public void testFlagTreeVariableExpansion() throws Exception {
     String nestedGroup =
-        ""
-            + "flag_group {"
+        "flag_group {"
             + "  flag_group { flag: '-a' }"
             + "  flag_group {"
             + "    flag: '%{v}'"

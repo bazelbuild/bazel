@@ -13,17 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -82,27 +78,5 @@ public class SymlinkActionTest extends BuildViewTestCase {
     assertEquals(input, output.resolveSymbolicLinks());
     assertEquals(inputArtifact, action.getPrimaryInput());
     assertEquals(outputArtifact, action.getPrimaryOutput());
-  }
-
-  @Test
-  public void testExecutableSymlink() throws Exception {
-    Executor executor = new TestExecutorBuilder(directories, null).build();
-    outputArtifact = getBinArtifactWithNoOwner("destination2.txt");
-    output = outputArtifact.getPath();
-    action = new ExecutableSymlinkAction(NULL_ACTION_OWNER, inputArtifact, outputArtifact);
-    assertFalse(input.isExecutable());
-    ActionExecutionContext actionExecutionContext =
-      new ActionExecutionContext(executor, null, null, null,
-          ImmutableMap.<String, String>of(), null);
-    try {
-      action.execute(actionExecutionContext);
-      fail("Expected ActionExecutionException");
-    } catch (ActionExecutionException e) {
-      assertThat(e.getMessage()).containsMatch("'input.txt' is not executable");
-    }
-    input.setExecutable(true);
-    action.execute(actionExecutionContext);
-    assertTrue(output.isSymbolicLink());
-    assertEquals(input, output.resolveSymbolicLinks());
   }
 }

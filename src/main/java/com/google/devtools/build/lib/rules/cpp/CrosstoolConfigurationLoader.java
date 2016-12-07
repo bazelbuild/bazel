@@ -220,7 +220,7 @@ public class CrosstoolConfigurationLoader {
       return null;
     }
 
-    return new CrosstoolProto(path.getMD5Digest(), "CROSSTOOL file " + path.getPathString()) {
+    return new CrosstoolProto(path.getDigest(), "CROSSTOOL file " + path.getPathString()) {
       @Override
       public String getContents() throws IOException {
         try (InputStream inputStream = path.getInputStream()) {

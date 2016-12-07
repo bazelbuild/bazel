@@ -297,7 +297,9 @@ final class WatchApplicationSupport {
 
   private ObjcProvider objcProvider(Iterable<Artifact> innerBundleZips) {
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
-    objcProviderBuilder.addAll(MERGE_ZIP, innerBundleZips);
+    if (watchOSVersion != WatchOSVersion.OS1) {
+      objcProviderBuilder.addAll(MERGE_ZIP, innerBundleZips);
+    }
 
     // Add all resource files applicable to watch application from dependency providers.
     for (Attribute attribute : dependencyAttributes) {

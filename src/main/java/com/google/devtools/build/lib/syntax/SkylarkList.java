@@ -132,7 +132,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
   @Override
   public final E getIndex(Object key, Location loc) throws EvalException {
     List<E> list = getContentsUnsafe();
-    int index = MethodLibrary.getListIndex(key, list.size(), loc);
+    int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
     return list.get(index);
   }
 
@@ -159,7 +159,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     List<E> list = getContentsUnsafe();
     int length = list.size();
     ImmutableList.Builder<E> slice = ImmutableList.builder();
-    for (int pos : MethodLibrary.getSliceIndices(start, end, step, length, loc)) {
+    for (int pos : EvalUtils.getSliceIndices(start, end, step, length, loc)) {
       slice.add(list.get(pos));
     }
     return slice.build();
@@ -176,7 +176,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
   public void set(Object key, E value, Location loc, Environment env) throws EvalException {
     checkMutable(loc, env);
     List list = getContentsUnsafe();
-    int index = MethodLibrary.getListIndex(key, list.size(), loc);
+    int index = EvalUtils.getSequenceIndex(key, list.size(), loc);
     list.set(index, value);
   }
 

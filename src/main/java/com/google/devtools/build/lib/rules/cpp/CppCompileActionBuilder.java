@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
  * Builder class to construct C++ compile actions.
  */
 public class CppCompileActionBuilder {
-  public static final UUID GUID = UUID.fromString("cee5db0a-d2ad-4c69-9b81-97c936a29075");
+  public static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
   private final ActionOwner owner;
   private final List<String> features = new ArrayList<>();
@@ -71,6 +71,7 @@ public class CppCompileActionBuilder {
   private AnalysisEnvironment analysisEnvironment;
   private ImmutableList<PathFragment> extraSystemIncludePrefixes = ImmutableList.of();
   private boolean usePic;
+  private boolean allowUsingHeaderModules;
   private SpecialInputsHandler specialInputsHandler = CppCompileAction.VOID_SPECIAL_INPUTS_HANDLER;
   private UUID actionClassId = GUID;
   private Class<? extends CppCompileActionContext> actionContext;
@@ -99,6 +100,7 @@ public class CppCompileActionBuilder {
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
     this.lipoScannableMap = getLipoScannableMap(ruleContext);
     this.ruleContext = ruleContext;
+    this.allowUsingHeaderModules = true;
 
     features.addAll(ruleContext.getFeatures());
   }
@@ -146,6 +148,7 @@ public class CppCompileActionBuilder {
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
     this.usePic = other.usePic;
+    this.allowUsingHeaderModules = other.allowUsingHeaderModules;
     this.lipoScannableMap = other.lipoScannableMap;
     this.ruleContext = other.ruleContext;
     this.shouldScanIncludes = other.shouldScanIncludes;
@@ -248,6 +251,9 @@ public class CppCompileActionBuilder {
     // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
     // finalizeCompileActionBuilder on this builder.
     Preconditions.checkNotNull(shouldScanIncludes);
+    boolean useHeaderModules =
+        allowUsingHeaderModules
+            && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
 
     boolean fake = tempOutputFile != null;
 
@@ -257,21 +263,8 @@ public class CppCompileActionBuilder {
     if (!fake && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
-    // We disable pruning header modules in CPP_MODULE_COMPILEs as that would lead to
-    // module-out-of-date errors. The problem surfaces if a module A depends on a module B, but the
-    // headers of module A don't actually use any of B's headers.  Then we would not need to rebuild
-    // A when B changes although we are storing a dependency in it. If B changes and we then build
-    // something that uses A (a header of it), we mark A and all of its transitive deps as inputs.
-    // We still don't need to rebuild A, as none of its inputs have changed, but we do rebuild B
-    // now and then the two modules are out of sync.
-    // We also have to disable this for fake C++ compile actions as those currently do a build first
-    // before discovering inputs and thus would not declare their inputs properly.
-    boolean shouldPruneModules =
-        shouldScanIncludes
-            && !fake
-            && !getActionName().equals(CppCompileAction.CPP_MODULE_COMPILE)
-            && featureConfiguration.isEnabled(CppRuleClasses.PRUNE_HEADER_MODULES);
-    if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES) && !shouldPruneModules) {
+    boolean shouldPruneModules = shouldScanIncludes && useHeaderModules;
+    if (useHeaderModules && !shouldPruneModules) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
@@ -298,6 +291,7 @@ public class CppCompileActionBuilder {
           shouldScanIncludes,
           shouldPruneModules,
           usePic,
+          useHeaderModules,
           sourceLabel,
           realMandatoryInputsBuilder.build(),
           outputFile,
@@ -323,6 +317,7 @@ public class CppCompileActionBuilder {
           shouldScanIncludes,
           shouldPruneModules,
           usePic,
+          useHeaderModules,
           sourceLabel,
           realMandatoryInputs,
           outputFile,
@@ -330,7 +325,8 @@ public class CppCompileActionBuilder {
           gcnoFile,
           dwoFile,
           optionalSourceFile,
-          configuration,
+          configuration.getLocalShellEnvironment(),
+          configuration.isCodeCoverageEnabled(),
           cppConfiguration,
           context,
           actionContext,
@@ -502,11 +498,15 @@ public class CppCompileActionBuilder {
     return this;
   }
 
-  /**
-   * Sets whether the CompileAction should use pic mode.
-   */
+  /** Sets whether the CompileAction should use pic mode. */
   public CppCompileActionBuilder setPicMode(boolean usePic) {
     this.usePic = usePic;
+    return this;
+  }
+
+  /** Sets whether the CompileAction should use header modules. */
+  public CppCompileActionBuilder setAllowUsingHeaderModules(boolean allowUsingHeaderModules) {
+    this.allowUsingHeaderModules = allowUsingHeaderModules;
     return this;
   }
 

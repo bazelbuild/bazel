@@ -372,13 +372,13 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
       else:
         cmd_env['ZERO_AR_DATE'] = '1'
         # Copy the input archive to the output location
-        j2objc_cmd += 'cp %s %s;' % (input_archive, output_archive)
+        j2objc_cmd += 'cp %s %s && ' % (input_archive, output_archive)
         # Make the output archive editable
-        j2objc_cmd += 'chmod +w %s;' % (output_archive)
+        j2objc_cmd += 'chmod +w %s && ' % (output_archive)
         # Remove the unreachable objects from the archive
         unreachable_object_names = MatchObjectNamesInArchive(
             xcrunwrapper, input_archive, unreachable_object_names)
-        j2objc_cmd += '%s ar -d -s %s %s;' % (
+        j2objc_cmd += '%s ar -d -s %s %s && ' % (
             xcrunwrapper, output_archive, ' '.join(unreachable_object_names))
         # Update the table of content of the archive file
         j2objc_cmd += '%s ranlib %s' % (xcrunwrapper, output_archive)
@@ -396,10 +396,7 @@ def PruneArchiveFile(input_archive, output_archive, dummy_archive,
   # "Touch" the output file.
   # Prevents a pre-Xcode-8 bug in which passing zero-date archive files to ld
   # would cause ld to error.
-  if os.path.exists(output_archive):
-    os.utime(output_archive, None)
-  else:
-    open(output_archive, 'a').close()
+  os.utime(output_archive, None)
 
 
 if __name__ == '__main__':

@@ -24,8 +24,6 @@ filegroup(
     srcs = [
         "bazel_sandboxing_test_utils.sh",
         "remote_helpers.sh",
-        "test-setup.sh",
-        "testenv.sh",
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
@@ -40,6 +38,9 @@ filegroup(
         "//src/main/tools:linux-sandbox",
         "//src/main/tools:process-wrapper",
         "//src/test/shell:bashunit",
+        "//src/test/shell:bin/bazel",
+        "//src/test/shell:integration_test_setup.sh",
+        "//src/test/shell:testenv.sh",
         "//third_party:srcs",
         "//third_party/ijar",
         "//third_party/java/jdk/langtools:test-srcs",
@@ -119,9 +120,15 @@ sh_test(
     name = "bazel_toolchain_test",
     size = "medium",
     srcs = ["bazel_toolchain_test.sh"],
-    data = [
-        ":test-deps",
-        "//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg",
+    data = [":test-deps"] + select({
+        "//src:darwin": [],
+        "//src:darwin_x86_64": [],
+        "//src:windows": [],
+        "//src:windows_msvc": [],
+        "//conditions:default": ["//src/test/shell/bazel/testdata:bazel_toolchain_test_project_pkg"],
+    }),
+    tags = [
+        "requires-network",
     ],
 )
 
@@ -195,6 +202,13 @@ sh_test(
 )
 
 sh_test(
+    name = "cross_repository_test",
+    size = "large",
+    srcs = ["cross_repository_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "external_skylark_load_test",
     size = "large",
     srcs = ["external_skylark_load_test.sh"],
@@ -235,13 +249,16 @@ sh_test(
     data = [":test-deps"],
 )
 
-# To run this test, ensure that the maven_dependency_plugin() in WORKSPACE is uncommented as well.
+# To run this test, ensure that maven_dependency_plugin() and
+# android_repositories() in WORKSPACE are uncommented.
 sh_test(
     name = "maven_skylark_test",
     size = "medium",
     srcs = ["maven_skylark_test.sh"],
     data = [
         ":test-deps",
+        "//external:android_ndk_for_testing",
+        "//external:android_sdk_for_testing",
         "@m2//:files",
     ],
     tags = ["manual"],
@@ -266,14 +283,9 @@ sh_test(
 
 sh_test(
     name = "process_wrapper_test",
-    size = "small",
+    size = "medium",
     srcs = ["process-wrapper_test.sh"],
-    data = [
-        "test-setup.sh",
-        "testenv.sh",
-        "//src/main/tools:process-wrapper",
-        "//src/test/shell:bashunit",
-    ],
+    data = [":test-deps"],
 )
 
 sh_test(
@@ -377,6 +389,40 @@ sh_test(
     size = "medium",
     srcs = ["execroot_test.sh"],
     data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_repository_cache_test",
+    size = "large",
+    srcs = ["bazel_repository_cache_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "build_files_test",
+    size = "medium",
+    srcs = ["build_files_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
+    name = "bazel_boostrap_distfile_test",
+    size = "large",
+    srcs = ["bazel_bootstrap_distfile_test.sh"],
+    args = ["$(location //:bazel-distfile)"],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile",
+    ],
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "rule_test_test",
+    size = "medium",
+    srcs = ["rule_test_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
 )
 
 test_suite(

@@ -52,18 +52,11 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public boolean explicitJreDeps;
 
   @Option(name = "experimental_j2objc_annotation_processing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "undocumented",
       help = "Whether to enable j2objc Java annotation processing."
       )
   public boolean annotationProcessingEnabled;
-
-  @Option(name = "experimental_zip_tree_artifact",
-      defaultValue = "true",
-      category = "undocumented",
-      help = "Whether to enable zipping/unzipping implementation of tree artifact creation"
-      )
-  public boolean zipTreeArtifact;
 
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}

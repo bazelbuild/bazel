@@ -40,7 +40,9 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -93,13 +96,13 @@ public class FileFunctionTest {
   private Path pkgRoot;
   private Path outputBase;
   private PathPackageLocator pkgLocator;
-  private boolean fastMd5;
+  private boolean fastDigest;
   private ManualClock manualClock;
   private RecordingDifferencer differencer;
 
   @Before
   public final void createFsAndRoot() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     manualClock = new ManualClock();
     createFsAndRoot(new CustomInMemoryFs(manualClock));
   }
@@ -113,15 +116,15 @@ public class FileFunctionTest {
   }
 
   private SequentialBuildDriver makeDriver() {
-    return makeDriver(/*errorOnExternalFiles=*/ false);
+    return makeDriver(ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS);
   }
 
-  private SequentialBuildDriver makeDriver(boolean errorOnExternalFiles) {
+  private SequentialBuildDriver makeDriver(ExternalFileAction externalFileAction) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
     BlazeDirectories directories =
         new BlazeDirectories(pkgRoot, outputBase, pkgRoot, TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(pkgLocatorRef, errorOnExternalFiles, directories);
+        new ExternalFilesHelper(pkgLocatorRef, externalFileAction, directories);
     differencer = new RecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -144,7 +147,8 @@ public class FileFunctionTest {
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of()),
-                        CrossRepositoryLabelViolationStrategy.ERROR))
+                        CrossRepositoryLabelViolationStrategy.ERROR,
+                        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -156,6 +160,7 @@ public class FileFunctionTest {
                             TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
@@ -429,12 +434,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected String getFastDigestFunctionType(Path path) {
-            return "magic";
-          }
-
-          @Override
-          protected byte[] getFastDigest(Path path) throws IOException {
+          protected byte[] getFastDigest(Path path, HashFunction hf) throws IOException {
             return digest;
           }
         });
@@ -475,7 +475,7 @@ public class FileFunctionTest {
     createFsAndRoot(
         new CustomInMemoryFs(manualClock) {
           @Override
-          protected byte[] getFastDigest(Path path) {
+          protected byte[] getFastDigest(Path path, HashFunction hf) {
             return path.getBaseName().equals("unreadable") ? expectedDigest : null;
           }
         });
@@ -490,7 +490,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFileModificationModTime() throws Exception {
-    fastMd5 = false;
+    fastDigest = false;
     Path p = file("file");
     FileValue a = valueForPath(p);
     p.setLastModifiedTime(42);
@@ -500,7 +500,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFileModificationDigest() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     Path p = file("file");
     FileValue a = valueForPath(p);
     FileSystemUtils.writeContentAsLatin1(p, "goop");
@@ -512,9 +512,9 @@ public class FileFunctionTest {
   public void testModTimeVsDigest() throws Exception {
     Path p = file("somefile", "fizzley");
 
-    fastMd5 = true;
+    fastDigest = true;
     FileValue aMd5 = valueForPath(p);
-    fastMd5 = false;
+    fastDigest = false;
     FileValue aModTime = valueForPath(p);
     assertThat(aModTime).isNotEqualTo(aMd5);
     new EqualsTester().addEqualityGroup(aMd5).addEqualityGroup(aModTime).testEquals();
@@ -556,7 +556,7 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkTargetContentsChangeModTime() throws Exception {
-    fastMd5 = false;
+    fastDigest = false;
     Path fooPath = file("foo");
     FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
     Path p = symlink("symlink", "foo");
@@ -568,7 +568,7 @@ public class FileFunctionTest {
 
   @Test
   public void testSymlinkTargetContentsChangeDigest() throws Exception {
-    fastMd5 = true;
+    fastDigest = true;
     Path fooPath = file("foo");
     FileSystemUtils.writeContentAsLatin1(fooPath, "foo");
     Path p = symlink("symlink", "foo");
@@ -657,99 +657,76 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesOutsideRootWhenExternalDisallowed() throws Exception {
+  public void testFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable() throws Exception {
     file("/outsideroot");
 
-    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
+    SequentialBuildDriver driver =
+        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("/outsideroot");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertTrue(result.hasError());
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(FileOutsidePackageRootsException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessage("Encountered reference to external mutable [/]/[outsideroot]");
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue value = (FileValue) result.get(key);
+    assertThat(value).isNotNull();
+    assertFalse(value.exists());
   }
 
   @Test
-  public void testAbsoluteSymlinksToFilesOutsideRootWhenExternalDisallowed() throws Exception {
+  public void testAbsoluteSymlinksToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
+      throws Exception {
     file("/outsideroot");
     symlink("a", "/outsideroot");
 
-    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
+    SequentialBuildDriver driver =
+        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertTrue(result.hasError());
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessage(
-            "Encountered symlink [/root]/[a] linking to external mutable [/]/[outsideroot]");
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue value = (FileValue) result.get(key);
+    assertThat(value).isNotNull();
+    assertFalse(value.exists());
   }
 
-  /**
-   * A slightly more complicated negative test to ensure that the error message contains the real
-   * symlink and external path instead of the path of the top-level skyframe file node. In other
-   * words, the error is bubbled up to the top-level node, but the error message stops getting
-   * updated once it enters the internal path boundary.
-   */
   @Test
-  public void testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalDisallowed()
+  public void testAbsoluteSymlinksReferredByInternalFilesToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
       throws Exception {
     file("/outsideroot/src/foo/bar");
     symlink("/root/src", "/outsideroot/src");
 
-    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
+    SequentialBuildDriver driver =
+        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("/root/src/foo/bar");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertTrue(result.hasError());
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessage(
-            "Encountered symlink [/root]/[src] linking to external mutable [/]/[outsideroot/src]");
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue value = (FileValue) result.get(key);
+    assertThat(value).isNotNull();
+    assertFalse(value.exists());
   }
 
   @Test
-  public void testRelativeSymlinksToFilesOutsideRootWhenExternalDisallowed() throws Exception {
+  public void testRelativeSymlinksToFilesOutsideRootWhenExternalAssumedNonExistentAndImmutable()
+      throws Exception {
     file("../outsideroot");
     symlink("a", "../outsideroot");
-    SequentialBuildDriver driver = makeDriver(/*errorOnExternalFiles=*/ true);
+    SequentialBuildDriver driver = 
+        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertTrue(result.hasError());
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .isInstanceOf(SymlinkOutsidePackageRootsException.class);
-    assertThatEvaluationResult(result)
-        .hasErrorEntryForKeyThat(key)
-        .hasExceptionThat()
-        .hasMessage(
-            "Encountered symlink [/root]/[a] linking to external mutable [/]/[outsideroot]");
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue value = (FileValue) result.get(key);
+    assertThat(value).isNotNull();
+    assertFalse(value.exists());
   }
 
   @Test
@@ -757,13 +734,18 @@ public class FileFunctionTest {
     Path file = file("insideroot");
     symlink("a", file.getPathString());
 
-    SequentialBuildDriver driver = makeDriver(/*allowExternalReferences=*/ false);
+    SequentialBuildDriver driver =
+        makeDriver(ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS);
     SkyKey key = skyKey("a");
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(key), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
 
-    assertFalse(result.hasError());
+    assertThatEvaluationResult(result).hasNoError();
+    FileValue value = (FileValue) result.get(key);
+    assertThat(value).isNotNull();
+    assertTrue(value.exists());
+    assertThat(value.realRootedPath().getRelativePath().getPathString()).isEqualTo("insideroot");
   }
 
   @SuppressWarnings({"rawtypes", "unchecked"})
@@ -844,14 +826,14 @@ public class FileFunctionTest {
     assertArrayEquals(digest, value.getDigest());
     // Digest is cached -- no filesystem access.
     assertEquals(expectedCalls, digestCalls.get());
-    fastMd5 = false;
+    fastDigest = false;
     digestCalls.set(0);
     value = valueForPath(file);
     // No new digest calls.
     assertEquals(0, digestCalls.get());
     assertNull(value.getDigest());
     assertEquals(0, digestCalls.get());
-    fastMd5 = true;
+    fastDigest = true;
     Path dir = directory("directory");
     try {
       assertNull(valueForPath(dir).getDigest());
@@ -888,22 +870,13 @@ public class FileFunctionTest {
   }
 
   @Test
-  public void testFilesystemInconsistencies_ParentDoesntExistAndChildIsSymlink() throws Exception {
-    symlink("a/b", "doesntmatter");
-    // Our custom filesystem says "a/b" exists but "a" does not exist.
+  public void testDoesntStatChildIfParentDoesntExist() throws Exception {
+    // Our custom filesystem says "a" does not exist, so FileFunction shouldn't bother trying to
+    // think about "a/b". Test for this by having a stat of "a/b" fail with an io error, and
+    // observing that we don't encounter the error.
     fs.stubStat(path("a"), null);
-    SequentialBuildDriver driver = makeDriver();
-    SkyKey skyKey = skyKey("a/b");
-    EvaluationResult<FileValue> result =
-        driver.evaluate(
-            ImmutableList.of(skyKey), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
-    assertTrue(result.hasError());
-    ErrorInfo errorInfo = result.getError(skyKey);
-    assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
-    assertThat(errorInfo.getException().getMessage())
-        .contains(
-            "/root/a/b was a symlink to doesntmatter but others made us think it was a "
-                + "nonexistent path");
+    fs.stubStatError(path("a/b"), new IOException("ouch!"));
+    assertThat(valueForPath(path("a/b")).exists()).isFalse();
   }
 
   @Test
@@ -955,7 +928,7 @@ public class FileFunctionTest {
     fs.stubStat(path("a"), inconsistentParentFileStatus);
     // Disable fast-path md5 so that we don't try try to md5 the "a" (since it actually physically
     // is a directory).
-    fastMd5 = false;
+    fastDigest = false;
     SequentialBuildDriver driver = makeDriver();
     SkyKey skyKey = skyKey("a/b");
     EvaluationResult<FileValue> result =
@@ -1639,16 +1612,12 @@ public class FileFunctionTest {
 
   private class CustomInMemoryFs extends InMemoryFileSystem {
 
-    private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
-    private Map<Path, IOException> stubbedFastDigestErrors = Maps.newHashMap();
+    private final Map<Path, FileStatus> stubbedStats = Maps.newHashMap();
+    private final Map<Path, IOException> stubbedStatErrors = Maps.newHashMap();
+    private final Map<Path, IOException> stubbedFastDigestErrors = Maps.newHashMap();
 
     public CustomInMemoryFs(ManualClock manualClock) {
       super(manualClock);
-    }
-
-    @Override
-    protected String getFastDigestFunctionType(Path path) {
-      return fastMd5 ? "MD5" : null;
     }
 
     public void stubFastDigestError(Path path, IOException error) {
@@ -1656,19 +1625,26 @@ public class FileFunctionTest {
     }
 
     @Override
-    protected byte[] getFastDigest(Path path) throws IOException {
+    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
       if (stubbedFastDigestErrors.containsKey(path)) {
         throw stubbedFastDigestErrors.get(path);
       }
-      return fastMd5 ? getMD5Digest(path) : null;
+      return fastDigest ? getDigest(path) : null;
     }
 
     public void stubStat(Path path, @Nullable FileStatus stubbedResult) {
       stubbedStats.put(path, stubbedResult);
     }
 
+    public void stubStatError(Path path, IOException error) {
+      stubbedStatErrors.put(path, error);
+    }
+
     @Override
     public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
+      if (stubbedStatErrors.containsKey(path)) {
+        throw stubbedStatErrors.get(path);
+      }
       if (stubbedStats.containsKey(path)) {
         return stubbedStats.get(path);
       }

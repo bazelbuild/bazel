@@ -20,7 +20,7 @@ $ cd tiny-workspace
 ```
 
 Make sure you've
-[downloaded and installed Bazel](http://bazel.io/docs/install.html) and have the
+[downloaded and installed Bazel](http://bazel.build/docs/install.html) and have the
 following line to your _~/.bazelrc_:
 
 ```

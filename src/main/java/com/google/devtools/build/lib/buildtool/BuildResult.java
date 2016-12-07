@@ -82,7 +82,7 @@ public final class BuildResult {
    * True iff the build request has been successfully completed.
    */
   public boolean getSuccess() {
-    return exitCondition == ExitCode.SUCCESS;
+    return exitCondition.equals(ExitCode.SUCCESS);
   }
 
   /**

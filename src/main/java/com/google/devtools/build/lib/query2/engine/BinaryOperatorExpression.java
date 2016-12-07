@@ -13,12 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.util.Preconditions;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 
 /**
  * A binary algebraic set operation.
@@ -95,6 +103,82 @@ public class BinaryOperatorExpression extends QueryExpression {
     for (int i = 1; i < operands.size(); i++) {
       lhsValue.retainAll(QueryUtil.evalAll(env, context, operands.get(i)));
     }
+    callback.process(lhsValue);
+  }
+
+  @Override
+  protected <T> void parEvalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
+      parEvalPlus(operands, env, context, callback, forkJoinPool);
+    } else if (operator == TokenKind.EXCEPT || operator == TokenKind.MINUS) {
+      parEvalMinus(operands, env, context, callback, forkJoinPool);
+    } else {
+      evalImpl(env, context, callback);
+    }
+  }
+
+  /**
+   * Evaluates an expression of the form "e1 + e2 + ... + eK" by evaluating all the subexpressions
+   * in parallel.
+   */
+  private static <T> void parEvalPlus(
+      ImmutableList<QueryExpression> operands,
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+          throws QueryException, InterruptedException {
+    ArrayList<ForkJoinTask<Void>> tasks = new ArrayList<>(operands.size());
+    for (final QueryExpression operand : operands) {
+      tasks.add(ForkJoinTask.adapt(
+          new Callable<Void>() {
+            @Override
+            public Void call() throws QueryException, InterruptedException {
+              env.eval(operand, context, callback);
+              return null;
+            }
+          }));
+    }
+    for (ForkJoinTask<?> task : tasks) {
+      forkJoinPool.submit(task);
+    }
+    try {
+      MoreFutures.waitForAllInterruptiblyFailFast(tasks);
+    } catch (ExecutionException e) {
+      Throwables.propagateIfPossible(
+          e.getCause(), QueryException.class, InterruptedException.class);
+      throw new IllegalStateException(e);
+    }
+  }
+
+  /**
+   * Evaluates an expression of the form "e1 - e2 - ... - eK" by noting its equivalence to
+   * "e1 - (e2 + ... + eK)" and evaluating the subexpressions on the right-hand-side in parallel.
+   */
+  private static <T> void parEvalMinus(
+      ImmutableList<QueryExpression> operands,
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+          throws QueryException, InterruptedException {
+    final Set<T> lhsValue =
+        Sets.newConcurrentHashSet(QueryUtil.evalAll(env, context, operands.get(0)));
+    ThreadSafeCallback<T> subtractionCallback = new ThreadSafeCallback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T target : partialResult) {
+          lhsValue.remove(target);
+        }
+      }
+    };
+    parEvalPlus(
+        operands.subList(1, operands.size()), env, context, subtractionCallback, forkJoinPool);
     callback.process(lhsValue);
   }
 

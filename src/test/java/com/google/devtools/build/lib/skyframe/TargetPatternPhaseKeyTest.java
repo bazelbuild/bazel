@@ -50,24 +50,33 @@ public class TargetPatternPhaseKeyTest {
        .addEqualityGroup(of(ImmutableList.of("b"), ""))
        .addEqualityGroup(of(ImmutableList.of("c"), ""))
        .addEqualityGroup(of(ImmutableList.<String>of(), ""))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", null, COMPILE_ONE_DEPENDENCY))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", emptyTestFilter(), BUILD_TESTS_ONLY))
-       .addEqualityGroup(of(ImmutableList.<String>of(), "", emptyTestFilter(), DETERMINE_TESTS))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), null,
+           COMPILE_ONE_DEPENDENCY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), emptyTestFilter(),
+           BUILD_TESTS_ONLY))
+       .addEqualityGroup(of(
+           ImmutableList.<String>of(), "", ImmutableList.<String>of(), emptyTestFilter(),
+           DETERMINE_TESTS))
+        .addEqualityGroup(of(
+            ImmutableList.<String>of(), "", ImmutableList.<String>of("a"), null))
        .testEquals();
   }
 
   private TargetPatternList of(ImmutableList<String> targetPatterns, String offset,
+      ImmutableList<String> buildTagFilter,
       @Nullable TestFilter testFilter, Flag... flags) {
     ImmutableSet<Flag> set = ImmutableSet.copyOf(flags);
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
     boolean buildTestsOnly = set.contains(Flag.BUILD_TESTS_ONLY);
     boolean determineTests = set.contains(Flag.DETERMINE_TESTS);
     return new TargetPatternList(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-        determineTests, testFilter);
+        determineTests, buildTagFilter, testFilter);
   }
 
   private TargetPatternList of(ImmutableList<String> targetPatterns, String offset) {
-    return of(targetPatterns, offset, null);
+    return of(targetPatterns, offset, ImmutableList.<String>of(), null);
   }
 
   private TestFilter emptyTestFilter() {

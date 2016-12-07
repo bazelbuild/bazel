@@ -16,13 +16,11 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
-import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
+import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
@@ -31,7 +29,6 @@ import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -84,7 +81,6 @@ public class BazelRulesModule extends BlazeModule {
   }
 
   private CommandEnvironment env;
-  protected BazelExecutionOptions options;
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) {
@@ -95,7 +91,6 @@ public class BazelRulesModule extends BlazeModule {
   @Override
   public void afterCommand() {
     this.env = null;
-    this.options = null;
   }
 
   @Override
@@ -103,22 +98,6 @@ public class BazelRulesModule extends BlazeModule {
     return "build".equals(command.name())
         ? ImmutableList.<Class<? extends OptionsBase>>of(BazelExecutionOptions.class)
         : ImmutableList.<Class<? extends OptionsBase>>of();
-  }
-
-  @Override
-  public Iterable<ActionContextProvider> getActionContextProviders() {
-    return ImmutableList.<ActionContextProvider>of(new SimpleActionContextProvider(
-        new WriteAdbArgsActionContext(env.getClientEnv().get("HOME"))));
-  }
-
-  @Override
-  public Iterable<ActionContextConsumer> getActionContextConsumers() {
-    return ImmutableList.<ActionContextConsumer>of(new BazelActionContextConsumer(options));
-  }
-
-  @Subscribe
-  public void gotOptions(GotOptionsEvent event) {
-    options = event.getOptions().getOptions(BazelExecutionOptions.class);
   }
 
   @Override
@@ -148,5 +127,12 @@ public class BazelRulesModule extends BlazeModule {
             return env.getRuntime().getQueryOutputFormatters();
           }
         }));
+  }
+
+  @Override
+  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
+    builder.addActionContext(new WriteAdbArgsActionContext(env.getClientEnv().get("HOME")));
+    BazelExecutionOptions options = env.getOptions().getOptions(BazelExecutionOptions.class);
+    builder.addActionContextConsumer(new BazelActionContextConsumer(options));
   }
 }

@@ -54,6 +54,7 @@ public abstract class ProguardHelper {
     @Nullable private final Artifact protoMapping;
     @Nullable private final Artifact seeds;
     @Nullable private final Artifact usage;
+    @Nullable private final Artifact constantStringObfuscatedMapping;
     private final Artifact config;
 
     public ProguardOutput(Artifact outputJar,
@@ -61,12 +62,14 @@ public abstract class ProguardHelper {
                           @Nullable Artifact protoMapping,
                           @Nullable Artifact seeds,
                           @Nullable Artifact usage,
+                          @Nullable Artifact constantStringObfuscatedMapping,
                           Artifact config) {
       this.outputJar = checkNotNull(outputJar);
       this.mapping = mapping;
       this.protoMapping = protoMapping;
       this.seeds = seeds;
       this.usage = usage;
+      this.constantStringObfuscatedMapping = constantStringObfuscatedMapping;
       this.config = config;
     }
 
@@ -82,6 +85,11 @@ public abstract class ProguardHelper {
     @Nullable
     public Artifact getProtoMapping() {
       return protoMapping;
+    }
+
+    @Nullable
+    public Artifact getConstantStringObfuscatedMapping() {
+      return constantStringObfuscatedMapping;
     }
 
     @Nullable
@@ -106,6 +114,9 @@ public abstract class ProguardHelper {
       }
       if (protoMapping != null) {
         filesBuilder.add(protoMapping);
+      }
+      if (constantStringObfuscatedMapping != null) {
+        filesBuilder.add(constantStringObfuscatedMapping);
       }
       if (seeds != null) {
         filesBuilder.add(seeds);
@@ -279,6 +290,11 @@ public abstract class ProguardHelper {
           && rule.get("proguard_generate_mapping", Type.BOOLEAN);
   }
 
+  public static final boolean genObfuscatedConstantStringMap(AttributeMap rule) {
+    return rule.has("proguard_generate_obfuscated_constant_string_mapping", Type.BOOLEAN)
+          && rule.get("proguard_generate_obfuscated_constant_string_mapping", Type.BOOLEAN);
+  }
+
   public static ProguardOutput getProguardOutputs(
       Artifact outputJar,
       @Nullable Artifact proguardSeeds,
@@ -291,12 +307,18 @@ public abstract class ProguardHelper {
 
     Artifact proguardOutputMap = null;
     Artifact proguardOutputProtoMap = null;
+    Artifact proguardConstantStringMap = null;
+
     if (mappingRequested || optMode.alwaysGenerateOutputMapping()) {
       // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
       // which this -printmapping command line flag will override.
       proguardOutputMap =
           ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
       proguardOutputProtoMap = semantics.getProtoMapping(ruleContext);
+    }
+
+    if (genObfuscatedConstantStringMap(ruleContext.attributes())) {
+      proguardConstantStringMap = semantics.getObfuscatedConstantStringMap(ruleContext);
     }
 
     Artifact proguardConfigOutput =
@@ -308,6 +330,7 @@ public abstract class ProguardHelper {
         proguardOutputProtoMap,
         proguardSeeds,
         proguardUsage,
+        proguardConstantStringMap,
         proguardConfigOutput);
   }
 
@@ -360,6 +383,7 @@ public abstract class ProguardHelper {
           output.getProtoMapping(),
           output.getSeeds(),
           output.getUsage(),
+          output.getConstantStringObfuscatedMapping(),
           output.getConfig())
           .setProgressMessage("Trimming binary with Proguard")
           .addOutput(proguardOutputJar);
@@ -381,6 +405,7 @@ public abstract class ProguardHelper {
               /* proguardOutputProtoMap */ null,
               /* proguardSeeds */ null,
               /* proguardUsage */ null,
+              /* constantStringObfuscatedMapping */ null,
               /* proguardConfigOutput */ null)
               .setProgressMessage("Trimming binary with Proguard: Verification/Shrinking Pass")
               .addArgument("-runtype INITIAL")
@@ -403,6 +428,7 @@ public abstract class ProguardHelper {
                 /* proguardOutputProtoMap */ null,
                 /* proguardSeeds */ null,
                 /* proguardUsage */ null,
+                /* constantStringObfuscatedMapping */ null,
                 /* proguardConfigOutput */ null)
                 .setProgressMessage("Trimming binary with Proguard: Optimization Pass " + (i + 1))
                 .addArgument("-runtype OPTIMIZATION")
@@ -425,6 +451,7 @@ public abstract class ProguardHelper {
           output.getProtoMapping(),
           output.getSeeds(),
           output.getUsage(),
+          output.getConstantStringObfuscatedMapping(),
           output.getConfig())
           .setProgressMessage("Trimming binary with Proguard: Obfuscation and Final Ouput Pass")
           .addArgument("-runtype FINAL")
@@ -449,6 +476,7 @@ public abstract class ProguardHelper {
       @Nullable Artifact proguardOutputProtoMap,
       @Nullable Artifact proguardSeeds,
       @Nullable Artifact proguardUsage,
+      @Nullable Artifact constantStringObfuscatedMapping,
       @Nullable Artifact proguardConfigOutput) {
 
     Builder builder = new SpawnAction.Builder()
@@ -493,6 +521,12 @@ public abstract class ProguardHelper {
       builder
           .addArgument("-protomapping")
           .addOutputArgument(proguardOutputProtoMap);
+    }
+
+    if (constantStringObfuscatedMapping != null) {
+      builder
+          .addArgument("-obfuscatedconstantstringoutputfile")
+          .addOutputArgument(constantStringObfuscatedMapping);
     }
 
     if (proguardSeeds != null) {

@@ -111,8 +111,8 @@ import javax.annotation.Nullable;
  * <p>The parts specific to the current command are stored in {@link CommandEnvironment}.
  */
 public final class BlazeRuntime {
-  private static final Pattern suppressFromLog = Pattern.compile(".*(auth|pass|cookie).*",
-      Pattern.CASE_INSENSITIVE);
+  private static final Pattern suppressFromLog =
+      Pattern.compile("(auth|pass|cookie)", Pattern.CASE_INSENSITIVE);
 
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
@@ -189,9 +189,7 @@ public final class BlazeRuntime {
   public void initWorkspace(BlazeDirectories directories, BinTools binTools)
       throws AbruptExitException {
     Preconditions.checkState(this.workspace == null);
-    boolean watchFS = startupOptionsProvider != null
-        && startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).watchFS;
-    WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools, watchFS);
+    WorkspaceBuilder builder = new WorkspaceBuilder(directories, binTools);
     for (BlazeModule module : blazeModules) {
       module.workspaceInit(directories, builder);
     }
@@ -475,9 +473,17 @@ public final class BlazeRuntime {
     return commandMap;
   }
 
+  /** Invokes {@link BlazeModule#blazeShutdown()} on all registered modules. */
   public void shutdown() {
     for (BlazeModule module : blazeModules) {
       module.blazeShutdown();
+    }
+  }
+
+  /** Invokes {@link BlazeModule#blazeShutdownOnCrash()} on all registered modules. */
+  public void shutdownOnCrash() {
+    for (BlazeModule module : blazeModules) {
+      module.blazeShutdownOnCrash();
     }
   }
 
@@ -587,7 +593,7 @@ public final class BlazeRuntime {
         int varStart = "--client_env=".length();
         int varEnd = s.indexOf('=', varStart);
         String varName = s.substring(varStart, varEnd);
-        if (suppressFromLog.matcher(varName).matches()) {
+        if (suppressFromLog.matcher(varName).find()) {
           buf.append("--client_env=");
           buf.append(varName);
           buf.append("=__private_value_removed__");
@@ -626,8 +632,13 @@ public final class BlazeRuntime {
   }
 
   /**
-   * Splits given arguments into two lists - arguments matching options defined in this class
-   * and everything else, while preserving order in each list.
+   * Splits given options into two lists - arguments matching options defined in this class and
+   * everything else, while preserving order in each list.
+   *
+   * <p>Note that this method relies on the startup options always being in the
+   * <code>--flag=ARG</code> form (instead of <code>--flag ARG</code>). This is enforced by
+   * <code>GetArgumentArray()</code> in <code>blaze.cc</code> by reconstructing the startup
+   * options from their parsed versions instead of using <code>argv</code> verbatim.
    */
   static CommandLineOptions splitStartupOptions(
       Iterable<BlazeModule> modules, String... args) {
@@ -1079,11 +1090,6 @@ public final class BlazeRuntime {
 
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
-      List<PackageFactory.EnvironmentExtension> extensions = new ArrayList<>();
-      for (BlazeModule module : blazeModules) {
-        extensions.add(module.getPackageEnvironmentExtension());
-      }
-
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
         Package.Builder.Helper candidateHelper =
@@ -1103,7 +1109,7 @@ public final class BlazeRuntime {
               ruleClassProvider,
               ruleClassBuilder.getPlatformRegexps(),
               serverBuilder.getAttributeContainerFactory(),
-              extensions,
+              serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper);
 

@@ -44,9 +44,11 @@ import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesys
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.MissingDiffDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.UnionDirtinessChecker;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFilesKnowledge;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -66,11 +68,13 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -110,7 +114,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     super(
         evaluatorSupplier,
         pkgFactory,
@@ -122,10 +127,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         preprocessorFactorySupplier,
         extraSkyFunctions,
         extraPrecomputedValues,
-        false,
+        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
         blacklistedPackagePrefixesFile,
         productName,
-        crossRepositoryLabelViolationStrategy);
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
     this.diffAwarenessManager = new DiffAwarenessManager(diffAwarenessFactories);
     this.customDirtinessCheckers = customDirtinessCheckers;
   }
@@ -143,7 +149,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     return create(
         pkgFactory,
         directories,
@@ -158,7 +165,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         customDirtinessCheckers,
         /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT,
         productName,
-        crossRepositoryLabelViolationStrategy);
+        crossRepositoryLabelViolationStrategy,
+        buildFilesByPriority);
   }
 
   private static SequencedSkyframeExecutor create(
@@ -175,7 +183,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       PathFragment blacklistedPackagePrefixesFile,
       String productName,
-      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy) {
+      CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
+      List<BuildFileName> buildFilesByPriority) {
     SequencedSkyframeExecutor skyframeExecutor =
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
@@ -192,7 +201,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             customDirtinessCheckers,
             blacklistedPackagePrefixesFile,
             productName,
-            crossRepositoryLabelViolationStrategy);
+            crossRepositoryLabelViolationStrategy,
+            buildFilesByPriority);
     skyframeExecutor.init();
     return skyframeExecutor;
   }
@@ -219,11 +229,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         ImmutableList.<SkyValueDirtinessChecker>of(),
         blacklistedPackagePrefixesFile,
         productName,
-        CrossRepositoryLabelViolationStrategy.ERROR);
+        CrossRepositoryLabelViolationStrategy.ERROR,
+        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
   }
 
   @Override
-  protected BuildDriver newBuildDriver() {
+  protected BuildDriver getBuildDriver() {
     return new SequentialBuildDriver(memoizingEvaluator);
   }
 
@@ -265,11 +276,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       String defaultsPackageContents,
       UUID commandId,
       Map<String, String> clientEnv,
-      TimestampGranularityMonitor tsgm)
+      TimestampGranularityMonitor tsgm,
+      OptionsClassProvider options)
       throws InterruptedException, AbruptExitException {
     super.sync(eventHandler, packageCacheOptions, outputBase, workingDirectory,
-        defaultsPackageContents, commandId, clientEnv, tsgm);
-    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles);
+        defaultsPackageContents, commandId, clientEnv, tsgm, options);
+    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
   }
 
   /**
@@ -324,11 +336,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    */
   @VisibleForTesting
   public void handleDiffs(EventHandler eventHandler) throws InterruptedException {
-    handleDiffs(eventHandler, /*checkOutputFiles=*/ false);
+    handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsClassProvider.EMPTY);
   }
 
-  private void handleDiffs(EventHandler eventHandler, boolean checkOutputFiles)
-      throws InterruptedException {
+  private void handleDiffs(
+      EventHandler eventHandler, boolean checkOutputFiles, OptionsClassProvider options)
+          throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -343,7 +356,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         pathEntriesWithoutDiffInformation = Sets.newHashSet();
     for (Path pathEntry : pkgLocator.get().getPathEntries()) {
       DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
-          diffAwarenessManager.getDiff(eventHandler, pathEntry);
+          diffAwarenessManager.getDiff(eventHandler, pathEntry, options);
       if (modifiedFileSet.getModifiedFileSet().treatEverythingAsModified()) {
         pathEntriesWithoutDiffInformation.add(Pair.of(pathEntry, modifiedFileSet));
       } else {
@@ -418,8 +431,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
     // See the comment for FileType.OUTPUT for why we need to consider output files here.
     EnumSet<FileType> fileTypesToCheck = checkOutputFiles
-        ? EnumSet.of(FileType.EXTERNAL_MUTABLE, FileType.EXTERNAL_REPO, FileType.OUTPUT)
-        : EnumSet.of(FileType.EXTERNAL_MUTABLE, FileType.EXTERNAL_REPO);
+        ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
+        : EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO);
     Differencer.Diff diff =
         fsvc.getDirtyKeys(
             memoizingEvaluator.getValues(),
@@ -530,7 +543,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     } else {
       diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
-    syscalls.set(newPerBuildSyscallCache(/*concurrencyLevel=*/42));
+    syscalls.set(getPerBuildSyscallCache(/*concurrencyLevel=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
     recordingDiffer.inject(diff.changedKeysWithNewValues());
     // Blaze invalidates transient errors on every build.

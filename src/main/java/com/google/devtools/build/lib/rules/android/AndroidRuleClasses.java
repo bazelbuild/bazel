@@ -363,7 +363,7 @@ public final class AndroidRuleClasses {
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("apksigner", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
+          .add(attr("apksigner", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("zipalign", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(
               attr("jack", LABEL)
@@ -662,10 +662,12 @@ public final class AndroidRuleClasses {
                   .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(
               attr("$incremental_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION))
+                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$incremental_split_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
+                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION))
+                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$desugar", LABEL)
                   .cfg(HOST)
@@ -781,6 +783,14 @@ public final class AndroidRuleClasses {
                   .undocumented("No-op, soon to be removed"))
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
+          /*
+          File to be used as a package map for Rex tool that keeps the assignment of classes to
+          dex files of a multi-dex application stable over time.
+          Can only be used when <code>proguard_specs</code> is also specified. When
+          <code>proguard_specs</code> is specified, but a package map isn't or there were changes,
+          Rex suggests an updated package map that can be saved and reused for subsequent builds.
+           */
+          .add(attr("rex_package_map", LABEL).legacyAllowAnyFileType().undocumented("experimental"))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

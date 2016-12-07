@@ -51,7 +51,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
-    new CompilationSupport(ruleContext)
+    new LegacyCompilationSupport(ruleContext)
         .registerGenerateModuleMapAction(Optional.<CompilationArtifacts>absent())
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();

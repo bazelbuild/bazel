@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -475,11 +476,23 @@ public class Package {
     return (Rule) targets.get(targetName);
   }
 
+  /** Returns all rules in the package that match the given rule class. */
+  public Iterable<Rule> getRulesMatchingRuleClass(final String ruleClass) {
+    Iterable<Rule> targets = getTargets(Rule.class);
+    return Iterables.filter(
+        targets,
+        new Predicate<Rule>() {
+          @Override
+          public boolean apply(@Nullable Rule rule) {
+            return rule.getRuleClass().equals(ruleClass);
+          }
+        });
+  }
+
   /**
    * Returns this package's workspace name.
    *
-   * <p>Package-private to encourage callers to get their workspace name from a rule, not a
-   * package.</p>
+   * <p>Package-private to encourage callers to get their workspace name from a rule, not a package.
    */
   public String getWorkspaceName() {
     return workspaceName;
@@ -1253,7 +1266,7 @@ public class Package {
       addRuleUnchecked(rule);
     }
 
-    private Builder beforeBuild() throws InterruptedException {
+    private Builder beforeBuild(boolean discoverAssumedInputFiles) throws InterruptedException {
       Preconditions.checkNotNull(pkg);
       Preconditions.checkNotNull(filename);
       Preconditions.checkNotNull(buildFileLabel);
@@ -1270,15 +1283,17 @@ public class Package {
 
       List<Rule> rules = Lists.newArrayList(getTargets(Rule.class));
 
-      // All labels mentioned in a rule that refer to an unknown target in the
-      // current package are assumed to be InputFiles, so let's create them:
-      for (final Rule rule : rules) {
-        AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
-          @Override
-          public void acceptLabelAttribute(Label label, Attribute attribute) {
-            createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));
-          }
-        });
+      if (discoverAssumedInputFiles) {
+        // All labels mentioned in a rule that refer to an unknown target in the
+        // current package are assumed to be InputFiles, so let's create them:
+        for (final Rule rule : rules) {
+          AggregatingAttributeMapper.of(rule).visitLabels(new AcceptsLabelAttribute() {
+            @Override
+            public void acceptLabelAttribute(Label label, Attribute attribute) {
+              createInputFileMaybe(label, rule.getAttributeLocation(attribute.getName()));
+            }
+          });
+        }
       }
 
       // "test_suite" rules have the idiosyncratic semantics of implicitly
@@ -1310,7 +1325,7 @@ public class Package {
       if (alreadyBuilt) {
         return this;
       }
-      return beforeBuild();
+      return beforeBuild(/*discoverAssumedInputFiles=*/ true);
     }
 
     /**
@@ -1355,10 +1370,18 @@ public class Package {
     }
 
     public Package build() throws InterruptedException {
+      return build(/*discoverAssumedInputFiles=*/ true);
+    }
+
+    /**
+     * Build the package, optionally adding any labels in the package not already associated with
+     * a target as an input file.
+     */
+    public Package build(boolean discoverAssumedInputFiles) throws InterruptedException {
       if (alreadyBuilt) {
         return pkg;
       }
-      beforeBuild();
+      beforeBuild(discoverAssumedInputFiles);
       return finishBuild();
     }
 

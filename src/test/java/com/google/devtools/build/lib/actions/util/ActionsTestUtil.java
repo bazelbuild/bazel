@@ -189,8 +189,15 @@ public final class ActionsTestUtil {
       Root.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
 
   public static final ActionOwner NULL_ACTION_OWNER =
-      new ActionOwner(
-          NULL_LABEL, null, "dummy-configuration-mnemonic", null, "dummy-configuration", null);
+      ActionOwner.create(
+          NULL_LABEL,
+          null,
+          null,
+          null,
+          "dummy-configuration-mnemonic",
+          null,
+          "dummy-configuration",
+          null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =
       new ArtifactOwner() {
@@ -221,6 +228,10 @@ public final class ActionsTestUtil {
 
     public NullAction(Artifact... outputs) {
       super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
+    }
+
+    public NullAction(List<Artifact> inputs, Artifact... outputs) {
+      super(NULL_ACTION_OWNER, inputs, ImmutableList.copyOf(outputs));
     }
 
     @Override

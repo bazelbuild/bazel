@@ -29,13 +29,17 @@ import java.util.Objects;
  */
 public class DataValueFile implements DataResource, DataAsset {
 
-  private final Path source;
+  private final DataSource source;
 
-  private DataValueFile(Path source) {
+  private DataValueFile(DataSource source) {
     this.source = source;
   }
 
   public static DataValueFile of(Path source) {
+    return of(DataSource.of(source));
+  }
+
+  public static DataValueFile of(DataSource source) {
     return new DataValueFile(source);
   }
 
@@ -66,20 +70,20 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public Path source() {
+  public DataSource source() {
     return source;
   }
 
   @Override
   public void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException {
-    mergedDataWriter.copyAsset(source, key.toPathString());
+    mergedDataWriter.copyAsset(source.getPath(), key.toPathString());
   }
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException, MergingException {
-    mergedDataWriter.copyResource(source, key.toPathString(source));
+    mergedDataWriter.copyResource(source.getPath(), key.toPathString(source.getPath()));
   }
 
   @Override
@@ -95,6 +99,22 @@ public class DataValueFile implements DataResource, DataAsset {
   @Override
   public DataResource combineWith(DataResource resource) {
     throw new IllegalArgumentException(getClass() + " does not combine.");
+  }
+
+  @Override
+  public DataResource overwrite(DataResource resource) {
+    if (equals(resource)) {
+      return this;
+    }
+    return of(source.overwrite(resource.source()));
+  }
+
+  @Override
+  public DataAsset overwrite(DataAsset asset) {
+    if (equals(asset)) {
+      return this;
+    }
+    return of(source.overwrite(asset.source()));
   }
 
   @Override

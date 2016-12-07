@@ -21,11 +21,14 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -73,7 +76,9 @@ abstract class ArtifactFunctionTestCase {
     BlazeDirectories directories = new BlazeDirectories(root, root, root,
         TestConstants.PRODUCT_NAME);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
-        pkgLocator, false, directories);
+        pkgLocator,
+        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+        directories);
     differencer = new RecordingDifferencer();
     evaluator =
         new InMemoryMemoizingEvaluator(
@@ -90,7 +95,10 @@ abstract class ArtifactFunctionTestCase {
                     new PackageFunction(null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
-                    new PackageLookupFunction(null, CrossRepositoryLabelViolationStrategy.ERROR))
+                    new PackageLookupFunction(
+                        null,
+                        CrossRepositoryLabelViolationStrategy.ERROR,
+                        ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD)))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -151,13 +159,8 @@ abstract class ArtifactFunctionTestCase {
   /** InMemoryFileSystem that can pretend to do a fast digest. */
   protected class CustomInMemoryFs extends InMemoryFileSystem {
     @Override
-    protected String getFastDigestFunctionType(Path path) {
-      return fastDigest ? "MD5" : null;
-    }
-
-    @Override
-    protected byte[] getFastDigest(Path path) throws IOException {
-      return fastDigest ? getMD5Digest(path) : null;
+    protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+      return fastDigest ? getDigest(path, hashFunction) : null;
     }
   }
 }

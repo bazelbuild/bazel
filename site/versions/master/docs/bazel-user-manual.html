@@ -839,7 +839,7 @@ $ bazel fetch //...
   Bazel uses sandboxes to guarantee that actions run hermetically<sup>1</sup> and correctly.
   Bazel runs <i>Spawn</i>s (loosely speaking: actions) in sandboxes that only contain the minimal
   set of files the tool requires to do its job. Currently sandboxing works on Linux 3.12 or newer
-  with the <code>CONFIG_USER_NS</code> option enabled.
+  with the <code>CONFIG_USER_NS</code> option enabled, and also on Mac OS 10.11 for newer.
 </p>
 <p>
   Bazel will print a warning if your system does not support sandboxing to alert you to the fact

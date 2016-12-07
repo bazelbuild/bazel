@@ -48,6 +48,7 @@ public final class BazelMain {
           com.google.devtools.build.lib.standalone.StandaloneModule.class,
           com.google.devtools.build.lib.sandbox.SandboxModule.class,
           com.google.devtools.build.lib.runtime.BuildSummaryStatsModule.class,
+          com.google.devtools.build.lib.runtime.BuildEventStreamerModule.class,
           com.google.devtools.build.lib.bazel.rules.BazelRulesModule.class);
 
   public static void main(String[] args) {

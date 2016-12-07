@@ -608,6 +608,14 @@ public class JavaCommon {
     return targetsTreatedAsDeps.get(type);
   }
 
+  /**
+   * Returns the default dependencies for the given classpath context.
+   */
+  public static ImmutableList<TransitiveInfoCollection> defaultDeps(RuleContext ruleContext,
+      JavaSemantics semantics, ClasspathType type) {
+    return collectTargetsTreatedAsDeps(ruleContext, semantics, type);
+  }
+
   private static ImmutableList<TransitiveInfoCollection> collectTargetsTreatedAsDeps(
       RuleContext ruleContext, JavaSemantics semantics, ClasspathType type) {
     ImmutableList.Builder<TransitiveInfoCollection> builder = new Builder<>();
@@ -798,8 +806,8 @@ public class JavaCommon {
    * @return the value of the neverlink attribute.
    */
   public static final boolean isNeverLink(RuleContext ruleContext) {
-    return ruleContext.getRule().isAttrDefined("neverlink", Type.BOOLEAN) &&
-        ruleContext.attributes().get("neverlink", Type.BOOLEAN);
+    return ruleContext.getRule().isAttrDefined("neverlink", Type.BOOLEAN)
+        && ruleContext.attributes().get("neverlink", Type.BOOLEAN);
   }
 
   private static NestedSet<Artifact> getFilesToCompile(Artifact classJar) {

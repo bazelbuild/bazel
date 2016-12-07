@@ -331,10 +331,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     TreeFileArtifact treeFileArtifact2 = createFakeTreeFileArtifact(artifact, "child2", "hello2");
 
     TreeArtifactValue value = (TreeArtifactValue) evaluateArtifactValue(artifact);
-    assertNotNull(value.getChildValue(treeFileArtifact1));
-    assertNotNull(value.getChildValue(treeFileArtifact2));
-    assertNotNull(value.getChildValue(treeFileArtifact1).getDigest());
-    assertNotNull(value.getChildValue(treeFileArtifact2).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact1));
+    assertNotNull(value.getChildValues().get(treeFileArtifact2));
+    assertNotNull(value.getChildValues().get(treeFileArtifact1).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact2).getDigest());
   }
 
   @Test
@@ -354,10 +354,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2));
 
     TreeArtifactValue value = (TreeArtifactValue) evaluateArtifactValue(artifact2);
-    assertNotNull(value.getChildValue(treeFileArtifact1));
-    assertNotNull(value.getChildValue(treeFileArtifact2));
-    assertNotNull(value.getChildValue(treeFileArtifact1).getDigest());
-    assertNotNull(value.getChildValue(treeFileArtifact2).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact1));
+    assertNotNull(value.getChildValues().get(treeFileArtifact2));
+    assertNotNull(value.getChildValues().get(treeFileArtifact1).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact2).getDigest());
   }
 
   @Test
@@ -382,10 +382,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         ActionsTestUtil.createDummySpawnActionTemplate(artifact2, artifact3));
 
     TreeArtifactValue value = (TreeArtifactValue) evaluateArtifactValue(artifact3);
-    assertNotNull(value.getChildValue(treeFileArtifact1));
-    assertNotNull(value.getChildValue(treeFileArtifact2));
-    assertNotNull(value.getChildValue(treeFileArtifact1).getDigest());
-    assertNotNull(value.getChildValue(treeFileArtifact2).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact1));
+    assertNotNull(value.getChildValues().get(treeFileArtifact2));
+    assertNotNull(value.getChildValues().get(treeFileArtifact1).getDigest());
+    assertNotNull(value.getChildValues().get(treeFileArtifact2).getDigest());
   }
 
   private void file(Path path, String contents) throws Exception {

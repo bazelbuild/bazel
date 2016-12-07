@@ -21,18 +21,19 @@
 
 #include <sys/types.h>
 
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
 
 namespace blaze {
 
-using std::string;
-
 extern const char kServerPidFile[];
-extern const char kServerPidSymlink[];
 
-string GetUserName();
+// TODO(laszlocsomor) 2016-11-21: remove kServerPidSymlink after 2017-05-01
+// (~half a year from writing this comment). By that time old Bazel clients that
+// used to write PID symlinks will probably no longer be in use.
+extern const char kServerPidSymlink[];
 
 // Returns the given path in absolute form.  Does not change paths that are
 // already absolute.
@@ -41,37 +42,7 @@ string GetUserName();
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
 //   MakeAbsolute("C:/foo") ---> "C:/foo"
-string MakeAbsolute(const string &path);
-
-// mkdir -p path. All newly created directories use the given mode.
-// Returns -1 on failure, sets errno.
-int MakeDirectories(const string &path, mode_t mode);
-
-// Replaces 'content' with contents of file 'filename'.
-// Returns false on error. Can be called from a signal handler.
-bool ReadFile(const string &filename, string *content);
-
-// Replaces 'content' with contents of file descriptor 'fd'.
-// Returns false on error. Can be called from a signal handler.
-bool ReadFileDescriptor(int fd, string *content);
-
-// Writes 'content' into file 'filename', and makes it executable.
-// Returns false on failure, sets errno.
-bool WriteFile(const string &content, const string &filename);
-
-// Unlinks the file given by 'file_path'.
-// Returns true on success. In case of failure sets errno.
-bool UnlinkPath(const string &file_path);
-
-// Returns true iff the current terminal is running inside an Emacs.
-bool IsEmacsTerminal();
-
-// Returns true iff the current terminal can support color and cursor movement.
-bool IsStandardTerminal();
-
-// Returns the number of columns of the terminal to which stdout is
-// connected, or 80 if there is no such terminal.
-int GetTerminalColumns();
+std::string MakeAbsolute(const std::string &path);
 
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
@@ -92,27 +63,30 @@ bool VerboseLogging();
 // "java -version" execution and is supposed to contain a string of the form
 // 'version "version-number"' in the first 255 bytes. If the string is found,
 // version-number is returned, else the empty string is returned.
-string ReadJvmVersion(const string& version_string);
+std::string ReadJvmVersion(const std::string &version_string);
 
 // Get the version string from the given java executable. The java executable
 // is supposed to output a string in the form '.*version ".*".*'. This method
 // will return the part in between the two quote or the empty string on failure
 // to match the good string.
-string GetJvmVersion(const string &java_exe);
+std::string GetJvmVersion(const std::string &java_exe);
 
 // Returns true iff jvm_version is at least the version specified by
 // version_spec.
 // jvm_version is supposed to be a string specifying a java runtime version
 // as specified by the JSR-56 appendix A. version_spec is supposed to be a
 // version is the format [0-9]+(.[1-9]+)*.
-bool CheckJavaVersionIsAtLeast(const string &jvm_version,
-                               const string &version_spec);
+bool CheckJavaVersionIsAtLeast(const std::string &jvm_version,
+                               const std::string &version_spec);
 
-// Converts a project identifier to string.
+// Returns true iff arg is a valid command line argument for bazel.
+bool IsArg(const std::string& arg);
+
+// Returns the string representation of `value`.
 // Workaround for mingw where std::to_string is not implemented.
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=52015.
 template <typename T>
-string ToString(const T& value) {
+std::string ToString(const T &value) {
   std::ostringstream oss;
   oss << value;
   return oss.str();

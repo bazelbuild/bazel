@@ -77,18 +77,6 @@ not available on GitHub and probably never will be.
 ### Core Contributors
 
 <p class="lead">
-Contact the core team at <a href="mailto:bazel-dev@googlegroups.com">
-bazel-dev@googlegroups.com</a>.
+Contact the core team at <a href="mailto:bazel-core@googlegroups.com">
+bazel-core@googlegroups.com</a>.
 </p>
-
-The current group is:
-
- - [damienmg](https://github.com/damienmg)
- - [hanwen](https://github.com/hanwen)
- - [jhfield](https://github.com/jhfield)
- - [kchodorow](https://github.com/kchodorow)
- - [laszlocsomor](https://github.com/laszlocsomor)
- - [laurentlb](https://github.com/laurentlb)
- - [lberki](https://github.com/lberki)
- - [philwo](https://github.com/philwo)
- - [ulfjack](https://github.com/ulfjack)

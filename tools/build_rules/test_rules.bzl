@@ -184,9 +184,26 @@ def _rule_test_impl(ctx):
   rule_name = str(rule_.label)
   exe = ctx.outputs.executable
   if ctx.attr.generates:
-    prefix = rule_.label.package + "/"
+    # Generate the proper prefix to remove from generated files.
+    prefix_parts = []
+
+    if rule_.label.workspace_root:
+      # Create a prefix that is correctly relative to the output of this rule.
+      prefix_parts = ["..", strip_prefix("external/", rule_.label.workspace_root)]
+
+    if rule_.label.package:
+      prefix_parts.append(rule_.label.package)
+
+    prefix = "/".join(prefix_parts)
+
+    if prefix:
+      # If the prefix isn't empty, it needs a trailing slash.
+      prefix = prefix + "/"
+
     # TODO(bazel-team): Use set() instead of sorted() once
     # set comparison is implemented.
+    # TODO(bazel-team): Use a better way to determine if two paths refer to
+    # the same file.
     generates = sorted(ctx.attr.generates)
     generated = sorted([strip_prefix(prefix, f.short_path)
                         for f in rule_.files])

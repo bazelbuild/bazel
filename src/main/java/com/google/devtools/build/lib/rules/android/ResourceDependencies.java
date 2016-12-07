@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 
@@ -98,11 +99,12 @@ public final class ResourceDependencies {
         transitiveDependencies.build(), directDependencies.build());
   }
 
-  private static void extractFromAttributes(Iterable<String> attributes,
+  private static void extractFromAttributes(Iterable<String> attributeNames,
       RuleContext ruleContext, NestedSetBuilder<ResourceContainer> builderForTransitive,
       NestedSetBuilder<ResourceContainer> builderForDirect) {
-    for (String attr : attributes) {
-      if (ruleContext.getAttribute(attr) == null) {
+    AttributeMap attributes = ruleContext.attributes();
+    for (String attr : attributeNames) {
+      if (!attributes.has(attr, BuildType.LABEL_LIST) && !attributes.has(attr, BuildType.LABEL)) {
         continue;
       }
       for (AndroidResourcesProvider resources :

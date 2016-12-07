@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -94,7 +95,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     SKYFRAME_LOADING_PHASE,
     // Dynamic configurations that only include the fragments a target needs to properly analyze.
     DYNAMIC_CONFIGURATIONS,
-    // Dynamic configurations that always include all fragments even for targets don't need them.
+    // Dynamic configurations that always include all fragments even when targets don't need them.
     DYNAMIC_CONFIGURATIONS_NOTRIM
   }
 
@@ -179,7 +180,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             getPrecomputedValues(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
             analysisMock.getProductName(),
-            CrossRepositoryLabelViolationStrategy.ERROR);
+            CrossRepositoryLabelViolationStrategy.ERROR,
+            ImmutableList.of(BuildFileName.BUILD_DOT_BAZEL, BuildFileName.BUILD));
     PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
     packageCacheOptions.showLoadingProgress = true;
     packageCacheOptions.globbingThreads = 3;
@@ -256,8 +258,32 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return masterConfig;
   }
 
-  protected BuildConfiguration getTargetConfiguration() {
-    return Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
+  /**
+   * Returns the target configuration for the most recent build, as created in Blaze's
+   * master configuration creation phase. Most significantly, this is never a dynamic
+   * configuration.
+   */
+  protected BuildConfiguration getTargetConfiguration() throws InterruptedException {
+    return getTargetConfiguration(false);
+  }
+
+  /**
+   * Returns the target configuration for the most recent build. If useDynamicVersionIfEnabled is
+   * true and dynamic configurations are enabled, returns the dynamic version. Else returns the
+   * static version.
+   */
+  // TODO(gregce): force getTargetConfiguration() to getTargetConfiguration(true) once we know
+  //    all callers can handle the dynamic version
+  protected BuildConfiguration getTargetConfiguration(boolean useDynamicVersionIfEnabled)
+    throws InterruptedException {
+    BuildConfiguration targetConfig =
+        Iterables.getOnlyElement(masterConfig.getTargetConfigurations());
+    if (useDynamicVersionIfEnabled && targetConfig.useDynamicConfigurations()) {
+      return skyframeExecutor.getConfigurationForTesting(eventCollector,
+          targetConfig.fragmentClasses(), targetConfig.getOptions());
+    } else {
+      return targetConfig;
+    }
   }
 
   protected BuildConfiguration getHostConfiguration() {
@@ -277,10 +303,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
-    loadingOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);
     viewOptions.keepGoing = flags.contains(Flag.KEEP_GOING);
+    viewOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     PackageCacheOptions packageCacheOptions = optionsParser.getOptions(PackageCacheOptions.class);
@@ -307,7 +333,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
-            buildOptions.getAllLabels(),
             viewOptions.keepGoing,
             /*determineTests=*/false,
             /*callback=*/null);
@@ -378,7 +403,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
    * Returns the corresponding configured target, if it exists. Note that this will only return
    * anything useful after a call to update() with the same label.
    */
-  protected ConfiguredTarget getConfiguredTarget(String label) {
+  protected ConfiguredTarget getConfiguredTarget(String label) throws InterruptedException {
     return getConfiguredTarget(label, getTargetConfiguration());
   }
 
@@ -395,7 +420,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     return buildView.hasErrors(configuredTarget);
   }
 
-  protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner) {
+  protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
+      throws InterruptedException {
     Label label = owner.getLabel();
     return buildView.getArtifactFactory().getDerivedArtifact(
         label.getPackageFragment().getRelative(packageRelativePath),

@@ -17,6 +17,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.packages.TestTimeout;
@@ -48,7 +49,7 @@ public final class TestFilter implements Predicate<Target> {
     }
     if (!options.testTagFilterList.isEmpty()) {
       testFilter = Predicates.and(testFilter,
-          TestTargetUtils.tagFilter(options.testTagFilterList));
+          TargetUtils.tagFilter(options.testTagFilterList));
     }
     if (!options.testLangFilterList.isEmpty()) {
       testFilter = Predicates.and(testFilter,

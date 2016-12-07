@@ -20,36 +20,43 @@ import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Helper class for setting up a proxy server for network communication
- *
  */
 public class ProxyHelper {
+
+  private final Map<String, String> env;
+
+  /**
+   * Creates new instance.
+   *
+   * @param env client environment to check for proxy settings
+   */
+  public ProxyHelper(Map<String, String> env) {
+    this.env = env;
+  }
 
   /**
    * This method takes a String for the resource being requested and sets up a proxy to make
    * the request if HTTP_PROXY and/or HTTPS_PROXY environment variables are set.
-   * @param requestedUrl The url for the remote resource that may need to be retrieved through a
-   *   proxy
-   * @param env The client environment to check for proxy settings.
-   * @return Proxy
-   * @throws IOException
+   *
+   * @param requestedUrl remote resource that may need to be retrieved through a proxy
    */
-  public static Proxy createProxyIfNeeded(String requestedUrl, Map<String, String> env)
-      throws IOException {
-    String lcUrl = requestedUrl.toLowerCase();
+  public Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
     String proxyAddress = null;
-    if (lcUrl.startsWith("https")) {
+    if (HttpUtils.isProtocol(requestedUrl, "https")) {
       proxyAddress = env.get("https_proxy");
       if (Strings.isNullOrEmpty(proxyAddress)) {
         proxyAddress = env.get("HTTPS_PROXY");
       }
-    } else if (lcUrl.startsWith("http")) {
+    } else if (HttpUtils.isProtocol(requestedUrl, "http")) {
       proxyAddress = env.get("http_proxy");
       if (Strings.isNullOrEmpty(proxyAddress)) {
         proxyAddress = env.get("HTTP_PROXY");
@@ -67,7 +74,7 @@ public class ProxyHelper {
    * @return Proxy
    * @throws IOException
    */
-  public static Proxy createProxy(String proxyAddress) throws IOException {
+  public static Proxy createProxy(@Nullable String proxyAddress) throws IOException {
     if (Strings.isNullOrEmpty(proxyAddress)) {
       return Proxy.NO_PROXY;
     }

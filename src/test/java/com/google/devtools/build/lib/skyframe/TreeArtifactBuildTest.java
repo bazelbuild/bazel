@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
 import static org.junit.Assert.assertFalse;
@@ -22,9 +21,11 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.hash.Hashing;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -46,6 +48,9 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -57,24 +62,29 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /** Timestamp builder tests for TreeArtifacts. */
 @RunWith(JUnit4.class)
 public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
+
+  private static final Predicate<Event> IS_ERROR_EVENT = new Predicate<Event>() {
+    @Override
+    public boolean apply(Event event) {
+      return event.getKind().equals(EventKind.ERROR);
+    }
+  };
+
   // Common Artifacts, TreeFileArtifact, and Buttons. These aren't all used in all tests, but
   // they're used often enough that we can save ourselves a lot of copy-pasted code by creating them
   // in setUp().
@@ -90,7 +100,6 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   TreeFileArtifact outTwoFileOne;
   TreeFileArtifact outTwoFileTwo;
   Button buttonTwo = new Button();
-
   @Before
   public void setUp() throws Exception {
     in = createSourceArtifact("input");
@@ -133,6 +142,34 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertTrue(outOneFileTwo.getPath().exists());
     assertTrue(outTwoFileOne.getPath().exists());
     assertTrue(outTwoFileTwo.getPath().exists());
+  }
+
+  @Test
+  public void testInputTreeArtifactPerActionFileCache() throws Exception {
+    TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
+    registerAction(actionOne);
+
+    final Artifact normalOutput = createDerivedArtifact("normal/out");
+    Action testAction = new TestAction(
+        TestAction.NO_EFFECT, ImmutableList.of(outOne), ImmutableList.of(normalOutput)) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext) {
+        try {
+          // Check the file cache for input TreeFileArtifacts.
+          ActionInputFileCache fileCache = actionExecutionContext.getActionInputFileCache();
+          assertThat(fileCache.getDigest(outOneFileOne)).isNotNull();
+          assertThat(fileCache.getDigest(outOneFileTwo)).isNotNull();
+
+          // Touch the action output.
+          touchFile(normalOutput);
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(testAction);
+    buildArtifact(normalOutput);
   }
 
   /** Unchanged TreeArtifact outputs should not cause reexecution. */
@@ -353,11 +390,15 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   @Test
   public void testInvalidOutputRegistrations() throws Exception {
+    // Failure expected
+    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(storingEventHandler);
+
     TreeArtifactTestAction failureOne = new TreeArtifactTestAction(
         Runnables.doNothing(), outOneFileOne, outOneFileTwo) {
       @Override
-      public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException {
+      public void executeTestBehavior(ActionExecutionContext actionExecutionContext) {
         try {
           writeFile(outOneFileOne, "one");
           writeFile(outOneFileTwo, "two");
@@ -373,15 +414,19 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     try {
       buildArtifact(outOne);
       fail(); // Should have thrown
-    } catch (Exception e) {
-      assertThat(getRootCause(e).getMessage()).contains("not present on disk");
+    } catch (BuildFailedException e) {
+      //not all outputs were created
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains("not present on disk");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
     }
 
     TreeArtifactTestAction failureTwo = new TreeArtifactTestAction(
         Runnables.doNothing(), outTwoFileOne, outTwoFileTwo) {
       @Override
-      public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException {
+      public void executeTestBehavior(ActionExecutionContext actionExecutionContext) {
         try {
           writeFile(outTwoFileOne, "one");
           writeFile(outTwoFileTwo, "two");
@@ -396,11 +441,16 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     };
 
     registerAction(failureTwo);
+    storingEventHandler.clear();
     try {
       buildArtifact(outTwo);
       fail(); // Should have thrown
-    } catch (Exception e) {
-      assertThat(getRootCause(e).getMessage()).contains("not present on disk");
+    } catch (BuildFailedException e) {
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains("not present on disk");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
     }
   }
 
@@ -424,8 +474,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     TreeArtifactTestAction action = new TreeArtifactTestAction(out) {
       @Override
-      public void execute(ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException {
+      public void execute(ActionExecutionContext actionExecutionContext) {
         try {
           writeFile(out.getPath().getChild("one"), "one");
           writeFile(out.getPath().getChild("two"), "two");
@@ -448,6 +497,148 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     checkFilePermissions(out.getPath().getChild("two"));
     checkDirectoryPermissions(out.getPath().getChild("three"));
     checkFilePermissions(out.getPath().getChild("three").getChild("four"));
+  }
+
+  @Test
+  public void testValidRelativeSymlinkAccepted() throws Exception {
+    final Artifact out = createTreeArtifact("output");
+
+    TreeArtifactTestAction action = new TreeArtifactTestAction(out) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext) {
+        try {
+          writeFile(out.getPath().getChild("one"), "one");
+          writeFile(out.getPath().getChild("two"), "two");
+          FileSystemUtils.ensureSymbolicLink(
+              out.getPath().getChild("links").getChild("link"),
+              "../one");
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(action);
+
+    buildArtifact(action.getSoleOutput());
+  }
+
+  @Test
+  public void testInvalidSymlinkRejected() throws Exception {
+    // Failure expected
+    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(storingEventHandler);
+
+    final Artifact out = createTreeArtifact("output");
+
+    TreeArtifactTestAction action = new TreeArtifactTestAction(out) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext) {
+        try {
+          writeFile(out.getPath().getChild("one"), "one");
+          writeFile(out.getPath().getChild("two"), "two");
+          FileSystemUtils.ensureSymbolicLink(
+              out.getPath().getChild("links").getChild("link"),
+              "../invalid");
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(action);
+
+    try {
+      buildArtifact(action.getSoleOutput());
+      fail(); // Should have thrown
+    } catch (BuildFailedException e) {
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains(
+          "Failed to resolve relative path links/link");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+    }
+  }
+
+  @Test
+  public void testAbsoluteSymlinkRejected() throws Exception {
+    // Failure expected
+    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(storingEventHandler);
+
+    final Artifact out = createTreeArtifact("output");
+
+    TreeArtifactTestAction action = new TreeArtifactTestAction(out) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext) {
+        try {
+          writeFile(out.getPath().getChild("one"), "one");
+          writeFile(out.getPath().getChild("two"), "two");
+          FileSystemUtils.ensureSymbolicLink(
+              out.getPath().getChild("links").getChild("link"),
+              "/random/pointer");
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(action);
+
+    try {
+      buildArtifact(action.getSoleOutput());
+      fail(); // Should have thrown
+    } catch (BuildFailedException e) {
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains(
+          "A TreeArtifact may not contain absolute symlinks");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+    }
+  }
+
+  @Test
+  public void testRelativeSymlinkTraversingOutsideOfTreeArtifactRejected() throws Exception {
+    // Failure expected
+    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    reporter.removeHandler(failFastHandler);
+    reporter.addHandler(storingEventHandler);
+
+    final Artifact out = createTreeArtifact("output");
+
+    TreeArtifactTestAction action = new TreeArtifactTestAction(out) {
+      @Override
+      public void execute(ActionExecutionContext actionExecutionContext) {
+        try {
+          writeFile(out.getPath().getChild("one"), "one");
+          writeFile(out.getPath().getChild("two"), "two");
+          FileSystemUtils.ensureSymbolicLink(
+              out.getPath().getChild("links").getChild("link"),
+              "../../output/random/pointer");
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
+      }
+    };
+
+    registerAction(action);
+
+    try {
+      buildArtifact(action.getSoleOutput());
+      fail(); // Should have thrown
+    } catch (BuildFailedException e) {
+      List<Event> errors = ImmutableList.copyOf(
+          Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
+      assertThat(errors).hasSize(2);
+      assertThat(errors.get(0).getMessage()).contains(
+          "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+          + "outside of the TreeArtifact");
+      assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+    }
   }
 
   // This is more a smoke test than anything, because it turns out that:
@@ -563,7 +754,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       buildArtifact(artifact2);
       fail("Expected BuildFailedException");
     } catch (BuildFailedException e) {
-      assertThat(e.getMessage()).contains("not all outputs were created");
+      assertThat(e.getMessage()).contains("not all outputs were created or valid");
     }
   }
 

@@ -54,9 +54,9 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.SkylarkUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.common.options.OptionsClassProvider;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
@@ -66,7 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -181,15 +180,27 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   /**
-   * Builder for {@link ConfiguredRuleClassProvider}.
+   * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
+   * on other such sets.
    */
+  public static interface RuleSet {
+    /** Add stuff to the configured rule class provider builder. */
+    void init(ConfiguredRuleClassProvider.Builder builder);
+
+    /** List of required modules. */
+    ImmutableList<RuleSet> requires();
+  }
+
+  /** Builder for {@link ConfiguredRuleClassProvider}. */
   public static class Builder implements RuleDefinitionEnvironment {
+    private String productName;
     private final StringBuilder defaultWorkspaceFilePrefix = new StringBuilder();
     private final StringBuilder defaultWorkspaceFileSuffix = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
     private String toolsRepository;
-    private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
+    private final List<ConfigurationFragmentFactory> configurationFragmentFactories =
+        new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
 
@@ -210,6 +221,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ImmutableBiMap.Builder<String, Class<? extends TransitiveInfoProvider>>
         registeredSkylarkProviders = ImmutableBiMap.builder();
     private Map<String, String> platformRegexps = new TreeMap<>();
+
+    public Builder setProductName(String productName) {
+      this.productName = productName;
+      return this;
+    }
 
     public void addWorkspaceFilePrefix(String contents) {
       defaultWorkspaceFilePrefix.append(contents);
@@ -271,6 +287,21 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    /**
+     * Adds an options class and a corresponding factory. There's usually a 1:1:1 correspondence
+     * between option classes, factories, and fragments, such that the factory depends only on the
+     * options class and creates the fragment. This method provides a convenient way of adding both
+     * the options class and the factory in a single call.
+     */
+    public Builder addConfig(
+        Class<? extends FragmentOptions> options, ConfigurationFragmentFactory factory) {
+      // Enforce that the factory requires the options.
+      Preconditions.checkState(factory.requiredOptions().contains(options));
+      this.configurationOptions.add(options);
+      this.configurationFragmentFactories.add(factory);
+      return this;
+    }
+
     public Builder addConfigurationOptions(
         Collection<Class<? extends FragmentOptions>> optionsClasses) {
       this.configurationOptions.addAll(optionsClasses);
@@ -278,7 +309,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
-      configurationFragments.add(factory);
+      configurationFragmentFactories.add(factory);
       return this;
     }
 
@@ -393,6 +424,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
 
       return new ConfiguredRuleClassProvider(
+          productName,
           preludeLabel,
           runfilesPrefix,
           toolsRepository,
@@ -403,7 +435,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           defaultWorkspaceFileSuffix.toString(),
           ImmutableList.copyOf(buildInfoFactories),
           ImmutableList.copyOf(configurationOptions),
-          ImmutableList.copyOf(configurationFragments),
+          ImmutableList.copyOf(configurationFragmentFactories),
           configurationCollectionFactory,
           universalFragment,
           prerequisiteValidator,
@@ -448,6 +480,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       }
     }
   });
+
+  private final String productName;
 
   /**
    * Default content that should be added at the beginning of the WORKSPACE file.
@@ -495,10 +529,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    */
   private final ImmutableList<Class<? extends FragmentOptions>> configurationOptions;
 
-  /**
-   * The set of configuration fragment factories.
-   */
-  private final ImmutableList<ConfigurationFragmentFactory> configurationFragments;
+  /** The set of configuration fragment factories. */
+  private final ImmutableList<ConfigurationFragmentFactory> configurationFragmentFactories;
 
   /**
    * The factory that creates the configuration collection.
@@ -521,6 +553,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       registeredSkylarkProviders;
 
   private ConfiguredRuleClassProvider(
+      String productName,
       Label preludeLabel,
       String runfilesPrefix,
       String toolsRepository,
@@ -538,6 +571,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
       ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>> registeredSkylarkProviders) {
+    this.productName = productName;
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
     this.toolsRepository = toolsRepository;
@@ -548,12 +582,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.buildInfoFactories = buildInfoFactories;
     this.configurationOptions = configurationOptions;
-    this.configurationFragments = configurationFragments;
+    this.configurationFragmentFactories = configurationFragments;
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
     this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.registeredSkylarkProviders = registeredSkylarkProviders;
+  }
+
+  public String getProductName() {
+    return productName;
   }
 
   public PrerequisiteValidator getPrerequisiteValidator() {
@@ -601,7 +639,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * Returns the set of configuration fragments provided by this module.
    */
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
-    return configurationFragments;
+    return configurationFragmentFactories;
   }
 
   /**
@@ -653,7 +691,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * interpreted as native TransitiveInfoProvider instances of type (map value).
    *
    * <p>That is, if this map contains "dummy" -> DummyProvider.class, a "dummy" entry in a skylark
-   * rule implementations returned struct will be exported from that ConfiguredTarget as a
+   * rule implementation's returned struct will be exported from that ConfiguredTarget as a
    * DummyProvider.
    */
   public ImmutableBiMap<String, Class<? extends TransitiveInfoProvider>>
@@ -665,7 +703,22 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * Creates a BuildOptions class for the given options taken from an optionsProvider.
    */
   public BuildOptions createBuildOptions(OptionsClassProvider optionsProvider) {
-    return BuildOptions.of(configurationOptions, optionsProvider);
+    BuildOptions buildOptions = BuildOptions.of(configurationOptions, optionsProvider);
+    // Possibly disable dynamic configurations if they won't work with this build. It's
+    // best to do this as early in the build as possible, because as the build goes on the number
+    // of BuildOptions references grows and the more dangerous it becomes to modify them. We do
+    // this here instead of in BlazeRuntime because tests and production logic don't use
+    // BlazeRuntime the same way.
+    if (buildOptions.useStaticConfigurationsOverride()
+        && buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
+            == BuildConfiguration.Options.DynamicConfigsMode.NOTRIM_PARTIAL) {
+      // It's not, generally speaking, safe to mutate BuildOptions instances when the original
+      // reference might persist.
+      buildOptions = buildOptions.clone();
+      buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations =
+          BuildConfiguration.Options.DynamicConfigsMode.OFF;
+    }
+    return buildOptions;
   }
 
   private Environment.Frame createGlobals(
@@ -687,15 +740,16 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       EventHandler eventHandler,
       String astFileContentHashCode,
       Map<String, Extension> importMap) {
-    return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(globals)
-        .setEventHandler(eventHandler)
-        .setFileContentHashCode(astFileContentHashCode)
-        .setImportedExtensions(importMap)
-        .setToolsRepository(toolsRepository)
-        .setPhase(Phase.LOADING)
-        .build();
+    Environment env =
+        Environment.builder(mutability)
+            .setGlobals(globals)
+            .setEventHandler(eventHandler)
+            .setFileContentHashCode(astFileContentHashCode)
+            .setImportedExtensions(importMap)
+            .setPhase(Phase.LOADING)
+            .build();
+    SkylarkUtils.setToolsRepository(env, toolsRepository);
+    return env;
   }
 
   @Override

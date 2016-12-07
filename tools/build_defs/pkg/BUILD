@@ -15,6 +15,7 @@ exports_files(
 py_library(
     name = "archive",
     srcs = ["archive.py"],
+    srcs_version = "PY2AND3",
     visibility = [
         "//tools/build_defs/docker:__subpackages__",
     ],
@@ -32,6 +33,7 @@ py_test(
         "testenv.py",
     ],
     data = [":archive_testdata"],
+    srcs_version = "PY2AND3",
     deps = [":archive"],
 )
 
@@ -39,11 +41,13 @@ py_test(
     name = "path_test",
     srcs = ["path_test.py"],
     data = ["path.bzl"],
+    srcs_version = "PY2AND3",
 )
 
 py_binary(
     name = "build_tar",
     srcs = ["build_tar.py"],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",
@@ -54,6 +58,7 @@ py_binary(
 py_binary(
     name = "make_deb",
     srcs = ["make_deb.py"],
+    srcs_version = "PY2AND3",
     visibility = ["//visibility:public"],
     deps = [
         ":archive",

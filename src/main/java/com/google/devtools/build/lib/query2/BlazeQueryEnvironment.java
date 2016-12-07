@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AbstractUniquifier;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -60,6 +61,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * The environment of a Blaze query. Not thread-safe.
@@ -182,6 +184,15 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
+  public void getTargetsMatchingPatternPar(
+      QueryExpression caller,
+      String pattern,
+      ThreadSafeCallback<Target> callback,
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
+    getTargetsMatchingPattern(caller, pattern, callback);
+  }
+
+  @Override
   public Target getTarget(Label label)
       throws TargetNotFoundException, QueryException, InterruptedException {
     // Can't use strictScope here because we are expecting a target back.
@@ -276,7 +287,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public void eval(QueryExpression expr, VariableContext<Target> context, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    AggregateAllCallback<Target> aggregator = QueryUtil.newAggregateAllCallback();
+    AggregateAllCallback<Target> aggregator = QueryUtil.newOrderedAggregateAllCallback();
     expr.eval(this, context, aggregator);
     callback.process(aggregator.getResult());
   }

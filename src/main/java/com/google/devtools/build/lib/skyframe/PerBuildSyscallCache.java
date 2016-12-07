@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.IOException;
 import java.util.Collection;
 
@@ -108,6 +107,11 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
   public FileStatus statNullable(Path path, Symlinks symlinks) {
     FileStatus status = statCache.getUnchecked(Pair.of(path, symlinks));
     return (status == NO_STATUS) ? null : status;
+  }
+
+  public void clear() {
+    statCache.invalidateAll();
+    readdirCache.invalidateAll();
   }
 
   // This is used because the cache implementations don't allow null.

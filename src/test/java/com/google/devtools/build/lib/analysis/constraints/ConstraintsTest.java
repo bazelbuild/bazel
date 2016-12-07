@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -161,6 +162,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     }
   }
 
+  private static final class RuleClassWithSkippedAttribute implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .setUndocumented()
+          .add(Attribute.attr("some_attr", BuildType.LABEL)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .dontCheckConstraints())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_with_skipped_attr")
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
   private static final class ConstraintExemptRuleClass implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -191,6 +213,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     builder.addRuleDefinition(new BadRuleClassDefaultRule());
     builder.addRuleDefinition(new RuleClassWithImplicitAndLateBoundDefaults());
     builder.addRuleDefinition(new RuleClassWithEnforcedImplicitAttribute());
+    builder.addRuleDefinition(new RuleClassWithSkippedAttribute());
     builder.addRuleDefinition(new ConstraintExemptRuleClass());
     return builder.build();
   }
@@ -774,6 +797,34 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   }
 
   @Test
+  public void explicitDepWithEnforcementSkipOverride() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    scratch.file("hello/BUILD",
+        "rule_with_skipped_attr(",
+        "    name = 'hi',",
+        "    some_attr = '//helpers:default',",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    assertNotNull(getConfiguredTarget("//hello:hi"));
+    // This rule is implemented by UnknownRuleConfiguredTarget, which fails on analysis by design.
+    // Ensure that's the only event reported.
+    assertThat(Iterables.getOnlyElement(eventCollector).getMessage()).isEqualTo(
+        "in rule_with_skipped_attr rule //hello:hi: cannot build rule_with_skipped_attr rules");
+  }
+
+  @Test
+  public void javaDataAndResourcesAttributesSkipped() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    scratch.file("hello/BUILD",
+        "java_library(",
+        "    name = 'hi',",
+        "    data = ['//helpers:default'],",
+        "    resources = ['//helpers:default'],",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    assertNotNull(getConfiguredTarget("//hello:hi"));
+    assertNoEvents();
+  }
+
+  @Test
   public void outputFilesAreChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
@@ -980,7 +1031,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "        '//config:a': ['//deps:dep_a'],",
         "        '//config:b': ['//deps:dep_b'],",
         "    }),",
-        "    data = ['//deps:dep_a'],",
+        "    hdrs = ['//deps:dep_a'],",
         "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
     useConfiguration("--define", "mode=a");
     reporter.removeHandler(failFastHandler);

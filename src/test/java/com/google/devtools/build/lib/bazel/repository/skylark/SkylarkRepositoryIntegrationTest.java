@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
@@ -35,14 +36,13 @@ import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.concurrent.atomic.AtomicBoolean;
+import org.mockito.Mockito;
 
 /**
  * Integration test for skylark repository not as heavyweight than shell integration tests.
@@ -68,8 +68,11 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     @Override
     public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
       // Add both the local repository and the skylark repository functions
+      // The RepositoryCache mock injected with the SkylarkRepositoryFunction
+      HttpDownloader downloader = Mockito.mock(HttpDownloader.class);
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-      SkylarkRepositoryFunction skylarkRepositoryFunction = new SkylarkRepositoryFunction();
+      SkylarkRepositoryFunction skylarkRepositoryFunction =
+          new SkylarkRepositoryFunction(downloader);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 
@@ -360,5 +363,30 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       assertThat(e.getMessage()).contains("There is already a built-in attribute 'name' "
           + "which cannot be overridden");
     }
+  }
+
+  @Test
+  public void testMultipleLoadSameExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        "load('//:def.bzl', 'f1')",
+        "f1()",
+        "load('//:def.bzl', 'f2')",
+        "f2()",
+        "load('//:def.bzl', 'f1')",
+        "f1()",
+        "local_repository(name = 'foo', path = '')");
+    scratch.file(
+        rootDirectory.getRelative("BUILD").getPathString(), "filegroup(name = 'bar', srcs = [])");
+    scratch.file(
+        rootDirectory.getRelative("def.bzl").getPathString(),
+        "def f1():",
+        "  print('f1')",
+        "",
+        "def f2():",
+        "  print('f2')");
+    invalidatePackages();
+    // Just request the last external repository to force the whole loading.
+    getConfiguredTarget("@foo//:bar");
   }
 }

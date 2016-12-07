@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.DataResourceXml;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -43,9 +44,7 @@ public class Namespaces implements Iterable<Entry<String, String>> {
   private static final Namespaces EMPTY_INSTANCE =
       new Namespaces(ImmutableMap.<String, String>of());
 
-  /**
-   * Collects prefix and uri pairs from elements.
-   */
+  /** Collects prefix and uri pairs from elements. */
   public static class Collector {
     private Map<String, String> prefixToUri = new HashMap<>();
 
@@ -146,6 +145,11 @@ public class Namespaces implements Iterable<Entry<String, String>> {
   @Override
   public int hashCode() {
     return prefixToUri.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(getClass()).add("prefixToUri", prefixToUri).toString();
   }
 
   @Override

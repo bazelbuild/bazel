@@ -300,6 +300,11 @@ public class Artifact
     return getExecPath().getBaseName();
   }
 
+  @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
+  public final String getExtension() {
+    return getExecPath().getFileExtension();
+  }
+
   /**
    * Returns the artifact owner. May be null.
    */
@@ -372,6 +377,8 @@ public class Artifact
   /**
    * Returns true iff this is a TreeArtifact representing a directory tree containing Artifacts.
    */
+  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
+  @SkylarkCallable(name = "is_directory", structField = true, documented = false)
   public boolean isTreeArtifact() {
     return false;
   }

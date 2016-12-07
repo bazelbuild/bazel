@@ -30,6 +30,18 @@ import javax.annotation.Nullable;
  * accessible from the action graph.
  */
 public interface ConfiguredTarget extends TransitiveInfoCollection {
+
+  /**
+   *  All <code>ConfiguredTarget</code>s have a "label" field.
+   */
+  String LABEL_FIELD = "label";
+
+  /**
+   *  All <code>ConfiguredTarget</code>s have a "files" field.
+   */
+  String FILES_FIELD = "files";
+
+
   /**
    * Returns the Target with which this {@link ConfiguredTarget} is associated.
    */

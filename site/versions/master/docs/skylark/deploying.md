@@ -115,7 +115,7 @@ Bazel binary in /usr/bin.
 
 If your repository is under the [bazelbuild organization](https://github.com/bazelbuild),
 contact the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) list
-to have it added to [ci.bazel.io](http://ci.bazel.io).
+to have it added to [ci.bazel.build](http://ci.bazel.build).
 
 ## Documentation
 

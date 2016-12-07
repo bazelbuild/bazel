@@ -251,6 +251,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
+  private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final Set<CppSource> compilationUnitSources = new LinkedHashSet<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
@@ -261,6 +262,7 @@ public final class CcLibraryHelper {
   private final Set<String> defines = new LinkedHashSet<>();
   private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
   private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
+  private final List<CppCompilationContext> depContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
   private final List<PathFragment> systemIncludeDirs = new ArrayList<>();
@@ -612,6 +614,11 @@ public final class CcLibraryHelper {
     return this;
   }
 
+  public CcLibraryHelper addDepContext(CppCompilationContext dep) {
+    this.depContexts.add(Preconditions.checkNotNull(dep));
+    return this;
+  }
+
   /**
    * Similar to @{link addDeps}, but adds the given targets as implementation dependencies.
    * Implementation dependencies are required to actually build a target, but are not required to
@@ -862,7 +869,7 @@ public final class CcLibraryHelper {
     Preconditions.checkState(
         // 'cc_inc_library' rules do not compile, and thus are not affected by LIPO.
         ruleContext.getRule().getRuleClass().equals("cc_inc_library")
-        || ruleContext.getRule().isAttrDefined(":lipo_context_collector", BuildType.LABEL));
+            || ruleContext.isAttrDefined(":lipo_context_collector", BuildType.LABEL));
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
@@ -873,17 +880,25 @@ public final class CcLibraryHelper {
     }
 
     CppModel model = initializeCppModel();
-    CppCompilationContext cppCompilationContext =
-        initializeCppCompilationContext(model, /*forInterface=*/ false);
-    model.setContext(cppCompilationContext);
-
+    CppCompilationContext cppCompilationContext = null;
+    CppCompilationContext interfaceCompilationContext = null;
     // If we actually have different interface deps, we need a separate compilation context
     // for the interface. Otherwise, we can just re-use the normal cppCompilationContext.
-    CppCompilationContext interfaceCompilationContext = cppCompilationContext;
     // As implemenationDeps is a superset of interfaceDeps, comparing the size proves equality.
     if (implementationDeps.size() != interfaceDeps.size()) {
-      interfaceCompilationContext = initializeCppCompilationContext(model, /*forInterface=*/ true);
+      interfaceCompilationContext =
+          initializeCppCompilationContext(
+              model, /*forInterface=*/ true, /*createModuleMapActions=*/ true);
+      cppCompilationContext =
+          initializeCppCompilationContext(
+              model, /*forInterface=*/ false, /*createModuleMapActions=*/ false);
+    } else {
+      cppCompilationContext =
+          initializeCppCompilationContext(
+              model, /*forInterface=*/ false, /*createModuleMapActions=*/ true);
+      interfaceCompilationContext = cppCompilationContext;
     }
+    model.setContext(cppCompilationContext);
     model.setInterfaceContext(interfaceCompilationContext);
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
@@ -1091,7 +1106,7 @@ public final class CcLibraryHelper {
    * Create context for cc compile action from generated inputs.
    */
   private CppCompilationContext initializeCppCompilationContext(
-      CppModel model, boolean forInterface) {
+      CppModel model, boolean forInterface, boolean createModuleMapActions) {
     CppCompilationContext.Builder contextBuilder =
         new CppCompilationContext.Builder(ruleContext, forInterface);
 
@@ -1119,6 +1134,7 @@ public final class CcLibraryHelper {
     contextBuilder.mergeDependentContexts(
         AnalysisUtils.getProviders(
             forInterface ? interfaceDeps : implementationDeps, CppCompilationContext.class));
+    contextBuilder.mergeDependentContexts(depContexts);
     CppHelper.mergeToolchainDependentContext(ruleContext, contextBuilder);
 
     // But defines come after those inherited from deps.
@@ -1128,6 +1144,9 @@ public final class CcLibraryHelper {
     contextBuilder.addDeclaredIncludeSrcs(publicHeaders);
     contextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
+    contextBuilder.addModularHdrs(publicHeaders);
+    contextBuilder.addModularHdrs(privateHeaders);
+    contextBuilder.addTextualHdrs(publicTextualHeaders);
     contextBuilder.addPregreppedHeaderMap(
         CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders));
     contextBuilder.addPregreppedHeaderMap(
@@ -1155,31 +1174,39 @@ public final class CcLibraryHelper {
               ? CppHelper.createDefaultCppModuleMap(ruleContext)
               : injectedCppModuleMap;
       contextBuilder.setCppModuleMap(cppModuleMap);
-      CppModuleMapAction action =
-          new CppModuleMapAction(
-              ruleContext.getActionOwner(),
-              cppModuleMap,
-              privateHeaders,
-              publicHeaders,
-              collectModuleMaps(),
-              additionalExportedHeaders,
-              featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
-              featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-              featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
-              !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-      ruleContext.registerAction(action);
-      if (model.getGeneratesPicHeaderModule()) {
-        contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
-      }
-      if (model.getGeneratesNoPicHeaderModule()) {
-        contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
-      }
-      contextBuilder.setUseHeaderModules(
-          featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES));
       if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
           && featureConfiguration.isEnabled(CppRuleClasses.TRANSITIVE_MODULE_MAPS)) {
         contextBuilder.setProvideTransitiveModuleMaps(true);
       }
+      if (createModuleMapActions) {
+        // TODO(djasper): The separation of interface and implementation dependencies doesn't work
+        // in conjunction with layering_check yet (and never has). In the long run to properly
+        // support layering_check together with interface/implementation dependencies, we need to
+        // write two modules to the module map, one with the headers and interface dependencies, the
+        // other with no headers, the implementation dependencies and an extra dependency on the
+        // first module. This division of two modules then needs to be properly used by the CppModel
+        // creating the CppCompileActions.
+        CppModuleMapAction action =
+            new CppModuleMapAction(
+                ruleContext.getActionOwner(),
+                cppModuleMap,
+                privateHeaders,
+                publicHeaders,
+                collectModuleMaps(),
+                additionalExportedHeaders,
+                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
+                featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
+                featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
+                !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
+        ruleContext.registerAction(action);
+        if (model.getGeneratesPicHeaderModule()) {
+          contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
+        }
+        if (model.getGeneratesNoPicHeaderModule()) {
+          contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
+        }
+      }
+
     }
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
@@ -1190,7 +1217,8 @@ public final class CcLibraryHelper {
    * Creates context for cc compile action from generated inputs.
    */
   public CppCompilationContext initializeCppCompilationContext() {
-    return initializeCppCompilationContext(initializeCppModel(), /*forInterface=*/ false);
+    return initializeCppCompilationContext(
+        initializeCppModel(), /*forInterface=*/ false, /*createModuleMapActions=*/ true);
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {
@@ -1208,6 +1236,9 @@ public final class CcLibraryHelper {
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
     if (toolchain != null) {
       result.add(toolchain.getCppCompilationContext().getCppModuleMap());
+    }
+    for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
+      result.add(additionalCppModuleMap);
     }
 
     return Iterables.filter(result, Predicates.<CppModuleMap>notNull());
@@ -1318,5 +1349,9 @@ public final class CcLibraryHelper {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : compilationOutputs.getTemps();
+  }
+
+  public void registerAdditionalModuleMap(CppModuleMap cppModuleMap) {
+    this.additionalCppModuleMaps.add(Preconditions.checkNotNull(cppModuleMap));
   }
 }

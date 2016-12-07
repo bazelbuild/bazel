@@ -20,12 +20,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -52,12 +50,6 @@ class PerActionFileCache implements ActionInputFileCache {
     if (!(input instanceof Artifact)) {
       return null;
     }
-
-    // TODO(rduan): Implement action file caching for TreeFileArtifacts.
-    if (((Artifact) input).hasParent()) {
-      return null;
-    }
-
     return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 

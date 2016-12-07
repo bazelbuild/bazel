@@ -64,6 +64,7 @@ for i in $*; do
 
   mkdir -p "${PACKAGE_DIR}/$(dirname "${OUTPUT_PATH}")"
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
+  chmod u+w "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
 
 if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac.jar ]; then

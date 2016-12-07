@@ -8,3 +8,6 @@ create_android_sdk_rules(
     build_tools_directory = "%build_tools_directory%",
     api_level = %api_level%,
 )
+
+exports_files([
+%exported_files%])

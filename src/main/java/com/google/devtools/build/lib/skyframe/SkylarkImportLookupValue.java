@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.Serializable;
 import java.util.Objects;
 
@@ -72,6 +71,11 @@ public class SkylarkImportLookupValue implements SkyValue {
       Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
       this.importLabel = importLabel;
       this.inWorkspace = inWorkspace;
+    }
+
+    @Override
+    public String toString() {
+      return importLabel + (inWorkspace ? " (in workspace)" : "");
     }
 
     @Override

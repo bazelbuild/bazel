@@ -321,6 +321,15 @@ static bool ShouldBeWritable(char *mnt_dir) {
   return false;
 }
 
+static bool IsUnderTmpDir(const char *mnt_dir) {
+  for (const char *tmpfs_dir : opt.tmpfs_dirs) {
+    if (strstr(mnt_dir, tmpfs_dir) == mnt_dir) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Makes the whole filesystem read-only, except for the paths for which
 // ShouldBeWritable returns true.
 static void MakeFilesystemMostlyReadOnly() {
@@ -333,6 +342,12 @@ static void MakeFilesystemMostlyReadOnly() {
   while ((ent = getmntent(mounts)) != NULL) {
     // Skip mounts that do not belong to our sandbox.
     if (strstr(ent->mnt_dir, opt.sandbox_root_dir) != ent->mnt_dir) {
+      continue;
+    }
+    // Skip mounts that are under tmpfs directories because we've already
+    // replaced such directories with new tmpfs instances.
+    // mount() would fail with ENOENT if we tried to remount such mount points.
+    if (IsUnderTmpDir(ent->mnt_dir + strlen(opt.sandbox_root_dir))) {
       continue;
     }
 
@@ -375,8 +390,11 @@ static void MakeFilesystemMostlyReadOnly() {
       // /proc, /proc/sys/fs/binfmt_misc and /proc, with the latter /proc being
       // the one that an outer sandbox has mounted on top of its parent /proc.
       // In that case, we're not allowed to remount /proc/sys/fs/binfmt_misc,
-      // because it is hidden.
-      if (errno != EACCES && errno != EINVAL) {
+      // because it is hidden. If we get ESTALE, the mount is a broken NFS
+      // mount. In the ideal case, the user would either fix or remove that
+      // mount, but in cases where that's not possible, we should just ignore
+      // it.
+      if (errno != EACCES && errno != EINVAL && errno != ESTALE) {
         DIE("remount(NULL, %s, NULL, %d, NULL)", ent->mnt_dir, mountFlags);
       }
     }
@@ -574,7 +592,7 @@ static void SpawnChild() {
     opt.args.push_back(nullptr);
 
     if (execvp(opt.args[0], opt.args.data()) < 0) {
-      DIE("execvp(%p, %p)", opt.args[0], opt.args.data());
+      DIE("execvp(%s, %p)", opt.args[0], opt.args.data());
     }
   }
 }

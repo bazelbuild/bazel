@@ -116,7 +116,7 @@ public class SkylarkAspect implements SkylarkExportable {
   private static final List<String> allAttrAspects = Arrays.asList("*");
 
   public AspectDefinition getDefinition(AspectParameters aspectParams) {
-    AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(aspectClass);
     if (allAttrAspects.equals(attributeAspects)) {
       builder.allAttributesAspect(aspectClass);
     } else {

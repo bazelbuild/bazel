@@ -21,7 +21,9 @@
 #include <string>
 
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/strings.h"
 
 #include "gtest/gtest.h"
@@ -106,7 +108,7 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
 string CreateTextFile(const string& relpath, const char *contents) {
   string out_path = OutputFilePath(relpath);
   blaze::MakeDirectories(blaze_util::Dirname(out_path), 0777);
-  if (blaze::WriteFile(contents, out_path)) {
+  if (blaze_util::WriteFile(contents, out_path)) {
     return out_path;
   }
   ADD_FAILURE() << "Cannot write " << out_path;

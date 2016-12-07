@@ -39,6 +39,8 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${RELEASE_CANDIDATE_URL:="${GCS_BASE_URL}/${GCS_BUCKET}/%release_name%/rc%rc%/index.html"}
 : ${RELEASE_URL="${GIT_REPOSITORY_URL}/releases/tag/%release_name%"}
 
+: ${BOOTSTRAP_BAZEL:=bazel}
+
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 if [[ ${PLATFORM} == "darwin" ]]; then
   function checksum() {
@@ -49,9 +51,6 @@ else
     (cd "$(dirname "$1")" && sha256sum "$(basename "$1")")
   }
 fi
-
-GIT_ROOT="$(git rev-parse --show-toplevel)"
-BUILD_SCRIPT_PATH="${GIT_ROOT}/compile.sh"
 
 # Returns the full release name in the form NAME(rcRC)?
 function get_full_release_name() {
@@ -121,45 +120,34 @@ function bazel_build() {
     JAVA_VERSION=1.8
   fi
 
-  setup_android_repositories
-  retCode=0
-  ${BUILD_SCRIPT_PATH} ${BAZEL_COMPILE_TARGET:-all} || retCode=$?
-
-  # Exit for failure except for test failures (exit code 3).
-  if (( $retCode != 0 && $retCode != 3 )); then
-    exit $retCode
-  fi
-
   # Build the packages
   local ARGS=
   if [[ $PLATFORM == "darwin" ]] && \
       xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
     ARGS="--define IPHONE_SDK=1"
   fi
-  ./output/bazel --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
+  ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
+      //src:bazel \
       //site:jekyll-tree \
       //scripts/packages || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
     mkdir -p $1/packages
-    cp output/bazel $1/bazel
+    cp bazel-bin/src/bazel $1/bazel
     cp bazel-bin/scripts/packages/install.sh $1/bazel-${release_label}-installer.sh
     if [ "$PLATFORM" = "linux" ]; then
       cp bazel-bin/scripts/packages/bazel-debian.deb $1/bazel_${release_label}.deb
       cp -f bazel-genfiles/scripts/packages/bazel.dsc $1/bazel.dsc
       cp -f bazel-genfiles/scripts/packages/bazel.tar.gz $1/bazel.tar.gz
+      cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
     fi
-    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.io.tar
+    cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
-  fi
-
-  if (( $retCode )); then
-    export BUILD_UNSTABLE=1
   fi
 }
 
@@ -224,7 +212,7 @@ Classpath exception. Those installers should always be redistributed along with
 the source code.
 
 _Security_: All our binaries are signed with our
-[public key](https://bazel.io/bazel-release.pub.gpg).
+[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 "
 
   if [ ! -x "${release_tool}" ]; then
@@ -254,7 +242,7 @@ function create_index_md() {
   echo
   # Security notice
   echo "_Security_: All our binaries are signed with our"
-  echo "[public key](https://bazel.io/bazel-release.pub.gpg)."
+  echo "[public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0."
   echo
   for f in $1/*.sha256; do  # just list the sha256 ones
     local filename=$(basename $f .sha256);
@@ -310,7 +298,7 @@ function release_to_gcs() {
     create_index_html "${dir}/${release_name}/rc${rc}" \
         >"${dir}/${release_name}/rc${rc}"/index.html
     cd ${dir}
-    "${gs}" cp -a public-read -r . "gs://${GCS_BUCKET}"
+    "${gs}" -m cp -a public-read -r . "gs://${GCS_BUCKET}"
     cd "${prev_dir}"
     rm -fr "${dir}"
     trap - EXIT
@@ -320,6 +308,12 @@ function release_to_gcs() {
 function ensure_gpg_secret_key_imported() {
   (gpg --list-secret-keys | grep "${APT_GPG_KEY_ID}" > /dev/null) || \
   gpg --allow-secret-key-import --import "${APT_GPG_KEY_PATH}"
+  # Make sure we use stronger digest algorithm。
+  # We use reprepro to generate the debian repository,
+  # but there's no way to pass flags to gpg using reprepro, so writting it into
+  # ~/.gnupg/gpg.conf
+  (grep "digest-algo sha256" ~/.gnupg/gpg.conf > /dev/null) || \
+  echo "digest-algo sha256" >> ~/.gnupg/gpg.conf
 }
 
 function create_apt_repository() {
@@ -452,16 +446,21 @@ function bazel_release() {
     for file in $folder/*; do
       local filename=$(basename $file)
       if [ "$filename" != README.md ]; then
-        if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] ; then
+          if [ "$filename" == "bazel.dsc" ] || [ "$filename" == "bazel.tar.gz" ] \
+                 || [[ "$filename" =~ bazel-(.*)-dist\.zip ]]  ; then
           local destfile=${tmpdir}/$filename
         elif [[ "$file" =~ /([^/]*)(\.[^\./]+)$ ]]; then
           local destfile=${tmpdir}/${BASH_REMATCH[1]}-${platform}${BASH_REMATCH[2]}
         else
           local destfile=${tmpdir}/$filename-${platform}
         fi
-        mv $file $destfile
-        checksum $destfile > $destfile.sha256
-        gpg --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
+        # bazel.tar.gz is duplicated under different platforms
+        # if the file is already there, skip signing and checksum it again.
+        if [ ! -f "$destfile" ]; then
+          mv $file $destfile
+          checksum $destfile > $destfile.sha256
+          gpg --no-tty --detach-sign -u "${APT_GPG_KEY_ID}" "$destfile"
+        fi
       fi
     done
   done

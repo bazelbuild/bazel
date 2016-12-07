@@ -312,8 +312,10 @@ public class GrpcActionCacheTest {
                 offset == chunk.getOffset(),
                 "Missing input chunk for digest %s",
                 ContentDigests.toString(digest));
-            chunk.getData().copyTo(blob, (int) offset);
-            offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
+            if (digest.getSizeBytes() > 0) {
+              chunk.getData().copyTo(blob, (int) offset);
+              offset = (offset + chunk.getData().size()) % digest.getSizeBytes();
+            }
             if (offset == 0) {
               ContentDigest uploadedDigest = put(blob);
               Preconditions.checkArgument(

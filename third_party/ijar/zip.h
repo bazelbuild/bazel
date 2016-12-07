@@ -31,14 +31,9 @@ namespace devtools_ijar {
 // mode might not be set in DOS zip files.
 inline bool zipattr_is_dir(u4 attr) { return (attr & 0x10) != 0; }
 
-// Convert a Unix file mode to a ZIP file attribute
-inline u4 mode_to_zipattr(mode_t m) {
-  return (((u4) m) << 16) + ((m & S_IFDIR) != 0 ? 0x10 : 0);
-}
-
-// Convert a ZIP file attribute to a Unix file mode
-inline mode_t zipattr_to_mode(u4 attr) {
-  return ((mode_t) ((attr >> 16) & 0xffff));
+// Convert a ZIP file attribute to a Unix file permission mask.
+inline mode_t zipattr_to_perm(u4 attr) {
+  return ((mode_t)((attr >> 16) & 0777));
 }
 
 //

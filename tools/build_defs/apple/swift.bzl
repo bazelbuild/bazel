@@ -24,6 +24,7 @@ def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
   return set([f.rpartition("/")[0] for f in dirs])
 
+
 def _intersperse(separator, iterable):
   """Inserts separator before each item in iterable."""
   result = []
@@ -33,13 +34,15 @@ def _intersperse(separator, iterable):
 
   return result
 
+
 def _swift_target(cpu, platform, sdk_version):
   """Returns a target triplet for Swift compiler."""
   platform_string = str(platform.platform_type)
-  if platform_string not in ["ios", "watchos"]:
+  if platform_string not in ["ios", "watchos", "tvos"]:
     fail("Platform '%s' is not supported" % platform_string)
 
   return "%s-apple-%s%s" % (cpu, platform_string, sdk_version)
+
 
 def _swift_compilation_mode_flags(ctx):
   """Returns additional swiftc flags for the current compilation mode."""
@@ -50,6 +53,7 @@ def _swift_compilation_mode_flags(ctx):
     return ["-Onone", "-DDEBUG", "-enable-testing"]
   elif mode == "opt":
     return ["-O", "-DNDEBUG"]
+
 
 def _clang_compilation_mode_flags(ctx):
   """Returns additional clang flags for the current compilation mode."""
@@ -62,21 +66,22 @@ def _clang_compilation_mode_flags(ctx):
 
   return [x for x in native_clang_flags if x != "-g"]
 
+
 def _swift_bitcode_flags(ctx):
   """Returns bitcode flags based on selected mode."""
-  # TODO(dmishe): Remove this when bitcode_mode is available by default.
-  if hasattr(ctx.fragments.apple, "bitcode_mode"):
-    mode = str(ctx.fragments.apple.bitcode_mode)
-    if mode == "embedded":
-      return ["-embed-bitcode"]
-    elif mode == "embedded_markers":
-      return ["-embed-bitcode-marker"]
+  mode = str(ctx.fragments.apple.bitcode_mode)
+  if mode == "embedded":
+    return ["-embed-bitcode"]
+  elif mode == "embedded_markers":
+    return ["-embed-bitcode-marker"]
 
   return []
+
 
 def _module_name(ctx):
   """Returns a module name for the given rule context."""
   return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
+
 
 def _swift_lib_dir(ctx):
   """Returns the location of swift runtime directory to link against."""
@@ -97,19 +102,33 @@ def _swift_lib_dir(ctx):
   return "{0}/Toolchains/{1}.xctoolchain/usr/lib/swift/{2}".format(
       developer_dir, toolchain_name, platform_str)
 
+
 def _swift_linkopts(ctx):
   """Returns additional linker arguments for the given rule context."""
   return set(["-L" + _swift_lib_dir(ctx)])
 
+
 def _swift_xcrun_args(ctx):
   """Returns additional arguments that should be passed to xcrun."""
-  # TODO(dmishe): Remove this check when xcode_toolchain is available by default
-  args = []
-  if hasattr(ctx.fragments.apple, "xcode_toolchain"):
-    if ctx.fragments.apple.xcode_toolchain:
-      args += ["--toolchain", ctx.fragments.apple.xcode_toolchain]
+  if ctx.fragments.apple.xcode_toolchain:
+    return ["--toolchain", ctx.fragments.apple.xcode_toolchain]
 
-  return args
+  return []
+
+
+def _swift_parsing_flags(ctx):
+  """Returns additional parsing flags for swiftc."""
+  srcs = ctx.files.srcs
+
+  # swiftc has two different parsing modes: script and library.
+  # The difference is that in script mode top-level expressions are allowed.
+  # This mode is triggered when the file compiled is called main.swift.
+  # Additionally, script mode is used when there's just one file in the
+  # compilation. we would like to avoid that and therefore force library mode
+  # when there's only one source and it's not called main.
+  if len(srcs) == 1 and srcs[0].basename != "main.swift":
+    return ["-parse-as-library"]
+  return []
 
 
 def _is_valid_swift_module_name(string):
@@ -152,12 +171,8 @@ def _swift_library_impl(ctx):
   cpu = apple_fragment.single_arch_cpu
   platform = apple_fragment.single_arch_platform
 
-  # TODO(cparsons): Remove after blaze release.
-  if hasattr(ctx.fragments.apple, "minimum_os_for_platform_type"):
-    target_os = ctx.fragments.apple.minimum_os_for_platform_type(
-        apple_common.platform_type.ios)
-  else:
-    target_os = ctx.fragments.objc.ios_minimum_os
+  target_os = ctx.fragments.apple.minimum_os_for_platform_type(
+      platform.platform_type)
   target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
@@ -251,6 +266,15 @@ def _swift_library_impl(ctx):
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in swiftc_defines]
 
+  # This tells the linker to write a reference to .swiftmodule as an AST symbol
+  # in the final binary.
+  # With dSYM enabled, this results in a __DWARF,__swift_ast section added to
+  # the dSYM binary, from where LLDB is able deserialize module information.
+  # Without dSYM, LLDB will follow the AST references, however there is a bug
+  # where it follows only the first one https://bugs.swift.org/browse/SR-2637
+  # This means that dSYM is required for debugging until that is resolved.
+  extra_linker_args = ["-Xlinker -add_ast_path -Xlinker " + output_module.path]
+
   clang_args = _intersperse(
       "-Xcc",
 
@@ -279,7 +303,6 @@ def _swift_library_impl(ctx):
       module_name,
       "-emit-objc-header-path",
       output_header.path,
-      "-parse-as-library",
       "-target",
       target,
       "-sdk",
@@ -288,8 +311,14 @@ def _swift_library_impl(ctx):
       module_cache_path(ctx),
       "-output-file-map",
       swiftc_output_map_file.path,
-  ] + _swift_compilation_mode_flags(ctx) + _swift_bitcode_flags(ctx)
+  ]
 
+  if ctx.configuration.coverage_enabled:
+    args.extend(["-profile-generate", "-profile-coverage-mapping"])
+
+  args.extend(_swift_compilation_mode_flags(ctx))
+  args.extend(_swift_bitcode_flags(ctx))
+  args.extend(_swift_parsing_flags(ctx))
   args.extend(srcs_args)
   args.extend(include_args)
   args.extend(framework_args)
@@ -321,7 +350,8 @@ def _swift_library_impl(ctx):
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
       providers=objc_providers,
-      linkopt=_swift_linkopts(ctx),
+      linkopt=_swift_linkopts(ctx) + extra_linker_args,
+      link_inputs=set([output_module]),
       uses_swift=True,)
 
   return struct(

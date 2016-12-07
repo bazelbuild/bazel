@@ -1,3 +1,100 @@
+## Release 0.4.1 (2016-11-21)
+
+```
+Baseline: 9a796de
+
+Cherry picks:
+   + 88bfe85: Description redacted. -- MOS_MIGRATED_REVID=139219934
+   + b09ea94: Rollback of commit
+              a3f5f576cd35798140ba3e81d03d919dd4ecb847.
+```
+
+New features:
+
+  - android_library now has a "exported_plugins" attribute just like
+    java_library
+  - Use --strict_system_includes to apply hdrs_check=strict also to
+        cc_library.includes, even if sandboxing is disabled.
+  - Bazel on Windows: java_binary can now be the executable of
+    Skylark rule actions (ctx.action's executable argument)
+  - Packages are defined in BUILD.bazel as well as BUILD files.
+
+Important changes:
+
+  - getattr()'s 3-arg form no longer raises an error when the
+    retrieved field is a built-in method.
+  - --apk_signing_method default changed to v1. Android APKs are now
+    signed with the new ApkSignerTool by default.
+  - New rule: proto_lang_toolchain(), to support LANG_proto_library
+    rules on multiple platforms.
+  - Fix for Android clang++ std::stack segfault on 32bit x86. See
+    https://code.google.com/p/android/issues/detail?id=220159
+  - Default android_manifest_merger is now "android" which uses the
+    official Android manifest merger.
+    http://tools.android.com/tech-docs/new-build-system/user-guide/man
+    ifest-merger
+  - Do not propagate aspect to its own attributes when using '*'.
+  - Comparing sets (`if set1 < set2:`) is not allowed anymore in
+    Skylark because it didn't work correctly anyway.
+  - When --experimental_extra_action_top_level_only, Bazel reports
+    extra-actions for actions registered by Aspects injected by a
+    top-level rule (approximately).
+  - Blacklists for proto_lang_toolchain() no longer have to be
+    proto_library's.
+  - Extra actions now contain aspect-related information.
+  - Fix slicing bug where "abc"[:-4:-1] would give wrong answer
+
+## Release 0.4.0 (2016-10-26)
+
+```
+Baseline: 088bbc6
+
+Cherry picks:
+   + b01160c: Stamp Windows release.
+   + 2d6736e: Add --no-tty for gpg signing
+   + 9b1dfb8: Remove .sig file before gpg signing
+   + 81aede1: Reimplement whole archive on Windows
+```
+
+Incompatible changes:
+
+  - Skylark: updating list/dicts while they are being looped over is not
+    allowed. Use an explicit copy if needed ("for x in list(mylist):").
+  - Bazel now uses the --cpu flag to look up Jvms; it falls back
+    to "default" if it can't find a Jvm matching the CPU value.
+  - --command_port=-1 to use AF_UNIX for client/server communications
+    is not supported anymore.
+  - Sandboxed actions can access the network by default, unless their
+    target has a "block-network" tag.
+
+New features:
+
+  - Files now have an "extension" property in Skylark.
+
+Important changes:
+
+  - Added a new flag --sandbox_tmpfs_path, which asks the sandbox to
+    mount an empty, writable directory at a specified path when
+    running actions. (Supported on Linux only for now.)
+  - Update protoc-3.0.0-mingw.exe to a working (statically linked)
+    binary
+  - apple_static_library rule to create multi-architecture static
+    archive files from Objc/C++/Swift dependencies on apple platforms
+  - JS: Add support for localization with closure managed rules.
+  - Create a flag --android_dynamic_mode to turn off dynamic mode
+    during the Android split transition.
+  - Darwin sandboxing is default.
+  - Remove flag --experimental_zip_tree_artifact from j2objc Java
+    annotation processing support.
+  - A few functions are added to BUILD files for consistency (hash,
+    dir,
+      hasattr, getattr) with .bzl files, although they are not very
+    useful.
+  - --watchfs is now a command option; the startup option of the same
+        name is deprecated. I.e., use bazel build --watchfs, not
+    blaze --watchfs
+        build.
+
 ## Release 0.3.2 (2016-10-07)
 
 ```

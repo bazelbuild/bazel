@@ -19,9 +19,10 @@ import java.util.List;
 import javax.inject.Singleton;
 
 /**
- * Dagger modules which hold state or are, for testing purposes, implemented with non-static
+ * Utility classes which hold state or are, for testing purposes, implemented with non-static
  * provider methods.  These types are collected here so they can be cleanly named in the
  * component builder, but still be obvious in module includes and component declarations.
+ * These are Dagger legacy modules.
  */
 public final class JUnit4InstanceModules {
 

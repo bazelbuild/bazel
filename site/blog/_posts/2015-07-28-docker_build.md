@@ -59,7 +59,7 @@ ADD bazinga /
 VOLUMES /asdf
 ```
 
-Using [remote repositories](http://bazel.io/docs/external.html), it is possible
+Using [remote repositories](http://bazel.build/docs/external.html), it is possible
 to fetch the various base image for the web and we are working on providing a
 `docker_pull` rule to interact more fluently with existing images.
 

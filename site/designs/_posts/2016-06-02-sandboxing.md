@@ -115,7 +115,7 @@ included in the environment of a Spawn is:
    (as we currently do).
  * If a rule declares its need for an environment variable, take it.
    * We already have an [“env” attribute in Skylark actions]
-     (http://www.bazel.io/docs/skylark/lib/ctx.html#action) that allows one to
+     (http://www.bazel.build/docs/skylark/lib/ctx.html#action) that allows one to
      set variables to hard-coded strings, we have `use_default_shell_env` in
      Skylark actions, which pulls in `PATH` and `TMPDIR`, but we don't have any
      way to just say "This rule needs this environment variable". Laurent

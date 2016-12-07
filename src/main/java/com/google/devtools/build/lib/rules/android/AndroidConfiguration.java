@@ -57,15 +57,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Converter for {@link IncrementalDexing}.
-   */
-  public static final class IncrementalDexingConverter extends EnumConverter<IncrementalDexing> {
-    public IncrementalDexingConverter() {
-      super(IncrementalDexing.class, "incremental dexing option");
-    }
-  }
-
-  /**
    * Converter for {@link ApkSigningMethod}.
    */
   public static final class ApkSigningMethodConverter extends EnumConverter<ApkSigningMethod> {
@@ -181,21 +172,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     /** Wheter to sign the APK with the apksigner tool with APK Signature Schema V2. */
     public boolean signV2() {
       return signV2;
-    }
-  }
-
-  /** When to use incremental dexing (using {@link DexArchiveProvider}). */
-  private enum IncrementalDexing {
-    OFF(),
-    WITH_DEX_SHARDS(AndroidBinaryType.MULTIDEX_SHARDED),
-    WITH_MULTIDEX(AndroidBinaryType.MULTIDEX_UNSHARDED, AndroidBinaryType.MULTIDEX_SHARDED),
-    WITH_MONODEX_OR_DEX_SHARDS(AndroidBinaryType.MONODEX, AndroidBinaryType.MULTIDEX_SHARDED),
-    AS_PERMITTED(AndroidBinaryType.values());
-
-    private ImmutableSet<AndroidBinaryType> binaryTypes;
-
-    private IncrementalDexing(AndroidBinaryType... binaryTypes) {
-      this.binaryTypes = ImmutableSet.copyOf(binaryTypes);
     }
   }
 
@@ -315,18 +291,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(name = "experimental_desugar_for_android",
         defaultValue = "false",
         category = "undocumented",
-        implicitRequirements = "--noexperimental_android_use_jack_for_dexing",
         help = "Whether to desugar Java 8 bytecode before dexing.")
     public boolean desugarJava8;
-
-    @Option(name = "experimental_incremental_dexing",
-        defaultValue = "off",
-        category = "undocumented",
-        converter = IncrementalDexingConverter.class,
-        deprecationWarning = "Use --incremental_dexing instead to turn on incremental dexing.",
-        help = "Does most of the work for dexing separately for each Jar file.  Incompatible with "
-            + "Jack and Jill.")
-    public IncrementalDexing dexingStrategy;
 
     @Option(name = "incremental_dexing",
         defaultValue = "false",
@@ -336,12 +302,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + "Jack and Jill.")
     public boolean incrementalDexing;
 
-    // Do not use on the command line and instead flip this default globally.
     @Option(name = "host_incremental_dexing",
         defaultValue = "false",
         category = "hidden",
-        help = "Does most of the work for dexing separately for each Jar file that's part of an "
-            + "Android binary built in host configuration.")
+        help = "This flag is deprecated in favor of applying --incremental_dexing to both host "
+            + "and target configuration.  This flag will be removed in a future release.")
     public boolean hostIncrementalDexing;
 
     // Do not use on the command line.
@@ -398,7 +363,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean useAndroidResourceShrinking;
 
     @Option(name = "android_manifest_merger",
-        defaultValue = "legacy",
+        defaultValue = "android",
         category = "semantics",
         converter = AndroidManifestMergerConverter.class,
         help = "Selects the manifest merger to use for android_binary rules. Flag to help the"
@@ -408,8 +373,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
+    // This is now on by default and the flag is a noop and will be removed in a future release.
     @Option(name = "experimental_use_rclass_generator",
-        defaultValue = "false",
+        defaultValue = "true",
         category = "undocumented",
         help = "Use the specialized R class generator to build the final app and lib R classes.")
     public boolean useRClassGenerator;
@@ -426,7 +392,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(name = "apk_signing_method",
         converter = ApkSigningMethodConverter.class,
-        defaultValue = "legacy_v1",
+        defaultValue = "v1",
         category = "undocumented",
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
@@ -436,6 +402,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         category = "undocumented",
         help = "Build Android APKs with SingleJar.")
     public boolean useSingleJarApkBuilder;
+
+    @Option(name = "experimental_android_use_singlejar_for_multidex",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Use SingleJar for multidex dex extraction.")
+    public boolean useSingleJarForMultidex;
 
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
@@ -454,11 +426,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.fatApkCpus = ImmutableList.<String>of(); // Fat APK archs don't apply to the host.
 
       host.desugarJava8 = desugarJava8;
-      host.incrementalDexing = hostIncrementalDexing;
+      host.incrementalDexing = incrementalDexing;
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
-      host.dexingStrategy = dexingStrategy;
+      host.manifestMerger = manifestMerger;
       return host;
     }
 
@@ -509,11 +481,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
-  private final boolean useRClassGenerator;
   private final boolean useParallelResourceProcessing;
   private final AndroidManifestMerger manifestMerger;
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
+  private final boolean useSingleJarForMultidex;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -525,7 +497,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     if (options.incrementalDexing) {
       this.incrementalDexingBinaries = ImmutableSet.copyOf(options.incrementalDexingBinaries);
     } else {
-      this.incrementalDexingBinaries = options.dexingStrategy.binaryTypes;
+      this.incrementalDexingBinaries = ImmutableSet.of();
     }
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
@@ -534,11 +506,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
-    this.useRClassGenerator = options.useRClassGenerator;
     this.useParallelResourceProcessing = options.useParallelResourceProcessing;
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
+    this.useSingleJarForMultidex = options.useSingleJarForMultidex;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
   }
 
@@ -608,10 +580,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useAndroidResourceShrinking;
   }
 
-  public boolean useRClassGenerator() {
-    return useRClassGenerator;
-  }
-
   public boolean useParallelResourceProcessing() {
     return useParallelResourceProcessing;
   }
@@ -626,6 +594,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean useSingleJarApkBuilder() {
     return useSingleJarApkBuilder;
+  }
+
+  public boolean useSingleJarForMultidex() {
+    return useSingleJarForMultidex;
   }
 
   @Override

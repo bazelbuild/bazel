@@ -17,10 +17,10 @@
 # Test sandboxing spawn strategy
 #
 
-# Load test environment
-
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
@@ -82,7 +82,7 @@ function test_basic_timeout() {
 function test_timeout_grace() {
   local code=0
   $process_wrapper 1 10 $OUT $ERR /bin/bash -c \
-    'trap "echo -n before; sleep 1; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
+    'trap "echo -n "before"; sleep 1; echo "after"; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
     &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "beforeafter"

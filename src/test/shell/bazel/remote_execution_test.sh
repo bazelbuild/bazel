@@ -17,10 +17,10 @@
 # Tests remote execution and caching.
 #
 
-# Load test environment
-src_dir=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
-source $src_dir/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
   mkdir -p a
@@ -69,7 +69,7 @@ function test_cc_binary() {
   cp bazel-bin/a/test ${TEST_TMPDIR}/test_expected
   bazel clean --expunge
 
-  bazel build \
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
     --spawn_strategy=remote \
     --hazelcast_node=localhost:${hazelcast_port} \
     --remote_worker=localhost:${worker_port} \

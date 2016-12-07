@@ -21,10 +21,10 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
@@ -113,7 +113,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   @Override
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
-    return ImmutableList.of(new BazelRulesModule().getPackageEnvironmentExtension());
+    return ImmutableList.<EnvironmentExtension>of(new PackageFactory.EmptyEnvironmentExtension());
   }
 
   private Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {

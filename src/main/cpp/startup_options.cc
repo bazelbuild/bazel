@@ -16,7 +16,6 @@
 #include <assert.h>
 #include <errno.h>  // errno, ENOENT
 #include <string.h>  // strerror
-#include <unistd.h>  // access
 
 #include <cstdio>
 #include <cstdlib>
@@ -25,12 +24,14 @@
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 
 namespace blaze {
 
+using std::string;
 using std::vector;
 
 StartupOptions::StartupOptions() : StartupOptions("Bazel") {}
@@ -50,23 +51,65 @@ StartupOptions::StartupOptions(const string &product_name)
       allow_configurable_attributes(false),
       fatal_event_bus_exceptions(false),
       command_port(0),
-      invocation_policy(NULL) {
-  bool testing = getenv("TEST_TMPDIR") != NULL;
+      connect_timeout_secs(10),
+      invocation_policy(NULL),
+      client_debug(false) {
+  bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
-    output_root = MakeAbsolute(getenv("TEST_TMPDIR"));
+    output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
   } else {
     output_root = WorkspaceLayout::GetOutputRoot();
   }
 
-  string product_name_lower = product_name;
-  blaze_util::ToLower(&product_name_lower);
+  const string product_name_lower = GetLowercaseProductName();
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
+  nullary_options = {"deep_execroot", "block_for_lock",
+      "host_jvm_debug", "master_blazerc", "master_bazelrc", "batch",
+      "batch_cpu_scheduling", "allow_configurable_attributes",
+      "fatal_event_bus_exceptions", "experimental_oom_more_eagerly",
+      "write_command_log", "watchfs", "client_debug"};
+  unary_options = {"output_base", "install_base",
+      "output_user_root", "host_jvm_profile", "host_javabase",
+      "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
+      "max_idle_secs", "experimental_oom_more_eagerly_threshold",
+      "command_port", "invocation_policy", "connect_timeout_secs"};
 }
 
 StartupOptions::~StartupOptions() {}
+
+string StartupOptions::GetLowercaseProductName() const {
+  string lowercase_product_name = product_name;
+  blaze_util::ToLower(&lowercase_product_name);
+  return lowercase_product_name;
+}
+
+bool StartupOptions::IsNullary(const string& arg) const {
+  for (string option : nullary_options) {
+    if (GetNullaryOption(arg.c_str(), ("--" + option).c_str()) ||
+        GetNullaryOption(arg.c_str(), ("--no" + option).c_str())) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool StartupOptions::IsUnary(const string& arg) const {
+  for (string option : unary_options) {
+    // The second argument of GetUnaryOption is not relevant to determine
+    // whether the option is unary or not, hence we set it to the empty string
+    // by default.
+    //
+    // TODO(lpino): Improve GetUnaryOption to only require the arg and the
+    // option we are looking for.
+    if (GetUnaryOption(arg.c_str(), "", ("--" + option).c_str()) != NULL) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void StartupOptions::AddExtraOptions(vector<string> *result) const {}
 
@@ -218,6 +261,23 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nowatchfs")) {
     watchfs = false;
     option_sources["watchfs"] = rcfile;
+  } else if (GetNullaryOption(arg, "--client_debug")) {
+    client_debug = true;
+    option_sources["client_debug"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noclient_debug")) {
+    client_debug = false;
+    option_sources["client_debug"] = rcfile;
+  } else if ((value = GetUnaryOption(
+      arg, next_arg, "--connect_timeout_secs")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||
+        connect_timeout_secs < 1 || connect_timeout_secs > 120) {
+      blaze_util::StringPrintf(error,
+          "Invalid argument to --connect_timeout_secs: '%s'.\n"
+          "Must be an integer between 1 and 120.\n",
+          value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["connect_timeout_secs"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--command_port")) != NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||
@@ -228,7 +288,7 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
           value);
       return blaze_exit_code::BAD_ARGV;
     }
-    option_sources["webstatusserver"] = rcfile;
+    option_sources["command_port"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--invocation_policy"))
               != NULL) {
     if (invocation_policy == NULL) {
@@ -267,11 +327,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArgExtra(
   return blaze_exit_code::SUCCESS;
 }
 
-blaze_exit_code::ExitCode StartupOptions::CheckForReExecuteOptions(
-      int argc, const char *argv[], string *error) {
-  return blaze_exit_code::SUCCESS;
-}
-
 string StartupOptions::GetDefaultHostJavabase() const {
   return blaze::GetDefaultHostJavabase();
 }
@@ -285,8 +340,8 @@ string StartupOptions::GetHostJavabase() {
 
 string StartupOptions::GetJvm() {
   string java_program = GetHostJavabase() + "/bin/java";
-  if (access(java_program.c_str(), X_OK) == -1) {
-    if (errno == ENOENT) {
+  if (!blaze_util::CanAccess(java_program, false, false, true)) {
+    if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
       fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
@@ -298,8 +353,8 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
   // If just the JRE is installed
   string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
-  if ((access(jdk_rt_jar.c_str(), R_OK) == 0)
-      || (access(jre_rt_jar.c_str(), R_OK) == 0)) {
+  if (blaze_util::CanAccess(jdk_rt_jar, true, false, false)
+      || blaze_util::CanAccess(jre_rt_jar, true, false, false)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "
@@ -328,17 +383,17 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
     const vector<string> &user_options, string *error) const {
   // Configure logging
   const string propFile = output_base + "/javalog.properties";
-  if (!WriteFile(
-      "handlers=java.util.logging.FileHandler\n"
-      ".level=INFO\n"
-      "java.util.logging.FileHandler.level=INFO\n"
-      "java.util.logging.FileHandler.pattern="
-      + output_base + "/java.log\n"
-      "java.util.logging.FileHandler.limit=50000\n"
-      "java.util.logging.FileHandler.count=1\n"
-      "java.util.logging.FileHandler.formatter="
-      "java.util.logging.SimpleFormatter\n",
-      propFile)) {
+  if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
+                             ".level=INFO\n"
+                             "java.util.logging.FileHandler.level=INFO\n"
+                             "java.util.logging.FileHandler.pattern=" +
+                                 output_base +
+                                 "/java.log\n"
+                                 "java.util.logging.FileHandler.limit=50000\n"
+                                 "java.util.logging.FileHandler.count=1\n"
+                                 "java.util.logging.FileHandler.formatter="
+                                 "java.util.logging.SimpleFormatter\n",
+                             propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);

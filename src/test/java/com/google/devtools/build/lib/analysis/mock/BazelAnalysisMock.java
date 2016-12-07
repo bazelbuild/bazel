@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
@@ -47,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 public final class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
@@ -111,6 +113,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/BUILD",
         androidBuildContents.toArray(new String[androidBuildContents.size()]));
+    config.create(
+        "/bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
+        "def create_android_sdk_rules("
+            + "name, build_tools_version, build_tools_directory, api_level):",
+        "    pass");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -158,6 +165,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'desugar_java8', srcs = ['empty.sh'])")
         .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
+        .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'manifest_merger', srcs = ['empty.sh'])")
@@ -192,6 +200,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("java_binary(name = 'IdlClass',")
         .add("            runtime_deps = [ ':idlclass_import' ],")
         .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")
+        .add("sh_binary(name = 'zip_manifest_creator', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'aar_embedded_jars_extractor', srcs = ['empty.sh'])")
         .add("java_import(name = 'idlclass_import',")
         .add("            jars = [ 'idlclass.jar' ])");
 
@@ -207,7 +217,19 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
   @Override
   public ConfigurationFactory createConfigurationFactory() {
-    return new ConfigurationFactory(new BazelConfigurationCollection(),
+    return createConfigurationFactory(getDefaultConfigurationFactories());
+  }
+
+  @Override
+  public ConfigurationFactory createConfigurationFactory(
+      List<ConfigurationFragmentFactory> configurationFragmentFactories) {
+    return new ConfigurationFactory(
+        new BazelConfigurationCollection(),
+        configurationFragmentFactories);
+  }
+
+  private static List<ConfigurationFragmentFactory> getDefaultConfigurationFactories() {
+    return ImmutableList.<ConfigurationFragmentFactory>of(
         new BazelConfiguration.Loader(),
         new CppConfigurationLoader(Functions.<String>identity()),
         new PythonConfigurationLoader(),

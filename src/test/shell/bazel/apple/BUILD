@@ -29,7 +29,6 @@ filegroup(
             "//src/tools/xcode/swiftstdlibtoolwrapper",
             "//src/tools/xcode/xcrunwrapper",
             "//tools/osx:xcode-locator",
-            "//third_party/iossim",
         ],
         "//conditions:default": [],
     }),

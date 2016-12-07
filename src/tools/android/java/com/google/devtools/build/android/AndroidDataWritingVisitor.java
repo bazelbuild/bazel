@@ -82,7 +82,7 @@ public interface AndroidDataWritingVisitor extends Flushable {
   /** Represents the xml values resource meta data. */
   @CheckReturnValue
   interface ValueResourceDefinitionMetadata {
-    ValuesResourceDefinition derivedFrom(Path source);
+    ValuesResourceDefinition derivedFrom(DataSource source);
   }
 
   /** Fluent interface to define the xml value for a {@link FullyQualifiedName}. */

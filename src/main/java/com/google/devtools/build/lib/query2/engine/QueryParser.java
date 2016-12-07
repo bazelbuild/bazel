@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -57,8 +56,7 @@ final class QueryParser {
    * Scan and parse the specified query expression.
    */
   static QueryExpression parse(String query, QueryEnvironment<?> env) throws QueryException {
-    QueryParser parser = new QueryParser(
-        Lexer.scan(query.toCharArray()), env);
+    QueryParser parser = new QueryParser(Lexer.scan(query), env);
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
       throw new QueryException("unexpected token '" + parser.token

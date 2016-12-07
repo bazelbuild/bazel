@@ -27,12 +27,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Flushables;
-import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.transports.TextFormatFileTransport;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -149,6 +148,7 @@ public class BlazeCommandDispatcher {
   private String currentClientDescription = null;
   private String shutdownReason = null;
   private OutputStream logOutputStream = null;
+  private Level lastLogVerbosityLevel = null;
   private final LoadingCache<BlazeCommand, OpaqueOptionsData> optionsDataCache =
       CacheBuilder.newBuilder().build(
           new CacheLoader<BlazeCommand, OpaqueOptionsData>() {
@@ -218,9 +218,9 @@ public class BlazeCommandDispatcher {
     return ExitCode.SUCCESS;
   }
 
-  private void parseArgsAndConfigs(OptionsParser optionsParser, Command commandAnnotation,
-      List<String> args, List<String> rcfileNotes, OutErr outErr)
-          throws OptionsParsingException {
+  private void parseArgsAndConfigs(CommandEnvironment env, OptionsParser optionsParser,
+      Command commandAnnotation, List<String> args, List<String> rcfileNotes, OutErr outErr)
+      throws OptionsParsingException {
 
     Function<String, String> commandOptionSourceFunction = new Function<String, String>() {
       @Override
@@ -246,6 +246,9 @@ public class BlazeCommandDispatcher {
             runtime.getCommandMap().keySet());
 
     parseOptionsForCommand(rcfileNotes, commandAnnotation, optionsParser, optionsMap, null, null);
+    if (commandAnnotation.builds()) {
+      ProjectFileSupport.handleProjectFiles(env, optionsParser, commandAnnotation.name());
+    }
 
     // Fix-point iteration until all configs are loaded.
     List<String> configsLoaded = ImmutableList.of();
@@ -370,24 +373,25 @@ public class BlazeCommandDispatcher {
       return exitCausingException.getExitCode().getNumericExitCode();
     }
 
-    if (env.getRuntime().writeCommandLog()) {
-      try {
-        Path commandLog = getCommandLogPath(env.getOutputBase());
+    try {
+      Path commandLog = getCommandLogPath(env.getOutputBase());
 
-        // Unlink old command log from previous build, if present, so scripts
-        // reading it don't conflate it with the command log we're about to write.
-        commandLog.delete();
+      // Unlink old command log from previous build, if present, so scripts
+      // reading it don't conflate it with the command log we're about to write.
+      closeSilently(logOutputStream);
+      logOutputStream = null;
+      commandLog.delete();
 
+      if (env.getRuntime().writeCommandLog() && commandAnnotation.writeCommandLog()) {
         logOutputStream = commandLog.getOutputStream();
         outErr = tee(outErr, OutErr.create(logOutputStream, logOutputStream));
-      } catch (IOException ioException) {
-        LoggingUtil.logToRemote(
-            Level.WARNING, "Unable to delete or open command.log", ioException);
       }
+    } catch (IOException ioException) {
+      LoggingUtil.logToRemote(Level.WARNING, "Unable to delete or open command.log", ioException);
     }
 
     ExitCode result = checkCwdInWorkspace(env, commandAnnotation, commandName, outErr);
-    if (result != ExitCode.SUCCESS) {
+    if (!result.equals(ExitCode.SUCCESS)) {
       return result.getNumericExitCode();
     }
 
@@ -397,7 +401,7 @@ public class BlazeCommandDispatcher {
     List<String> rcfileNotes = new ArrayList<>();
     try {
       optionsParser = createOptionsParser(command);
-      parseArgsAndConfigs(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
+      parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       InvocationPolicyEnforcer optionsPolicyEnforcer =
           new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
@@ -441,7 +445,10 @@ public class BlazeCommandDispatcher {
     }
 
     CommonCommandOptions commonOptions = optionsParser.getOptions(CommonCommandOptions.class);
-    BlazeRuntime.setupLogging(commonOptions.verbosity);
+    if (!commonOptions.verbosity.equals(lastLogVerbosityLevel)) {
+      BlazeRuntime.setupLogging(commonOptions.verbosity);
+      lastLogVerbosityLevel = commonOptions.verbosity;
+    }
 
     // Do this before an actual crash so we don't have to worry about
     // allocating memory post-crash.
@@ -454,18 +461,6 @@ public class BlazeCommandDispatcher {
     Reporter reporter = env.getReporter();
     reporter.addHandler(handler);
     env.getEventBus().register(handler);
-    if (eventHandlerOptions.buildEventTextFile.length() > 0) {
-      try {
-        BuildEventStreamer streamer =
-            new BuildEventStreamer(
-                ImmutableSet.<BuildEventTransport>of(
-                    new TextFormatFileTransport(eventHandlerOptions.buildEventTextFile)));
-        reporter.addHandler(streamer);
-        env.getEventBus().register(streamer);
-      } catch (IOException e) {
-        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
-      }
-    }
 
     // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
     // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful

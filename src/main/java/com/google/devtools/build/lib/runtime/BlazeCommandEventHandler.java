@@ -168,15 +168,6 @@ public class BlazeCommandEventHandler implements EventHandler {
     )
     public int experimentalUiActionsShown;
 
-
-    @Option(
-      name = "experimental_build_event_text_file",
-      defaultValue = "",
-      category = "hidden",
-      help = "If non-empty, write a textual representation of the build event protocol to that file"
-    )
-    public String buildEventTextFile;
-
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
     }

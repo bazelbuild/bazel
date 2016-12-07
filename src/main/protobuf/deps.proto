@@ -60,4 +60,7 @@ message Dependencies {
   // Whether the action was successful; even when compilation fails, partial
   // dependency information can be useful.
   optional bool success = 3;
+
+  // Packages contained in the output jar, sorted alphabetically.
+  repeated string contained_package = 4;
 }

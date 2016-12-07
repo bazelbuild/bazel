@@ -74,7 +74,7 @@ public final class SliceExpression extends Expression {
       return SkylarkType.convertToSkylark(slice, env);
     } else if (objValue instanceof String) {
       String string = (String) objValue;
-      List<Integer> indices = MethodLibrary.getSliceIndices(startValue, endValue, stepValue,
+      List<Integer> indices = EvalUtils.getSliceIndices(startValue, endValue, stepValue,
           string.length(), loc);
       char[] result = new char[indices.size()];
       char[] original = ((String) objValue).toCharArray();

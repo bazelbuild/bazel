@@ -36,7 +36,18 @@ macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 ## Debugging
 
 *   `bazel query --output=build //my/path:all` will show you how the BUILD file
-    looks like after evaluation. All macros, globs, loops are expanded.
+    looks after evaluation. All macros, globs, loops are expanded. Known
+    limitation: `select` expressions are currently not shown in the output.
+
+*   You may filter the output based on `generator_function` (which function
+    generated the rules) or `generator_name` (the name attribute of the macro),
+    e.g. `$ bazel query --output=build 'attr(generator_function, my_macro, //my/path:all)'`
+
+*   To find out where exactly the rule `foo` is generated in a BUILD file, you
+    can try the following trick. Insert this line near the top of the BUILD
+    file: `cc_library(name = "foo")`. Run Bazel. You will get an exception when
+    the rule `foo` is created (due to a name conflict), which will show you the
+    full stack trace.
 
 *   You can also use [print](lib/globals.html#print) for debugging. It displays
     the message as a warning during the loading phase. Except in rare cases,

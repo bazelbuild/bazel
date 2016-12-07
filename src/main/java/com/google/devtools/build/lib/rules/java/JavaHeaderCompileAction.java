@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -95,7 +94,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
   public static class Builder {
 
     private final RuleContext ruleContext;
-    private final String implicitAttributesSuffix;
 
     private Artifact outputJar;
     @Nullable private Artifact outputDepsProto;
@@ -117,9 +115,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private NestedSet<Artifact> javabaseInputs;
     private Artifact javacJar;
 
-    public Builder(RuleContext ruleContext, String implicitAttributesSuffix) {
+    public Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
-      this.implicitAttributesSuffix = implicitAttributesSuffix;
     }
 
     /** Sets the output jdeps file. */
@@ -259,7 +256,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
     /** Builds and registers the {@link JavaHeaderCompileAction} for a header compilation. */
-    public void build() {
+    public void build(JavaToolchainProvider javaToolchain) {
       checkNotNull(outputDepsProto, "outputDepsProto must not be null");
       checkNotNull(sourceFiles, "sourceFiles must not be null");
       checkNotNull(sourceJars, "sourceJars must not be null");
@@ -281,11 +278,6 @@ public class JavaHeaderCompileAction extends SpawnAction {
         directJars = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
         compileTimeDependencyArtifacts.clear();
       }
-      JavaToolchainProvider javaToolchain =
-          ruleContext.getPrerequisite(
-              ":java_toolchain" + implicitAttributesSuffix,
-              RuleConfiguredTarget.Mode.TARGET,
-              JavaToolchainProvider.class);
       List<String> jvmArgs =
           ImmutableList.<String>builder()
               .add("-Xverify:none")

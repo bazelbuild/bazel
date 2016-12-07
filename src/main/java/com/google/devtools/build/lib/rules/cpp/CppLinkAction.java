@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -95,11 +96,14 @@ public final class CppLinkAction extends AbstractAction
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
   
+  @Nullable private final String mnemonic;
   private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
   private final Artifact linkOutput;
   private final LibraryToLink interfaceOutputLibrary;
-  private final Map<String, String> toolchainEnv;
+  private final ImmutableSet<String> clientEnvironmentVariables;
+  private final ImmutableMap<String, String> actionEnv;
+  private final ImmutableMap<String, String> toolchainEnv;
   private final ImmutableSet<String> executionRequirements;
 
   private final LinkCommandLine linkCommandLine;
@@ -138,6 +142,7 @@ public final class CppLinkAction extends AbstractAction
    */
   CppLinkAction(
       ActionOwner owner,
+      String mnemonic,
       Iterable<Artifact> inputs,
       ImmutableList<Artifact> outputs,
       CppConfiguration cppConfiguration,
@@ -148,9 +153,16 @@ public final class CppLinkAction extends AbstractAction
       boolean isLTOIndexing,
       Iterable<LTOBackendArtifacts> allLTOBackendArtifacts,
       LinkCommandLine linkCommandLine,
-      Map<String, String> toolchainEnv,
+      ImmutableSet<String> clientEnvironmentVariables,
+      ImmutableMap<String, String> actionEnv,
+      ImmutableMap<String, String> toolchainEnv,
       ImmutableSet<String> executionRequirements) {
     super(owner, inputs, outputs);
+    if (mnemonic == null) {
+      this.mnemonic = (isLTOIndexing) ? "CppLTOIndexing" : "CppLink";
+    } else {
+      this.mnemonic = mnemonic;
+    }
     this.mandatoryInputs = inputs;
     this.cppConfiguration = cppConfiguration;
     this.outputLibrary = outputLibrary;
@@ -160,6 +172,8 @@ public final class CppLinkAction extends AbstractAction
     this.isLTOIndexing = isLTOIndexing;
     this.allLTOBackendArtifacts = allLTOBackendArtifacts;
     this.linkCommandLine = linkCommandLine;
+    this.clientEnvironmentVariables = clientEnvironmentVariables;
+    this.actionEnv = actionEnv;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
   }
@@ -177,9 +191,16 @@ public final class CppLinkAction extends AbstractAction
     return getCppConfiguration().getHostSystemName();
   }
 
-  public ImmutableMap<String, String> getEnvironment() {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
+  @Override
+  public Iterable<String> getClientEnvironmentVariables() {
+    return clientEnvironmentVariables;
+  }
 
+  @Override
+  public ImmutableMap<String, String> getEnvironment() {
+    LinkedHashMap<String, String> result = new LinkedHashMap<>();
+
+    result.putAll(actionEnv);
     result.putAll(toolchainEnv);
 
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -199,7 +220,7 @@ public final class CppLinkAction extends AbstractAction
               .getParentDirectory()
               .getPathString());
     }
-    return result.build();
+    return ImmutableMap.copyOf(result);
   }
 
   /**
@@ -403,7 +424,7 @@ public final class CppLinkAction extends AbstractAction
     info.addAllLinkStamp(Artifact.toExecPaths(getLinkCommandLine().getLinkstamps().values()));
     info.addAllBuildInfoHeaderArtifact(
         Artifact.toExecPaths(getLinkCommandLine().getBuildInfoHeaderArtifacts()));
-    info.addAllLinkOpt(getLinkCommandLine().getLinkopts());
+    info.addAllLinkOpt(getLinkCommandLine().getRawLinkArgv());
 
     return super.getExtraActionInfo()
         .setExtension(CppLinkInfo.cppLinkInfo, info.build());
@@ -456,7 +477,7 @@ public final class CppLinkAction extends AbstractAction
 
   @Override
   public String getMnemonic() {
-    return (isLTOIndexing) ? "CppLTOIndexing" : "CppLink";
+    return mnemonic;
   }
 
   @Override

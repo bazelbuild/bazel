@@ -385,6 +385,11 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
+  @Override
+  public long getRemainingTasksCount() {
+    return remainingTasks.get();
+  }
+
   /**
    * Subclasses may override this to make dynamic decisions about whether to run tasks
    * asynchronously versus in-thread.

@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -45,22 +43,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * A helper class containing built in functions for the Build and the Build Extension Language.
- */
+/** A helper class containing built in functions for the Skylark language. */
 public class MethodLibrary {
 
   private MethodLibrary() {}
-
-  // Convert string index in the same way Python does.
-  // If index is negative, starts from the end.
-  // If index is outside bounds, it is restricted to the valid range.
-  public static int clampIndex(int index, int length) {
-    if (index < 0) {
-      index += length;
-    }
-    return Math.max(Math.min(index, length), 0);
-  }
 
   // Emulate Python substring function
   // It converts out of range indices, and never fails
@@ -69,40 +55,17 @@ public class MethodLibrary {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
-    start = clampIndex(start, str.length());
+    start = EvalUtils.clampRangeEndpoint(start, str.length());
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
     } else {
-      stop = clampIndex(Type.INTEGER.convert(end, msg), str.length());
+      stop = EvalUtils.clampRangeEndpoint(Type.INTEGER.convert(end, msg), str.length());
     }
     if (start >= stop) {
       return "";
     }
     return str.substring(start, stop);
-  }
-
-  private static int getListIndex(int index, int listSize, Location loc)
-      throws EvalException {
-    // Get the nth element in the list
-    int actualIndex = index;
-    if (actualIndex < 0) {
-      actualIndex += listSize;
-    }
-    if (actualIndex < 0 || actualIndex >= listSize) {
-      throw new EvalException(loc, "List index out of range (index is "
-          + index + ", but list has " + listSize + " elements)");
-    }
-    return actualIndex;
-  }
-
-  public static int getListIndex(Object index, int listSize, Location loc)
-      throws EvalException {
-    if (!(index instanceof Integer)) {
-      throw new EvalException(loc, "List indices must be integers, not "
-          + EvalUtils.getDataTypeName(index));
-    }
-    return getListIndex(((Integer) index).intValue(), listSize, loc);
   }
 
   // supported string methods
@@ -576,7 +539,7 @@ public class MethodLibrary {
       throws ConversionException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = clampIndex(start, self.length());
+    start = EvalUtils.clampRangeEndpoint(start, self.length());
     return subpos < 0 ? subpos : subpos + start;
   }
 
@@ -994,68 +957,6 @@ public class MethodLibrary {
     }
   };
 
-  /**
-   *  Calculates the indices of the elements that should be included in the slice [start:end:step]
-   * of a sequence with the given length.
-   */
-  public static List<Integer> getSliceIndices(
-      Object startObj, Object endObj, Object stepObj, int length, Location loc
-  ) throws EvalException {
-
-    if (!(stepObj instanceof Integer)) {
-      throw new EvalException(loc, "slice step must be an integer");
-    }
-    int step = ((Integer) stepObj).intValue();
-    if (step == 0) {
-      throw new EvalException(loc, "slice step cannot be zero");
-    }
-    int start = getSliceIndex(startObj,
-        step,
-        /*positiveStepDefault=*/ 0,
-        /*negativeStepDefault=*/ length - 1,
-        /*length=*/ length,
-        loc);
-    int end = getSliceIndex(endObj,
-        step,
-        /*positiveStepDefault=*/ length,
-        /*negativeStepDefault=*/ -1,
-        /*length=*/ length,
-        loc);
-    Comparator<Integer> comparator = getOrderingForStep(step);
-    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
-    for (int current = start; comparator.compare(current, end) < 0; current += step) {
-      indices.add(current);
-    }
-    return indices.build();
-  }
-
-  /**
-   * Converts the given value into an integer index.
-   *
-   * <p>If the value is {@code None}, the return value of this methods depends on the sign of the
-   * slice step.
-   */
-  private static int getSliceIndex(Object value, int step, int positiveStepDefault,
-      int negativeStepDefault, int length, Location loc) throws EvalException {
-    if (value == Runtime.NONE) {
-      return step < 0 ? negativeStepDefault : positiveStepDefault;
-    } else {
-      try {
-        return MethodLibrary.clampIndex(Type.INTEGER.cast(value), length);
-      } catch (ClassCastException ex) {
-        throw new EvalException(loc, String.format("'%s' is not a valid int", value));
-      }
-    }
-  }
-
-  private static Ordering<Integer> getOrderingForStep(int step) {
-    Ordering<Integer> ordering = Ordering.<Integer>natural();
-    if (step < 0) {
-      ordering = ordering.reverse();
-    }
-    return ordering;
-  }
-
   @SkylarkSignature(
     name = "min",
     returnType = Object.class,
@@ -1255,7 +1156,7 @@ public class MethodLibrary {
         public Runtime.NoneType invoke(
             MutableList<Object> self, Integer index, Object item, Location loc, Environment env)
             throws EvalException {
-          self.add(clampIndex(index, self.size()), item, loc, env);
+          self.add(EvalUtils.clampRangeEndpoint(index, self.size()), item, loc, env);
           return Runtime.NONE;
         }
       };
@@ -1363,7 +1264,7 @@ public class MethodLibrary {
         public Object invoke(MutableList<?> self, Object i, Location loc, Environment env)
             throws EvalException {
           int arg = i == Runtime.NONE ? -1 : (Integer) i;
-          int index = getListIndex(arg, self.size(), loc);
+          int index = EvalUtils.getSequenceIndex(arg, self.size(), loc);
           Object result = self.get(index);
           self.remove(index, loc, env);
           return result;
@@ -1772,49 +1673,6 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
-    name = "set",
-    returnType = SkylarkNestedSet.class,
-    doc =
-        "Creates a <a href=\"set.html\">set</a> from the <code>items</code>. "
-            + "The set supports nesting other sets of the same element type in it. "
-            + "A desired <a href=\"set.html\">iteration order</a> can also be specified.<br>"
-            + "Examples:<br><pre class=\"language-python\">set([\"a\", \"b\"])\n"
-            + "set([1, 2, 3], order=\"compile\")</pre>",
-    parameters = {
-      @Param(
-        name = "items",
-        type = Object.class,
-        defaultValue = "[]",
-        doc =
-            "The items to initialize the set with. May contain both standalone items "
-                + "and other sets."
-      ),
-      @Param(
-        name = "order",
-        type = String.class,
-        defaultValue = "\"stable\"",
-        doc =
-            "The ordering strategy for the set if it's nested, "
-                + "possible values are: <code>stable</code> (default), <code>compile</code>, "
-                + "<code>link</code> or <code>naive_link</code>. An explanation of the "
-                + "values can be found <a href=\"set.html\">here</a>."
-      )
-    },
-    useLocation = true
-  )
-  private static final BuiltinFunction set =
-      new BuiltinFunction("set") {
-        public SkylarkNestedSet invoke(Object items, String order, Location loc)
-            throws EvalException {
-          try {
-            return new SkylarkNestedSet(Order.parse(order), items, loc);
-          } catch (IllegalArgumentException ex) {
-            throw new EvalException(loc, ex);
-          }
-        }
-      };
-
-  @SkylarkSignature(
     name = "dict",
     returnType = SkylarkDict.class,
     doc =
@@ -1880,22 +1738,6 @@ public class MethodLibrary {
           }
         }
       };
-
-  @SkylarkSignature(name = "union", objectType = SkylarkNestedSet.class,
-      returnType = SkylarkNestedSet.class,
-      doc = "Creates a new <a href=\"set.html\">set</a> that contains both "
-          + "the input set as well as all additional elements.",
-      parameters = {
-        @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input set"),
-        @Param(name = "new_elements", type = Iterable.class, doc = "The elements to be added")},
-      useLocation = true)
-  private static final BuiltinFunction union = new BuiltinFunction("union") {
-    @SuppressWarnings("unused")
-    public SkylarkNestedSet invoke(SkylarkNestedSet input, Iterable<Object> newElements,
-        Location loc) throws EvalException {
-      return new SkylarkNestedSet(input, newElements, loc);
-    }
-  };
 
   @SkylarkSignature(
     name = "enumerate",
@@ -2012,23 +1854,6 @@ public class MethodLibrary {
         }
       };
 
-  /**
-   * Returns a function-value implementing "select" (i.e. configurable attributes)
-   * in the specified package context.
-   */
-  @SkylarkSignature(name = "select",
-      doc = "Creates a SelectorValue from the dict parameter.",
-      parameters = {
-        @Param(name = "x", type = SkylarkDict.class, doc = "The parameter to convert."),
-        @Param(name = "no_match_error", type = String.class, defaultValue = "''",
-            doc = "Optional custom error to report if no condition matches.")})
-  private static final BuiltinFunction select = new BuiltinFunction("select") {
-    public Object invoke(SkylarkDict<?, ?> dict, String noMatchError) throws EvalException {
-      return SelectorList
-          .of(new SelectorValue(dict, noMatchError));
-    }
-  };
-
   /** Returns true if the object has a field of the given name, otherwise false. */
   @SkylarkSignature(
     name = "hasattr",
@@ -2060,10 +1885,10 @@ public class MethodLibrary {
     name = "getattr",
     doc =
         "Returns the struct's field of the given name if it exists. If not, it either returns "
-            + "<code>default</code> (if specified) or raises an error. However, if there is a "
-            + "method of the given name, this method always raises an error, regardless of the "
-            + "presence of a default value. <code>getattr(x, \"foobar\")</code> is equivalent to "
-            + "<code>x.foobar</code>."
+            + "<code>default</code> (if specified) or raises an error. Built-in methods cannot "
+            + "currently be retrieved in this way; doing so will result in an error if a "
+            + "<code>default</code> is not given. <code>getattr(x, \"foobar\")</code> is "
+            + "equivalent to <code>x.foobar</code>."
             + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
             + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
     parameters = {
@@ -2091,7 +1916,7 @@ public class MethodLibrary {
             // 'Real' describes methods with structField() == false. Because DotExpression.eval
             // returned null in this case, we know that structField() cannot return true.
             boolean isRealMethod = hasMethod(obj, name, loc);
-            if (defaultValue != Runtime.UNBOUND && !isRealMethod) {
+            if (defaultValue != Runtime.UNBOUND) {
               return defaultValue;
             }
             throw new EvalException(
@@ -2149,32 +1974,6 @@ public class MethodLibrary {
             throw new EvalException(loc, e.getMessage());
           }
           return new MutableList(fields, env);
-        }
-      };
-
-  @SkylarkSignature(
-    name = "type",
-    returnType = String.class,
-    doc =
-        "Returns the type name of its argument. This is useful for debugging and "
-            + "type-checking. Examples:"
-            + "<pre class=\"language-python\">"
-            + "type(2) == \"int\"\n"
-            + "type([1]) == \"list\"\n"
-            + "type(struct(a = 2)) == \"struct\""
-            + "</pre>"
-            + "This function might change in the future. To write Python-compatible code and "
-            + "be future-proof, use it only to compare return values: "
-            + "<pre class=\"language-python\">"
-            + "if type(x) == type([]):  # if x is a list"
-            + "</pre>",
-    parameters = {@Param(name = "x", doc = "The object to check type of.")}
-  )
-  private static final BuiltinFunction type =
-      new BuiltinFunction("type") {
-        public String invoke(Object object) {
-          // There is no 'type' type in Skylark, so we return a string with the type name.
-          return EvalUtils.getDataTypeName(object, false);
         }
       };
 
@@ -2304,25 +2103,10 @@ public class MethodLibrary {
   static final class StringModule {}
 
 
-  static final List<BaseFunction> buildGlobalFunctions =
+  static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(
-          all, any, bool, dict, fail, enumerate, int_, len, list, max, min, minus, print, range,
-          repr, reversed, select, set, sorted, str, zip);
-
-  static final List<BaseFunction> skylarkGlobalFunctions =
-      ImmutableList.<BaseFunction>builder()
-          .addAll(buildGlobalFunctions)
-          .add(dir, getattr, hasattr, hash, type)
-          .build();
-
-  /**
-   * Collect global functions for the validation environment.
-   */
-  public static void setupValidationEnvironment(Set<String> builtIn) {
-    for (BaseFunction function : skylarkGlobalFunctions) {
-      builtIn.add(function.getName());
-    }
-  }
+          all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
+          min, minus, print, range, repr, reversed, sorted, str, zip);
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);

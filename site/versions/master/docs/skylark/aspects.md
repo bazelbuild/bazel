@@ -113,7 +113,7 @@ Example:
 ```python
 def _metal_proto_aspect_impl(target, ctx):
     # For every `src` in proto_library, generate an output file
-    proto_sources = [f for src in ctx.rule.attr.src
+    proto_sources = [f for src in ctx.rule.attr.srcs
                        for f in src.files]
     outputs = [ctx.new_file(f.short_path + ".metal")
                for f in proto_sources]
@@ -123,7 +123,7 @@ def _metal_proto_aspect_impl(target, ctx):
         inputs = proto_sources
         outputs = outputs)
     transitive_outputs = set(outputs)
-    for dep in ctx.attr.deps:
+    for dep in ctx.rule.attr.deps:
         transitive_outputs = transitive_outputs | dep.metal_proto.transitive_outputs
     return struct(
         metal_proto = struct(direct_outputs = outputs,

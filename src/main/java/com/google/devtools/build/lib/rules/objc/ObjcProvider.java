@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -110,7 +111,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   /** Combined-architecture binaries to include in the final bundle. */
   public static final Key<Artifact> MULTI_ARCH_LINKED_BINARIES =
       new Key<>(STABLE_ORDER, "combined_arch_linked_binary", Artifact.class);
-
   /** Combined-architecture dynamic libraries to include in the final bundle. */
   public static final Key<Artifact> MULTI_ARCH_DYNAMIC_LIBRARIES =
       new Key<>(STABLE_ORDER, "combined_arch_dynamic_library", Artifact.class);
@@ -355,10 +355,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
      */
     USES_CPP,
 
-    /**
-     * Indicates that Swift source files are present. This affects bundling, compiling and linking
-     * actions.
-     */
+    /** Indicates that Swift dependencies are present. This affects bundling actions. */
     USES_SWIFT,
 
     /**
@@ -381,40 +378,65 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   /** All keys in ObjcProvider that will be passed in the corresponding Skylark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
       ImmutableList.<Key<?>>of(
-          LIBRARY,
-          IMPORTED_LIBRARY,
-          JRE_LIBRARY,
-          LINKED_BINARY,
-          FORCE_LOAD_LIBRARY,
-          HEADER,
-          SOURCE,
-          DEFINE,
           ASSET_CATALOG,
-          SDK_DYLIB,
-          SDK_FRAMEWORK,
-          WEAK_SDK_FRAMEWORK,
-          XCDATAMODEL,
-          MODULE_MAP,
-          MERGE_ZIP,
-          STATIC_FRAMEWORK_FILE,
+          BUNDLE_FILE,
+          BUNDLE_IMPORT_DIR,
+          DEFINE,
           DYNAMIC_FRAMEWORK_FILE,
           DEBUG_SYMBOLS,
           DEBUG_SYMBOLS_PLIST,
-          STORYBOARD,
-          XIB,
-          STRINGS,
-          LINKOPT,
-          LINK_INPUTS,
-          J2OBJC_LIBRARY,
-          ROOT_MERGE_ZIP,
-          INCLUDE,
-          INCLUDE_SYSTEM,
+          EXPORTED_DEBUG_ARTIFACTS,
+          FRAMEWORK_DIR,
+          FRAMEWORK_SEARCH_PATH_ONLY,
+          FORCE_LOAD_LIBRARY,
           GENERAL_RESOURCE_DIR,
           GENERAL_RESOURCE_FILE,
-          BUNDLE_FILE,
-          BUNDLE_IMPORT_DIR,
+          HEADER,
+          IMPORTED_LIBRARY,
+          INCLUDE,
+          INCLUDE_SYSTEM,
+          J2OBJC_LIBRARY,
+          JRE_LIBRARY,
+          LIBRARY,
+          LINK_INPUTS,
+          LINKED_BINARY,
+          LINKMAP_FILE,
+          LINKOPT,
+          MERGE_ZIP,
+          MODULE_MAP,
+          MULTI_ARCH_DYNAMIC_LIBRARIES,
+          MULTI_ARCH_LINKED_ARCHIVES,
+          MULTI_ARCH_LINKED_BINARIES,
+          ROOT_MERGE_ZIP,
+          SDK_DYLIB,
+          SDK_FRAMEWORK,
+          SOURCE,
+          STATIC_FRAMEWORK_FILE,
+          STORYBOARD,
+          STRINGS,
+          WEAK_SDK_FRAMEWORK,
           XCASSETS_DIR,
-          FRAMEWORK_DIR);
+          XCDATAMODEL,
+          XIB);
+  
+  /**
+   * All keys in ObjcProvider that are explicitly not exposed to skylark. This is used for
+   * testing and verification purposes to ensure that a conscious decision is made for all keys;
+   * by default, keys should be exposed to skylark: a comment outlining why a key is omitted
+   * from skylark should follow each such case.
+   **/
+  @VisibleForTesting
+  static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK = ImmutableList.<Key<?>>of(
+      // LibraryToLink not exposed to skylark.
+      CC_LIBRARY,
+      // Xcodegen is deprecated.
+      FORCE_LOAD_FOR_XCODEGEN,
+      // Flag enum is not exposed to skylark.
+      FLAG,
+      // Bundle not exposed to skylark.
+      NESTED_BUNDLE,
+      // CppModuleMap is not exposed to skylark.
+      TOP_LEVEL_MODULE_MAP);
 
   /**
    * Returns the skylark key for the given string, or null if no such key exists or is available
@@ -464,6 +486,20 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     if (nonPropagatedItems.containsKey(key)) {
       builder.addTransitive((NestedSet<E>) nonPropagatedItems.get(key));
     }
+    if (items.containsKey(key)) {
+      builder.addTransitive((NestedSet<E>) items.get(key));
+    }
+    return builder.build();
+  }
+
+  /**
+   * All artifacts, bundleable files, etc, that should be propagated to transitive dependers, of
+   * the type specified by {@code key}.
+   */
+  @SuppressWarnings("unchecked")
+  public <E> NestedSet<E> getPropagable(Key<E> key) {
+    Preconditions.checkNotNull(key);
+    NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
     if (items.containsKey(key)) {
       builder.addTransitive((NestedSet<E>) items.get(key));
     }

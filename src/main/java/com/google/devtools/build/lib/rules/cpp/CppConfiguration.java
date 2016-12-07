@@ -319,6 +319,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> testOnlyLinkFlags;
 
   private final ImmutableList<String> linkOptions;
+  private final ImmutableList<String> ltoindexOptions;
 
   private final ImmutableList<String> objcopyOptions;
   private final ImmutableList<String> ldOptions;
@@ -586,6 +587,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       linkoptsBuilder.add(sysrootFlag);
     }
     this.linkOptions = linkoptsBuilder.build();
+
+    ImmutableList.Builder<String> ltoindexoptsBuilder = ImmutableList.builder();
+    ltoindexoptsBuilder.addAll(cppOptions.ltoindexoptList);
+    this.ltoindexOptions = ltoindexoptsBuilder.build();
 
     ImmutableList.Builder<String> coptsBuilder = ImmutableList.<String>builder()
         .addAll(toolchain.getCompilerFlagList())
@@ -1456,6 +1461,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return linkOptions;
   }
 
+  /** Returns the set of command-line LTO indexing options. */
+  public ImmutableList<String> getLTOIndexOptions() {
+    return ltoindexOptions;
+  }
+
   /**
    * Returns the immutable list of linker options for fully statically linked
    * outputs. Does not include command-line options passed via --linkopt or
@@ -1763,6 +1773,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.inmemoryDotdFiles;
   }
 
+  public boolean getSkipUnusedModules() {
+    return cppOptions.skipUnusedModules;
+  }
+
+  public boolean getPruneMoreModules() {
+    return cppOptions.pruneMoreModules;
+  }
+
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }
@@ -2035,6 +2053,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean shareNativeDeps() {
     return cppOptions.shareNativeDeps;
+  }
+
+  public boolean isStrictSystemIncludes() {
+    return cppOptions.strictSystemIncludes;
   }
 
   @Override

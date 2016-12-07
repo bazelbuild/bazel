@@ -22,12 +22,14 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
+        "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/lib/cmdline:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
@@ -140,6 +142,7 @@ java_library(
         ":preconditions",
         ":unix",
         ":windows",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -303,6 +306,7 @@ java_library(
     srcs = glob(["buildeventstream/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -503,6 +507,7 @@ java_library(
     ],
     deps = [
         ":base-util",
+        ":buildeventstream",
         ":collect",
         ":concurrent",
         ":events",
@@ -520,6 +525,8 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/causes",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
@@ -572,6 +579,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/skyframe",
@@ -589,6 +597,7 @@ java_library(
     srcs = glob(["bazel/*.java"]),
     resources = [
         "bazel/rules/java/java_stub_template.txt",
+        "bazel/rules/java/java_stub_template_windows.txt",
         "bazel/rules/python/stub_template.txt",
     ],
     deps = [
@@ -608,6 +617,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
         "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/ssd",
@@ -753,8 +763,10 @@ java_library(
         "rules/java/JavaLibrary.java",
         "rules/java/JavaPlugin.java",
         "rules/java/JavaPrimaryClassProvider.java",
+        "rules/java/JavaProvider.java",
         "rules/java/JavaRuntimeClasspathProvider.java",
         "rules/java/JavaRuntimeJarProvider.java",
+        "rules/java/JavaSkylarkCommon.java",
         "rules/java/JavaSourceInfoProvider.java",
         "rules/java/JavaToolchain.java",
         "rules/java/JavaToolchainRule.java",
@@ -770,7 +782,9 @@ java_library(
         "rules/java/proto/JavaProtoAspect.java",
         "rules/java/proto/JavaProtoLibrary.java",
         "rules/java/proto/JavaProtoLibraryTransitiveFilesToBuildProvider.java",
+        "rules/java/proto/JavaProtoSkylarkCommon.java",
         "rules/java/proto/JavaSourceJarsAspectProvider.java",
+        "rules/java/proto/ProtoJavacOpts.java",
         "rules/java/proto/StrictDepsUtils.java",
     ],
     deps = [
@@ -804,6 +818,7 @@ java_library(
     srcs = ["rules/java/proto/RpcSupport.java"],
     deps = [
         ":build-base",
+        ":collect",
         ":java-compilation",
         ":packages-internal",
         ":proto-rules",
@@ -814,7 +829,6 @@ java_library(
 java_library(
     name = "java-compilation",
     srcs = [
-        "rules/java/BaseJavaCompilationHelper.java",
         "rules/java/BuildInfoPropertiesTranslator.java",
         "rules/java/ClasspathConfiguredFragment.java",
         "rules/java/DeployArchiveBuilder.java",
@@ -953,7 +967,7 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/protobuf:android_studio_ide_info_java_proto",
+        "//src/main/protobuf:intellij_ide_info_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf",
@@ -1095,6 +1109,8 @@ filegroup(
     name = "docs_embedded_in_sources",
     srcs = glob(["**/*.java"]) + [
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
     ],
@@ -1174,7 +1190,7 @@ load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 bootstrap_java_library(
     name = "shell-skylark",
     srcs = glob(["shell/*.java"]),
-    jars = ["//third_party:guava-jars"],
+    jars = ["//third_party:bootstrap_guava_and_error_prone-jars"],
 )
 
 ########################################################################

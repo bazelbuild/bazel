@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -41,7 +40,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
-
 import java.util.Map;
 
 /**
@@ -116,10 +114,9 @@ public class SkylarkRepositoryModule {
             for (Map.Entry<String, Descriptor> attr :
                 castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
               Descriptor attrDescriptor = attr.getValue();
-              AttributeValueSource source = attrDescriptor.getAttributeBuilder().getValueSource();
+              AttributeValueSource source = attrDescriptor.getValueSource();
               String attrName = source.convertToNativeName(attr.getKey(), ast.getLocation());
-              Attribute.Builder<?> attrBuilder = attrDescriptor.getAttributeBuilder();
-              builder.addOrOverrideAttribute(attrBuilder.build(attrName));
+              builder.addOrOverrideAttribute(attrDescriptor.build(attrName));
             }
           }
           builder.setConfiguredTargetFunction(implementation);

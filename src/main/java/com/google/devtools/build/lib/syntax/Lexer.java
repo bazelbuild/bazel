@@ -489,6 +489,12 @@ public final class Lexer {
       }
     }
 
+    // If the current position is beyond the end of the file, need to move it backwards
+    // Possible if the file ends with `r"\` (unterminated raw string literal with a backslash)
+    if (pos > buffer.length) {
+      pos = buffer.length;
+    }
+
     error("unterminated string literal at eof", oldPos, pos);
     return new Token(TokenKind.STRING, oldPos, pos,
                      bufferSlice(oldPos + 1, pos));

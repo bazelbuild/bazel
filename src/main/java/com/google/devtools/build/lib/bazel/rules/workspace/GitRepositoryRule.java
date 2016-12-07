@@ -109,12 +109,12 @@ cc_library(
 
 <pre class="code">
 git_repository(
-    name = "my-ssl",
+    name = "my_ssl",
     remote = "http://example.com/openssl/openssl.git",
     tag = "v1.0.2",
 )
 </pre>
 
-<p>Then targets would specify <code>@my-ssl//src:openssl-lib</code> as a dependency.</p>
+<p>Then targets would specify <code>@my_ssl//src:openssl-lib</code> as a dependency.</p>
 
 <!-- #END_BLAZE_RULE -->*/

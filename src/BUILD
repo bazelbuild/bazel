@@ -133,7 +133,6 @@ genrule(
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:gpl-srcs",
-        "//third_party/iossim:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/jdk/langtools:test-srcs",
         "//third_party/py/concurrent:srcs",
@@ -293,12 +292,12 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/api:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/testing:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding/weighted:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
         "//src/java_tools/singlejar:srcs",
         "//src/main/cpp:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib:srcs",
+        "//src/main/java/com/google/devtools/build/lib/causes:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/skylark:srcs",
@@ -331,5 +330,17 @@ filegroup(
         "//src/tools/remote_worker:srcs",
         "//tools/osx:srcs",
     ],
+    visibility = ["//:__pkg__"],
+)
+
+genrule(
+    name = "derived_java_srcs",
+    srcs = [
+        "//src/main/protobuf:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
+    ],
+    outs = ["derived_java_srcs.zip"],
+    cmd = "$(location :combine_derived_java_srcs.sh) $@ $(SRCS)",
+    tools = ["combine_derived_java_srcs.sh"],
     visibility = ["//:__pkg__"],
 )

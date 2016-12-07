@@ -30,15 +30,13 @@ import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
 import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import net.bytebuddy.description.type.TypeDescription;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.Duplication;
 import net.bytebuddy.implementation.bytecode.constant.IntegerConstant;
-
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 
 /**
  * Syntax node for a for loop statement.
@@ -111,21 +109,12 @@ public final class ForStatement extends Statement {
 
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
-    if (env.isTopLevel()) {
-      throw new EvalException(getLocation(), "'For' is not allowed as a top level statement");
-    }
-    env.enterLoop();
+    // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
+    collection.validate(env);
+    variable.validate(env, getLocation());
 
-    try {
-      // TODO(bazel-team): validate variable. Maybe make it temporarily readonly.
-      collection.validate(env);
-      variable.validate(env, getLocation());
-
-      for (Statement stmt : block) {
-        stmt.validate(env);
-      }
-    } finally {
-      env.exitLoop(getLocation());
+    for (Statement stmt : block) {
+      stmt.validate(env);
     }
   }
 

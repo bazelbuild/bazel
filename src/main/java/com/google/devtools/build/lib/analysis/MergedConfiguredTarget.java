@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
@@ -29,11 +31,26 @@ import javax.annotation.Nullable;
  */
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
+  private final ImmutableList<AspectDescriptor> aspects;
   private final TransitiveInfoProviderMap providers;
 
-  private MergedConfiguredTarget(ConfiguredTarget base, TransitiveInfoProviderMap providers) {
+  /**
+   * This exception is thrown when configured targets and aspects
+   * being merged provide duplicate things that they shouldn't
+   * (output groups or providers).
+   */
+  public static final class DuplicateException extends Exception {
+    public DuplicateException(String message) {
+      super(message);
+    }
+  }
+
+  private MergedConfiguredTarget(ConfiguredTarget base,
+      ImmutableList<AspectDescriptor> aspects,
+      TransitiveInfoProviderMap providers) {
     super(base.getTarget(), base.getConfiguration());
     this.base = base;
+    this.aspects = aspects;
     this.providers = providers;
   }
 
@@ -61,8 +78,16 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     return provider;
   }
 
+  /**
+   * List of aspects applied to the target.
+   */
+  public ImmutableList<AspectDescriptor> getAspects() {
+    return aspects;
+  }
+
   /** Creates an instance based on a configured target and a set of aspects. */
-  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
+  public static ConfiguredTarget of(ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
+      throws DuplicateException {
     if (Iterables.isEmpty(aspects)) {
       // If there are no aspects, don't bother with creating a proxy object
       return base;
@@ -73,8 +98,15 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         OutputGroupProvider.merge(getAllProviders(base, aspects, OutputGroupProvider.class));
 
     // Merge Skylark providers.
+    ImmutableMap<String, Object> premergedProviders =
+        mergedOutputGroupProvider == null
+        ? ImmutableMap.<String, Object>of()
+        : ImmutableMap.<String, Object>of(
+            OutputGroupProvider.SKYLARK_NAME, mergedOutputGroupProvider);
     SkylarkProviders mergedSkylarkProviders =
-        SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
+        SkylarkProviders.merge(
+            premergedProviders,
+            getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Merge extra-actions provider.
     ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
@@ -91,6 +123,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       aspectProviders.add(mergedExtraActionProviders);
     }
 
+    ImmutableList.Builder<AspectDescriptor> aspectRepresentations = ImmutableList.builder();
+
     for (ConfiguredAspect aspect : aspects) {
       for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
           aspect.getProviders().entrySet()) {
@@ -106,9 +140,11 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         }
 
         aspectProviders.add(entry.getValue());
+        aspectRepresentations.add(aspect.getDescriptor());
       }
+
     }
-    return new MergedConfiguredTarget(base, aspectProviders.build());
+    return new MergedConfiguredTarget(base, aspectRepresentations.build(), aspectProviders.build());
   }
 
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(

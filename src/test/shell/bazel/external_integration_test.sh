@@ -17,11 +17,11 @@
 # Test //external mechanisms
 #
 
-# Load test environment
-src=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source $src/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
-source $src/remote_helpers.sh \
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
+source "${CURRENT_DIR}/remote_helpers.sh" \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 function set_up() {
@@ -191,10 +191,9 @@ function test_http_archive_tar_xz() {
 }
 
 function test_http_archive_no_server() {
-  nc_port=$(pick_random_unused_tcp_port) || exit 1
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = 'dummy')
+http_archive(name = 'endangered', url = 'http://bad.example/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -212,7 +211,7 @@ EOF
   chmod +x zoo/female.sh
 
   bazel fetch //zoo:breeding-program >& $TEST_log && fail "Expected fetch to fail"
-  expect_log "Connection refused"
+  expect_log "Unknown host: bad.example"
 }
 
 function test_http_archive_mismatched_sha256() {
@@ -229,8 +228,11 @@ function test_http_archive_mismatched_sha256() {
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-http_archive(name = 'endangered', url = 'http://localhost:$nc_port/repo.zip',
-    sha256 = '$wrong_sha256')
+http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/repo.zip',
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826',
+)
 EOF
 
   cat > zoo/BUILD <<EOF
@@ -249,7 +251,7 @@ EOF
 
   bazel fetch //zoo:breeding-program >& $TEST_log && echo "Expected fetch to fail"
   kill_nc
-  expect_log "does not match expected SHA-256"
+  expect_log "Checksum"
 }
 
 # Bazel should not re-download the .zip unless the user requests it or the
@@ -338,14 +340,14 @@ EOF
 http_file(
     name = 'toto',
     url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
   # Observes that we tried to follow redirect, but failed due to ridiculous
   # port.
-  expect_log "Failed to connect.*port out of range"
+  expect_log "port out of range"
 }
 
 function test_http_404() {
@@ -356,12 +358,12 @@ function test_http_404() {
 http_file(
     name = 'toto',
     url = 'http://localhost:$nc_port/toto',
-    sha256 = 'whatever'
+    sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826'
 )
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
-  expect_log "404 Not Found: Help, I'm lost!"
+  expect_log "404 Not Found"
 }
 
 # Tests downloading a file and using it as a dependency.
@@ -476,7 +478,7 @@ EOF
 function test_invalid_rule() {
   # http_jar with missing URL field.
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', sha256 = 'dummy')
+http_jar(name = 'endangered', sha256 = '2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9826')
 EOF
 
   bazel fetch //external:endangered >& $TEST_log && fail "Expected fetch to fail"
@@ -760,31 +762,6 @@ EOF
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
-
-function test_truncated() {
-  http_response="$TEST_TMPDIR/http_response"
-  cat > "$http_response" <<EOF
-HTTP/1.0 200 OK
-Content-length: 200
-
-EOF
-  echo "foo"  >> "$http_response"
-  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
-  nc_log="$TEST_TMPDIR/nc.log"
-  nc_l "$nc_port" < "$http_response" >& "$nc_log" &
-  nc_pid=$!
-
-  cat > WORKSPACE <<EOF
-http_archive(
-    name = "foo",
-    url = "http://localhost:$nc_port",
-    sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
-)
-EOF
-  bazel build @foo//bar &> $TEST_log || echo "Build failed, as expected"
-  expect_log "Expected 200B, got 4B"
-}
-
 
 function test_android_sdk_basic_load() {
   cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"

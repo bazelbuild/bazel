@@ -25,7 +25,7 @@ import java.util.Map;
  * This provides a view over the actions that were created during the analysis of a rule
  * (not including actions for its transitive dependencies).
  */
-public final class ActionsProvider{
+public final class ActionsProvider {
 
   public static final SkylarkClassObjectConstructor ACTIONS_PROVIDER =
       SkylarkClassObjectConstructor.createNative("Actions");

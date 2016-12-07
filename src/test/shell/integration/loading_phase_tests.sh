@@ -18,15 +18,13 @@
 # that use only the loading or analysis phases.
 #
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-create_and_cd_client
-put_bazel_on_path
 # Our tests use the static crosstool, so make it the default.
-EXTRA_BAZELRC="build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
-write_default_bazelrc
+add_to_bazelrc "build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
+
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 output_base=$TEST_TMPDIR/out
 TEST_stderr=$(dirname $TEST_log)/stderr
@@ -111,16 +109,16 @@ function test_options_errors() {
 function test_bazelrc_option() {
     cp ${bazelrc} ${new_workspace_dir}/.${PRODUCT_NAME}rc
 
-    echo "build --cpu=piii" >>.${PRODUCT_NAME}rc    # default bazelrc
-    $bazel info >/dev/null 2>$TEST_log
+    echo "build --cpu=armeabi-v7a" >>.${PRODUCT_NAME}rc    # default bazelrc
+    $PATH_TO_BAZEL_BIN info >/dev/null 2>$TEST_log
     expect_log "Reading.*$(pwd)/.${PRODUCT_NAME}rc:
-.*--cpu=piii"
+.*--cpu=armeabi-v7a"
 
     cp .${PRODUCT_NAME}rc foo
-    echo "build --cpu=k8"   >>foo         # non-default bazelrc
-    $bazel --${PRODUCT_NAME}rc=foo info >/dev/null 2>$TEST_log
+    echo "build --cpu=armeabi-v7a"   >>foo         # non-default bazelrc
+    $PATH_TO_BAZEL_BIN --${PRODUCT_NAME}rc=foo info >/dev/null 2>$TEST_log
     expect_log "Reading.*$(pwd)/foo:
-.*--cpu=k8"
+.*--cpu=armeabi-v7a"
 }
 
 # This exercises the production-code assertion in AbstractCommand.java
@@ -317,4 +315,4 @@ function test_incremental_deleting_package_roots() {
   expect_not_log "//a:external"
 }
 
-run_suite "Miscellaneous integration tests of bazel, using loading/analysis phases."
+run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

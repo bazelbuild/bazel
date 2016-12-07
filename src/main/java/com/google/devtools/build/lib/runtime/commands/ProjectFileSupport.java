@@ -21,15 +21,12 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.ProjectFile;
-import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.List;
 
 /**
@@ -46,19 +43,17 @@ public final class ProjectFileSupport {
    * are not enabled, then it throws an exception instead.
    */
   public static void handleProjectFiles(CommandEnvironment env, OptionsParser optionsParser,
-      String command) throws AbruptExitException {
+      String command) throws OptionsParsingException {
     BlazeRuntime runtime = env.getRuntime();
     List<String> targets = optionsParser.getResidue();
     ProjectFile.Provider projectFileProvider = runtime.getProjectFileProvider();
     if (projectFileProvider != null && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       if (targets.size() > 1) {
-        throw new AbruptExitException("Cannot handle more than one +<file> argument yet",
-            ExitCode.COMMAND_LINE_ERROR);
+        throw new OptionsParsingException("Cannot handle more than one +<file> argument yet");
       }
       if (!optionsParser.getOptions(CommonCommandOptions.class).allowProjectFiles) {
-        throw new AbruptExitException("project file support is not enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+        throw new OptionsParsingException("project file support is not enabled");
       }
       // TODO(bazel-team): This is currently treated as a path relative to the workspace - if the
       // cwd is a subdirectory of the workspace, that will be surprising, and we should interpret it
@@ -74,12 +69,8 @@ public final class ProjectFileSupport {
           env.getWorkingDirectory(), packagePath, projectFilePath);
       env.getReporter().handle(Event.info("Using " + projectFile.getName()));
 
-      try {
-        optionsParser.parse(
-            OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
-      } catch (OptionsParsingException e) {
-        throw new AbruptExitException(e.getMessage(), ExitCode.COMMAND_LINE_ERROR);
-      }
+      optionsParser.parse(
+          OptionPriority.RC_FILE, projectFile.getName(), projectFile.getCommandLineFor(command));
       env.getEventBus().post(new GotProjectFileEvent(projectFile.getName()));
     }
   }

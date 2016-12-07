@@ -15,15 +15,13 @@
 
 # Tests that our --host_javabase startup selection algorithm works.
 
-# Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
-  || { echo "testenv.sh not found!" >&2; exit 1; }
-
-put_bazel_on_path
-create_and_cd_client
+# Load the test setup defined in the parent directory
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${CURRENT_DIR}/../integration_test_setup.sh" \
+  || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_use_depot_javabase() {
-  bazel --batch version >& $TEST_log || fail "Couldn't run Bazel"
+  bazel --batch version >& $TEST_log || fail "Couldn't run ${PRODUCT_NAME}"
   expect_not_log "Couldn't find java at"
   expect_not_log "Problem with java installation"
 }

@@ -18,9 +18,7 @@
 
 namespace blaze_util {
 
-using std::string;
-
-bool safe_strto32(const string &text, int *value);
+bool safe_strto32(const std::string &text, int *value);
 
 int32_t strto32(const char *str, char **endptr, int base);
 

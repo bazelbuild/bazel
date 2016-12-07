@@ -174,14 +174,14 @@ public final class InstrumentedFilesCollector {
   }
 
   /**
-   * Return whether the sources included from {@code dep} (a {@link TransitiveInfoCollection}
-   * representing a rule's dependency) should be instrumented according the --instrumentation_filter
-   * and --instrument_test_targets settings in {@code config}.
+   * Return whether the sources included by {@code target} (a {@link TransitiveInfoCollection}
+   * representing a rule) should be instrumented according the --instrumentation_filter and
+   * --instrument_test_targets settings in {@code config}.
    */
   public static boolean shouldIncludeLocalSources(BuildConfiguration config,
-      TransitiveInfoCollection dep) {
-    return shouldIncludeLocalSources(config, dep.getLabel(),
-        dep.getProvider(TestProvider.class) != null);
+      TransitiveInfoCollection target) {
+    return shouldIncludeLocalSources(config, target.getLabel(),
+        target.getProvider(TestProvider.class) != null);
   }
 
   private static boolean shouldIncludeLocalSources(BuildConfiguration config, Label label,

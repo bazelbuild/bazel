@@ -121,8 +121,12 @@ message UseDefault {
 }
 
 message DisallowValues {
+
+  // Obsolete new_default_value field.
+  reserved 2;
+
   // It is an error for the user to use any of these values (that is, the Bazel
-  // command will fail).
+  // command will fail), unless new_value or use_default is set.
   //
   // For repeatable flags, if any one of the values in the flag matches a value
   // in the list of disallowed values, an error is thrown.
@@ -134,24 +138,51 @@ message DisallowValues {
   // will ["b", "c"] (but ["a", "b"] will still match).
   repeated string disallowed_values = 1;
 
-  // If the default value of the flag is a disallowed value, use this
-  // as the default if the user doesn't specify the flag.
-  // Similar to doing a SetValue with overridable set to true, but also
-  // wanting to limit the available values. Note that flags that set
-  // allowMultiple to true cannot have default values (they default to the
-  // empty list), which is why this field is optional and not repeated.
-  optional string new_default_value = 2;
+  oneof replacement_value {
+
+    // If set and if the value of the flag is disallowed (including the default
+    // value of the flag if the user doesn't specify a value), use this value as
+    // the value of the flag instead of raising an error. This does not apply to
+    // repeatable flags and is ignored if the flag is a repeatable flag.
+    string new_value = 3;
+
+    // If set and if the value of the flag is disallowed, use the default value
+    // of the flag instead of raising an error. Unlike new_value, this works for
+    // repeatable flags, but note that the default value for repeatable flags is
+    // always empty.
+    //
+    // Note that it is an error to disallow the default value of the flag and
+    // to set use_default, unless the flag is a repeatable flag where the
+    // default value is always the empty list.
+    UseDefault use_default = 4;
+  }
 }
 
 message AllowValues {
-  // It is an error for the user to use any value not in this list.
+
+  // Obsolete new_default_value field.
+  reserved 2;
+
+  // It is an error for the user to use any value not in this list, unless
+  // new_value or use_default is set.
   repeated string allowed_values = 1;
 
-  // If the default value of the flag is a not an allowed value, use this
-  // as the default if the user doesn't specify the flag.
-  // Similar to doing a SetValue with overridable set to true, but also
-  // wanting to limit the available values. Note that flags that set
-  // allowMultiple to true cannot have default values (they default to the
-  // empty list), which is why this field is optional and not repeated.
-  optional string new_default_value = 2;
+  oneof replacement_value {
+
+    // If set and if the value of the flag is disallowed (including the default
+    // value of the flag if the user doesn't specify a value), use this value as
+    // the value of the flag instead of raising an error. This does not apply to
+    // repeatable flags and is ignored if the flag is a repeatable flag.
+    string new_value = 3;
+
+    // If set and if the value of the flag is disallowed, use the default value
+    // of the flag instead of raising an error. Unlike new_value, this works for
+    // repeatable flags, but note that the default value for repeatable flags is
+    // always empty.
+    //
+    // Note that it is an error to disallow the default value of the flag and
+    // to set use_default, unless the flag is a repeatable flag where the
+    // default value is always the empty list.
+    UseDefault use_default = 4;
+  }
 }

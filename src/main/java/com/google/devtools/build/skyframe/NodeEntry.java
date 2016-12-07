@@ -351,8 +351,12 @@ public interface NodeEntry extends ThinNodeEntry {
   @ThreadSafe
   void removeUnfinishedDeps(Set<SkyKey> unfinishedDeps);
 
+  /**
+   * Adds the temporary direct deps given in {@code helper} and returns the set of unique deps
+   * added.
+   */
   @ThreadSafe
-  void addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
+  Set<SkyKey> addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
 
   /**
    * Add a group of direct deps to the node. May only be called with a {@link Collection} returned

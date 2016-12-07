@@ -47,8 +47,6 @@ public abstract class AbstractConfiguredTarget
   // Accessors for Skylark
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
-  private static final String LABEL_FIELD = "label";
-  private static final String FILES_FIELD = "files";
 
   AbstractConfiguredTarget(Target target,
                            BuildConfiguration configuration) {

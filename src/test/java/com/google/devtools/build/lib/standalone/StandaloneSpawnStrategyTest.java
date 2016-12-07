@@ -36,8 +36,8 @@ import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.integration.util.IntegrationMock;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -88,7 +88,8 @@ public class StandaloneSpawnStrategyTest {
 
     BlazeDirectories directories =
         new BlazeDirectories(outputBase, outputBase, workspaceDir, "mock-product-name");
-    BlazeTestUtils.getIntegrationBinTools(directories);
+    // This call implicitly symlinks the integration bin tools into the exec root.
+    IntegrationMock.get().getIntegrationBinTools(directories);
     OptionsParser optionsParser = OptionsParser.newOptionsParser(ExecutionOptions.class);
     optionsParser.parse("--verbose_failures");
 

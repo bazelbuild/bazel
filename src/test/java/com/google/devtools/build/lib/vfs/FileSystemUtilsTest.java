@@ -697,6 +697,42 @@ public class FileSystemUtilsTest {
   }
 
   @Test
+  public void testUpdateContent() throws Exception {
+    Path file = fileSystem.getPath("/test.txt");
+
+    clock.advanceMillis(1000);
+
+    byte[] content = new byte[] { 'a', 'b', 'c', 23, 42 };
+    FileSystemUtils.maybeUpdateContent(file, content);
+    byte[] actual = FileSystemUtils.readContent(file);
+    assertArrayEquals(content, actual);
+    FileStatus stat = file.stat();
+    assertEquals(1000, stat.getLastChangeTime());
+    assertEquals(1000, stat.getLastModifiedTime());
+
+    clock.advanceMillis(1000);
+
+    // Update with same contents; should not write anything.
+    FileSystemUtils.maybeUpdateContent(file, content);
+    assertArrayEquals(content, actual);
+    stat = file.stat();
+    assertEquals(1000, stat.getLastChangeTime());
+    assertEquals(1000, stat.getLastModifiedTime());
+
+    clock.advanceMillis(1000);
+
+    // Update with different contents; file should be rewritten.
+    content[0] = 'b';
+    file.chmod(0400);  // Protect the file to ensure we can rewrite it.
+    FileSystemUtils.maybeUpdateContent(file, content);
+    actual = FileSystemUtils.readContent(file);
+    assertArrayEquals(content, actual);
+    stat = file.stat();
+    assertEquals(3000, stat.getLastChangeTime());
+    assertEquals(3000, stat.getLastModifiedTime());
+  }
+
+  @Test
   public void testGetFileSystem() throws Exception {
     Path mountTable = fileSystem.getPath("/proc/mounts");
     FileSystemUtils.writeIsoLatin1(mountTable,

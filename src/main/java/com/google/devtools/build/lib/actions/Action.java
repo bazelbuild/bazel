@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThread
 import com.google.devtools.build.lib.profiler.Describable;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -150,6 +151,44 @@ public interface Action extends ActionExecutionMetadata, Describable {
   @Nullable
   Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException;
+
+  /**
+   * Used in combination with {@link #discoverInputs} if inputs need to be found before execution in
+   * multiple steps. Returns null if two-stage input discovery isn't necessary.
+   *
+   * <p>Any deps requested here must not change unless one of the action's inputs changes.
+   * Otherwise, changes to nodes that should cause re-execution of actions might be prevented by the
+   * action cache.
+   */
+  @Nullable
+  Iterable<Artifact> discoverInputsStage2(SkyFunction.Environment env)
+      throws ActionExecutionException, InterruptedException;
+
+  /**
+   * If an action does not know the exact set of inputs ahead of time, it will usually either do:
+   * <ul>
+   * <li> Execution time pruning: The action provides a superset set of inputs at action creation
+   *      time, and prunes inputs during {@link #execute}.
+   * <li> Input discovery: The action provides a subset of inputs at creation time, overwrites
+   *      {@link #discoverInputs} to return a superset of inputs depending on the execution context
+   *      and optionally prunes the inputs at the end of {@link #execute} to a required subset for
+   *      subsequent calls.
+   * </ul>
+   *
+   * This function allows an action that is set up for input discovery, and thus only provides a
+   * minimal set of inputs at creation time, to switch off input discovery depending on the
+   * execution context. To that end the action must:
+   * <ul>
+   * <li>Provide a subset of inputs at creation time
+   * <li>Return {@code null} from {@link #discoverInputs}, indicating no input discovery
+   * <li>Return a superset of inputs that might have been discovered otherwise from here;
+   *     this will usually be the set difference between the full set of inputs the action would get
+   *     when doing only execution time pruning and the minimal subset provided above.
+   * <li>Prune the set of inputs on execute
+   * </ul>
+   */
+  @Nullable
+  Iterable<Artifact> getInputsWhenSkippingInputDiscovery();
 
   /**
    * Method used to resolve action inputs based on the information contained in the action cache. It

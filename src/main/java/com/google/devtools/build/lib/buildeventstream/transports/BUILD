@@ -11,6 +11,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
         "//third_party/protobuf",
     ],
 )

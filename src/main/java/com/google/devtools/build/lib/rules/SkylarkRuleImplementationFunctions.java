@@ -236,7 +236,7 @@ public class SkylarkRuleImplementationFunctions {
             // When we use a shell command, add an empty argument before other arguments.
             //   e.g.  bash -c "cmd" '' 'arg1' 'arg2'
             // bash will use the empty argument as the value of $0 (which we don't care about).
-            // arg1 and arg2 will be $1 and $2, as a user exects.
+            // arg1 and arg2 will be $1 and $2, as a user expects.
             builder.addArgument("");
           }
           builder.addArguments(arguments.getContents(String.class, "arguments"));
@@ -338,7 +338,8 @@ public class SkylarkRuleImplementationFunctions {
       "Expands all <code>$(location ...)</code> templates in the given string by replacing "
       + "<code>$(location //x)</code> with the path of the output file of target //x. "
       + "Expansion only works for labels that point to direct dependencies of this rule or that "
-      + "are explicitly listed in the optional argument <code>targets</code>.<br/>"
+      + "are explicitly listed in the optional argument <code>targets</code>. "
+      + "<br/><br/>"
       + "<code>$(location ...)</code> will cause an error if the referenced target has multiple "
       + "outputs. In this case, please use <code>$(locations ...)</code> since it produces a space-"
       + "separated list of output paths. It can be safely used for a single output file, too.",
@@ -460,10 +461,10 @@ public class SkylarkRuleImplementationFunctions {
         @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
         @Param(name = "template", type = Artifact.class,
             named = true, positional = false,
-            doc = "the template file"),
+            doc = "the template file, which is a UTF-8 encoded text file"),
         @Param(name = "output", type = Artifact.class,
             named = true, positional = false,
-            doc = "the output file"),
+            doc = "the output file, which is a UTF-8 encoded text file"),
         @Param(name = "substitutions", type = SkylarkDict.class,
             named = true, positional = false,
             doc = "substitutions to make when expanding the template"),

@@ -161,10 +161,10 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
   }
 
   /**
-   * PrepareDepsOfPatternsFunction always keeps going despite any target pattern parsing errors,
-   * in keeping with the original behavior of {@link SkyframeExecutor#prepareAndGet}, which
-   * always used {@code keepGoing=true} during target pattern parsing because it was responsible
-   * for ensuring that queries had a complete graph to work on.
+   * PrepareDepsOfPatternsFunction always keeps going despite any target pattern parsing errors, in
+   * keeping with the original behavior of {@link WalkableGraph.WalkableGraphFactory#prepareAndGet},
+   * which always used {@code keepGoing=true} during target pattern parsing because it was
+   * responsible for ensuring that queries had a complete graph to work on.
    */
   @Test
   public void testParsingProblemsNoKeepGoing() throws Exception {

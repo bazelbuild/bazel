@@ -32,13 +32,8 @@ fi
 if [ -n "${BUILD_LOG-}" ]; then
   echo "RELEASE_BUILD_LOG ${BUILD_LOG}"
 fi
-echo "RELEASE_COMMIT_MSG $(git_commit_msg | tr '\n' '\f')"
-release_name=$(get_release_name)
-rc=$(get_release_candidate)
+release_name=$(get_full_release_name)
 if [ -n "${release_name}" ]; then
-  if [ -n "${rc}" ]; then
-    echo "RELEASE_NAME ${release_name}rc${rc}"
-  else
-    echo "RELEASE_NAME ${release_name}"
-  fi
+  echo "RELEASE_NAME ${release_name}"
+  echo "RELEASE_NOTES $(get_full_release_notes | tr '\n' '\f')"
 fi

@@ -40,7 +40,7 @@ public class MultiPageBuildEncyclopediaProcessor extends BuildEncyclopediaProces
   public void generateDocumentation(List<String> inputDirs, String outputDir, String blackList)
       throws BuildEncyclopediaDocException, IOException {
     BuildDocCollector collector = new BuildDocCollector(ruleClassProvider, false);
-    RuleLinkExpander expander = new RuleLinkExpander(false);
+    RuleLinkExpander expander = new RuleLinkExpander(ruleClassProvider.getProductName(), false);
     Map<String, RuleDocumentation> ruleDocEntries = collector.collect(
         inputDirs, blackList, expander);
     warnAboutUndocumentedRules(

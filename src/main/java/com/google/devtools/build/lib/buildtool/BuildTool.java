@@ -134,8 +134,7 @@ public final class BuildTool {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
-    env.setupPackageCache(request.getPackageCacheOptions(),
-        DefaultsPackage.getDefaultsPackageContent(buildOptions));
+    env.setupPackageCache(request, DefaultsPackage.getDefaultsPackageContent(buildOptions));
 
     ExecutionTool executionTool = null;
     LoadingResult loadingResult = null;
@@ -151,10 +150,7 @@ public final class BuildTool {
         executionTool.init();
       }
 
-      // Loading phase.
-      loadingResult = runLoadingPhase(request, validator);
-
-      // Create the build configurations.
+      // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
         getReporter().handle(Event.warn(
             "The --experimental_multi_cpu option is _very_ experimental and only intended for "
@@ -166,9 +162,25 @@ public final class BuildTool {
               + "'test' right now!");
         }
       }
-      configurations = env.getSkyframeExecutor().createConfigurations(
-            env.getReporter(), runtime.getConfigurationFactory(), buildOptions,
-            request.getMultiCpus(), request.getViewOptions().keepGoing);
+
+      // Exit if there are any pending exceptions from modules.
+      env.throwPendingException();
+
+      // Target pattern evaluation.
+      loadingResult = evaluateTargetPatterns(request, validator);
+
+      // Exit if there are any pending exceptions from modules.
+      env.throwPendingException();
+
+      // Configuration creation.
+      configurations =
+          env.getSkyframeExecutor()
+              .createConfigurations(
+                  env.getReporter(),
+                  runtime.getConfigurationFactory(),
+                  buildOptions,
+                  request.getMultiCpus(),
+                  request.getViewOptions().keepGoing);
 
       env.throwPendingException();
       if (configurations.getTargetConfigurations().size() == 1) {
@@ -390,14 +402,10 @@ public final class BuildTool {
     return !(request.getViewOptions().keepGoing && request.getExecutionOptions().testKeepGoing);
   }
 
-  @VisibleForTesting
-  protected final LoadingResult runLoadingPhase(final BuildRequest request,
-                                                final TargetValidator validator)
-          throws LoadingFailedException, TargetParsingException, InterruptedException,
-          AbruptExitException {
+  private final LoadingResult evaluateTargetPatterns(
+      final BuildRequest request, final TargetValidator validator)
+      throws LoadingFailedException, TargetParsingException, InterruptedException {
     Profiler.instance().markPhase(ProfilePhase.LOAD);
-    env.throwPendingException();
-
     initializeOutputFilter(request);
 
     final boolean keepGoing = request.getViewOptions().keepGoing;
@@ -421,11 +429,9 @@ public final class BuildTool {
             request.getTargets(),
             env.getRelativeWorkingDirectory(),
             request.getLoadingOptions(),
-            runtime.createBuildOptions(request).getAllLabels(),
             keepGoing,
             request.shouldRunTests(),
             callback);
-    env.throwPendingException();
     return result;
   }
 
@@ -504,7 +510,7 @@ public final class BuildTool {
    *        a thrown exception somewhere along the way.
    */
   public void stopRequest(BuildResult result, Throwable crash, ExitCode exitCondition) {
-    Preconditions.checkState((crash == null) || (exitCondition != ExitCode.SUCCESS));
+    Preconditions.checkState((crash == null) || !exitCondition.equals(ExitCode.SUCCESS));
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
     // The stop time has to be captured before we send the BuildCompleteEvent.

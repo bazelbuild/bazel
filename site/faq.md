@@ -105,7 +105,9 @@ so Bazel does have hooks in the code base to plug in a remote build
 cache or a remote execution system.
 
 The open source Bazel code runs build operations locally. We believe
-that this is fast enough for most of our users.
+that this is fast enough for most of our users, but work is underway
+to provide [distributed caching](https://github.com/bazelbuild/bazel/issues/904).
+
 
 How does the Google development process work?
 ----------------------------------------------
@@ -186,8 +188,11 @@ Due to its UNIX heritage, porting Bazel to Windows is significant work. For
 example, Bazel uses symlinks extensively, which has varying levels of support
 across Windows versions.
 
-We are currently actively working on improving Windows support, but it's still
-ways from being usable.
+As of version [0.3.0](https://github.com/bazelbuild/bazel/releases/tag/0.3.0)
+Bazel supports Windows (bootstrapping itself and running builds), and we are
+actively working on improving this support. See our
+[blog post](https://bazel.build/blog/2016/09/07/bazel-windows.html) for more
+information, as well as the [list of open bugs](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22).
 
 What should I not use Bazel for?
 --------------------------------
@@ -264,7 +269,7 @@ Can I build Docker images with Bazel?
 -------------------------------------
 
 Yes, you can use our
-[Docker rules](http://bazel.io/docs/be/docker.html)
+[Docker rules](http://bazel.build/docs/be/docker.html)
 to build reproducible Docker images.
 
 Will Bazel make my builds reproducible automatically?
@@ -293,23 +298,20 @@ Do you have binary releases?
 
 Yes, you can find the latest release binaries
 [here](https://github.com/bazelbuild/bazel/releases/latest). Our release
-policy is documented [here](http://bazel.io/support.html).
+policy is documented [here](http://bazel.build/support.html).
 
-I use Eclipse/IntelliJ. How does Bazel interoperate with IDEs?
---------------------------------------------------------------
+I use Eclipse/IntelliJ/XCode. How does Bazel interoperate with IDEs?
+--------------------------------------------------------------------
 
-We currently have no IDE integration API as such but the iOS rules generate
-Xcode projects based on Bazel BUILD targets (see below).
+For IntelliJ, check out the [IntelliJ with Bazel plugin](https://ij.bazel.build).
 
-How does Bazel interact with Xcode?
------------------------------------
+For XCode, check out [Tulsi](http://tulsi.bazel.build/).
 
-Bazel generates Xcode projects that you can use to work with any inputs and
-dependencies for the target, to build apps from Xcode directly and to deploy to
-an iOS simulator and devices. Simply open the project file whose path is printed
-by Bazel after building any iOS target. There is no support to invoke Bazel from
-Xcode (for example to re-generate generated sources such as Objective-C files
-based on protos), nor to open Xcode from Bazel directly.
+For Eclipse, check out [E4B plugin](https://github.com/bazelbuild/e4b).
+
+For other IDEs, check out the [blog
+post](https://bazel.build/blog/2016/06/10/ide-support.html) on how these
+plugins work.
 
 I use Jenkins/CircleCI/TravisCI. How does Bazel interoperate with CI systems?
 -----------------------------------------------------------------------------
@@ -350,13 +352,8 @@ Simplistic support for PEX-style binaries is at
 What about Go?
 --------------
 
-If your codebase is 100% Go, the `go` tool has excellent support for
-building and testing, and Bazel will not bring you much benefit.
+Bazel supports Go through an [external rule set](https://github.com/bazelbuild/rules_go)
 
-The server code written in Go at Google is built with Bazel. However, the rules
-that accomplish this are rather complex due to their interactions with our C++
-libraries, and are incompatible with the conventions of the `go` tool.  We are
-working on improving this situation.
 
 Can I use Bazel for my [INSERT LANGUAGE HERE] project?
 ------------------------------------------------------
@@ -411,10 +408,10 @@ Bazel.
 Why do other Google projects (Android, Chrome) use other build tools?
 ---------------------------------------------------------------------
 
-Until now, Bazel was not available externally, so open source projects
-such as Chromium, Android, etc. could not use it. In addition, lack of
-Windows support is a problem for building Windows applications, such
-as Chrome.
+Until the first (Alpha) release, Bazel was not available externally, so open
+source projects such as Chromium, Android, etc. could not use it. In addition,
+the original lack of Windows support was a problem for building Windows
+applications, such as Chrome.
 
 
 How do you pronounce "Bazel"?

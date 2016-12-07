@@ -24,4 +24,7 @@ public interface DataAsset extends DataValue {
    */
   void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
       throws IOException;
+  
+  /** Overwrite another {@link DataAsset}. */
+  DataAsset overwrite(DataAsset other);
 }

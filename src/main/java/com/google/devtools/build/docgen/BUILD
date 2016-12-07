@@ -15,6 +15,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:java-rules",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
@@ -54,5 +55,6 @@ filegroup(
 
 filegroup(
     name = "srcs",
+    testonly = 0,  # All srcs should be not test only, overwrite package default.
     srcs = glob(["**"]),
 )

@@ -162,7 +162,7 @@ Python:
 
 * Sets have reference equality semantics and can be stored in other sets.
 
-* Lists and other mutable values may be stored in sets and in dictionary
+* Lists and other mutable types may be stored in sets and in dictionary
   keys once they are frozen.
 
 * Modifying a collection during iteration is an error. You can avoid the error
@@ -187,9 +187,6 @@ The following items are upcoming changes.
   deterministic. As an implementation matter, some kinds of dictionaries may
   continue to use sorted order while others may use insertion order.
 
-* Some collections currently use reference equality (sometimes inconsistently).
-  This will change to structural equality for all collections except sets.
-
 * The `+=` operator and similar operators are currently syntactic sugar;
   `x += y` is the same as `x = x + y`. This will change to follow Python
   semantics, so that for mutable collection datatypes, `x += y` will be a
@@ -202,6 +199,23 @@ The following items are upcoming changes.
   dictionaries. This will be going away. The same result can be achieved using
   `dict(a.items() + b.items())`. Likewise, there is a `+` operator for sets that
   will be going away; users should use `|` instead.
+
+* The order comparison operators (<, <=, >=, >) are currently defined across
+  different types of values, e.g., you can write `5 < 'foo'`. This will be an
+  error, just like in Python 3. Note that this means you will be unable to
+  sort lists that contain mixed types of values.
+
+* The structure of the set that you get back from using the `+` or `|` operator
+  is changing. Previously `a + b`, where `a` is a set, would include as its
+  direct items all of `a`'s direct items. Under the upcoming way, the result
+  will only include `a` as a single transitive entity. This will alter the
+  visible iteration order of the returned set. Most notably,
+  `set([1, 2]) + set([3, 4] + set([5, 6])` will return elements in the order
+  `1 2 3 4 5 6` instead of `3 4 5 6 1 2`. This change is associated with a fix
+  that improves set union to be O(1) time.
+
+* The set datatype will be renamed in order to avoid confusion with Python's
+  set datatype, which behaves very differently.
 
 The following Python features are not supported:
 

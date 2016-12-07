@@ -30,7 +30,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_posix.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 
@@ -95,16 +95,16 @@ string GetSelfPath() {
   return string(buffer);
 }
 
-uint64_t MonotonicClock() {
+uint64_t GetMillisecondsMonotonic() {
   struct timespec ts = {};
   clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
-uint64_t ProcessClock() {
+uint64_t GetMillisecondsSinceProcessStart() {
   struct timespec ts = {};
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
-  return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+  return ts.tv_sec * 1000LL + (ts.tv_nsec / 1000000LL);
 }
 
 void SetScheduling(bool batch_cpu_scheduling, int io_nice_level) {
@@ -173,7 +173,7 @@ static bool GetStartTime(const string& pid, string* start_time) {
   string statfile = "/proc/" + pid + "/stat";
   string statline;
 
-  if (!ReadFile(statfile, &statline)) {
+  if (!blaze_util::ReadFile(statfile, &statline)) {
     return false;
   }
 
@@ -199,7 +199,7 @@ void WriteSystemSpecificProcessIdentifier(const string& server_dir) {
   }
 
   string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
-  if (!WriteFile(start_time, start_time_file)) {
+  if (!blaze_util::WriteFile(start_time, start_time_file)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "Cannot write start time in server dir %s", server_dir.c_str());
   }
@@ -218,7 +218,7 @@ bool VerifyServerProcess(
   }
 
   string recorded_start_time;
-  bool file_present = ReadFile(
+  bool file_present = blaze_util::ReadFile(
       blaze_util::JoinPath(output_base, "server/server.starttime"),
       &recorded_start_time);
 

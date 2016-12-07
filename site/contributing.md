@@ -39,9 +39,15 @@ a lot of time in a patch.
    See the
    <a href="https://gerrit-review.googlesource.com/Documentation/user-upload.html">Gerrit documentation</a>
    for more information about uploading changes.
-<li>Complete a code review with a
-   <a href="governance.html#core-contributors">core contributor</a>. Amend your existing
-   commit and re-push to make changes to your patch.
+<li>Wait for a Bazel team member to assign you a reviewer.
+   It should be done in 2 business days (excluding holidays in the USA and
+   Germany). If you do not get a reviewer within that time frame, you can ask
+   for one by sending a mail to
+   <a href="mailto:bazel-sheriff@googlegroups.com">bazel-sheriff@googlegroups.com</a>.
+   You can also assign yourself a reviewer if you know who the reviewer should
+   be (e.g., because they reviewed an earlier related change).
+<li>Complete a code review. Amend your existing commit and re-push to make
+   changes to your patch.
 <li>An engineer at Google applies the patch to our internal version control
    system.
 <li>The patch is exported as a Git commit, at which point the Gerrit code review
@@ -56,7 +62,7 @@ for Java. We don't have IDE support for other languages in Bazel right now.
 ### Creating an IntelliJ project
 
 To work with IntelliJ, follow the instructions at
-[ij.bazel.io](https://ij.bazel.io).
+[ij.bazel.build](https://ij.bazel.build).
 
 ### Creating an Eclipse project
 
@@ -72,15 +78,13 @@ To work with Eclipse:
 <a name="compile-bazel"></a>
 ### Compiling Bazel
 
-To test out bazel, you need to compile it. There are currently two ways of
-compiling it:
+To test out bazel, you need to compile it. To compile a development version of
+Bazel, you need a working version of Bazel already, e.g., the latest release
+version [compiled from source](/versions/master/docs/install.html#compiling-from-source).
 
-* `sh compile.sh` bootstraps Bazel from scratch, first compiling it without using
-  Bazel, then rebuilding it again using the just built Bazel and optionally runs
-  tests, too. The resulting binary can be found at `output/bazel`.
-* `bazel build //src:bazel` builds the Bazel binary using `bazel` from your PATH
-  and the resulting binary can be found at `bazel-bin/src/bazel`. This is the
-  recommended way of rebuilding Bazel once you have bootstrapped it.
+`bazel build //src:bazel` builds the Bazel binary using `bazel` from your PATH
+and the resulting binary can be found at `bazel-bin/src/bazel`. This is the
+recommended way of rebuilding Bazel once you have bootstrapped it.
 
 In addition to the Bazel binary, you might want to build the various tools Bazel
 uses. They are located in `//src/java_tools/...`, `//src/objc_tools/...` and
@@ -89,8 +93,9 @@ respective utility.
 
 When modifying Bazel, you want to make sure that the following still works:
 
-* Bootstrap test with `sh compile.sh all` after having removed the
-  `output` directory: it rebuilds Bazel with `./compile.sh`, Bazel with the
+* Build a distribution archive with `bazel build //:bazel-distfile`. After
+  unzipping it in a new empty directory, run `bash compile.sh all` there.
+  It rebuilds Bazel with `./compile.sh`, Bazel with the
   `compile.sh` Bazel and Bazel with the Bazel-built binary. It compares if the
   constructed Bazel builts are identical and then runs all bazel tests with
   `bazel test //src/... //third_party/ijar/...`. This is what we use at Google
@@ -121,7 +126,7 @@ But if you want to debug the Java code, you must attach to the server using the 
   [remote Java application launch
   configuration](http://help.eclipse.org/luna/index.jsp?topic=%2Forg.eclipse.jdt.doc.user%2Ftasks%2Ftask-remotejava_launch_config.htm).
 * Our IntelliJ plugin has built-in
-  [debugging support](https://ij.bazel.io/docs/run-configurations.html)
+  [debugging support](https://ij.bazel.build/docs/run-configurations.html)
 
 ## Bazel's code description
 
