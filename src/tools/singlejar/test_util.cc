@@ -20,8 +20,6 @@
 
 #include <string>
 
-#include "src/main/cpp/blaze_util.h"
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/strings.h"
@@ -107,7 +105,7 @@ string GetEntryContents(const string &zip_path, const string &entry_name) {
 
 string CreateTextFile(const string& relpath, const char *contents) {
   string out_path = OutputFilePath(relpath);
-  blaze::MakeDirectories(blaze_util::Dirname(out_path), 0777);
+  blaze_util::MakeDirectories(blaze_util::Dirname(out_path), 0777);
   if (blaze_util::WriteFile(contents, out_path)) {
     return out_path;
   }

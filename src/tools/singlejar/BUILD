@@ -166,7 +166,6 @@ cc_test(
         ":options",
         ":output_jar",
         ":test_util",
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],
@@ -302,7 +301,6 @@ cc_library(
     srcs = ["test_util.cc"],
     hdrs = ["test_util.h"],
     deps = [
-        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util",
         "//third_party:gtest",
     ],

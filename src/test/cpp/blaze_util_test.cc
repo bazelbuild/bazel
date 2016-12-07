@@ -30,24 +30,6 @@ namespace blaze {
 
 using std::string;
 
-static bool Symlink(const string& old_path, const string& new_path) {
-  return symlink(old_path.c_str(), new_path.c_str()) == 0;
-}
-
-static bool CreateEmptyFile(const string& path) {
-  // From the man page of open (man 2 open):
-  // int open(const char *pathname, int flags, mode_t mode);
-  //
-  // mode specifies the permissions to use in case a new file is created.
-  // This argument must be supplied when O_CREAT is specified in flags;
-  // if O_CREAT is not specified, then mode is ignored.
-  int fd = open(path.c_str(), O_CREAT | O_WRONLY, 0700);
-  if (fd == -1) {
-    return false;
-  }
-  return close(fd) == 0;
-}
-
 class BlazeUtilTest : public ::testing::Test {
  protected:
   BlazeUtilTest() {
@@ -175,77 +157,6 @@ TEST_F(BlazeUtilTest, ReadFrom) { ReadFromTest(); }
 
 TEST_F(BlazeUtilTest, ReadJvmVersion) {
   ReadJvmVersionTest();
-}
-
-TEST_F(BlazeUtilTest, MakeDirectories) {
-  const char* tmp_dir = getenv("TEST_TMPDIR");
-  ASSERT_STRNE(tmp_dir, NULL);
-  const char* test_src_dir = getenv("TEST_SRCDIR");
-  ASSERT_STRNE(NULL, test_src_dir);
-
-  string dir = blaze_util::JoinPath(tmp_dir, "x/y/z");
-  bool ok = MakeDirectories(dir, 0755);
-  ASSERT_TRUE(ok);
-
-  // Changing permissions on an existing dir should work.
-  ok = MakeDirectories(dir, 0750);
-  ASSERT_TRUE(ok);
-  struct stat filestat = {};
-  ASSERT_EQ(0, stat(dir.c_str(), &filestat));
-  ASSERT_EQ(0750, filestat.st_mode & 0777);
-
-  // srcdir shouldn't be writable.
-  // TODO(ulfjack): Fix this!
-//  string srcdir = blaze_util::JoinPath(test_src_dir, "x/y/z");
-//  ok = MakeDirectories(srcdir, 0755);
-//  ASSERT_FALSE(ok);
-//  ASSERT_EQ(EACCES, errno);
-
-  // Can't make a dir out of a file.
-  string non_dir = blaze_util::JoinPath(dir, "w");
-  ASSERT_TRUE(CreateEmptyFile(non_dir));
-  ok = MakeDirectories(non_dir, 0755);
-  ASSERT_FALSE(ok);
-  ASSERT_EQ(ENOTDIR, errno);
-
-  // Valid symlink should work.
-  string symlink = blaze_util::JoinPath(tmp_dir, "z");
-  ASSERT_TRUE(Symlink(dir, symlink));
-  ok = MakeDirectories(symlink, 0755);
-  ASSERT_TRUE(ok);
-
-  // Error: Symlink to a file.
-  symlink = blaze_util::JoinPath(tmp_dir, "w");
-  ASSERT_TRUE(Symlink(non_dir, symlink));
-  ok = MakeDirectories(symlink, 0755);
-  ASSERT_FALSE(ok);
-  ASSERT_EQ(ENOTDIR, errno);
-
-  // Error: Symlink to a dir with wrong perms.
-  symlink = blaze_util::JoinPath(tmp_dir, "s");
-  ASSERT_TRUE(Symlink("/", symlink));
-
-  // These perms will force a chmod()
-  // TODO(ulfjack): Fix this!
-//  ok = MakeDirectories(symlink, 0000);
-//  ASSERTFALSE(ok);
-//  ASSERT_EQ(EPERM, errno);
-
-  // Edge cases.
-  ASSERT_FALSE(MakeDirectories("", 0755));
-  ASSERT_EQ(EACCES, errno);
-  ASSERT_FALSE(MakeDirectories("/", 0755));
-  ASSERT_EQ(EACCES, errno);
-}
-
-TEST_F(BlazeUtilTest, HammerMakeDirectories) {
-  const char* tmp_dir = getenv("TEST_TMPDIR");
-  ASSERT_STRNE(tmp_dir, NULL);
-
-  string path = blaze_util::JoinPath(tmp_dir, "x/y/z");
-  // TODO(ulfjack): Fix this!
-//  ASSERT_LE(0, fork());
-//  ASSERT_TRUE(MakeDirectories(path, 0755));
 }
 
 }  // namespace blaze

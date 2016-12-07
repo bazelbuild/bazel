@@ -1030,7 +1030,7 @@ void CreateSecureOutputRoot(const string& path) {
   const char* root = path.c_str();
   struct stat fileinfo = {};
 
-  if (!MakeDirectories(root, 0755)) {
+  if (!blaze_util::MakeDirectories(root, 0755)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
   }
 
@@ -1067,108 +1067,6 @@ void CreateSecureOutputRoot(const string& path) {
   ExcludePathFromBackup(root);
 #endif  // COMPILER_MSVC
 }
-
-#ifdef COMPILER_MSVC
-bool MakeDirectories(const string& path, unsigned int mode) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::MakeDirectories is not implemented on Windows");
-  return false;
-}
-#else   // not COMPILER_MSVC
-// Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
-// `path` isn't a directory. If check_perms is true, this will also
-// make sure that `path` is owned by the current user and has `mode`
-// permissions (observing the umask). It attempts to run chmod to
-// correct the mode if necessary. If `path` is a symlink, this will
-// check ownership of the link, not the underlying directory.
-static bool GetDirectoryStat(const string& path, mode_t mode,
-                             bool check_perms) {
-  struct stat filestat = {};
-  if (stat(path.c_str(), &filestat) == -1) {
-    return false;
-  }
-
-  if (!S_ISDIR(filestat.st_mode)) {
-    errno = ENOTDIR;
-    return false;
-  }
-
-  if (check_perms) {
-    // If this is a symlink, run checks on the link. (If we did lstat above
-    // then it would return false for ISDIR).
-    struct stat linkstat = {};
-    if (lstat(path.c_str(), &linkstat) != 0) {
-      return false;
-    }
-    if (linkstat.st_uid != geteuid()) {
-      // The directory isn't owned by me.
-      errno = EACCES;
-      return false;
-    }
-
-    mode_t mask = umask(022);
-    umask(mask);
-    mode = (mode & ~mask);
-    if ((filestat.st_mode & 0777) != mode && chmod(path.c_str(), mode) == -1) {
-      // errno set by chmod.
-      return false;
-    }
-  }
-  return true;
-}
-
-static bool MakeDirectories(const string& path, mode_t mode, bool childmost) {
-  if (path.empty() || path == "/") {
-    errno = EACCES;
-    return false;
-  }
-
-  bool stat_succeeded = GetDirectoryStat(path, mode, childmost);
-  if (stat_succeeded) {
-    return true;
-  }
-
-  if (errno == ENOENT) {
-    // Path does not exist, attempt to create its parents, then it.
-    string parent = blaze_util::Dirname(path);
-    if (!MakeDirectories(parent, mode, false)) {
-      // errno set by stat.
-      return false;
-    }
-
-    if (mkdir(path.c_str(), mode) == -1) {
-      if (errno == EEXIST) {
-        if (childmost) {
-          // If there are multiple bazel calls at the same time then the
-          // directory could be created between the MakeDirectories and mkdir
-          // calls. This is okay, but we still have to check the permissions.
-          return GetDirectoryStat(path, mode, childmost);
-        } else {
-          // If this isn't the childmost directory, we don't care what the
-          // permissions were. If it's not even a directory then that error will
-          // get caught when we attempt to create the next directory down the
-          // chain.
-          return true;
-        }
-      }
-      // errno set by mkdir.
-      return false;
-    }
-    return true;
-  }
-
-  return stat_succeeded;
-}
-
-// mkdir -p path. Returns 0 if the path was created or already exists and could
-// be chmod-ed to exactly the given permissions. If final part of the path is a
-// symlink, this ensures that the destination of the symlink has the desired
-// permissions. It also checks that the directory or symlink is owned by us.
-// On failure, this returns -1 and sets errno.
-bool MakeDirectories(const string& path, mode_t mode) {
-  return MakeDirectories(path, mode, true);
-}
-#endif  // COMPILER_MSVC
 
 string GetEnv(const string& name) {
 #ifdef COMPILER_MSVC

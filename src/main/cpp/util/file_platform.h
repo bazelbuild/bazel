@@ -79,6 +79,11 @@ time_t GetMtimeMillisec(const std::string& path);
 // Returns true upon success.
 bool SetMtimeMillisec(const std::string& path, time_t mtime);
 
+// mkdir -p path. All newly created directories use the given mode.
+// `mode` should be an octal permission mask, e.g. 0755.
+// Returns false on failure, sets errno.
+bool MakeDirectories(const std::string &path, unsigned int mode);
+
 // Returns the current working directory.
 std::string GetCwd();
 

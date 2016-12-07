@@ -175,11 +175,6 @@ std::string GetHashedBaseDir(const std::string& root,
 // user, and not accessible to anyone else.
 void CreateSecureOutputRoot(const std::string& path);
 
-// mkdir -p path. All newly created directories use the given mode.
-// `mode` should be an octal permission mask, e.g. 0755
-// Returns false on failure, sets errno.
-bool MakeDirectories(const std::string &path, unsigned int mode);
-
 std::string GetEnv(const std::string& name);
 
 void SetEnv(const std::string& name, const std::string& value);
