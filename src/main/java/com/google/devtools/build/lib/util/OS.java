@@ -21,8 +21,8 @@ public enum OS {
   FREEBSD("freebsd", "FreeBSD"),
   LINUX("linux", "Linux"),
   WINDOWS("windows", "Windows"),
-  UNKNOWN("unknown", ""),
-  PPC("ppc", "ppc");
+  UNKNOWN("unknown", "");
+
   private final String canonicalName;
   private final String detectionName;
 
