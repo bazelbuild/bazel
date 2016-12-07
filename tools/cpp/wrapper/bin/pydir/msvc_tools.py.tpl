@@ -240,6 +240,7 @@ class ArgParser(object):
       $PATH%d_NO_EXT: Same as $PATH but strips out any file extension.
       $TARGET_ARCH  : Set self.target_arch to 'x86' or 'x64' for '-m32' and
                       '-m64', respectively.
+      $DEBUG_RT     : Enforce linkage to debug runtime.
       $COMPILE_OUTPUT%d: Sets the output name of a compilation step.
       $COMPILATION_MODE: Sets self.compilation_mode from the value of a
                       '-Xcompilation-mode=' flag.
@@ -260,6 +261,7 @@ class ArgParser(object):
     matched = []
     unmatched = []
     files = []
+    enforce_debug_rt = False
     while i < len(argv):
       num_matched, action, groups = self._MatchOneArg(argv[i:])
       arg = argv[i]
@@ -312,6 +314,10 @@ class ArgParser(object):
           self.compilation_mode = mode
           continue
 
+        if entry == '$DEBUG_RT':
+          enforce_debug_rt = True
+          continue
+
         if not groups:
           self.options.append(entry)
         else:
@@ -357,11 +363,27 @@ class ArgParser(object):
       i += num_matched
     self.leftover = unmatched
 
-    # Use the proper runtime flag depending on compilation mode. If the
-    # compilation is happening in debug mode, this flag already exists. If not,
-    # then we must add it.
-    if '/MT' not in self.options and '/MTd' not in self.options:
-      self.AddOpt('/MT')
+    # Select runtime option
+    # Find the last runtime option passed
+    rt = None
+    rt_idx = -1
+    for i, opt in enumerate(reversed(self.options)):
+      if opt in ['/MT', '/MTd', '/MD', '/MDd']:
+        if opt[-1] == 'd':
+          enforce_debug_rt = True
+        rt = opt[:3]
+        rt_idx = len(self.options) - i - 1
+        break
+    rt = rt or '/MD'  # Default to dynamic runtime
+    # Add debug if necessary
+    if enforce_debug_rt:
+      rt += 'd'
+    # Include runtime option
+    if rt_idx >= 0:
+      self.options[rt_idx] = rt
+    else:
+      self.options.append(rt)
+
     # Add in any parsed files
     self.options += files
 
