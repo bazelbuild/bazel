@@ -3,7 +3,6 @@ package(default_visibility = ["//visibility:public"])
 licenses(["notice"])
 
 load("//third_party/protobuf/3.0.0:protobuf.bzl", "py_proto_library")
-load(":proto_lang_toolchain_if_exists.bzl", "proto_lang_toolchain")
 
 filegroup(
     name = "srcs",

@@ -1,5 +1,3 @@
-load(":proto_lang_toolchain_if_exists.bzl", "proto_lang_toolchain")
-
 java_import(
     name = "protobuf",
     jars = ["protobuf-java-3.0.0.jar"],
