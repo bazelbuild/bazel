@@ -77,6 +77,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testDescriptorSetOutput_strictDeps() throws Exception {
+    useConfiguration("--strict_proto_deps=error");
     scratch.file(
         "x/BUILD",
         "proto_library(name='nodeps', srcs=['nodeps.proto'])",
@@ -101,6 +102,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testDescriptorSetOutput_strictDeps_aliasLibrary() throws Exception {
+    useConfiguration("--strict_proto_deps=error");
     scratch.file(
         "x/BUILD",
         "proto_library(name='alias', deps=[':dep1', ':subalias'])",

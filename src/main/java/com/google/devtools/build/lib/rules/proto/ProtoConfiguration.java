@@ -72,48 +72,6 @@ public class ProtoConfiguration extends Fragment {
     )
     public Label protoCompiler;
 
-    // TODO(b/31775048): Replace with a toolchain
-    /** This is experimental, and is subject to change without warning. */
-    @Option(
-      name = "proto_compiler_java_flags",
-      defaultValue = "--java_out=shared,immutable:%s",
-      category = "experimental",
-      help = "The flags to pass to proto-compiler when generating Java protos."
-    )
-    public String protoCompilerJavaFlags;
-
-    // TODO(b/31775048): Replace with a toolchain
-    /** This is experimental, and is subject to change without warning. */
-    @Option(
-      name = "proto_compiler_java_blacklisted_protos",
-      defaultValue = "",
-      category = "experimental",
-      converter = BuildConfiguration.LabelListConverter.class,
-      help = "A label of a filegroup of .proto files that we shouldn't generate sources for."
-    )
-    public List<Label> protoCompilerJavaBlacklistedProtos;
-
-    // TODO(b/31775048): Replace with a toolchain
-    /** This is experimental, and is subject to change without warning. */
-    @Option(
-      name = "proto_compiler_javalite_flags",
-      defaultValue = "--javalite_out=%s",
-      category = "experimental",
-      help = "The flags to pass to proto-compiler when generating JavaLite protos."
-    )
-    public String protoCompilerJavaLiteFlags;
-
-    // TODO(b/31775048): Replace with a toolchain
-    /** This is experimental, and is subject to change without warning. */
-    @Option(
-      name = "proto_compiler_javalite_plugin",
-      defaultValue = "",
-      category = "experimental",
-      converter = BuildConfiguration.EmptyToNullLabelConverter.class,
-      help = "A label for the javalite proto-compiler plugin, if needed."
-    )
-    public Label protoCompilerJavaLitePlugin;
-
     @Option(
       name = "proto_toolchain_for_javalite",
       defaultValue = "@com_google_protobuf_javalite//:javalite_toolchain",
@@ -143,18 +101,15 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "use_toolchain_for_java_proto",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "experimental",
-      help =
-          "If true, --proto_toolchain_for_java will be used for java_proto_library. "
-              + "This flag is an escape-hatch and should be removed once toolchain-based builds "
-              + "are tested."
+      help = "ignored."
     )
     public boolean useToolchainForJavaProto;
 
     @Option(
       name = "strict_proto_deps",
-      defaultValue = "error",
+      defaultValue = "strict",
       converter = BuildConfiguration.StrictDepsConverter.class,
       category = "semantics",
       help =
@@ -178,13 +133,8 @@ public class ProtoConfiguration extends Fragment {
       host.protocOpts = protocOpts;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
       host.protoCompiler = protoCompiler;
-      host.protoCompilerJavaFlags = protoCompilerJavaFlags;
-      host.protoCompilerJavaBlacklistedProtos = protoCompilerJavaBlacklistedProtos;
-      host.protoCompilerJavaLiteFlags = protoCompilerJavaLiteFlags;
-      host.protoCompilerJavaLitePlugin = protoCompilerJavaLitePlugin;
       host.protoToolchainForJava = protoToolchainForJava;
       host.protoToolchainForJavaLite = protoToolchainForJavaLite;
-      host.useToolchainForJavaProto = useToolchainForJavaProto;
       host.strictProtoDeps = strictProtoDeps;
       host.outputDescriptorSet = outputDescriptorSet;
       return host;
@@ -215,13 +165,8 @@ public class ProtoConfiguration extends Fragment {
   private final boolean experimentalProtoExtraActions;
   private final ImmutableList<String> protocOpts;
   private final Label protoCompiler;
-  private final String protoCompilerJavaFlags;
-  private final List<Label> protoCompilerJavaBlacklistedProtos;
-  private final String protoCompilerJavaLiteFlags;
-  private final Label protoCompilerJavaLitePlugin;
   private final Label protoToolchainForJava;
   private final Label protoToolchainForJavaLite;
-  private final boolean useToolchainForJavaProto;
   private final Label protoToolchainForCc;
   private final StrictDepsMode strictProtoDeps;
   private final boolean outputDescriptorSet;
@@ -230,13 +175,8 @@ public class ProtoConfiguration extends Fragment {
     this.experimentalProtoExtraActions = options.experimentalProtoExtraActions;
     this.protocOpts = ImmutableList.copyOf(options.protocOpts);
     this.protoCompiler = options.protoCompiler;
-    this.protoCompilerJavaFlags = options.protoCompilerJavaFlags;
-    this.protoCompilerJavaLiteFlags = options.protoCompilerJavaLiteFlags;
-    this.protoCompilerJavaLitePlugin = options.protoCompilerJavaLitePlugin;
-    this.protoCompilerJavaBlacklistedProtos = options.protoCompilerJavaBlacklistedProtos;
     this.protoToolchainForJava = options.protoToolchainForJava;
     this.protoToolchainForJavaLite = options.protoToolchainForJavaLite;
-    this.useToolchainForJavaProto = options.useToolchainForJavaProto;
     this.protoToolchainForCc = options.protoToolchainForCc;
     this.strictProtoDeps = options.strictProtoDeps;
     this.outputDescriptorSet = options.outputDescriptorSet;
@@ -259,32 +199,12 @@ public class ProtoConfiguration extends Fragment {
     return protoCompiler;
   }
 
-  public String protoCompilerJavaFlags() {
-    return protoCompilerJavaFlags;
-  }
-
-  public String protoCompilerJavaLiteFlags() {
-    return protoCompilerJavaLiteFlags;
-  }
-
-  public Label protoCompilerJavaLitePlugin() {
-    return protoCompilerJavaLitePlugin;
-  }
-
-  public List<Label> protoCompilerJavaBlacklistedProtos() {
-    return protoCompilerJavaBlacklistedProtos;
-  }
-
   public Label protoToolchainForJava() {
     return protoToolchainForJava;
   }
 
   public Label protoToolchainForJavaLite() {
     return protoToolchainForJavaLite;
-  }
-
-  public boolean useToolchainForJavaProto() {
-    return useToolchainForJavaProto;
   }
 
   public Label protoToolchainForCc() {
