@@ -26,6 +26,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -695,7 +696,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
    * can require from its direct dependencies.
    */
   public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
-    LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
+    SetMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
         AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);

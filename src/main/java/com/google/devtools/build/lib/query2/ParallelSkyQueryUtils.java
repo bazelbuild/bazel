@@ -21,6 +21,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -314,7 +315,7 @@ class ParallelSkyQueryUtils {
     @Override
     protected Iterable<Task> getVisitTasks(Collection<Pair<SkyKey, SkyKey>> pendingKeysToVisit) {
       // Group pending visits by package.
-      ArrayListMultimap<PackageIdentifier, Pair<SkyKey, SkyKey>> visitsByPackage =
+      ListMultimap<PackageIdentifier, Pair<SkyKey, SkyKey>> visitsByPackage =
           ArrayListMultimap.create();
       for (Pair<SkyKey, SkyKey> visit : pendingKeysToVisit) {
         Label label = SkyQueryEnvironment.SKYKEY_TO_LABEL.apply(visit.second);

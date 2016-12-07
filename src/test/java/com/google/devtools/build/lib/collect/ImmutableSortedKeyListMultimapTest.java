@@ -23,20 +23,19 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.testing.google.UnmodifiableCollectionTests;
 import com.google.common.testing.EqualsTester;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * A test for {@link ImmutableSortedKeyListMultimap}. Started out as a copy of
@@ -191,7 +190,7 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void copyOf() {
-    ArrayListMultimap<String, Integer> input = ArrayListMultimap.create();
+    ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.put("foo", 1);
     input.put("bar", 2);
     input.put("foo", 3);
@@ -202,7 +201,7 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void copyOfWithDuplicates() {
-    ArrayListMultimap<String, Integer> input = ArrayListMultimap.create();
+    ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.put("foo", 1);
     input.put("bar", 2);
     input.put("foo", 3);
@@ -214,7 +213,7 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void copyOfEmpty() {
-    ArrayListMultimap<String, Integer> input = ArrayListMultimap.create();
+    ListMultimap<String, Integer> input = ArrayListMultimap.create();
     Multimap<String, Integer> multimap = ImmutableSortedKeyListMultimap.copyOf(input);
     assertEquals(multimap, input);
     assertEquals(input, multimap);
@@ -228,7 +227,7 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void copyOfNullKey() {
-    ArrayListMultimap<String, Integer> input = ArrayListMultimap.create();
+    ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.put(null, 1);
     try {
       ImmutableSortedKeyListMultimap.copyOf(input);
@@ -238,7 +237,7 @@ public class ImmutableSortedKeyListMultimapTest {
 
   @Test
   public void copyOfNullValue() {
-    ArrayListMultimap<String, Integer> input = ArrayListMultimap.create();
+    ListMultimap<String, Integer> input = ArrayListMultimap.create();
     input.putAll("foo", Arrays.asList(1, null, 3));
     try {
       ImmutableSortedKeyListMultimap.copyOf(input);

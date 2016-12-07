@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -170,7 +171,7 @@ public final class AspectDefinition {
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
       Rule from, Attribute attribute, boolean canHaveAnyProvider, Set<String> advertisedProviders,
       DependencyFilter dependencyFilter) {
-    LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
+    SetMultimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
