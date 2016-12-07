@@ -27,6 +27,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -50,7 +51,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Collection;
+import java.util.List;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -209,12 +211,12 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
    *
    * <p>Throws an exception if the attribute can't be found.
    */
-  private Collection<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
+  private List<ConfiguredTarget> getConfiguredDeps(String targetLabel, String attrName)
       throws Exception {
     Multimap<Attribute, ConfiguredTarget> allDeps = getConfiguredDeps(targetLabel);
     for (Attribute attribute : allDeps.keySet()) {
       if (attribute.getName().equals(attrName)) {
-        return allDeps.get(attribute);
+        return ImmutableList.copyOf(allDeps.get(attribute));
       }
     }
     throw new AssertionError(
@@ -259,6 +261,62 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "genrule(name = 'gen', srcs = ['gen.in'], cmd = '', outs = ['gen.out'])");
     ConfiguredTarget genIn = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "srcs"));
     assertThat(genIn.getConfiguration()).isNull();
+  }
+
+  @Test
+  public void targetDeps() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name = 'dep1', srcs = ['dep1.cc'])",
+        "cc_library(name = 'dep2', srcs = ['dep2.cc'])",
+        "cc_binary(name = 'binary', srcs = ['main.cc'], deps = [':dep1', ':dep2'])");
+    List<ConfiguredTarget> deps = getConfiguredDeps("//a:binary", "deps");
+    assertThat(deps).hasSize(2);
+    for (ConfiguredTarget dep : deps) {
+      assertThat(getTargetConfiguration().equalsOrIsSupersetOf(dep.getConfiguration())).isTrue();
+    }
+  }
+
+  @Test
+  public void hostDeps() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "cc_binary(name = 'host_tool', srcs = ['host_tool.cc'])",
+        "genrule(name = 'gen', srcs = [], cmd = '', outs = ['gen.out'], tools = [':host_tool'])");
+    ConfiguredTarget toolDep = Iterables.getOnlyElement(getConfiguredDeps("//a:gen", "tools"));
+    assertThat(toolDep.getConfiguration().isHostConfiguration()).isTrue();
+  }
+
+  @Test
+  public void splitDeps() throws Exception {
+    scratch.file(
+        "java/a/BUILD",
+        "cc_library(name = 'lib', srcs = ['lib.cc'])",
+        "android_binary(name='a', manifest = 'AndroidManifest.xml', deps = [':lib'])");
+    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
+    List<ConfiguredTarget> deps = getConfiguredDeps("//java/a:a", "deps");
+    assertThat(deps).hasSize(2);
+    ConfiguredTarget dep1 = deps.get(0);
+    ConfiguredTarget dep2 = deps.get(1);
+    assertThat(
+        ImmutableList.<String>of(
+            dep1.getConfiguration().getCpu(),
+            dep2.getConfiguration().getCpu()))
+        .containsExactly("armeabi-v7a", "k8");
+    // We don't care what order split deps are listed, but it must be deterministic. Static and
+    // dynamic configurations happen to apply different orders (static: same order as the split
+    // transition definition, dynamic: ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING). That's
+    // okay because of the "we don't care what order" principle. The primary value of this test is
+    // to check against the new dynamic code, which will soon replace the static code anyway. And
+    // the static code is already well-tested through all other Blaze tests. And checking its order
+    // would be a lot uglier. So we only worry about the dynamic case here.
+    if (getTargetConfiguration().useDynamicConfigurations()) {
+      assertThat(
+          ConfiguredTargetFunction.DYNAMIC_SPLIT_DEP_ORDERING.compare(
+              Dependency.withConfiguration(dep1.getLabel(), dep1.getConfiguration()),
+              Dependency.withConfiguration(dep2.getLabel(), dep2.getConfiguration())))
+          .isLessThan(0);
+    }
   }
 
   /** Runs the same test with trimmed dynamic configurations. */
