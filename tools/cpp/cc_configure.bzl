@@ -214,7 +214,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
-      ] + _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
+      ] + _add_option_if_supported(
+          repository_ctx, cc, "-Wl,-no-as-needed"
+      ) + _add_option_if_supported(
+          repository_ctx, cc, "-Wl,-z,relro,-z,now"
+      ) + (
           [
               "-undefined",
               "dynamic_lookup",
@@ -231,7 +235,8 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               # Gold linker only? Can we enable this by default?
               # "-Wl,--warn-execstack",
               # "-Wl,--detect-odr-violations"
-          ]),
+          ]
+      ),
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
@@ -256,12 +261,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
       ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
-          # Disable some that are problematic.
-          "-Wl,-z,-relro,-z,now",
           "-B" + str(repository_ctx.path(cc).dirname),
           # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
           "-B/usr/bin",
       ]) + (
+          # Disable problematic warnings.
           _add_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
           # has false positives
           _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
