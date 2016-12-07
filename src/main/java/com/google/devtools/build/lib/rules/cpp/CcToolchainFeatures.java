@@ -1571,7 +1571,7 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /** @return whether an action config for the blaze action with the given name is enabled. */
-    public boolean actionIsConfigured(String actionName) {
+    boolean actionIsConfigured(String actionName) {
       return enabledActionConfigActionNames.contains(actionName);
     }
 

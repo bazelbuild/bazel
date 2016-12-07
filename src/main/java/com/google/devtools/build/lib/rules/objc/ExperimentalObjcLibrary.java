@@ -44,12 +44,11 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
   public static ConfiguredTarget configureExperimentalObjcLibrary(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     validateAttributes(ruleContext);
-    
+
     ObjcCommon common = common(ruleContext);
 
     CompilationSupport compilationSupport =
         new CrosstoolCompilationSupport(ruleContext)
-            .validateAttributes()
             .registerCompileAndArchiveActions(common)
             .registerFullyLinkAction(
                 common.getObjcProvider(),
