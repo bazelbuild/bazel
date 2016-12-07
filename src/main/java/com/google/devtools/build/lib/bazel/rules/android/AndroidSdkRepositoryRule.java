@@ -45,23 +45,6 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           String prefix = "@" + rule.getName() + "//:";
           ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
           builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
-          builder.put(
-              "android/google_play_services",
-              Label.parseAbsoluteUnchecked(prefix + "google_play_services"));
-          builder.put(
-              "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"));
-          builder.put(
-              "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
-          builder.put("android/design", Label.parseAbsoluteUnchecked(prefix + "design"));
-          builder.put("android/customtabs", Label.parseAbsoluteUnchecked(prefix + "customtabs"));
-          builder.put(
-              "android/mediarouter_v7", Label.parseAbsoluteUnchecked(prefix + "mediarouter_v7"));
-          builder.put("android/cardview_v7", Label.parseAbsoluteUnchecked(prefix + "cardview_v7"));
-          builder.put(
-              "android/gridlayout_v7", Label.parseAbsoluteUnchecked(prefix + "gridlayout_v7"));
-          builder.put("android/palette_v7", Label.parseAbsoluteUnchecked(prefix + "palette_v7"));
-          builder.put(
-              "android/recyclerview_v7", Label.parseAbsoluteUnchecked(prefix + "recyclerview_v7"));
           return builder.build();
         }
       };
