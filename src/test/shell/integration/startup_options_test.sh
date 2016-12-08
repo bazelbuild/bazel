@@ -32,4 +32,11 @@ function test_different_startup_options() {
   true
 }
 
+# Regression test for Issue #1659
+function test_command_args_are_not_parsed_as_startup_args() {
+  bazel info --bazelrc=bar &> $TEST_log && fail "Should fail"
+  expect_log "Unrecognized option: --bazelrc=bar"
+  expect_not_log "Error: Unable to read .bazelrc file"
+}
+
 run_suite "${PRODUCT_NAME} startup options test"

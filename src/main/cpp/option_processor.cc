@@ -226,10 +226,9 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
       // then fail.
       blaze_util::StringPrintf(
           error,
-          "Unknown %s startup option: '%s'.\n"
+          "Unknown startup option: '%s'.\n"
           "  For more info, run '%s help startup_options'.",
-          lowercase_product_name.c_str(), current_arg.c_str(),
-          lowercase_product_name.c_str());
+          current_arg.c_str(), lowercase_product_name.c_str());
       return nullptr;
     }
   }
@@ -299,42 +298,30 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   assert(!initialized_);
   initialized_ = true;
 
-  const char* blazerc = NULL;
-  bool use_master_blazerc = true;
-
-  // Check if there is a blazerc related option given
   args_ = args;
-  for (int i= 1; i < args.size(); i++) {
-    const char* arg_chr = args[i].c_str();
-    const char* next_arg_chr = (i + 1) < args.size()
-        ? args[i + 1].c_str()
-        : NULL;
-    if (blazerc == NULL) {
-      blazerc = GetUnaryOption(arg_chr, next_arg_chr, "--blazerc");
-    }
-    if (blazerc == NULL) {
-      blazerc = GetUnaryOption(arg_chr, next_arg_chr, "--bazelrc");
-    }
-    if (use_master_blazerc &&
-        (GetNullaryOption(arg_chr, "--nomaster_blazerc") ||
-            GetNullaryOption(arg_chr, "--nomaster_bazelrc"))) {
-      use_master_blazerc = false;
-    }
+  // Check if there is a blazerc related option given
+  std::unique_ptr<CommandLine> cmdLine = SplitCommandLine(args, error);
+  if (cmdLine == nullptr) {
+    return blaze_exit_code::BAD_ARGV;
   }
 
-  blaze_exit_code::ExitCode validate_startup_options_exit_code =
-      parsed_startup_options_->ValidateStartupOptions(args, error);
-  if (validate_startup_options_exit_code != blaze_exit_code::SUCCESS) {
-    return validate_startup_options_exit_code;
+  const char* blazerc = SearchUnaryOption(cmdLine->startup_args, "--blazerc");
+  if (blazerc == NULL) {
+    blazerc = SearchUnaryOption(cmdLine->startup_args, "--bazelrc");
+  }
+
+  bool use_master_blazerc = true;
+  if (SearchNullaryOption(cmdLine->startup_args, "--nomaster_blazerc") ||
+      SearchNullaryOption(cmdLine->startup_args, "--nomaster_bazelrc")) {
+    use_master_blazerc = false;
   }
 
   // Parse depot and user blazerc files.
-  // This is a little inefficient (copying a multimap around), but it is a
-  // small one and this way I don't have to care about memory management.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
-    WorkspaceLayout::FindCandidateBlazercPaths(workspace, cwd, args,
-                                               &candidate_blazerc_paths);
+    WorkspaceLayout::FindCandidateBlazercPaths(
+        workspace, cwd, cmdLine->path_to_binary, cmdLine->startup_args,
+        &candidate_blazerc_paths);
   }
 
   string user_blazerc_path;

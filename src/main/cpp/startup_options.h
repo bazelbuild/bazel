@@ -189,10 +189,6 @@ class StartupOptions {
   // from a blazerc file, if a key is not present, it is the default.
   std::map<std::string, std::string> option_sources;
 
-  // Sanity check for the startup options
-  virtual blaze_exit_code::ExitCode ValidateStartupOptions(
-      const std::vector<std::string> &args, std::string *error);
-
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.
   std::string GetHostJavabase();

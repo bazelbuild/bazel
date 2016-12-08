@@ -67,10 +67,14 @@ static string FindDepotBlazerc(const string& workspace) {
 }
 
 static string FindAlongsideBinaryBlazerc(const string& cwd,
-                                         const string& arg0) {
-  string path = arg0[0] == '/' ? arg0 : blaze_util::JoinPath(cwd, arg0);
-  string base = blaze_util::Basename(arg0);
-  string binary_blazerc_path = path + "." + base + "rc";
+                                         const string& path_to_binary) {
+  // TODO(b/32115171): This doesn't work on Windows. Fix this together with the
+  // associated bug.
+  const string path = path_to_binary[0] == '/'
+      ? path_to_binary
+      : blaze_util::JoinPath(cwd, path_to_binary);
+  const string base = blaze_util::Basename(path_to_binary);
+  const string binary_blazerc_path = path + "." + base + "rc";
   if (blaze_util::CanAccess(binary_blazerc_path, true, false, false)) {
     return binary_blazerc_path;
   }
@@ -86,10 +90,13 @@ static string FindSystemWideBlazerc() {
 }
 
 void WorkspaceLayout::FindCandidateBlazercPaths(
-    const string& workspace, const string& cwd, const vector<string>& args,
+    const string& workspace,
+    const string& cwd,
+    const string& path_to_binary,
+    const vector<string>& startup_args,
     std::vector<string>* result) {
   result->push_back(FindDepotBlazerc(workspace));
-  result->push_back(FindAlongsideBinaryBlazerc(cwd, args[0]));
+  result->push_back(FindAlongsideBinaryBlazerc(cwd, path_to_binary));
   result->push_back(FindSystemWideBlazerc());
 }
 

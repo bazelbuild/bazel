@@ -306,9 +306,9 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
     if (!extra_argument_processed) {
       blaze_util::StringPrintf(
           error,
-          "Unknown %s startup option: '%s'.\n"
+          "Unknown startup option: '%s'.\n"
           "  For more info, run '%s help startup_options'.",
-          product_name.c_str(), arg, product_name.c_str());
+          arg, GetLowercaseProductName().c_str());
       return blaze_exit_code::BAD_ARGV;
     }
   }
@@ -395,11 +395,6 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   } else {
     result->push_back("-Djava.util.logging.config.file=" + propFile);
   }
-  return blaze_exit_code::SUCCESS;
-}
-
-blaze_exit_code::ExitCode StartupOptions::ValidateStartupOptions(
-    const std::vector<string>& args, string* error) {
   return blaze_exit_code::SUCCESS;
 }
 

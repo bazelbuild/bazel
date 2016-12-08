@@ -83,6 +83,33 @@ bool GetNullaryOption(const char *arg, const char *key) {
   return true;
 }
 
+const char* SearchUnaryOption(const vector<string>& args,
+                              const char *key) {
+  if (args.empty()) {
+    return NULL;
+  }
+
+  vector<string>::size_type i = 0;
+  for (; i < args.size() - 1; ++i) {
+    const char* result = GetUnaryOption(args[i].c_str(),
+                                        args[i + 1].c_str(),
+                                        key);
+    if (result != NULL) {
+      return result;
+    }
+  }
+  return GetUnaryOption(args[i].c_str(), NULL, key);
+}
+
+bool SearchNullaryOption(const vector<string>& args, const char *key) {
+  for (vector<string>::size_type i = 0; i < args.size(); i++) {
+    if (GetNullaryOption(args[i].c_str(), key)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool VerboseLogging() { return !GetEnv("VERBOSE_BLAZE_CLIENT").empty(); }
 
 // Read the Jvm version from a file descriptor. The read fd

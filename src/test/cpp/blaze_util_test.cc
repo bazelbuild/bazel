@@ -159,4 +159,71 @@ TEST_F(BlazeUtilTest, ReadJvmVersion) {
   ReadJvmVersionTest();
 }
 
+TEST_F(BlazeUtilTest, TestSearchNullaryEmptyCase) {
+  ASSERT_FALSE(SearchNullaryOption({}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryEmptyCase) {
+  ASSERT_STREQ(nullptr, SearchUnaryOption({}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryForEmpty) {
+  ASSERT_FALSE(SearchNullaryOption({"bazel", "build", ":target"}, ""));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryForFlagNotPresent) {
+  ASSERT_FALSE(SearchNullaryOption({"bazel", "build", ":target"},
+                                   "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryStartupOption) {
+  ASSERT_TRUE(SearchNullaryOption({"bazel", "--flag", "build", ":target"},
+                                  "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryStartupOptionWithEquals) {
+  ASSERT_DEATH(SearchNullaryOption(
+      {"bazel", "--flag=value", "build", ":target"}, "--flag"),
+              "In argument '--flag=value': option "
+              "'--flag' does not take a value");
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullaryCommandOption) {
+  ASSERT_TRUE(SearchNullaryOption({"bazel", "build", ":target", "--flag"},
+                                  "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {
+  ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, ""));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryFlagNotPresent) {
+  ASSERT_STREQ(nullptr,
+               SearchUnaryOption({"bazel", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryStartupOptionWithEquals) {
+  ASSERT_STREQ("value",
+               SearchUnaryOption({"bazel", "--flag=value", "build", ":target"},
+                                 "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryStartupOptionWithoutEquals) {
+  ASSERT_STREQ("value",
+               SearchUnaryOption(
+                   {"bazel", "--flag", "value", "build", ":target"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithEquals) {
+  ASSERT_STREQ("value",
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--flag", "value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithoutEquals) {
+  ASSERT_STREQ("value",
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--flag=value"}, "--flag"));
+}
+
 }  // namespace blaze

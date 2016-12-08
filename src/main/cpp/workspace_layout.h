@@ -53,10 +53,12 @@ class WorkspaceLayout {
   static std::string RcBasename();
 
   // Returns the candidate pathnames for the RC files.
-  static void FindCandidateBlazercPaths(const std::string& workspace,
-                                        const std::string& cwd,
-                                        const std::vector<std::string>& args,
-                                        std::vector<std::string>* result);
+  static void FindCandidateBlazercPaths(
+      const std::string& workspace,
+      const std::string& cwd,
+      const std::string& path_to_binary,
+      const std::vector<std::string>& startup_args,
+      std::vector<std::string>* result);
 
   // Returns the candidate pathnames for the RC file in the workspace,
   // the first readable one of which will be chosen.
