@@ -52,10 +52,10 @@ public class MultiArchBinarySupport {
    * @param platform the platform for which the binary is targeted
    * @param extraLinkArgs the extra linker args to add to link actions linking single-architecture
    *     binaries together
+   * @param configurationToObjcProvider a map from from dependency configuration to the
+   *     {@link ObjcProvider} which comprises all information about the dependencies in that
+   *     configuration. Can be obtained via {@link #objcProviderByDepConfiguration}
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
-   * @param configurationToObjcCommon a map from from dependency configuration to the
-   *     {@link ObjcCommon} which comprises all information about the dependencies in that
-   *     configuration. Can be obtained via {@link #objcCommonByDepConfiguration}
    * @param configToDepsCollectionMap a multimap from dependency configuration to the
    *     list of provider collections which are propagated from the dependencies of that
    *     configuration
@@ -66,16 +66,15 @@ public class MultiArchBinarySupport {
   public void registerActions(
       Platform platform,
       ExtraLinkArgs extraLinkArgs,
+      Map<BuildConfiguration, ObjcProvider> configurationToObjcProvider,
       Iterable<Artifact> extraLinkInputs,
-      Map<BuildConfiguration, ObjcCommon> configurationToObjcCommon,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       Artifact outputLipoBinary)
       throws RuleErrorException, InterruptedException {
 
     NestedSetBuilder<Artifact> binariesToLipo =
         NestedSetBuilder.<Artifact>stableOrder();
-    for (BuildConfiguration childConfig : configurationToObjcCommon.keySet()) {
-      ObjcCommon common = configurationToObjcCommon.get(childConfig);
+    for (BuildConfiguration childConfig : configurationToObjcProvider.keySet()) {
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
       ImmutableList.Builder<J2ObjcMappingFileProvider> j2ObjcMappingFileProviders =
@@ -97,10 +96,14 @@ public class MultiArchBinarySupport {
 
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
+      ObjcProvider objcProvider = configurationToObjcProvider.get(childConfig);
+      CompilationArtifacts compilationArtifacts = 
+          CompilationSupport.compilationArtifacts(ruleContext,
+              ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig));
       new LegacyCompilationSupport(ruleContext, childConfig)
-          .registerCompileAndArchiveActions(common)
+          .registerCompileAndArchiveActions(compilationArtifacts, objcProvider)
           .registerLinkActions(
-              common.getObjcProvider(),
+              objcProvider,
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
@@ -129,17 +132,17 @@ public class MultiArchBinarySupport {
    *     the current rule have propagated in that configuration
    * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
    *     "non_propagated_deps" of the current rule have propagated in that configuration
-   * @param configToDylibsObjcMap providers that dynamic library dependencies of the current rule
+   * @param dylibProviders providers that dynamic library dependencies of the current rule
    *     have propagated
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration(
+  public Map<BuildConfiguration, ObjcProvider> objcProviderByDepConfiguration(
       Set<BuildConfiguration> childConfigurations,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
-      Iterable<ObjcProvider> configToDylibsObjcMap)
+      Iterable<ObjcProvider> dylibProviders)
       throws RuleErrorException, InterruptedException {
-    ImmutableMap.Builder<BuildConfiguration, ObjcCommon> configurationToObjcCommonBuilder =
+    ImmutableMap.Builder<BuildConfiguration, ObjcProvider> configurationToObjcProviderBuilder =
         ImmutableMap.builder();
     for (BuildConfiguration childConfig : childConfigurations) {
       Optional<ObjcProvider> protosObjcProvider;
@@ -156,7 +159,7 @@ public class MultiArchBinarySupport {
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
 
-      Iterable<ObjcProvider> additionalDepProviders = Iterables.concat(configToDylibsObjcMap,
+      Iterable<ObjcProvider> additionalDepProviders = Iterables.concat(dylibProviders,
           ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
           protosObjcProvider.asSet());
 
@@ -168,11 +171,12 @@ public class MultiArchBinarySupport {
               nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
               nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
               additionalDepProviders);
+      ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibProviders);
 
-      configurationToObjcCommonBuilder.put(childConfig, common);
+      configurationToObjcProviderBuilder.put(childConfig, objcProvider);
     }
 
-    return configurationToObjcCommonBuilder.build();
+    return configurationToObjcProviderBuilder.build();
   }
 
   private ObjcCommon common(

@@ -172,34 +172,23 @@ public class LegacyCompilationSupport extends CompilationSupport {
     super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes);
   }
 
-  /**
-   * Registers all actions necessary to compile this rule's sources and archive them.
-   *
-   * @param common common information about this rule and its dependencies
-   * @param extraCompileArgs args to be added to compile actions
-   * @param priorityHeaders priority headers to be included before the dependency headers
-   * @return this compilation support
-   */
   @Override
   CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common,
-      ExtraCompileArgs extraCompileArgs,
-      Iterable<PathFragment> priorityHeaders) {
-    if (common.getCompilationArtifacts().isPresent()) {
-      registerGenerateModuleMapAction(common.getCompilationArtifacts());
-      Optional<CppModuleMap> moduleMap;
-      if (objcConfiguration.moduleMapsEnabled()) {
-        moduleMap = Optional.of(intermediateArtifacts.moduleMap());
-      } else {
-        moduleMap = Optional.absent();
-      }
-      registerCompileAndArchiveActions(
-          common.getCompilationArtifacts().get(),
-          common.getObjcProvider(),
-          extraCompileArgs,
-          priorityHeaders,
-          moduleMap);
+      CompilationArtifacts compilationArtifacts, ObjcProvider objcProvider,
+      ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders) {
+    registerGenerateModuleMapAction(compilationArtifacts);
+    Optional<CppModuleMap> moduleMap;
+    if (objcConfiguration.moduleMapsEnabled()) {
+      moduleMap = Optional.of(intermediateArtifacts.moduleMap());
+    } else {
+      moduleMap = Optional.absent();
     }
+    registerCompileAndArchiveActions(
+        compilationArtifacts,
+        objcProvider,
+        extraCompileArgs,
+        priorityHeaders,
+        moduleMap);
     return this;
   }
 
@@ -267,20 +256,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
       registerArchiveActions(objFiles.build(), archive);
     }
-  }
-
-  /**
-   * Adds a source file to a command line, honoring the useAbsolutePathForActions flag.
-   */
-  private CustomCommandLine.Builder addSource(CustomCommandLine.Builder commandLine,
-      Artifact sourceFile) {
-    PathFragment sourceExecPathFragment = sourceFile.getExecPath();
-    String sourcePath = sourceExecPathFragment.getPathString();
-    if (!sourceExecPathFragment.isAbsolute() && objcConfiguration.getUseAbsolutePathsForActions()) {
-      sourcePath = objcConfiguration.getXcodeWorkspaceRoot() + "/" + sourcePath;
-    }
-    commandLine.add(sourcePath);
-    return commandLine;
   }
 
   private CustomCommandLine compileActionCommandLine(

@@ -16,14 +16,13 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.syntax.Type;
 
@@ -51,8 +50,16 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
+    CompilationAttributes compilationAttributes =
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build();
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+
+    Iterable<Artifact> publicHeaders = compilationAttributes.hdrs();
+    CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
+
     new LegacyCompilationSupport(ruleContext)
-        .registerGenerateModuleMapAction(Optional.<CompilationArtifacts>absent())
+        .registerGenerateModuleMapAction(moduleMap, publicHeaders)
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
 

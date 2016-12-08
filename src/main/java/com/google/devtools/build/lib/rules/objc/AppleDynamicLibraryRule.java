@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 /**
  * Rule definition for apple_dynamic_library.
  */
+// TODO(b/33077308): Deprecate this rule for apple_binary with attribute changes.
 public class AppleDynamicLibraryRule implements RuleDefinition {
 
   /**

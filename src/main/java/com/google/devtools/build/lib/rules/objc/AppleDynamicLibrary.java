@@ -60,26 +60,26 @@ public class AppleDynamicLibrary implements RuleConfiguredTargetFactory {
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureDylib();
 
     MultiArchBinarySupport multiArchBinarySupport = new MultiArchBinarySupport(ruleContext);
-    Map<BuildConfiguration, ObjcCommon> objcCommonByDepConfiguration =
-        multiArchBinarySupport.objcCommonByDepConfiguration(childConfigurations,
+    Map<BuildConfiguration, ObjcProvider> objcProviderByDepConfiguration =
+        multiArchBinarySupport.objcProviderByDepConfiguration(childConfigurations,
             configToDepsCollectionMap, configurationToNonPropagatedObjcMap, dylibProviders);
+
     multiArchBinarySupport.registerActions(
         platform,
         new ExtraLinkArgs("-dynamiclib"),
+        objcProviderByDepConfiguration,
         ImmutableSet.<Artifact>of(),
-        objcCommonByDepConfiguration,
         configToDepsCollectionMap,
         outputArtifact);
 
     NestedSetBuilder<Artifact> filesToBuild =
-        NestedSetBuilder.<Artifact>stableOrder()
-            .add(outputArtifact);
+        NestedSetBuilder.<Artifact>stableOrder().add(outputArtifact);
     RuleConfiguredTargetBuilder targetBuilder =
         ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build());
 
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
-    for (ObjcCommon objcCommon : objcCommonByDepConfiguration.values()) {
-      objcProviderBuilder.addTransitiveAndPropagate(objcCommon.getObjcProvider());
+    for (ObjcProvider objcProvider : objcProviderByDepConfiguration.values()) {
+      objcProviderBuilder.addTransitiveAndPropagate(objcProvider);
     }
     objcProviderBuilder.add(MULTI_ARCH_DYNAMIC_LIBRARIES, outputArtifact);
 

@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -243,24 +245,6 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(STABLE_ORDER, "root_merge_zip", Artifact.class);
 
   /**
-   * Exec paths of {@code .framework} directories corresponding to static frameworks to link. These
-   * cause -F arguments (framework search paths) to be added to each compile action, and
-   * -framework (link framework) arguments to be added to each link action. These differ from
-   * dynamic frameworks in that they are statically linked into the binary.
-   */
-  public static final Key<PathFragment> STATIC_FRAMEWORK_DIR =
-      new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
-  
-  /**
-   * Exec paths of {@code .framework} directories corresponding to dynamic frameworks to link. These
-   * cause -F arguments (framework search paths) to be added to each compile action, and
-   * -framework (link framework) arguments to be added to each link action. These differ from
-   * static frameworks in that they are not statically linked into the binary.
-   */
-  public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
-      new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
-
-  /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to include in search
    * paths, but not to link.  These cause -F arguments (framework search paths) to be added to
    * each compile action, but do not cause -framework (link framework) arguments to be added to
@@ -270,11 +254,30 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       new Key<>(LINK_ORDER, "framework_search_paths", PathFragment.class);
 
   /**
+   * Exec paths of {@code .framework} directories corresponding to static frameworks to link. These
+   * cause -F arguments (framework search paths) to be added to each compile action, and
+   * -framework (link framework) arguments to be added to each link action. These differ from
+   * dynamic frameworks in that they are statically linked into the binary.
+   */
+  // TODO(cparsons): Rename this key to static_framework_dir.
+  public static final Key<PathFragment> STATIC_FRAMEWORK_DIR =
+      new Key<>(LINK_ORDER, "framework_dir", PathFragment.class);
+
+  /**
    * Files in {@code .framework} directories that should be included as inputs when compiling and
    * linking.
    */
   public static final Key<Artifact> STATIC_FRAMEWORK_FILE =
       new Key<>(STABLE_ORDER, "static_framework_file", Artifact.class);
+
+  /**
+   * Exec paths of {@code .framework} directories corresponding to dynamic frameworks to link. These
+   * cause -F arguments (framework search paths) to be added to each compile action, and
+   * -framework (link framework) arguments to be added to each link action. These differ from
+   * static frameworks in that they are not statically linked into the binary.
+   */
+  public static final Key<PathFragment> DYNAMIC_FRAMEWORK_DIR =
+      new Key<>(LINK_ORDER, "dynamic_framework_dir", PathFragment.class);
 
   /**
    * Files in {@code .framework} directories belonging to a dynamically linked framework. They
@@ -450,6 +453,42 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       TOP_LEVEL_MODULE_MAP);
 
   /**
+   * Set of {@link ObjcProvider} whose values are not subtracted via {@link #subtractSubtrees}.
+   *
+   * <p>Only keys which are unrelated to statically-linked library dependencies should be listed.
+   * For example, LIBRARY is a subtractable key because it contains objects of individual
+   * objc_library dependencies, but keys pertaining to resources are non-subtractable keys, because
+   * the top level binary will need these resources whether or not the library is statically or
+   * dynamically linked.
+   */
+  private static final ImmutableSet<Key<?>> NON_SUBTRACTABLE_KEYS =
+      ImmutableSet.<Key<?>>of(
+          ASSET_CATALOG,
+          BUNDLE_FILE,
+          BUNDLE_IMPORT_DIR,
+          DEFINE,
+          DYNAMIC_FRAMEWORK_DIR,
+          DYNAMIC_FRAMEWORK_FILE,
+          FLAG,
+          GENERAL_RESOURCE_DIR,
+          GENERAL_RESOURCE_FILE,
+          MERGE_ZIP,
+          ROOT_MERGE_ZIP,
+          FRAMEWORK_SEARCH_PATH_ONLY,
+          HEADER,
+          INCLUDE,
+          INCLUDE_SYSTEM,
+          LINKOPT,
+          SDK_DYLIB,
+          SDK_FRAMEWORK,
+          STORYBOARD,
+          STRINGS,
+          WEAK_SDK_FRAMEWORK,
+          XCASSETS_DIR,
+          XCDATAMODEL,
+          XIB);
+
+  /**
    * Returns the skylark key for the given string, or null if no such key exists or is available
    * to Skylark.
    */
@@ -504,11 +543,23 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   }
 
   /**
+   * Returns all keys that have at least one value in this provider (values may be propagable,
+   * non-propagable, or strict).
+   */
+  private Iterable<Key<?>> getValuedKeys() {
+    return ImmutableSet.<Key<?>>builder()
+        .addAll(strictDependencyItems.keySet())
+        .addAll(nonPropagatedItems.keySet())
+        .addAll(items.keySet())
+        .build();
+  }
+
+  /**
    * All artifacts, bundleable files, etc, that should be propagated to transitive dependers, of
    * the type specified by {@code key}.
    */
   @SuppressWarnings("unchecked")
-  public <E> NestedSet<E> getPropagable(Key<E> key) {
+  private <E> NestedSet<E> getPropagable(Key<E> key) {
     Preconditions.checkNotNull(key);
     NestedSetBuilder<E> builder = new NestedSetBuilder<>(key.order);
     if (items.containsKey(key)) {
@@ -550,6 +601,55 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       ccLibraryBuilder.add(libraryToLink.getArtifact());
     }
     return ccLibraryBuilder.build();
+  }
+
+  /**
+   * Subtracts dependency subtrees from this provider and returns the result (subtraction does not
+   * mutate this provider). Note that not all provider keys are subtracted; generally only keys
+   * which correspond with compiled libraries will be subtracted.
+   * 
+   * <p>This is an expensive operation, as it requires flattening of all nested sets contained
+   * in each provider.
+   *
+   * @param avoidProviders providers which contain the dependency subtrees to subtract
+   */
+  // TODO(b/19795062): Investigate subtraction generalized to NestedSet.
+  public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidProviders) {
+    ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
+    for (Key<?> key : getValuedKeys()) {
+      if (NON_SUBTRACTABLE_KEYS.contains(key)) {
+        addTransitiveAndAvoid(objcProviderBuilder, key, ImmutableList.<ObjcProvider>of());
+      } else {
+        addTransitiveAndAvoid(objcProviderBuilder, key, avoidProviders);
+      }
+    }
+    return objcProviderBuilder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T> void addTransitiveAndAvoid(ObjcProvider.Builder objcProviderBuilder, Key<T> key,
+      Iterable<ObjcProvider> avoidProviders) {
+    HashSet<T> avoidItemsSet = new HashSet<T>();
+    for (ObjcProvider avoidProvider : avoidProviders) {
+      avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
+    }
+    NestedSet<T> propagableItems = (NestedSet<T>) items.get(key);
+    NestedSet<T> nonPropagableItems = (NestedSet<T>) nonPropagatedItems.get(key);
+    NestedSet<T> strictItems = (NestedSet<T>) strictDependencyItems.get(key);
+
+    if (propagableItems != null) {
+      objcProviderBuilder.addAll(key,
+          Iterables.filter(propagableItems.toList(), Predicates.not(Predicates.in(avoidItemsSet))));
+    }
+    if (nonPropagableItems != null) {
+      objcProviderBuilder.addAllNonPropagable(key,
+          Iterables.filter(nonPropagableItems.toList(),
+              Predicates.not(Predicates.in(avoidItemsSet))));
+    }
+    if (strictItems != null) {
+      objcProviderBuilder.addAllForDirectDependents(key,
+          Iterables.filter(strictItems.toList(), Predicates.not(Predicates.in(avoidItemsSet))));
+    }
   }
 
   /**
@@ -709,6 +809,14 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
      */
     public <E> Builder addAll(Key<E> key, Iterable<? extends E> toAdd) {
       uncheckedAddAll(key, toAdd, this.items);
+      return this;
+    }
+
+    /**
+     * Add elements in toAdd, and do not propagate to dependents of this provider.
+     */
+    public <E> Builder addAllNonPropagable(Key<E> key, Iterable<? extends E> toAdd) {
+      uncheckedAddAll(key, toAdd, this.nonPropagatedItems);
       return this;
     }
 

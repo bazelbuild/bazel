@@ -18,11 +18,9 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_L
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -30,7 +28,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -38,7 +35,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -48,30 +44,23 @@ import java.util.Set;
 public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
   /**
-   * Set of {@link ObjcProvider} keys whose values are subtracted by avoid_deps. Specifically, a
-   * value is propagated if present in the transitive "deps" but *not* present in the transitive
-   * "avoid_deps".
+   * Set of {@link ObjcProvider} values which are propagated from dependencies to dependers by
+   * this rule.
    */
-  private static final ImmutableSet<Key<?>> AVOID_DEPS_KEYS =
+  private static final ImmutableSet<Key<?>> PROPAGATE_KEYS =
       ImmutableSet.<Key<?>>of(
           ObjcProvider.ASSET_CATALOG,
           ObjcProvider.BUNDLE_FILE,
           ObjcProvider.GENERAL_RESOURCE_DIR,
           ObjcProvider.GENERAL_RESOURCE_FILE,
+          ObjcProvider.SDK_DYLIB,
+          ObjcProvider.SDK_FRAMEWORK,
           ObjcProvider.STORYBOARD,
           ObjcProvider.STRINGS,
+          ObjcProvider.WEAK_SDK_FRAMEWORK,
           ObjcProvider.XCDATAMODEL,
           ObjcProvider.XIB,
           ObjcProvider.XCASSETS_DIR);
-
-  /**
-   * Set of {@link ObjcProvider} whose values are propagated regardless of avoid_deps.
-   */
-  private static final ImmutableSet<Key<?>> PROPAGATE_REGARDLESS_KEYS =
-      ImmutableSet.<Key<?>>of(
-          ObjcProvider.SDK_DYLIB,
-          ObjcProvider.SDK_FRAMEWORK,
-          ObjcProvider.WEAK_SDK_FRAMEWORK);
 
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
@@ -84,7 +73,8 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configToAvoidDepsMap =
-        ruleContext.getPrerequisitesByConfiguration("avoid_deps", Mode.SPLIT, ObjcProvider.class);
+        ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
+            Mode.SPLIT, ObjcProvider.class);
 
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
 
@@ -117,20 +107,20 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
               intermediateArtifacts,
               nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
               protosObjcProvider);
-
+      ObjcProvider objcProvider =
+          common.getObjcProvider().subtractSubtrees(configToAvoidDepsMap.get(childConfig));
+      
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
 
       new LegacyCompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
-          .registerFullyLinkActionWithAvoids(
-              common.getObjcProvider(),
-              intermediateArtifacts.strippedSingleArchitectureLibrary(),
-              configToAvoidDepsMap.get(childConfig))
+          .registerFullyLinkAction(
+              objcProvider,
+              intermediateArtifacts.strippedSingleArchitectureLibrary())
           .validateAttributes();
       ruleContext.assertNoErrors();
 
-      addTransitiveAndAvoid(objcProviderBuilder, common.getObjcProvider(),
-          configToAvoidDepsMap.get(childConfig));
+      addTransitivePropagatedKeys(objcProviderBuilder, objcProvider);
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
@@ -150,27 +140,12 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     targetBuilder.addProvider(ObjcProvider.class, objcProviderBuilder.build());
     return targetBuilder.build();
   }
-  
-  private void addTransitiveAndAvoid(ObjcProvider.Builder objcProviderBuilder,
-      ObjcProvider provider, ImmutableList<ObjcProvider> avoidProviders) {
-    for (Key<?> key : PROPAGATE_REGARDLESS_KEYS) {
+
+  private void addTransitivePropagatedKeys(ObjcProvider.Builder objcProviderBuilder,
+      ObjcProvider provider) {
+    for (Key<?> key : PROPAGATE_KEYS) {
       objcProviderBuilder.addTransitiveAndPropagate(key, provider);
     }
-    for (Key<?> key : AVOID_DEPS_KEYS) {
-      addTransitiveAndAvoid(objcProviderBuilder, key, provider, avoidProviders);
-    }
-  }
-
-  private <T> void addTransitiveAndAvoid(ObjcProvider.Builder objcProviderBuilder, Key<T> key,
-      ObjcProvider provider, ImmutableList<ObjcProvider> avoidProviders) {
-    HashSet<T> avoidItemsSet = new HashSet<T>();
-    for (ObjcProvider avoidProvider : avoidProviders) {
-      avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
-    }
-    NestedSet<T> items = provider.getPropagable(key);
-
-    objcProviderBuilder.addAll(key,
-        Iterables.filter(items.toList(), Predicates.not(Predicates.in(avoidItemsSet))));
   }
 
   private ObjcCommon common(

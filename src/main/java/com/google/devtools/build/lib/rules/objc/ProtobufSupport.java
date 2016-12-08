@@ -147,7 +147,7 @@ final class ProtobufSupport {
             ruleContext,
             intermediateArtifacts,
             new CompilationAttributes.Builder().build())
-        .registerGenerateModuleMapAction(Optional.of(moduleMapCompilationArtifacts.build()));
+        .registerGenerateModuleMapAction(moduleMapCompilationArtifacts.build());
   }
 
   /**

@@ -89,15 +89,15 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
     this.compilationArtifacts = compilationArtifacts(ruleContext);
   }
- 
+
   @Override
   CompilationSupport registerCompileAndArchiveActions(
-      ObjcCommon common, ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders)
-      throws RuleErrorException, InterruptedException {
-
+      CompilationArtifacts compilationArtifacts,
+      ObjcProvider objcProvider, ExtraCompileArgs extraCompileArgs,
+      Iterable<PathFragment> priorityHeaders) throws RuleErrorException, InterruptedException {
     ObjcVariablesExtension.Builder extension = new ObjcVariablesExtension.Builder()
         .setRuleContext(ruleContext)
-        .setObjcProvider(common.getObjcProvider())
+        .setObjcProvider(objcProvider)
         .setCompilationArtifacts(compilationArtifacts)
         .setIntermediateArtifacts(intermediateArtifacts)
         .setConfiguration(ruleContext.getConfiguration());
@@ -105,17 +105,17 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     
     if (compilationArtifacts.getArchive().isPresent()) {
       Artifact objList = intermediateArtifacts.archiveObjList();
-
+  
       // TODO(b/30783125): Signal the need for this action in the CROSSTOOL.
       registerObjFilelistAction(getObjFiles(compilationArtifacts, intermediateArtifacts), objList);
-
+  
       extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
       
-      helper = createCcLibraryHelper(common, extension.build())
+      helper = createCcLibraryHelper(objcProvider, extension.build())
           .setLinkType(LinkTargetType.OBJC_ARCHIVE)
           .addLinkActionInput(objList);
     } else {
-      helper = createCcLibraryHelper(common, extension.build());
+      helper = createCcLibraryHelper(objcProvider, extension.build());
     }
     
     helper.build();
@@ -228,7 +228,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return this;
   }
 
-  private CcLibraryHelper createCcLibraryHelper(ObjcCommon common, VariablesExtension extension) {
+  private CcLibraryHelper createCcLibraryHelper(ObjcProvider objcProvider,
+      VariablesExtension extension) {
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     Collection<Artifact> arcSources = Sets.newHashSet(compilationArtifacts.getSrcs());
     Collection<Artifact> nonArcSources = Sets.newHashSet(compilationArtifacts.getNonArcSrcs());
@@ -240,22 +241,22 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return new CcLibraryHelper(
             ruleContext,
             new ObjcCppSemantics(
-                common.getObjcProvider(), ruleContext.getFragment(ObjcConfiguration.class)),
+                objcProvider, ruleContext.getFragment(ObjcConfiguration.class)),
             getFeatureConfiguration(ruleContext),
             CcLibraryHelper.SourceCategory.CC_AND_OBJC)
         .addSources(arcSources, ImmutableMap.of("objc_arc", ""))
         .addSources(nonArcSources, ImmutableMap.of("no_objc_arc", ""))
         .addSources(privateHdrs)
-        .addDefines(common.getObjcProvider().get(DEFINE))
+        .addDefines(objcProvider.get(DEFINE))
         .enableCompileProviders()
         .addPublicHeaders(publicHdrs)
         .addPublicHeaders(pchHdrList)
         .addPrecompiledFiles(precompiledFiles)
         .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))
         .addCopts(getCompileRuleCopts())
-        .addIncludeDirs(common.getObjcProvider().get(INCLUDE))
+        .addIncludeDirs(objcProvider.get(INCLUDE))
         .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
-        .addSystemIncludeDirs(common.getObjcProvider().get(INCLUDE_SYSTEM))
+        .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
         .setCppModuleMap(intermediateArtifacts.moduleMap())
         .addVariableExtension(extension);
   }
