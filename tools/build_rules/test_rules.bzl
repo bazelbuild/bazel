@@ -31,7 +31,7 @@ def success_target(ctx, msg):
     with actions that always succeed at execution time.
   """
   exe = ctx.outputs.executable
-  dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+  dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
   ctx.file_action(
       output=dat,
       content=msg)
@@ -66,7 +66,7 @@ def failure_target(ctx, msg):
   """
   ### fail(msg) ### <--- This would fail at analysis time.
   exe = ctx.outputs.executable
-  dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+  dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
   ctx.file_action(
       output=dat,
       content=msg)
@@ -221,7 +221,7 @@ def _rule_test_impl(ctx):
         fail(("rule %s doesn't provide attribute %s. "
               + "Its list of attributes is: %s")
              % (rule_name, k, dir(rule_)))
-      file_ = ctx.new_file(ctx.configuration.genfiles_dir, exe, "." + k)
+      file_ = ctx.new_file(ctx.genfiles_dir, exe, "." + k)
       files += [file_]
       regexp = provides[k]
       commands += [
@@ -257,7 +257,7 @@ def _file_test_impl(ctx):
   if content and matches != -1:
     fail("matches only makes sense with regexp")
   if content:
-    dat = ctx.new_file(ctx.configuration.genfiles_dir, exe, ".dat")
+    dat = ctx.new_file(ctx.genfiles_dir, exe, ".dat")
     ctx.file_action(
         output=dat,
         content=content)
