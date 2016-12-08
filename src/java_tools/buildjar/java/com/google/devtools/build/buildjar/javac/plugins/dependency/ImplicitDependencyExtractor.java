@@ -16,25 +16,17 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.view.proto.Deps;
-
-import com.sun.nio.zipfs.ZipFileSystem;
-import com.sun.nio.zipfs.ZipPath;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.file.ZipArchive;
-import com.sun.tools.javac.file.ZipFileIndexArchive;
-import com.sun.tools.javac.nio.JavacPathFileManager;
+import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
-
-import java.io.File;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
-
 import javax.lang.model.util.SimpleTypeVisitor7;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 
 /**
@@ -106,26 +98,17 @@ public class ImplicitDependencyExtractor {
   /** Collect the set of jars on the compilation bootclasspath. */
   public static Set<String> getPlatformJars(JavaFileManager fileManager) {
 
-    if (fileManager instanceof StandardJavaFileManager) {
-      StandardJavaFileManager sjfm = (StandardJavaFileManager) fileManager;
+    if (fileManager instanceof JavacFileManager) {
+      JavacFileManager jfm = (JavacFileManager) fileManager;
       ImmutableSet.Builder<String> result = ImmutableSet.builder();
-      for (File jar : sjfm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)) {
-        result.add(jar.toString());
+      for (Path path : jfm.getLocationAsPaths(StandardLocation.PLATFORM_CLASS_PATH)) {
+        result.add(path.toString());
       }
       return result.build();
     }
 
-    if (fileManager instanceof JavacPathFileManager) {
-      JavacPathFileManager jpfm = (JavacPathFileManager) fileManager;
-      ImmutableSet.Builder<String> result = ImmutableSet.builder();
-      for (Path jar : jpfm.getLocation(StandardLocation.PLATFORM_CLASS_PATH)) {
-        result.add(jar.toString());
-      }
-      return result.build();
-    }
-
-    // TODO(cushon): Assuming JavacPathFileManager or StandardJavaFileManager is slightly brittle,
-    // but in practice those are the only implementations that matter.
+    // TODO(cushon): Assuming JavacFileManager is brittle, but in practice it is the only
+    // implementation that matters.
     throw new IllegalStateException(
         "Unsupported file manager type: " + fileManager.getClass().getName());
   }
@@ -140,7 +123,7 @@ public class ImplicitDependencyExtractor {
    */
   private void collectJarOf(JavaFileObject reference, Set<String> platformJars, boolean completed) {
 
-    String name = getJarName(fileManager, reference);
+    String name = getJarName(reference);
     if (name == null) {
       return;
     }
@@ -166,29 +149,19 @@ public class ImplicitDependencyExtractor {
     }
   }
 
-  public static String getJarName(JavaFileManager fileManager, JavaFileObject file) {
-    if (file == null || fileManager == null) {
+  public static String getJarName(JavaFileObject file) {
+    if (file == null) {
       return null;
     }
-
-    if (file instanceof ZipArchive.ZipFileObject
-        || file instanceof ZipFileIndexArchive.ZipFileIndexFileObject) {
-      // getName() will return something like com/foo/libfoo.jar(Bar.class)
-      return file.getName().split("\\(")[0];
+    try {
+      Field field = file.getClass().getDeclaredField("userJarPath");
+      field.setAccessible(true);
+      return field.get(file).toString();
+    } catch (NoSuchFieldException e) {
+      return null;
+    } catch (ReflectiveOperationException e) {
+      throw new LinkageError(e.getMessage(), e);
     }
-
-    if (fileManager instanceof JavacPathFileManager) {
-      JavacPathFileManager fm = (JavacPathFileManager) fileManager;
-      Path path = fm.getPath(file);
-      if (!(path instanceof ZipPath)) {
-        return null;
-      }
-      ZipFileSystem zipfs = ((ZipPath) path).getFileSystem();
-      // calls toString() on the path to the zip archive
-      return zipfs.toString();
-    }
-
-    return null;
   }
 
   private static class TypeVisitor extends SimpleTypeVisitor7<Void, Void> {

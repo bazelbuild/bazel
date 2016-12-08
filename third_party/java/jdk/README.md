@@ -9,8 +9,8 @@ from [OpenJDK](https://openjdk.java.net) but compiled for a lower
 version of the JRE. Those builds are vendored in
 //third_party/java/jdk/langtools.
 
-Current Bazel supports running on a JRE 8 only because the default Java
-compiler used (//third_party/java/jdk/langtools/javac.jar) is the
+Currently Bazel supports running on a JRE 8 only because the default Java
+compiler used (//third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar) is the
 Java compiler of OpenJDK 9 compiled to run on a JRE 8. This cannot
 be built to run on a JRE 7 because of code incompatibility. Bazel's
 JavaBuilder at HEAD cannot be linked with earlier version of the

@@ -43,7 +43,7 @@ for i in $*; do
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
     *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;
-    *javac.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
+    *javac-9-dev-r3297-1.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ;;
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
@@ -67,9 +67,9 @@ for i in $*; do
   chmod u+w "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
 
-if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac.jar ]; then
+if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ]; then
   cp ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac7.jar \
-      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac.jar
+      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar
 fi
 
 cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF

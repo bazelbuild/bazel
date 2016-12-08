@@ -84,7 +84,7 @@ langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUI
 
 # Java tooling
 javabuilder_path="$(find ${BAZEL_RUNFILES} -name JavaBuilder_*.jar)"
-langtools_path="${BAZEL_RUNFILES}/third_party/java/jdk/langtools/javac.jar"
+langtools_path="${BAZEL_RUNFILES}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar"
 singlejar_path="${BAZEL_RUNFILES}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${BAZEL_RUNFILES}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 junitrunner_path="${BAZEL_RUNFILES}/src/java_tools/junitrunner/java/com/google/testing/junit/runner/Runner_deploy.jar"
@@ -384,8 +384,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar
 
   touch WORKSPACE
 }

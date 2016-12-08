@@ -26,6 +26,8 @@ import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.Context;
+import java.io.IOError;
+import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,6 +55,8 @@ public class TreePrunerTest {
           parserFactory.newParser(
               input, /*keepDocComments=*/ false, /*keepEndPos=*/ false, /*keepLineMap=*/ false);
       return parser.parseCompilationUnit();
+    } catch (IOException e) {
+      throw new IOError(e);
     }
   }
 

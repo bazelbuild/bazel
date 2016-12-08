@@ -431,7 +431,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
 
     JavaFileObject classfile = classSymbol.classfile;
 
-    String name = ImplicitDependencyExtractor.getJarName(fileManager, classfile);
+    String name = ImplicitDependencyExtractor.getJarName(classfile);
     if (name == null) {
       return null;
     }
