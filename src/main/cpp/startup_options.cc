@@ -227,9 +227,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
-  } else if (GetNullaryOption(arg, "-x")) {
-    fprintf(stderr, "WARNING: The -x startup option is now ignored "
-            "and will be removed in a future release\n");
   } else if (GetNullaryOption(arg, "--experimental_oom_more_eagerly")) {
     oom_more_eagerly = true;
     option_sources["experimental_oom_more_eagerly"] = rcfile;
