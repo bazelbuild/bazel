@@ -403,11 +403,13 @@ public final class FuncallExpression extends Expression {
   }
 
   private static SkylarkType getType(Param param) {
-    SkylarkType type =
-        param.generic1() != Object.class
-            ? SkylarkType.of(param.type(), param.generic1())
-            : SkylarkType.of(param.type());
-    return type;
+    if (param.generic2() != Object.class) {
+      return SkylarkType.of(param.type(), param.generic1(), param.generic2());
+    } else if(param.generic1() != Object.class) {
+      return SkylarkType.of(param.type(), param.generic1());
+    } else {
+      return SkylarkType.of(param.type());
+    }
   }
 
   /**

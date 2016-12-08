@@ -125,7 +125,10 @@ public class SkylarkSignatureProcessor {
       return new Parameter.Star<>(null);
     }
     if (param.type() != Object.class) {
-      if (param.generic1() != Object.class) {
+      if (param.generic2() != Object.class) {
+        // Enforce the proper parametric type for Skylark dict objects
+        officialType = SkylarkType.of(param.type(), param.generic1(), param.generic2());
+      } else if (param.generic1() != Object.class) {
         // Enforce the proper parametric type for Skylark list and set objects
         officialType = SkylarkType.of(param.type(), param.generic1());
       } else {

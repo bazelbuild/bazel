@@ -59,6 +59,14 @@ public @interface Param {
   Class<?> generic1() default Object.class;
 
   /**
+   * When {@link #type()} is a generic type (e.g.,
+   * {@link com.google.devtools.build.lib.syntax.SkylarkDict}), specify the second type parameter (e.g.
+   * {@link String}.class} along with {@link com.google.devtools.build.lib.syntax.SkylarkDict} for
+   * {@link #type()} to specify a dict which maps to strings).
+   */
+  Class<?> generic2() default Object.class;
+
+  /**
    * Whether the name of a callback function can be given instead of a computed value. If a
    * callback function is used then the value of this parameter will be computed only when
    * actually requested. E.g., if a parameter {@code foo} of a function {@code bar} is passed a
