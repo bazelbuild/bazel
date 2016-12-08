@@ -322,10 +322,13 @@ public final class SkylarkRuleContext {
           prereq = Runtime.NONE;
         }
         attrBuilder.put(skyname, prereq);
-      } else {
-        // Type.LABEL_LIST
+      } else if(type == BuildType.LABEL_LIST) {
         List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
+      } else {
+        // type == BuildType.LABEL_DICT_UNARY
+        Map<?, ?> allPrereq = ruleContext.getPrerequisiteMap(a.getName());
+        attrBuilder.put(skyname, SkylarkDict.createImmutable(allPrereq));
       }
     }
 
