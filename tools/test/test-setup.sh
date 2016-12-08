@@ -23,20 +23,20 @@ echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 # Bazel sets some environment vars to relative paths, but it's easier to deal
 # with absolute paths once we're actually running the test, so let's convert
 # them.
-if [[ "$TEST_SRCDIR" != /* ]]; then
-  export TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+if [[ "${TEST_SRCDIR}" != /* ]]; then
+  export TEST_SRCDIR="${PWD}/${TEST_SRCDIR}"
 fi
-if [[ "$JAVA_RUNFILES" != /* ]]; then
-  export JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
+if [[ "${JAVA_RUNFILES}" != /* ]]; then
+  export JAVA_RUNFILES="${PWD}/${JAVA_RUNFILES}"
 fi
-if [[ "$PYTHON_RUNFILES" != /* ]]; then
-  export PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
+if [[ "${PYTHON_RUNFILES}" != /* ]]; then
+  export PYTHON_RUNFILES="${PWD}/${PYTHON_RUNFILES}"
 fi
-if [[ "$TEST_TMPDIR" != /* ]]; then
-  export TEST_TMPDIR="$PWD/$TEST_TMPDIR"
+if [[ "${TEST_TMPDIR}" != /* ]]; then
+  export TEST_TMPDIR="${PWD}/${TEST_TMPDIR}"
 fi
-if [[ "$XML_OUTPUT_FILE" != /* ]]; then
-  export XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
+if [[ "${XML_OUTPUT_FILE}" != /* ]]; then
+  export XML_OUTPUT_FILE="${PWD}/${XML_OUTPUT_FILE}"
 fi
 
 # Tell googletest about Bazel sharding.
@@ -48,12 +48,12 @@ export GTEST_TMP_DIR="${TEST_TMPDIR}"
 
 RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
-if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
+if [ -z "${RUNFILES_MANIFEST_ONLY}" ]; then
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo "$1"
     else
-      echo "$(dirname $RUNFILES_MANIFEST_FILE)/$1"
+      echo "$(dirname ${RUNFILES_MANIFEST_FILE})/$1"
     fi
   }
 else
@@ -61,7 +61,7 @@ else
     if [[ "$1" = /* ]]; then
       echo "$1"
     else
-      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+      echo $(grep "^$1 " ${RUNFILES_MANIFEST_FILE} | awk '{ print $2 }')
     fi
   }
 fi
@@ -69,18 +69,18 @@ fi
 export -f rlocation
 export RUNFILES_MANIFEST_FILE
 
-DIR="$TEST_SRCDIR"
-if [ ! -z "$TEST_WORKSPACE" ]; then
-  DIR="$DIR"/"$TEST_WORKSPACE"
+DIR="${TEST_SRCDIR}"
+if [ ! -z "${TEST_WORKSPACE}" ]; then
+  DIR="${DIR}"/"${TEST_WORKSPACE}"
 fi
-[[ -n "$RUNTEST_PRESERVE_CWD" ]] && DIR="$PWD"
+[[ -n "${RUNTEST_PRESERVE_CWD}" ]] && DIR="${PWD}"
 
 
 # normal commands are run in the exec-root where they have access to
 # the entire source tree. By chdir'ing to the runfiles root, tests only
 # have direct access to their declared dependencies.
-if [ -z "$COVERAGE_DIR" ]; then
-  cd "$DIR" || { echo "Could not chdir $DIR"; exit 1; }
+if [ -z "${COVERAGE_DIR}" ]; then
+  cd "${DIR}" || { echo "Could not chdir ${DIR}"; exit 1; }
 fi
 
 # This header marks where --test_output=streamed will start being printed.
@@ -90,27 +90,27 @@ echo "--------------------------------------------------------------------------
 # but when using --run_under it can be a "/bin/bash -c" command-line.
 
 # If the test is at the top of the tree, we have to add '.' to $PATH,
-PATH=".:$PATH"
+PATH=".:${PATH}"
 
-if [ -z "$COVERAGE_DIR" ]; then
+if [ -z "${COVERAGE_DIR}" ]; then
   TEST_NAME=$1
   shift
 else
   TEST_NAME=$2
 fi
 
-if [[ "$TEST_NAME" = /* ]]; then
+if [[ "${TEST_NAME}" = /* ]]; then
   TEST_PATH="${TEST_NAME}"
 else
-  TEST_PATH="$(rlocation $TEST_WORKSPACE/$TEST_NAME)"
+  TEST_PATH="$(rlocation ${TEST_WORKSPACE}/${TEST_NAME})"
 fi
-[[ -n "$RUNTEST_PRESERVE_CWD" ]] && EXE="${TEST_NAME}"
+[[ -n "${RUNTEST_PRESERVE_CWD}" ]] && EXE="${TEST_NAME}"
 
 exitCode=0
-if [ -z "$COVERAGE_DIR" ]; then
+if [ -z "${COVERAGE_DIR}" ]; then
   "${TEST_PATH}" "$@" || exitCode=$?
 else
-  "$1" "$TEST_PATH" "${@:3}" || exitCode=$?
+  "$1" "${TEST_PATH}" "${@:3}" || exitCode=$?
 fi
 
 
