@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-
+import com.google.devtools.build.lib.util.LazyString;
+import java.util.Random;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,5 +56,49 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
   @Test
   public void testComputesConsistentKeys() throws Exception {
     checkComputesConsistentKeys();
+  }
+
+  @Test
+  public void testFileWriteActionWithShortString() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    String contents = "Hello world";
+    FileWriteAction action =
+        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+    assertThat(action.getFileContents()).isEqualTo(contents);
+  }
+
+  @Test
+  public void testFileWriteActionWithLazyString() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    final String backingString = "Hello world";
+    LazyString contents =
+        new LazyString() {
+          @Override
+          public String toString() {
+            return backingString;
+          }
+        };
+    FileWriteAction action =
+        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+    assertThat(action.getFileContents()).isEqualTo(backingString);
+  }
+
+  /** Exercises the code path that compresses the string */
+  @Test
+  public void testFileWriteActionWithLongString() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    StringBuilder sb = new StringBuilder();
+
+    // Fill buffer with (deterministic) random characters to get a string that won't compress
+    // to a tiny size
+    Random random = new Random(0);
+    for (int i = 0; i < 16 * 1024; ++i) {
+      char c = (char) random.nextInt(128);
+      sb.append(c);
+    }
+    String contents = sb.toString();
+    FileWriteAction action =
+        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+    assertThat(action.getFileContents()).isEqualTo(contents);
   }
 }

@@ -23,9 +23,13 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * Action to write to a file.
@@ -76,21 +80,48 @@ public final class FileWriteAction extends AbstractFileWriteAction {
       Artifact output, CharSequence fileContents, boolean makeExecutable) {
     super(owner, inputs, output, makeExecutable);
     if (fileContents instanceof String && fileContents.length() > 256) {
-      fileContents = new StoredAsUTF8((String) fileContents);
+      fileContents = new CompressedString((String) fileContents);
     }
     this.fileContents = fileContents;
   }
 
-  private static final class StoredAsUTF8 extends LazyString {
+  private static final class CompressedString extends LazyString {
     final byte[] bytes;
+    final int uncompressedSize;
 
-    StoredAsUTF8(String chars) {
-      this.bytes = chars.getBytes(UTF_8);
+    CompressedString(String chars) {
+      byte[] dataToCompress = chars.getBytes(UTF_8);
+      ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length);
+      try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
+        zipStream.write(dataToCompress);
+      } catch (IOException e) {
+        // This should be impossible since we're writing to a byte array.
+        throw new RuntimeException(e);
+      }
+      this.uncompressedSize = dataToCompress.length;
+      this.bytes = byteStream.toByteArray();
     }
 
     @Override
     public String toString() {
-      return new String(bytes, UTF_8);
+      byte[] uncompressedBytes = new byte[uncompressedSize];
+      try (GZIPInputStream zipStream = new GZIPInputStream(new ByteArrayInputStream(bytes))) {
+        int read;
+        int totalRead = 0;
+        while (totalRead < uncompressedSize
+            && (read = zipStream.read(uncompressedBytes, totalRead, uncompressedSize - totalRead))
+                != -1) {
+          totalRead += read;
+        }
+        if (totalRead != uncompressedSize) {
+          // This should be impossible.
+          throw new RuntimeException("Corrupt byte buffer in FileWriteAction.");
+        }
+      } catch (IOException e) {
+        // This should be impossible since we're reading from a byte array.
+        throw new RuntimeException(e);
+      }
+      return new String(uncompressedBytes, UTF_8);
     }
   }
 
