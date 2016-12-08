@@ -63,6 +63,10 @@ abstract class SkylarkDoc {
     return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + "s";
   }
 
+  protected String getTypeAnchor(Class<?> returnType, Class<?> generic1, Class<?> generic2) {
+    return getTypeAnchor(returnType) + " of " + getTypeAnchor(generic1) + " mapping to " + getTypeAnchor(generic2);
+  }
+
   protected String getTypeAnchor(Class<?> type) {
     if (type.equals(Boolean.class) || type.equals(boolean.class)) {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#bool\">bool</a>";
