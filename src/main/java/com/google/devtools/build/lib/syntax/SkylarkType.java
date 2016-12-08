@@ -138,6 +138,9 @@ public abstract class SkylarkType implements Serializable {
   public SkylarkType getArgType() {
     return TOP;
   }
+  public SkylarkType getArg2Type() {
+    return TOP;
+  }
 
   private static final class Empty {}; // Empty type, used as basis for Bottom
 
@@ -302,12 +305,20 @@ public abstract class SkylarkType implements Serializable {
   public static class Combination extends SkylarkType {
     // For the moment, we can only combine a Simple type with a Simple type,
     // and the first one has to be a Java generic class,
-    // and in practice actually one of SkylarkList or SkylarkNestedSet
+    // and in practice actually one of SkylarkList, SkylarkNestedSet or SkylarkDict
     private final SkylarkType genericType; // actually always a Simple, for now.
     private final SkylarkType argType; // not always Simple
+    private final SkylarkType arg2Type; // not always Simple
     private Combination(SkylarkType genericType, SkylarkType argType) {
       this.genericType = genericType;
       this.argType = argType;
+      this.arg2Type = TOP;
+    }
+
+    private Combination(SkylarkType genericType, SkylarkType arg1Type, SkylarkType arg2Type) {
+      this.genericType = genericType;
+      this.argType = arg1Type;
+      this.arg2Type = arg2Type;
     }
 
     @Override
@@ -316,6 +327,10 @@ public abstract class SkylarkType implements Serializable {
       if (value == null || !genericType.contains(value)) {
         return false;
       } else {
+        SkylarkType valueArg2Type = getGenericArg2Type(value);
+        if (valueArg2Type != TOP && !arg2Type.includes(valueArg2Type)) {
+          return false; // second arg was not contained
+        }
         SkylarkType valueArgType = getGenericArgType(value);
         return valueArgType == TOP // empty objects are universal
             || argType.includes(valueArgType);
@@ -335,14 +350,25 @@ public abstract class SkylarkType implements Serializable {
         if (arg == BOTTOM) {
           return BOTTOM;
         }
-        return Combination.of(generic, arg);
+        if (arg2Type == TOP) {
+          return Combination.of(generic, arg);
+        }
+        SkylarkType arg2 = intersection(arg2Type, ((Combination) other).getArg2Type());
+        if (arg2 == BOTTOM) {
+          return BOTTOM;
+        }
+        return Combination.of(generic, arg, arg2);
       }
       if (other instanceof Simple) {
         SkylarkType generic = genericType.intersectWith(other);
         if (generic == BOTTOM) {
           return BOTTOM;
         }
-        return SkylarkType.of(generic, getArgType());
+        if (arg2Type == TOP) {
+          return SkylarkType.of(generic, getArgType());
+        } else {
+          return SkylarkType.of(generic, getArgType(), getArg2Type());
+        }
       }
       return BOTTOM;
     }
@@ -353,14 +379,15 @@ public abstract class SkylarkType implements Serializable {
       } else if (this.getClass() == other.getClass()) {
         Combination o = (Combination) other;
         return genericType.equals(o.getGenericType())
-            && argType.equals(o.getArgType());
+            && argType.equals(o.getArgType())
+                && arg2Type.equals(o.getArg2Type());
       } else {
         return false;
       }
     }
     @Override public int hashCode() {
       // equal underlying types yield the same hashCode
-      return 0x20B14A71 + genericType.hashCode() * 1009 + argType.hashCode() * 1013;
+      return 0x20B14A71 + genericType.hashCode() * 1009 + argType.hashCode() * 1013 + arg2Type.hashCode() * 1019;
     }
     @Override public Class<?> getType() {
       return genericType.getType();
@@ -372,24 +399,45 @@ public abstract class SkylarkType implements Serializable {
     public SkylarkType getArgType() {
       return argType;
     }
+
+    @Override
+    public SkylarkType getArg2Type() {
+      return arg2Type;
+    }
+
     @Override public String toString() {
-      return genericType + " of " + argType + "s";
+      if (arg2Type == TOP) {
+        return genericType + " of " + argType + "s";
+      } else {
+        return genericType + " of " + argType + ", " + arg2Type + "s";
+      }
     }
 
     private static final Interner<Combination> combinationInterner =
         BlazeInterners.<Combination>newWeakInterner();
 
     public static SkylarkType of(SkylarkType generic, SkylarkType argument) {
+      return of(generic, argument, TOP);
+    }
+
+    public static SkylarkType of(SkylarkType generic, SkylarkType argument1, SkylarkType argument2) {
       // assume all combinations with TOP are the same as the simple type, and canonicalize.
       Preconditions.checkArgument(generic instanceof Simple);
-      if (argument == TOP) {
-        return generic;
+      if (argument2 != TOP) {
+        return combinationInterner.intern(new Combination(generic, argument1, argument2));
+      } else if (argument1 != TOP) {
+        return combinationInterner.intern(new Combination(generic, argument1));
       } else {
-        return combinationInterner.intern(new Combination(generic, argument));
+        return generic;
       }
     }
+
     public static SkylarkType of(Class<?> generic, Class<?> argument) {
       return of(Simple.of(generic), Simple.of(argument));
+    }
+
+    public static SkylarkType of(Class<?> generic, Class<?> argument1, Class<?> argument2) {
+      return of(Simple.of(generic), Simple.of(argument1), Simple.of(argument1));
     }
   }
 
@@ -512,8 +560,16 @@ public abstract class SkylarkType implements Serializable {
   public static SkylarkType of(SkylarkType t1, SkylarkType t2) {
     return Combination.of(t1, t2);
   }
+  public static SkylarkType of(SkylarkType t1, SkylarkType t2, SkylarkType t3) {
+    return Combination.of(t1, t2, t3);
+  }
+
   public static SkylarkType of(Class<?> t1, Class<?> t2) {
     return Combination.of(t1, t2);
+  }
+
+  public static SkylarkType of(Class<?> t1, Class<?> t2, Class<?> t3) {
+    return Combination.of(t1, t2, t3);
   }
 
 
@@ -585,6 +641,10 @@ public abstract class SkylarkType implements Serializable {
     } else {
       return TOP;
     }
+  }
+
+  public static SkylarkType getGenericArg2Type(Object value) {
+    return TOP;
   }
 
   private static boolean isTypeAllowedInSkylark(Object object) {
