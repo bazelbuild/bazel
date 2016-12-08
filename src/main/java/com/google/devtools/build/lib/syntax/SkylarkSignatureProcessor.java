@@ -128,11 +128,11 @@ public class SkylarkSignatureProcessor {
       if (param.generic1() != Object.class) {
         // Enforce the proper parametric type for Skylark list and set objects
         officialType = SkylarkType.of(param.type(), param.generic1());
-        enforcedType = officialType;
       } else {
         officialType = SkylarkType.of(param.type());
-        enforcedType = officialType;
       }
+      enforcedType = officialType;
+
       if (param.callbackEnabled()) {
         officialType = SkylarkType.Union.of(
             officialType, SkylarkType.SkylarkFunctionType.of(name, officialType));
