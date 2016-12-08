@@ -15,13 +15,14 @@
 #include <stdlib.h>
 
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/workspace_layout.h"
 #include "gtest/gtest.h"
 
 namespace blaze {
 
 class StartupOptionsTest : public ::testing::Test {
  protected:
-  StartupOptionsTest() = default;
+  StartupOptionsTest() : workspace_layout_(new WorkspaceLayout()) {}
   ~StartupOptionsTest() = default;
 
   void SetUp() override {
@@ -30,6 +31,8 @@ class StartupOptionsTest : public ::testing::Test {
     // Otherwise, we'll crash here, but this keeps our code simpler.
     old_home_ = getenv("HOME");
     old_test_tmpdir_ = getenv("TEST_TMPDIR");
+
+    ReinitStartupOptions();
   }
 
   void TearDown() override {
@@ -37,30 +40,40 @@ class StartupOptionsTest : public ::testing::Test {
     setenv("TEST_TMPDIR", old_test_tmpdir_.c_str(), 1);
   }
 
+  // Recreates startup_options_ after changes to the environment.
+  void ReinitStartupOptions() {
+    startup_options_.reset(new StartupOptions(workspace_layout_.get()));
+  }
+
+ private:
+  std::unique_ptr<WorkspaceLayout> workspace_layout_;
+
+ protected:
+  std::unique_ptr<StartupOptions> startup_options_;
+
  private:
   std::string old_home_;
   std::string old_test_tmpdir_;
 };
 
 TEST_F(StartupOptionsTest, ProductName) {
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("Bazel", startup_options.product_name);
+  ASSERT_EQ("Bazel", startup_options_->product_name);
 }
 
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   setenv("HOME", "/nonexistent/home", 1);
   setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
+  ReinitStartupOptions();
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/nonexistent/tmpdir", startup_options.output_root);
+  ASSERT_EQ("/nonexistent/tmpdir", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, OutputRootUseHomeDirectory) {
   setenv("HOME", "/nonexistent/home", 1);
   unsetenv("TEST_TMPDIR");
+  ReinitStartupOptions();
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options.output_root);
+  ASSERT_EQ("/nonexistent/home/.cache/bazel", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
@@ -69,34 +82,32 @@ TEST_F(StartupOptionsTest, OutputRootUseBuiltin) {
   // that out is hard.
   setenv("HOME", "", 1);
   unsetenv("TEST_TMPDIR");
+  ReinitStartupOptions();
 
-  blaze::StartupOptions startup_options;
-  ASSERT_EQ("/tmp", startup_options.output_root);
+  ASSERT_EQ("/tmp", startup_options_->output_root);
 }
 
 TEST_F(StartupOptionsTest, IsNullaryTest) {
-  blaze::StartupOptions startup_options;
-  EXPECT_TRUE(startup_options.IsNullary("--master_bazelrc"));
-  EXPECT_TRUE(startup_options.IsNullary("--nomaster_bazelrc"));
-  EXPECT_FALSE(startup_options.IsNullary(""));
-  EXPECT_FALSE(startup_options.IsNullary("--"));
-  EXPECT_FALSE(startup_options.IsNullary("--master_bazelrcascasc"));
+  EXPECT_TRUE(startup_options_->IsNullary("--master_bazelrc"));
+  EXPECT_TRUE(startup_options_->IsNullary("--nomaster_bazelrc"));
+  EXPECT_FALSE(startup_options_->IsNullary(""));
+  EXPECT_FALSE(startup_options_->IsNullary("--"));
+  EXPECT_FALSE(startup_options_->IsNullary("--master_bazelrcascasc"));
   string error_msg = std::string("In argument '--master_bazelrc=foo': option ")
       + std::string("'--master_bazelrc' does not take a value");
-  EXPECT_DEATH(startup_options.IsNullary("--master_bazelrc=foo"),
+  EXPECT_DEATH(startup_options_->IsNullary("--master_bazelrc=foo"),
                error_msg.c_str());
 }
 
 TEST_F(StartupOptionsTest, IsUnaryTest) {
-  blaze::StartupOptions startup_options;
-  EXPECT_FALSE(startup_options.IsUnary(""));
-  EXPECT_FALSE(startup_options.IsUnary("--"));
+  EXPECT_FALSE(startup_options_->IsUnary(""));
+  EXPECT_FALSE(startup_options_->IsUnary("--"));
 
-  EXPECT_TRUE(startup_options.IsUnary("--blazerc=foo"));
-  EXPECT_TRUE(startup_options.IsUnary("--blazerc"));
-  EXPECT_TRUE(startup_options.IsUnary("--blazerc="));
-  EXPECT_TRUE(startup_options.IsUnary("--blazerc"));
-  EXPECT_FALSE(startup_options.IsUnary("--blazercfooblah"));
+  EXPECT_TRUE(startup_options_->IsUnary("--blazerc=foo"));
+  EXPECT_TRUE(startup_options_->IsUnary("--blazerc"));
+  EXPECT_TRUE(startup_options_->IsUnary("--blazerc="));
+  EXPECT_TRUE(startup_options_->IsUnary("--blazerc"));
+  EXPECT_FALSE(startup_options_->IsUnary("--blazercfooblah"));
 }
 
 }  // namespace blaze

@@ -23,6 +23,8 @@
 
 namespace blaze {
 
+class WorkspaceLayout;
+
 // This class holds the parsed startup options for Blaze.
 // These options and their defaults must be kept in sync with those in
 // src/main/java/com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java.
@@ -35,7 +37,7 @@ namespace blaze {
 // names also don't conform to the style guide.
 class StartupOptions {
  public:
-  StartupOptions();
+  explicit StartupOptions(const WorkspaceLayout* workspace_layout);
   virtual ~StartupOptions();
 
   // Parses a single argument, either from the command line or from the .blazerc
@@ -210,7 +212,8 @@ class StartupOptions {
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the
   // capitalized version of the name, as in "Bazel".
-  explicit StartupOptions(const std::string &product_name);
+  explicit StartupOptions(const std::string &product_name,
+                          const WorkspaceLayout* workspace_layout);
 
   // Holds the valid nullary startup options.
   std::vector<std::string> nullary_options;

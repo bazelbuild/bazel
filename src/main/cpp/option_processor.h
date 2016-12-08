@@ -26,6 +26,8 @@
 
 namespace blaze {
 
+class WorkspaceLayout;
+
 struct CommandLine {
   const std::string path_to_binary;
   const std::vector<std::string> startup_args;
@@ -47,7 +49,8 @@ struct CommandLine {
 // to the server.
 class OptionProcessor {
  public:
-  OptionProcessor(std::unique_ptr<StartupOptions> default_startup_options);
+  OptionProcessor(const WorkspaceLayout* workspace_layout,
+                  std::unique_ptr<StartupOptions> default_startup_options);
 
   virtual ~OptionProcessor();
 
@@ -120,7 +123,8 @@ class OptionProcessor {
    public:
     RcFile(const std::string& filename, int index);
     blaze_exit_code::ExitCode Parse(
-        const std::string& workspace, std::vector<RcFile*>* rcfiles,
+        const std::string& workspace, const WorkspaceLayout* workspace_layout,
+        std::vector<RcFile*>* rcfiles,
         std::map<std::string, std::vector<RcOption> >* rcoptions,
         std::string* error);
     const std::string& Filename() const { return filename_; }
@@ -129,7 +133,8 @@ class OptionProcessor {
    private:
     static blaze_exit_code::ExitCode Parse(
         const std::string& workspace, const std::string& filename,
-        const int index, std::vector<RcFile*>* rcfiles,
+        const int index, const WorkspaceLayout* workspace_layout,
+        std::vector<RcFile*>* rcfiles,
         std::map<std::string, std::vector<RcOption> >* rcoptions,
         std::list<std::string>* import_stack, std::string* error);
 
@@ -147,6 +152,7 @@ class OptionProcessor {
   std::string command_;
   std::vector<std::string> command_arguments_;
   bool initialized_;
+  const WorkspaceLayout* workspace_layout_;
   std::unique_ptr<StartupOptions> parsed_startup_options_;
 };
 

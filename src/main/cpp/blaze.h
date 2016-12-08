@@ -15,11 +15,13 @@
 #define BAZEL_SRC_MAIN_CPP_BLAZE_H_
 
 #include "src/main/cpp/option_processor.h"
+#include "src/main/cpp/workspace_layout.h"
 #include "src/main/cpp/util/logging.h"
 
 namespace blaze {
 
-int Main(int argc, const char* argv[], OptionProcessor* option_processor,
+int Main(int argc, const char* argv[], WorkspaceLayout* workspace_layout,
+         OptionProcessor* option_processor,
          std::unique_ptr<blaze_util::LogHandler> log_handler);
 
 }  // namespace blaze

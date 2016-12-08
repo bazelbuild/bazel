@@ -53,13 +53,15 @@ OptionProcessor::RcFile::RcFile(const string& filename, int index)
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     const string& workspace,
+    const WorkspaceLayout* workspace_layout,
     vector<RcFile*>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     string* error) {
   list<string> initial_import_stack;
   initial_import_stack.push_back(filename_);
   return Parse(
-      workspace, filename_, index_, rcfiles, rcoptions, &initial_import_stack,
+      workspace, filename_, index_, workspace_layout,
+      rcfiles, rcoptions, &initial_import_stack,
       error);
 }
 
@@ -67,6 +69,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     const string& workspace,
     const string& filename_ref,
     const int index,
+    const WorkspaceLayout* workspace_layout,
     vector<RcFile*>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     list<string>* import_stack,
@@ -113,9 +116,9 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 
     if (command == "import") {
       if (words.size() != 2
-          || (words[1].compare(0, WorkspaceLayout::WorkspacePrefixLength,
-                               WorkspaceLayout::WorkspacePrefix) == 0
-              && !WorkspaceLayout::WorkspaceRelativizeRcFilePath(
+          || (words[1].compare(0, workspace_layout->WorkspacePrefixLength,
+                               workspace_layout->WorkspacePrefix) == 0
+              && !workspace_layout->WorkspaceRelativizeRcFilePath(
                   workspace, &words[1]))) {
         blaze_util::StringPrintf(error,
             "Invalid import declaration in .blazerc file '%s': '%s'",
@@ -138,7 +141,7 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
       import_stack->push_back(words[1]);
       blaze_exit_code::ExitCode parse_exit_code =
         RcFile::Parse(workspace, rcfiles->back()->Filename(),
-                      rcfiles->back()->Index(),
+                      rcfiles->back()->Index(), workspace_layout,
                       rcfiles, rcoptions, import_stack, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
@@ -164,9 +167,11 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
 }
 
 OptionProcessor::OptionProcessor(
-    std::unique_ptr<StartupOptions> default_startup_options) :
-    initialized_(false),
-    parsed_startup_options_(std::move(default_startup_options)) {
+    const WorkspaceLayout* workspace_layout,
+    std::unique_ptr<StartupOptions> default_startup_options)
+    : initialized_(false),
+      workspace_layout_(workspace_layout),
+      parsed_startup_options_(std::move(default_startup_options)) {
 }
 
 std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
@@ -319,14 +324,14 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   // Parse depot and user blazerc files.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
-    WorkspaceLayout::FindCandidateBlazercPaths(
+    workspace_layout_->FindCandidateBlazercPaths(
         workspace, cwd, cmdLine->path_to_binary, cmdLine->startup_args,
         &candidate_blazerc_paths);
   }
 
   string user_blazerc_path;
   blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, WorkspaceLayout::RcBasename(), workspace, &user_blazerc_path,
+      blazerc, workspace_layout_->RcBasename(), workspace, &user_blazerc_path,
       error);
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;
@@ -343,7 +348,8 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
       blazercs_.push_back(
           new RcFile(candidate_blazerc_path, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back()->Parse(workspace, &blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(workspace, workspace_layout_, &blazercs_,
+                                  &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }

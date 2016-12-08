@@ -34,9 +34,11 @@ namespace blaze {
 using std::string;
 using std::vector;
 
-StartupOptions::StartupOptions() : StartupOptions("Bazel") {}
+StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
+    : StartupOptions("Bazel", workspace_layout) {}
 
-StartupOptions::StartupOptions(const string &product_name)
+StartupOptions::StartupOptions(const string &product_name,
+                               const WorkspaceLayout* workspace_layout)
     : product_name(product_name),
       deep_execroot(true),
       block_for_lock(true),
@@ -58,7 +60,7 @@ StartupOptions::StartupOptions(const string &product_name)
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
   } else {
-    output_root = WorkspaceLayout::GetOutputRoot();
+    output_root = workspace_layout->GetOutputRoot();
   }
 
   const string product_name_lower = GetLowercaseProductName();

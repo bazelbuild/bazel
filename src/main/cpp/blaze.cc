@@ -559,8 +559,8 @@ static string GetArgumentString(const vector<string>& argument_array) {
 }
 
 // Do a chdir into the workspace, and die if it fails.
-static void GoToWorkspace() {
-  if (WorkspaceLayout::InWorkspace(globals->workspace) &&
+static void GoToWorkspace(const WorkspaceLayout* workspace_layout) {
+  if (workspace_layout->InWorkspace(globals->workspace) &&
       !blaze_util::ChangeDirectory(globals->workspace)) {
     pdie(blaze_exit_code::INTERNAL_ERROR,
          "changing directory into %s failed", globals->workspace.c_str());
@@ -598,7 +598,8 @@ static void VerifyJavaVersionAndSetJvm() {
 
 // Starts the Blaze server.  Returns a readable fd connected to the server.
 // This is currently used only to detect liveness.
-static void StartServer(BlazeServerStartup** server_startup) {
+static void StartServer(const WorkspaceLayout* workspace_layout,
+                        BlazeServerStartup** server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray();
   string argument_string = GetArgumentString(jvm_args_vector);
   string server_dir = globals->options->output_base + "/server";
@@ -618,7 +619,7 @@ static void StartServer(BlazeServerStartup** server_startup) {
                                         globals->extracted_binaries[0]);
   // Go to the workspace before we daemonize, so
   // we can still print errors to the terminal.
-  GoToWorkspace();
+  GoToWorkspace(workspace_layout);
 
   ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file, server_dir,
                 server_startup);
@@ -629,7 +630,8 @@ static void StartServer(BlazeServerStartup** server_startup) {
 //
 // This function passes the commands array to the blaze process.
 // This array should start with a command ("build", "info", etc.).
-static void StartStandalone(BlazeServer* server) {
+static void StartStandalone(const WorkspaceLayout* workspace_layout,
+                            BlazeServer* server) {
   if (server->Connected()) {
     server->KillRunningServer();
   }
@@ -666,7 +668,7 @@ static void StartStandalone(BlazeServer* server) {
                          command_arguments.begin(),
                          command_arguments.end());
 
-  GoToWorkspace();
+  GoToWorkspace(workspace_layout);
 
   string exe = globals->options->GetExe(globals->jvm_path,
                                        globals->extracted_binaries[0]);
@@ -709,7 +711,8 @@ static int GetServerPid(const string &server_dir) {
 }
 
 // Starts up a new server and connects to it. Exits if it didn't work not.
-static void StartServerAndConnect(BlazeServer *server) {
+static void StartServerAndConnect(const WorkspaceLayout* workspace_layout,
+                                  BlazeServer *server) {
   string server_dir = globals->options->output_base + "/server";
 
   // The server dir has the socket, so we don't allow access by other
@@ -747,7 +750,7 @@ static void StartServerAndConnect(BlazeServer *server) {
                 globals->options->io_nice_level);
 
   BlazeServerStartup* server_startup;
-  StartServer(&server_startup);
+  StartServer(workspace_layout, &server_startup);
 
   // Give the server two minutes to start up. That's enough to connect with a
   // debugger.
@@ -1076,10 +1079,11 @@ static void CancelServer() {
 
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
-static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
+static ATTRIBUTE_NORETURN void SendServerRequest(
+    const WorkspaceLayout* workspace_layout, BlazeServer* server) {
   while (true) {
     if (!server->Connected()) {
-      StartServerAndConnect(server);
+      StartServerAndConnect(workspace_layout, server);
     }
 
     // Check for the case when the workspace directory deleted and then gets
@@ -1137,23 +1141,24 @@ static void ParseOptions(int argc, const char *argv[]) {
 }
 
 // Compute the globals globals->cwd and globals->workspace.
-static void ComputeWorkspace() {
+static void ComputeWorkspace(const WorkspaceLayout* workspace_layout) {
   globals->cwd = blaze_util::MakeCanonical(blaze_util::GetCwd().c_str());
   if (globals->cwd.empty()) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "blaze_util::MakeCanonical('%s') failed",
          blaze_util::GetCwd().c_str());
   }
-  globals->workspace = WorkspaceLayout::GetWorkspace(globals->cwd);
+  globals->workspace = workspace_layout->GetWorkspace(globals->cwd);
 }
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
 // Sets globals->options->install_base, globals->options->output_base,
 // globals->lockfile, globals->jvm_log_file.
-static void ComputeBaseDirectories(const string &self_path) {
+static void ComputeBaseDirectories(const WorkspaceLayout* workspace_layout,
+                                   const string &self_path) {
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
-  if (!WorkspaceLayout::InWorkspace(globals->workspace)) {
+  if (!workspace_layout->InWorkspace(globals->workspace)) {
     globals->options->batch = true;
   }
 
@@ -1270,15 +1275,17 @@ static string CheckAndGetBinaryPath(const string& argv0) {
 // code to a file. In case the server becomes unresonsive or terminates
 // unexpectedly (in a way that isn't already handled), we can observe the file,
 // if it exists. (If it doesn't, then we know something went horribly wrong.)
-int Main(int argc, const char *argv[], OptionProcessor *option_processor,
+int Main(int argc, const char *argv[], WorkspaceLayout* workspace_layout,
+         OptionProcessor *option_processor,
          std::unique_ptr<blaze_util::LogHandler> log_handler) {
   // Logging must be set first to assure no log statements are missed.
   blaze_util::SetLogHandler(std::move(log_handler));
+
   globals = new GlobalVariables(option_processor);
   blaze::SetupStdStreams();
 
   // Must be done before command line parsing.
-  ComputeWorkspace();
+  ComputeWorkspace(workspace_layout);
   globals->binary_path = CheckAndGetBinaryPath(argv[0]);
   ParseOptions(argc, argv);
 
@@ -1288,7 +1295,7 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor,
   blaze::CreateSecureOutputRoot(globals->options->output_user_root);
 
   const string self_path = GetSelfPath();
-  ComputeBaseDirectories(self_path);
+  ComputeBaseDirectories(workspace_layout, self_path);
 
   blaze_server = static_cast<BlazeServer *>(new GrpcBlazeServer(
       globals->options->connect_timeout_secs));
@@ -1307,9 +1314,9 @@ int Main(int argc, const char *argv[], OptionProcessor *option_processor,
   if (globals->options->batch) {
     SetScheduling(globals->options->batch_cpu_scheduling,
                   globals->options->io_nice_level);
-    StartStandalone(blaze_server);
+    StartStandalone(workspace_layout, blaze_server);
   } else {
-    SendServerRequest(blaze_server);
+    SendServerRequest(workspace_layout, blaze_server);
   }
   return 0;
 }

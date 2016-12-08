@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef BAZEL_SRC_MAIN_CPP_WORKSPACE_LAYOUT_H_
 #define BAZEL_SRC_MAIN_CPP_WORKSPACE_LAYOUT_H_
 
@@ -20,19 +21,12 @@
 namespace blaze {
 
 // Provides methods to compute paths related to the workspace.
-//
-// All methods in this class ought to be static because we reference them as
-// if they were global, and we do so from very early startup stages.
-//
-// The reason this is a class and not a namespace is because of historical
-// reasons, as this was split out from the BlazeStartupOptions class.
-// TODO(bazel-team): Reconsider dropping the class in favor of free functions.
 class WorkspaceLayout {
  public:
-  WorkspaceLayout() = delete;
+  virtual ~WorkspaceLayout() = default;
 
   // Returns the directory to use for storing outputs.
-  static std::string GetOutputRoot();
+  virtual std::string GetOutputRoot() const;
 
   // Given the working directory, returns the nearest enclosing directory with a
   // WORKSPACE file in it.  If there is no such enclosing directory, returns "".
@@ -44,32 +38,33 @@ class WorkspaceLayout {
   //
   // The returned path is relative or absolute depending on whether cwd was
   // relative or absolute.
-  static std::string GetWorkspace(const std::string& cwd);
+  virtual std::string GetWorkspace(const std::string& cwd) const;
 
   // Returns if workspace is a valid build workspace.
-  static bool InWorkspace(const std::string& workspace);
+  virtual bool InWorkspace(const std::string& workspace) const;
 
   // Returns the basename for the rc file.
-  static std::string RcBasename();
+  virtual std::string RcBasename() const;
 
   // Returns the candidate pathnames for the RC files.
-  static void FindCandidateBlazercPaths(
+  virtual void FindCandidateBlazercPaths(
       const std::string& workspace,
       const std::string& cwd,
       const std::string& path_to_binary,
       const std::vector<std::string>& startup_args,
-      std::vector<std::string>* result);
+      std::vector<std::string>* result) const;
 
   // Returns the candidate pathnames for the RC file in the workspace,
   // the first readable one of which will be chosen.
   // It is ok if no usable candidate exists.
-  static void WorkspaceRcFileSearchPath(std::vector<std::string>* candidates);
+  virtual void WorkspaceRcFileSearchPath(std::vector<std::string>* candidates)
+      const;
 
   // Turn a %workspace%-relative import into its true name in the filesystem.
   // path_fragment is modified in place.
   // Unlike WorkspaceRcFileSearchPath, it is an error if no import file exists.
-  static bool WorkspaceRelativizeRcFilePath(const std::string& workspace,
-                                            std::string* path_fragment);
+  virtual bool WorkspaceRelativizeRcFilePath(const std::string& workspace,
+                                             std::string* path_fragment) const;
 
   static constexpr const char WorkspacePrefix[] = "%workspace%/";
   static const int WorkspacePrefixLength = sizeof WorkspacePrefix - 1;

@@ -17,11 +17,15 @@
 #include "src/main/cpp/blaze.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_options.h"
+#include "src/main/cpp/workspace_layout.h"
 
 int main(int argc, const char *argv[]) {
+  std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
+      new blaze::WorkspaceLayout());
   std::unique_ptr<blaze::StartupOptions> startup_options(
-      new blaze::StartupOptions());
-  return blaze::Main(argc, argv,
-                     new blaze::OptionProcessor(std::move(startup_options)),
+      new blaze::StartupOptions(workspace_layout.get()));
+  return blaze::Main(argc, argv, workspace_layout.get(),
+                     new blaze::OptionProcessor(workspace_layout.get(),
+                                                std::move(startup_options)),
                      nullptr /* TODO(b/32939567): Enable Bazel logging. */);
 }
