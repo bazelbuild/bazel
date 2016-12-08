@@ -1040,7 +1040,6 @@ public final class SkylarkAttr {
                               flags,
                               MANDATORY_ARG,
                               mandatory,
-                              NON_EMPTY_ARG,
                               ALLOW_EMPTY_ARG,
                               allowEmpty,
                               CONFIGURATION_ARG,
