@@ -15,9 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.*;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -134,7 +132,7 @@ public class TestAspects {
     Iterable<String> attributeNames = ruleContext.attributes().getAttributeNames();
     for (String attributeName : attributeNames) {
       Type<?> attributeType = ruleContext.attributes().getAttributeType(attributeName);
-      if (!LABEL.equals(attributeType) && !LABEL_LIST.equals(attributeType)) {
+      if (!LABEL.equals(attributeType) && !LABEL_LIST.equals(attributeType) && !LABEL_DICT_UNARY.equals(attributeType)) {
         continue;
       }
       Iterable<AspectInfo> prerequisites = ruleContext

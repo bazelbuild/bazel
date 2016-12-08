@@ -1065,7 +1065,8 @@ public final class RuleContext extends TargetContext
         + " attribute " + attributeName + " is not defined");
     }
     if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+        || attributeDefinition.getType() == BuildType.LABEL_LIST
+            || attributeDefinition.getType() == BuildType.LABEL_DICT_UNARY)) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -1107,7 +1108,8 @@ public final class RuleContext extends TargetContext
         + " attribute " + attributeName + " is not defined");
     }
     if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+        || attributeDefinition.getType() == BuildType.LABEL_LIST
+    || attributeDefinition.getType() == BuildType.LABEL_DICT_UNARY)) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }

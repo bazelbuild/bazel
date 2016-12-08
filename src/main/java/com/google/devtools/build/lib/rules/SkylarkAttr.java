@@ -236,7 +236,7 @@ public final class SkylarkAttr {
       Object fileTypesObj = arguments.get(ALLOW_SINGLE_FILE_ARG);
       setAllowedFileTypes(ALLOW_SINGLE_FILE_ARG, fileTypesObj, ast, builder);
       builder.setPropertyFlag("SINGLE_ARTIFACT");
-    } else if (type.equals(BuildType.LABEL) || type.equals(BuildType.LABEL_LIST)) {
+    } else if (type.equals(BuildType.LABEL) || type.equals(BuildType.LABEL_LIST) || type.equals(BuildType.LABEL_DICT_UNARY)) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 
