@@ -215,6 +215,14 @@ public final class SkylarkDict<K, V>
     return (SkylarkDict<KeyType, ValueType>) this;
   }
 
+  /**
+   * Creates immutable SkylarkDict with given elements.
+   */
+  public static <K, V> SkylarkDict<K, V> createImmutable(Map<? extends K, ? extends V> contents) {
+    // Without env, this implicitly gets to be immutable.
+    return SkylarkDict.copyOf(null, contents);
+  }
+
   @Override
   public final Object getIndex(Object key, Location loc) throws EvalException {
     if (!this.containsKey(key)) {
