@@ -276,7 +276,7 @@ public final class SkylarkRuleContext {
     for (Attribute a : attributes) {
       Type<?> type = a.getType();
       Object val = attributeValueExtractor.apply(a);
-      if (type != BuildType.LABEL && type != BuildType.LABEL_LIST) {
+      if (type != BuildType.LABEL && type != BuildType.LABEL_LIST && type != BuildType.LABEL_DICT_UNARY) {
         attrBuilder.put(a.getPublicName(), val == null ? Runtime.NONE
             // Attribute values should be type safe
             : SkylarkType.convertToSkylark(val, null));
