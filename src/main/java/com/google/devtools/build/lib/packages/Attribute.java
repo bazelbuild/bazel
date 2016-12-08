@@ -827,7 +827,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedFileTypes(FileTypeSet allowedFileTypes) {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedFileTypesForLabels = Preconditions.checkNotNull(allowedFileTypes);
