@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
+import java.util.Map.Entry;
 
 /**
  * Options related to worker processes.
@@ -71,6 +74,18 @@ public class WorkerOptions extends OptionsBase {
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
   )
   public boolean workerVerbose;
+
+  @Option(
+      name = "worker_extra_flag",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "",
+      category = "strategy",
+      help =
+          "Extra command-flags that will be passed to worker processes in addition to "
+              + "--persistent_worker, keyed by mnemonic (e.g. --worker_extra_flag=Javac=--debug.",
+      allowMultiple = true
+  )
+  public List<Entry<String, String>> workerExtraFlags;
 
   @Option(
     name = "worker_sandboxing",

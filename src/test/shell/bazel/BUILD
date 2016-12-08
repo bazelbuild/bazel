@@ -90,6 +90,13 @@ sh_test(
 )
 
 sh_test(
+    name = "persistent_test_runner_test",
+    size = "large",
+    srcs = ["persistent_test_runner_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "bazel_rules_test",
     size = "large",
     srcs = ["bazel_rules_test.sh"],

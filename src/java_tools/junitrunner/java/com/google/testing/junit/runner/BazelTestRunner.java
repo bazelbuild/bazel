@@ -14,12 +14,16 @@
 
 package com.google.testing.junit.runner;
 
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
+import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.testing.junit.runner.internal.StackTraces;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.Config;
 import com.google.testing.junit.runner.junit4.JUnit4InstanceModules.SuiteClass;
 import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import com.google.testing.junit.runner.model.AntXmlResultWriter;
 import com.google.testing.junit.runner.model.XmlResultWriter;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -67,10 +71,14 @@ public class BazelTestRunner {
    * <li>All tests pass: exit code of 0</li>
    * </ul>
    */
-  public static void main(String args[]) {
+  public static void main(String[] args) {
     PrintStream stderr = System.err;
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
+
+    if (args.length >= 1 && args[args.length - 1].equals("--persistent_test_runner")) {
+      System.exit(runPersistentTestRunner(suiteClassName));
+    }
 
     if (!checkTestSuiteProperty(suiteClassName)) {
       System.exit(2);
@@ -131,6 +139,7 @@ public class BazelTestRunner {
       }
     }
 
+    // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
         JUnit4Bazel.builder()
             .suiteClass(new SuiteClass(suite))
@@ -138,6 +147,48 @@ public class BazelTestRunner {
             .build()
             .runner();
     return runner.run().wasSuccessful() ? 0 : 1;
+  }
+
+  private static int runPersistentTestRunner(String suiteClassName) {
+    PrintStream originalStdOut = System.out;
+    PrintStream originalStdErr = System.err;
+
+    while (true) {
+      try {
+        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+
+        if (request == null) {
+          break;
+        }
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PrintStream ps = new PrintStream(baos, true);
+        System.setOut(ps);
+        System.setErr(ps);
+
+        String[] arguments = request.getArgumentsList().toArray(new String[0]);
+        int exitCode = -1;
+        try {
+          exitCode = runTestsInSuite(suiteClassName, arguments);
+        } finally {
+          System.setOut(originalStdOut);
+          System.setErr(originalStdErr);
+        }
+
+        WorkResponse response =
+            WorkResponse
+                .newBuilder()
+                .setOutput(baos.toString())
+                .setExitCode(exitCode)
+                .build();
+        response.writeDelimitedTo(System.out);
+        System.out.flush();
+
+      } catch (IOException e) {
+        e.printStackTrace();
+        return 1;
+      }
+    }
+    return 0;
   }
 
   private static Class<?> getTestClass(String name) {

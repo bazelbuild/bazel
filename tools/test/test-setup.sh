@@ -17,8 +17,15 @@
 # shift stderr to stdout.
 exec 2>&1
 
-# Executing the test log will page it.
-echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+no_echo=
+if [[ "$1" = "--no_echo" ]]; then
+  # Don't print anything to stdout in this special case.
+  # Currently needed for persistent test runner.
+  no_echo="true"
+  shift
+else
+  echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
+fi
 
 # Bazel sets some environment vars to relative paths, but it's easier to deal
 # with absolute paths once we're actually running the test, so let's convert
@@ -84,7 +91,9 @@ if [ -z "$COVERAGE_DIR" ]; then
 fi
 
 # This header marks where --test_output=streamed will start being printed.
-echo "-----------------------------------------------------------------------------"
+if [[ -z "$no_echo" ]]; then
+  echo "-----------------------------------------------------------------------------"
+fi
 
 # The path of this command-line is usually relative to the exec-root,
 # but when using --run_under it can be a "/bin/bash -c" command-line.

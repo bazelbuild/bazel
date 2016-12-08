@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
@@ -28,14 +30,21 @@ final class WorkerActionContextProvider extends ActionContextProvider {
 
   public WorkerActionContextProvider(
       CommandEnvironment env, BuildRequest buildRequest, WorkerPool workers) {
-    this.strategies =
-        ImmutableList.<ActionContext>of(
-            new WorkerSpawnStrategy(
-                env.getDirectories(),
-                workers,
-                buildRequest.getOptions(ExecutionOptions.class).verboseFailures,
-                buildRequest.getOptions(WorkerOptions.class).workerMaxRetries,
-                buildRequest.getOptions(WorkerOptions.class).workerVerbose));
+    int maxRetries = buildRequest.getOptions(WorkerOptions.class).workerMaxRetries;
+    ImmutableMultimap.Builder<String, String> extraFlags = ImmutableMultimap.builder();
+    extraFlags.putAll(buildRequest.getOptions(WorkerOptions.class).workerExtraFlags);
+
+    WorkerSpawnStrategy workerSpawnStrategy =
+        new WorkerSpawnStrategy(
+            env.getDirectories(),
+            workers,
+            buildRequest.getOptions(ExecutionOptions.class).verboseFailures,
+            maxRetries,
+            buildRequest.getOptions(WorkerOptions.class).workerVerbose,
+            extraFlags.build());
+    TestActionContext workerTestStrategy =
+        new WorkerTestStrategy(env, buildRequest, workers, maxRetries, extraFlags.build());
+    this.strategies = ImmutableList.of(workerSpawnStrategy, workerTestStrategy);
   }
 
   @Override

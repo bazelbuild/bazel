@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.worker;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
-import com.google.common.hash.Hasher;
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -173,6 +173,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final int maxRetries;
+  private final Multimap<String, String> extraFlags;
   private final boolean workerVerbose;
 
   public WorkerSpawnStrategy(
@@ -180,12 +181,15 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       WorkerPool workers,
       boolean verboseFailures,
       int maxRetries,
-      boolean workerVerbose) {
+      boolean workerVerbose,
+      Multimap<String, String> extraFlags) {
+    Preconditions.checkNotNull(workers);
     this.workers = Preconditions.checkNotNull(workers);
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.maxRetries = maxRetries;
     this.workerVerbose = workerVerbose;
+    this.extraFlags = extraFlags;
   }
 
   @Override
@@ -243,16 +247,21 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
-    ImmutableList<String> args = ImmutableList.<String>builder()
-        .addAll(spawn.getArguments().subList(0, spawn.getArguments().size() - 1))
-        .add("--persistent_worker")
-        .build();
+    ImmutableList<String> args =
+        ImmutableList.<String>builder()
+            .addAll(spawn.getArguments().subList(0, spawn.getArguments().size() - 1))
+            .add("--persistent_worker")
+            .addAll(
+                MoreObjects.firstNonNull(
+                    extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
+            .build();
     ImmutableMap<String, String> env = spawn.getEnvironment();
 
     try {
       ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
 
-      HashCode workerFilesHash = combineActionInputHashes(spawn.getToolFiles(), inputFileCache);
+      HashCode workerFilesHash = WorkerFilesHash.getWorkerFilesHash(
+          spawn.getToolFiles(), actionExecutionContext);
       Map<PathFragment, Path> inputFiles =
           new SpawnHelpers(execRoot).getMounts(spawn, actionExecutionContext);
       Set<PathFragment> outputFiles = SandboxHelpers.getOutputFiles(spawn);
@@ -327,17 +336,6 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
     } else {
       requestBuilder.addArguments(arg);
     }
-  }
-
-  private HashCode combineActionInputHashes(
-      Iterable<? extends ActionInput> toolFiles, ActionInputFileCache actionInputFileCache)
-      throws IOException {
-    Hasher hasher = Hashing.sha256().newHasher();
-    for (ActionInput tool : toolFiles) {
-      hasher.putString(tool.getExecPathString(), Charset.defaultCharset());
-      hasher.putBytes(actionInputFileCache.getDigest(tool));
-    }
-    return hasher.hash();
   }
 
   private WorkResponse execInWorker(
