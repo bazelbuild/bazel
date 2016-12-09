@@ -88,16 +88,35 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name='dep2', srcs=['dep2.proto'])");
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:nodeps")).getRemainingArguments())
-        .contains("--direct_dependencies=");
+        .contains("--direct_dependencies=x/nodeps.proto");
 
     assertThat(
-            getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
-        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto");
+        getGeneratingSpawnAction(getDescriptorOutput("//x:withdeps")).getRemainingArguments())
+        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto:x/withdeps.proto");
 
     assertThat(
-            getGeneratingSpawnAction(getDescriptorOutput("//x:depends_on_alias"))
-                .getRemainingArguments())
-        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto");
+        getGeneratingSpawnAction(getDescriptorOutput("//x:depends_on_alias"))
+            .getRemainingArguments())
+        .contains("--direct_dependencies=x/dep1.proto:x/dep2.proto:x/depends_on_alias.proto");
+  }
+
+  /**
+   * When building a proto_library with multiple srcs (say foo.proto and bar.proto), we should allow
+   * foo.proto to import bar.proto without tripping strict-deps checking. This means that
+   * --direct_dependencies should list the srcs.
+   */
+  @Test
+  public void testDescriptorSetOutput_strict_deps_multipleSrcs() throws Exception {
+    useConfiguration("--strict_proto_deps=error");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "x", "foo", "proto_library(name='foo', srcs=['foo.proto', 'bar.proto'])");
+    Artifact file =
+        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
+    assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
+
+    assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
+        .contains("--direct_dependencies=x/foo.proto:x/bar.proto");
   }
 
   @Test
@@ -114,7 +133,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
     assertThat(getGeneratingSpawnAction(getDescriptorOutput("//x:alias")).getRemainingArguments())
         .containsAllOf(
-            "--direct_dependencies=x/subdep1.proto:x/subdep2.proto",
+            "--direct_dependencies=x/subdep1.proto:x/dep1.proto:x/subdep2.proto:x/dep2.proto",
             "x/dep1.proto",
             "x/dep2.proto");
   }
