@@ -85,15 +85,18 @@ import java.util.List;
 public class RunCommand implements BlazeCommand  {
 
   public static class RunOptions extends OptionsBase {
-    @Option(name = "script_path",
-        category = "run",
-        defaultValue = "null",
-        converter = OptionsUtils.PathFragmentConverter.class,
-        help = "If set, write a shell script to the given file which invokes the "
-            + "target. If this option is set, the target is not run from %{product}. "
-            + "Use '%{product} run --script_path=foo //foo && foo' to invoke target '//foo' "
-            + "This differs from '%{product} run //foo' in that the %{product} lock is released "
-            + "and the executable is connected to the terminal's stdin.")
+    @Option(
+      name = "script_path",
+      category = "run",
+      defaultValue = "null",
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "If set, write a shell script to the given file which invokes the "
+              + "target. If this option is set, the target is not run from %{product}. "
+              + "Use '%{product} run --script_path=foo //foo && ./foo' to invoke target '//foo' "
+              + "This differs from '%{product} run //foo' in that the %{product} lock is released "
+              + "and the executable is connected to the terminal's stdin."
+    )
     public PathFragment scriptPath;
   }
 
