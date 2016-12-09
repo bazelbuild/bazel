@@ -953,6 +953,85 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
+    public static final class LibraryToLinkValue implements VariableValue {
+
+      public static final String NAMES_FIELD_NAME = "names";
+      public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
+      public static final String IS_LIB_GROUP_FIELD_NAME = "is_lib_group";
+
+      private final ImmutableList<String> names;
+      private final boolean isWholeArchive;
+      private final boolean isLibGroup;
+
+      public LibraryToLinkValue(String name, boolean isWholeArchive) {
+        this(ImmutableList.of(name), isWholeArchive, false);
+      }
+
+      public LibraryToLinkValue(
+          ImmutableList<String> names, boolean isWholeArchive, boolean isLibGroup) {
+        this.names = names;
+        this.isWholeArchive = isWholeArchive;
+        this.isLibGroup = isLibGroup;
+      }
+
+      @Override
+      public Iterable<? extends VariableValue> getSequenceValue(String variableName) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s': expected sequence, "
+                    + "found structure (LibraryToLink)",
+                variableName));
+      }
+
+      @Override
+      public boolean isSequence() {
+        return false;
+      }
+
+      @Override
+      public VariableValue getFieldValue(String variableName, String field) {
+        Preconditions.checkNotNull(field);
+        if (NAMES_FIELD_NAME.equals(field)) {
+          return new StringSequence(names);
+        } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
+          return new IntegerValue(isWholeArchive ? 1 : 0);
+        } else if (IS_LIB_GROUP_FIELD_NAME.equals(field)) {
+          return new IntegerValue(isLibGroup ? 1 : 0);
+        } else if ("whole_archive_presence".equals(field)) {
+          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
+          return isWholeArchive ? new IntegerValue(0) : null;
+        } else if ("no_whole_archive_presence".equals(field)) {
+          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
+          return !isWholeArchive ? new IntegerValue(0) : null;
+        } else if ("lib_group_presence".equals(field)) {
+          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
+          return names.size() > 1 ? new IntegerValue(0) : null;
+        } else {
+          return null;
+        }
+      }
+
+      @Override
+      public String getStringValue(String variableName) {
+        throw new ExpansionException(
+            String.format(
+                "Invalid toolchain configuration: Cannot expand variable '%s': expected string, "
+                    + "found structure (LibraryToLink)",
+                variableName));
+      }
+
+      @Override
+      public boolean isTruthy() {
+        return true;
+      }
+    }
+
+    /**
+     * A sequence of structure values. Exists as a memory optimization - a typical build can contain
+     * millions of feature values, so getting rid of the overhead of {@code StructureValue} objects
+     * significantly reduces memory overhead.
+     */
+    @Immutable
     private static final class StructureSequence implements VariableValue {
 
       private final ImmutableList<ImmutableMap<String, VariableValue>> values;

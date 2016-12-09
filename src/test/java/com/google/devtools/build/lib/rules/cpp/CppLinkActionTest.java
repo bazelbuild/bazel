@@ -195,7 +195,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
 
     ActionTester.runTest(
-        128,
+        64,
         new ActionCombinationFactory() {
 
           @Override
@@ -219,9 +219,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setLinkStaticness(LinkStaticness.DYNAMIC);
             builder.setNativeDeps((i & 4) == 0);
             builder.setUseTestOnlyFlags((i & 8) == 0);
-            builder.setWholeArchive((i & 16) == 0);
-            builder.setFake((i & 32) == 0);
-            builder.setRuntimeSolibDir((i & 64) == 0 ? null : new PathFragment("so1"));
+            builder.setFake((i & 16) == 0);
+            builder.setRuntimeSolibDir((i & 32) == 0 ? null : new PathFragment("so1"));
             builder.setFeatureConfiguration(featureConfiguration);
 
             return builder.build();

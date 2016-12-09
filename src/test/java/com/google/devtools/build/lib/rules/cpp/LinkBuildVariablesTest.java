@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import java.util.List;
 import org.junit.Test;
@@ -118,51 +120,27 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testWholeArchiveBuildVariables() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin.so',",
-        "   srcs = ['a.cc'],",
-        "   linkopts = ['-shared'],",
-        "   linkstatic = 1",
-        ")");
+  public void testLibrariesToLinkAreExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
     scratch.file("x/a.cc");
 
-    ConfiguredTarget target = getConfiguredTarget("//x:bin.so");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> variableValue =
-        getVariableValue(variables, CppLinkActionBuilder.GLOBAL_WHOLE_ARCHIVE_VARIABLE);
-    assertThat(variableValue).contains("");
-  }
-
-  /**
-   * Tests that "--whole_archive" is not propagated twice through whole archive inputs and global
-   * whole archive.
-   */
-  @Test
-  public void testGlobalWholeArchiveOrWholeArchiveBuildVariables() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "   name = 'bin',",
-        "   srcs = ['a.cc', 'b.lo'],",
-        "   linkopts = ['-shared'],",
-        "   linkstatic = 1,",
-        ")");
-    scratch.file("x/a.cc");
-    scratch.file("x/b.lo");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bin");
-    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
-    List<String> globalWholeArchiveVariableValue =
-        getVariableValue(variables, CppLinkActionBuilder.GLOBAL_WHOLE_ARCHIVE_VARIABLE);
-    List<String> wholeArchiveInputVariableValue =
-        getVariableValue(
-            variables, CppLinkActionBuilder.WHOLE_ARCHIVE_LINKER_INPUT_PARAMS_VARIABLE);
-    assertThat(globalWholeArchiveVariableValue).contains("");
-    assertThat(wholeArchiveInputVariableValue).isEmpty();
-    ;
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
+    VariableValue librariesToLinkSequence = variables.getVariable("libraries_to_link");
+    assertThat(librariesToLinkSequence).isNotNull();
+    Iterable<? extends VariableValue> librariesToLink =
+        librariesToLinkSequence.getSequenceValue("libraries_to_link");
+    assertThat(librariesToLink).hasSize(1);
+    VariableValue nameValue = librariesToLink.iterator().next().getFieldValue(
+        "librariesToLink", LibraryToLinkValue.NAMES_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    Iterable<? extends VariableValue> names = nameValue.getSequenceValue("names");
+    assertThat(names).isNotNull();
+    assertThat(names).hasSize(1);
+    assertThat(names.iterator().next().getStringValue("names")).matches(".*a\\..*o");
   }
 
   @Test

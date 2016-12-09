@@ -302,7 +302,6 @@ toolchain {
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -315,7 +314,6 @@ toolchain {
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
      implies: 'has_configured_linker_path'
   }
 
@@ -326,7 +324,6 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -336,7 +333,6 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
@@ -348,7 +344,6 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -358,7 +353,6 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
-     implies: 'global_whole_archive'
   }
 
   action_config {
@@ -408,60 +402,42 @@ toolchain {
   }
 
   feature {
-     name: 'input_param_flags'
-     flag_set {
-         expand_if_all_available: 'libopts'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         action: 'c++-link-static-library'
-         action: 'c++-link-alwayslink-static-library'
-         action: 'c++-link-pic-static-library'
-         action: 'c++-link-alwayslink-pic-static-library'
-         flag_group {
-             flag: '%{libopts}'
-         }
-     }
-     flag_set {
-         expand_if_all_available: 'whole_archive_linker_params'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         action: 'c++-link-static-library'
-         action: 'c++-link-alwayslink-static-library'
-         action: 'c++-link-pic-static-library'
-         action: 'c++-link-alwayslink-pic-static-library'
-         flag_group {
-            flag: '/WHOLEARCHIVE:%{whole_archive_linker_params}'
-         }
-     }
-     flag_set {
-         expand_if_all_available: 'linker_input_params'
-         action: 'c++-link-executable'
-         action: 'c++-link-dynamic-library'
-         action: 'c++-link-static-library'
-         action: 'c++-link-alwayslink-static-library'
-         action: 'c++-link-pic-static-library'
-         action: 'c++-link-alwayslink-pic-static-library'
-         flag_group {
-             flag: '%{linker_input_params}'
-         }
-     }
+    name: 'input_param_flags'
+    flag_set {
+      expand_if_all_available: 'libopts'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+          flag: '%{libopts}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'libraries_to_link'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+        iterate_over: 'libraries_to_link'
+        flag_group {
+          expand_if_true: 'libraries_to_link.is_whole_archive'
+          iterate_over: 'libraries_to_link.names'
+          flag: '/WHOLEARCHIVE:%{libraries_to_link.names}'
+        }
+        flag_group {
+          expand_if_false: 'libraries_to_link.is_whole_archive'
+          iterate_over: 'libraries_to_link.names'
+          flag: '%{libraries_to_link.names}'
+        }
+      }
+    }
   }
-
-  feature {
-   name: 'global_whole_archive'
-   flag_set {
-       expand_if_all_available: 'global_whole_archive'
-       action: 'c++-link-executable'
-       action: 'c++-link-dynamic-library'
-       action: 'c++-link-static-library'
-       action: 'c++-link-alwayslink-static-library'
-       action: 'c++-link-pic-static-library'
-       action: 'c++-link-alwayslink-pic-static-library'
-       flag_group {
-           flag: '/WHOLEARCHIVE'
-       }
-   }
-}
 
   compilation_mode_flags {
     mode: DBG

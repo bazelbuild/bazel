@@ -73,7 +73,6 @@ public final class LinkCommandLine extends CommandLine {
   @Nullable private final PathFragment runtimeSolibDir;
   private final boolean nativeDeps;
   private final boolean useTestOnlyFlags;
-  private final List<String> noWholeArchiveFlags;
 
   @Nullable private final Artifact paramFile;
 
@@ -96,9 +95,7 @@ public final class LinkCommandLine extends CommandLine {
       @Nullable PathFragment runtimeSolibDir,
       boolean nativeDeps,
       boolean useTestOnlyFlags,
-      boolean needWholeArchive,
       @Nullable Artifact paramFile,
-      List<String> noWholeArchiveFlags,
       CcToolchainFeatures.Variables variables,
       @Nullable FeatureConfiguration featureConfiguration) {
 
@@ -126,7 +123,6 @@ public final class LinkCommandLine extends CommandLine {
     this.nativeDeps = nativeDeps;
     this.useTestOnlyFlags = useTestOnlyFlags;
     this.paramFile = paramFile;
-    this.noWholeArchiveFlags = noWholeArchiveFlags;
   }
 
   @Nullable
@@ -380,14 +376,12 @@ public final class LinkCommandLine extends CommandLine {
       case EXECUTABLE:
         argv.add(cppConfiguration.getCppExecutable().getPathString());
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        argv.addAll(noWholeArchiveFlags);
         addToolchainFlags(argv);
         break;
 
       case DYNAMIC_LIBRARY:
         argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        argv.addAll(noWholeArchiveFlags);
         addToolchainFlags(argv);
         break;
 
@@ -401,7 +395,6 @@ public final class LinkCommandLine extends CommandLine {
         argv.addAll(cppConfiguration.getArFlags());
         argv.add(output.getExecPathString());
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        argv.addAll(noWholeArchiveFlags);
         break;
 
         // Since the objc case is not hardcoded in CppConfiguration, we can use the actual tool.
@@ -417,7 +410,6 @@ public final class LinkCommandLine extends CommandLine {
       default:
         throw new IllegalArgumentException();
     }
-
     return argv;
   }
 
@@ -641,12 +633,10 @@ public final class LinkCommandLine extends CommandLine {
     @Nullable private PathFragment runtimeSolibDir;
     private boolean nativeDeps;
     private boolean useTestOnlyFlags;
-    private boolean needWholeArchive;
     @Nullable private Artifact paramFile;
     @Nullable private CcToolchainProvider toolchain;
     private Variables variables;
     private FeatureConfiguration featureConfiguration;
-    private List<String> noWholeArchiveFlags = ImmutableList.of();
 
     // This interface is needed to support tests that don't create a
     // ruleContext, in which case the configuration and action owner
@@ -719,9 +709,7 @@ public final class LinkCommandLine extends CommandLine {
           runtimeSolibDir,
           nativeDeps,
           useTestOnlyFlags,
-          needWholeArchive,
           paramFile,
-          noWholeArchiveFlags,
           variables,
           featureConfiguration);
     }
@@ -872,16 +860,6 @@ public final class LinkCommandLine extends CommandLine {
 
     public Builder setRuntimeSolibDir(PathFragment runtimeSolibDir) {
       this.runtimeSolibDir = runtimeSolibDir;
-      return this;
-    }
-
-    /**
-     * Set flags that should not be in a --whole_archive block.
-     *
-     * <p>TODO(b/30228443): Refactor into action_configs.
-     */
-    public Builder setNoWholeArchiveFlags(List<String> noWholeArchiveFlags) {
-      this.noWholeArchiveFlags = noWholeArchiveFlags;
       return this;
     }
   }
