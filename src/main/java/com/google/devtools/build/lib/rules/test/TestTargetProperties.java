@@ -37,6 +37,9 @@ public class TestTargetProperties {
 
   /**
    * Resources used by local tests of various sizes.
+   *
+   * <p>When changing these values, remember to update the documentation at
+   * attributes/test/size.html.
    */
   private static final ResourceSet SMALL_RESOURCES = ResourceSet.create(20, 0.9, 0.00, 1);
   private static final ResourceSet MEDIUM_RESOURCES = ResourceSet.create(100, 0.9, 0.1, 1);
