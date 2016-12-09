@@ -257,6 +257,28 @@ EOF
   bazel build :test
 }
 
+function test_nonempty_aar_resources_tree_artifact() {
+  create_new_workspace
+  setup_android_support
+  cat > AndroidManifest.xml <<EOF
+<manifest package="com.test"/>
+EOF
+  mkdir -p res/values
+  cat > res/values/values.xml <<EOF
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:android="http://schemas.android.com/apk/res/android">
+</resources>
+EOF
+  zip test.aar AndroidManifest.xml res/values/values.xml
+  cat > BUILD <<EOF
+aar_import(
+  name = "test",
+  aar = "test.aar",
+)
+EOF
+  bazel build :test
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later

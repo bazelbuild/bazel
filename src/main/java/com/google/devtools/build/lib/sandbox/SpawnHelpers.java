@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -193,8 +194,14 @@ public final class SpawnHelpers {
     // inputs.
     for (ActionInput input : spawn.getInputFiles()) {
       if (input instanceof Artifact && ((Artifact) input).isTreeArtifact()) {
-        PathFragment mount = new PathFragment(input.getExecPathString());
-        mounts.put(mount, execRoot.getRelative(mount));
+        List<Artifact> containedArtifacts = new ArrayList<>();
+        actionExecutionContext.getArtifactExpander().expand((Artifact) input, containedArtifacts);
+        // Attempting to mount a non-empty directory results in ERR_DIRECTORY_NOT_EMPTY, so we only
+        // mount empty TreeArtifacts as directories.
+        if (containedArtifacts.isEmpty()) {
+          PathFragment mount = new PathFragment(input.getExecPathString());
+          mounts.put(mount, execRoot.getRelative(mount));
+        }
       }
     }
 
