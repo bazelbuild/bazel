@@ -61,7 +61,7 @@ public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.<Type<?>>of(
-          STRING, LABEL, OUTPUT, STRING_LIST, LABEL_LIST, OUTPUT_LIST, DISTRIBUTIONS);
+          STRING, LABEL, OUTPUT, STRING_LIST, LABEL_LIST, LABEL_DICT_UNARY, OUTPUT_LIST, DISTRIBUTIONS);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
