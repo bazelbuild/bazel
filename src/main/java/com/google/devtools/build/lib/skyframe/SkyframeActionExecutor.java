@@ -825,7 +825,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         try {
           outputService.finalizeAction(action, metadataHandler);
         } catch (EnvironmentalExecException | IOException e) {
-          reportError("unable to finalize action: " + e.getMessage(), e, action, fileOutErr);
+          reportError("unable to finalize action", e, action, fileOutErr);
         }
       }
 
