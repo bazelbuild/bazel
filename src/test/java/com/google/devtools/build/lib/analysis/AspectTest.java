@@ -541,6 +541,47 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void extraActionsFromDifferentAspectsDontConflict() throws Exception {
+    useConfiguration(
+        "--experimental_action_listener=//pkg1:listener",
+        "--experimental_extra_action_top_level_only");
+
+    scratch.file(
+        "x/BUILD",
+        "load(':extension.bzl', 'injector1', 'injector2', 'null_rule')",
+        "injector1(name='i1_a', deps=[':n'], param = 'a')",
+        "injector1(name='i1_b', deps=[':n'], param = 'b')",
+        "injector2(name='i2', deps=[':n'])",
+        "null_rule(name = 'n')");
+
+    scratch.file(
+        "x/extension.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  ctx.empty_action(mnemonic='Mnemonic')",
+        "  return struct()",
+        "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], attrs =",
+        "    {'param': attr.string(values = ['a', 'b'])})",
+        "aspect2 = aspect(_aspect_impl, attr_aspects=['deps'])",
+        "def _rule_impl(ctx):",
+        "  return struct()",
+        "injector1 = rule(_rule_impl, attrs =",
+        "    { 'deps' : attr.label_list(aspects = [aspect1]), 'param' : attr.string() })",
+        "injector2 = rule(_rule_impl, attrs = { 'deps' : attr.label_list(aspects = [aspect2]) })",
+        "null_rule = rule(_rule_impl, attrs = { 'deps' : attr.label_list() })"
+    );
+
+    scratch.file(
+        "pkg1/BUILD",
+        "extra_action(name='xa', cmd='echo dont-care')",
+        "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
+
+      update("//x:i1_a", "//x:i1_b", "//x:i2");
+
+    // Implicitly check that update() didn't throw an exception because of two actions producing
+    // the same outputs.
+  }
+
+  @Test
   public void aspectPropagatesToAllAttributesImplicit() throws Exception {
     setRulesAvailableInTests(new TestAspects.BaseRule(),
         new TestAspects.SimpleRule(),

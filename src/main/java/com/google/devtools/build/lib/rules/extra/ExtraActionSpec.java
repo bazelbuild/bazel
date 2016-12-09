@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -189,7 +190,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    */
   private Artifact getExtraActionOutputArtifact(
       RuleContext ruleContext, Action action, String template) {
-    String actionId = getActionId(ruleContext.getLabel(), action);
+    String actionId = getActionId(ruleContext.getActionOwner(), action);
 
     template = template.replace("$(ACTION_ID)", actionId);
     template = template.replace("$(OWNER_LABEL_DIGEST)", getOwnerDigest(ruleContext));
@@ -232,9 +233,14 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
    * of a uniqueness guarantee.
    */
   @VisibleForTesting
-  public static String getActionId(Label label, Action action) {
+  public static String getActionId(ActionOwner owner, Action action) {
     Fingerprint f = new Fingerprint();
-    f.addString(label.toString());
+    f.addString(owner.getLabel().toString());
+    f.addNullableString(owner.getAspectName());
+    f.addBoolean(owner.getAspectParameters() != null);
+    if (owner.getAspectParameters() != null) {
+      f.addString(owner.getAspectParameters().toString());
+    }
     f.addString(action.getKey());
     return f.hexDigestAndReset();
   }
