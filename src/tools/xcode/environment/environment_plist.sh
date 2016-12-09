@@ -23,7 +23,7 @@
 # --platform  - the target platform, e.g. 'iphoneos' or 'iphonesimulator8.3'
 #
 
-set -u
+set -eu
 
 while [[ $# > 1 ]]
 do
@@ -45,7 +45,18 @@ esac
 shift
 done
 
+set +e
 PLATFORM_DIR=$(/usr/bin/xcrun --sdk "${PLATFORM}" --show-sdk-platform-path)
+XCRUN_EXITCODE=$?
+set -e
+if [[ ${XCRUN_EXITCODE} -ne 0 ]] ; then
+  echo "environment_plist: SDK not located. This may indicate that the xcode \
+and SDK version pair is not available."
+  # Since this already failed, assume this is going to fail again. With
+  # set -e, this will produce the appropriate stderr and error code.
+  /usr/bin/xcrun --sdk "${PLATFORM}" --show-sdk-platform-path 2>&1
+fi
+
 PLATFORM_PLIST="${PLATFORM_DIR}"/Info.plist
 TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/bazel_environment.XXXXXX")
 PLIST="${TEMPDIR}/env.plist"
@@ -53,13 +64,17 @@ trap 'rm -rf "${TEMPDIR}"' ERR EXIT
 
 os_build=$(/usr/bin/sw_vers -buildVersion)
 compiler=$(/usr/libexec/PlistBuddy -c "print :DefaultProperties:DEFAULT_COMPILER" "${PLATFORM_PLIST}")
+# Parses 'PlatformVersion N.N' into N.N.
 platform_version=$(/usr/bin/xcodebuild -version -sdk "${PLATFORM}" PlatformVersion)
+# Parses 'ProductBuildVersion NNNN' into NNNN.
 sdk_build=$(/usr/bin/xcodebuild -version -sdk "${PLATFORM}" ProductBuildVersion)
 platform_build=$"${sdk_build}"
+# Parses 'Build version NNNN' into NNNN.
 xcode_build=$(/usr/bin/xcodebuild -version | grep Build | cut -d ' ' -f3)
+# Parses 'Xcode N.N' into N.N.
 xcode_version_string=$(/usr/bin/xcodebuild -version | grep Xcode | cut -d ' ' -f2)
+# Converts '7.1' -> 0710, and '7.1.1' -> 0711.
 xcode_version=$(/usr/bin/printf '%02d%d%d\n' $(echo "${xcode_version_string//./ }"))
-
 
 /usr/bin/defaults write "${PLIST}" DTPlatformBuild -string ${platform_build:-""}
 /usr/bin/defaults write "${PLIST}" DTSDKBuild -string ${sdk_build:-""}
