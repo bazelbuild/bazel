@@ -71,6 +71,8 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -835,6 +837,15 @@ public final class RuleContext extends TargetContext
       Mode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
+  }
+
+  /**
+   * Returns all the declared providers (native and Skylark) for the specified constructor under the
+   * specified attribute of this target in the BUILD file.
+   */
+  public Iterable<SkylarkClassObject> getPrerequisites(
+      String attributeName, Mode mode, final SkylarkClassObjectConstructor.Key skylarkKey) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
   /**

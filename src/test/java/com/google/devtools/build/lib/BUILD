@@ -989,6 +989,20 @@ java_test(
 )
 
 java_test(
+    name = "test-rules-tests",
+    srcs = ["rules/test/SkylarkTestingModuleTest.java"],
+    tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.rules.test.SkylarkTestingModuleTest",
+    deps = [
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/protobuf",
+    ],
+)
+
+java_test(
     name = "bazel-rules-tests",
     srcs = glob([
         "bazel/rules/**/*.java",

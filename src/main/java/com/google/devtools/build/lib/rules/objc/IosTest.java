@@ -226,7 +226,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuildBuilder.build())
         .addProvider(xcodeProvider)
         .addProvider(RunfilesProvider.simple(runfiles))
-        .addProvider(new ExecutionInfoProvider(execInfoMapBuilder.build()))
+        .addNativeDeclaredProvider(new ExecutionInfoProvider(execInfoMapBuilder.build()))
         .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProviders(testSupport.getExtraProviders())
         .setRunfilesSupport(runfilesSupport, executable)

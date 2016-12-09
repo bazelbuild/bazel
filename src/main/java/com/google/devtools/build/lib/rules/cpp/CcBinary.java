@@ -362,8 +362,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Support test execution on darwin.
     if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())
         && TargetUtils.isTestRule(ruleContext.getRule())) {
-      ruleBuilder.add(
-          ExecutionInfoProvider.class,
+      ruleBuilder.addNativeDeclaredProvider(
           new ExecutionInfoProvider(ImmutableMap.of("requires-darwin", "")));
     }
 

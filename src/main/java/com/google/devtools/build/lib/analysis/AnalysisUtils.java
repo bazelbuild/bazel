@@ -25,6 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -69,6 +71,23 @@ public final class AnalysisUtils {
     ImmutableList.Builder<C> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
       C prerequisiteProvider =  prerequisite.getProvider(provider);
+      if (prerequisiteProvider != null) {
+        result.add(prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
+   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
+   * set of transitive info collections.
+   */
+  public static Iterable<SkylarkClassObject> getProviders(
+      Iterable<? extends TransitiveInfoCollection> prerequisites,
+      final SkylarkClassObjectConstructor.Key skylarkKey) {
+    ImmutableList.Builder<SkylarkClassObject> result = ImmutableList.builder();
+    for (TransitiveInfoCollection prerequisite : prerequisites) {
+      SkylarkClassObject prerequisiteProvider = prerequisite.get(skylarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }

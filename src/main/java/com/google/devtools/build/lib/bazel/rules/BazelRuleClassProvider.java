@@ -162,6 +162,7 @@ import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
+import com.google.devtools.build.lib.rules.test.SkylarkTestingModule;
 import com.google.devtools.build.lib.rules.test.TestSuiteRule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -277,6 +278,7 @@ public class BazelRuleClassProvider {
     OBJC_RULES.init(builder);
     J2OBJC_RULES.init(builder);
     ANDROID_STUDIO_ASPECT.init(builder);
+    TESTING_SUPPORT.init(builder);
     VARIOUS_WORKSPACE_RULES.init(builder);
 
     // This rule is a little special: it needs to depend on every configuration fragment that has
@@ -375,6 +377,19 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(new ProtoConfiguration.Loader());
           builder.addRuleDefinition(new BazelProtoLibraryRule());
           builder.addRuleDefinition(new ProtoLangToolchainRule());
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CORE_RULES);
+        }
+      };
+
+  public static final RuleSet TESTING_SUPPORT =
+      new RuleSet() {
+        @Override
+        public void init(Builder builder) {
+          builder.addSkylarkAccessibleTopLevels("testing", new SkylarkTestingModule());
         }
 
         @Override

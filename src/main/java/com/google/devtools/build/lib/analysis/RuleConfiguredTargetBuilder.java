@@ -224,7 +224,11 @@ public final class RuleConfiguredTargetBuilder {
     TestParams testParams =
         testActionBuilder
             .setFilesToRunProvider(filesToRunProvider)
-            .setExecutionRequirements(providersBuilder.getProvider(ExecutionInfoProvider.class))
+            .setExecutionRequirements(
+                (ExecutionInfoProvider)
+                    skylarkDeclaredProviders
+                        .build()
+                        .get(ExecutionInfoProvider.SKYLARK_CONSTRUCTOR.getKey()))
             .setShardCount(explicitShardCount)
             .build();
     ImmutableList<String> testTags = ImmutableList.copyOf(ruleContext.getRule().getRuleTags());
