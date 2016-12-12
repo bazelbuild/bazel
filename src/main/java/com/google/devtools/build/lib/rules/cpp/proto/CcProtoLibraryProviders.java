@@ -14,21 +14,23 @@
 
 package com.google.devtools.build.lib.rules.cpp.proto;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 
 /**
- * Used by CcProtoAspect to propagate output groups to CcProtoLibrary, where it is exposed via
- * setOutputGroups().
+ * Used by CcProtoAspect to propagate providers to CcProtoLibrary, where it is exposed via
+ * setFilesToBuild().
  */
 @ThreadSafety.Immutable
-final class CcProtoLibraryOutputGroupProvider implements TransitiveInfoProvider {
-  final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
+final class CcProtoLibraryProviders implements TransitiveInfoProvider {
+  final NestedSet<Artifact> filesBuilder;
+  final TransitiveInfoProviderMap providerMap;
 
-  CcProtoLibraryOutputGroupProvider(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    this.outputGroups = outputGroups;
+  CcProtoLibraryProviders(NestedSet<Artifact> filesBuilder, TransitiveInfoProviderMap providerMap) {
+    this.filesBuilder = filesBuilder;
+    this.providerMap = providerMap;
   }
 }

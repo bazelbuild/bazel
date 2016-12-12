@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyA
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -101,9 +102,23 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(name = 'alias_proto', deps = [':foo_proto'])",
         "proto_library(name = 'foo_proto', srcs = ['foo.proto'])");
 
-    ProtoCcHeaderProvider headers =
-        getConfiguredTarget("//x:foo_cc_proto").getProvider(ProtoCcHeaderProvider.class);
-    assertThat(prettyArtifactNames(headers.getHeaders())).containsExactly("x/foo.pb.h");
+    CppCompilationContext context =
+        getConfiguredTarget("//x:foo_cc_proto").getProvider(CppCompilationContext.class);
+    assertThat(prettyArtifactNames(context.getDeclaredIncludeSrcs())).containsExactly("x/foo.pb.h");
+  }
+
+  @Test
+  public void cppCompilationContext() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_proto_library(name = 'foo_cc_proto', deps = ['foo_proto'])",
+        "proto_library(name = 'foo_proto', srcs = ['foo.proto'], deps = [':bar_proto'])",
+        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
+
+    CppCompilationContext context =
+        getConfiguredTarget("//x:foo_cc_proto").getProvider(CppCompilationContext.class);
+    assertThat(prettyArtifactNames(context.getDeclaredIncludeSrcs()))
+        .containsExactly("x/foo.pb.h", "x/bar.pb.h");
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.

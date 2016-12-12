@@ -15,8 +15,7 @@ java_library(
         "CcProtoLibraryRule.java",
     ],
     deps = [
-        ":CcProtoLibraryFilesToBuilderProvider",
-        ":CcProtoLibraryOutputGroupProvider",
+        ":CcProtoLibraryProviders",
         ":ProtoCcHeaderProvider",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:collect",
@@ -32,25 +31,14 @@ java_library(
 )
 
 java_library(
-    name = "CcProtoLibraryFilesToBuilderProvider",
-    srcs = ["CcProtoLibraryFilesToBuilderProvider.java"],
+    name = "CcProtoLibraryProviders",
+    srcs = ["CcProtoLibraryProviders.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:collect",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
         "//src/main/java/com/google/devtools/build/lib/actions",
-    ],
-)
-
-java_library(
-    name = "CcProtoLibraryOutputGroupProvider",
-    srcs = ["CcProtoLibraryOutputGroupProvider.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
-        "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//third_party:guava",
     ],
 )
 

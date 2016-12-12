@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -177,11 +178,11 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
         // proto_library pretends to not generate them either.
         boolean hasDepWithoutPbH = false;
         NestedSetBuilder<Artifact> transitiveHeaders = NestedSetBuilder.stableOrder();
-        for (ProtoCcHeaderProvider headerProvider :
+        for (ProtoCcHeaderProvider provider :
             ruleContext.getPrerequisites("deps", TARGET, ProtoCcHeaderProvider.class)) {
-          helper.addPublicTextualHeaders(headerProvider.getHeaders());
-          transitiveHeaders.addTransitive(headerProvider.getHeaders());
-          hasDepWithoutPbH = hasDepWithoutPbH || !headerProvider.getGeneratesPbH();
+          helper.addPublicTextualHeaders(provider.getHeaders());
+          transitiveHeaders.addTransitive(provider.getHeaders());
+          hasDepWithoutPbH = hasDepWithoutPbH || !provider.getGeneratesPbH();
         }
         headerProvider = new ProtoCcHeaderProvider(transitiveHeaders.build(), !hasDepWithoutPbH);
       }
@@ -297,9 +298,11 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     public void addProviders(ConfiguredAspect.Builder builder) {
+      builder.addProvider(
+          new CcProtoLibraryProviders(
+              filesBuilder.build(),
+              ccLibraryProviders.toBuilder().add(new OutputGroupProvider(outputGroups)).build()));
       builder.addProviders(ccLibraryProviders);
-      builder.addProvider(new CcProtoLibraryFilesToBuilderProvider(filesBuilder.build()));
-      builder.addProvider(new CcProtoLibraryOutputGroupProvider(outputGroups));
       if (headerProvider != null) {
         builder.addProvider(headerProvider);
       }

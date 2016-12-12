@@ -22,14 +22,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.CcExecutionDynamicLibrariesProvider;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.cpp.CcSkylarkApiProvider;
-import com.google.devtools.build.lib.rules.cpp.CcSpecificLinkParamsProvider;
 
 /** Part of the implementation of cc_proto_library. */
 public class CcProtoLibrary implements RuleConfiguredTargetFactory {
@@ -47,35 +41,16 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
               + "to remove unused deps.");
     }
 
-    TransitiveInfoCollection dep = checkNotNull(ruleContext.getPrerequisite("deps", TARGET));
+    CcProtoLibraryProviders depProviders =
+        checkNotNull(ruleContext.getPrerequisite("deps", TARGET))
+            .getProvider(CcProtoLibraryProviders.class);
 
-    RuleConfiguredTargetBuilder result =
-        new RuleConfiguredTargetBuilder(ruleContext)
-            .setFilesToBuild(
-                dep.getProvider(CcProtoLibraryFilesToBuilderProvider.class).filesBuilder)
-            .addProvider(
-                RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, Runfiles.EMPTY));
-
-    addProviderIfNotNull(result, dep.getProvider(CcLinkParamsProvider.class));
-    addProviderIfNotNull(result, dep.getProvider(CcNativeLibraryProvider.class));
-    addProviderIfNotNull(result, dep.getProvider(CcExecutionDynamicLibrariesProvider.class));
-    addProviderIfNotNull(result, dep.getProvider(CcSpecificLinkParamsProvider.class));
-    addProviderIfNotNull(result, dep.getProvider(ProtoCcHeaderProvider.class));
-
-    result.addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider());
-
-    CcProtoLibraryOutputGroupProvider outputGroups =
-        dep.getProvider(CcProtoLibraryOutputGroupProvider.class);
-    if (outputGroups != null) {
-      result.addOutputGroups(outputGroups.outputGroups);
-    }
-    return result.build();
-  }
-
-  private void addProviderIfNotNull(
-      RuleConfiguredTargetBuilder result, TransitiveInfoProvider provider) {
-    if (provider != null) {
-      result.addProvider(provider);
-    }
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .setFilesToBuild(depProviders.filesBuilder)
+        .addProvider(
+            RunfilesProvider.class, RunfilesProvider.withData(Runfiles.EMPTY, Runfiles.EMPTY))
+        .addProviders(depProviders.providerMap)
+        .addSkylarkTransitiveInfo(CcSkylarkApiProvider.NAME, new CcSkylarkApiProvider())
+        .build();
   }
 }
