@@ -68,15 +68,20 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   }
 
   /**
-   * Create a native Declared Provider ({@link SkylarkClassObject} constructor)
+   * Creates a native Declared Provider ({@link SkylarkClassObject} constructor).
+   * 
+   * The convention for the name of a provider follows the convention for a class name in
+   * Python: CapitalCamelCase.
    */
   public static SkylarkClassObjectConstructor createNative(String name) {
     return new SkylarkClassObjectConstructor(name, false);
   }
 
   /**
-   * Create a native Declared Provider ({@link SkylarkClassObject} constructor)
+   * Creates a native Declared Provider ({@link SkylarkClassObject} constructor)
    * that can be constructed from Skylark.
+   * 
+   * Use CapitalCamelCase style for the name.
    */
   public static SkylarkClassObjectConstructor createNativeConstructable(String name) {
     return new SkylarkClassObjectConstructor(name, true);
@@ -84,7 +89,7 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
 
 
   /**
-   * Create a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor)
+   * Creates a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor).
    *
    * Needs to be exported later.
    */
@@ -106,8 +111,9 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   }
 
   /**
-   * Creates a built-in class object (i.e. without creation loc). The errorMessage has to have
-   * exactly one '%s' parameter to substitute the field name.
+   * Creates a built-in class object (i.e. without creation loc).
+   * 
+   * The errorMessage has to have exactly one '%s' parameter to substitute the field name.
    */
   public SkylarkClassObject create(Map<String, Object> values, String message) {
     return new SkylarkClassObject(this, values, message);

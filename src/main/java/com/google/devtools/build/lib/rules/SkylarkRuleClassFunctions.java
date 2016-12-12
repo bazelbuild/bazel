@@ -221,7 +221,7 @@ public class SkylarkRuleClassFunctions {
           + "<a href=\"globals.html#rule._skylark_testable\">_skylark_testable</a> set to "
           + "<code>True</code>."
   )
-  private static final SkylarkClassObjectConstructor actions = ActionsProvider.ACTIONS_PROVIDER;
+  private static final SkylarkClassObjectConstructor actions = ActionsProvider.SKYLARK_CONSTRUCTOR;
 
   @SkylarkSignature(name = "provider", returnType = SkylarkClassObjectConstructor.class, doc =
       "Creates a declared provider 'constructor'. The return value of this"

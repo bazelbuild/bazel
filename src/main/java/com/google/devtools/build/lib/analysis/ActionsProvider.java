@@ -27,9 +27,15 @@ import java.util.Map;
  */
 public final class ActionsProvider {
 
-  public static final SkylarkClassObjectConstructor ACTIONS_PROVIDER =
+  /**
+   * The Actions provider type itself. 
+   */
+  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
       SkylarkClassObjectConstructor.createNative("Actions");
 
+  /**
+   * Factory method for creating instances of the Actions provider.
+   */
   public static SkylarkClassObject create(Iterable<ActionAnalysisMetadata> actions) {
     Map<Artifact, ActionAnalysisMetadata> map = new HashMap<>();
     for (ActionAnalysisMetadata action : actions) {
@@ -42,6 +48,6 @@ public final class ActionsProvider {
       }
     }
     ImmutableMap<String, Object> fields = ImmutableMap.<String, Object>of("by_file", map);
-    return new SkylarkClassObject(ACTIONS_PROVIDER, fields);
+    return new SkylarkClassObject(SKYLARK_CONSTRUCTOR, fields);
   }
 }
