@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -64,6 +65,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final StandaloneSpawnStrategy standaloneStrategy;
   private final RemoteActionCache remoteActionCache;
   private final RemoteWorkExecutor remoteWorkExecutor;
+  private final boolean verboseFailures;
 
   RemoteSpawnStrategy(
       Map<String, String> clientEnv,
@@ -75,6 +77,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       String productName) {
     this.execRoot = execRoot;
     this.standaloneStrategy = new StandaloneSpawnStrategy(execRoot, verboseFailures, productName);
+    this.verboseFailures = verboseFailures;
     this.remoteActionCache = actionCache;
     this.remoteWorkExecutor = workExecutor;
   }
@@ -247,7 +250,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       Thread.currentThread().interrupt();
       throw e;
     } catch (StatusRuntimeException e) {
-      eventHandler.handle(Event.warn(mnemonic + " remote work failed (" + e + ")"));
+      String stackTrace = "";
+      if (verboseFailures) {
+        stackTrace = "\n" + Throwables.getStackTraceAsString(e);
+      }
+      eventHandler.handle(Event.warn(mnemonic + " remote work failed (" + e + ")" + stackTrace));
       execLocally(spawn, actionExecutionContext, actionKey);
     } catch (CacheNotFoundException e) {
       eventHandler.handle(Event.warn(mnemonic + " remote work results cache miss (" + e + ")"));
