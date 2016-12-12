@@ -73,6 +73,8 @@ namespace devtools_ijar {
 // http://www.info-zip.org/FAQ.html#limits
 static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
 
+static const u4 kDosEpoch = 1 << 21 | 1 << 16;  // January 1, 1980 in DOS time
+
 //
 // A class representing a ZipFile for reading. Its public API is exposed
 // using the ZipExtractor abstract class.
@@ -871,8 +873,7 @@ int OutputZipFile::WriteEmptyFile(const char *filename) {
   put_u2le(q, 10);  // extract_version
   put_u2le(q, 0);  // general_purpose_bit_flag
   put_u2le(q, 0);  // compression_method
-  put_u2le(q, 0);  // last_mod_file_time
-  put_u2le(q, 0);  // last_mod_file_date
+  put_u4le(q, kDosEpoch);     // last_mod_file date and time
   put_u4le(q, entry->crc32);  // crc32
   put_u4le(q, 0);  // compressed_size
   put_u4le(q, 0);  // uncompressed_size
@@ -903,8 +904,7 @@ void OutputZipFile::WriteCentralDirectory() {
     put_u2le(q, ZIP_VERSION_TO_EXTRACT);  // version to extract
     put_u2le(q, 0);  // general purpose bit flag
     put_u2le(q, entry->compression_method);  // compression method:
-    put_u2le(q, 0);                          // last_mod_file_time
-    put_u2le(q, 0);  // last_mod_file_date
+    put_u4le(q, kDosEpoch);                  // last_mod_file date and time
     put_u4le(q, entry->crc32);  // crc32
     put_u4le(q, entry->compressed_length);    // compressed_size
     put_u4le(q, entry->uncompressed_length);  // uncompressed_size
@@ -995,8 +995,7 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   put_u2le(q, 0);                          // general purpose bit flag
   u1 *header_ptr = q;
   put_u2le(q, COMPRESSION_METHOD_STORED);  // compression method = placeholder
-  put_u2le(q, 0);                          // last_mod_file_time
-  put_u2le(q, 0);                          // last_mod_file_date
+  put_u4le(q, kDosEpoch);                  // last_mod_file date and time
   put_u4le(q, entry->crc32);               // crc32
   put_u4le(q, 0);  // compressed_size = placeholder
   put_u4le(q, 0);  // uncompressed_size = placeholder

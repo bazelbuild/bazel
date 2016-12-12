@@ -228,9 +228,9 @@ function test_ijar_output() {
     "Interface jar should contain only .class files!"
 
 
-  # Check that -interface.jar timestamps are all zeros:
+  # Check that -interface.jar timestamps are normalized:
   check_eq 0 $(TZ=UTC $JAR tvf $A_INTERFACE_JAR |
-               grep -v 'Fri Nov 30 00:00:00 UTC 1979' | wc -l) \
+               grep -v 'Tue Jan 01 00:00:00 UTC 1980' | wc -l) \
    "Interface jar contained non-zero timestamps!"
 
 
