@@ -511,7 +511,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Makes the built attribute producing a single artifact.
      */
     public Builder<TYPE> singleArtifact() {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "attribute '%s' must be a label-valued type", name);
       return setPropertyFlag(PropertyFlag.SINGLE_ARTIFACT, "single_artifact");
     }
@@ -521,7 +521,7 @@ public final class Attribute implements Comparable<Attribute> {
      * This flag is introduced to handle plugins, do not use it in other cases.
      */
     public Builder<TYPE> silentRuleClassFilter() {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       return setPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER, "silent_ruleclass_filter");
     }
@@ -530,7 +530,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Skip analysis time filetype check. Don't use it if avoidable.
      */
     public Builder<TYPE> skipAnalysisTimeFileTypeCheck() {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       return setPropertyFlag(PropertyFlag.SKIP_ANALYSIS_TIME_FILETYPE_CHECK,
           "skip_analysis_time_filetype_check");
@@ -797,7 +797,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Predicate<RuleClass> allowedRuleClasses) {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabels = allowedRuleClasses;
@@ -882,7 +882,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Predicate<RuleClass> allowedRuleClasses) {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabelsWarning = allowedRuleClasses;
@@ -910,7 +910,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public final Builder<TYPE> mandatoryNativeProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       ImmutableList.Builder<ImmutableList<Class<? extends TransitiveInfoProvider>>> listBuilder
           = ImmutableList.builder();
@@ -937,7 +937,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> mandatoryProvidersList(
         Iterable<? extends Iterable<SkylarkProviderIdentifier>> providersList){
-      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST) || (type == BuildType.LABEL_DICT_UNARY),
           "must be a label-valued type");
       ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> listBuilder
           = ImmutableList.builder();
