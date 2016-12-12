@@ -134,12 +134,6 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-## [d3](http://d3js.org/)
-
-* Version: 3.4.12
-* License: BSD license
-
-
 ## [dd_plist](http://plist.googlecode.com/svn-history/r111/trunk/)
 
 * Version: r111
@@ -187,12 +181,6 @@ a minimal set of extra dependencies.
 * License: Eclipse Distribution License 1.0
 
 
-## [JimFS](https://github.com/google/jimfs)
-
-* Version: 1.1-rc1
-* License: Apache License 2.0
-
-
 ## [joda_time](http://www.joda.org/joda-time/)
 
 * Version: 2.3
@@ -221,12 +209,6 @@ a minimal set of extra dependencies.
 
 * Version: 1
 * License: Apache License 2.0
-
-
-## [jquery](http://jquery.com)
-
-* Version: v2_0_3
-* License: MIT license
 
 
 ## [maven](http://mvnrepository.com/artifact/org.apache.maven)
