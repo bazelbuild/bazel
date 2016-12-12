@@ -40,8 +40,10 @@ inline u4 stat_to_zipattr(const Stat& file_stat) {
 }
 
 // Writes stat data into `result` about the file under `path`.
-// Returns true upon success: file is found and can be stat'ed.
-// Returns false upon failure and reports the error to stderr.
+// Returns true if file is found and can be stat'ed.
+// Returns false if the file is not found or cannot be stat'ed.
+// Doesn't report any errors because it can also be used to simply check if a
+// file exists.
 bool stat_file(const char* path, Stat* result);
 
 // Writes `size` bytes from `data` into file under `path`.

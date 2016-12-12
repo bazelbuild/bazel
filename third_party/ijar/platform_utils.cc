@@ -40,7 +40,6 @@ bool stat_file(const char* path, Stat* result) {
 #else   // not COMPILER_MSVC
   struct stat statst;
   if (stat(path, &statst) < 0) {
-    fprintf(stderr, "Cannot stat file %s: %s\n", path, strerror(errno));
     return false;
   }
   result->total_size = statst.st_size;

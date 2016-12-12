@@ -166,6 +166,7 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
   Stat file_stat = {0, 0666, false};
   if (file != NULL) {
     if (!stat_file(file, &file_stat)) {
+      fprintf(stderr, "Cannot stat file %s: %s\n", file, strerror(errno));
       return -1;
     }
   }
@@ -218,6 +219,7 @@ int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
 char **read_filelist(char *filename) {
   Stat file_stat;
   if (!stat_file(filename, &file_stat)) {
+    fprintf(stderr, "Cannot stat file %s: %s\n", filename, strerror(errno));
     return NULL;
   }
 
