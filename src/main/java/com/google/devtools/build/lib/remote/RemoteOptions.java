@@ -105,5 +105,13 @@ public final class RemoteOptions extends OptionsBase {
       category = "remote",
       help = "The maximal number of seconds to wait for remote calls. For client mode only."
     )
-    public int grpcTimeoutSeconds;
+  public int grpcTimeoutSeconds;
+
+  @Option(
+      name = "remote_accept_cached",
+      defaultValue = "true",
+      category = "remote",
+      help = "Whether to accept remotely cached action results."
+    )
+  public boolean remoteAcceptCached;
 }
