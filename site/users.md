@@ -78,6 +78,10 @@ FFruit is a free & open source Android application to the popular service
 
 Gerrit is a code review and project management tool for Git based projects.
 
+## [Gitiles](https://gerrit.googlesource.com/gitiles/)
+
+Gitiles is a simple repository browser for Git repositories, built on JGit.
+
 ## [GRPC](http://www.grpc.io)
 
 A language-and-platform-neutral remote procedure call system. (Bazel is a
