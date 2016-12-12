@@ -408,6 +408,33 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     }
 
     /**
+     * Duplicates MutableList n times
+     * @param list the list to duplicate
+     * @param times the count of times to duplicate
+     * @param env the Environment in which to create a new list
+     * @return a new MutableList
+     */
+    public static <E> MutableList<E> duplicate(
+        final MutableList<? extends E> list,
+        final int times,
+        final Environment env) {
+      final int concatCount = times - 1;
+      if (list.getGlobList() == null) {
+        Iterable<? extends E> iterable = list;
+        for (int i = concatCount; i > 0; --i) {
+          iterable = Iterables.concat(iterable, iterable);
+        }
+        return new MutableList(iterable, env);
+      }
+
+      List<?> globs = list.getGlobListOrContentsUnsafe();
+      for (int i = concatCount; i > 0; --i) {
+        globs = GlobList.concat(globs, globs);
+      }
+      return new MutableList(globs, env);
+    }
+
+    /**
      * Adds one element at the end of the MutableList.
      * @param element the element to add
      * @param loc the Location at which to report any error
