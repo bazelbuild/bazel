@@ -1520,18 +1520,42 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "list", returnType = MutableList.class,
-      doc = "Converts a collection (e.g. set or dictionary) to a list."
-        + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
-        + "list(set([2, 3, 2])) == [2, 3]\n"
-        + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
-      parameters = {@Param(name = "x", doc = "The object to convert.")},
-      useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction list = new BuiltinFunction("list") {
-    public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
-      return new MutableList(EvalUtils.toCollection(x, loc), env);
-    }
-  };
+  @SkylarkSignature(
+    name = "tuple",
+    returnType = Tuple.class,
+    doc =
+        "Converts a collection (e.g. set or dictionary) to a tuple."
+            + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
+            + "tuple(set([2, 3, 2])) == (2, 3)\n"
+            + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useLocation = true
+  )
+  private static final BuiltinFunction tuple =
+      new BuiltinFunction("tuple") {
+        public Tuple<?> invoke(Object x, Location loc) throws EvalException {
+          return Tuple.create(ImmutableList.copyOf(EvalUtils.toCollection(x, loc)));
+        }
+      };
+
+  @SkylarkSignature(
+    name = "list",
+    returnType = MutableList.class,
+    doc =
+        "Converts a collection (e.g. set or dictionary) to a list."
+            + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
+            + "list(set([2, 3, 2])) == [2, 3]\n"
+            + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
+    parameters = {@Param(name = "x", doc = "The object to convert.")},
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction list =
+      new BuiltinFunction("list") {
+        public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
+          return new MutableList(EvalUtils.toCollection(x, loc), env);
+        }
+      };
 
   @SkylarkSignature(
     name = "len",
@@ -2102,7 +2126,7 @@ public class MethodLibrary {
   static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(
           all, any, bool, dict, dir, fail, getattr, hasattr, hash, enumerate, int_, len, list, max,
-          min, minus, print, range, repr, reversed, sorted, str, zip);
+          min, minus, print, range, repr, reversed, sorted, str, tuple, zip);
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(MethodLibrary.class);

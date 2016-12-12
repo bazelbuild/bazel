@@ -1845,4 +1845,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("abc", "fail('abc')")
         .testIfErrorContains("18", "fail(18)");
   }
+
+  @Test
+  public void testTupleCoercion() throws Exception {
+    new BothModesTest()
+        .testStatement("tuple([1, 2]) == (1, 2)", true)
+        .testStatement("tuple(set([1, 2])) == (1, 2)", true)
+        // Depends on current implementation of dict
+        .testStatement("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
+  }
 }
