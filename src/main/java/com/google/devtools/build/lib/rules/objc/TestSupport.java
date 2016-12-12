@@ -26,11 +26,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SimulatorRule;
@@ -242,7 +242,7 @@ public class TestSupport {
    * Returns any additional providers that need to be exported to the rule context to the passed
    * builder.
    */
-  public TransitiveInfoProviderMap getExtraProviders() {
+  public Iterable<SkylarkClassObject> getExtraProviders() {
     IosDeviceProvider deviceProvider =
         ruleContext.getPrerequisite(IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.class);
     DottedVersion xcodeVersion = deviceProvider.getXcodeVersion();
@@ -260,7 +260,7 @@ public class TestSupport {
       envBuilder.put("APPLE_COVERAGE", "1");
     }
 
-    return TransitiveInfoProviderMap.of(new TestEnvironmentProvider(envBuilder.build()));
+    return ImmutableList.<SkylarkClassObject>of(new TestEnvironmentProvider(envBuilder.build()));
   }
 
   /**

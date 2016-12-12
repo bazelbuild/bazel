@@ -216,7 +216,10 @@ public final class RuleConfiguredTargetBuilder {
             .setInstrumentedFiles(providersBuilder.getProvider(InstrumentedFilesProvider.class));
 
     TestEnvironmentProvider environmentProvider =
-        providersBuilder.getProvider(TestEnvironmentProvider.class);
+        (TestEnvironmentProvider)
+            skylarkDeclaredProviders
+                .build()
+                .get(TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.getKey());
     if (environmentProvider != null) {
       testActionBuilder.addExtraEnv(environmentProvider.getEnvironment());
     }
@@ -306,6 +309,21 @@ public final class RuleConfiguredTargetBuilder {
           "All providers must be top level values");
     }
     skylarkDeclaredProviders.put(constructor.getKey(), provider);
+    return this;
+  }
+
+  /**
+   * Adds "declared providers" defined in native code to the rule. Use this method for declared
+   * providers in definitions of native rules.
+   *
+   * <p>Use {@link #addSkylarkDeclaredProvider(SkylarkClassObject, Location)} for Skylark rule
+   * implementations.
+   */
+  public RuleConfiguredTargetBuilder addNativeDeclaredProviders(
+      Iterable<SkylarkClassObject> providers) {
+    for (SkylarkClassObject provider : providers) {
+      addNativeDeclaredProvider(provider);
+    }
     return this;
   }
 

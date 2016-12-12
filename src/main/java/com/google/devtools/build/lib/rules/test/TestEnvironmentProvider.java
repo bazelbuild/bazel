@@ -18,20 +18,24 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import java.util.Map;
 
-/**
- * Provider containing any additional environment variables for use in the test action.
- */
+/** Provider containing any additional environment variables for use in the test action. */
 @Immutable
-public final class TestEnvironmentProvider implements TransitiveInfoProvider {
-  private final ImmutableMap<String, String> environment;
+public final class TestEnvironmentProvider extends SkylarkClassObject
+    implements TransitiveInfoProvider {
 
-  /**
-   * Constructs a new provider with the given variable name to variable value mapping.
-   */
-  public TestEnvironmentProvider(ImmutableMap<String, String> environment) {
+  /** Skylark constructor and identifier for TestEnvironmentProvider. */
+  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      SkylarkClassObjectConstructor.createNative("TestEnvironment");
+
+  private final Map<String, String> environment;
+
+  /** Constructs a new provider with the given variable name to variable value mapping. */
+  public TestEnvironmentProvider(Map<String, String> environment) {
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("environment", environment));
     this.environment = Preconditions.checkNotNull(environment);
   }
 

@@ -59,6 +59,37 @@ public class SkylarkTestingModule {
         }
       };
 
+  // TODO(bazel-team): Change this BuiltinFunction to be the actual
+  // TestEnvironmentProvider.SKYLARK_CONSTRUCTOR.
+  @SkylarkSignature(
+    name = "TestEnvironment",
+    objectType = SkylarkTestingModule.class,
+    returnType = TestEnvironmentProvider.class,
+    doc =
+        "Creates a new test environment provider. Use this provider to specify extra"
+            + "environment variables to be made available during test execution.",
+    parameters = {
+      @Param(name = "self", type = SkylarkTestingModule.class, doc = "The 'testing' instance."),
+      @Param(
+        name = "environment",
+        type = SkylarkDict.class,
+        named = false,
+        positional = true,
+        doc =
+            "A map of string keys and values that represent environment variables and their values."
+                + " These will be made available during the test execution."
+      )
+    }
+  )
+  public static final BuiltinFunction NEW_TEST_ENVIRONMENT_PROVIDER =
+      new BuiltinFunction("TestEnvironment") {
+        @SuppressWarnings("unused")
+        // This method is registered statically for skylark, and never called directly.
+        public TestEnvironmentProvider invoke(SkylarkTestingModule self, SkylarkDict environment) {
+          return new TestEnvironmentProvider(environment);
+        }
+      };
+
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkTestingModule.class);
   }
