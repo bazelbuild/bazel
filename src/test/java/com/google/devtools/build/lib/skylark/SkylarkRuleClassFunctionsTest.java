@@ -179,9 +179,22 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelDictAttrAllowedFileTypesAnyFile() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label_dict(allow_files = True)");
+    assertEquals(FileTypeSet.ANY_FILE, attr.getAllowedFileTypesPredicate());
+  }
+
+  @Test
   public void testAttrAllowedFileTypesAnyFile() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = True)");
     assertEquals(FileTypeSet.ANY_FILE, attr.getAllowedFileTypesPredicate());
+  }
+
+  @Test
+  public void testLabelDictAttrAllowedFileTypesWrongType() throws Exception {
+    checkErrorContains(
+            "allow_files should be a boolean or a string list",
+            "attr.label_dict(allow_files = 18)");
   }
 
   @Test
@@ -196,6 +209,14 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     checkErrorContains(
         "allow_single_file should be a boolean or a string list",
         "attr.label(allow_single_file = 18)");
+  }
+
+  @Test
+  public void testLabelDictAttr() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label_dict(allow_files = ['.xml'])");
+    assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
+    assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
+    assertFalse(attr.isSingleArtifact());
   }
 
   @Test
@@ -215,10 +236,25 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelDictAttrWithSkylarkFileType() throws Exception {
+    Attribute attr = buildAttribute("a1", "attr.label_dict(allow_files = FileType(['.xml']))");
+    assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
+    assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
+  }
+
+  @Test
   public void testAttrWithSkylarkFileType() throws Exception {
     Attribute attr = buildAttribute("a1", "attr.label_list(allow_files = FileType(['.xml']))");
     assertTrue(attr.getAllowedFileTypesPredicate().apply("a.xml"));
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
+  }
+
+  @Test
+  public void testLabelDictAttrWithProviders() throws Exception {
+    Attribute attr =
+            buildAttribute("a1", "attr.label_dict(allow_files = True, providers = ['a', 'b'])");
+    assertThat(attr.getMandatoryProvidersList())
+            .containsExactly(ImmutableSet.of(legacy("a"), legacy("b")));
   }
 
   @Test
@@ -234,6 +270,16 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelDictAttrWithProvidersList() throws Exception {
+    Attribute attr =
+            buildAttribute("a1", "attr.label_dict(allow_files = True,"
+                    + " providers = [['a', 'b'], ['c']])");
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(
+            ImmutableSet.of(legacy("a"), legacy("b")),
+            ImmutableSet.of(legacy("c")));
+  }
+
+  @Test
   public void testAttrWithProvidersList() throws Exception {
     Attribute attr =
         buildAttribute("a1", "attr.label_list(allow_files = True,"
@@ -241,6 +287,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(attr.getMandatoryProvidersList()).containsExactly(
         ImmutableSet.of(legacy("a"), legacy("b")),
         ImmutableSet.of(legacy("c")));
+  }
+
+  @Test
+  public void testLabelDictAttrWithWrongProvidersList() throws Exception {
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+                    + " Should be list of string, but got list with an element of type int.",
+            "attr.label_dict(allow_files = True,  providers = [['a', 1], ['c']])");
+
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+                    + " Should be list of string, but got string.",
+            "attr.label_dict(allow_files = True,  providers = [['a', 'b'], 'c'])");
   }
 
   @Test
@@ -255,6 +312,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelDictWithAspects() throws Exception {
+    SkylarkAttr.Descriptor attr =
+            (SkylarkAttr.Descriptor) evalRuleClassCode(
+                    "def _impl(target, ctx):",
+                    "   pass",
+                    "my_aspect = aspect(implementation = _impl)",
+                    "attr.label_dict(aspects = [my_aspect])");
+    Object aspect = ev.lookup("my_aspect");
+    assertThat(aspect).isNotNull();
+    assertThat(attr.getAspects()).containsExactly(aspect);
+  }
+
+  @Test
   public void testLabelListWithAspects() throws Exception {
     SkylarkAttr.Descriptor attr =
         (SkylarkAttr.Descriptor) evalRuleClassCode(
@@ -265,6 +335,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Object aspect = ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.getAspects()).containsExactly(aspect);
+  }
+
+  @Test
+  public void testLabelDictWithAspectsError() throws Exception {
+    checkErrorContains(
+            "Illegal argument: expected type Aspect for 'aspects' element but got type int instead",
+            "def _impl(target, ctx):",
+            "   pass",
+            "my_aspect = aspect(implementation = _impl)",
+            "attr.label_dict(aspects = [my_aspect, 123])"
+    );
   }
 
   @Test
@@ -375,6 +456,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
         .add(Attribute.attr("tags", Type.STRING_LIST))
         .build();
+  }
+  @Test
+  public void testLabelDictAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
+    Attribute attr = buildAttribute("a",
+            "attr.label_dict(allow_rules = ['java_binary'], allow_files = True)");
+    assertTrue(attr.getAllowedRuleClassesPredicate().apply(ruleClass("java_binary")));
+    assertFalse(attr.getAllowedRuleClassesPredicate().apply(ruleClass("genrule")));
   }
   @Test
   public void testAttrAllowedRuleClassesSpecificRuleClasses() throws Exception {
@@ -497,6 +585,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertFalse(c.hasBinaryOutput());
   }
 
+  @Test
+  public void testLabelDictRuleAddMultipleAttributes() throws Exception {
+    evalAndExport(
+            "def impl(ctx): return None",
+            "r1 = rule(impl,",
+            "     attrs = {",
+            "            'a1': attr.label_dict(allow_files=True),",
+            "            'a2': attr.int()",
+            "})");
+    RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
+    assertTrue(c.hasAttr("a1", BuildType.LABEL_DICT_UNARY));
+    assertTrue(c.hasAttr("a2", Type.INTEGER));
+  }
   @Test
   public void testRuleAddMultipleAttributes() throws Exception {
     evalAndExport(
