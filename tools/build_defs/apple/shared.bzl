@@ -65,6 +65,16 @@ def apple_action(ctx, **kw):
   ctx.action(**kw)
 
 
+def xcrun_env(ctx):
+  """Returns the environment dictionary necessary to use xcrunwrapper."""
+  platform = ctx.fragments.apple.single_arch_platform
+
+  action_env = ctx.fragments.apple.target_apple_env(platform) \
+      + ctx.fragments.apple.apple_host_system_env()
+
+  return action_env
+
+
 def xcrun_action(ctx, **kw):
   """Creates an apple action that executes xcrunwrapper.
 
@@ -74,11 +84,7 @@ def xcrun_action(ctx, **kw):
   This method takes the same keyword arguments as ctx.action, however you don't
   need to specify the executable.
   """
-  platform = ctx.fragments.apple.single_arch_platform
-
-  action_env = ctx.fragments.apple.target_apple_env(platform) \
-      + ctx.fragments.apple.apple_host_system_env()
   env = kw.get("env", {})
-  kw["env"] = env + action_env
+  kw["env"] = env + xcrun_env(ctx)
 
   apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)
