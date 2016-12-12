@@ -291,7 +291,7 @@ public class PackageLookupFunction implements SkyFunction {
    * <p>To do this, it looks up the "external" package and finds a path mapping for the repository
    * name.
    */
-  private static PackageLookupValue computeExternalPackageLookupValue(
+  private PackageLookupValue computeExternalPackageLookupValue(
       SkyKey skyKey, Environment env, PackageIdentifier packageIdentifier)
       throws PackageLookupFunctionException, InterruptedException {
     PackageIdentifier id = (PackageIdentifier) skyKey.argument();
@@ -307,17 +307,21 @@ public class PackageLookupFunction implements SkyFunction {
       throw new PackageLookupFunctionException(new BuildFileNotFoundException(id, e.getMessage()),
           Transience.PERSISTENT);
     }
-    BuildFileName buildFileName = BuildFileName.BUILD;
-    PathFragment buildFileFragment = id.getPackageFragment().getChild(buildFileName.getFilename());
-    RootedPath buildFileRootedPath = RootedPath.toRootedPath(repositoryValue.getPath(),
-        buildFileFragment);
-    FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
-    if (fileValue == null) {
-      return null;
-    }
 
-    if (fileValue.isFile()) {
-      return PackageLookupValue.success(repositoryValue.getPath(), buildFileName);
+    // This checks for the build file names in the correct precedence order.
+    for (BuildFileName buildFileName : buildFilesByPriority) {
+      PathFragment buildFileFragment =
+          id.getPackageFragment().getChild(buildFileName.getFilename());
+      RootedPath buildFileRootedPath =
+          RootedPath.toRootedPath(repositoryValue.getPath(), buildFileFragment);
+      FileValue fileValue = getFileValue(buildFileRootedPath, env, packageIdentifier);
+      if (fileValue == null) {
+        return null;
+      }
+
+      if (fileValue.isFile()) {
+        return PackageLookupValue.success(repositoryValue.getPath(), buildFileName);
+      }
     }
 
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
