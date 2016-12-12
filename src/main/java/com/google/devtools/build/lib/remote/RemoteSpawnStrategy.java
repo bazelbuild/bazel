@@ -67,6 +67,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final RemoteWorkExecutor remoteWorkExecutor;
   private final boolean verboseFailures;
   private final boolean remoteAcceptCached;
+  private final boolean remoteAllowLocalFallback;
 
   RemoteSpawnStrategy(
       Map<String, String> clientEnv,
@@ -82,6 +83,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     this.remoteActionCache = actionCache;
     this.remoteWorkExecutor = workExecutor;
     this.remoteAcceptCached = options.remoteAcceptCached;
+    this.remoteAllowLocalFallback = options.remoteAllowLocalFallback;
   }
 
   private Action buildAction(
@@ -239,7 +241,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         remoteActionCache.downloadAllResults(result, execRoot);
         return;
       }
-      if (status.getError() == ExecutionStatus.ErrorCode.EXEC_FAILED) {
+      if (status.getError() == ExecutionStatus.ErrorCode.EXEC_FAILED || !remoteAllowLocalFallback) {
         passRemoteOutErr(result, actionExecutionContext.getFileOutErr());
         throw new UserExecException(status.getErrorDetail());
       }
@@ -258,10 +260,18 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         stackTrace = "\n" + Throwables.getStackTraceAsString(e);
       }
       eventHandler.handle(Event.warn(mnemonic + " remote work failed (" + e + ")" + stackTrace));
-      execLocally(spawn, actionExecutionContext, actionKey);
+      if (remoteAllowLocalFallback) {
+        execLocally(spawn, actionExecutionContext, actionKey);
+      } else {
+        throw new UserExecException(e);
+      }
     } catch (CacheNotFoundException e) {
       eventHandler.handle(Event.warn(mnemonic + " remote work results cache miss (" + e + ")"));
-      execLocally(spawn, actionExecutionContext, actionKey);
+      if (remoteAllowLocalFallback) {
+        execLocally(spawn, actionExecutionContext, actionKey);
+      } else {
+        throw new UserExecException(e);
+      }
     } catch (UnsupportedOperationException e) {
       eventHandler.handle(
           Event.warn(mnemonic + " unsupported operation for action cache (" + e + ")"));

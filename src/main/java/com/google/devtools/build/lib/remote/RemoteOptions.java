@@ -114,4 +114,12 @@ public final class RemoteOptions extends OptionsBase {
       help = "Whether to accept remotely cached action results."
     )
   public boolean remoteAcceptCached;
+
+  @Option(
+      name = "remote_allow_local_fallback",
+      defaultValue = "true",
+      category = "remote",
+      help = "Whether to fall back to standalone strategy if remote fails."
+    )
+  public boolean remoteAllowLocalFallback;
 }
