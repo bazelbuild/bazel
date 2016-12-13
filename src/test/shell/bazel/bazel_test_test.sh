@@ -80,7 +80,8 @@ function test_3_local_jobs() {
     --runs_per_test=10 //dir:test
 }
 
-function test_tmpdir() {
+# TODO(#2228): Re-enable when the tmpdir creation is fixed.
+function DISABLED_test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/bash
