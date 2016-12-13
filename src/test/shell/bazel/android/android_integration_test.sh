@@ -167,7 +167,7 @@ EOF
 
 function check_num_sos() {
   num_sos=$(unzip -Z1 bazel-bin/java/bazel/bin.apk '*.so' | wc -l | sed -e 's/[[:space:]]//g')
-  assert_equals "11" "$num_sos"
+  assert_equals "7" "$num_sos"
 }
 
 function check_soname() {
@@ -207,7 +207,7 @@ function test_android_binary() {
   setup_android_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,armeabi-v7a-hard,armeabi-thumb,armeabi-v7a-thumb,armeabi-v7a-hard-thumb,arm64-v8a,mips,mips64,x86,x86_64"
+  cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
 
   bazel build -s //java/bazel:bin --fat_apk_cpu="$cpus" || fail "build failed"
   check_num_sos
@@ -224,7 +224,7 @@ function test_android_binary_clang() {
   setup_android_support
   create_android_binary
 
-  cpus="armeabi,armeabi-v7a,armeabi-v7a-hard,armeabi-thumb,armeabi-v7a-thumb,armeabi-v7a-hard-thumb,arm64-v8a,mips,mips64,x86,x86_64"
+  cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
 
   bazel build -s //java/bazel:bin \
       --fat_apk_cpu="$cpus" \
