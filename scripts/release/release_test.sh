@@ -60,7 +60,7 @@ function create() {
   ${RELEASE_SCRIPT} create $@ &> $TEST_log \
     || fail "Failed to cut release $name at commit $commit"
   local new_branch=$(git_get_branch)
-  assert_equals "$old_branch" "$new_branch"
+  assert_equals "release-$name" "$new_branch"
   assert_contains "Created $name.* on branch release-$name." $TEST_log
   get_full_release_notes "release-$name" >$TEST_log
 }

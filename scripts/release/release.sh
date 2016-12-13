@@ -174,9 +174,7 @@ function create_release() {
     exit 1
   }
 
-  # Return to the original branch
   echo "Created $(get_full_release_name) on branch ${branch_name}."
-  git checkout ${origin_branch} &> /dev/null
 }
 
 # Setup the git notes for a release.
