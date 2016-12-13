@@ -308,7 +308,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
-    QueryExpression transformedQueryExpression = getTransformedQueryExpression(queryExpression);
+    QueryExpressionMapper mapper = getQueryExpressionMapper();
+    QueryExpression transformedQueryExpression = queryExpression.getMapped(mapper);
     LOG.info(String.format(
         "transformed query [%s] to [%s]",
         Ascii.truncate(
@@ -318,14 +319,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return transformedQueryExpression;
   }
 
-  protected QueryExpression getTransformedQueryExpression(QueryExpression queryExpression) {
+  protected QueryExpressionMapper getQueryExpressionMapper() {
     if (universeScope.size() != 1) {
-      return queryExpression;
+      return QueryExpressionMapper.identity();
     }
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
     String universeScopePattern = Iterables.getOnlyElement(universeScope);
-    return queryExpression.getMapped(
-        new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern));
+    return new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern);
   }
 
   @Override

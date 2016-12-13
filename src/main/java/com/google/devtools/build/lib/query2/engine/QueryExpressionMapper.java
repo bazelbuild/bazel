@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
  * maintain reference-equality, as an optimization). Subclasses of {@link QueryExpressionMapper} can
  * override these methods in order to implement an arbitrary transformation.
  */
-public class QueryExpressionMapper {
+public abstract class QueryExpressionMapper {
   public QueryExpression map(TargetLiteral targetLiteral) {
     return targetLiteral;
   }
@@ -87,6 +87,84 @@ public class QueryExpressionMapper {
 
   public QueryExpression map(SetExpression setExpression) {
     return setExpression;
+  }
+
+  public static QueryExpressionMapper identity() {
+    return IdentityMapper.INSTANCE;
+  }
+
+  public static QueryExpressionMapper compose(
+      QueryExpressionMapper outerMapper, QueryExpressionMapper innerMapper) {
+    return new ComposedQueryExpressionMapper(outerMapper, innerMapper);
+  }
+
+  private static class ComposedQueryExpressionMapper extends QueryExpressionMapper {
+    private QueryExpressionMapper outerMapper;
+    private QueryExpressionMapper innerMapper;
+
+    private ComposedQueryExpressionMapper(
+        QueryExpressionMapper outerMapper,
+        QueryExpressionMapper innerMapper) {
+      this.outerMapper = outerMapper;
+      this.innerMapper = innerMapper;
+    }
+
+    @Override
+    public QueryExpression map(TargetLiteral targetLiteral) {
+      return innerMapper.map(targetLiteral).getMapped(outerMapper);
+    }
+
+    @Override
+    public QueryExpression map(BinaryOperatorExpression binaryOperatorExpression) {
+      return innerMapper.map(binaryOperatorExpression).getMapped(outerMapper);
+    }
+
+    @Override
+    public QueryExpression map(FunctionExpression functionExpression) {
+      return innerMapper.map(functionExpression).getMapped(outerMapper);
+    }
+
+    @Override
+    public QueryExpression map(LetExpression letExpression) {
+      return innerMapper.map(letExpression).getMapped(outerMapper);
+    }
+
+    @Override
+    public QueryExpression map(SetExpression setExpression) {
+      return innerMapper.map(setExpression).getMapped(outerMapper);
+    }
+  }
+
+  private static class IdentityMapper extends QueryExpressionMapper {
+    private static final IdentityMapper INSTANCE = new IdentityMapper();
+
+    private IdentityMapper() {
+    }
+
+    @Override
+    public QueryExpression map(TargetLiteral targetLiteral) {
+      return targetLiteral;
+    }
+
+    @Override
+    public QueryExpression map(BinaryOperatorExpression binaryOperatorExpression) {
+      return binaryOperatorExpression;
+    }
+
+    @Override
+    public QueryExpression map(FunctionExpression functionExpression) {
+      return functionExpression;
+    }
+
+    @Override
+    public QueryExpression map(LetExpression letExpression) {
+      return letExpression;
+    }
+
+    @Override
+    public QueryExpression map(SetExpression setExpression) {
+      return setExpression;
+    }
   }
 }
 
