@@ -8,6 +8,11 @@ exports_files(
     ],
 )
 
+DOT_GRAPH_HTML_FILES = [
+    "versions/master/docs/query.html",
+    "versions/master/docs/build-ref.html",
+]
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -25,7 +30,7 @@ filegroup(
             "command-line-reference-prefix.html",
             "command-line-reference-suffix.html",
             "site/README.md",
-        ],
+        ] + DOT_GRAPH_HTML_FILES,
     ),
 )
 
@@ -76,6 +81,7 @@ pkg_tar(
         ":bootstrap-css",
         ":bootstrap-images",
         ":bootstrap-js",
+        ":dot-graphs",
         ":font-awesome-css",
         ":font-awesome-font",
         ":jekyll-files",
@@ -89,6 +95,23 @@ pkg_tar(
         "//tools/build_defs/pkg:README.md",
     ],
     strip_prefix = "/tools/build_defs",
+)
+
+genrule(
+    name = "dot-graphs",
+    srcs = DOT_GRAPH_HTML_FILES,
+    outs = ["dot.tar"],
+    cmd = """
+origdir=$$PWD
+tmpdir=$$(mktemp -d)
+for f in $(SRCS); do
+    mkdir -p $$tmpdir/$$(dirname $$f)
+    $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+done
+cd $$tmpdir/site
+tar cf $$origdir/$@ *
+""",
+    tools = ["//scripts/docs:generate_dot_graphs"],
 )
 
 genrule(
