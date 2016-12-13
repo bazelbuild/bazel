@@ -209,7 +209,7 @@ function test_dummy_repository() {
   local repositories="$(tar xOf "${test_data}" "./repositories")"
   # This would really need to use `jq` instead.
   echo "${repositories}" | \
-    grep -Esq -- "\"gcr.io/dummy/[a-zA-Z_]*_docker_testdata\": {" \
+    grep -Esq -- "\"gcr.io/dummy/[a-zA-Z_/]*/docker/testdata\": {" \
     || fail "Cannot find image in repository gcr.io/dummy in '${repositories}'"
   EXPECT_CONTAINS "${repositories}" "\"dummy_repository\": \"$layer\""
 }

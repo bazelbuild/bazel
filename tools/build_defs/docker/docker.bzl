@@ -328,7 +328,12 @@ def _assemble_image(ctx, layers, name):
 
 def _repository_name(ctx):
   """Compute the repository name for the current rule."""
-  return "%s/%s" % (ctx.attr.repository, ctx.label.package.replace("/", "_"))
+  if ctx.attr.legacy_repository_naming:
+    # Legacy behavior, off by default.
+    return "%s/%s" % (ctx.attr.repository, ctx.label.package.replace("/", "_"))
+  # Newer Docker clients support multi-level names, which are a part of
+  # the v2 registry specification.
+  return "%s/%s" % (ctx.attr.repository, ctx.label.package)
 
 def reverse(lst):
   result = []
@@ -400,6 +405,7 @@ docker_build_ = rule(
         "tars": attr.label_list(allow_files=tar_filetype),
         "debs": attr.label_list(allow_files=deb_filetype),
         "files": attr.label_list(allow_files=True),
+        "legacy_repository_naming": attr.bool(default=False),
         "mode": attr.string(default="0555"),
         "symlinks": attr.string_dict(),
         "entrypoint": attr.string_list(),

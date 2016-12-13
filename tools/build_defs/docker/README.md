@@ -201,7 +201,7 @@ repositories: pull and push docker image.
 ## docker_build
 
 ```python
-docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks, entrypoint, cmd, env, labels, ports, volumes, workdir, repository)
+docker_build(name, base, data_path, directory, files, legacy_repository_naming, mode, tars, debs, symlinks, entrypoint, cmd, env, labels, ports, volumes, workdir, repository)
 ```
 
 <table class="table table-condensed table-bordered table-implicit">
@@ -317,6 +317,18 @@ docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks
         <p>File to add to the layer.</p>
         <p>
           A list of files that should be included in the docker image.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>legacy_repository_naming</code></td>
+      <td>
+        <code>Bool, default to False</code>
+        <p>
+          Whether to use the legacy strategy for naming the repository name
+          embedded in the resulting tarball.
+          e.g. <code>bazel/{target.replace('/', '_')}</code>
+          vs. <code>bazel/{target}</code>
         </p>
       </td>
     </tr>
