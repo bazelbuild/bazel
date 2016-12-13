@@ -35,10 +35,16 @@ public class AarImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .setUndocumented()
+        /* <!-- #BLAZE_RULE($aar_import_base).ATTRIBUTE(aar) -->
+        The <code>.aar</code> file to provide to the Android targets that depend on this target.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("aar", LABEL)
             .mandatory()
             .allowedFileTypes(FileType.of(".aar")))
+        /* <!-- #BLAZE_RULE(aar_import).ATTRIBUTE(exports) -->
+        Target to export to rules that depend on this rule.
+        See <a href="${link java_library.exports}">java_library.exports.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses("aar_import", "java_import")
             .allowedFileTypes()

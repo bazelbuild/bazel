@@ -40,3 +40,29 @@ public final class BazelAarImportRule implements RuleDefinition {
         .build();
   }
 }
+
+/*<!-- #BLAZE_RULE (NAME = aar_import, TYPE = LIBRARY, FAMILY = Android) -->
+
+<p>
+  This rule allows the use of <code>.aar</code> files as libraries for
+  <code><a href="${link android_library}">android_library</a></code> and
+  <code><a href="${link android_binary}">android_binary</a></code> rules.
+</p>
+
+<h4 id="aar_import_examples">Examples</h4>
+
+<pre class="code">
+    aar_import(
+        name = "google-vr-sdk",
+        aar = "gvr-android-sdk/libraries/sdk-common-1.10.0.aar",
+    )
+
+    android_binary(
+        name = "app",
+        manifest = "AndroidManifest.xml",
+        srcs = glob(["**.java"]),
+        deps = [":google-vr-sdk"],
+    )
+</pre>
+
+<!-- #END_BLAZE_RULE -->*/
