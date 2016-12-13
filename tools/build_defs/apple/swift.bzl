@@ -78,9 +78,9 @@ def _swift_bitcode_flags(ctx):
   return []
 
 
-def _module_name(ctx):
-  """Returns a module name for the given rule context."""
-  return ctx.label.package.lstrip("//").replace("/", "_") + "_" + ctx.label.name
+def swift_module_name(label):
+  """Returns a module name for the given label."""
+  return label.package.lstrip("//").replace("/", "_") + "_" + label.name
 
 
 def _swift_lib_dir(ctx):
@@ -160,27 +160,130 @@ def _validate_rule_and_deps(ctx):
       fail(name_error_str % dep.label)
 
 
-def _swift_library_impl(ctx):
-  """Implementation for swift_library Skylark rule."""
+def swiftc_args(ctx):
+  """Returns an almost compelete array of arguments to be passed to swiftc.
 
-  _validate_rule_and_deps(ctx)
+  This macro is intended to be used by the swift_library rule implementation
+  below but it also may be used by other rules outside this file. It has no
+  side effects and does not modify ctx. It expects ctx to contain the same
+  fragments and attributes as swift_library (you're encouraged to depend on
+  SWIFT_LIBRARY_ATTRS in your rule definition).
 
-  # TODO(b/29772303): Assert xcode version.
+  Args:
+    ctx: rule context
+
+  Returns:
+    A list of command line arguments for swiftc. The returned arguments
+    include everything except the arguments generation of which would require
+    adding new files or actions.
+  """
+
   apple_fragment = ctx.fragments.apple
 
   cpu = apple_fragment.single_arch_cpu
   platform = apple_fragment.single_arch_platform
 
-  target_os = ctx.fragments.apple.minimum_os_for_platform_type(
+  target_os = apple_fragment.minimum_os_for_platform_type(
       platform.platform_type)
   target = _swift_target(cpu, platform, target_os)
   apple_toolchain = apple_common.apple_toolchain()
 
-  module_name = ctx.attr.module_name or _module_name(ctx)
+  module_name = ctx.attr.module_name or swift_module_name(ctx.label)
 
   # A list of paths to pass with -F flag.
   framework_dirs = set([
       apple_toolchain.platform_developer_framework_dir(apple_fragment)])
+
+  # Collect transitive dependecies.
+  dep_modules = []
+  swiftc_defines = ctx.attr.defines
+
+  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+
+  for swift in swift_providers:
+    dep_modules += swift.transitive_modules
+    swiftc_defines += swift.transitive_defines
+
+  objc_includes = set()     # Everything that needs to be included with -I
+  objc_module_maps = set()  # Module maps for dependent targets
+  objc_defines = set()
+  for objc in objc_providers:
+    objc_includes += objc.include
+    objc_module_maps += objc.module_map
+
+    framework_dirs += _parent_dirs(objc.framework_dir)
+    # TODO(cparsons): Remove getattr call once dynamic_framework_dir is stable.
+    framework_dirs += _parent_dirs(getattr(objc, "dynamic_framework_dir", []))
+
+    # objc_library#copts is not propagated to its dependencies and so it is not
+    # collected here. In theory this may lead to un-importable targets (since
+    # their module cannot be compiled by clang), but did not occur in practice.
+    objc_defines += objc.define
+
+  srcs_args = [f.path for f in ctx.files.srcs]
+
+  # Include each swift module's parent directory for imports to work.
+  include_dirs = set([x.dirname for x in dep_modules])
+
+  # Include the genfiles root so full-path imports can work for generated protos.
+  include_dirs += set([ctx.configuration.genfiles_dir.path])
+
+  include_args = ["-I%s" % d for d in include_dirs + objc_includes]
+  framework_args = ["-F%s" % x for x in framework_dirs]
+  define_args = ["-D%s" % x for x in swiftc_defines]
+
+  clang_args = _intersperse(
+      "-Xcc",
+
+      # Add the current directory to clang's search path.
+      # This instance of clang is spawned by swiftc to compile module maps and
+      # is not passed the current directory as a search path by default.
+      ["-iquote", "."]
+
+      # Pass DEFINE or copt values from objc configuration and rules to clang
+      + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
+      + _clang_compilation_mode_flags(ctx)
+
+      # Load module maps explicitly instead of letting Clang discover them on
+      # search paths. This is needed to avoid a case where Clang may load the
+      # same header both in modular and non-modular contexts, leading to
+      # duplicate definitions in the same file.
+      # https://llvm.org/bugs/show_bug.cgi?id=19501
+      + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
+
+  args = [
+      "-emit-object",
+      "-module-name",
+      module_name,
+      "-target",
+      target,
+      "-sdk",
+      apple_toolchain.sdk_dir(),
+      "-module-cache-path",
+      module_cache_path(ctx),
+  ]
+
+  if ctx.configuration.coverage_enabled:
+    args.extend(["-profile-generate", "-profile-coverage-mapping"])
+
+  args.extend(_swift_compilation_mode_flags(ctx))
+  args.extend(_swift_bitcode_flags(ctx))
+  args.extend(_swift_parsing_flags(ctx))
+  args.extend(srcs_args)
+  args.extend(include_args)
+  args.extend(framework_args)
+  args.extend(clang_args)
+  args.extend(define_args)
+  args.extend(ctx.attr.copts)
+
+  return args
+
+
+def _swift_library_impl(ctx):
+  """Implementation for swift_library Skylark rule."""
+
+  _validate_rule_and_deps(ctx)
 
   # Collect transitive dependecies.
   dep_modules = []
@@ -195,32 +298,18 @@ def _swift_library_impl(ctx):
     dep_modules += swift.transitive_modules
     swiftc_defines += swift.transitive_defines
 
-  objc_includes = set()     # Everything that needs to be included with -I
   objc_files = set()        # All inputs required for the compile action
-  objc_module_maps = set()  # Module maps for dependent targets
-  objc_defines = set()
   for objc in objc_providers:
-    objc_includes += objc.include
-
     objc_files += objc.header
     objc_files += objc.module_map
 
-    objc_module_maps += objc.module_map
-
     files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
     objc_files += files
-    framework_dirs += _parent_dirs(objc.framework_dir)
-    # TODO(cparsons): Remove getattr call once dynamic_framework_dir is stable.
-    framework_dirs += _parent_dirs(getattr(objc, "dynamic_framework_dir", []))
-
-    # objc_library#copts is not propagated to its dependencies and so it is not
-    # collected here. In theory this may lead to un-importable targets (since
-    # their module cannot be compiled by clang), but did not occur in practice.
-    objc_defines += objc.define
 
   # A unique path for rule's outputs.
   objs_outputs_path = label_scoped_path(ctx, "_objs/")
 
+  module_name = ctx.attr.module_name or swift_module_name(ctx.label)
   output_lib = ctx.new_file(objs_outputs_path + module_name + ".a")
   output_module = ctx.new_file(objs_outputs_path + module_name + ".swiftmodule")
 
@@ -253,80 +342,16 @@ def _swift_library_impl(ctx):
   # are listed here https://github.com/apple/swift/blob/swift-2.2.1-RELEASE/include/swift/Driver/Types.def
   ctx.file_action(output=swiftc_output_map_file, content=swiftc_output_map.to_json())
 
-  srcs_args = [f.path for f in ctx.files.srcs]
-
-  # Include each swift module's parent directory for imports to work.
-  include_dirs = set([x.dirname for x in dep_modules])
-
-  # Include the parent directory of the resulting module so LLDB can find it.
-  include_dirs += set([output_module.dirname])
-
-  # Include the genfiles root so full-path imports can work for generated protos.
-  include_dirs += set([ctx.configuration.genfiles_dir.path])
-
-  include_args = ["-I%s" % d for d in include_dirs + objc_includes]
-  framework_args = ["-F%s" % x for x in framework_dirs]
-  define_args = ["-D%s" % x for x in swiftc_defines]
-
-  # This tells the linker to write a reference to .swiftmodule as an AST symbol
-  # in the final binary.
-  # With dSYM enabled, this results in a __DWARF,__swift_ast section added to
-  # the dSYM binary, from where LLDB is able deserialize module information.
-  # Without dSYM, LLDB will follow the AST references, however there is a bug
-  # where it follows only the first one https://bugs.swift.org/browse/SR-2637
-  # This means that dSYM is required for debugging until that is resolved.
-  extra_linker_args = ["-Xlinker -add_ast_path -Xlinker " + output_module.path]
-
-  clang_args = _intersperse(
-      "-Xcc",
-
-      # Add the current directory to clang's search path.
-      # This instance of clang is spawned by swiftc to compile module maps and
-      # is not passed the current directory as a search path by default.
-      ["-iquote", "."]
-
-      # Pass DEFINE or copt values from objc configuration and rules to clang
-      + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
-      + _clang_compilation_mode_flags(ctx)
-
-      # Load module maps explicitly instead of letting Clang discover them on
-      # search paths. This is needed to avoid a case where Clang may load the
-      # same header both in modular and non-modular contexts, leading to
-      # duplicate definitions in the same file.
-      # https://llvm.org/bugs/show_bug.cgi?id=19501
-      + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
-
-  args = _swift_xcrun_args(ctx) + [
-      "swiftc",
-      "-emit-object",
+  args = _swift_xcrun_args(ctx) + ["swiftc"] + swiftc_args(ctx)
+  args += [
+      "-I" + output_module.dirname,
       "-emit-module-path",
       output_module.path,
-      "-module-name",
-      module_name,
       "-emit-objc-header-path",
       output_header.path,
-      "-target",
-      target,
-      "-sdk",
-      apple_toolchain.sdk_dir(),
-      "-module-cache-path",
-      module_cache_path(ctx),
       "-output-file-map",
       swiftc_output_map_file.path,
   ]
-
-  if ctx.configuration.coverage_enabled:
-    args.extend(["-profile-generate", "-profile-coverage-mapping"])
-
-  args.extend(_swift_compilation_mode_flags(ctx))
-  args.extend(_swift_bitcode_flags(ctx))
-  args.extend(_swift_parsing_flags(ctx))
-  args.extend(srcs_args)
-  args.extend(include_args)
-  args.extend(framework_args)
-  args.extend(clang_args)
-  args.extend(define_args)
-  args.extend(ctx.attr.copts)
 
   xcrun_action(
       ctx,
@@ -348,6 +373,15 @@ def _swift_library_impl(ctx):
                ] + [x.path for x in output_objs],
                progress_message=("Archiving Swift objects %s" % ctx.label.name))
 
+  # This tells the linker to write a reference to .swiftmodule as an AST symbol
+  # in the final binary.
+  # With dSYM enabled, this results in a __DWARF,__swift_ast section added to
+  # the dSYM binary, from where LLDB is able deserialize module information.
+  # Without dSYM, LLDB will follow the AST references, however there is a bug
+  # where it follows only the first one https://bugs.swift.org/browse/SR-2637
+  # This means that dSYM is required for debugging until that is resolved.
+  extra_linker_args = ["-Xlinker -add_ast_path -Xlinker " + output_module.path]
+
   objc_provider = apple_common.new_objc_provider(
       library=set([output_lib] + dep_libs),
       header=set([output_header]),
@@ -364,18 +398,21 @@ def _swift_library_impl(ctx):
       objc=objc_provider,
       files=set([output_lib, output_module, output_header]))
 
+SWIFT_LIBRARY_ATTRS = {
+    "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
+    "deps": attr.label_list(providers=[["swift"], ["objc"]]),
+    "module_name": attr.string(mandatory=False),
+    "defines": attr.string_list(mandatory=False, allow_empty=True),
+    "copts": attr.string_list(mandatory=False, allow_empty=True),
+    "_xcrunwrapper": attr.label(
+        executable=True,
+        cfg="host",
+        default=Label(XCRUNWRAPPER_LABEL))
+}
+
 swift_library = rule(
     _swift_library_impl,
-    attrs = {
-        "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),
-        "deps": attr.label_list(providers=[["swift"], ["objc"]]),
-        "module_name": attr.string(mandatory=False),
-        "defines": attr.string_list(mandatory=False, allow_empty=True),
-        "copts": attr.string_list(mandatory=False, allow_empty=True),
-        "_xcrunwrapper": attr.label(
-            executable=True,
-            cfg="host",
-            default=Label(XCRUNWRAPPER_LABEL))},
+    attrs = SWIFT_LIBRARY_ATTRS,
     fragments = ["apple", "objc"],
     output_to_genfiles=True,
 )
