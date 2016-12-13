@@ -82,7 +82,7 @@ public class SkylarkProviderValidationUtil {
       // SkylarkNestedSets cannot have composite items.
       Class<?> contentType = ((SkylarkNestedSet) object).getContentType().getType();
       if (!contentType.equals(Object.class) && !isSimpleSkylarkObjectSafe(contentType)) {
-        throw new IllegalArgumentException(EvalUtils.getDataTypeName(contentType));
+        throw new IllegalArgumentException(EvalUtils.getDataTypeNameFromClass(contentType));
       }
       return;
     } else if (object instanceof Map<?, ?>) {
