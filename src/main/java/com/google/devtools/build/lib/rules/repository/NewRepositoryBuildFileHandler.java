@@ -106,7 +106,7 @@ public class NewRepositoryBuildFileHandler {
    */
   public void finishBuildFile(Path outputDirectory) throws RepositoryFunctionException {
     if (buildFileValue != null) {
-      // Link x/BUILD to <build_root>/x.BUILD.
+      // Link x/BUILD to <build_root>/x.BUILD.bazel.
       symlinkBuildFile(buildFileValue, outputDirectory);
     } else if (buildFileContent != null) {
       RepositoryFunction.writeBuildFile(outputDirectory, buildFileContent);
@@ -204,7 +204,7 @@ public class NewRepositoryBuildFileHandler {
    */
   private void symlinkBuildFile(
       FileValue buildFileValue, Path outputDirectory) throws RepositoryFunctionException {
-    Path buildFilePath = outputDirectory.getRelative("BUILD");
+    Path buildFilePath = outputDirectory.getRelative("BUILD.bazel");
     RepositoryFunction.createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath());
   }
 }

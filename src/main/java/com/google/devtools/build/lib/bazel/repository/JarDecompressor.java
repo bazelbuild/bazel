@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
 import java.io.IOException;
 import java.nio.charset.Charset;
-
 import javax.annotation.Nullable;
 
 /**
@@ -40,7 +38,7 @@ public class JarDecompressor implements Decompressor {
    * The .jar can be used compressed, so this just exposes it in a way Bazel can use.
    *
    * <p>It moves the jar from some-name/x/y/z/foo.jar to some-name/jar/foo.jar and creates a
-   * BUILD file containing one entry: the .jar.</p>
+   * BUILD.bazel file containing one entry: the .jar.
    */
   @Override
   @Nullable
@@ -62,12 +60,12 @@ public class JarDecompressor implements Decompressor {
       if (!jarSymlink.exists()) {
         jarSymlink.createSymbolicLink(descriptor.archivePath());
       }
-      // external/some-name/repository/jar/BUILD defines the //jar target.
-      Path buildFile = jarDirectory.getRelative("BUILD");
+      // external/some-name/repository/jar/BUILD.bazel defines the //jar target.
+      Path buildFile = jarDirectory.getRelative("BUILD.bazel");
       FileSystemUtils.writeLinesAs(
           buildFile,
           Charset.forName("UTF-8"),
-          "# DO NOT EDIT: automatically generated BUILD file for "
+          "# DO NOT EDIT: automatically generated BUILD.bazel file for "
               + descriptor.targetKind()
               + " rule "
               + descriptor.targetName(),
