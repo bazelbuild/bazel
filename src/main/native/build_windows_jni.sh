@@ -60,9 +60,10 @@ done
 # batch file. We can't make that have an effect on a bash instance, so
 # generate a batch file that invokes it.
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
-call "${VSVARS}" amd64
-set TMP=$(cygpath -a -w "${VSTEMP}")
-CL /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
+@echo OFF
+@call "${VSVARS}" amd64
+@set TMP=$(cygpath -a -w "${VSTEMP}")
+@CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
 EOF
 
 # Invoke the file and hopefully generate the .DLL .
