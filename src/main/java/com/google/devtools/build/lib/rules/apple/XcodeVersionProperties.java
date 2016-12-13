@@ -17,14 +17,25 @@ package com.google.devtools.build.lib.rules.apple;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A tuple containing information about a version of xcode and its properties. 
- */
-public class XcodeVersionProperties implements TransitiveInfoProvider {
+/** A tuple containing information about a version of xcode and its properties. */
+@Immutable
+public class XcodeVersionProperties extends SkylarkClassObject implements TransitiveInfoProvider {
+
+  /** Skylark name for the XcodeVersionProperties provider. */
+  public static final String SKYLARK_NAME = "XcodeProperties";
+
+  /** Skylark constructor and identifier for XcodeVersionProperties provider. */
+  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      SkylarkClassObjectConstructor.createNative(SKYLARK_NAME);
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
@@ -57,14 +68,16 @@ public class XcodeVersionProperties implements TransitiveInfoProvider {
   }
 
   /**
-   * General constructor. Some (nullable) properties may be left unspecified. In these cases,
-   * a semi-sensible default will be assigned to the property value. 
+   * General constructor. Some (nullable) properties may be left unspecified. In these cases, a
+   * semi-sensible default will be assigned to the property value.
    */
-  XcodeVersionProperties(DottedVersion xcodeVersion,
+  XcodeVersionProperties(
+      DottedVersion xcodeVersion,
       @Nullable String defaultIosSdkVersion,
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
       @Nullable String defaultMacosxSdkVersion) {
+    super(SKYLARK_CONSTRUCTOR, getSkylarkFields(xcodeVersion));
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
     this.defaultIosSdkVersion = (Strings.isNullOrEmpty(defaultIosSdkVersion))
         ? DottedVersion.fromString(DEFAULT_IOS_SDK_VERSION)
@@ -113,5 +126,13 @@ public class XcodeVersionProperties implements TransitiveInfoProvider {
    */
   public DottedVersion getDefaultMacosxSdkVersion() {
     return defaultMacosxSdkVersion;
+  }
+
+  private static Map<String, Object> getSkylarkFields(@Nullable DottedVersion xcodeVersion) {
+    ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
+    if (xcodeVersion != null) {
+      skylarkFields.put("xcode_version", xcodeVersion.toString());
+    }
+    return skylarkFields.build();
   }
 }

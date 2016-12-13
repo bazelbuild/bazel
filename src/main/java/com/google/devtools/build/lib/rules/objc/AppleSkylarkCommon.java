@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionProperties;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -105,6 +107,17 @@ public class AppleSkylarkCommon {
       platform = Platform.getSkylarkStruct();
     }
     return platform;
+  }
+
+  @SkylarkCallable(
+    name = XcodeVersionProperties.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for XcodeVersionProperties. If a target propagates "
+            + "the XcodeVersionProperties provider, use this as the key with which to retrieve it.",
+    structField = true
+  )
+  public SkylarkClassObjectConstructor getXcodeVersionPropertiesConstructor() {
+    return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkSignature(

@@ -34,7 +34,7 @@ public class XcodeVersion implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(XcodeVersionProperties.class, ruleData.getXcodeVersionProperties())
+        .addNativeDeclaredProvider(ruleData.getXcodeVersionProperties())
         .build();
   }
 }
