@@ -208,6 +208,10 @@ class StartupOptions {
   // Whether to output addition debugging information in the client.
   bool client_debug;
 
+  // Whether to check custom file for exit code when the Blaze Server exits
+  // abruptly without proper communication over gRPC.
+  bool use_custom_exit_code_on_abrupt_exit;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

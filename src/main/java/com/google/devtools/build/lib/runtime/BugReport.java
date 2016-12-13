@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -94,6 +95,7 @@ public abstract class BugReport {
             // to do as a best-effort operation.
             runtime.shutdownOnCrash();
           }
+          CustomExitCodePublisher.maybeWriteExitStatusFile(exitCode);
         } finally {
           // Avoid shutdown deadlock issues: If an application shutdown hook crashes, it will
           // trigger our Blaze crash handler (this method). Calling System#exit() here, would

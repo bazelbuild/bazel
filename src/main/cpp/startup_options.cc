@@ -55,7 +55,8 @@ StartupOptions::StartupOptions(const string &product_name,
       command_port(0),
       connect_timeout_secs(10),
       invocation_policy(NULL),
-      client_debug(false) {
+      client_debug(false),
+      use_custom_exit_code_on_abrupt_exit(true) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -68,11 +69,20 @@ StartupOptions::StartupOptions(const string &product_name,
       output_root, "_" + product_name_lower + "_" + GetUserName());
   // 3 hours (but only 15 seconds if used within a test)
   max_idle_secs = testing ? 15 : (3 * 3600);
-  nullary_options = {"deep_execroot", "block_for_lock",
-      "host_jvm_debug", "master_blazerc", "master_bazelrc", "batch",
-      "batch_cpu_scheduling", "allow_configurable_attributes",
-      "fatal_event_bus_exceptions", "experimental_oom_more_eagerly",
-      "write_command_log", "watchfs", "client_debug"};
+  nullary_options = {"deep_execroot",
+                     "block_for_lock",
+                     "host_jvm_debug",
+                     "master_blazerc",
+                     "master_bazelrc",
+                     "batch",
+                     "batch_cpu_scheduling",
+                     "allow_configurable_attributes",
+                     "fatal_event_bus_exceptions",
+                     "experimental_oom_more_eagerly",
+                     "write_command_log",
+                     "watchfs",
+                     "client_debug",
+                     "use_custom_exit_code_on_abrupt_exit"};
   unary_options = {"output_base", "install_base",
       "output_user_root", "host_jvm_profile", "host_javabase",
       "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
@@ -266,6 +276,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noclient_debug")) {
     client_debug = false;
     option_sources["client_debug"] = rcfile;
+  } else if (GetNullaryOption(arg, "--use_custom_exit_code_on_abrupt_exit")) {
+    use_custom_exit_code_on_abrupt_exit = true;
+    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nouse_custom_exit_code_on_abrupt_exit")) {
+    use_custom_exit_code_on_abrupt_exit = false;
+    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||

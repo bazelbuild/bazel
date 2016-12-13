@@ -286,4 +286,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
       category = "server startup",
       help = "The amount of time the client waits for each attempt to connect to the server")
   public int connectTimeoutSecs;
+
+  @Option(
+    name = "use_custom_exit_code_on_abrupt_exit",
+    defaultValue = "true", // NOTE: purely decorative!
+    category = "undocumented",
+    help =
+        "If the Blaze server exits abruptly without access to traditional channels to "
+            + "communicate its exit code, attempt to communicate through a backup channel. "
+            + "This flag is temporary to allow easy disabling of a new behavior. "
+            + "Please do not use this flag."
+  )
+  public boolean useCustomExitCodeOnAbruptExit;
 }

@@ -54,7 +54,6 @@
 #include <vector>
 
 
-#include "src/main/cpp/blaze_abrupt_exit.h"
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/global_variables.h"
@@ -483,6 +482,11 @@ static vector<string> GetArgumentArray() {
     result.push_back("--client_debug=true");
   } else {
     result.push_back("--client_debug=false");
+  }
+  if (globals->options->use_custom_exit_code_on_abrupt_exit) {
+    result.push_back("--use_custom_exit_code_on_abrupt_exit=true");
+  } else {
+    result.push_back("--use_custom_exit_code_on_abrupt_exit=false");
   }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
@@ -1271,10 +1275,36 @@ static string CheckAndGetBinaryPath(const string& argv0) {
   }
 }
 
-// TODO(bazel-team): Execute the server as a child process and write its exit
-// code to a file. In case the server becomes unresonsive or terminates
-// unexpectedly (in a way that isn't already handled), we can observe the file,
-// if it exists. (If it doesn't, then we know something went horribly wrong.)
+int GetExitCodeForAbruptExit(const GlobalVariables &globals) {
+  const StartupOptions *startup_options = globals.options;
+  if (startup_options->use_custom_exit_code_on_abrupt_exit) {
+    BAZEL_LOG(INFO) << "Looking for a custom exit-code.";
+    std::string filename = blaze_util::JoinPath(
+        globals.options->output_base, "exit_code_to_use_on_abrupt_exit");
+    std::string content;
+    if (!blaze_util::ReadFile(filename, &content)) {
+      BAZEL_LOG(INFO) << "Unable to read the custom exit-code file. "
+                      << "Exiting with an INTERNAL_ERROR.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+    if (!blaze_util::UnlinkPath(filename)) {
+      BAZEL_LOG(INFO) << "Unable to delete the custom exit-code file. "
+                      << "Exiting with an INTERNAL_ERROR.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+    int custom_exit_code;
+    if (!blaze_util::safe_strto32(content, &custom_exit_code)) {
+      BAZEL_LOG(INFO) << "Content of custom exit-code file not an int: "
+                      << content << "Exiting with an INTERNAL_ERROR.";
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+    BAZEL_LOG(INFO) << "Read exit code " << custom_exit_code
+                    << " from custom exit-code file. Exiting accordingly.";
+    return custom_exit_code;
+  }
+  return blaze_exit_code::INTERNAL_ERROR;
+}
+
 int Main(int argc, const char *argv[], WorkspaceLayout* workspace_layout,
          OptionProcessor *option_processor,
          std::unique_ptr<blaze_util::LogHandler> log_handler) {

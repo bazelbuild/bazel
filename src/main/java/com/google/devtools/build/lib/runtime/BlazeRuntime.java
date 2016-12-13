@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
@@ -983,7 +984,9 @@ public final class BlazeRuntime {
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
     runtime.initWorkspace(directories, binTools);
-
+    if (startupOptions.useCustomExitCodeOnAbruptExit) {
+      CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
+    }
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     return runtime;
