@@ -537,6 +537,19 @@ public class EvaluationTest extends EvaluationTestCase {
             "(1, 2) + [3, 4]");
   }
 
+  @Test
+  public void testListMultiply() throws Exception {
+    newTest()
+            .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
+            .testStatement("[    ] * 10", MutableList.EMPTY)
+            .testStatement("[1, 2] * 0", MutableList.EMPTY)
+            .testStatement("[1, 2] * -4", MutableList.EMPTY)
+            .testStatement(" 2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
+            .testStatement("10 * []", MutableList.EMPTY)
+            .testStatement(" 0 * [1, 2]", MutableList.EMPTY)
+            .testStatement("-4 * [1, 2]", MutableList.EMPTY);
+  }
+
   @SuppressWarnings("unchecked")
   @Test
   public void testSelectorListConcatenation() throws Exception {
