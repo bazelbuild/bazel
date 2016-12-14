@@ -78,6 +78,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -282,8 +283,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * <p>Returns null if Skyframe hasn't evaluated the required dependencies yet. In this case, the
    * caller should also return null to Skyframe.
    *  @param env the Skyframe environment
-   * @param resolver The dependency resolver
-   * @param ctgValue The label and the configuration of the node
+   * @param resolver the dependency resolver
+   * @param ctgValue the label and the configuration of the node
    * @param aspects
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
@@ -324,6 +325,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
     if (useDynamicConfigurations(ctgValue.getConfiguration())) {
       depValueNames = getDynamicConfigurations(env, ctgValue, depValueNames, hostConfiguration,
           ruleClassProvider);
+      // It's important that we don't use "if (env.missingValues()) { return null }" here (or
+      // in the following lines). See the comments in getDynamicConfigurations' Skyframe call
+      // for explanation.
       if (depValueNames == null) {
         return null;
       }
@@ -456,9 +460,20 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * the configurations unconditionally include all fragments.
    *
    * <p>This method is heavily performance-optimized. Because it, in aggregate, reads over every
-   * edge in the configured target graph, small inefficiencies can have observable impact on build
+   * edge in the configured target graph, small inefficiencies can have observable impact on
    * analysis time. Keep this in mind when making modifications and performance-test any changes you
    * make.
+   *
+   * @param env Skyframe evaluation environment
+   * @param ctgValue the label and the configuration of the node
+   * @param originalDeps the set of configuration transition requests for this target's attributes
+   * @param hostConfiguration the host configuration
+   * @param ruleClassProvider the rule class provider for determining the right configuration
+   *    fragments to apply to deps
+   *
+   * @return a mapping from each attribute to the {@link BuildConfiguration}s and {@link Label}s
+   *    to use for that attribute's deps. Returns null if not all Skyframe dependencies are
+   *    available yet.
    */
   @Nullable
   static OrderedSetMultimap<Attribute, Dependency> getDynamicConfigurations(
@@ -597,19 +612,37 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
 
-    // Get all BuildConfigurations we need to get from Skyframe.
+    // Get all BuildConfigurations we need from Skyframe. While not every value might be available,
+    // we don't call env.valuesMissing() here because that could be true from the earlier
+    // resolver.dependentNodeMap call in computeDependencies, which also calls Skyframe. This method
+    // doesn't need those missing values, but it still has to be called after
+    // resolver.dependentNodeMap because it consumes that method's output. The reason the missing
+    // values don't matter is because resolver.dependentNodeMap still returns "partial" results
+    // and this method runs over whatever's available.
+    //
+    // While there would be no *correctness* harm in nulling out early, there's significant
+    // *performance* harm. Profiling shows that putting "if (env.valuesMissing()) { return null; }"
+    // here (or even after resolver.dependentNodeMap) produces a ~30% performance hit on the
+    // analysis phase. That's because resolveConfiguredTargetDependencies and
+    // resolveAspectDependencies don't get a chance to make their own Skyframe requests before
+    // bailing out of this ConfiguredTargetFunction call. Ideally we could batch all requests
+    // from all methods into a single Skyframe call, but there are enough subtle data flow
+    // dependencies in ConfiguredTargetFucntion to make that impractical.
     Map<SkyKey, ValueOrException<InvalidConfigurationException>> depConfigValues =
         env.getValuesOrThrow(keysToEntries.keySet(), InvalidConfigurationException.class);
-    if (env.valuesMissing()) {
-      return null;
-    }
 
     // Now fill in the remaining unresolved deps with the now-resolved configurations.
     try {
       for (Map.Entry<SkyKey, ValueOrException<InvalidConfigurationException>> entry :
           depConfigValues.entrySet()) {
         SkyKey key = entry.getKey();
-        BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) entry.getValue().get();
+        ValueOrException<InvalidConfigurationException> valueOrException = entry.getValue();
+        if (valueOrException.get() == null) {
+          // Instead of env.missingValues(), check for missing values here. This guarantees we only
+          // null out on missing values from *this specific Skyframe request*.
+          return null;
+        }
+        BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) valueOrException.get();
         for (Map.Entry<Attribute, Dependency> info : keysToEntries.get(key)) {
           Dependency originalDep = info.getValue();
           AttributeAndLabel attr = new AttributeAndLabel(info.getKey(), originalDep.getLabel());
