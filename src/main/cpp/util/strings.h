@@ -14,6 +14,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_STRINGS_H_
 
+#include <memory>  // unique_ptr
 #include <string>
 #include <vector>
 
@@ -104,6 +105,14 @@ void StringPrintf(std::string *str, const char *format, ...);
 
 // Convert str to lower case. No locale handling, this is just for ASCII.
 void ToLower(std::string *str);
+
+// Convert a wchar_t string to a char string. Useful when consuming results of
+// widechar Windows API functions.
+std::unique_ptr<char[]> WstringToCstring(const wchar_t *input);
+
+// Convert a char string to a wchar_t string. Useful when passing arguments to
+// widechar Windows API functions.
+std::unique_ptr<wchar_t[]> CstringToWstring(const char *input);
 
 }  // namespace blaze_util
 

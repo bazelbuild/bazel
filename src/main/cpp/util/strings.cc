@@ -13,17 +13,20 @@
 // limitations under the License.
 #include "src/main/cpp/util/strings.h"
 
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <cassert>
+#include <memory>  // unique_ptr
 
 #include "src/main/cpp/util/exit_code.h"
 
 namespace blaze_util {
 
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 static const char kSeparator[] = " \n\t\r";
@@ -305,6 +308,29 @@ void ToLower(string *str) {
     temp += tolower(ch);
   }
   *str = temp;
+}
+
+template <typename U, typename V>
+static unique_ptr<V[]> UstringToVstring(
+    const U *input, size_t (*convert)(V *output, const U *input, size_t len)) {
+  size_t size = convert(nullptr, input, 0) + 1;
+  if (size == (size_t)-1) {
+    fprintf(stderr, "Invalid input for string conversion, errno=%d\n", errno);
+    exit(blaze_exit_code::INTERNAL_ERROR);
+    return unique_ptr<V[]>(nullptr);  // formally return, though unreachable
+  }
+  unique_ptr<V[]> result(new V[size]);
+  convert(result.get(), input, size);
+  result.get()[size - 1] = 0;
+  return std::move(result);
+}
+
+unique_ptr<char[]> WstringToCstring(const wchar_t *input) {
+  return UstringToVstring<wchar_t, char>(input, wcstombs);
+}
+
+unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
+  return UstringToVstring<char, wchar_t>(input, mbstowcs);
 }
 
 }  // namespace blaze_util
