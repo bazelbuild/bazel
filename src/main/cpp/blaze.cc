@@ -241,9 +241,9 @@ class GrpcBlazeServer : public BlazeServer {
 
   int connect_timeout_secs_;
 
-  // Pipe that the main thread sends actions to and the cancel thread receieves
+  // Pipe that the main thread sends actions to and the cancel thread receives
   // actions from.
-  blaze_util::IPipe* _pipe;
+  blaze_util::IPipe *pipe_;
 
   void CancelThread();
   void SendAction(CancelThreadAction action);
@@ -1360,15 +1360,15 @@ GrpcBlazeServer::GrpcBlazeServer(int connect_timeout_secs) {
 
   gpr_set_log_function(null_grpc_log_function);
 
-  _pipe = blaze_util::CreatePipe();
-  if (_pipe == NULL) {
+  pipe_ = blaze_util::CreatePipe();
+  if (pipe_ == NULL) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Couldn't create pipe");
   }
 }
 
 GrpcBlazeServer::~GrpcBlazeServer() {
-  delete _pipe;
-  _pipe = NULL;
+  delete pipe_;
+  pipe_ = NULL;
 }
 
 bool GrpcBlazeServer::Connect() {
@@ -1473,7 +1473,7 @@ void GrpcBlazeServer::CancelThread() {
   while (running) {
     char buf;
 
-    int bytes_read = _pipe->Receive(&buf, 1);
+    int bytes_read = pipe_->Receive(&buf, 1);
     if (bytes_read < 0 && errno == EINTR) {
       continue;
     } else if (bytes_read != 1) {
@@ -1645,7 +1645,7 @@ void GrpcBlazeServer::Disconnect() {
 
 void GrpcBlazeServer::SendAction(CancelThreadAction action) {
   char msg = action;
-  if (!_pipe->Send(&msg, 1)) {
+  if (!pipe_->Send(&msg, 1)) {
     blaze::SigPrintf(
         "\nCould not interrupt server (cannot write to client pipe)\n\n");
   }

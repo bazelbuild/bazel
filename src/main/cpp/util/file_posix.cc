@@ -285,11 +285,12 @@ bool SetMtimeMillisec(const string& path, time_t mtime) {
   return utime(path.c_str(), &times) == 0;
 }
 
-// mkdir -p path. Returns 0 if the path was created or already exists and could
+// mkdir -p path. Returns true if the path was created or already exists and
+// could
 // be chmod-ed to exactly the given permissions. If final part of the path is a
 // symlink, this ensures that the destination of the symlink has the desired
 // permissions. It also checks that the directory or symlink is owned by us.
-// On failure, this returns -1 and sets errno.
+// On failure, this returns false and sets errno.
 bool MakeDirectories(const string &path, unsigned int mode) {
   return MakeDirectories(path, mode, true);
 }

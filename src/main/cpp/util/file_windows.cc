@@ -198,11 +198,12 @@ static bool MakeDirectories(const string& path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
-// mkdir -p path. Returns 0 if the path was created or already exists and could
+// mkdir -p path. Returns true if the path was created or already exists and
+// could
 // be chmod-ed to exactly the given permissions. If final part of the path is a
 // symlink, this ensures that the destination of the symlink has the desired
 // permissions. It also checks that the directory or symlink is owned by us.
-// On failure, this returns -1 and sets errno.
+// On failure, this returns false and sets errno.
 bool MakeDirectories(const string& path, mode_t mode) {
   return MakeDirectories(path, mode, true);
 }
