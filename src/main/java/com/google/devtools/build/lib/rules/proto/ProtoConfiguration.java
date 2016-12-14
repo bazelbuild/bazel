@@ -135,6 +135,7 @@ public class ProtoConfiguration extends Fragment {
       host.protoCompiler = protoCompiler;
       host.protoToolchainForJava = protoToolchainForJava;
       host.protoToolchainForJavaLite = protoToolchainForJavaLite;
+      host.protoToolchainForCc = protoToolchainForCc;
       host.strictProtoDeps = strictProtoDeps;
       host.outputDescriptorSet = outputDescriptorSet;
       return host;
