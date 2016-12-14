@@ -160,6 +160,32 @@ def _validate_rule_and_deps(ctx):
       fail(name_error_str % dep.label)
 
 
+def swiftc_inputs(ctx):
+  """Determine the list of inputs required for the compile action.
+
+  Args:
+    ctx: rule context.
+
+  Returns:
+    A list of files needed by swiftc.
+  """
+  swift_providers = [x.swift for x in ctx.attr.deps if hasattr(x, "swift")]
+  objc_providers = [x.objc for x in ctx.attr.deps if hasattr(x, "objc")]
+
+  dep_modules = []
+  for swift in swift_providers:
+    dep_modules += swift.transitive_modules
+
+  objc_files = set()
+  for objc in objc_providers:
+    objc_files += objc.header
+    objc_files += objc.module_map
+    objc_files += set(objc.static_framework_file)
+    objc_files += set(objc.dynamic_framework_file)
+
+  return ctx.files.srcs + dep_modules + list(objc_files)
+
+
 def swiftc_args(ctx):
   """Returns an almost compelete array of arguments to be passed to swiftc.
 
@@ -298,14 +324,6 @@ def _swift_library_impl(ctx):
     dep_modules += swift.transitive_modules
     swiftc_defines += swift.transitive_defines
 
-  objc_files = set()        # All inputs required for the compile action
-  for objc in objc_providers:
-    objc_files += objc.header
-    objc_files += objc.module_map
-
-    files = set(objc.static_framework_file) + set(objc.dynamic_framework_file)
-    objc_files += files
-
   # A unique path for rule's outputs.
   objs_outputs_path = label_scoped_path(ctx, "_objs/")
 
@@ -355,8 +373,7 @@ def _swift_library_impl(ctx):
 
   xcrun_action(
       ctx,
-      inputs=ctx.files.srcs + dep_modules + list(objc_files) +
-      [swiftc_output_map_file],
+      inputs=swiftc_inputs(ctx) + [swiftc_output_map_file],
       outputs=[output_module, output_header] + output_objs + swiftc_outputs,
       mnemonic="SwiftCompile",
       arguments=args,
