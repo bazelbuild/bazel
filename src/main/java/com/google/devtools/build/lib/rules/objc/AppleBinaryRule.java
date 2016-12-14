@@ -20,9 +20,11 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -106,11 +108,11 @@ public class AppleBinaryRule implements RuleDefinition {
         "bundle". This bundle loader may contain symbols that were not linked into the bundle to
         reduce binary size.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        // TODO(blaze-team): Change into requesting specific providers when they are actually
-        // provided.
         .add(
             attr(BUNDLE_LOADER_ATTR, LABEL)
-                .allowedRuleClasses("apple_binary")
+                .mandatoryNativeProviders(
+                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
+                        BundleLoaderProvider.class))
                 .legacyAllowAnyFileType()
                 .singleArtifact())
         .override(builder.copy("deps").cfg(splitTransitionProvider))

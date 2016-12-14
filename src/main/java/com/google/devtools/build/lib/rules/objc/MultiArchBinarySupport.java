@@ -97,9 +97,9 @@ public class MultiArchBinarySupport {
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
       ObjcProvider objcProvider = configurationToObjcProvider.get(childConfig);
-      CompilationArtifacts compilationArtifacts = 
-          CompilationSupport.compilationArtifacts(ruleContext,
-              ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig));
+      CompilationArtifacts compilationArtifacts =
+          CompilationSupport.compilationArtifacts(
+              ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig));
       new LegacyCompilationSupport(ruleContext, childConfig)
           .registerCompileAndArchiveActions(compilationArtifacts, objcProvider)
           .registerLinkActions(
@@ -121,26 +121,28 @@ public class MultiArchBinarySupport {
   }
 
   /**
-   * Returns a map from from dependency configuration to the {@link ObjcCommon} which comprises
-   * all information about the dependencies in that configuration. This can be used both to
-   * register actions in {@link #registerActions} and collect provider information to be
-   * propagated upstream.
+   * Returns a map from from dependency configuration to the {@link ObjcCommon} which comprises all
+   * information about the dependencies in that configuration. This can be used both to register
+   * actions in {@link #registerActions} and collect provider information to be propagated upstream.
    *
-   * @param childConfigurations the set of configurations in which dependencies of the current
-   *     rule are built
-   * @param configToDepsCollectionMap a map from child configuration to providers that "deps" of
-   *     the current rule have propagated in that configuration
+   * @param childConfigurations the set of configurations in which dependencies of the current rule
+   *     are built
+   * @param configToDepsCollectionMap a map from child configuration to providers that "deps" of the
+   *     current rule have propagated in that configuration
    * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
    *     "non_propagated_deps" of the current rule have propagated in that configuration
-   * @param dylibProviders providers that dynamic library dependencies of the current rule
-   *     have propagated
+   * @param dylibProviders providers that dynamic library dependencies of the current rule have
+   *     propagated
+   * @param bundleLoaderObjcProvider Optional ObjcProvider containing artifacts and paths to be
+   *     included in this binary's compilation actions
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public Map<BuildConfiguration, ObjcProvider> objcProviderByDepConfiguration(
       Set<BuildConfiguration> childConfigurations,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
-      Iterable<ObjcProvider> dylibProviders)
+      Iterable<ObjcProvider> dylibProviders,
+      Optional<ObjcProvider> bundleLoaderObjcProvider)
       throws RuleErrorException, InterruptedException {
     ImmutableMap.Builder<BuildConfiguration, ObjcProvider> configurationToObjcProviderBuilder =
         ImmutableMap.builder();
@@ -159,9 +161,12 @@ public class MultiArchBinarySupport {
       IntermediateArtifacts intermediateArtifacts =
           ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
 
-      Iterable<ObjcProvider> additionalDepProviders = Iterables.concat(dylibProviders,
-          ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
-          protosObjcProvider.asSet());
+      Iterable<ObjcProvider> additionalDepProviders =
+          Iterables.concat(
+              dylibProviders,
+              ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
+              protosObjcProvider.asSet(),
+              bundleLoaderObjcProvider.asSet());
 
       ObjcCommon common =
           common(
