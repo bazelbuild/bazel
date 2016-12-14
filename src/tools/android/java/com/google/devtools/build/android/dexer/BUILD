@@ -1,0 +1,34 @@
+# Description:
+#   Collection of dex utilities used in the bazel android actions.
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
+)
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(["*.java"]) + [
+        "BUILD.tools",
+        ":dexerdeps_deploy.jar",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# The DexFileMerger and DexBuilder are built in BUILD.tools which is built in
+# a developers workspace, not the Bazel workspace. So we must bundle the
+# dependencies of those binaries into the embedded tools. We use a java_binary
+# instead of a java_library so that we can build a deploy jar which contains the
+# transitive closure of the dependencies.
+java_binary(
+    name = "dexerdeps",
+    runtime_deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)

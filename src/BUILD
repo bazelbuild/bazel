@@ -142,6 +142,7 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/dexer:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
         "//src/main/protobuf:srcs",
         "//src/java_tools/buildjar:JavaBuilderDeploy",

@@ -45,6 +45,8 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
           String prefix = "@" + rule.getName() + "//:";
           ImmutableMap.Builder<String, Label> builder = ImmutableMap.builder();
           builder.put("android/sdk", Label.parseAbsoluteUnchecked(prefix + "sdk"));
+          builder.put(
+              "android/dx_jar_import", Label.parseAbsoluteUnchecked(prefix + "dx_jar_import"));
           return builder.build();
         }
       };
