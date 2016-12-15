@@ -131,15 +131,6 @@ string ReadJvmVersion(const string& version_string) {
   return "";
 }
 
-string GetJvmVersion(const string &java_exe) {
-  vector<string> args;
-  args.push_back("java");
-  args.push_back("-version");
-
-  string version_string = RunProgram(java_exe, args);
-  return ReadJvmVersion(version_string);
-}
-
 bool CheckJavaVersionIsAtLeast(const string &jvm_version,
                                const string &version_spec) {
   vector<string> jvm_version_vect = blaze_util::Split(jvm_version, '.');

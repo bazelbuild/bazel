@@ -74,12 +74,6 @@ bool VerboseLogging();
 // version-number is returned, else the empty string is returned.
 std::string ReadJvmVersion(const std::string &version_string);
 
-// Get the version string from the given java executable. The java executable
-// is supposed to output a string in the form '.*version ".*".*'. This method
-// will return the part in between the two quote or the empty string on failure
-// to match the good string.
-std::string GetJvmVersion(const std::string &java_exe);
-
 // Returns true iff jvm_version is at least the version specified by
 // version_spec.
 // jvm_version is supposed to be a string specifying a java runtime version

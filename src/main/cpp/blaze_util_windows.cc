@@ -57,9 +57,15 @@ static_assert(sizeof(wchar_t) == sizeof(WCHAR),
 // Add 4 characters for potential UNC prefix and a couple more for safety.
 static const size_t kWindowsPathBufferSize = 0x8010;
 
+// TODO(bazel-team): get rid of die/pdie, handle errors on the caller side.
+// die/pdie are exit points in the code and they make it difficult to follow the
+// control flow, plus it's not clear whether they call destructors on local
+// variables in the call stack.
 using blaze_util::die;
 using blaze_util::pdie;
+
 using std::string;
+using std::unique_ptr;
 using std::vector;
 using std::wstring;
 
@@ -337,16 +343,6 @@ string GetDefaultHostJavabase() {
 }
 
 namespace {
-void ReplaceAll(
-        std::string* s, const std::string& pattern, const std::string with) {
-  size_t pos = 0;
-  while (true) {
-    size_t pos = s->find(pattern, pos);
-    if (pos == std::string::npos) return;
-    *s = s->replace(pos, pattern.length(), with);
-    pos += with.length();
-  }
-}
 
 // Max command line length is per CreateProcess documentation
 // (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
@@ -383,6 +379,11 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
       cmdline.append("\"");
     }
 
+    // TODO(bazel-team): get rid of the code to append character by character,
+    // because each time a new buffer is allocated and the old one copied, so
+    // this means N allocations (of O(N) size each) and N copies.
+    // If possible, get rid of the whole CreateCommandLine method and do the
+    // logic on the caller side.
     std::string::const_iterator it = s.begin();
     while (it != s.end()) {
       char ch = *it++;
@@ -403,8 +404,8 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
           }
           break;
 
-         default:
-           cmdline.append(1, ch);
+        default:
+          cmdline.append(1, ch);
       }
     }
 
@@ -424,37 +425,48 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
   result->cmdline[MAX_CMDLINE_LENGTH - 1] = 0;
 }
 
+static unique_ptr<WCHAR[]> AsWpath(string path) {
+  unique_ptr<WCHAR[]> result = blaze_util::CstringToWstring(path.c_str());
+  WCHAR* p = result.get();
+  while (*p != L'\0') {
+    if (*p == L'/') {
+      *p = L'\\';
+    }
+    ++p;
+  }
+  return std::move(result);
+}
+
 }  // namespace
 
-string RunProgram(
-    const string& exe, const vector<string>& args_vector) {
-  SECURITY_ATTRIBUTES sa = {0};
-
-  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-  sa.bInheritHandle = TRUE;
-  sa.lpSecurityDescriptor = NULL;
-
+string GetJvmVersion(const string& java_exe) {
+  // TODO(bazel-team): implement IPipe for Windows and use that here.
   HANDLE pipe_read, pipe_write;
+
+  SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
   if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
   }
 
   if (!SetHandleInformation(pipe_read, HANDLE_FLAG_INHERIT, 0)) {
+    CloseHandle(pipe_read);
+    CloseHandle(pipe_write);
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "SetHandleInformation");
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFOA startupInfo = {0};
-
+  STARTUPINFOW startupInfo = {0};
   startupInfo.hStdError = pipe_write;
   startupInfo.hStdOutput = pipe_write;
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
-  CmdLine cmdline;
-  CreateCommandLine(&cmdline, exe, args_vector);
 
-  BOOL ok = CreateProcessA(
+  WCHAR cmdline[MAX_CMDLINE_LENGTH];
+  wcscpy(
+      cmdline,
+      (wstring(L"\"") + AsWpath(java_exe).get() + L".exe\" -version").c_str());
+  BOOL ok = CreateProcessW(
       /* lpApplicationName */ NULL,
-      /* lpCommandLine */ cmdline.cmdline,
+      /* lpCommandLine */ cmdline,
       /* lpProcessAttributes */ NULL,
       /* lpThreadAttributes */ NULL,
       /* bInheritHandles */ TRUE,
@@ -465,9 +477,11 @@ string RunProgram(
       /* lpProcessInformation */ &processInfo);
 
   if (!ok) {
+    CloseHandle(pipe_read);
+    CloseHandle(pipe_write);
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "RunProgram/CreateProcess: Error %d while executing %s",
-         GetLastError(), cmdline.cmdline);
+         "RunProgram/CreateProcess: Error %d while retrieving java version",
+         GetLastError());
   }
 
   CloseHandle(pipe_write);
@@ -487,8 +501,7 @@ string RunProgram(
   CloseHandle(pipe_read);
   CloseHandle(processInfo.hProcess);
   CloseHandle(processInfo.hThread);
-
-  return result;
+  return ReadJvmVersion(result);
 }
 
 // If we pass DETACHED_PROCESS to CreateProcess(), cmd.exe appropriately

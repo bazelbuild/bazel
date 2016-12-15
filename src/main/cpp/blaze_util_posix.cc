@@ -256,7 +256,8 @@ void ExecuteDaemon(const string& exe,
   pdie(0, "Cannot execute %s", exe.c_str());
 }
 
-string RunProgram(const string& exe, const std::vector<string>& args_vector) {
+static string RunProgram(const string& exe,
+                         const std::vector<string>& args_vector) {
   int fds[2];
   if (pipe(fds)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
@@ -290,6 +291,15 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
   }
   return string("");  //  We cannot reach here, just placate the compiler.
+}
+
+string GetJvmVersion(const string& java_exe) {
+  vector<string> args;
+  args.push_back("java");
+  args.push_back("-version");
+
+  string version_string = RunProgram(java_exe, args);
+  return ReadJvmVersion(version_string);
 }
 
 bool ReadDirectorySymlink(const string &name, string* result) {

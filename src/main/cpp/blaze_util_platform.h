@@ -103,10 +103,11 @@ void ExecuteDaemon(const std::string& exe,
                    const std::string& server_dir,
                    BlazeServerStartup** server_startup);
 
-// Executes a subprocess and returns its standard output and standard error.
-// If this fails, exits with the appropriate error code.
-std::string RunProgram(const std::string& exe,
-                       const std::vector<std::string>& args_vector);
+// Get the version string from the given java executable. The java executable
+// is supposed to output a string in the form '.*version ".*".*'. This method
+// will return the part in between the two quote or the empty string on failure
+// to match the good string.
+std::string GetJvmVersion(const std::string& java_exe);
 
 // Convert a path from Bazel internal form to underlying OS form.
 // On Unixes this is an identity operation.
