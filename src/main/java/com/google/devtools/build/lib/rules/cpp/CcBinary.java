@@ -192,7 +192,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     }
 
     Artifact binary = ruleContext.getBinArtifact(binaryPath);
-    if (isLinkShared(ruleContext) && !CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())) {
+    if (isLinkShared(ruleContext)
+        && !CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())
+        && !CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(binary.getFilename())) {
       ruleContext.attributeError("linkshared", "'linkshared' used in non-shared library");
       return null;
     }

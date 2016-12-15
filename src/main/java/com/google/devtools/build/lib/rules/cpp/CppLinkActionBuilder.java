@@ -1537,8 +1537,14 @@ public class CppLinkActionBuilder {
       String name = inputArtifact.getFilename();
       boolean inputIsWholeArchive = !isRuntimeLinkerInput && needWholeArchive;
       if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
+        // Use normal shared library resolution rules for shared libraries.
         String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
         librariesToLink.addValue(new LibraryToLinkValue("-l" + libName, inputIsWholeArchive));
+      } else if (CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
+        // Versioned shared libraries require the exact library filename, e.g.:
+        // -lfoo -> libfoo.so
+        // -l:libfoo.so.1 -> libfoo.so.1
+        librariesToLink.addValue(new LibraryToLinkValue("-l:" + name, inputIsWholeArchive));
       } else {
         // Interface shared objects have a non-standard extension
         // that the linker won't be able to find.  So use the
