@@ -31,3 +31,10 @@ Local Modifications:
 - Allow \ escaping of characters that need not be escaped in
   ASCIIPropertyListParser.java.
 - Make PropertyListParser.determineType handle an empty bytes array properly.
+- https://github.com/3breadt/dd-plist/commit/3fa1fa56c82df169e06079feb54ba281ad41cae6
+which stabilizes ordering and is required for plists to be parsed by some Apple
+plist parsers.
+- https://github.com/3breadt/dd-plist/commit/a5fb37384d4ca7a3b5039a7605ca0e9ca926a6ec
+which causes dictionaries to generate ids for values the same way the Apple
+implementation does it.
+
