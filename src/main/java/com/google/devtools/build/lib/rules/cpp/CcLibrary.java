@@ -148,10 +148,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ruleContext.attributeError("outs", "must be a singleton list");
       } else if (outs.size() == 1) {
         PathFragment soImplFilename = new PathFragment(ruleContext.getLabel().getName());
-        if (LinkTargetType.DYNAMIC_LIBRARY != LinkTargetType.EXECUTABLE) {
-          soImplFilename = soImplFilename.replaceName(
-              "lib" + soImplFilename.getBaseName() + LinkTargetType.DYNAMIC_LIBRARY.getExtension());
-        }
         soImplFilename = soImplFilename.replaceName(outs.get(0));
         if (!soImplFilename.getPathString().endsWith(".so")) { // Sanity check.
           ruleContext.attributeError("outs", "file name must end in '.so'");
