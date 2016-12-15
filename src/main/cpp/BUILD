@@ -48,7 +48,8 @@ cc_library(
         "//src:freebsd": [
         ],
         "//src:windows_msvc": [
-            "-Wl,ws2_32.lib",  # for grpc
+            "-Wl,advapi32.lib",  # GetUserNameW
+            "-Wl,ws2_32.lib",  # grpc
         ],
         "//conditions:default": [
             "-lrt",

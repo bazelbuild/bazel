@@ -18,7 +18,6 @@
 
 #ifndef COMPILER_MSVC
 #include <fcntl.h>
-#include <pwd.h>
 #include <sys/cygwin.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -28,6 +27,7 @@
 #endif  // COMPILER_MSVC
 
 #include <windows.h>
+#include <lmcons.h>  // UNLEN
 
 #include <cstdio>
 #include <cstdlib>
@@ -1309,23 +1309,13 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 #endif
 
 string GetUserName() {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::GetUserName is not implemented on Windows");
-  return "";
-#else  // not COMPILER_MSVC
-  string user = GetEnv("USER");
-  if (!user.empty()) {
-    return user;
-  }
-  errno = 0;
-  passwd *pwent = getpwuid(getuid());  // NOLINT (single-threaded)
-  if (pwent == NULL || pwent->pw_name == NULL) {
+  WCHAR buffer[UNLEN + 1];
+  DWORD len = UNLEN + 1;
+  if (!GetUserNameW(buffer, &len)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "$USER is not set, and unable to look up name of current user");
+         "ERROR: GetUserNameW failed, err=%d\n", GetLastError());
   }
-  return pwent->pw_name;
-#endif  // COMPILER_MSVC
+  return string(blaze_util::WstringToCstring(buffer).get());
 }
 
 bool IsEmacsTerminal() {
