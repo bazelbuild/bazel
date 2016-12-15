@@ -30,6 +30,8 @@ public class WindowsFileOperations {
 
   static native int nativeIsJunction(String path, String[] error);
 
+  static native boolean nativeGetLongPath(String path, String[] result, String[] error);
+
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
@@ -44,7 +46,37 @@ public class WindowsFileOperations {
     }
   }
 
+  /**
+   * Returns the long path associated with the input `path`.
+   *
+   * <p>This method resolves all 8dot3 style components of the path and returns the long format. For
+   * example, if the input is "C:/progra~1/micros~1" the result may be "C:\Program Files\Microsoft
+   * Visual Studio 14.0". The returned path is Windows-style in that it uses backslashes, even if
+   * the input uses forward slashes.
+   *
+   * <p>May return an UNC path if `path` or its resolution is sufficiently long.
+   *
+   * @throws IOException if the `path` is not found or some other I/O error occurs
+   */
+  public static String getLongPath(String path) throws IOException {
+    String[] result = new String[] {null};
+    String[] error = new String[] {null};
+    if (nativeGetLongPath(asLongPath(path), result, error)) {
+      return result[0];
+    } else {
+      throw new IOException(error[0]);
+    }
+  }
+
+  /**
+   * Returns a Windows-style path suitable to pass to Widechar Win32 API functions.
+   *
+   * <p>Returns an UNC path if `path` is longer than `MAX_PATH` (in <windows.h>). If it's shorter or
+   * is already an UNC path, then this method returns `path` itself.
+   */
   static String asLongPath(String path) {
-    return "\\\\?\\" + path.replace('/', '\\');
+    return path.length() > 260 && !path.startsWith("\\\\?\\")
+        ? ("\\\\?\\" + path.replace('/', '\\'))
+        : path;
   }
 }

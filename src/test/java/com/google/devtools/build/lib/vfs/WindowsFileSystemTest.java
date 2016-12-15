@@ -200,4 +200,23 @@ public class WindowsFileSystemTest {
                 linkPath.toPath(), WindowsFileSystem.symlinkOpts(/* followSymlinks */ true)))
         .isFalse();
   }
+
+  @Test
+  public void testIsJunctionHandlesFilesystemChangesCorrectly() throws Exception {
+    File longPath =
+        testUtil.scratchFile("target\\helloworld.txt", "hello").toAbsolutePath().toFile();
+    File shortPath = new File(longPath.getParentFile(), "hellow~1.txt");
+    assertThat(WindowsFileSystem.isJunction(longPath)).isFalse();
+    assertThat(WindowsFileSystem.isJunction(shortPath)).isFalse();
+
+    assertThat(longPath.delete()).isTrue();
+    testUtil.createJunctions(ImmutableMap.of("target\\helloworld.txt", "target"));
+    assertThat(WindowsFileSystem.isJunction(longPath)).isTrue();
+    assertThat(WindowsFileSystem.isJunction(shortPath)).isTrue();
+
+    assertThat(longPath.delete()).isTrue();
+    assertThat(longPath.mkdir()).isTrue();
+    assertThat(WindowsFileSystem.isJunction(longPath)).isFalse();
+    assertThat(WindowsFileSystem.isJunction(shortPath)).isFalse();
+  }
 }

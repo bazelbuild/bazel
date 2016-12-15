@@ -159,4 +159,99 @@ public class WindowsFileOperationsTest {
                 linkPath.toPath(), WindowsFileSystem.symlinkOpts(/* followSymlinks */ true)))
         .isFalse();
   }
+
+  @Test
+  public void testIsJunctionHandlesFilesystemChangesCorrectly() throws Exception {
+    File helloFile =
+        testUtil.scratchFile("target\\helloworld.txt", "hello").toAbsolutePath().toFile();
+
+    // Assert that a file is identified as not a junction.
+    String longPath = helloFile.getAbsolutePath();
+    String shortPath = new File(helloFile.getParentFile(), "hellow~1.txt").getAbsolutePath();
+    assertThat(WindowsFileOperations.isJunction(longPath)).isFalse();
+    assertThat(WindowsFileOperations.isJunction(shortPath)).isFalse();
+
+    // Assert that after deleting the file and creating a junction with the same path, it is
+    // identified as a junction.
+    assertThat(helloFile.delete()).isTrue();
+    testUtil.createJunctions(ImmutableMap.of("target\\helloworld.txt", "target"));
+    assertThat(WindowsFileOperations.isJunction(longPath)).isTrue();
+    assertThat(WindowsFileOperations.isJunction(shortPath)).isTrue();
+
+    // Assert that after deleting the file and creating a directory with the same path, it is
+    // identified as not a junction.
+    assertThat(helloFile.delete()).isTrue();
+    assertThat(helloFile.mkdir()).isTrue();
+    assertThat(WindowsFileOperations.isJunction(longPath)).isFalse();
+    assertThat(WindowsFileOperations.isJunction(shortPath)).isFalse();
+  }
+
+  @Test
+  public void testGetLongPath() throws Exception {
+    File foo = testUtil.scratchDir("foo").toAbsolutePath().toFile();
+    assertThat(foo.exists()).isTrue();
+    assertThat(WindowsFileOperations.getLongPath(foo.getAbsolutePath())).endsWith("foo");
+
+    String longPath = foo.getAbsolutePath() + "\\will.exist\\helloworld.txt";
+    String shortPath = foo.getAbsolutePath() + "\\will~1.exi\\hellow~1.txt";
+
+    // Assert that the long path resolution fails for non-existent file.
+    try {
+      WindowsFileOperations.getLongPath(longPath);
+      fail("expected to throw");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("GetLongPathName");
+    }
+    try {
+      WindowsFileOperations.getLongPath(shortPath);
+      fail("expected to throw");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("GetLongPathName");
+    }
+
+    // Create the file, assert that long path resolution works and is correct.
+    File helloFile =
+        testUtil.scratchFile("foo/will.exist/helloworld.txt", "hello").toAbsolutePath().toFile();
+    assertThat(helloFile.getAbsolutePath()).isEqualTo(longPath);
+    assertThat(helloFile.exists()).isTrue();
+    assertThat(new File(longPath).exists()).isTrue();
+    assertThat(new File(shortPath).exists()).isTrue();
+    assertThat(WindowsFileOperations.getLongPath(longPath)).endsWith("will.exist\\helloworld.txt");
+    assertThat(WindowsFileOperations.getLongPath(shortPath)).endsWith("will.exist\\helloworld.txt");
+
+    // Delete the file and the directory, assert that long path resolution fails for them.
+    assertThat(helloFile.delete()).isTrue();
+    assertThat(helloFile.getParentFile().delete()).isTrue();
+    try {
+      WindowsFileOperations.getLongPath(longPath);
+      fail("expected to throw");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("GetLongPathName");
+    }
+    try {
+      WindowsFileOperations.getLongPath(shortPath);
+      fail("expected to throw");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("GetLongPathName");
+    }
+
+    // Create the directory and file with different names, but same 8dot3 names, assert that the
+    // resolution is still correct.
+    helloFile =
+        testUtil
+            .scratchFile("foo/will.exist_again/hellowelt.txt", "hello")
+            .toAbsolutePath()
+            .toFile();
+    assertThat(new File(shortPath).exists()).isTrue();
+    assertThat(WindowsFileOperations.getLongPath(shortPath))
+        .endsWith("will.exist_again\\hellowelt.txt");
+    assertThat(WindowsFileOperations.getLongPath(foo + "\\will.exist_again\\hellowelt.txt"))
+        .endsWith("will.exist_again\\hellowelt.txt");
+    try {
+      WindowsFileOperations.getLongPath(longPath);
+      fail("expected to throw");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("GetLongPathName");
+    }
+  }
 }
