@@ -144,7 +144,7 @@ public final class BinaryOperatorExpression extends Expression {
         return minus(lval, rval, getLocation());
 
       case MULT:
-        return mult(lval, rval, getLocation());
+        return mult(lval, rval, env, getLocation());
 
       case DIVIDE:
         return divide(lval, rval, getLocation());
@@ -374,7 +374,8 @@ public final class BinaryOperatorExpression extends Expression {
    *
    * <p>Publicly accessible for reflection and compiled Skylark code.
    */
-  public static Object mult(Object lval, Object rval, Location location) throws EvalException {
+  public static Object mult(Object lval, Object rval, Environment env, Location location)
+      throws EvalException {
     Integer number = null;
     Object otherFactor = null;
 
@@ -392,8 +393,11 @@ public final class BinaryOperatorExpression extends Expression {
       } else if (otherFactor instanceof String) {
         // Similar to Python, a factor < 1 leads to an empty string.
         return Strings.repeat((String) otherFactor, Math.max(0, number.intValue()));
+      } else if (otherFactor instanceof MutableList) {
+        // Similar to Python, a factor < 1 leads to an empty string.
+        return MutableList.duplicate(
+            (MutableList<?>) otherFactor, Math.max(0, number.intValue()), env);
       }
-      // TODO(skylark-team): implement int * list
     }
     throw typeException(lval, rval, Operator.MULT, location);
   }

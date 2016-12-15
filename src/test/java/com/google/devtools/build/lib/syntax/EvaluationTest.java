@@ -23,15 +23,13 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestMode;
-
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Test of evaluation behavior.  (Implicitly uses lexer + parser.)
@@ -535,6 +533,19 @@ public class EvaluationTest extends EvaluationTestCase {
             "[1, 2] + (3, 4)")
         .testIfExactError("unsupported operand type(s) for +: 'tuple' and 'list'",
             "(1, 2) + [3, 4]");
+  }
+
+  @Test
+  public void testListMultiply() throws Exception {
+    newTest()
+        .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("[    ] * 10", MutableList.EMPTY)
+        .testStatement("[1, 2] * 0", MutableList.EMPTY)
+        .testStatement("[1, 2] * -4", MutableList.EMPTY)
+        .testStatement(" 2 * [1, 2]", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("10 * []", MutableList.EMPTY)
+        .testStatement(" 0 * [1, 2]", MutableList.EMPTY)
+        .testStatement("-4 * [1, 2]", MutableList.EMPTY);
   }
 
   @SuppressWarnings("unchecked")

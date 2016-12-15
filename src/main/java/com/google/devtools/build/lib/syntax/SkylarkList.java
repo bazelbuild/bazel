@@ -382,7 +382,7 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
     /**
      * @return the GlobList if there is one, otherwise the regular contents.
      */
-    private List<?> getGlobListOrContentsUnsafe() {
+    private List<E> getGlobListOrContentsUnsafe() {
       if (globList != null) {
         return globList;
       }
@@ -405,6 +405,36 @@ public abstract class SkylarkList<E> extends MutableCollection<E> implements Lis
       }
       return new MutableList(GlobList.concat(
           left.getGlobListOrContentsUnsafe(), right.getGlobListOrContentsUnsafe()), env);
+    }
+
+    /**
+     * Duplicates MutableList n times. For values <= 0, an empty list will be returned.
+     *
+     * @param list the list to duplicate
+     * @param times the count of times to duplicate
+     * @param env the Environment in which to create a new list
+     * @return a new MutableList
+     */
+    public static <E> MutableList<E> duplicate(
+        final MutableList<? extends E> list, final int times, final Environment env) {
+      if (times <= 0) {
+        return new MutableList<E>(ImmutableList.<E>of(), env);
+      }
+
+      final int concatCount = times - 1;
+      if (list.getGlobList() == null) {
+        Iterable<? extends E> iterable = list;
+        for (int i = concatCount; i > 0; --i) {
+          iterable = Iterables.concat(iterable, iterable);
+        }
+        return new MutableList<E>(iterable, env);
+      }
+
+      List<? extends E> globs = list.getGlobListOrContentsUnsafe();
+      for (int i = concatCount; i > 0; --i) {
+        globs = GlobList.concat(globs, globs);
+      }
+      return new MutableList<E>(globs, env);
     }
 
     /**
