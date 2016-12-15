@@ -29,9 +29,10 @@
 
 #include <windows.h>
 
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
 #include <thread>  // NOLINT (to slience Google-internal linter)
+#include <type_traits>  // static_assert
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -47,10 +48,20 @@
 
 namespace blaze {
 
+// Ensure we can safely cast (const) wchar_t* to LP(C)WSTR.
+// This is true with MSVC but usually not with GCC.
+static_assert(sizeof(wchar_t) == sizeof(WCHAR),
+              "wchar_t and WCHAR should be the same size");
+
+// When using widechar Win32 API functions the maximum path length is 32K.
+// Add 4 characters for potential UNC prefix and a couple more for safety.
+static const size_t kWindowsPathBufferSize = 0x8010;
+
 using blaze_util::die;
 using blaze_util::pdie;
 using std::string;
 using std::vector;
+using std::wstring;
 
 SignalHandler SignalHandler::INSTANCE;
 
@@ -220,6 +231,28 @@ static void PrintError(const string& op) {
     LocalFree(message_buffer);
 }
 
+static void PrintErrorW(const wstring& op) {
+  DWORD last_error = ::GetLastError();
+  if (last_error == 0) {
+    return;
+  }
+
+  WCHAR* message_buffer;
+  FormatMessageW(
+      /* dwFlags */ FORMAT_MESSAGE_ALLOCATE_BUFFER |
+          FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+      /* lpSource */ nullptr,
+      /* dwMessageId */ last_error,
+      /* dwLanguageId */ MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+      /* lpBuffer */ message_buffer,
+      /* nSize */ 0,
+      /* Arguments */ nullptr);
+
+  fwprintf(stderr, L"ERROR: %s: %s (%d)\n", op.c_str(), message_buffer,
+           last_error);
+  LocalFree(message_buffer);
+}
+
 void WarnFilesystemType(const string& output_base) {
 }
 
@@ -228,37 +261,27 @@ string GetProcessIdAsString() {
 }
 
 string GetSelfPath() {
-#ifdef COMPILER_MSVC
-  const size_t PATH_MAX = 4096;
-#endif  // COMPILER_MSVC
-  char buffer[PATH_MAX] = {};
-  if (!GetModuleFileNameA(0, buffer, sizeof(buffer))) {
+  WCHAR buffer[kWindowsPathBufferSize] = {0};
+  if (!GetModuleFileNameW(0, buffer, kWindowsPathBufferSize)) {
     pdie(255, "Error %u getting executable file name\n", GetLastError());
   }
-
-  // TODO(bazel-team): Implement proper handling for UNC paths
-  // (e.g. "\\?\C:\foo\bar") instead of erroring out when we see them.
-  if (strlen(buffer) == 0 || buffer[0] == '\\') {
-    PrintError("GetModuleFileName");
-    buffer[PATH_MAX - 1] = '\0';
-    pdie(255, "Error in GetSelfPath, buffer=(%s)", buffer);
-  }
-  return string(buffer);
+  return string(blaze_util::WstringToCstring(buffer).get());
 }
 
 string GetOutputRoot() {
 #ifdef COMPILER_MSVC
-  // GetTempPathA and GetEnvironmentVariableA only work properly when Bazel
+  // GetTempPathW and GetEnvironmentVariableW only work properly when Bazel
   // runs under cmd.exe, not when it's run from msys.
-  // We don't know the reason for this; what's sure is GetEnvironmentVariableA
-  // returns nothing for TEMP under msys, though it can retrieve WINDIR.
+  // The reason is that MSYS consumes all environment variables and sets its own
+  // ones. The symptom of this is that GetEnvironmentVariableW returns nothing
+  // for TEMP under MSYS, though it can retrieve WINDIR.
 
-  char buf[MAX_PATH + 1];
-  if (!GetTempPathA(sizeof(buf), buf)) {
-    PrintError("GetTempPath");
+  WCHAR buffer[kWindowsPathBufferSize] = {0};
+  if (!GetTempPathW(kWindowsPathBufferSize, buffer)) {
+    PrintErrorW(L"GetTempPathW");
     pdie(255, "Could not retrieve the temp directory path");
   }
-  return buf;
+  return string(blaze_util::WstringToCstring(buffer).get());
 #else  // not COMPILER_MSVC
   for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
     char* tmpdir = getenv(i);
@@ -429,18 +452,17 @@ string RunProgram(
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
-  bool ok = CreateProcessA(
-      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
-      //                 _Inout_opt_ LPTSTR                lpCommandLine,
-      cmdline.cmdline,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      true,           // _In_        BOOL                  bInheritHandles,
-      0,              // _In_        DWORD                 dwCreationFlags,
-      NULL,           // _In_opt_    LPVOID                lpEnvironment,
-      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
-      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
-      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+  BOOL ok = CreateProcessA(
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ cmdline.cmdline,
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */ 0,
+      /* lpEnvironment */ NULL,
+      /* lpCurrentDirectory */ NULL,
+      /* lpStartupInfo */ &startupInfo,
+      /* lpProcessInformation */ &processInfo);
 
   if (!ok) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -527,14 +549,14 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   sa.lpSecurityDescriptor = NULL;
 
   HANDLE output_file = CreateFileA(
-      ConvertPath(daemon_output).c_str(),  // lpFileName
-      GENERIC_READ | GENERIC_WRITE,        // dwDesiredAccess
+      /* lpFileName */ ConvertPath(daemon_output).c_str(),
+      /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
       // So that the file can be read while the server is running
-      FILE_SHARE_READ,                     // dwShareMode
-      &sa,                                 // lpSecurityAttributes
-      CREATE_ALWAYS,                       // dwCreationDisposition
-      FILE_ATTRIBUTE_NORMAL,               // dwFlagsAndAttributes
-      NULL);                               // hTemplateFile
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ &sa,
+      /* dwCreationDisposition */ CREATE_ALWAYS,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
 
   if (output_file == INVALID_HANDLE_VALUE) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateFile");
@@ -564,19 +586,17 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   // environment variables.
   SetEnvironmentVariableA("BAZEL_SH", getenv("BAZEL_SH"));
 
-  bool ok = CreateProcessA(
-      NULL,  // _In_opt_    LPCTSTR               lpApplicationName,
-      //                 _Inout_opt_ LPTSTR                lpCommandLine,
-      cmdline.cmdline,
-      NULL,  // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      NULL,  // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      TRUE,  // _In_        BOOL                  bInheritHandles,
-      //                 _In_        DWORD                 dwCreationFlags,
-      DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
-      NULL,           // _In_opt_    LPVOID                lpEnvironment,
-      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
-      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
-      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+  BOOL ok = CreateProcessA(
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ cmdline.cmdline,
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */ DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+      /* lpEnvironment */ NULL,
+      /* lpCurrentDirectory */ NULL,
+      /* lpStartupInfo */ &startupInfo,
+      /* lpProcessInformation */ &processInfo);
 
   if (!ok) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -679,21 +699,20 @@ void ExecuteProgram(
     pdie(255, "Error %u while setting up job\n", GetLastError());
   }
 
-  bool success = CreateProcessA(
-      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
-      //                 _Inout_opt_ LPTSTR                lpCommandLine,
-      cmdline.cmdline,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      true,           // _In_        BOOL                  bInheritHandles,
-      //                 _In_        DWORD                 dwCreationFlags,
-      CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break does not affect it
+  BOOL success = CreateProcessA(
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ cmdline.cmdline,
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */
+      CREATE_NEW_PROCESS_GROUP         // So that Ctrl-Break does not affect it
           | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
-      NULL,           // _In_opt_    LPVOID                lpEnvironment,
-      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
-      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
-      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+      /* lpEnvironment */ NULL,
+      /* lpCurrentDirectory */ NULL,
+      /* lpStartupInfo */ &startupInfo,
+      /* lpProcessInformation */ &processInfo);
 
   if (!success) {
     pdie(255, "ExecuteProgram/CreateProcess: error %u executing: %s\n",
@@ -801,13 +820,15 @@ typedef struct {
 
 HANDLE OpenDirectory(const string& path, bool readWrite) {
   HANDLE result = ::CreateFileA(
-      path.c_str(),
-      readWrite ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ,
-      0,
-      NULL,
-      OPEN_EXISTING,
-      FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS,
-      NULL);
+      /* lpFileName */ path.c_str(),
+      /* dwDesiredAccess */ readWrite ? (GENERIC_READ | GENERIC_WRITE)
+                                      : GENERIC_READ,
+      /* dwShareMode */ 0,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
+          FILE_FLAG_BACKUP_SEMANTICS,
+      /* hTemplateFile */ NULL);
   if (result == INVALID_HANDLE_VALUE) {
     PrintError("CreateFile(" + path + ")");
   }
