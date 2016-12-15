@@ -47,12 +47,20 @@ def _swift_target(cpu, platform, sdk_version):
 def _swift_compilation_mode_flags(ctx):
   """Returns additional swiftc flags for the current compilation mode."""
   mode = ctx.var["COMPILATION_MODE"]
+
+  flags = []
   if mode == "dbg":
-    return ["-Onone", "-DDEBUG", "-g", "-enable-testing"]
+    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
   elif mode == "fastbuild":
-    return ["-Onone", "-DDEBUG", "-enable-testing"]
+    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
   elif mode == "opt":
-    return ["-O", "-DNDEBUG"]
+    flags += ["-O", "-DNDEBUG"]
+
+  if mode == "dbg" or (hasattr(ctx.fragments.objc, "generate_dsym") and
+                       getattr(ctx.fragments.objc, "generate_dsym")):
+    flags.append("-g")
+
+  return flags
 
 
 def _clang_compilation_mode_flags(ctx):

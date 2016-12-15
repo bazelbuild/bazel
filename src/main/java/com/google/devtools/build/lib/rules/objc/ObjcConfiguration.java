@@ -173,6 +173,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns whether dSYM generation is enabled.
    */
+  @SkylarkCallable(
+      name = "generate_dsym",
+      doc = "Whether to generate debug symbol(.dSYM) artifacts.",
+      structField = true)
   public boolean generateDsym() {
     return generateDsym;
   }

@@ -873,4 +873,32 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_swift_dsym() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+
+public class SwiftClass {
+  public func bar() -> String { return "foo" } }
+EOF
+
+cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"])
+EOF
+
+  bazel build -c opt --apple_generate_dsym \
+      --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+
+  # Verify that debug info is present.
+  dwarfdump -R bazel-genfiles/ios/swift_lib/_objs/ios_swift_lib.a \
+      | grep -sq "__DWARF" \
+      || fail "should contain DWARF data"
+}
+
 run_suite "apple_tests"
