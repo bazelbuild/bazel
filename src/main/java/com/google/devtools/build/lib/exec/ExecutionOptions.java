@@ -14,16 +14,14 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.rules.test.TestStrategy;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
-
 import java.util.Map;
 
 /**

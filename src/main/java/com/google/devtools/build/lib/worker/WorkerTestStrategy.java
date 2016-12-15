@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
+import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;

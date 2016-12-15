@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.test;
+package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -25,10 +25,12 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.rules.test.TestActionContext;
+import com.google.devtools.build.lib.rules.test.TestResult;
+import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileWatcher;
@@ -54,27 +56,24 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * A strategy for executing a {@link TestRunnerAction}.
- */
+/** A strategy for executing a {@link TestRunnerAction}. */
 public abstract class TestStrategy implements TestActionContext {
   public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
 
   public static final String TEST_SETUP_BASENAME = "test-setup.sh";
 
-  /**
-   * Returns true if coverage data should be gathered.
-   */
+  /** Returns true if coverage data should be gathered. */
   protected static boolean isCoverageMode(TestRunnerAction action) {
     return action.getCoverageData() != null;
   }
 
   /**
-   * Ensures that all directories used to run test are in the correct state and
-   * their content will not result in stale files.
+   * Ensures that all directories used to run test are in the correct state and their content will
+   * not result in stale files.
    */
-  protected void prepareFileSystem(TestRunnerAction testAction, Path tmpDir,
-      Path coverageDir, Path workingDirectory) throws IOException {
+  protected void prepareFileSystem(
+      TestRunnerAction testAction, Path tmpDir, Path coverageDir, Path workingDirectory)
+      throws IOException {
     if (isCoverageMode(testAction)) {
       recreateDirectory(coverageDir);
     }
@@ -82,17 +81,13 @@ public abstract class TestStrategy implements TestActionContext {
     FileSystemUtils.createDirectoryAndParents(workingDirectory);
   }
 
-  /**
-   * Removes directory if it exists and recreates it.
-   */
+  /** Removes directory if it exists and recreates it. */
   protected void recreateDirectory(Path directory) throws IOException {
     FileSystemUtils.deleteTree(directory);
     FileSystemUtils.createDirectoryAndParents(directory);
   }
 
-  /**
-   * Converter for the --flaky_test_attempts option.
-   */
+  /** Converter for the --flaky_test_attempts option. */
   public static class TestAttemptsConverter extends RangeConverter {
     public TestAttemptsConverter() {
       super(1, 10);
@@ -119,9 +114,7 @@ public abstract class TestStrategy implements TestActionContext {
     ALL, // Print output from all tests to the stderr after the test completion.
     STREAMED; // Stream output for each test.
 
-    /**
-     * Converts to {@link TestOutputFormat}.
-     */
+    /** Converts to {@link TestOutputFormat}. */
     public static class Converter extends EnumConverter<TestOutputFormat> {
       public Converter() {
         super(TestOutputFormat.class, "test output");
@@ -135,9 +128,7 @@ public abstract class TestStrategy implements TestActionContext {
     DETAILED, // Print information only about failed test cases.
     NONE; // Do not print summary.
 
-    /**
-     * Converts to {@link TestSummaryFormat}.
-     */
+    /** Converts to {@link TestSummaryFormat}. */
     public static class Converter extends EnumConverter<TestSummaryFormat> {
       public Converter() {
         super(TestSummaryFormat.class, "test summary");
@@ -182,9 +173,9 @@ public abstract class TestStrategy implements TestActionContext {
    * path within coverage directory.
    *
    * <p>Coverage directory name for the given test runner action is constructed as: {@code $(blaze
-   * info execution_root)/_coverage/target_path/test_log_name} where {@code test_log_name}
-   * is usually a target name but potentially can include extra suffix, such as a shard number (if
-   * test execution was sharded).
+   * info execution_root)/_coverage/target_path/test_log_name} where {@code test_log_name} is
+   * usually a target name but potentially can include extra suffix, such as a shard number (if test
+   * execution was sharded).
    */
   protected static PathFragment getCoverageDirectory(TestRunnerAction action) {
     return COVERAGE_TMP_ROOT.getRelative(
@@ -207,8 +198,8 @@ public abstract class TestStrategy implements TestActionContext {
 
     if (action.isSharded()) {
       env.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
-      env.put("TEST_TOTAL_SHARDS",
-          Integer.toString(action.getExecutionSettings().getTotalShards()));
+      env.put(
+          "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
     }
 
     // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
@@ -234,12 +225,12 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
-   * Generates a command line to run for the test action, taking into account coverage
-   * and {@code --run_under} settings.
+   * Generates a command line to run for the test action, taking into account coverage and {@code
+   * --run_under} settings.
    *
-   * @param testScript  the setup script that invokes the test
-   * @param coverageScript a script interjected between setup script and rest of command line
-   * to collect coverage data. If this is an empty string, it is ignored.
+   * @param testScript the setup script that invokes the test
+   * @param coverageScript a script interjected between setup script and rest of command line to
+   *     collect coverage data. If this is an empty string, it is ignored.
    * @param testAction The test action.
    * @return the command line as string list.
    */
@@ -324,9 +315,8 @@ public abstract class TestStrategy implements TestActionContext {
   /**
    * Returns a subset of the environment from the current shell.
    *
-   * <p>Warning: Since these variables are not part of the configuration's fingerprint, they
-   * MUST NOT be used by any rule or action in such a way as to affect the semantics of that
-   * build step.
+   * <p>Warning: Since these variables are not part of the configuration's fingerprint, they MUST
+   * NOT be used by any rule or action in such a way as to affect the semantics of that build step.
    */
   public Map<String, String> getAdmissibleShellEnvironment(Iterable<String> variables) {
     return getMapping(variables, clientEnv);
@@ -343,11 +333,10 @@ public abstract class TestStrategy implements TestActionContext {
   /**
    * Returns a unique name for a temporary directory a test could use.
    *
-   * <p>Since each test within single Blaze run must have a unique TEST_TMPDIR,
-   * we will use rule name and a unique (within single Blaze request) number
-   * to generate directory name.</p>
+   * <p>Since each test within single Blaze run must have a unique TEST_TMPDIR, we will use rule
+   * name and a unique (within single Blaze request) number to generate directory name.
    *
-   * <p>This does not create the directory.</p>
+   * <p>This does not create the directory.
    */
   protected String getTmpDirName(PathFragment execPath) {
     String basename = execPath.getBaseName();
@@ -359,13 +348,11 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  /**
-   * Parse a test result XML file into a {@link TestCase}.
-   */
+  /** Parse a test result XML file into a {@link TestCase}. */
   @Nullable
   protected TestCase parseTestResult(Path resultFile) {
     /* xml files. We avoid parsing it unnecessarily, since test results can potentially consume
-     a large amount of memory. */
+    a large amount of memory. */
     if (executionOptions.testSummary != TestSummaryFormat.DETAILED) {
       return null;
     }
@@ -382,7 +369,7 @@ public abstract class TestStrategy implements TestActionContext {
    * create child directories to actually use.
    *
    * <p>This either dynamically generates a directory name or uses the directory specified by
-   * --test_tmpdir. This does not create the directory.</p>
+   * --test_tmpdir. This does not create the directory.
    */
   public static Path getTmpRoot(Path workspace, Path execRoot, ExecutionOptions executionOptions) {
     return executionOptions.testTmpDir != null
@@ -395,8 +382,8 @@ public abstract class TestStrategy implements TestActionContext {
    * are defined in the given environment.
    */
   @VisibleForTesting
-  public static Map<String, String> getMapping(Iterable<String> variables,
-      Map<String, String> environment) {
+  public static Map<String, String> getMapping(
+      Iterable<String> variables, Map<String, String> environment) {
     Map<String, String> result = new HashMap<>();
     for (String var : variables) {
       if (environment.containsKey(var)) {
@@ -407,8 +394,8 @@ public abstract class TestStrategy implements TestActionContext {
   }
 
   /**
-   * Returns the runfiles directory associated with the test executable,
-   * creating/updating it if necessary and --build_runfile_links is specified.
+   * Returns the runfiles directory associated with the test executable, creating/updating it if
+   * necessary and --build_runfile_links is specified.
    */
   protected static Path getLocalRunfilesDirectory(
       TestRunnerAction testAction,
@@ -470,7 +457,8 @@ public abstract class TestStrategy implements TestActionContext {
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
       // implying the symlinks exist and are already up to date.
-      if (Arrays.equals(runfilesDir.getRelative("MANIFEST").getDigest(),
+      if (Arrays.equals(
+          runfilesDir.getRelative("MANIFEST").getDigest(),
           execSettings.getInputManifest().getPath().getDigest())) {
         return;
       }
@@ -478,26 +466,22 @@ public abstract class TestStrategy implements TestActionContext {
       // Ignore it - we will just try to create runfiles directory.
     }
 
-    executor.getEventHandler().handle(Event.progress(
-        "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
+    executor
+        .getEventHandler()
+        .handle(
+            Event.progress(
+                "Building runfiles directory for '"
+                    + execSettings.getExecutable().prettyPrint()
+                    + "'."));
 
-    new SymlinkTreeHelper(
-            execSettings.getInputManifest().getPath(),
-            runfilesDir,
-            false)
+    new SymlinkTreeHelper(execSettings.getInputManifest().getPath(), runfilesDir, false)
         .createSymlinks(
-            testAction,
-            actionExecutionContext,
-            binTools,
-            shellEnvironment,
-            enableRunfiles);
+            testAction, actionExecutionContext, binTools, shellEnvironment, enableRunfiles);
 
     executor.getEventHandler().handle(Event.progress(testAction.getProgressMessage()));
   }
 
-  /**
-   * In rare cases, we might write something to stderr. Append it to the real test.log.
-   */
+  /** In rare cases, we might write something to stderr. Append it to the real test.log. */
   protected static void appendStderr(Path stdOut, Path stdErr) throws IOException {
     FileStatus stat = stdErr.statNullable();
     OutputStream out = null;
@@ -520,9 +504,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  /**
-   * Implements the --test_output=streamed option.
-   */
+  /** Implements the --test_output=streamed option. */
   protected static class StreamedTestOutput implements Closeable {
     private final TestLogHelper.FilterTestHeaderOutputStream headerFilter;
     private final FileWatcher watcher;
@@ -556,5 +538,4 @@ public abstract class TestStrategy implements TestActionContext {
       }
     }
   }
-
 }

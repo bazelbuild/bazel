@@ -14,17 +14,16 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.rules.test.TestLogHelper;
+import com.google.devtools.build.lib.exec.TestLogHelper;
+import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.rules.test.TestResult;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;

@@ -12,13 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.test;
+package com.google.devtools.build.lib.exec;
 
-/**
- * This exception gets thrown if there was a problem with parsing a test.xml
- * file.
- */
-class TestXmlOutputParserException extends Exception {
+/** This exception gets thrown if there was a problem with parsing a test.xml file. */
+final class TestXmlOutputParserException extends Exception {
   public TestXmlOutputParserException(String message, Throwable cause) {
     super(message, cause);
   }

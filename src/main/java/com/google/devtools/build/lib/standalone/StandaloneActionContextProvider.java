@@ -25,15 +25,14 @@ import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
+import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.cpp.SpawnLinkStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
-import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-
 import java.io.IOException;
 
 /**

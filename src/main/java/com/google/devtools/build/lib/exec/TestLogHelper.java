@@ -11,12 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.rules.test;
+package com.google.devtools.build.lib.exec;
 
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.rules.test.TestStrategy.TestOutputFormat;
+import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedOutputStream;
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -25,36 +24,34 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 
 /**
- * A helper class for test log handling. It determines whether the test log should
- * be output and formats the test log for console display.
+ * A helper class for test log handling. It determines whether the test log should be output and
+ * formats the test log for console display.
  */
 public class TestLogHelper {
 
   public static final String HEADER_DELIMITER =
-    "-----------------------------------------------------------------------------";
+      "-----------------------------------------------------------------------------";
 
   /**
-   * Determines whether the test log should be output from the current outputMode
-   * and whether the test has passed or not.
+   * Determines whether the test log should be output from the current outputMode and whether the
+   * test has passed or not.
    */
   public static boolean shouldOutputTestLog(TestOutputFormat outputMode, boolean hasPassed) {
-    return (outputMode == TestOutputFormat.ALL) ||
-      (!hasPassed && (outputMode == TestOutputFormat.ERRORS));
+    return (outputMode == TestOutputFormat.ALL)
+        || (!hasPassed && (outputMode == TestOutputFormat.ERRORS));
   }
 
   /**
-   * Reads the contents of the test log from the provided testOutput file, adds
-   * header and footer and returns the result.
-   * This method also looks for a header delimiter and cuts off the text before it,
-   * except if the header is 50 lines or longer.
+   * Reads the contents of the test log from the provided testOutput file, adds header and footer
+   * and returns the result. This method also looks for a header delimiter and cuts off the text
+   * before it, except if the header is 50 lines or longer.
    */
   public static void writeTestLog(Path testOutput, String testName, OutputStream out)
       throws IOException {
     InputStream input = null;
     PrintStream printOut = new PrintStream(new BufferedOutputStream(out));
     try {
-      final String outputHeader =
-          "==================== Test output for " + testName + ":";
+      final String outputHeader = "==================== Test output for " + testName + ":";
       final String outputFooter =
           "================================================================================";
 
@@ -81,8 +78,8 @@ public class TestLogHelper {
   }
 
   /**
-   * Returns an output stream that doesn't write to original until it
-   * sees HEADER_DELIMITER by itself on a line.
+   * Returns an output stream that doesn't write to original until it sees HEADER_DELIMITER by
+   * itself on a line.
    */
   public static FilterTestHeaderOutputStream getHeaderFilteringOutputStream(OutputStream original) {
     return new FilterTestHeaderOutputStream(original);
@@ -92,10 +89,7 @@ public class TestLogHelper {
     // Prevent Java from creating a public constructor.
   }
 
-  /**
-   * Use this class to filter the streaming output of a test until we see the
-   * header delimiter.
-   */
+  /** Use this class to filter the streaming output of a test until we see the header delimiter. */
   public static class FilterTestHeaderOutputStream extends FilterOutputStream {
 
     private boolean seenDelimiter = false;

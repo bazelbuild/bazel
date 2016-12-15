@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.test;
+package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -34,6 +34,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.rules.test.TestActionContext;
+import com.google.devtools.build.lib.rules.test.TestResult;
+import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -46,10 +49,11 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Runs TestRunnerAction actions.
- */
-@ExecutionStrategy(contextType = TestActionContext.class, name = { "standalone" })
+/** Runs TestRunnerAction actions. */
+@ExecutionStrategy(
+  contextType = TestActionContext.class,
+  name = {"standalone"}
+)
 public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
   public static final String COLLECT_COVERAGE =
@@ -193,13 +197,16 @@ public class StandaloneTestStrategy extends TestStrategy {
     try {
       try {
         if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
-          streamed = new StreamedTestOutput(
-              Reporter.outErrForReporter(
-                  actionExecutionContext.getExecutor().getEventHandler()), testLogPath);
+          streamed =
+              new StreamedTestOutput(
+                  Reporter.outErrForReporter(
+                      actionExecutionContext.getExecutor().getEventHandler()),
+                  testLogPath);
         }
         spawnActionContext.exec(spawn, actionExecutionContext);
 
-        builder.setTestPassed(true)
+        builder
+            .setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
             .setCachable(true)
             .setPassedLog(testLogPath.getPathString());
@@ -224,12 +231,15 @@ public class StandaloneTestStrategy extends TestStrategy {
         }
       }
 
-      TestCase details = parseTestResult(
-          action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getXmlOutputPath());
+      TestCase details =
+          parseTestResult(
+              action
+                  .resolve(actionExecutionContext.getExecutor().getExecRoot())
+                  .getXmlOutputPath());
       if (details != null) {
         builder.setTestCase(details);
       }
-      
+
       if (isCoverageMode(action)) {
         builder.setHasCoverage(true);
       }
@@ -258,24 +268,30 @@ public class StandaloneTestStrategy extends TestStrategy {
         executor.getEventHandler().handle(Event.of(EventKind.PASS, null, result.getTestName()));
       } else {
         if (result.getData().getStatus() == BlazeTestStatus.TIMEOUT) {
-          executor.getEventHandler().handle(
-              Event.of(EventKind.TIMEOUT, null, result.getTestName()
-                  + " (see " + testOutput + ")"));
+          executor
+              .getEventHandler()
+              .handle(
+                  Event.of(
+                      EventKind.TIMEOUT, null, result.getTestName() + " (see " + testOutput + ")"));
         } else {
-          executor.getEventHandler().handle(
-              Event.of(EventKind.FAIL, null, result.getTestName() + " (see " + testOutput + ")"));
+          executor
+              .getEventHandler()
+              .handle(
+                  Event.of(
+                      EventKind.FAIL, null, result.getTestName() + " (see " + testOutput + ")"));
         }
       }
     }
   }
 
-  private final void finalizeTest(ActionExecutionContext actionExecutionContext,
-      TestRunnerAction action, TestResultData data) throws IOException, ExecException {
+  private final void finalizeTest(
+      ActionExecutionContext actionExecutionContext, TestRunnerAction action, TestResultData data)
+      throws IOException, ExecException {
     TestResult result = new TestResult(action, data, false);
     postTestResult(actionExecutionContext.getExecutor(), result);
 
-    processTestOutput(actionExecutionContext.getExecutor(),
-        actionExecutionContext.getFileOutErr(), result);
+    processTestOutput(
+        actionExecutionContext.getExecutor(), actionExecutionContext.getFileOutErr(), result);
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.
 
     if (!executionOptions.testKeepGoing && data.getStatus() != BlazeTestStatus.PASSED) {
