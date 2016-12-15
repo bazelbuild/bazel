@@ -643,7 +643,7 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
-test_swift_bitcode() {
+function test_swift_bitcode() {
   rm -rf ios
   mkdir -p ios
 
