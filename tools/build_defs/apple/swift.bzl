@@ -338,16 +338,26 @@ def _swift_library_impl(ctx):
   swiftc_output_map = struct()  # Maps output types to paths.
   output_objs = []  # Object file outputs, used in archive action.
   swiftc_outputs = []  # Other swiftc outputs that aren't processed further.
-  for source in ctx.files.srcs:
-    basename = source.basename
-    obj = ctx.new_file(objs_outputs_path + basename + ".o")
-    partial_module = ctx.new_file(objs_outputs_path + basename +
-                                  ".partial_swiftmodule")
-    output_objs.append(obj)
-    swiftc_outputs.append(partial_module)
 
-    swiftc_output_map += struct(**{
-        source.path: struct(object=obj.path, swiftmodule=partial_module.path)})
+  # Check if the user enabled Whole Module Optimization (WMO)
+  # This is highly experimental and tracked in b/29465250
+  has_wmo = ("-wmo" in ctx.attr.copts) or ("-whole-module-optimization" in ctx.attr.copts)
+
+  if not has_wmo:
+    for source in ctx.files.srcs:
+      basename = source.basename
+      obj = ctx.new_file(objs_outputs_path + basename + ".o")
+      partial_module = ctx.new_file(objs_outputs_path + basename +
+                                    ".partial_swiftmodule")
+      output_objs.append(obj)
+      swiftc_outputs.append(partial_module)
+
+      swiftc_output_map += struct(**{
+          source.path: struct(object=obj.path, swiftmodule=partial_module.path)})
+  else:
+    # When WMO is enabled, there is only one output - the module object file,
+    # no need to deal with an output map
+    output_objs.append(ctx.new_file(objs_outputs_path + module_name + ".o"))
 
   # Write down the intermediate outputs map for this compilation, to be used
   # with -output-file-map flag.
@@ -370,6 +380,11 @@ def _swift_library_impl(ctx):
       "-output-file-map",
       swiftc_output_map_file.path,
   ]
+
+  # When WMO is enabled, there's only one output, the module object file, which
+  # location should be explicitly given to the driver.
+  if has_wmo:
+    args.extend(["-o", output_objs[0].path])
 
   xcrun_action(
       ctx,

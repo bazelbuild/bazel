@@ -834,4 +834,43 @@ EOF
       //ios:swiftmodule >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_swift_whole_module_optimization() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+import ios_util
+
+public class SwiftClass {
+  public func bar() -> String {
+    return Utility().foo()
+  }
+}
+EOF
+
+  cat >ios/Utility.swift <<EOF
+public class Utility {
+  public init() {}
+  public func foo() -> String { return "foo" }
+}
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":util"],
+              copts = ["-wmo"])
+
+swift_library(name = "util",
+              srcs = ['Utility.swift'],
+              copts = ["-whole-module-optimization"])
+EOF
+
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
 run_suite "apple_tests"
