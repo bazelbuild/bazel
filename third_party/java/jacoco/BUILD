@@ -54,8 +54,3 @@ java_import(
     jars = ["jacocoagent.jar"],
     neverlink = 1,
 )
-
-java_import(
-    name = "blaze-instrumentation",
-    jars = ["org.jacoco.ant-0.7.5.201505241946-nodeps.jar"],
-)
