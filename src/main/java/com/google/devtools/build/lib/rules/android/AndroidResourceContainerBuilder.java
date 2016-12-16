@@ -104,9 +104,13 @@ public final class AndroidResourceContainerBuilder {
     // TODO(bazel-team): JavaUtil.getJavaPackageName does not check to see if the path is valid.
     // So we need to check for the JavaRoot.
     if (JavaUtil.getJavaRoot(rJavaSrcJar.getExecPath()) == null) {
-      ruleContext.ruleError("You must place your code under a directory named 'java' or "
-          + "'javatests' for blaze to work. That directory (java,javatests) will be treated as "
-          + "your java source root. Alternatively, you can set the 'custom_package' attribute.");
+      ruleContext.ruleError("The location of your BUILD file determines the Java package used for "
+          + "Android resource processing. A directory named \"java\" or \"javatests\" will be used "
+          + "as your Java source root and the path of your BUILD file relative to the Java source "
+          + "root will be used as the package for Android resource processing. The Java source "
+          + "root could not be determined for \"" + ruleContext.getPackageDirectory() + "\". "
+          + "Move your BUILD file under a java or javatests directory, or set the 'custom_package' "
+          + "attribute.");
     }
     return JavaUtil.getJavaPackageName(rJavaSrcJar.getExecPath());
   }
