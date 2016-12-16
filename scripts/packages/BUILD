@@ -186,11 +186,10 @@ genrule(
     name = "generate-changelog-file",
     srcs = [
         "convert_changelog.py",
-        "//:bazel-srcs",  # Force a rebuild on source change
+        "//:changelog-file",
     ],
     outs = ["changelog"],
-    cmd = "python $(location convert_changelog.py) bazel-out/volatile-status.txt $(location changelog)",
-    stamp = 1,
+    cmd = "python $(location convert_changelog.py) $(location //:changelog-file) $(location changelog)",
 )
 
 genrule(
