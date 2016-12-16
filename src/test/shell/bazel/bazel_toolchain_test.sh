@@ -22,8 +22,13 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-if [ "${PLATFORM-}" = "darwin" -o "${MACHINE_TYPE}" = "ppc64le" ]; then
-  echo "Skipping test: linaro toolchain is not supported on darwin host or ppc64le Linux."
+expected_platform=0
+if [ "${PLATFORM-}" = "linux" && "${MACHINE_TYPE}" = "x86_64" ]; then
+  expected_platform = 1
+fi
+
+if [$expected_platform -eq 0]
+  echo "Skipping test: linaro toolchain is not supported on this platform"
   exit 0
 fi
 
