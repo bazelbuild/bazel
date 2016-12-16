@@ -813,7 +813,7 @@ static int md5sumAsBytes(const char *file,
   Md5Digest digest;
   // OPT: Using a 32k buffer would give marginally better performance,
   // but what is the stack size here?
-  jbyte buf[4096];
+  jbyte buf[8192];
   int fd;
   while ((fd = open(file, O_RDONLY)) == -1 && errno == EINTR) { }
   if (fd == -1) {
