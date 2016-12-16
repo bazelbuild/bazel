@@ -250,6 +250,11 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
     writableDirs.add(fs.getPath("/tmp"));
 
+    // ~/Library/Cache and ~/Library/Logs need to be writable (cf. issue #2231).
+    Path homeDir = fs.getPath(System.getProperty("user.home"));
+    writableDirs.add(homeDir.getRelative("Library/Cache"));
+    writableDirs.add(homeDir.getRelative("Library/Logs"));
+
     // Other temporary directories from getconf.
     for (Path path : confPaths) {
       if (path.exists()) {
