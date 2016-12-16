@@ -51,7 +51,7 @@ public final class BazelCcIncLibraryRule implements RuleDefinition {
 <p>
 Bazel creates a subdirectory below
 <code>includes</code> (relative to WORKSPACE) for each such rule, and makes sure that all
-dependent rules have a corresponding <code>-I</code> directive to add this
+dependent rules have a corresponding <code>-isystem</code> directive to add this
 directory into the compiler's header file search path for all compilations. Note
 that if a rule has multiple <code>cc_inc_library</code> rules from the same
 package in its dependencies, the first such rule will take precedence.
