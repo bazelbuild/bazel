@@ -18,6 +18,7 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
@@ -106,6 +107,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
@@ -332,20 +334,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected void evalTopLevelInternal(
       QueryExpression expr, OutputFormatterCallback<Target> callback)
           throws QueryException, InterruptedException {
-    boolean poolNeedsShutdown = true;
+    Throwable throwableToThrow = null;
     try {
       super.evalTopLevelInternal(expr, callback);
-      poolNeedsShutdown = false;
+    } catch (Throwable throwable) {
+      throwableToThrow = throwable;
     } finally {
-      if (poolNeedsShutdown) {
+      if (throwableToThrow  != null) {
+        LOG.log(Level.INFO, "About to shutdown FJP because of throwable", throwableToThrow);
         // Force termination of remaining tasks if evaluation failed abruptly (e.g. was
         // interrupted). We don't want to leave any dangling threads running tasks.
         forkJoinPool.shutdownNow();
       }
       forkJoinPool.awaitQuiescence(Long.MAX_VALUE, TimeUnit.MILLISECONDS);
-      if (poolNeedsShutdown) {
+      if (throwableToThrow  != null) {
         // Signal that pool must be recreated on the next invocation.
         forkJoinPool = null;
+        Throwables.propagateIfPossible(
+            throwableToThrow, QueryException.class, InterruptedException.class);
       }
     }
   }
