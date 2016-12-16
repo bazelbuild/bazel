@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -44,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -470,12 +472,29 @@ public abstract class AbstractAction implements Action, SkylarkValue {
             .setOwner(owner.getLabel().toString())
             .setId(getKey())
             .setMnemonic(getMnemonic());
-    if (owner.getAspectName() != null) {
-      result.setAspectName(owner.getAspectName());
+    Iterable<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
+    AspectDescriptor lastAspect = null;
+
+    for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
+      ExtraActionInfo.AspectDescriptor.Builder builder =
+          ExtraActionInfo.AspectDescriptor.newBuilder()
+            .setAspectName(aspectDescriptor.getAspectClass().getName());
+      for (Entry<String, Collection<String>> entry :
+          aspectDescriptor.getParameters().getAttributes().asMap().entrySet()) {
+          builder.putAspectParameters(
+            entry.getKey(),
+            ExtraActionInfo.AspectDescriptor.StringList.newBuilder()
+                .addAllValue(entry.getValue())
+                .build()
+          );
+      }
+      lastAspect = aspectDescriptor;
     }
-    if (owner.getAspectParameters() != null) {
+    if (lastAspect != null) {
+      result.setAspectName(lastAspect.getAspectClass().getName());
+
       for (Map.Entry<String, Collection<String>> entry :
-          owner.getAspectParameters().getAttributes().asMap().entrySet()) {
+          lastAspect.getParameters().getAttributes().asMap().entrySet()) {
         result.putAspectParameters(
             entry.getKey(),
             ExtraActionInfo.StringList.newBuilder().addAllValue(entry.getValue()).build());

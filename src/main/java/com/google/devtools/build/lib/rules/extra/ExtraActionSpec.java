@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -236,10 +237,10 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   public static String getActionId(ActionOwner owner, Action action) {
     Fingerprint f = new Fingerprint();
     f.addString(owner.getLabel().toString());
-    f.addNullableString(owner.getAspectName());
-    f.addBoolean(owner.getAspectParameters() != null);
-    if (owner.getAspectParameters() != null) {
-      f.addString(owner.getAspectParameters().toString());
+    ImmutableList<AspectDescriptor> aspectDescriptors = owner.getAspectDescriptors();
+    f.addInt(aspectDescriptors.size());
+    for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
+      f.addString(aspectDescriptor.getDescription());
     }
     f.addString(action.getKey());
     return f.hexDigestAndReset();

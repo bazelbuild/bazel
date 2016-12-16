@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
@@ -33,12 +34,12 @@ import javax.annotation.Nullable;
 public abstract class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   public static final ActionOwner SYSTEM_ACTION_OWNER =
-      ActionOwner.create(null, null, null, null, "system", "empty target kind", "system", null);
+      ActionOwner.create(null, ImmutableList.<AspectDescriptor>of(),
+          null, "system", "empty target kind", "system", null);
 
   public static ActionOwner create(
       @Nullable Label label,
-      @Nullable String aspectName,
-      @Nullable AspectParameters aspectParameters,
+      ImmutableList<AspectDescriptor> aspectDescriptors,
       @Nullable Location location,
       @Nullable String mnemonic,
       @Nullable String targetKind,
@@ -47,8 +48,7 @@ public abstract class ActionOwner {
     return new AutoValue_ActionOwner(
         location,
         label,
-        aspectName,
-        aspectParameters,
+        aspectDescriptors,
         mnemonic,
         Preconditions.checkNotNull(configurationChecksum),
         targetKind,
@@ -63,11 +63,7 @@ public abstract class ActionOwner {
   @Nullable
   public abstract Label getLabel();
 
-  @Nullable
-  public abstract String getAspectName();
-
-  @Nullable
-  public abstract AspectParameters getAspectParameters();
+  public abstract ImmutableList<AspectDescriptor> getAspectDescriptors();
 
   /** Returns the configuration's mnemonic. */
   @Nullable

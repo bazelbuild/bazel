@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.AspectClass;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.protobuf.TextFormat;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -68,6 +66,11 @@ public final class AspectDescriptor {
     AspectDescriptor that = (AspectDescriptor) obj;
     return Objects.equals(aspectClass, that.aspectClass)
         && Objects.equals(aspectParameters, that.aspectParameters);
+  }
+
+  @Override
+  public String toString() {
+    return getDescription();
   }
 
   /**

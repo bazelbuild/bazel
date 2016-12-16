@@ -18,6 +18,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -390,7 +392,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "/home/user/bazel/out/abcdef/some/very/very/long/path/for/some/library/directory/foo.jar");
     Label label =
         Label.parseAbsolute("//some/very/very/long/path/for/some/library/directory:libfoo");
-    ActionOwner owner = ActionOwner.create(label, null, null, null, null, null, "fedcba", null);
+    ActionOwner owner = ActionOwner.create(
+        label, ImmutableList.<AspectDescriptor>of(), null, null, null, "fedcba", null);
     when(action.getOwner()).thenReturn(owner);
 
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(3));
@@ -518,7 +521,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ConfiguredTarget targetFooTest = Mockito.mock(ConfiguredTarget.class);
     when(targetFooTest.getLabel()).thenReturn(labelFooTest);
     ActionOwner fooOwner =
-        ActionOwner.create(labelFooTest, null, null, null, null, null, "abcdef", null);
+        ActionOwner.create(labelFooTest,
+            ImmutableList.<AspectDescriptor>of(), null, null, null, "abcdef", null);
 
     Label labelBarTest = Label.parseAbsolute("//baz:bartest");
     ConfiguredTarget targetBarTest = Mockito.mock(ConfiguredTarget.class);
@@ -527,7 +531,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     when(filteringComplete.getTestTargets())
         .thenReturn(ImmutableSet.of(targetFooTest, targetBarTest));
     ActionOwner barOwner =
-        ActionOwner.create(labelBarTest, null, null, null, null, null, "fedcba", null);
+        ActionOwner.create(labelBarTest,
+            ImmutableList.<AspectDescriptor>of(), null, null, null, "fedcba", null);
 
     stateTracker.testFilteringComplete(filteringComplete);
 

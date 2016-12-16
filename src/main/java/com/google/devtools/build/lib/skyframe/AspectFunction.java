@@ -216,7 +216,7 @@ public final class AspectFunction implements SkyFunction {
     ConfiguredTarget associatedTarget =
       configuredTargetValue.getConfiguredTarget();
 
-    ImmutableList.Builder<Aspect> aspectPath = ImmutableList.builder();
+    ImmutableList.Builder<Aspect> aspectPathBuilder = ImmutableList.builder();
 
     if (key.getBaseKey() != null) {
       ImmutableList<SkyKey> aspectKeys = getSkyKeysForAspects(key.getBaseKey());
@@ -227,7 +227,7 @@ public final class AspectFunction implements SkyFunction {
       }
       try {
         associatedTarget = getBaseTargetAndCollectPath(
-            associatedTarget, aspectKeys, values, aspectPath);
+            associatedTarget, aspectKeys, values, aspectPathBuilder);
       } catch (DuplicateException e) {
         env.getListener().handle(
             Event.error(associatedTarget.getTarget().getLocation(), e.getMessage()));
@@ -237,7 +237,7 @@ public final class AspectFunction implements SkyFunction {
 
       }
     }
-    aspectPath.add(aspect);
+    aspectPathBuilder.add(aspect);
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
 
@@ -249,6 +249,7 @@ public final class AspectFunction implements SkyFunction {
     // will be present this way.
     TargetAndConfiguration originalTargetAndAspectConfiguration =
         new TargetAndConfiguration(target, key.getAspectConfiguration());
+    ImmutableList<Aspect> aspectPath = aspectPathBuilder.build();
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
@@ -266,7 +267,7 @@ public final class AspectFunction implements SkyFunction {
             env,
             resolver,
             originalTargetAndAspectConfiguration,
-            aspectPath.build(),
+            aspectPath,
             configConditions,
             ruleClassProvider,
             view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
@@ -286,7 +287,7 @@ public final class AspectFunction implements SkyFunction {
       return createAspect(
           env,
           key,
-          target,
+          aspectPath,
           aspect,
           aspectFactory,
           associatedTarget,
@@ -387,7 +388,7 @@ public final class AspectFunction implements SkyFunction {
   private AspectValue createAspect(
       Environment env,
       AspectKey key,
-      Target baseTarget,
+      ImmutableList<Aspect> aspectPath,
       Aspect aspect,
       ConfiguredAspectFactory aspectFactory,
       ConfiguredTarget associatedTarget,
@@ -410,6 +411,7 @@ public final class AspectFunction implements SkyFunction {
         view.getConfiguredTargetFactory().createAspect(
             analysisEnvironment,
             associatedTarget,
+            aspectPath,
             aspectFactory,
             aspect,
             directDeps,

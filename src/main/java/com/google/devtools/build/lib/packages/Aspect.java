@@ -30,20 +30,17 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   /** */
   public static final String INJECTING_RULE_KIND_PARAMETER_KEY = "$injecting_rule_kind";
 
-  // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
-  // by reference. We should identify the aspect here in a way that does not rely on comparison
-  // by reference so that keys can be serialized and deserialized properly.
-  private final AspectClass aspectClass;
-  private final AspectParameters parameters;
+  private final AspectDescriptor aspectDescriptor;
   private final AspectDefinition aspectDefinition;
 
   private Aspect(
       AspectClass aspectClass,
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    this.aspectClass = Preconditions.checkNotNull(aspectClass);
+    this.aspectDescriptor = new AspectDescriptor(
+        Preconditions.checkNotNull(aspectClass),
+        Preconditions.checkNotNull(parameters));
     this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
-    this.parameters = Preconditions.checkNotNull(parameters);
   }
 
   public static Aspect forNative(
@@ -66,19 +63,23 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
    * Returns the aspectClass required for building the aspect.
    */
   public AspectClass getAspectClass() {
-    return aspectClass;
+    return aspectDescriptor.getAspectClass();
   }
 
   /**
    * Returns parameters for evaluation of the aspect.
    */
   public AspectParameters getParameters() {
-    return parameters;
+    return aspectDescriptor.getParameters();
+  }
+
+  public AspectDescriptor getDescriptor() {
+    return aspectDescriptor;
   }
 
   @Override
   public String toString() {
-    return String.format("Aspect %s(%s)", aspectClass, parameters);
+    return String.format("Aspect %s", aspectDescriptor.toString());
   }
 
   public AspectDefinition getDefinition() {

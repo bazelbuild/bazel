@@ -55,14 +55,36 @@ message ExtraActionInfo {
 
   // Only set if the owner is an Aspect.
   // Corresponds to AspectValue.AspectKey.getAspectClass.getName()
-  optional string aspect_name = 6;
+  // This field is deprecated as there might now be
+  // multiple aspects applied to the same target.
+  // This is the aspect name of the last aspect
+  // in 'aspects' (8) field.
+  optional string aspect_name = 6 [deprecated = true];
 
   // Only set if the owner is an Aspect.
   // Corresponds to AspectValue.AspectKey.getParameters()
-  map<string, StringList> aspect_parameters = 7;
+  // This field is deprecated as there might now be
+  // multiple aspects applied to the same target.
+  // These are the aspect parameters of the last aspect
+  // in 'aspects' (8) field.
+  map<string, StringList> aspect_parameters = 7 [deprecated = true];
   message StringList {
+    option deprecated = true;
     repeated string value = 1;
   }
+
+  message AspectDescriptor {
+    // Corresponds to AspectDescriptor.getName()
+    optional string aspect_name = 1;
+    // Corresponds to AspectDescriptor.getParameters()
+    map<string, StringList> aspect_parameters = 2;
+    message StringList {
+      repeated string value = 1;
+    }
+  }
+
+  // If the owner is an aspect, all aspects applied to the target
+  repeated AspectDescriptor aspects = 8;
 
   // An id uniquely describing the shadowed action at the ActionOwner level.
   optional string id = 2;

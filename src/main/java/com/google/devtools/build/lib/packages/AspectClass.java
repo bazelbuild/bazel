@@ -72,7 +72,7 @@ package com.google.devtools.build.lib.packages;
  *    </li>
  *    <li>{@link AspectParameters} is a (key,value) pair list that can be used to
  *    parameterize aspect classes</li>
- *    <li>{@link com.google.devtools.build.lib.analysis.AspectDescriptor} is a pair
+ *    <li>{@link AspectDescriptor} is a pair
  *    of {@code AspectClass} and {@link AspectParameters}. It uniquely identifies
  *    the aspect and can be used in SkyKeys.
  *    </li>
@@ -89,7 +89,7 @@ package com.google.devtools.build.lib.packages;
  *    </li>
  *  </ul>
  *
- *  {@link com.google.devtools.build.lib.analysis.AspectDescriptor}, or in general, a tuple
+ *  {@link AspectDescriptor}, or in general, a tuple
  *  of ({@link AspectClass}, {@link AspectParameters}) is an identifier that should be
  *  used in SkyKeys or in other contexts that need equality for aspects.
  *  See also {@link com.google.devtools.build.lib.skyframe.AspectFunction} for details

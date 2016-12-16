@@ -14,7 +14,11 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.Iterables.transform;
+
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
@@ -32,6 +36,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -227,8 +232,7 @@ public final class ConfiguredTargetFactory {
         new RuleContext.Builder(
                 env,
                 rule,
-                null,
-                null,
+                ImmutableList.<AspectDescriptor>of(),
                 configuration,
                 hostConfiguration,
                 ruleClassProvider.getPrerequisiteValidator(),
@@ -304,6 +308,13 @@ public final class ConfiguredTargetFactory {
     return result.toString();
   }
 
+  private static final Function<Aspect, AspectDescriptor> ASPECT_TO_DESCRIPTOR =
+      new Function<Aspect, AspectDescriptor>() {
+        @Override
+        public AspectDescriptor apply(Aspect aspect) {
+          return aspect.getDescriptor();
+        }
+      };
   /**
    * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case,
    * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
@@ -311,6 +322,7 @@ public final class ConfiguredTargetFactory {
   public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
       ConfiguredTarget associatedTarget,
+      ImmutableList<Aspect> aspectPath,
       ConfiguredAspectFactory aspectFactory,
       Aspect aspect,
       OrderedSetMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
@@ -321,8 +333,7 @@ public final class ConfiguredTargetFactory {
     RuleContext.Builder builder = new RuleContext.Builder(
         env,
         associatedTarget.getTarget().getAssociatedRule(),
-        aspect.getAspectClass().getName(),
-        aspect.getParameters(),
+        ImmutableList.copyOf(transform(aspectPath, ASPECT_TO_DESCRIPTOR)),
         aspectConfiguration,
         hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator(),

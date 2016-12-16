@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.Output
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -191,8 +192,7 @@ public final class ActionsTestUtil {
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
           NULL_LABEL,
-          null,
-          null,
+          ImmutableList.<AspectDescriptor>of(),
           null,
           "dummy-configuration-mnemonic",
           null,

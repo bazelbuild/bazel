@@ -549,6 +549,7 @@ public class AspectTest extends AnalysisTestCase {
     scratch.file(
         "x/BUILD",
         "load(':extension.bzl', 'injector1', 'injector2', 'null_rule')",
+        "injector2(name='i2_a', deps = [':i1_a'])",
         "injector1(name='i1_a', deps=[':n'], param = 'a')",
         "injector1(name='i1_b', deps=[':n'], param = 'b')",
         "injector2(name='i2', deps=[':n'])",
@@ -575,7 +576,7 @@ public class AspectTest extends AnalysisTestCase {
         "extra_action(name='xa', cmd='echo dont-care')",
         "action_listener(name='listener', mnemonics=['Mnemonic'], extra_actions=[':xa'])");
 
-      update("//x:i1_a", "//x:i1_b", "//x:i2");
+    update("//x:i1_a", "//x:i1_b", "//x:i2", "//x:i2_a");
 
     // Implicitly check that update() didn't throw an exception because of two actions producing
     // the same outputs.
