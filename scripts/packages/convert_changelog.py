@@ -20,26 +20,37 @@ import sys
 
 def main(input_file, output_file):
   changelog_out = open(output_file, "w")
-  time_stamp = None
+  changelog = None
+  version = None
   with open(input_file, "r") as changelog_in:
     for line in changelog_in:
       line = line.strip()
 
-      if line.startswith("```") or line.startswith("Baseline"):
-        continue
+      if line.startswith("RELEASE_NOTES"):
+        changelog = line[14:].strip().replace("\f", "\n")
+      elif line.startswith("RELEASE_NAME"):
+        version = line[13:].strip()
 
-      if line.startswith("## Release"):
-        if time_stamp:
-          changelog_out.write(
-              "\n -- The Bazel Authors <bazel-dev@googlegroups.com>  %s\n\n" %
-              time_stamp)
-        parts = line.split(" ")
-        version = parts[2]
-        time_stamp = datetime.strptime(
-            parts[3], "(%Y-%m-%d)").strftime("%a, %d %b %Y %H:%M:%S +0100")
-        changelog_out.write("bazel (%s) unstable; urgency=low\n" % version)
+  if changelog:
+    time_stamp = None
+    lines = changelog.split("\n")
+    header = lines[0]
+    lines = lines[4:]  # Skip the header
+    if lines[0] == "Cherry picks:":
+      # Skip cherry picks list
+      i = 1
+      while lines[i].strip():
+        i += 1
+      lines = lines[i + 1:]
 
-      elif line.startswith("+") or line.startswith("-"):
+    # Process header
+    parts = header.split(" ")
+    time_stamp = datetime.strptime(
+        parts[2], "(%Y-%m-%d)").strftime("%a, %d %b %Y %H:%M:%S +0100")
+    changelog_out.write("bazel (%s) unstable; urgency=low\n" % version)
+
+    for line in lines:
+      if line.startswith("+") or line.startswith("-"):
         parts = line.split(" ")
         line = "*" + line[1:]
         changelog_out.write("  %s\n" % line)
