@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
+import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
 import com.google.devtools.build.lib.rules.cpp.SpawnLinkStrategy;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
 /**
@@ -67,12 +69,13 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
 
   public StandaloneActionContextProvider(CommandEnvironment env, BuildRequest buildRequest) {
     this.env = env;
-    boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
+    ExecutionOptions options = buildRequest.getOptions(ExecutionOptions.class);
+    boolean verboseFailures = options.verboseFailures;
 
+    Path testTmpRoot = TestStrategy.getTmpRoot(env.getWorkspace(), env.getExecRoot(), options);
     TestActionContext testStrategy =
         new StandaloneTestStrategy(
-            buildRequest, env.getBlazeWorkspace().getBinTools(), env.getClientEnv(),
-            env.getWorkspace());
+            buildRequest, env.getBlazeWorkspace().getBinTools(), env.getClientEnv(), testTmpRoot);
 
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
 

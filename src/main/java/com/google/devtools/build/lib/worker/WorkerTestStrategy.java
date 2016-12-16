@@ -77,28 +77,23 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
   }
 
   @Override
-  protected TestResultData execute(
+  protected TestResultData executeTest(
+      TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
-      TestRunnerAction action,
       Path execRoot,
       Path runfilesDir)
       throws ExecException, InterruptedException, IOException {
     List<String> startupArgs = getStartUpArgs(action);
 
     return execInWorker(
-        actionExecutionContext,
-        environment,
-        action,
-        startupArgs,
-        execRoot,
-        maxRetries);
+        action, actionExecutionContext, environment, startupArgs, execRoot, maxRetries);
   }
 
   private TestResultData execInWorker(
+      TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
-      TestRunnerAction action,
       List<String> startupArgs,
       Path execRoot,
       int retriesLeft)
@@ -177,12 +172,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
                         + e
                         + "), invalidating and retrying with new worker..."));
         return execInWorker(
-            actionExecutionContext,
-            environment,
-            action,
-            startupArgs,
-            execRoot,
-            retriesLeft - 1);
+            action, actionExecutionContext, environment, startupArgs, execRoot, retriesLeft - 1);
       } else {
         throw new TestExecException(e.getMessage());
       }

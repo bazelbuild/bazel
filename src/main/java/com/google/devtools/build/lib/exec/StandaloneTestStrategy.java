@@ -59,15 +59,15 @@ public class StandaloneTestStrategy extends TestStrategy {
   public static final String COLLECT_COVERAGE =
       "external/bazel_tools/tools/test/collect_coverage.sh";
 
-  protected final Path workspace;
+  protected final Path tmpDirRoot;
 
   public StandaloneTestStrategy(
       OptionsClassProvider requestOptions,
       BinTools binTools,
       Map<String, String> clientEnv,
-      Path workspace) {
+      Path tmpDirRoot) {
     super(requestOptions, binTools, clientEnv);
-    this.workspace = workspace;
+    this.tmpDirRoot = tmpDirRoot;
   }
 
   @Override
@@ -83,8 +83,8 @@ public class StandaloneTestStrategy extends TestStrategy {
             action.getLocalShellEnvironment(),
             action.isEnableRunfiles());
     Path tmpDir =
-        getTmpRoot(workspace, execRoot, executionOptions)
-            .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
+        tmpDirRoot.getChild(
+            getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
     Map<String, String> env = setupEnvironment(action, execRoot, runfilesDir, tmpDir);
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
@@ -97,16 +97,13 @@ public class StandaloneTestStrategy extends TestStrategy {
 
       try (FileOutErr fileOutErr =
               new FileOutErr(
-                  action.getTestLog().getPath(),
-                  action
-                      .resolve(actionExecutionContext.getExecutor().getExecRoot())
-                      .getTestStderr());
+                  action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr());
           ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
         TestResultData data =
-            execute(
+            executeTest(
+                action,
                 actionExecutionContext.withFileOutErr(fileOutErr),
                 env,
-                action,
                 execRoot,
                 runfilesDir);
         appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
@@ -155,10 +152,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     return env;
   }
 
-  protected TestResultData execute(
+  protected TestResultData executeTest(
+      TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
       Map<String, String> environment,
-      TestRunnerAction action,
       Path execRoot,
       Path runfilesDir)
       throws ExecException, InterruptedException, IOException {
