@@ -1005,7 +1005,7 @@ public class CcToolchainFeatures implements Serializable {
           return !isWholeArchive ? new IntegerValue(0) : null;
         } else if ("lib_group_presence".equals(field)) {
           // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return names.size() > 1 ? new IntegerValue(0) : null;
+          return isLibGroup ? new IntegerValue(0) : null;
         } else {
           return null;
         }
