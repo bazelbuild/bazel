@@ -74,33 +74,23 @@ public class StandaloneTestStrategy extends TestStrategy {
   public void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
     Path execRoot = actionExecutionContext.getExecutor().getExecRoot();
-    Path coverageDir = execRoot.getRelative(TestStrategy.getCoverageDirectory(action));
-
-    Path runfilesDir = null;
-    try {
-      runfilesDir =
-          TestStrategy.getLocalRunfilesDirectory(
-              action,
-              actionExecutionContext,
-              binTools,
-              action.getLocalShellEnvironment(),
-              action.isEnableRunfiles());
-    } catch (ExecException e) {
-      throw new TestExecException(e.getMessage());
-    }
-
-    Path testTmpDir =
-        TestStrategy.getTmpRoot(workspace, execRoot, executionOptions)
+    Path coverageDir = execRoot.getRelative(getCoverageDirectory(action));
+    Path runfilesDir =
+        getLocalRunfilesDirectory(
+            action,
+            actionExecutionContext,
+            binTools,
+            action.getLocalShellEnvironment(),
+            action.isEnableRunfiles());
+    Path tmpDir =
+        getTmpRoot(workspace, execRoot, executionOptions)
             .getChild(getTmpDirName(action.getExecutionSettings().getExecutable().getExecPath()));
+    Map<String, String> env = setupEnvironment(action, execRoot, runfilesDir, tmpDir);
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
-    TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
-    Map<String, String> env =
-        getEnv(action, execRoot, runfilesDir, testTmpDir, resolvedPaths.getXmlOutputPath());
     Executor executor = actionExecutionContext.getExecutor();
-
     try {
-      prepareFileSystem(action, testTmpDir, coverageDir, workingDirectory);
+      prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
 
       ResourceSet resources =
           action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
@@ -128,13 +118,13 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
   }
 
-  private Map<String, String> getEnv(
-      TestRunnerAction action, Path execRoot, Path runfilesDir, Path tmpDir, Path xmlOutputPath) {
-    Map<String, String> vars = getDefaultTestEnvironment(action);
+  private Map<String, String> setupEnvironment(
+      TestRunnerAction action, Path execRoot, Path runfilesDir, Path tmpDir) {
+    Map<String, String> env = getDefaultTestEnvironment(action);
     BuildConfiguration config = action.getConfiguration();
 
-    vars.putAll(config.getLocalShellEnvironment());
-    vars.putAll(action.getTestEnv());
+    env.putAll(config.getLocalShellEnvironment());
+    env.putAll(action.getTestEnv());
 
     String tmpDirString;
     if (tmpDir.startsWith(execRoot)) {
@@ -144,23 +134,25 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     String testSrcDir = runfilesDir.relativeTo(execRoot).getPathString();
-    vars.put("JAVA_RUNFILES", testSrcDir);
-    vars.put("PYTHON_RUNFILES", testSrcDir);
-    vars.put("TEST_SRCDIR", testSrcDir);
-    vars.put("TEST_TMPDIR", tmpDirString);
-    vars.put("TEST_WORKSPACE", action.getRunfilesPrefix());
-    vars.put("XML_OUTPUT_FILE", xmlOutputPath.relativeTo(execRoot).getPathString());
+    env.put("JAVA_RUNFILES", testSrcDir);
+    env.put("PYTHON_RUNFILES", testSrcDir);
+    env.put("TEST_SRCDIR", testSrcDir);
+    env.put("TEST_TMPDIR", tmpDirString);
+    env.put("TEST_WORKSPACE", action.getRunfilesPrefix());
+    TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
+    env.put(
+        "XML_OUTPUT_FILE", resolvedPaths.getXmlOutputPath().relativeTo(execRoot).getPathString());
     if (!action.isEnableRunfiles()) {
-      vars.put("RUNFILES_MANIFEST_ONLY", "1");
+      env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 
     PathFragment coverageDir = TestStrategy.getCoverageDirectory(action);
     if (isCoverageMode(action)) {
-      vars.put("COVERAGE_DIR", coverageDir.toString());
-      vars.put("COVERAGE_OUTPUT_FILE", action.getCoverageData().getExecPathString());
+      env.put("COVERAGE_DIR", coverageDir.toString());
+      env.put("COVERAGE_OUTPUT_FILE", action.getCoverageData().getExecPathString());
     }
 
-    return vars;
+    return env;
   }
 
   protected TestResultData execute(
