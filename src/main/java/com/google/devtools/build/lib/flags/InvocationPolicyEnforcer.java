@@ -373,7 +373,16 @@ public final class InvocationPolicyEnforcer {
       // can be arbitrarily complex.
       Set<Object> convertedPolicyValues = Sets.newHashSet();
       for (String value : policyValues) {
-        convertedPolicyValues.add(optionDescription.getConverter().convert(value));
+        Object convertedValue = optionDescription.getConverter().convert(value);
+        // Some converters return lists, and if the flag is a repeatable flag, the items in the
+        // list from the converter should be added, and not the list itself. Otherwise the items
+        // from invocation policy will be compared to lists, which will never work.
+        // See OptionsParserImpl.ParsedOptionEntry.addValue.
+        if (optionDescription.getAllowMultiple() && convertedValue instanceof List<?>) {
+          convertedPolicyValues.addAll((List<?>) convertedValue);
+        } else {
+          convertedPolicyValues.add(optionDescription.getConverter().convert(value));
+        }
       }
 
       // Check that if the default value of the flag is disallowed by the policy, that the policy

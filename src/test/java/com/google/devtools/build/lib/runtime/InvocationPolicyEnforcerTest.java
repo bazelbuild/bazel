@@ -25,25 +25,41 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
+import java.io.ByteArrayOutputStream;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.ByteArrayOutputStream;
-import java.util.List;
-
 @RunWith(JUnit4.class)
 public class InvocationPolicyEnforcerTest {
 
   public static final String STRING_FLAG_DEFAULT = "test string default";
 
+  /** Test converter that splits a string by commas to produce a list. */
+  public static class ToListConverter implements Converter<List<String>> {
+
+    public ToListConverter() {}
+
+    @Override
+    public List<String> convert(String input) throws OptionsParsingException {
+      return Arrays.asList(input.split(","));
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a list of strings";
+    }
+  }
+  
   public static class TestOptions extends OptionsBase {
 
     /*
@@ -62,6 +78,18 @@ public class InvocationPolicyEnforcerTest {
         defaultValue = "", // default value is ignored when allowMultiple = true.
         allowMultiple = true)
     public List<String> testMultipleString;
+
+    /*
+     * Flags with converters that return lists
+     */
+
+    @Option(
+      name = "test_list_converters",
+      defaultValue = "",
+      allowMultiple = true,
+      converter = ToListConverter.class
+    )
+    public List<String> testListConverters;
 
     /*
      * Expansion flags
@@ -877,6 +905,31 @@ public class InvocationPolicyEnforcerTest {
     }
   }
 
+  @Test
+  public void testAllowValuesDisallowsListConverterFlagValues() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_list_converters")
+        .getAllowValuesBuilder()
+        .addAllowedValues("a");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_list_converters=a,b,c");
+
+    TestOptions testOptions = getTestOptions();
+    assertEquals(Arrays.asList("a", "b", "c"), testOptions.testListConverters);
+
+    try {
+      enforcer.enforce(parser, "build");
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e.getMessage())
+          .contains(
+              "Flag value 'b' for flag 'test_list_converters' is not allowed by invocation policy");
+    }
+  }
+  
   /*************************************************************************************************
    * Tests for DisallowValues
    ************************************************************************************************/
@@ -1079,6 +1132,31 @@ public class InvocationPolicyEnforcerTest {
       fail();
     } catch (OptionsParsingException e) {
       // expected.
+    }
+  }
+
+  @Test
+  public void testDisallowValuesDisallowsListConverterFlag() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_list_converters")
+        .getDisallowValuesBuilder()
+        .addDisallowedValues("a");
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    parser.parse("--test_list_converters=a,b,c");
+
+    TestOptions testOptions = getTestOptions();
+    assertEquals(Arrays.asList("a", "b", "c"), testOptions.testListConverters);
+
+    try {
+      enforcer.enforce(parser, "build");
+      fail();
+    } catch (OptionsParsingException e) {
+      assertThat(e.getMessage())
+          .contains(
+              "Flag value 'a' for flag 'test_list_converters' is not allowed by invocation policy");
     }
   }
   
