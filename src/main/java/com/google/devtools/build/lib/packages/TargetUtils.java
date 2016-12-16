@@ -158,7 +158,10 @@ public final class TargetUtils {
     Map<String, String> map = new HashMap<>();
     for (String tag :
         NonconfigurableAttributeMapper.of(rule).get(CONSTRAINTS_ATTR, Type.STRING_LIST)) {
-      if (tag.startsWith("block-") || tag.startsWith("requires-") || tag.equals("local")) {
+      if (tag.startsWith("block-")
+          || tag.startsWith("requires-")
+          || tag.equals("local")
+          || tag.startsWith("cpu:")) {
         map.put(tag, "");
       }
     }
