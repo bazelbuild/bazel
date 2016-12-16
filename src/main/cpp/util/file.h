@@ -26,7 +26,7 @@ class IPipe {
 
   // Sends `size` bytes from `buffer` through the pipe.
   // Returns true if `size` is not negative and could send all the data.
-  virtual bool Send(void *buffer, int size) = 0;
+  virtual bool Send(const void *buffer, int size) = 0;
 
   // Receives at most `size` bytes into `buffer` from the pipe.
   // Returns the number of bytes received; sets `errno` upon error.

@@ -16,38 +16,60 @@
 #include <windows.h>
 
 #include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 
 namespace blaze_util {
 
 using std::string;
 
-#ifdef COMPILER_MSVC
 class WindowsPipe : public IPipe {
  public:
-  bool Send(void* buffer, int size) override {
-    // TODO(bazel-team): implement this.
-    pdie(255, "blaze_util::WindowsPipe::Send is not yet implemented");
-    return false;
+  WindowsPipe(const HANDLE& read_handle, const HANDLE& write_handle)
+      : _read_handle(read_handle), _write_handle(write_handle) {}
+
+  WindowsPipe() = delete;
+
+  virtual ~WindowsPipe() {
+    if (_read_handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(_read_handle);
+      _read_handle = INVALID_HANDLE_VALUE;
+    }
+    if (_write_handle != INVALID_HANDLE_VALUE) {
+      CloseHandle(_write_handle);
+      _write_handle = INVALID_HANDLE_VALUE;
+    }
+  }
+
+  bool Send(const void* buffer, int size) override {
+    DWORD actually_written = 0;
+    return ::WriteFile(_write_handle, buffer, size, &actually_written, NULL) ==
+           TRUE;
   }
 
   int Receive(void* buffer, int size) override {
-    // TODO(bazel-team): implement this.
-    pdie(255, "blaze_util::WindowsPipe::Receive is not yet implemented");
-    return 0;
+    DWORD actually_read = 0;
+    return ::ReadFile(_read_handle, buffer, size, &actually_read, NULL)
+               ? actually_read
+               : -1;
   }
-};
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
+ private:
+  HANDLE _read_handle;
+  HANDLE _write_handle;
+};
+
 IPipe* CreatePipe() {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::CreatePipe is not implemented on Windows");
-  return nullptr;
+  // The pipe HANDLEs can be inherited.
+  SECURITY_ATTRIBUTES sa = {sizeof(SECURITY_ATTRIBUTES), NULL, TRUE};
+  HANDLE read_handle = INVALID_HANDLE_VALUE;
+  HANDLE write_handle = INVALID_HANDLE_VALUE;
+  if (!CreatePipe(&read_handle, &write_handle, &sa, 0)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "CreatePipe failed, err=%d", GetLastError());
+  }
+  return new WindowsPipe(read_handle, write_handle);
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 #ifdef COMPILER_MSVC
 bool ReadFile(const string& filename, string* content, int max_size) {
@@ -178,7 +200,7 @@ void ForEachDirectoryEntry(const string &path,
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::ForEachDirectoryEntry is not implemented on Windows");
 }
-#else  // not COMPILER_MSVC
+#else   // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
 }  // namespace blaze_util

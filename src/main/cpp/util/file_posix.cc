@@ -119,6 +119,11 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
+// TODO(bazel-team): implement all functions in file_windows.cc, use them from
+// MSYS, remove file_posix.cc from the `srcs` of
+// //src/main/cpp/util:file when building for MSYS, and remove all
+// #ifndef __CYGWIN__ directives.
+#ifndef __CYGWIN__
 class PosixPipe : public IPipe {
  public:
   PosixPipe(int recv_socket, int send_socket)
@@ -131,7 +136,7 @@ class PosixPipe : public IPipe {
     close(_send_socket);
   }
 
-  bool Send(void* buffer, int size) override {
+  bool Send(const void *buffer, int size) override {
     return size >= 0 && write(_send_socket, buffer, size) == size;
   }
 
@@ -162,6 +167,7 @@ IPipe* CreatePipe() {
 
   return new PosixPipe(fd[0], fd[1]);
 }
+#endif  // __CYGWIN__
 
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);

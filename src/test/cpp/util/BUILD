@@ -20,10 +20,13 @@ cc_test(
 
 cc_test(
     name = "file_test",
-    srcs = [
-        "file_posix_test.cc",
-        "file_test.cc",
-    ],
+    srcs = ["file_test.cc"] + select({
+        "//src:windows_msvc": [
+        ],
+        "//conditions:default": [
+            "file_posix_test.cc",
+        ],
+    }),
     tags = ["manual"],
     deps = [
         "//src/main/cpp/util:file",
