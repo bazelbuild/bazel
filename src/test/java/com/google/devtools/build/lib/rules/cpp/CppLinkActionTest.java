@@ -166,12 +166,15 @@ public class CppLinkActionTest extends BuildViewTestCase {
         (CppLinkAction)
             getGeneratingAction(configuredTarget, "x/a" + OsUtils.executableExtension());
     assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_k8/libx_Sliba.ifso");
+        .contains("bin _solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
-        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
+        .contains(
+            getBinArtifactWithNoOwner(
+                    "_solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.ifso")
+                .getExecPathString());
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_k8/libx_Sliba.so");
+        .contains("bin _solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.so");
   }
 
   @Test
