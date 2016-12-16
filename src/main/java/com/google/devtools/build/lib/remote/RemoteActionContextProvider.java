@@ -30,9 +30,7 @@ final class RemoteActionContextProvider extends ActionContextProvider {
 
   RemoteActionContextProvider(
       CommandEnvironment env,
-      BuildRequest buildRequest,
-      RemoteActionCache actionCache,
-      RemoteWorkExecutor workExecutor) {
+      BuildRequest buildRequest) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
     strategiesBuilder.add(
@@ -41,8 +39,6 @@ final class RemoteActionContextProvider extends ActionContextProvider {
             env.getExecRoot(),
             buildRequest.getOptions(RemoteOptions.class),
             verboseFailures,
-            actionCache,
-            workExecutor,
             env.getRuntime().getProductName()));
     this.strategies = strategiesBuilder.build();
   }

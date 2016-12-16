@@ -29,11 +29,11 @@ import java.util.concurrent.TimeUnit;
 public class RemoteWorkExecutor {
   /** Channel over which to send work to run remotely. */
   private final ManagedChannel channel;
-  private final int grpcTimeoutSeconds;
+  private final RemoteOptions options;
 
   public RemoteWorkExecutor(RemoteOptions options) throws InvalidConfigurationException {
+    this.options = options;
     channel = RemoteUtils.createChannel(options.remoteWorker);
-    grpcTimeoutSeconds = options.grpcTimeoutSeconds;
   }
 
   public static boolean isRemoteExecutionOptions(RemoteOptions options) {
@@ -44,7 +44,7 @@ public class RemoteWorkExecutor {
     ExecuteServiceBlockingStub stub =
         ExecuteServiceGrpc.newBlockingStub(channel)
             .withDeadlineAfter(
-                grpcTimeoutSeconds + request.getTimeoutMillis() / 1000, TimeUnit.SECONDS);
+                options.grpcTimeoutSeconds + request.getTimeoutMillis() / 1000, TimeUnit.SECONDS);
     Iterator<ExecuteReply> replies = stub.execute(request);
     ExecuteReply reply = null;
     while (replies.hasNext()) {
