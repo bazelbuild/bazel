@@ -253,12 +253,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               "-D__TIME__=\\\"redacted\\\""
           ],
       "compiler_flag": [
-          # Security hardening on by default.
-          # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
-          # We need to undef it before redefining it as some distributions now have
-          # it enabled by default.
+          # Security hardening requires optimization.
+          # We need to undef it as some distributions now have it enabled by default.
           "-U_FORTIFY_SOURCE",
-          "-D_FORTIFY_SOURCE=1",
           "-fstack-protector",
           # All warnings are enabled. Maybe enable -Werror as well?
           "-Wall",
@@ -326,6 +323,10 @@ def _opt_content(darwin):
           # -O3 can increase binary size and even slow down the resulting binaries.
           # Profile first and / or use FDO if you need better performance than this.
           "-O2",
+
+          # Security hardening on by default.
+          # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
+          "-D_FORTIFY_SOURCE=1",
 
           # Disable assertions
           "-DNDEBUG",
