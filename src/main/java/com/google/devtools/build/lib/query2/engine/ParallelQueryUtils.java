@@ -13,37 +13,54 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.MoreFutures;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 
-/** Several utilities to aid in writing {@link QueryExpression#parEval} implementations. */
+/** Several utilities to aid in writing {@link QueryExpression#parEvalImpl} implementations. */
 public class ParallelQueryUtils {
   /**
    * Encapsulation of a subtask of parallel evaluation of a {@link QueryExpression}. See
-   * {@link #executeQueryTasksAndWaitInterruptibly}.
+   * {@link #executeQueryTasksAndWaitInterruptiblyFailFast}.
    */
+  @ThreadSafe
   public interface QueryTask {
     void execute() throws QueryException, InterruptedException;
   }
 
   /**
    * Executes the given {@link QueryTask}s using the given {@link ForkJoinPool} and interruptibly
-   * waits for their completion. Throws the first {@link QueryException} or
-   * {@link InterruptedException} encountered during parallel execution.
+   * waits for their completion. Throws the first {@link QueryException} encountered during parallel
+   * execution or an {@link InterruptedException} if the calling thread is interrupted.
+   *
+   * <p>These "fail-fast" semantics are desirable to avoid doing unneeded work when evaluating
+   * multiple {@link QueryTask}s in parallel: if serial execution of the tasks would result in a
+   * {@link QueryException} then we want parallel execution to do so as well, but there's no need to
+   * continue waiting for completion of the tasks after at least one of them results in a
+   * {@link QueryException}.
    */
-  public static void executeQueryTasksAndWaitInterruptibly(
+  public static void executeQueryTasksAndWaitInterruptiblyFailFast(
       List<QueryTask> queryTasks,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    ArrayList<QueryTaskForkJoinTask> forkJoinTasks = new ArrayList<>(queryTasks.size());
+    int numTasks = queryTasks.size();
+    if (numTasks == 1) {
+      Iterables.getOnlyElement(queryTasks).execute();
+      return;
+    }
+    FailFastCountDownLatch failFastLatch = new FailFastCountDownLatch(numTasks);
+    ArrayList<QueryTaskForkJoinTask> forkJoinTasks = new ArrayList<>(numTasks);
     for (QueryTask queryTask : queryTasks) {
-      QueryTaskForkJoinTask forkJoinTask = adaptAsForkJoinTask(queryTask);
+      QueryTaskForkJoinTask forkJoinTask = adaptAsForkJoinTask(queryTask, failFastLatch);
       forkJoinTasks.add(forkJoinTask);
       forkJoinPool.submit(forkJoinTask);
     }
+    failFastLatch.await();
     try {
       MoreFutures.waitForAllInterruptiblyFailFast(forkJoinTasks);
     } catch (ExecutionException e) {
@@ -51,8 +68,10 @@ public class ParallelQueryUtils {
     }
   }
 
-  private static QueryTaskForkJoinTask adaptAsForkJoinTask(QueryTask queryTask) {
-    return new QueryTaskForkJoinTask(queryTask);
+  private static QueryTaskForkJoinTask adaptAsForkJoinTask(
+      QueryTask queryTask,
+      FailFastCountDownLatch failFastLatch) {
+    return new QueryTaskForkJoinTask(queryTask, failFastLatch);
   }
 
   private static RuntimeException rethrowCause(ExecutionException e)
@@ -64,14 +83,49 @@ public class ParallelQueryUtils {
     throw new IllegalStateException(e);
   }
 
+  /**
+   * Wrapper around a {@link CountDownLatch} with initial count {@code n} that counts down once on
+   * "success" and {@code n} times on "failure".
+   *
+   * <p>This can be used in a concurrent context to wait until either {@code n} tasks are successful
+   * or at least one of them fails.
+   */
+  @ThreadSafe
+  private static class FailFastCountDownLatch {
+    private final int n;
+    private final CountDownLatch completionLatch;
+
+    private FailFastCountDownLatch(int n) {
+      this.n = n;
+      this.completionLatch = new CountDownLatch(n);
+    }
+
+    private void await() throws InterruptedException {
+      completionLatch.await();
+    }
+
+    private void countDown(boolean success) {
+      if (success) {
+        completionLatch.countDown();
+      } else {
+        for (int i = 0; i < n; i++) {
+          completionLatch.countDown();
+        }
+      }
+    }
+  }
+
   // ForkJoinTask#adapt(Callable) wraps thrown checked exceptions as RuntimeExceptions. We avoid
   // having to think about that messiness (which is inconsistent with other Future implementations)
   // by having our own ForkJoinTask subclass and managing checked exceptions ourselves.
+  @ThreadSafe
   private static class QueryTaskForkJoinTask extends ForkJoinTask<Void> {
     private final QueryTask queryTask;
+    private final FailFastCountDownLatch completionLatch;
 
-    private QueryTaskForkJoinTask(QueryTask queryTask) {
+    private QueryTaskForkJoinTask(QueryTask queryTask, FailFastCountDownLatch completionLatch) {
       this.queryTask = queryTask;
+      this.completionLatch = completionLatch;
     }
 
     @Override
@@ -85,14 +139,18 @@ public class ParallelQueryUtils {
 
     @Override
     protected boolean exec() {
+      boolean successful = false;
       try {
         queryTask.execute();
+        successful = true;
+        return true;
       } catch (QueryException queryException) {
         throw new ParallelRuntimeQueryException(queryException);
       } catch (InterruptedException interruptedException) {
         throw new ParallelInterruptedQueryException(interruptedException);
+      } finally {
+        completionLatch.countDown(successful);
       }
-      return true;
     }
   }
 
