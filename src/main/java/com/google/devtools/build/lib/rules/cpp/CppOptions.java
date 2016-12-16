@@ -229,6 +229,17 @@ public class CppOptions extends FragmentOptions {
   public DynamicModeFlag dynamicMode;
 
   @Option(
+    name = "experimental_link_dynamic_binaries_separately",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "This flag is experimental and may go away at any time.  "
+            + "If true, dynamically linked binary targets will build and link their own srcs as "
+            + "a dynamic library instead of directly linking it in."
+  )
+  public boolean linkDynamicBinariesSeparately;
+
+  @Option(
     name = "force_pic",
     defaultValue = "false",
     category = "semantics",

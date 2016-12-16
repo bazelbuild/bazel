@@ -1598,6 +1598,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return dynamicMode;
   }
 
+  public boolean getLinkDynamicBinariesSeparately() {
+    return cppOptions.linkDynamicBinariesSeparately;
+  }
+
   /*
    * If true then the directory name for non-LIPO targets will have a '-lipodata' suffix in
    * AutoFDO mode.

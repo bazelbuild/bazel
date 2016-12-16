@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -152,6 +153,25 @@ public class CppLinkActionTest extends BuildViewTestCase {
             ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir -lbar -lqux(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
+  }
+
+  @Test
+  public void testCompilesTestSourcesIntoDynamicLibrary() throws Exception {
+    scratch.file("x/BUILD", "cc_test(name = 'a', srcs = ['a.cc'])");
+    scratch.file("x/a.cc", "int main() {}");
+    useConfiguration("--experimental_link_dynamic_binaries_separately");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
+    CppLinkAction linkAction =
+        (CppLinkAction)
+            getGeneratingAction(configuredTarget, "x/a" + OsUtils.executableExtension());
+    assertThat(artifactsToStrings(linkAction.getInputs()))
+        .contains("bin _solib_k8/libx_Sliba.ifso");
+    assertThat(linkAction.getArguments())
+        .contains(getBinArtifactWithNoOwner("_solib_k8/libx_Sliba.ifso").getExecPathString());
+    RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .contains("bin _solib_k8/libx_Sliba.so");
   }
 
   @Test
