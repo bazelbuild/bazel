@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -78,6 +79,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("resource_extractor", Mode.HOST);
     Artifact frameworkAidl = ruleContext.getPrerequisiteArtifact("framework_aidl", Mode.HOST);
+    TransitiveInfoCollection aidlLib = ruleContext.getPrerequisite("aidl_lib", Mode.TARGET);
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
@@ -109,6 +111,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 buildToolsVersion,
                 aaptSupportsMainDexGeneration,
                 frameworkAidl,
+                aidlLib,
                 androidJar,
                 shrinkedAndroidJar,
                 androidBaseClasspathForJack,

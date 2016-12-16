@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -152,6 +153,25 @@ public class AndroidIdlHelper {
     return idlSourceJar;
   }
 
+  public static boolean hasIdlSrcs(RuleContext ruleContext) {
+    return ruleContext.getRule().isAttrDefined("idl_srcs", BuildType.LABEL_LIST);
+  }
+
+  /**
+   * Returns a new list with the idl libs added to the given list if necessary, or the same list.
+   */
+  public static ImmutableList<TransitiveInfoCollection> addSupportLibs(RuleContext ruleContext,
+      ImmutableList<TransitiveInfoCollection> deps) {
+    TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
+    if (aidlLib == null) {
+      return deps;
+    }
+    return ImmutableList.<TransitiveInfoCollection>builder()
+        .addAll(deps)
+        .add(aidlLib)
+        .build();
+  }
+
   /**
    * Generates an artifact by replacing the extension of the input with the suffix.
    */
@@ -175,7 +195,7 @@ public class AndroidIdlHelper {
    * Returns the idl_srcs defined on the given rule.
    */
   private static Collection<Artifact> getIdlSrcs(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined("idl_srcs", BuildType.LABEL_LIST)) {
+    if (!hasIdlSrcs(ruleContext)) {
       return ImmutableList.of();
     }
     checkIdlSrcsSamePackage(ruleContext);

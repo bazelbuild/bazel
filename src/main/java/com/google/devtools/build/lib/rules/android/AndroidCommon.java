@@ -97,7 +97,7 @@ public class AndroidCommon {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (ruleContext.attributes().has(attr, BuildType.LABEL_LIST)) {
+      if (attributes.has(attr, BuildType.LABEL_LIST)) {
         builder.add(ruleContext.getPrerequisites(attr, mode, classType));
       }
     }
@@ -993,6 +993,9 @@ public class AndroidCommon {
       compileDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY);
       if (useDataBinding) {
         compileDeps = DataBinding.addSupportLibs(ruleContext, compileDeps);
+      }
+      if (AndroidIdlHelper.hasIdlSrcs(ruleContext)) {
+        compileDeps = AndroidIdlHelper.addSupportLibs(ruleContext, compileDeps);
       }
       runtimeDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY);
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
