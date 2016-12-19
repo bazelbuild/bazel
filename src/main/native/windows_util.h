@@ -29,8 +29,6 @@ using std::unique_ptr;
 
 string GetLastErrorString(const string& cause);
 
-unique_ptr<wchar_t[]> JstringToWstring(JNIEnv* env, const jstring& jstr);
-
 }  // namespace windows_util
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__

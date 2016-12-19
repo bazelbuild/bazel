@@ -27,6 +27,10 @@ namespace windows_util {
 static_assert(sizeof(jchar) == sizeof(WCHAR),
               "jchar and WCHAR should be the same size");
 
+// Size of widechar path buffers on Windows.
+// 0x8010 = 32K max path length + UNC prefix + some safety buffer
+static const size_t kWindowsPathBufferSize = 0x8010;
+
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 enum {
   IS_JUNCTION_YES = 0,
@@ -103,10 +107,11 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPa
     jobjectArray error_msg_holder) {
   const jchar* cpath = nullptr;
   cpath = env->GetStringChars(path, nullptr);
-  jchar result[0x8010] = {0};  // 32K max size + UNC prefix + some safety buffer
-  DWORD len = GetLongPathNameW((LPCWSTR)cpath, (LPWSTR)result, 0x8010);
+  jchar result[windows_util::kWindowsPathBufferSize] = {0};
+  DWORD len = GetLongPathNameW((LPCWSTR)cpath, (LPWSTR)result,
+                               windows_util::kWindowsPathBufferSize);
   env->ReleaseStringChars(path, cpath);
-  if (len > 0 && len < 0x8010) {
+  if (len > 0 && len < windows_util::kWindowsPathBufferSize) {
     env->SetObjectArrayElement(result_holder, 0,
                                env->NewString((const jchar*)result, len));
     return JNI_TRUE;

@@ -57,14 +57,4 @@ string GetLastErrorString(const string& cause) {
   return cause + ": " + result;
 }
 
-unique_ptr<wchar_t[]> JstringToWstring(JNIEnv* env, const jstring& jstr) {
-  const jsize len = env->GetStringLength(jstr);
-  const char* cstr_ptr = env->GetStringUTFChars(jstr, NULL);
-  unique_ptr<wchar_t[]> result(new wchar_t[len + 1]);
-  mbstowcs(result.get(), cstr_ptr, len);
-  result.get()[len] = L'\0';
-  env->ReleaseStringUTFChars(jstr, cstr_ptr);
-  return std::move(result);
-}
-
 }  // namespace windows_util
