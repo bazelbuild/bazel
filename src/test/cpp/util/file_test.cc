@@ -41,11 +41,12 @@ TEST(FileTest, TestMultiThreadedPipe) {
     ASSERT_TRUE(pipe.get()->Send(" world", 6));
   });
 
+  // Wait for all data to be fully written to the pipe.
+  writer_thread.join();
+
   ASSERT_EQ(3, pipe.get()->Receive(buffer, 3));
   ASSERT_EQ(5, pipe.get()->Receive(buffer + 3, 5));
   ASSERT_EQ(3, pipe.get()->Receive(buffer + 8, 40));
-  writer_thread.join();
-
   ASSERT_EQ(0, strncmp(buffer, "hello world", 11));
 }
 
