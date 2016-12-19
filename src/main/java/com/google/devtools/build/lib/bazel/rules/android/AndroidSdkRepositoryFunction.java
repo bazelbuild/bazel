@@ -24,12 +24,16 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.vfs.Dirent;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -46,6 +50,7 @@ import javax.annotation.Nullable;
  * Implementation of the {@code android_sdk_repository} rule.
  */
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
+  private static final String BUILD_TOOLS_DIR_NAME = "build-tools";
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
 
   @Override
@@ -67,8 +72,21 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-    String buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
     Integer apiLevel = attributes.get("api_level", Type.INTEGER);
+    String buildToolsDirectory;
+    if (attributes.isAttributeValueExplicitlySpecified("build_tools_version")) {
+      buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
+    } else {
+      // If the build_tools_version attribute is not explicitly set, we select the highest version
+      // installed in the SDK.
+      DirectoryListingValue directoryValue =
+          getBuildToolsDirectoryListing(
+              directories.getOutputBase().getFileSystem(), pathFragment, env);
+      if (directoryValue == null) {
+        return null;
+      }
+      buildToolsDirectory = getNewestBuildToolsDirectory(rule, directoryValue.getDirents());
+    }
 
     // android_sdk_repository.build_tools_version is technically actually the name of the
     // directory in $sdk/build-tools. Most of the time this is just the actual build tools
@@ -140,6 +158,64 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  /**
+   * Gets a DirectoryListingValue for the build-tools directory under the sdkRepoPathFragment
+   * or returns null.
+   */
+  private static DirectoryListingValue getBuildToolsDirectoryListing(
+      FileSystem fs, PathFragment sdkRepoPathFragment, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
+    try {
+      return (DirectoryListingValue)
+          env.getValueOrThrow(
+              DirectoryListingValue.key(
+                  RootedPath.toRootedPath(
+                      fs.getRootDirectory(),
+                      fs.getPath(sdkRepoPathFragment).getChild(BUILD_TOOLS_DIR_NAME))),
+              InconsistentFilesystemException.class);
+    } catch (InconsistentFilesystemException e) {
+      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
+    }
+  }
+
+  /**
+   * Gets the newest build tools directory according to {@link Revision}.
+   *
+   * @throws RepositoryFunctionException if none of the buildToolsDirectories are directories and
+   *     have names that are parsable as build tools version.
+   */
+  private static String getNewestBuildToolsDirectory(Rule rule, Dirents buildToolsDirectories)
+      throws RepositoryFunctionException {
+    String newestBuildToolsDirectory = null;
+    Revision newestBuildToolsRevision = null;
+    for (Dirent buildToolsDirectory : buildToolsDirectories) {
+      if (buildToolsDirectory.getType() != Dirent.Type.DIRECTORY) {
+        continue;
+      }
+      try {
+        Revision buildToolsRevision = Revision.parseRevision(buildToolsDirectory.getName());
+        if (newestBuildToolsRevision == null
+            || buildToolsRevision.compareTo(newestBuildToolsRevision) > 0) {
+          newestBuildToolsDirectory = buildToolsDirectory.getName();
+          newestBuildToolsRevision = buildToolsRevision;
+        }
+      } catch (NumberFormatException e) {
+        // Ignore unparsable build tools directories.
+      }
+    }
+    if (newestBuildToolsDirectory == null) {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Bazel requires Android build tools version %s or newer but none are installed. "
+                      + "Please install a recent version through the Android SDK manager.",
+                  MIN_BUILD_TOOLS_REVISION)),
+          Transience.PERSISTENT);
+    }
+    return newestBuildToolsDirectory;
   }
 
   private static Properties getBuildToolsSourceProperties(

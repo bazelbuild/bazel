@@ -279,6 +279,39 @@ EOF
   bazel build :test
 }
 
+function test_android_sdk_repository_build_tools_version_detection() {
+  create_new_workspace
+  # android_sdk_repository ignores directories that are not valid revisions
+  # inside sdk/build-tools.
+  mkdir -p androidsdk/build-tools/{25.0.1,25.0.2,fish}
+  # android_sdk_repository ignores files inside sdk/build-tools.
+  touch androidsdk/build-tools/25.0.4
+  cat >> WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "$(pwd)/androidsdk",
+    api_level = 25,
+)
+EOF
+
+  bazel build @androidsdk//:files
+  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
+  # android_sdk_repository picks the highest revision directory.
+  assert_contains "build_tools_version = \"25.0.2\"" output
+
+  mkdir -p androidsdk/build-tools/25.0.3
+  bazel build @androidsdk//:files
+  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
+  # android_sdk_repository is rerun if a new build-tools directory is added.
+  assert_contains "build_tools_version = \"25.0.3\"" output
+
+  rm -rf androidsdk/build-tools/25.0.{2,3}
+  bazel build @androidsdk//:files
+  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
+  # android_sdk_repository is rerun if a build-tools directory is removed.
+  assert_contains "build_tools_version = \"25.0.1\"" output
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later
