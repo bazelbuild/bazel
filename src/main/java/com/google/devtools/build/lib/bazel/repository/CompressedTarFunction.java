@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
-import java.util.Date;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
@@ -79,11 +78,6 @@ public abstract class CompressedTarFunction implements Decompressor {
             Files.copy(
                 tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
             filename.chmod(entry.getMode());
-
-            // This can only be done on real files, not links, or it will skip the reader to
-            // the next "real" file to try to find the mod time info.
-            Date lastModified = entry.getLastModifiedDate();
-            filename.setLastModifiedTime(lastModified.getTime());
           }
         }
       }

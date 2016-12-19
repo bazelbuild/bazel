@@ -527,8 +527,7 @@ public class SkylarkRepositoryContext {
           @ParamType(type = String.class),
           @ParamType(type = SkylarkList.class, generic1 = String.class),
         },
-        doc = "List of mirror URLs referencing the same file.",
-        named = true
+        doc = "List of mirror URLs referencing the same file."
       ),
       @Param(
         name = "output",
@@ -539,8 +538,7 @@ public class SkylarkRepositoryContext {
         },
         doc =
             "path to the directory where the archive will be unpacked,"
-                + " relative to the repository directory.",
-        defaultValue = "''"
+                + " relative to the repository directory."
       ),
       @Param(
         name = "sha256",
@@ -572,9 +570,9 @@ public class SkylarkRepositoryContext {
         named = true,
         doc =
             "a directory prefix to strip from the extracted files."
-                + "\nMany archives contain a top-level directory that contains all files in the"
+                + "\nMany archives contain a top-level directory that contains alfiles in"
                 + " archive. Instead of needing to specify this prefix over and over in the"
-                + " <code>build_file</code>, this field can be used to strip it from extracted"
+                + " <code>build_file</code>, this field can be used to strip it extracted"
                 + " files."
       ),
     }
