@@ -64,3 +64,12 @@ new_local_repository(
     path = "./third_party/protobuf/3.0.0/",
     build_file = "./third_party/protobuf/3.0.0/com_google_protobuf_java.BUILD",
 )
+
+load('//tools/build_defs/repo:make.bzl', 'make')
+make(
+    name = "dot",
+    urls = ["http://www.graphviz.org/pub/graphviz/stable/SOURCES/graphviz-2.38.0.tar.gz"],
+    strip_prefix = 'graphviz-2.38.0',
+    sha256 = '81aa238d9d4a010afa73a9d2a704fc3221c731e1e06577c2ab3496bdef67859e',
+    exports = ["cmd/dot/dot"],
+)

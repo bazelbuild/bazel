@@ -18,6 +18,8 @@ import os
 
 from scripts.docs.dot_converter import DotConverter
 
-if __name__ == "__main__":
-  converter = DotConverter(["dot", "-Tsvg"], os.environ.copy())
+if __name__ == '__main__':
+  converter = DotConverter(
+      ['%s/external/dot/cmd/dot/dot' % os.environ['PWD'], '-Tsvg'],
+      os.environ.copy())
   converter.convert()
