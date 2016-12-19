@@ -19,14 +19,12 @@ import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * A test class for functions and scoping.

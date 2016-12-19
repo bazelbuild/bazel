@@ -1573,9 +1573,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyListExtend() throws Exception {
     new BuildTest()
-        .setUp("FOO = ['a', 'b']", "FOO.extend(['c', 'd'])")
-        .testLookup("FOO", MutableList.of(env, "a", "b", "c", "d"))
-        .testIfErrorContains("Type tuple has no function extend(list)", "(1, 2).extend([3, 4])");
+        .setUp("FOO = ['a', 'b']", "FOO.extend(['c', 'd'])", "FOO.extend(('e', 'f'))")
+        .testLookup("FOO", MutableList.of(env, "a", "b", "c", "d", "e", "f"))
+        .testIfErrorContains("Type tuple has no function extend(list)", "(1, 2).extend([3, 4])")
+        .testIfErrorContains(
+            "Method list.extend(items: sequence) is not applicable for arguments "
+                + "(int): 'items' is int, but should be sequence",
+            "[1, 2].extend(3)");
   }
 
   @Test

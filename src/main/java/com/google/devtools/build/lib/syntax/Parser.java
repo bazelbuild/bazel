@@ -1156,9 +1156,9 @@ public class Parser {
   //                  | RETURN expr
   //                  | flow_stmt
   //     assign_stmt ::= expr ('=' | augassign) expr
-  //     augassign ::= ('+=' )
+  //     augassign ::= ('+=' | '-=' | '*=' | '/=' | '%=')
   // Note that these are in Python, but not implemented here (at least for now):
-  // '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' |'<<=' | '>>=' | '**=' | '//='
+  // '&=' | '|=' | '^=' |'<<=' | '>>=' | '**=' | '//='
   // Semantic difference from Python:
   // In Skylark, x += y is simple syntactic sugar for x = x + y.
   // In Python, x += y is more or less equivalent to x = x + y, but if a method is defined
@@ -1185,10 +1185,8 @@ public class Parser {
       nextToken();
       Expression operand = parseExpression();
       int end = operand.getLocation().getEndOffset();
-      return setLocation(new AssignmentStatement(expression,
-               setLocation(new BinaryOperatorExpression(
-                   operator, expression, operand), start, end)),
-               start, end);
+      return setLocation(
+          new AugmentedAssignmentStatement(operator, expression, operand), start, end);
     } else {
       return setLocation(new ExpressionStatement(expression), start, expression);
     }
