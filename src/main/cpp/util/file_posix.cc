@@ -167,7 +167,6 @@ IPipe* CreatePipe() {
 
   return new PosixPipe(fd[0], fd[1]);
 }
-#endif  // __CYGWIN__
 
 pair<string, string> SplitPath(const string &path) {
   size_t pos = path.rfind('/');
@@ -180,6 +179,7 @@ pair<string, string> SplitPath(const string &path) {
 
   return std::make_pair(string(path, 0, pos), string(path, pos + 1));
 }
+#endif  // not __CYGWIN__
 
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
@@ -272,11 +272,13 @@ bool IsDirectory(const string& path) {
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
 
+#ifndef __CYGWIN__
 bool IsRootDirectory(const string &path) {
   return path.size() == 1 && path[0] == '/';
 }
 
 bool IsAbsolute(const string &path) { return !path.empty() && path[0] == '/'; }
+#endif  // not __CYGWIN__
 
 void SyncFile(const string& path) {
 // fsync always fails on Cygwin with "Permission denied" for some reason.
@@ -292,7 +294,7 @@ void SyncFile(const string& path) {
          file_path);
   }
   close(fd);
-#endif
+#endif  // not __CYGWIN__
 }
 
 time_t GetMtimeMillisec(const string& path) {
