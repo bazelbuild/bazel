@@ -9,6 +9,7 @@ filegroup(
         "//third_party/iossim:srcs",
         "//third_party/grpc:srcs",
         "//third_party/java/android_databinding:srcs",
+        "//third_party/java/aosp_gradle_core:srcs",
         "//third_party/java/apkbuilder:srcs",
         "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",
@@ -41,6 +42,16 @@ filegroup(
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/jformatstring:srcs",
     ],
+)
+
+filegroup(
+    name = "d3-js",
+    srcs = glob(["javascript/d3/**/*.js"]),
+)
+
+filegroup(
+    name = "jquery",
+    srcs = glob(["javascript/jquery/**/*.jslib"]),
 )
 
 java_import(
@@ -368,6 +379,11 @@ filegroup(
 java_import(
     name = "jgit",
     jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+)
+
+java_import(
+    name = "jimfs",
+    jars = ["jimfs/jimfs-1.1-rc1.jar"],
 )
 
 java_import(

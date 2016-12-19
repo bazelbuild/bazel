@@ -97,6 +97,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/android_databinding:exec",
+        "//third_party/java/aosp_gradle_core",
         "//third_party/protobuf",
     ],
 )

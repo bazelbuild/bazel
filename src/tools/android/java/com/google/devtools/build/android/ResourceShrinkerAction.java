@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.build.gradle.tasks.ResourceUsageAnalyzer;
 import com.android.builder.core.VariantType;
 import com.android.ide.common.xml.AndroidManifestParser;
 import com.android.ide.common.xml.ManifestData;
@@ -215,7 +216,7 @@ public class ResourceShrinkerAction {
       }
 
       // Shrink resources.
-      ResourceShrinker resourceShrinker = new ResourceShrinker(
+      ResourceUsageAnalyzer resourceShrinker = new ResourceUsageAnalyzer(
           resourcePackages,
           options.rTxt,
           options.shrunkJar,
