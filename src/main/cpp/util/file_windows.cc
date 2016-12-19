@@ -21,6 +21,7 @@
 
 namespace blaze_util {
 
+using std::pair;
 using std::string;
 
 class WindowsPipe : public IPipe {
@@ -69,6 +70,56 @@ IPipe* CreatePipe() {
          "CreatePipe failed, err=%d", GetLastError());
   }
   return new WindowsPipe(read_handle, write_handle);
+}
+
+static bool IsRootDirectory(const string& path) {
+  // Return true if path is "/", "\", "c:/", "c:\", "\\?\c:\", or "\??\c:\".
+  //
+  // It is unclear whether the UNC prefix is just "\\?\" or is "\??\" also
+  // valid (in some cases it seems to be, though MSDN doesn't mention it).
+  return
+      // path is "/" or "\"
+      (path.size() == 1 && (path[0] == '/' || path[0] == '\\')) ||
+      // path is "c:/" or "c:\"
+      (path.size() == 3 && isalpha(path[0]) && path[1] == ':' &&
+       (path[2] == '/' || path[2] == '\\')) ||
+      // path is "\\?\c:\" or "\??\c:\"
+      (path.size() == 7 && path[0] == '\\' &&
+       (path[1] == '\\' || path[1] == '?') && path[2] == '?' &&
+       path[3] == '\\' && isalpha(path[4]) && path[5] == ':' &&
+       path[6] == '\\');
+}
+
+pair<string, string> SplitPath(const string& path) {
+  if (path.empty()) {
+    return std::make_pair("", "");
+  }
+
+  size_t pos = path.size() - 1;
+  for (auto it = path.crbegin(); it != path.crend(); ++it, --pos) {
+    if (*it == '/' || *it == '\\') {
+      if ((pos == 2 || pos == 6) && IsRootDirectory(path.substr(0, pos + 1))) {
+        // Windows path, top-level directory, e.g. "c:\foo",
+        // result is ("c:\", "foo").
+        // Or UNC path, top-level directory, e.g. "\\?\c:\foo"
+        // result is ("\\?\c:\", "foo").
+        return std::make_pair(
+            // Include the "/" or "\" in the drive specifier.
+            path.substr(0, pos + 1), path.substr(pos + 1));
+      } else {
+        // Unix path, or relative path.
+        return std::make_pair(
+            // If the only "/" is the leading one, then that shall be the first
+            // pair element, otherwise the substring up to the rightmost "/".
+            pos == 0 ? path.substr(0, 1) : path.substr(0, pos),
+            // If the rightmost "/" is the tail, then the second pair element
+            // should be empty.
+            pos == path.size() - 1 ? "" : path.substr(pos + 1));
+      }
+    }
+  }
+  // Handle the case with no '/' or '\' in `path`.
+  return std::make_pair("", path);
 }
 
 #ifdef COMPILER_MSVC

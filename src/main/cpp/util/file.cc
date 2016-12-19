@@ -69,18 +69,6 @@ bool WriteFile(const std::string &content, const std::string &filename) {
   return WriteFile(content.c_str(), content.size(), filename);
 }
 
-pair<string, string> SplitPath(const string &path) {
-  size_t pos = path.rfind('/');
-
-  // Handle the case with no '/' in 'path'.
-  if (pos == string::npos) return std::make_pair("", path);
-
-  // Handle the case with a single leading '/' in 'path'.
-  if (pos == 0) return std::make_pair(string(path, 0, 1), string(path, 1));
-
-  return std::make_pair(string(path, 0, pos), string(path, pos + 1));
-}
-
 string Dirname(const string &path) {
   return SplitPath(path).first;
 }

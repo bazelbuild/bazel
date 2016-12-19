@@ -21,7 +21,12 @@ cc_test(
 cc_test(
     name = "file_test",
     srcs = ["file_test.cc"] + select({
+        "//src:windows": [
+            "file_posix_test.cc",
+            "file_windows_test.cc",
+        ],
         "//src:windows_msvc": [
+            "file_windows_test.cc",
         ],
         "//conditions:default": [
             "file_posix_test.cc",

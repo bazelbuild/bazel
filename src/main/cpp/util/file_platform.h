@@ -26,6 +26,9 @@ class IPipe;
 
 IPipe* CreatePipe();
 
+// Split a path to dirname and basename parts.
+std::pair<std::string, std::string> SplitPath(const std::string &path);
+
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads the whole file.

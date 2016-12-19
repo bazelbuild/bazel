@@ -169,6 +169,18 @@ IPipe* CreatePipe() {
 }
 #endif  // __CYGWIN__
 
+pair<string, string> SplitPath(const string &path) {
+  size_t pos = path.rfind('/');
+
+  // Handle the case with no '/' in 'path'.
+  if (pos == string::npos) return std::make_pair("", path);
+
+  // Handle the case with a single leading '/' in 'path'.
+  if (pos == 0) return std::make_pair(string(path, 0, 1), string(path, 1));
+
+  return std::make_pair(string(path, 0, pos), string(path, pos + 1));
+}
+
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;

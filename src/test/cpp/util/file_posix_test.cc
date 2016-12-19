@@ -44,6 +44,53 @@ static bool CreateEmptyFile(const string& path) {
   return close(fd) == 0;
 }
 
+TEST(FileTest, TestDirname) {
+  // The Posix version of SplitPath (thus Dirname too, which is implemented on
+  // top of it) is not aware of Windows paths.
+  ASSERT_EQ("", Dirname(""));
+  ASSERT_EQ("/", Dirname("/"));
+  ASSERT_EQ("", Dirname("foo"));
+  ASSERT_EQ("/", Dirname("/foo"));
+  ASSERT_EQ("/foo", Dirname("/foo/"));
+  ASSERT_EQ("foo", Dirname("foo/bar"));
+  ASSERT_EQ("foo/bar", Dirname("foo/bar/baz"));
+  ASSERT_EQ("", Dirname("\\foo"));
+  ASSERT_EQ("", Dirname("\\foo\\"));
+  ASSERT_EQ("", Dirname("foo\\bar"));
+  ASSERT_EQ("", Dirname("foo\\bar\\baz"));
+  ASSERT_EQ("foo\\bar", Dirname("foo\\bar/baz\\qux"));
+  ASSERT_EQ("c:", Dirname("c:/"));
+  ASSERT_EQ("", Dirname("c:\\"));
+  ASSERT_EQ("c:", Dirname("c:/foo"));
+  ASSERT_EQ("", Dirname("c:\\foo"));
+  ASSERT_EQ("", Dirname("\\\\?\\c:\\"));
+  ASSERT_EQ("", Dirname("\\\\?\\c:\\foo"));
+}
+
+TEST(FileTest, TestBasename) {
+  // The Posix version of SplitPath (thus Basename too, which is implemented on
+  // top of it) is not aware of Windows paths.
+  ASSERT_EQ("", Basename(""));
+  ASSERT_EQ("", Basename("/"));
+  ASSERT_EQ("foo", Basename("foo"));
+  ASSERT_EQ("foo", Basename("/foo"));
+  ASSERT_EQ("", Basename("/foo/"));
+  ASSERT_EQ("bar", Basename("foo/bar"));
+  ASSERT_EQ("baz", Basename("foo/bar/baz"));
+  ASSERT_EQ("\\foo", Basename("\\foo"));
+  ASSERT_EQ("\\foo\\", Basename("\\foo\\"));
+  ASSERT_EQ("foo\\bar", Basename("foo\\bar"));
+  ASSERT_EQ("foo\\bar\\baz", Basename("foo\\bar\\baz"));
+  ASSERT_EQ("baz\\qux", Basename("foo\\bar/baz\\qux"));
+  ASSERT_EQ("qux", Basename("qux"));
+  ASSERT_EQ("", Basename("c:/"));
+  ASSERT_EQ("c:\\", Basename("c:\\"));
+  ASSERT_EQ("foo", Basename("c:/foo"));
+  ASSERT_EQ("c:\\foo", Basename("c:\\foo"));
+  ASSERT_EQ("\\\\?\\c:\\", Basename("\\\\?\\c:\\"));
+  ASSERT_EQ("\\\\?\\c:\\foo", Basename("\\\\?\\c:\\foo"));
+}
+
 TEST(FileTest, JoinPath) {
   std::string path = JoinPath("", "");
   ASSERT_EQ("", path);
