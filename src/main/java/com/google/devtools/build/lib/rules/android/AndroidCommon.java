@@ -486,8 +486,8 @@ public class AndroidCommon {
 
       String jarJarRule = String.format("rule %s.* %s.@1",
           originalPackage, otherContainer.getJavaPackage());
-      ruleContext.registerAction(new FileWriteAction(
-          ruleContext.getActionOwner(), jarJarRuleFile, jarJarRule, false));
+      ruleContext.registerAction(
+          FileWriteAction.create(ruleContext, jarJarRuleFile, jarJarRule, false));
 
       FilesToRunProvider jarjar =
           ruleContext.getExecutablePrerequisite("$jarjar_bin", Mode.HOST);

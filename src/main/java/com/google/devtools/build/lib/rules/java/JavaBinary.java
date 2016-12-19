@@ -367,7 +367,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       // Write an empty file as the name_deploy.jar.unstripped when the default output jar is not
       // stripped.
       ruleContext.registerAction(
-          new FileWriteAction(ruleContext.getActionOwner(), unstrippedDeployJar, "", false));
+          FileWriteAction.create(ruleContext, unstrippedDeployJar, "", false));
     }
 
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);

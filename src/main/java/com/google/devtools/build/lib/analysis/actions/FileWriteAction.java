@@ -77,34 +77,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   /** Minimum length (in chars) for content to be eligible for compression. */
   private static final int COMPRESS_CHARS_THRESHOLD = 256;
 
-  /**
-   * Creates a new FileWriteAction instance without inputs.
-   *
-   * @param owner the action owner
-   * @param output the Artifact that will be created by executing this Action
-   * @param fileContents the contents to be written to the file
-   * @param makeExecutable whether the output file is made executable
-   */
-  public FileWriteAction(
-      ActionOwner owner, Artifact output, CharSequence fileContents, boolean makeExecutable) {
-    this(owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable, Compression.DISALLOW);
-  }
-
-  /**
-   * Creates a new FileWriteAction instance with inputs and with direct control over whether
-   * compression may occur.
-   *
-   * <p>The contents of the inputs are not actually read, but including them will ensure that their
-   * generating actions are executed if this action is.
-   *
-   * @param owner the action owner
-   * @param inputs the Artifacts that this Action depends on
-   * @param output the Artifact that will be created by executing this Action
-   * @param fileContents the contents to be written to the file
-   * @param makeExecutable whether the output file is made executable
-   * @param allowCompression whether (transparent) compression is enabled
-   */
-  public FileWriteAction(
+  private FileWriteAction(
       ActionOwner owner,
       Collection<Artifact> inputs,
       Artifact output,
@@ -124,15 +97,35 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * Creates a new FileWriteAction instance with inputs and empty content.
    *
    * <p>This is useful for producing an artifact that, if built, will ensure that the generating
-   * actions for its inputs are run.
+   * actions for its inputs are run. The output file is non-executable.
    *
    * @param owner the action owner
    * @param inputs the Artifacts that this Action depends on
    * @param output the Artifact that will be created by executing this Action
    */
-  public static FileWriteAction createEmpty(
+  public static FileWriteAction createEmptyWithInputs(
       ActionOwner owner, Collection<Artifact> inputs, Artifact output) {
     return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
+  }
+
+  /**
+   * Creates a new FileWriteAction instance with direct control over whether or not transparent
+   * compression may be used.
+   *
+   * @param owner the action owner
+   * @param output the Artifact that will be created by executing this Action
+   * @param fileContents the contents to be written to the file
+   * @param makeExecutable whether the output file is made executable
+   * @param allowCompression whether (transparent) compression is enabled
+   */
+  public static FileWriteAction create(
+      ActionOwner owner,
+      Artifact output,
+      CharSequence fileContents,
+      boolean makeExecutable,
+      Compression allowCompression) {
+    return new FileWriteAction(
+        owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable, allowCompression);
   }
 
   /**
@@ -260,8 +253,8 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     Artifact scriptFileArtifact = ruleContext.getPackageRelativeArtifact(
         fileName, ruleContext.getConfiguration().getGenfilesDirectory(
             ruleContext.getRule().getRepository()));
-    ruleContext.registerAction(new FileWriteAction(
-        ruleContext.getActionOwner(), scriptFileArtifact, contents, executable));
+    ruleContext.registerAction(
+        FileWriteAction.create(ruleContext, scriptFileArtifact, contents, executable));
     return scriptFileArtifact;
   }
 }

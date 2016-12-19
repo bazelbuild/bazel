@@ -32,7 +32,8 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
   @Override
   protected FileWriteAction createAction(
       ActionOwner actionOwner, Artifact outputArtifact, String data, boolean makeExecutable) {
-    return new FileWriteAction(actionOwner, outputArtifact, data, makeExecutable);
+    return FileWriteAction.create(
+        actionOwner, outputArtifact, data, makeExecutable, FileWriteAction.Compression.DISALLOW);
   }
 
   @Test
@@ -65,7 +66,12 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     String contents = "Hello world";
     FileWriteAction action =
-        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, /*makeExecutable=*/ false);
+        FileWriteAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            contents,
+            /*makeExecutable=*/ false,
+            FileWriteAction.Compression.DISALLOW);
     assertThat(action.getFileContents()).isEqualTo(contents);
   }
 
@@ -81,7 +87,12 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
           }
         };
     FileWriteAction action =
-        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, /*makeExecutable=*/ false);
+        FileWriteAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            contents,
+            /*makeExecutable=*/ false,
+            FileWriteAction.Compression.DISALLOW);
     assertThat(action.getFileContents()).isEqualTo(backingString);
   }
 
@@ -104,14 +115,43 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     String contents = generateLongRandomString();
     FileWriteAction action =
-        new FileWriteAction(
+        FileWriteAction.create(
             NULL_ACTION_OWNER,
-            Artifact.NO_ARTIFACTS,
             outputArtifact,
             contents,
             /*makeExecutable=*/ false,
             FileWriteAction.Compression.ALLOW);
     assertThat(action.getFileContents()).isEqualTo(contents);
+  }
+
+  @Test
+  public void testFileWriteActionWithCompressionDoesNotForceLazyString() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    final String backingContents = generateLongRandomString();
+
+    class ForceCountingLazyString extends LazyString {
+      public int forced = 0;
+
+      @Override
+      public String toString() {
+        forced += 1;
+        return backingContents;
+      }
+    }
+    ForceCountingLazyString contents = new ForceCountingLazyString();
+    FileWriteAction action =
+        FileWriteAction.create(
+            NULL_ACTION_OWNER,
+            outputArtifact,
+            contents,
+            /*makeExecutable=*/ false,
+            FileWriteAction.Compression.ALLOW);
+
+    // The string should only be forced once we actually read it, not when the action is
+    // constructed.
+    assertThat(contents.forced).isEqualTo(0);
+    assertThat(action.getFileContents()).isEqualTo(backingContents);
+    assertThat(contents.forced).isEqualTo(1);
   }
 
   @Test

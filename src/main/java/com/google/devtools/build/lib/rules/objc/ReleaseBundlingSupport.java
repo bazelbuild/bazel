@@ -363,8 +363,7 @@ public final class ReleaseBundlingSupport {
     result.put("UILaunchStoryboardName", launchStoryboardName);
     String contents = result.toGnuStepASCIIPropertyList();
     ruleContext.registerAction(
-        new FileWriteAction(
-            ruleContext.getActionOwner(), getLaunchStoryboardPlist(), contents, false));
+        FileWriteAction.create(ruleContext, getLaunchStoryboardPlist(), contents, false));
   }
 
   private void registerEnvironmentPlistAction() {
@@ -390,8 +389,8 @@ public final class ReleaseBundlingSupport {
 
   private void registerAutomaticPlistAction() {
     ruleContext.registerAction(
-        new FileWriteAction(
-            ruleContext.getActionOwner(),
+        FileWriteAction.create(
+            ruleContext,
             getGeneratedAutomaticPlist(),
             automaticEntries().toGnuStepASCIIPropertyList(),
             /*makeExecutable=*/ false));

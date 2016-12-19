@@ -97,8 +97,7 @@ public final class NativeLibs {
           "nativedeps_filename", nativeDepsFileName,
           ruleContext.getBinOrGenfilesDirectory());
       ruleContext.registerAction(
-          new FileWriteAction(
-              ruleContext.getActionOwner(), nativeDepsName, nativeDepsLibraryBasename, false));
+          FileWriteAction.create(ruleContext, nativeDepsName, nativeDepsLibraryBasename, false));
 
       return new NativeLibs(ImmutableMap.copyOf(result), nativeDepsName);
     }

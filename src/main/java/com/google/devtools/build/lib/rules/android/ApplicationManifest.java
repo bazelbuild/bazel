@@ -37,11 +37,9 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.Reso
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-
 import javax.annotation.Nullable;
 
 /** Represents a AndroidManifest, that may have been merged from dependencies. */
@@ -167,8 +165,11 @@ public final class ApplicationManifest {
         "   <application>",
         "   </application>",
         "</manifest>");
-    ruleContext.getAnalysisEnvironment().registerAction(new FileWriteAction(
-        ruleContext.getActionOwner(), generatedManifest, contents, false /* makeExecutable */));
+    ruleContext
+        .getAnalysisEnvironment()
+        .registerAction(
+            FileWriteAction.create(
+                ruleContext, generatedManifest, contents, /*makeExecutable=*/ false));
     return new ApplicationManifest(ruleContext, generatedManifest);
   }
 

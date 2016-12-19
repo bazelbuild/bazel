@@ -69,8 +69,8 @@ final class ProtocolBuffers2Support {
    */
   public ProtocolBuffers2Support registerGenerationActions() throws InterruptedException {
     ruleContext.registerAction(
-        new FileWriteAction(
-            ruleContext.getActionOwner(),
+        FileWriteAction.create(
+            ruleContext,
             getProtoInputsFile(),
             getProtoInputsFileContents(
                 attributes.filterWellKnownProtos(attributes.getProtoFiles())),

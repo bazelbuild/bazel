@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -385,23 +384,30 @@ public class SkylarkRuleImplementationFunctions {
   }
 
   // TODO(bazel-team): improve this method to be more memory friendly
-  @SkylarkSignature(name = "file_action",
-      doc = "Creates a file write action.",
-      objectType = SkylarkRuleContext.class,
-      returnType = Runtime.NoneType.class,
-      parameters = {
-        @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-        @Param(name = "output", type = Artifact.class, doc = "the output file"),
-        @Param(name = "content", type = String.class, doc = "the contents of the file"),
-        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
-            doc = "whether the output file should be executable (default is False)")})
+  @SkylarkSignature(
+    name = "file_action",
+    doc = "Creates a file write action.",
+    objectType = SkylarkRuleContext.class,
+    returnType = Runtime.NoneType.class,
+    parameters = {
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
+      @Param(name = "output", type = Artifact.class, doc = "the output file"),
+      @Param(name = "content", type = String.class, doc = "the contents of the file"),
+      @Param(
+        name = "executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        doc = "whether the output file should be executable (default is False)"
+      )
+    }
+  )
   private static final BuiltinFunction createFileWriteAction =
       new BuiltinFunction("file_action") {
-        public Runtime.NoneType invoke(SkylarkRuleContext ctx,
-            Artifact output, String content, Boolean executable)
+        public Runtime.NoneType invoke(
+            SkylarkRuleContext ctx, Artifact output, String content, Boolean executable)
             throws EvalException, ConversionException {
-          FileWriteAction action = new FileWriteAction(
-              ctx.getRuleContext().getActionOwner(), output, content, executable);
+          FileWriteAction action =
+              FileWriteAction.create(ctx.getRuleContext(), output, content, executable);
           ctx.getRuleContext().registerAction(action);
           return Runtime.NONE;
         }
