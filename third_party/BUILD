@@ -77,13 +77,21 @@ java_import(
         "android_common/com.android.tools.build_builder-model_2.0.0.jar",
         "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
         "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
         "android_common/com.android.tools_common_25.0.0.jar",
         "android_common/com.android.tools_ddmlib_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
         "android_common/com.android.tools_sdk-common_25.0.0.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
-        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+    ],
+    runtime_deps = [
+        ":asm",
+        ":asm-analysis",
+        ":asm-tree",
     ],
 )
 
@@ -142,18 +150,27 @@ java_import(
 )
 
 java_import(
-    name = "asm-commons",
-    jars = ["asm/asm-commons-5.0.4.jar"],
+    name = "asm-analysis",
+    jars = ["asm/asm-analysis-5.0.4.jar"],
+    runtime_deps = [":asm-tree"],
 )
 
 java_import(
-    name = "asm-util",
-    jars = ["asm/asm-util-5.0.4.jar"],
+    name = "asm-commons",
+    jars = ["asm/asm-commons-5.0.4.jar"],
+    runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
     jars = ["asm/asm-tree-5.0.4.jar"],
+    runtime_deps = [":asm"],
+)
+
+java_import(
+    name = "asm-util",
+    jars = ["asm/asm-util-5.0.4.jar"],
+    runtime_deps = [":asm-tree"],
 )
 
 java_plugin(
