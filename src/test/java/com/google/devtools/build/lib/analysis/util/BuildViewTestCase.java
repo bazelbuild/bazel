@@ -784,17 +784,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /**
    * Create and return a configured scratch rule.
    *
-   * @param packageName the package name ofthe rule.
+   * @param packageName the package name of the rule.
    * @param ruleName the name of the rule.
    * @param lines the text of the rule.
    * @return the configured target instance for the created rule.
    * @throws IOException
    * @throws Exception
    */
-  protected ConfiguredTarget scratchConfiguredTarget(String packageName,
-                                                     String ruleName,
-                                                     String... lines)
-      throws IOException, Exception {
+  protected ConfiguredTarget scratchConfiguredTarget(
+      String packageName, String ruleName, String... lines) throws IOException, Exception {
     return scratchConfiguredTarget(packageName, ruleName, targetConfig, lines);
   }
 

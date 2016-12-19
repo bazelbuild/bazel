@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -32,57 +33,129 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * Action to write to a file.
- * <p>TODO(bazel-team): Choose a better name to distinguish this class from
- * {@link BinaryFileWriteAction}.
+ * Action to write a file whose contents are known at analysis time.
+ *
+ * <p>The output is always UTF-8 encoded.
+ *
+ * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
+ * BinaryFileWriteAction}.
  */
 @Immutable // if fileContents is immutable
 public final class FileWriteAction extends AbstractFileWriteAction {
 
+  /** Whether or not transparent compression is possible. */
+  public static enum Compression {
+    /** No compression, ever. */
+    DISALLOW,
+    /** May compress. */
+    ALLOW;
+
+    /** Maps true/false to allow/disallow respectively. */
+    public static Compression fromBoolean(boolean allow) {
+      return allow ? ALLOW : DISALLOW;
+    }
+  }
+
   private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
 
   /**
-   * We keep it as a CharSequence for memory-efficiency reasons. The toString()
-   * method of the object represents the content of the file.
+   * The contents may be lazily computed or compressed.
    *
-   * <p>For example, this allows us to keep a {@code List<Artifact>} wrapped
-   * in a {@code LazyString} instead of the string representation of the concatenation.
-   * This saves memory because the Artifacts are shared objects but the
-   * resulting String is not.
+   * <p>If the object representing the contents is a {@code String}, its length is greater than
+   * {@code COMPRESS_CHARS_THRESHOLD}, and compression is enabled, then the gzipped bytestream of
+   * the contents will be stored in place of the string itself. This compression is transparent and
+   * does not affect the output file.
+   *
+   * <p>Otherwise, if the object represents a lazy computation, it will not be forced until {@link
+   * #getFileContents()} is called. An example where this may come in handy is if the contents are
+   * the concatenation of the string representations of a series of artifacts. Then the client code
+   * can wrap a {@code List<Artifact>} in a {@code LazyString}, which saves memory since the
+   * artifacts are shared objects whereas a string is not.
    */
   private final CharSequence fileContents;
 
+  /** Minimum length (in chars) for content to be eligible for compression. */
+  private static final int COMPRESS_CHARS_THRESHOLD = 256;
+
   /**
-   * Creates a new FileWriteAction instance without inputs using UTF8 encoding.
+   * Creates a new FileWriteAction instance without inputs.
    *
-   * @param owner the action owner.
-   * @param output the Artifact that will be created by executing this Action.
-   * @param fileContents the contents to be written to the file.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param owner the action owner
+   * @param output the Artifact that will be created by executing this Action
+   * @param fileContents the contents to be written to the file
+   * @param makeExecutable whether the output file is made executable
    */
-  public FileWriteAction(ActionOwner owner, Artifact output, CharSequence fileContents,
-      boolean makeExecutable) {
-    this(owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable);
+  public FileWriteAction(
+      ActionOwner owner, Artifact output, CharSequence fileContents, boolean makeExecutable) {
+    this(owner, Artifact.NO_ARTIFACTS, output, fileContents, makeExecutable, Compression.DISALLOW);
   }
 
   /**
-   * Creates a new FileWriteAction instance using UTF8 encoding.
+   * Creates a new FileWriteAction instance with inputs and with direct control over whether
+   * compression may occur.
    *
-   * @param owner the action owner.
+   * <p>The contents of the inputs are not actually read, but including them will ensure that their
+   * generating actions are executed if this action is.
+   *
+   * @param owner the action owner
    * @param inputs the Artifacts that this Action depends on
-   * @param output the Artifact that will be created by executing this Action.
-   * @param fileContents the contents to be written to the file.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
+   * @param output the Artifact that will be created by executing this Action
+   * @param fileContents the contents to be written to the file
+   * @param makeExecutable whether the output file is made executable
+   * @param allowCompression whether (transparent) compression is enabled
    */
-  public FileWriteAction(ActionOwner owner, Collection<Artifact> inputs,
-      Artifact output, CharSequence fileContents, boolean makeExecutable) {
+  public FileWriteAction(
+      ActionOwner owner,
+      Collection<Artifact> inputs,
+      Artifact output,
+      CharSequence fileContents,
+      boolean makeExecutable,
+      Compression allowCompression) {
     super(owner, inputs, output, makeExecutable);
-    if (fileContents instanceof String && fileContents.length() > 256) {
+    if (allowCompression == Compression.ALLOW
+        && fileContents instanceof String
+        && fileContents.length() > COMPRESS_CHARS_THRESHOLD) {
       fileContents = new CompressedString((String) fileContents);
     }
     this.fileContents = fileContents;
+  }
+
+  /**
+   * Creates a new FileWriteAction instance with inputs and empty content.
+   *
+   * <p>This is useful for producing an artifact that, if built, will ensure that the generating
+   * actions for its inputs are run.
+   *
+   * @param owner the action owner
+   * @param inputs the Artifacts that this Action depends on
+   * @param output the Artifact that will be created by executing this Action
+   */
+  public static FileWriteAction createEmpty(
+      ActionOwner owner, Collection<Artifact> inputs, Artifact output) {
+    return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
+  }
+
+  /**
+   * Creates a new FileWriteAction instance.
+   *
+   * <p>There are no inputs. Transparent compression is controlled by the {@code
+   * --experimental_transparent_compression} flag. No reference to the {@link RuleContext} will be
+   * maintained.
+   *
+   * @param context the rule context
+   * @param output the Artifact that will be created by executing this Action
+   * @param fileContents the contents to be written to the file
+   * @param makeExecutable whether the output file is made executable
+   */
+  public static FileWriteAction create(
+      RuleContext context, Artifact output, CharSequence fileContents, boolean makeExecutable) {
+    return new FileWriteAction(
+        context.getActionOwner(),
+        Artifact.NO_ARTIFACTS,
+        output,
+        fileContents,
+        makeExecutable,
+        context.getConfiguration().transparentCompression());
   }
 
   private static final class CompressedString extends LazyString {
@@ -125,20 +198,17 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     }
   }
 
-  /**
-   * Creates a new FileWriteAction instance using UTF8 encoding.
-   *
-   * @param owner the action owner.
-   * @param inputs the Artifacts that this Action depends on
-   * @param output the Artifact that will be created by executing this Action.
-   * @param makeExecutable iff true will change the output file to be
-   *   executable.
-   */
-  protected FileWriteAction(ActionOwner owner, Collection<Artifact> inputs,
-      Artifact output, boolean makeExecutable) {
-    this(owner, inputs, output, "", makeExecutable);
+  @VisibleForTesting
+  boolean usesCompression() {
+    return fileContents instanceof CompressedString;
   }
 
+  /**
+   * Returns the string contents to be written.
+   *
+   * <p>Note that if the string is lazily computed or compressed, calling this method will force its
+   * computation or decompression. No attempt is made by FileWriteAction to cache the result.
+   */
   public String getFileContents() {
     return fileContents.toString();
   }
@@ -176,17 +246,17 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   }
 
   /**
-   * Creates a FileWriteAction to write contents to the resulting artifact
-   * fileName in the genfiles root underneath the package path.
+   * Creates a FileWriteAction to write contents to the resulting artifact fileName in the genfiles
+   * root underneath the package path.
    *
-   * @param ruleContext the ruleContext that will own the action of creating this file.
-   * @param fileName name of the file to create.
-   * @param contents data to write to file.
-   * @param executable flags that file should be marked executable.
-   * @return Artifact describing the file to create.
+   * @param ruleContext the ruleContext that will own the action of creating this file
+   * @param fileName name of the file to create
+   * @param contents data to write to file
+   * @param executable flags that file should be marked executable
+   * @return Artifact describing the file to create
    */
-  public static Artifact createFile(RuleContext ruleContext,
-      String fileName, CharSequence contents, boolean executable) {
+  public static Artifact createFile(
+      RuleContext ruleContext, String fileName, CharSequence contents, boolean executable) {
     Artifact scriptFileArtifact = ruleContext.getPackageRelativeArtifact(
         fileName, ruleContext.getConfiguration().getGenfilesDirectory(
             ruleContext.getRule().getRepository()));

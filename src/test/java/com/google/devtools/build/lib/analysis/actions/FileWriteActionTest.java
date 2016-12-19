@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.Random;
 import org.junit.Test;
@@ -63,7 +65,7 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
     String contents = "Hello world";
     FileWriteAction action =
-        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, /*makeExecutable=*/ false);
     assertThat(action.getFileContents()).isEqualTo(contents);
   }
 
@@ -79,26 +81,60 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
           }
         };
     FileWriteAction action =
-        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, /*makeExecutable=*/ false);
     assertThat(action.getFileContents()).isEqualTo(backingString);
   }
 
-  /** Exercises the code path that compresses the string */
-  @Test
-  public void testFileWriteActionWithLongString() throws Exception {
-    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+  /**
+   * Returns a string filled with (deterministic) random characters to get a string that won't
+   * compress to a tiny size.
+   */
+  private String generateLongRandomString() {
     StringBuilder sb = new StringBuilder();
-
-    // Fill buffer with (deterministic) random characters to get a string that won't compress
-    // to a tiny size
     Random random = new Random(0);
     for (int i = 0; i < 16 * 1024; ++i) {
       char c = (char) random.nextInt(128);
       sb.append(c);
     }
-    String contents = sb.toString();
+    return sb.toString();
+  }
+
+  @Test
+  public void testFileWriteActionWithLongStringAndCompression() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    String contents = generateLongRandomString();
     FileWriteAction action =
-        new FileWriteAction(NULL_ACTION_OWNER, outputArtifact, contents, false);
+        new FileWriteAction(
+            NULL_ACTION_OWNER,
+            Artifact.NO_ARTIFACTS,
+            outputArtifact,
+            contents,
+            /*makeExecutable=*/ false,
+            FileWriteAction.Compression.ALLOW);
     assertThat(action.getFileContents()).isEqualTo(contents);
+  }
+
+  @Test
+  public void testTransparentCompressionFlagOn() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    String contents = generateLongRandomString();
+    useConfiguration("--experimental_transparent_compression=true");
+    ConfiguredTarget target = scratchConfiguredTarget("a", "a", "filegroup(name='a', srcs=[])");
+    RuleContext context = getRuleContext(target);
+    FileWriteAction action =
+        FileWriteAction.create(context, outputArtifact, contents, /*makeExecutable=*/ false);
+    assertThat(action.usesCompression()).isTrue();
+  }
+
+  @Test
+  public void testTransparentCompressionFlagOff() throws Exception {
+    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
+    String contents = generateLongRandomString();
+    useConfiguration("--experimental_transparent_compression=false");
+    ConfiguredTarget target = scratchConfiguredTarget("a", "a", "filegroup(name='a', srcs=[])");
+    RuleContext context = getRuleContext(target);
+    FileWriteAction action =
+        FileWriteAction.create(context, outputArtifact, contents, /*makeExecutable=*/ false);
+    assertThat(action.usesCompression()).isFalse();
   }
 }
