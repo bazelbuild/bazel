@@ -101,7 +101,7 @@ function java_compilation() {
   local library_jars=$4
   local output=$5
 
-  local classpath=${library_jars// /$PATHSEP}:$5
+  local classpath=${library_jars// /$PATHSEP}${PATHSEP}$5
   local sourcepath=${directories// /$PATHSEP}
 
   tempdir
