@@ -164,6 +164,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CcCommon common = new CcCommon(ruleContext);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
+    LinkTargetType linkType =
+        isLinkShared(ruleContext) ? LinkTargetType.DYNAMIC_LIBRARY : LinkTargetType.EXECUTABLE;
 
     semantics.validateAttributes(ruleContext);
     if (ruleContext.hasErrors()) {
@@ -176,9 +178,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
             .setFake(fake)
-            .setLinkType(LinkTargetType.STATIC_LIBRARY)
             .addPrecompiledFiles(precompiledFiles)
             .enableInterfaceSharedObjects();
+    // Always treat test targets as static libraries so that their code can be compiled into a
+    // dynamic library and profit from optimizations like interface so.
+    helper.setLinkType(ruleContext.isTestTarget() ? LinkTargetType.STATIC_LIBRARY : linkType);
 
     CcLibraryHelper.Info info = helper.build();
     CppCompilationContext cppCompilationContext = info.getCppCompilationContext();
@@ -201,8 +205,6 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    LinkTargetType linkType =
-        isLinkShared(ruleContext) ? LinkTargetType.DYNAMIC_LIBRARY : LinkTargetType.EXECUTABLE;
     List<String> linkopts = common.getLinkopts();
     LinkStaticness linkStaticness = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
 
