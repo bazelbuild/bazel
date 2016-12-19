@@ -300,6 +300,20 @@ string GetOutputRoot() {
 #endif  // COMPILER_MSVC
 }
 
+string FindSystemWideBlazerc() {
+#ifdef COMPILER_MSVC
+  // TODO(bazel-team): implement this.
+  pdie(255, "FindSystemWideBlazer is not yet implemented on Windows");
+  return "";
+#else   // not COMPILER_MSVC
+  string path = "/etc/bazel.bazelrc";
+  if (blaze_util::CanAccess(path, true, false, false)) {
+    return path;
+  }
+  return "";
+#endif  // COMPILER_MSVC
+}
+
 uint64_t GetMillisecondsMonotonic() {
   return WindowsClock::INSTANCE.GetMilliseconds();
 }
@@ -1050,7 +1064,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
     coded_name[i] = alphabet[buf[i] & 0x3F];
   }
   coded_name[filename_length] = '\0';
-  return root + "/" + string(coded_name);
+  return blaze_util::JoinPath(root, string(coded_name));
 }
 
 void CreateSecureOutputRoot(const string& path) {
@@ -1217,7 +1231,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
   pdie(255, "blaze::AcquireLock is not implemented on Windows");
   return 0;
 #else  // not COMPILER_MSVC
-  string lockfile = output_base + "/lock";
+  string lockfile = blaze_util::JoinPath(output_base, "lock");
   int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
 
   if (lockfd < 0) {

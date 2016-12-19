@@ -69,6 +69,12 @@ bool CanAccess(const std::string& path, bool read, bool write, bool exec);
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);
 
+// Returns true if `path` is the root directory or a Windows drive root.
+bool IsRootDirectory(const std::string &path);
+
+// Returns true if `path` is absolute.
+bool IsAbsolute(const std::string &path);
+
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);

@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "src/main/cpp/util/file_platform.h"
 
+#include <ctype.h>  // isalpha
 #include <windows.h>
 
 #include "src/main/cpp/util/errors.h"
@@ -72,22 +73,30 @@ IPipe* CreatePipe() {
   return new WindowsPipe(read_handle, write_handle);
 }
 
-static bool IsRootDirectory(const string& path) {
-  // Return true if path is "/", "\", "c:/", "c:\", "\\?\c:\", or "\??\c:\".
+// Checks if the path is absolute and/or is a root path.
+//
+// If `must_be_root` is true, then in addition to being absolute, the path must
+// also be just the root part, no other components, e.g. "c:\" is both absolute
+// and root, but "c:\foo" is just absolute.
+static bool IsRootOrAbsolute(const string& path, bool must_be_root) {
+  // An absolute path is one that starts with "/", "\", "c:/", "c:\",
+  // "\\?\c:\", or "\??\c:\".
   //
   // It is unclear whether the UNC prefix is just "\\?\" or is "\??\" also
   // valid (in some cases it seems to be, though MSDN doesn't mention it).
   return
-      // path is "/" or "\"
-      (path.size() == 1 && (path[0] == '/' || path[0] == '\\')) ||
-      // path is "c:/" or "c:\"
-      (path.size() == 3 && isalpha(path[0]) && path[1] == ':' &&
+      // path is (or starts with) "/" or "\"
+      ((must_be_root ? path.size() == 1 : !path.empty()) &&
+       (path[0] == '/' || path[0] == '\\')) ||
+      // path is (or starts with) "c:/" or "c:\" or similar
+      ((must_be_root ? path.size() == 3 : path.size() >= 3) &&
+       isalpha(path[0]) && path[1] == ':' &&
        (path[2] == '/' || path[2] == '\\')) ||
-      // path is "\\?\c:\" or "\??\c:\"
-      (path.size() == 7 && path[0] == '\\' &&
-       (path[1] == '\\' || path[1] == '?') && path[2] == '?' &&
-       path[3] == '\\' && isalpha(path[4]) && path[5] == ':' &&
-       path[6] == '\\');
+      // path is (or starts with) "\\?\c:\" or "\??\c:\" or similar
+      ((must_be_root ? path.size() == 7 : path.size() >= 7) &&
+       path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
+       path[2] == '?' && path[3] == '\\' && isalpha(path[4]) &&
+       path[5] == ':' && path[6] == '\\');
 }
 
 pair<string, string> SplitPath(const string& path) {
@@ -107,7 +116,8 @@ pair<string, string> SplitPath(const string& path) {
             // Include the "/" or "\" in the drive specifier.
             path.substr(0, pos + 1), path.substr(pos + 1));
       } else {
-        // Unix path, or relative path.
+        // Windows path (neither top-level nor drive root), Unix path, or
+        // relative path.
         return std::make_pair(
             // If the only "/" is the leading one, then that shall be the first
             // pair element, otherwise the substring up to the rightmost "/".
@@ -192,6 +202,12 @@ bool IsDirectory(const string& path) {
 }
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
+
+bool IsRootDirectory(const string& path) {
+  return IsRootOrAbsolute(path, true);
+}
+
+bool IsAbsolute(const string& path) { return IsRootOrAbsolute(path, false); }
 
 #ifdef COMPILER_MSVC
 void SyncFile(const string& path) {

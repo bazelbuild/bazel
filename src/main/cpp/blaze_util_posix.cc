@@ -125,6 +125,14 @@ string GetProcessIdAsString() {
   return ToString(getpid());
 }
 
+string FindSystemWideBlazerc() {
+  string path = "/etc/bazel.bazelrc";
+  if (blaze_util::CanAccess(path, true, false, false)) {
+    return path;
+  }
+  return "";
+}
+
 void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
   if (VerboseLogging()) {
     string dbg;
@@ -323,7 +331,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
   blaze_util::Md5Digest digest;
   digest.Update(hashable.data(), hashable.size());
   digest.Finish(buf);
-  return root + "/" + digest.String();
+  return blaze_util::JoinPath(root, digest.String());
 }
 
 void CreateSecureOutputRoot(const string& path) {
@@ -424,7 +432,7 @@ void SigPrintf(const char *format, ...) {
 
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
-  string lockfile = output_base + "/lock";
+  string lockfile = blaze_util::JoinPath(output_base, "lock");
   int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
 
   if (lockfd < 0) {

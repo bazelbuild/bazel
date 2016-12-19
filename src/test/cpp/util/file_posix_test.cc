@@ -211,6 +211,7 @@ TEST(FileTest, HammerMakeDirectories) {
   //  ASSERT_LE(0, fork());
   //  ASSERT_TRUE(MakeDirectories(path, 0755));
 }
+
 TEST(FilePosixTest, Which) {
   ASSERT_EQ("", Which(""));
   ASSERT_EQ("", Which("foo"));
@@ -405,6 +406,34 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   unlink(file.c_str());
   unlink(file_sym.c_str());
   rmdir(root.c_str());
+}
+
+TEST(FileTest, IsAbsolute) {
+  ASSERT_FALSE(IsAbsolute(""));
+  ASSERT_TRUE(IsAbsolute("/"));
+  ASSERT_TRUE(IsAbsolute("/foo"));
+  ASSERT_FALSE(IsAbsolute("\\"));
+  ASSERT_FALSE(IsAbsolute("\\foo"));
+  ASSERT_FALSE(IsAbsolute("c:"));
+  ASSERT_FALSE(IsAbsolute("c:/"));
+  ASSERT_FALSE(IsAbsolute("c:\\"));
+  ASSERT_FALSE(IsAbsolute("c:\\foo"));
+  ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\"));
+  ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\foo"));
+}
+
+TEST(FileTest, IsRootDirectory) {
+  ASSERT_FALSE(IsRootDirectory(""));
+  ASSERT_TRUE(IsRootDirectory("/"));
+  ASSERT_FALSE(IsRootDirectory("/foo"));
+  ASSERT_FALSE(IsRootDirectory("\\"));
+  ASSERT_FALSE(IsRootDirectory("\\foo"));
+  ASSERT_FALSE(IsRootDirectory("c:"));
+  ASSERT_FALSE(IsRootDirectory("c:/"));
+  ASSERT_FALSE(IsRootDirectory("c:\\"));
+  ASSERT_FALSE(IsRootDirectory("c:\\foo"));
+  ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\"));
+  ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\foo"));
 }
 
 }  // namespace blaze_util

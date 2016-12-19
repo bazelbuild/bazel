@@ -45,7 +45,7 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) const {
       return workspace;
     }
     workspace = blaze_util::Dirname(workspace);
-  } while (!workspace.empty() && workspace != "/");
+  } while (!workspace.empty() && !blaze_util::IsRootDirectory(workspace));
   return "";
 }
 
@@ -72,21 +72,13 @@ static string FindAlongsideBinaryBlazerc(const string& cwd,
                                          const string& path_to_binary) {
   // TODO(b/32115171): This doesn't work on Windows. Fix this together with the
   // associated bug.
-  const string path = path_to_binary[0] == '/'
-      ? path_to_binary
-      : blaze_util::JoinPath(cwd, path_to_binary);
+  const string path = blaze_util::IsAbsolute(path_to_binary)
+                          ? path_to_binary
+                          : blaze_util::JoinPath(cwd, path_to_binary);
   const string base = blaze_util::Basename(path_to_binary);
   const string binary_blazerc_path = path + "." + base + "rc";
   if (blaze_util::CanAccess(binary_blazerc_path, true, false, false)) {
     return binary_blazerc_path;
-  }
-  return "";
-}
-
-static string FindSystemWideBlazerc() {
-  string path = "/etc/bazel.bazelrc";
-  if (blaze_util::CanAccess(path, true, false, false)) {
-    return path;
   }
   return "";
 }

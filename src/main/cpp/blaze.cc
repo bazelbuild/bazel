@@ -316,7 +316,7 @@ static string GetInstallBase(const string &root, const string &self_path) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "\nFailed to find install_base_key's in zip file");
   }
-  return root + "/" + globals->install_md5;
+  return blaze_util::JoinPath(root, globals->install_md5);
 }
 
 // Escapes colons by replacing them with '_C' and underscores by replacing them
@@ -606,13 +606,15 @@ static void StartServer(const WorkspaceLayout* workspace_layout,
                         BlazeServerStartup** server_startup) {
   vector<string> jvm_args_vector = GetArgumentArray();
   string argument_string = GetArgumentString(jvm_args_vector);
-  string server_dir = globals->options->output_base + "/server";
+  string server_dir =
+      blaze_util::JoinPath(globals->options->output_base, "server");
   // Write the cmdline argument string to the server dir. If we get to this
   // point, there is no server running, so we don't overwrite the cmdline file
   // for the existing server. If might be that the server dies and the cmdline
   // file stays there, but that is not a problem, since we always check the
   // server, too.
-  blaze_util::WriteFile(argument_string, server_dir + "/cmdline");
+  blaze_util::WriteFile(argument_string,
+                        blaze_util::JoinPath(server_dir, "cmdline"));
 
   // unless we restarted for a new-version, mark this as initial start
   if (globals->restart_reason == NO_RESTART) {
@@ -717,7 +719,8 @@ static int GetServerPid(const string &server_dir) {
 // Starts up a new server and connects to it. Exits if it didn't work not.
 static void StartServerAndConnect(const WorkspaceLayout* workspace_layout,
                                   BlazeServer *server) {
-  string server_dir = globals->options->output_base + "/server";
+  string server_dir =
+      blaze_util::JoinPath(globals->options->output_base, "server");
 
   // The server dir has the socket, so we don't allow access by other
   // users.
@@ -880,14 +883,13 @@ static void ActuallyExtractData(const string &argv0,
 
     // Now walk up until embedded_binaries and sync every directory in between.
     // synced_directories is used to avoid syncing the same directory twice.
-    // The !directory.empty() and directory != "/" conditions are not strictly
-    // needed, but it makes this loop more robust, because otherwise, if due to
-    // some glitch, directory was not under embedded_binaries, it would get
-    // into an infinite loop.
+    // The !directory.empty() and !blaze_util::IsRootDirectory(directory)
+    // conditions are not strictly needed, but it makes this loop more robust,
+    // because otherwise, if due to some glitch, directory was not under
+    // embedded_binaries, it would get into an infinite loop.
     while (directory != embedded_binaries &&
-           synced_directories.count(directory) == 0 &&
-           !directory.empty() &&
-           directory != "/") {
+           synced_directories.count(directory) == 0 && !directory.empty() &&
+           !blaze_util::IsRootDirectory(directory)) {
       blaze_util::SyncFile(directory);
       synced_directories.insert(directory);
       directory = blaze_util::Dirname(directory);
@@ -911,7 +913,8 @@ static void ExtractData(const string &self_path) {
     // Work in a temp dir to avoid races.
     string tmp_install = globals->options->install_base + ".tmp." +
                          blaze::GetProcessIdAsString();
-    string tmp_binaries = tmp_install + "/_embedded_binaries";
+    string tmp_binaries =
+        blaze_util::JoinPath(tmp_install, "_embedded_binaries");
     ActuallyExtractData(self_path, tmp_binaries);
 
     uint64_t et = GetMillisecondsMonotonic();
@@ -1017,7 +1020,8 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer* server) {
     return;
   }
 
-  string cmdline_path = globals->options->output_base + "/server/cmdline";
+  string cmdline_path =
+      blaze_util::JoinPath(globals->options->output_base, "server/cmdline");
   string joined_arguments;
 
   // No, /proc/$PID/cmdline does not work, because it is limited to 4K. Even
@@ -1050,7 +1054,8 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
   // target dirs don't match, or if the symlink was not present, then kill any
   // running servers. Lastly, symlink to our installation so others know which
   // installation is running.
-  string installation_path = globals->options->output_base + "/install";
+  string installation_path =
+      blaze_util::JoinPath(globals->options->output_base, "install");
   string prev_installation;
   bool ok = ReadDirectorySymlink(installation_path, &prev_installation);
   if (!ok || !CompareAbsolutePaths(
@@ -1170,7 +1175,8 @@ static void ComputeBaseDirectories(const WorkspaceLayout* workspace_layout,
   // but if an install_base is specified on the command line, we use that as
   // the base instead.
   if (globals->options->install_base.empty()) {
-    string install_user_root = globals->options->output_user_root + "/install";
+    string install_user_root =
+        blaze_util::JoinPath(globals->options->output_user_root, "install");
     globals->options->install_base =
         GetInstallBase(install_user_root, self_path);
   } else {
@@ -1212,8 +1218,10 @@ static void ComputeBaseDirectories(const WorkspaceLayout* workspace_layout,
          "blaze_util::MakeCanonical('%s') failed", output_base);
   }
 
-  globals->lockfile = globals->options->output_base + "/lock";
-  globals->jvm_log_file = globals->options->output_base + "/server/jvm.out";
+  globals->lockfile =
+      blaze_util::JoinPath(globals->options->output_base, "lock");
+  globals->jvm_log_file =
+      blaze_util::JoinPath(globals->options->output_base, "server/jvm.out");
 }
 
 static void CheckEnvironment() {
@@ -1260,10 +1268,10 @@ static void CheckEnvironment() {
 }
 
 static string CheckAndGetBinaryPath(const string& argv0) {
-  if (argv0[0] == '/') {
+  if (blaze_util::IsAbsolute(argv0)) {
     return argv0;
   } else {
-    string abs_path = globals->cwd + '/' + argv0;
+    string abs_path = blaze_util::JoinPath(globals->cwd, argv0);
     string resolved_path = blaze_util::MakeCanonical(abs_path.c_str());
     if (!resolved_path.empty()) {
       return resolved_path;
@@ -1374,13 +1382,15 @@ GrpcBlazeServer::~GrpcBlazeServer() {
 bool GrpcBlazeServer::Connect() {
   assert(!connected_);
 
-  std::string server_dir = globals->options->output_base + "/server";
+  std::string server_dir =
+      blaze_util::JoinPath(globals->options->output_base, "server");
   std::string port;
   std::string ipv4_prefix = "127.0.0.1:";
   std::string ipv6_prefix_1 = "[0:0:0:0:0:0:0:1]:";
   std::string ipv6_prefix_2 = "[::1]:";
 
-  if (!blaze_util::ReadFile(server_dir + "/command_port", &port)) {
+  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "command_port"),
+                            &port)) {
     return false;
   }
 
@@ -1391,11 +1401,12 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!blaze_util::ReadFile(server_dir + "/request_cookie", &request_cookie_)) {
+  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "request_cookie"),
+                            &request_cookie_)) {
     return false;
   }
 
-  if (!blaze_util::ReadFile(server_dir + "/response_cookie",
+  if (!blaze_util::ReadFile(blaze_util::JoinPath(server_dir, "response_cookie"),
                             &response_cookie_)) {
     return false;
   }

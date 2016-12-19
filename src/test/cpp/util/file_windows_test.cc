@@ -65,4 +65,32 @@ TEST(FileTest, TestBasename) {
   ASSERT_EQ("foo", Basename("\\\\?\\c:\\foo"));
 }
 
+TEST(FileTest, IsAbsolute) {
+  ASSERT_FALSE(IsAbsolute(""));
+  ASSERT_TRUE(IsAbsolute("/"));
+  ASSERT_TRUE(IsAbsolute("/foo"));
+  ASSERT_TRUE(IsAbsolute("\\"));
+  ASSERT_TRUE(IsAbsolute("\\foo"));
+  ASSERT_FALSE(IsAbsolute("c:"));
+  ASSERT_TRUE(IsAbsolute("c:/"));
+  ASSERT_TRUE(IsAbsolute("c:\\"));
+  ASSERT_TRUE(IsAbsolute("c:\\foo"));
+  ASSERT_TRUE(IsAbsolute("\\\\?\\c:\\"));
+  ASSERT_TRUE(IsAbsolute("\\\\?\\c:\\foo"));
+}
+
+TEST(FileTest, IsRootDirectory) {
+  ASSERT_FALSE(IsRootDirectory(""));
+  ASSERT_TRUE(IsRootDirectory("/"));
+  ASSERT_FALSE(IsRootDirectory("/foo"));
+  ASSERT_TRUE(IsRootDirectory("\\"));
+  ASSERT_FALSE(IsRootDirectory("\\foo"));
+  ASSERT_FALSE(IsRootDirectory("c:"));
+  ASSERT_TRUE(IsRootDirectory("c:/"));
+  ASSERT_TRUE(IsRootDirectory("c:\\"));
+  ASSERT_FALSE(IsRootDirectory("c:\\foo"));
+  ASSERT_TRUE(IsRootDirectory("\\\\?\\c:\\"));
+  ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\foo"));
+}
+
 }  // namespace blaze_util

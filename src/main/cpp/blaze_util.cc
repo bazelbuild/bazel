@@ -43,15 +43,13 @@ const char kServerPidSymlink[] = "server.pid";
 
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
-  if (path.empty() || path[0] == '/' || (isalpha(path[0]) && path[1] == ':')) {
+  // TODO(laszlocsomor): remove the "path.empty() ||" clause; empty paths are
+  // not absolute!
+  if (path.empty() || blaze_util::IsAbsolute(path)) {
     return path;
   }
 
-  string cwd = blaze_util::GetCwd();
-
-  // Determine whether the cwd ends with "/" or not.
-  string separator = cwd.back() == '/' ? "" : "/";
-  return cwd + separator + path;
+  return blaze_util::JoinPath(blaze_util::GetCwd(), path);
 }
 
 const char* GetUnaryOption(const char *arg,

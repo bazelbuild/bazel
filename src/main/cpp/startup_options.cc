@@ -354,7 +354,7 @@ string StartupOptions::GetHostJavabase() {
 }
 
 string StartupOptions::GetJvm() {
-  string java_program = GetHostJavabase() + "/bin/java";
+  string java_program = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
   if (!blaze_util::CanAccess(java_program, false, false, true)) {
     if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
@@ -365,9 +365,9 @@ string StartupOptions::GetJvm() {
     exit(1);
   }
   // If the full JDK is installed
-  string jdk_rt_jar = GetHostJavabase() + "/jre/lib/rt.jar";
+  string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
-  string jre_rt_jar = GetHostJavabase() + "/lib/rt.jar";
+  string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
   if (blaze_util::CanAccess(jdk_rt_jar, true, false, false)
       || blaze_util::CanAccess(jre_rt_jar, true, false, false)) {
     return java_program;
@@ -397,13 +397,14 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
     const string &host_javabase, vector<string> *result,
     const vector<string> &user_options, string *error) const {
   // Configure logging
-  const string propFile = output_base + "/javalog.properties";
+  const string propFile =
+      blaze_util::JoinPath(output_base, "javalog.properties");
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
                              ".level=INFO\n"
                              "java.util.logging.FileHandler.level=INFO\n"
                              "java.util.logging.FileHandler.pattern=" +
-                                 output_base +
-                                 "/java.log\n"
+                                 blaze_util::JoinPath(output_base, "java.log") +
+                                 "\n"
                                  "java.util.logging.FileHandler.limit=50000\n"
                                  "java.util.logging.FileHandler.count=1\n"
                                  "java.util.logging.FileHandler.formatter="

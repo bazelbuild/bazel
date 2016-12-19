@@ -77,7 +77,7 @@ static bool GetDirectoryStat(const string &path, mode_t mode,
 }
 
 static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
-  if (path.empty() || path == "/") {
+  if (path.empty() || IsRootDirectory(path)) {
     errno = EACCES;
     return false;
   }
@@ -271,6 +271,12 @@ bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
+
+bool IsRootDirectory(const string &path) {
+  return path.size() == 1 && path[0] == '/';
+}
+
+bool IsAbsolute(const string &path) { return !path.empty() && path[0] == '/'; }
 
 void SyncFile(const string& path) {
 // fsync always fails on Cygwin with "Permission denied" for some reason.

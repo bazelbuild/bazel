@@ -56,6 +56,9 @@ std::string GetSelfPath();
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
 
+// Returns the location of the global bazelrc file if it exists, otherwise "".
+std::string FindSystemWideBlazerc();
+
 // Warn about dubious filesystem types, such as NFS, case-insensitive (?).
 void WarnFilesystemType(const std::string& output_base);
 
