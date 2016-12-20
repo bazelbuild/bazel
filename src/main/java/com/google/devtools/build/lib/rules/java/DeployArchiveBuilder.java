@@ -258,7 +258,7 @@ public class DeployArchiveBuilder {
         outputJar, javaStartClass, deployManifestLines, buildInfoArtifacts, classpathResources,
         runtimeClasspath, includeBuildData, compression, launcher);
 
-    List<String> jvmArgs = ImmutableList.of("-client", SINGLEJAR_MAX_MEMORY);
+    List<String> jvmArgs = ImmutableList.of(SINGLEJAR_MAX_MEMORY);
     ResourceSet resourceSet =
         ResourceSet.createWithRamCpuIo(/*memoryMb = */200.0, /*cpuUsage = */.2, /*ioUsage=*/.2);
 

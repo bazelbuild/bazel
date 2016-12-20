@@ -24,7 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(__linux)
+#if defined(__linux__)
 #include <endian.h>
 #elif defined(__APPLE__)
 // Hopefully OSX will keep running solely on little endian CPUs, so:
