@@ -197,7 +197,7 @@ public abstract class RepositoryFunction {
 
   protected static RepositoryDirectoryValue writeBuildFile(
       Path repositoryDirectory, String contents) throws RepositoryFunctionException {
-    Path buildFilePath = repositoryDirectory.getRelative("BUILD");
+    Path buildFilePath = repositoryDirectory.getRelative("BUILD.bazel");
     try {
       // The repository could have an existing BUILD file that's either a regular file (for remote
       // repositories) or a symlink (for local repositories). Either way, we want to remove it and
