@@ -263,7 +263,7 @@ public abstract class AbstractBlazeQueryEnvironment<T>
       // Will skip the target and keep going if -k is specified.
       reportBuildFileError(caller, e.getMessage());
     }
-    AggregateAllCallback<T> aggregatingCallback = QueryUtil.newThreadSafeAggregateAllCallback();
+    AggregateAllCallback<T> aggregatingCallback = QueryUtil.newAggregateAllCallback();
     getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
     return aggregatingCallback.getResult();
   }

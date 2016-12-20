@@ -762,7 +762,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return pkgResults.build();
   }
 
-  @ThreadSafe
   @Override
   public void buildTransitiveClosure(QueryExpression caller, Set<Target> targets, int maxDepth)
       throws QueryException, InterruptedException {
@@ -1242,26 +1241,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     eval(
         expression,
         context,
-        (callback instanceof ThreadSafeCallback) && (uniquifier instanceof ThreadSafeUniquifier)
-           ? new ThreadSafeBatchAllRdepsCallback(
-               (ThreadSafeUniquifier<Target>) uniquifier,
-               universe,
-               (ThreadSafeCallback<Target>) callback,
-               depth,
-               batchSize)
-           : new BatchAllRdepsCallback(uniquifier, universe, callback, depth, batchSize));
-  }
-
-  private class ThreadSafeBatchAllRdepsCallback
-      extends BatchAllRdepsCallback implements ThreadSafeCallback<Target> {
-    protected ThreadSafeBatchAllRdepsCallback(
-        ThreadSafeUniquifier<Target> uniquifier,
-        Predicate<Target> universe,
-        ThreadSafeCallback<Target> callback,
-        int depth,
-        int batchSize) {
-      super(uniquifier, universe, callback, depth, batchSize);
-    }
+        new BatchAllRdepsCallback(uniquifier, universe, callback, depth, batchSize));
   }
 
   private class BatchAllRdepsCallback implements Callback<Target> {
@@ -1271,7 +1251,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     private final int depth;
     private final int batchSize;
 
-    protected BatchAllRdepsCallback(
+    private BatchAllRdepsCallback(
         Uniquifier<Target> uniquifier,
         Predicate<Target> universe,
         Callback<Target> callback,

@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.ProcessorWithUniquifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
@@ -52,61 +51,34 @@ class LabelsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.WORD, ArgumentType.EXPRESSION);
   }
 
-  private static class ProcessorImpl<T> implements ProcessorWithUniquifier<T> {
-    private final QueryExpression expression;
-    private final String attrName;
-    private final QueryEnvironment<T> env;
-
-    private ProcessorImpl(QueryExpression expression, String attrName, QueryEnvironment<T> env) {
-      this.expression = expression;
-      this.attrName = attrName;
-      this.env = env;
-    }
-
-    @Override
-    public void process(
-        Iterable<T> partialResult,
-        Uniquifier<T> uniquifier,
-        Callback<T> callback) throws QueryException, InterruptedException {
-      for (T input : partialResult) {
-        if (env.getAccessor().isRule(input)) {
-          List<T> targets = uniquifier.unique(
-              env.getAccessor().getLabelListAttr(expression, input, attrName,
-                  "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": "));
-          List<T> result = new ArrayList<>(targets.size());
-          for (T target : targets) {
-            result.add(env.getOrCreate(target));
-          }
-          callback.process(result);
-        }
-      }
-    }
-  }
-
-  private static <T> void doEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    String attrName = args.get(0).getWord();
-    env.eval(
-        args.get(1).getExpression(),
-        context,
-        QueryUtil.compose(
-            new ProcessorImpl<T>(expression, attrName, env),
-            env.createUniquifier(),
-            callback));
-  }
-
   @Override
   public <T> void eval(
-      QueryEnvironment<T> env,
+      final QueryEnvironment<T> env,
       VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+      final QueryExpression expression,
+      final List<Argument> args,
+      final Callback<T> callback)
+      throws QueryException, InterruptedException {
+    final String attrName = args.get(0).getWord();
+    final Uniquifier<T> uniquifier = env.createUniquifier();
+    env.eval(args.get(1).getExpression(), context, new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T input : partialResult) {
+          if (env.getAccessor().isRule(input)) {
+            List<T> targets = uniquifier.unique(
+                env.getAccessor().getLabelListAttr(expression, input, attrName,
+                    "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": "));
+            List<T> result = new ArrayList<>(targets.size());
+            for (T target : targets) {
+              result.add(env.getOrCreate(target));
+            }
+            callback.process(result);
+          }
+        }
+
+      }
+    });
   }
 
   @Override
@@ -117,6 +89,6 @@ class LabelsFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+    eval(env, context, expression, args, callback);
   }
 }

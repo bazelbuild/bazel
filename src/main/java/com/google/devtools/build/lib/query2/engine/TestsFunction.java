@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.Processor;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -63,42 +61,29 @@ class TestsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION);
   }
 
-  private static class ProcessorImpl<T> implements Processor<T> {
-    private final Closure<T> closure;
-    private final QueryEnvironment<T> env;
-
-    private ProcessorImpl(Closure<T> closure, QueryEnvironment<T> env) {
-      this.closure = closure;
-      this.env = env;
-    }
-
-    @Override
-    public void process(
-        Iterable<T> partialResult,
-        Callback<T> callback) throws QueryException, InterruptedException {
-      for (T target : partialResult) {
-        if (env.getAccessor().isTestRule(target)) {
-          callback.process(ImmutableList.of(target));
-        } else if (env.getAccessor().isTestSuite(target)) {
-          for (T test : closure.getTestsInSuite(target)) {
-            callback.process(ImmutableList.of(env.getOrCreate(test)));
-          }
-        }
-      }
-    }
-  }
-
   @Override
   public <T> void eval(
-      QueryEnvironment<T> env,
+      final QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    env.eval(
-        args.get(0).getExpression(),
-        context,
-        QueryUtil.compose(new ProcessorImpl<T>(new Closure<>(expression, env), env), callback));
+      final Callback<T> callback) throws QueryException, InterruptedException {
+    final Closure<T> closure = new Closure<>(expression, env);
+
+    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T target : partialResult) {
+          if (env.getAccessor().isTestRule(target)) {
+            callback.process(ImmutableList.of(target));
+          } else if (env.getAccessor().isTestSuite(target)) {
+            for (T test : closure.getTestsInSuite(target)) {
+              callback.process(ImmutableList.of(env.getOrCreate(test)));
+            }
+          }
+        }
+      }
+    });
   }
 
   @Override
@@ -109,10 +94,7 @@ class TestsFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    env.eval(
-        args.get(0).getExpression(),
-        context,
-        QueryUtil.compose(new ProcessorImpl<T>(new Closure<>(expression, env), env), callback));
+    eval(env, context, expression, args, callback);
   }
 
   /**
@@ -169,8 +151,10 @@ class TestsFunction implements QueryFunction {
     }
   }
 
-  /** A closure over the temporary state needed to compute the expression. */
-  @ThreadSafe
+  /**
+   * A closure over the temporary state needed to compute the expression. This makes the evaluation
+   * thread-safe, as long as instances of this class are used only within a single thread.
+   */
   private static final class Closure<T> {
     private final QueryExpression expression;
     /** A dynamically-populated mapping from test_suite rules to their tests. */
@@ -193,8 +177,7 @@ class TestsFunction implements QueryFunction {
      *
      * @precondition env.getAccessor().isTestSuite(testSuite)
      */
-    private synchronized Set<T> getTestsInSuite(T testSuite)
-        throws QueryException, InterruptedException {
+    private Set<T> getTestsInSuite(T testSuite) throws QueryException, InterruptedException {
       Set<T> tests = testsInSuite.get(testSuite);
       if (tests == null) {
         tests = Sets.newHashSet();

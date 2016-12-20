@@ -18,7 +18,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.ProcessorWithUniquifier;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -50,66 +49,39 @@ final class DepsFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION, ArgumentType.INTEGER);
   }
 
-  private static class ProcessorImpl<T> implements ProcessorWithUniquifier<T> {
-    private final QueryExpression expression;
-    private final int depthBound;
-    private final QueryEnvironment<T> env;
-
-    private ProcessorImpl(QueryExpression expression, int depthBound, QueryEnvironment<T> env) {
-      this.expression = expression;
-      this.depthBound = depthBound;
-      this.env = env;
-    }
-
-    @Override
-    public void process(Iterable<T> partialResult, Uniquifier<T> uniquifier, Callback<T> callback)
-        throws QueryException, InterruptedException {
-      Collection<T> current = Sets.newHashSet(partialResult);
-      env.buildTransitiveClosure(expression, (Set<T>) current, depthBound);
-
-      // We need to iterate depthBound + 1 times.
-      for (int i = 0; i <= depthBound; i++) {
-        // Filter already visited nodes: if we see a node in a later round, then we don't need to
-        // visit it again, because the depth at which we see it at must be greater than or equal
-        // to the last visit.
-        ImmutableList<T> toProcess = uniquifier.unique(current);
-        callback.process(toProcess);
-        current = ImmutableList.copyOf(env.getFwdDeps(toProcess));
-        if (current.isEmpty()) {
-          // Exit when there are no more nodes to visit.
-          break;
-        }
-      }
-    }
-  }
-
-  private static <T> void doEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
-    env.eval(
-        args.get(0).getExpression(),
-        context,
-        QueryUtil.compose(
-            new ProcessorImpl<T>(expression, depthBound, env),
-            env.createUniquifier(),
-            callback));
-  }
-
   /**
    * Breadth-first search from the arguments.
    */
   @Override
   public <T> void eval(
-      QueryEnvironment<T> env,
+      final QueryEnvironment<T> env,
       VariableContext<T> context,
-      QueryExpression expression,
+      final QueryExpression expression,
       List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+      final Callback<T> callback) throws QueryException, InterruptedException {
+    final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
+    final Uniquifier<T> uniquifier = env.createUniquifier();
+    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        Collection<T> current = Sets.newHashSet(partialResult);
+        env.buildTransitiveClosure(expression, (Set<T>) current, depthBound);
+
+        // We need to iterate depthBound + 1 times.
+        for (int i = 0; i <= depthBound; i++) {
+          // Filter already visited nodes: if we see a node in a later round, then we don't need to
+          // visit it again, because the depth at which we see it at must be greater than or equal
+          // to the last visit.
+          ImmutableList<T> toProcess = uniquifier.unique(current);
+          callback.process(toProcess);
+          current = ImmutableList.copyOf(env.getFwdDeps(toProcess));
+          if (current.isEmpty()) {
+            // Exit when there are no more nodes to visit.
+            break;
+          }
+        }
+      }
+    });
   }
 
   @Override
@@ -120,6 +92,6 @@ final class DepsFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+    eval(env, context, expression, args, callback);
   }
 }

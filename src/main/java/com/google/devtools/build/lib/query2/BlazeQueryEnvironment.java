@@ -287,7 +287,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @Override
   public void eval(QueryExpression expr, VariableContext<Target> context, Callback<Target> callback)
       throws QueryException, InterruptedException {
-    AggregateAllCallback<Target> aggregator = QueryUtil.newOrderedAggregateAllCallback();
+    AggregateAllCallback<Target> aggregator = QueryUtil.newAggregateAllCallback();
     expr.eval(this, context, aggregator);
     callback.process(aggregator.getResult());
   }

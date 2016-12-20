@@ -19,7 +19,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryUtil.Processor;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,40 +48,6 @@ class SomeFunction implements QueryFunction {
     return ImmutableList.of(ArgumentType.EXPRESSION);
   }
 
-  private static class ProcessorImpl<T> implements Processor<T> {
-    private final AtomicBoolean someFound;
-
-    private ProcessorImpl(AtomicBoolean someFound) {
-      this.someFound = someFound;
-    }
-
-    @Override
-    public void process(Iterable<T> partialResult, Callback<T> callback)
-        throws QueryException, InterruptedException {
-      if (someFound.get() || Iterables.isEmpty(partialResult)) {
-        return;
-      }
-      callback.process(ImmutableSet.of(partialResult.iterator().next()));
-      someFound.set(true);
-    }
-  }
-
-  private static <T> void doEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
-    AtomicBoolean someFound = new AtomicBoolean(false);
-    env.eval(
-        args.get(0).getExpression(),
-        context,
-        QueryUtil.compose(new ProcessorImpl<T>(someFound), callback));
-    if (!someFound.get()) {
-      throw new QueryException(expression, "argument set is empty");
-    }
-  }
-
   @Override
   public <T> void eval(
       QueryEnvironment<T> env,
@@ -90,7 +55,20 @@ class SomeFunction implements QueryFunction {
       QueryExpression expression,
       List<Argument> args,
       final Callback<T> callback) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+    final AtomicBoolean someFound = new AtomicBoolean(false);
+    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        if (someFound.get() || Iterables.isEmpty(partialResult)) {
+          return;
+        }
+        callback.process(ImmutableSet.of(partialResult.iterator().next()));
+        someFound.set(true);
+      }
+    });
+    if (!someFound.get()) {
+      throw new QueryException(expression, "argument set is empty");
+    }
   }
 
   @Override
@@ -101,6 +79,6 @@ class SomeFunction implements QueryFunction {
       List<Argument> args,
       ThreadSafeCallback<T> callback,
       ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    doEval(env, context, expression, args, callback);
+    eval(env, context, expression, args, callback);
   }
 }

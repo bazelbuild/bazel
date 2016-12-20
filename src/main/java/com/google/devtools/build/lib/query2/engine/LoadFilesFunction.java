@@ -48,7 +48,7 @@ class LoadFilesFunction implements QueryEnvironment.QueryFunction {
     env.eval(
         args.get(0).getExpression(),
         context,
-        new ThreadSafeCallback<T>() {
+        new Callback<T>() {
           @Override
           public void process(Iterable<T> partialResult)
               throws QueryException, InterruptedException {
