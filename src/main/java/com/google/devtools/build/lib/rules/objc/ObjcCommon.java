@@ -62,7 +62,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.AbstractConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
@@ -572,7 +572,7 @@ public final class ObjcCommon {
 
     private static boolean isCcLibrary(TransitiveInfoCollection info) {
       try {
-        AbstractConfiguredTarget target = (AbstractConfiguredTarget) info;
+        ConfiguredTarget target = (ConfiguredTarget) info;
         String targetName = target.getTarget().getTargetKind();
         for (String ruleClassName : ObjcRuleClasses.CompilingRule.ALLOWED_CC_DEPS_RULE_CLASSES) {
           if (targetName.equals(ruleClassName + " rule")) {
