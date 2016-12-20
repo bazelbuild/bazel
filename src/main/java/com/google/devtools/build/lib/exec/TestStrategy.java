@@ -75,9 +75,17 @@ public abstract class TestStrategy implements TestActionContext {
       TestRunnerAction testAction, Path tmpDir, Path coverageDir, Path workingDirectory)
       throws IOException {
     if (isCoverageMode(testAction)) {
-      recreateDirectory(coverageDir);
+      try {
+        recreateDirectory(coverageDir);
+      } catch (IOException e) {
+        throw new IOException("Failed to recreate coverage directory " + coverageDir, e);
+      }
     }
-    recreateDirectory(tmpDir);
+    try {
+      recreateDirectory(tmpDir);
+    } catch (IOException e) {
+      throw new IOException("Failed to recreate temporary directory " + tmpDir, e);
+    }
     FileSystemUtils.createDirectoryAndParents(workingDirectory);
   }
 
