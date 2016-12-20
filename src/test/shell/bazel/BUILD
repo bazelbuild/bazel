@@ -389,7 +389,7 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_boostrap_distfile_test",
+    name = "bazel_bootstrap_distfile_test",
     size = "large",
     srcs = ["bazel_bootstrap_distfile_test.sh"],
     args = ["$(location //:bazel-distfile)"],
