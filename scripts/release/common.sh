@@ -128,10 +128,16 @@ function create_revision_information() {
   done
 }
 
+# Get the master commit
+# Some machine might not have a "master" branch, use "origin/master" in that case
+function get_master_ref() {
+  git rev-parse --verify master 2>/dev/null || git rev-parse --verify origin/master
+}
+
 # Get the baseline of master.
 # Args: $1: release branch, default to HEAD
 function get_release_baseline() {
-  git merge-base master "${1:-HEAD}"
+  git merge-base $(get_master_ref) "${1:-HEAD}"
 }
 
 # Get the list of cherry-picks since master
@@ -140,11 +146,12 @@ function get_release_baseline() {
 #   $2: baseline change, default to $(get_release_baseline $1)
 function get_cherrypicks() {
   local branch="${1:-HEAD}"
+  local master=$(get_master_ref)
   local baseline="${2:-$(get_release_baseline "${branch}")}"
   # List of changes since the baseline on the release branch
   local changes="$(git_log_hash "${baseline}" "${branch}" --reverse)"
   # List of changes since the baseline on the master branch, and their patch-id
-  local master_changes="$(git_log_hash "${baseline}" master | xargs git show | git patch-id)"
+  local master_changes="$(git_log_hash "${baseline}" "${master}" | xargs git show | git patch-id)"
   # Now for each changes on the release branch
   for i in ${changes}; do
     # Find the change with the same patch-id on the master branch
