@@ -346,8 +346,15 @@ ask-passphrase
 basedir .
 EOF
 
-  touch conf/override.stable
-  touch conf/override.testing
+  # TODO(#2264): this is a quick workaround #2256, figure out a correct fix.
+  cat > conf/override.stable <<EOF
+bazel     Section     contrib/devel
+bazel     Priority    optional
+EOF
+  cat > conf/override.testing <<EOF
+bazel     Section     contrib/devel
+bazel     Priority    optional
+EOF
 
   ensure_gpg_secret_key_imported
 
@@ -388,8 +395,8 @@ function release_to_apt() {
     local release_label="$(get_full_release_name)"
     local deb_pkg_name_jdk8="${release_name}/bazel_${release_label}-linux-x86_64.deb"
     local deb_pkg_name_jdk7="${release_name}/bazel_${release_label}-jdk7-linux-x86_64.deb"
-    local deb_dsc_name="${release_name}/bazel_$(get_release_name).dsc"
-    local deb_tar_name="${release_name}/bazel_$(get_release_name).tar.gz"
+    local deb_dsc_name="${release_name}/bazel_${release_label}.dsc"
+    local deb_tar_name="${release_name}/bazel_${release_label}.tar.gz"
     cp "${tmpdir}/bazel_${release_label}-linux-x86_64.deb" "${dir}/${deb_pkg_name_jdk8}"
     cp "${tmpdir}/bazel_${release_label}-jdk7-linux-x86_64.deb" "${dir}/${deb_pkg_name_jdk7}"
     cp "${tmpdir}/bazel.dsc" "${dir}/${deb_dsc_name}"
