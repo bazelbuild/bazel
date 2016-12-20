@@ -175,7 +175,7 @@ function generate_email() {
   local args=(
       "%release_name%" "${release_name}"
       "%rc%" "${rc}"
-      "%relnotes%" "# $(git_commit_msg)"
+      "%relnotes%" "# $(get_full_release_notes)"
   )
   if [ -n "${rc}" ]; then
     args+=(
