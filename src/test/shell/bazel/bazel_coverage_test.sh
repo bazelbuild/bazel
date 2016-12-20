@@ -21,8 +21,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-# TODO(#2227): Re-enable when the jacoco processor issue is fixed.
-function DISABLED_test_java_test_coverage() {
+function test_java_test_coverage() {
 
   cat <<EOF > BUILD
 java_test(
