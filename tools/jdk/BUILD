@@ -162,7 +162,7 @@ alias(
     actual = "//third_party/java/jacoco:blaze-agent",
 )
 
-alias(
+java_import(
     name = "JacocoCoverage",
-    actual = "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage",
+    jars = [":JacocoCoverage_deploy.jar"],
 )

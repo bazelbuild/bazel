@@ -22,7 +22,6 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "BUILD.tools",
         "JacocoCoverage_deploy.jar",
     ],
 )
