@@ -104,6 +104,7 @@ EOF
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
+    touch --date=@1078100502 fox/male
     ln -s male fox/male_relative
     ln -s /fox/male fox/male_absolute
     # Add some padding to the .zip to test that Bazel's download logic can
@@ -148,6 +149,8 @@ fi
   base_external_path=bazel-out/../external/endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
+  ls -l ${base_external_path}/*
+  assert_equals "1078100502" "$(stat -c %Y ${base_external_path}/male)"
 }
 
 function assert_files_same() {

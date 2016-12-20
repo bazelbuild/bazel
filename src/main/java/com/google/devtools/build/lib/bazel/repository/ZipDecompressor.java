@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +32,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
-
 import javax.annotation.Nullable;
 
 /**
@@ -102,7 +100,7 @@ public class ZipDecompressor implements Decompressor {
     return destinationDirectory;
   }
 
-  private void extractZipEntry(
+  private static void extractZipEntry(
       ZipReader reader,
       ZipFileEntry entry,
       Path destinationDirectory,
@@ -122,7 +120,7 @@ public class ZipDecompressor implements Decompressor {
       FileSystemUtils.createDirectoryAndParents(outputPath);
     } else if (isSymlink) {
       Preconditions.checkState(entry.getSize() < MAX_PATH_LENGTH);
-      byte buffer[] = new byte[(int) entry.getSize()];
+      byte[] buffer = new byte[(int) entry.getSize()];
       // For symlinks, the "compressed data" is actually the target name.
       int read = reader.getInputStream(entry).read(buffer);
       Preconditions.checkState(read == buffer.length);
@@ -147,6 +145,7 @@ public class ZipDecompressor implements Decompressor {
         Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
       }
       outputPath.chmod(permissions);
+      outputPath.setLastModifiedTime(entry.getTime());
     }
   }
 
