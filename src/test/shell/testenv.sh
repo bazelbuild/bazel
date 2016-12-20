@@ -82,30 +82,9 @@ langtools="$(rlocation io_bazel/src/test/shell/bazel/langtools.jar)"
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
 langtools_dir="$(dirname $(rlocation io_bazel/third_party/java/jdk/langtools/BUILD))"
 
-# Java tooling
-javabuilder_path="$(find ${BAZEL_RUNFILES} -name JavaBuilder_*.jar)"
-langtools_path="${BAZEL_RUNFILES}/third_party/java/jdk/langtools/javac-9-dev-r3297-1.jar"
-singlejar_path="${BAZEL_RUNFILES}/src/java_tools/singlejar/SingleJar_deploy.jar"
-genclass_path="${BAZEL_RUNFILES}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
-junitrunner_path="${BAZEL_RUNFILES}/src/java_tools/junitrunner/java/com/google/testing/junit/runner/Runner_deploy.jar"
-ijar_path="${BAZEL_RUNFILES}/third_party/ijar/ijar"
-
 # Sandbox tools
 process_wrapper="${BAZEL_RUNFILES}/src/main/tools/process-wrapper"
 linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
-
-# iOS and Objective-C tooling
-actoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/actoolwrapper/actoolwrapper.sh"
-ibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/ibtoolwrapper/ibtoolwrapper.sh"
-swiftstdlibtoolwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/swiftstdlibtoolwrapper/swiftstdlibtoolwrapper.sh"
-momcwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/momcwrapper/momcwrapper.sh"
-bundlemerge_path="${BAZEL_RUNFILES}/src/objc_tools/bundlemerge/bundlemerge_deploy.jar"
-plmerge_path="${BAZEL_RUNFILES}/src/objc_tools/plmerge/plmerge_deploy.jar"
-xcodegen_path="${BAZEL_RUNFILES}/src/objc_tools/xcodegen/xcodegen_deploy.jar"
-stdredirect_path="${BAZEL_RUNFILES}/src/tools/xcode/stdredirect/StdRedirect.dylib"
-realpath_path="${BAZEL_RUNFILES}/src/tools/xcode/realpath/realpath"
-environment_plist_path="${BAZEL_RUNFILES}/src/tools/xcode/environment/environment_plist.sh"
-xcrunwrapper_path="${BAZEL_RUNFILES}/src/tools/xcode/xcrunwrapper/xcrunwrapper.sh"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
@@ -145,11 +124,9 @@ case "${PLATFORM}" in
 esac
 
 if [ -z ${RUNFILES_MANIFEST_ONLY+x} ]; then
-  protoc_jar="${BAZEL_RUNFILES}/third_party/protobuf/protobuf-*.jar"
   junit_jar="${BAZEL_RUNFILES}/third_party/junit/junit-*.jar"
   hamcrest_jar="${BAZEL_RUNFILES}/third_party/hamcrest/hamcrest-*.jar"
 else
-  protoc_jar=$(rlocation io_bazel/third_party/protobuf/protobuf-.*.jar)
   junit_jar=$(rlocation io_bazel/third_party/junit/junit-.*.jar)
   hamcrest_jar=$(rlocation io_bazel/third_party/hamcrest/hamcrest-.*.jar)
 fi
