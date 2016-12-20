@@ -49,7 +49,7 @@ def label_scoped_path(ctx, path):
 
 def module_cache_path(ctx):
   """Returns the Clang module cache path to use for this rule."""
-  return ctx.configuration.genfiles_dir.path + "/_objc_module_cache"
+  return ctx.genfiles_dir.path + "/_objc_module_cache"
 
 
 def apple_action(ctx, **kw):

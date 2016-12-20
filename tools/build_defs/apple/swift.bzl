@@ -261,7 +261,7 @@ def swiftc_args(ctx):
   include_dirs = set([x.dirname for x in dep_modules])
 
   # Include the genfiles root so full-path imports can work for generated protos.
-  include_dirs += set([ctx.configuration.genfiles_dir.path])
+  include_dirs += set([ctx.genfiles_dir.path])
 
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
