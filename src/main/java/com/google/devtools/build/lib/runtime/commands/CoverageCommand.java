@@ -243,7 +243,10 @@ public class CoverageCommand extends TestCommand {
       Collection<Target> targets, Set<String> packageFilters) throws InterruptedException {
     for (Target target : targets) {
       // Add package-based filters for every test target.
-      packageFilters.add(getInstrumentedPrefix(target.getLabel().getPackageName()));
+      String prefix = getInstrumentedPrefix(target.getLabel().getPackageName());
+      if (!prefix.isEmpty()) {
+        packageFilters.add(prefix);
+      }
       if (TargetUtils.isTestSuiteRule(target)) {
         AttributeMap attributes = NonconfigurableAttributeMapper.of((Rule) target);
         // We don't need to handle $implicit_tests attribute since we already added
@@ -290,7 +293,7 @@ public class CoverageCommand extends TestCommand {
         .replaceFirst("(?<=^|/)test/java/", "main/java/");
   }
 
-  private void optimizeFilterSet(SortedSet<String> packageFilters) {
+  private static void optimizeFilterSet(SortedSet<String> packageFilters) {
     Iterator<String> iterator = packageFilters.iterator();
     if (iterator.hasNext()) {
       // Find common parent filters to reduce number of filter expressions. In practice this
@@ -298,15 +301,15 @@ public class CoverageCommand extends TestCommand {
       // filter value much more user-friendly - especially in case of /my/package/... wildcards.
       Set<String> parentFilters = Sets.newTreeSet();
       String filterString = iterator.next();
-      String parent = new PathFragment(filterString).getParentDirectory().getPathString();
+      PathFragment parent = new PathFragment(filterString).getParentDirectory();
       while (iterator.hasNext()) {
         String current = iterator.next();
-        if (parent != null && parent.length() > 0 &&
-            !current.startsWith(filterString) && current.startsWith(parent)) {
-          parentFilters.add(parent);
+        if (parent != null && parent.getPathString().length() > 0
+            && !current.startsWith(filterString) && current.startsWith(parent.getPathString())) {
+          parentFilters.add(parent.getPathString());
         } else {
           filterString = current;
-          parent = new PathFragment(filterString).getParentDirectory().getPathString();
+          parent = new PathFragment(filterString).getParentDirectory();
         }
       }
       packageFilters.addAll(parentFilters);

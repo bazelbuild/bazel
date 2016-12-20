@@ -155,3 +155,14 @@ py_test(
         ":proguard_whitelister",
     ],
 )
+
+# For java coverage
+alias(
+    name = "jacoco-blaze-agent",
+    actual = "//third_party/java/jacoco:blaze-agent",
+)
+
+alias(
+    name = "JacocoCoverage",
+    actual = "//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage",
+)
