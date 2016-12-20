@@ -23,9 +23,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 
 # TODO(#2227): Re-enable when the jacoco processor issue is fixed.
 function DISABLED_test_java_test_coverage() {
-  mkdir java_test
 
-  cat <<EOF > java_test/BUILD
+  cat <<EOF > BUILD
 java_test(
     name = "test",
     srcs = glob(["src/test/**/*.java"]),
@@ -39,8 +38,8 @@ java_library(
 )
 EOF
 
-  mkdir -p java_test/src/main/com/example
-  cat <<EOF > java_test/src/main/com/example/Collatz.java
+  mkdir -p src/main/com/example
+  cat <<EOF > src/main/com/example/Collatz.java
 package com.example;
 
 public class Collatz {
@@ -59,8 +58,8 @@ public class Collatz {
 }
 EOF
 
-  mkdir -p java_test/src/test/com/example
-  cat <<EOF > java_test/src/test/com/example/TestCollatz.java
+  mkdir -p src/test/com/example
+  cat <<EOF > src/test/com/example/TestCollatz.java
 package com.example;
 
 import static org.junit.Assert.assertEquals;
@@ -79,13 +78,13 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage //java_test:test &>$TEST_log || fail "Coverage for //java_test:test failed"
+  bazel coverage //:test &>$TEST_log || fail "Coverage for //:test failed"
 
   ending_part=$(sed -n -e '/PASSED/,$p' $TEST_log)
   coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
   [ -e $coverage_file_path ] || fail "Coverage output file not exists!"
 
-  cat <<EOF > java_test/result.dat
+  cat <<EOF > result.dat
 SF:com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FNDA:0,com/example/Collatz::<init> ()V
@@ -104,7 +103,7 @@ DA:12,7
 end_of_record
 EOF
 
-  if ! cmp java_test/result.dat $coverage_file_path; then
+  if ! cmp result.dat $coverage_file_path; then
     fail "Coverage output file is different with expected"
   fi
 }

@@ -449,48 +449,48 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     if (!hasInstrumentationMetadata(attributes)) {
       return mainClass;
-    } else {
-      Artifact instrumentedJar =
-          helper
-              .getRuleContext()
-              .getBinArtifact(helper.getRuleContext().getLabel().getName() + "_instrumented.jar");
+    }
 
-      // Create an instrumented Jar. This will be referenced on the runtime classpath prior
-      // to all other Jars.
-      JavaCommon.createInstrumentedJarAction(
-          helper.getRuleContext(),
-          this,
-          attributes.getInstrumentationMetadata(),
-          instrumentedJar,
-          mainClass);
-      javaArtifactsBuilder.setInstrumentedJar(instrumentedJar);
-
-      // Add the coverage runner to the list of dependencies when compiling in coverage mode.
-      TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
-      if (runnerTarget.getProvider(JavaCompilationArgsProvider.class) != null) {
-        helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
-      } else {
+    Artifact instrumentedJar =
         helper
             .getRuleContext()
-            .ruleError(
-                "this rule depends on "
-                    + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
-                    + " which is not a java_library rule, or contains errors");
-      }
-      // In offline instrumentation mode, add the Jacoco runtime to the classpath as well (this
-      // jar is not included by the coverage runner). Note that $jacoco is provided via a
-      // filegroup because the same jar can be used for online instrumentation, by simply adding
-      // it to -javaagent and -Xbootclasspath/p (similar to the Reverifier setup). The $jacoco jar
-      // has a "Premain-Class:" entry in its manifest, which would get erased by ijar filtering,
-      // hence the filegroup.
-      TransitiveInfoCollection agentTarget =
-          helper.getRuleContext().getPrerequisite("$jacoco_runtime", Mode.TARGET);
-      NestedSet<Artifact> filesToBuild =
-          agentTarget.getProvider(FileProvider.class).getFilesToBuild();
-      for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
-        attributes.addRuntimeClassPathEntry(jar);
-      }
+            .getBinArtifact(helper.getRuleContext().getLabel().getName() + "_instrumented.jar");
+
+    // Create an instrumented Jar. This will be referenced on the runtime classpath prior
+    // to all other Jars.
+    JavaCommon.createInstrumentedJarAction(
+        helper.getRuleContext(),
+        this,
+        attributes.getInstrumentationMetadata(),
+        instrumentedJar,
+        mainClass);
+    javaArtifactsBuilder.setInstrumentedJar(instrumentedJar);
+
+    // Add the coverage runner to the list of dependencies when compiling in coverage mode.
+    TransitiveInfoCollection runnerTarget =
+        helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
+    if (runnerTarget.getProvider(JavaCompilationArgsProvider.class) != null) {
+      helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
+    } else {
+      helper
+          .getRuleContext()
+          .ruleError(
+              "this rule depends on "
+                  + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
+                  + " which is not a java_library rule, or contains errors");
+    }
+    // In offline instrumentation mode, add the Jacoco runtime to the classpath as well (this
+    // jar is not included by the coverage runner). Note that $jacoco is provided via a
+    // filegroup because the same jar can be used for online instrumentation, by simply adding
+    // it to -javaagent and -Xbootclasspath/p (similar to the Reverifier setup). The $jacoco jar
+    // has a "Premain-Class:" entry in its manifest, which would get erased by ijar filtering,
+    // hence the filegroup.
+    TransitiveInfoCollection agentTarget =
+        helper.getRuleContext().getPrerequisite("$jacoco_runtime", Mode.TARGET);
+    NestedSet<Artifact> filesToBuild =
+        agentTarget.getProvider(FileProvider.class).getFilesToBuild();
+    for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
+      attributes.addRuntimeClassPathEntry(jar);
     }
 
     // We do not add the instrumented jar to the runtime classpath, but provide it in the shell

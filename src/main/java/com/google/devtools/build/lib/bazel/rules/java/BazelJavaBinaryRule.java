@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -77,6 +78,12 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
                 return rule.get("create_executable", BOOLEAN);
               }
             }))
+        .add(
+            attr("$jacoco_runtime", LABEL)
+                .value(env.getToolsLabel("//tools/jdk:jacoco-blaze-agent")))
+        .add(
+            attr("$jacocorunner", LABEL).value(env.getToolsLabel(
+                "//tools/jdk:JacocoCoverage")))
         .build();
   }
 

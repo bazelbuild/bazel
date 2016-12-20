@@ -65,12 +65,12 @@ public final class BazelJavaTestRule implements RuleDefinition {
         // Used in the one-per-build coverage report generation action.
         .add(
             attr("$jacoco_runtime", LABEL)
-                .value(env.getLabel("@bazel_tools//third_party/java/jacoco:blaze-agent")))
+                .value(env.getLabel("@bazel_tools//tools/jdk:jacoco-blaze-agent")))
         .add(
             attr("$jacocorunner", LABEL)
                 .value(
                     env.getLabel(
-                        "@bazel_tools//src/java_tools/junitrunner/java/com/google/testing/coverage:JacocoCoverage")))
+                        "@bazel_tools//tools/jdk:JacocoCoverage")))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
         <p>
