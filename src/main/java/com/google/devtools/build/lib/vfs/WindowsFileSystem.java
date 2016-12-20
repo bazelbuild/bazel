@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -377,24 +378,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
    * <p>This method returns true for all three types as long as their target is a directory (even if
    * they are dangling), though only directory junctions and directory symlinks are useful.
    */
-  // TODO(laszlocsomor): fix https://github.com/bazelbuild/bazel/issues/1735 and use the JNI method
-  // in WindowsFileOperations.
   @VisibleForTesting
   static boolean isJunction(File file) throws IOException {
-    if (Files.exists(file.toPath(), symlinkOpts(/* followSymlinks */ false))) {
-      DosFileAttributes attributes = getAttribs(file, /* followSymlinks */ false);
-
-      if (attributes.isRegularFile()) {
-        return false;
-      }
-
-      if (attributes.isDirectory()) {
-        return attributes.isOther();
-      } else {
-        return attributes.isSymbolicLink();
-      }
-    }
-    return false;
+    return WindowsFileOperations.isJunction(file.getPath());
   }
 
   private static DosFileAttributes getAttribs(File file, boolean followSymlinks)

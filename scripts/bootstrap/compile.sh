@@ -284,6 +284,45 @@ exit $?
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 
+function build_jni() {
+  local -r output_dir=$1
+
+  case "${PLATFORM}" in
+  msys*|mingw*)
+    # We need JNI on Windows because some filesystem operations are not (and
+    # cannot be) implemented in native Java.
+    log "Building Windows JNI library..."
+
+    local -r jni_lib_name="windows_jni.dll"
+    local -r output="${output_dir}/${jni_lib_name}"
+    local -r tmp_output="${NEW_TMPDIR}/jni/${jni_lib_name}"
+    mkdir -p "$(dirname "$tmp_output")"
+    mkdir -p "$(dirname "$output")"
+
+    # Keep this `find` command in sync with the `srcs` of
+    # //src/main/native:windows_jni
+    local srcs=$(find src/main/native \
+        -name 'windows_*.cc' -o -name 'windows_*.h')
+    [ -n "$srcs" ] || fail "Could not find sources for Windows JNI library"
+
+    # do not quote $srcs because we need to expand it to multiple args
+    src/main/native/build_windows_jni.sh "$tmp_output" ${srcs}
+
+    cp "$tmp_output" "$output"
+    chmod 0555 "$output"
+
+    JNI_FLAGS="-Dio.bazel.EnableJni=1 -Djava.library.path=${output_dir}"
+    ;;
+
+  *)
+    # We don't need JNI on other platforms.
+    JNI_FLAGS="-Dio.bazel.EnableJni=0"
+    ;;
+  esac
+}
+
+build_jni "${ARCHIVE_DIR}/_embedded_binaries"
+
 cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
@@ -303,7 +342,7 @@ function run_bazel_jar() {
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
-      -Dio.bazel.EnableJni=0 \
+      ${JNI_FLAGS} \
       -jar ${ARCHIVE_DIR}/libblaze.jar \
       --batch \
       --install_base=${ARCHIVE_DIR} \
