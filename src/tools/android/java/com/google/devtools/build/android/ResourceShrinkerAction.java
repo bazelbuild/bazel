@@ -244,7 +244,7 @@ public class ResourceShrinkerAction {
           null /* packageForR */,
           new FlagAaptOptions(aaptConfigOptions),
           aaptConfigOptions.resourceConfigs,
-          ImmutableList.<String>of() /* splits */,
+          aaptConfigOptions.splits,
           new MergedAndroidData(
               shrunkResources, resourceFiles.resolve("assets"), options.primaryManifest),
           ImmutableList.<DependencyAndroidData>of() /* libraries */,
