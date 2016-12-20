@@ -278,11 +278,8 @@ bool IsRootDirectory(const string &path) {
 }
 
 bool IsAbsolute(const string &path) { return !path.empty() && path[0] == '/'; }
-#endif  // not __CYGWIN__
 
 void SyncFile(const string& path) {
-// fsync always fails on Cygwin with "Permission denied" for some reason.
-#ifndef __CYGWIN__
   const char* file_path = path.c_str();
   int fd = open(file_path, O_RDONLY);
   if (fd < 0) {
@@ -294,8 +291,8 @@ void SyncFile(const string& path) {
          file_path);
   }
   close(fd);
-#endif  // not __CYGWIN__
 }
+#endif  // not __CYGWIN__
 
 time_t GetMtimeMillisec(const string& path) {
   struct stat buf;

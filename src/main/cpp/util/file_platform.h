@@ -120,6 +120,26 @@ class DirectoryEntryConsumer {
 void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+// Converts a UTF8-encoded `path` to a widechar Windows path.
+//
+// Returns true if conversion succeeded and sets the contents of `result` to it.
+//
+// The `path` may be absolute or relative, and may be a Windows or MSYS path.
+// In every case, this method replaces forward slashes with backslashes if
+// necessary.
+//
+// Recognizes the drive letter in MSYS paths, so e.g. "/c/windows" becomes
+// "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH envvar) to
+// absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
+//
+// The result may be longer than MAX_PATH. It's the caller's responsibility to
+// prepend the long path prefix ("\\?\") in case they need to pass it to a
+// Windows API function (some require the prefix, some don't), or to quote the
+// path if necessary.
+bool AsWindowsPath(const std::string &path, std::wstring *result);
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
 }  // namespace blaze_util
 
 #endif  // BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_

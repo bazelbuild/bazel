@@ -28,6 +28,7 @@ void die(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
 // Prints "Error: <formatted-message>: <strerror(errno)>\n",  and exits nonzero.
 void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
     PRINTF_ATTRIBUTE(2, 3);
+void PrintError(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
 }  // namespace blaze_util
 

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <string.h>
+#include <windows.h>  // SetEnvironmentVariableA
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -91,6 +92,46 @@ TEST(FileTest, IsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory("c:\\foo"));
   ASSERT_TRUE(IsRootDirectory("\\\\?\\c:\\"));
   ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\foo"));
+}
+
+TEST(FileTest, TestAsWindowsPath) {
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\dummy\\msys\\bin\\bash.exe");
+  std::wstring actual;
+
+  ASSERT_TRUE(AsWindowsPath("", &actual));
+  ASSERT_EQ(std::wstring(L""), actual);
+
+  ASSERT_TRUE(AsWindowsPath("", &actual));
+  ASSERT_EQ(std::wstring(L""), actual);
+
+  ASSERT_TRUE(AsWindowsPath("foo/bar", &actual));
+  ASSERT_EQ(std::wstring(L"foo\\bar"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("/c", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("/c/", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("/c/blah", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\blah"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("/d/progra~1/micros~1", &actual));
+  ASSERT_EQ(std::wstring(L"d:\\progra~1\\micros~1"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("/foo", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\dummy\\msys\\foo"), actual);
+
+  std::wstring wlongpath(L"dummy_long_path\\");
+  std::string longpath("dummy_long_path/");
+  while (longpath.size() <= MAX_PATH) {
+    wlongpath += wlongpath;
+    longpath += longpath;
+  }
+  wlongpath = std::wstring(L"c:\\") + wlongpath;
+  longpath = std::string("/c/") + longpath;
+  ASSERT_TRUE(AsWindowsPath(longpath, &actual));
+  ASSERT_EQ(wlongpath, actual);
 }
 
 }  // namespace blaze_util

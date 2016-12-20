@@ -62,7 +62,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           //
           // This heuristic ignores other mount points as well as procfs.
 
-          // TODO(bazel-team): get rid of this heuristic and translate paths using /etc/mtab.
+          // TODO(laszlocsomor): use GetLogicalDrives to retrieve the list of drives and only apply
+          // this heuristic for the valid drives. It's possible that the user has a directory "/a"
+          // but no "A:\" drive, so in that case we should prepend the MSYS root.
+
+          // TODO(laszlocsomor): get rid of this heuristic and translate paths using /etc/mtab.
           // Figure out how to handle non-top-level mount points (e.g. "/usr/bin" is mounted to
           // "/bin"), which is problematic because Paths are created segment by segment, so
           // individual Path objects don't know they are parts of a mount point path.

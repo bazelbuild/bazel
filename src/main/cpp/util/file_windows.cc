@@ -16,14 +16,19 @@
 #include <ctype.h>  // isalpha
 #include <windows.h>
 
+#include <memory>  // unique_ptr
+
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
 
 using std::pair;
 using std::string;
+using std::unique_ptr;
+using std::wstring;
 
 class WindowsPipe : public IPipe {
  public:
@@ -132,6 +137,86 @@ pair<string, string> SplitPath(const string& path) {
   return std::make_pair("", path);
 }
 
+class MsysRoot {
+ public:
+  MsysRoot() : data_(Get()) {}
+  bool IsValid() const { return data_.first; }
+  const string& GetPath() const { return data_.second; }
+
+ private:
+  const std::pair<bool, string> data_;
+  static std::pair<bool, string> Get();
+};
+
+std::pair<bool, string> MsysRoot::Get() {
+  string result;
+  char value[MAX_PATH];
+  DWORD len = GetEnvironmentVariableA("BAZEL_SH", value, MAX_PATH);
+  if (len > 0) {
+    result = value;
+  } else {
+    const char* value2 = getenv("BAZEL_SH");
+    if (value2 == nullptr || value2[0] == '\0') {
+      PrintError(
+          "BAZEL_SH environment variable is not defined, cannot convert MSYS "
+          "paths to Windows paths");
+      return std::make_pair(false, "");
+    }
+    result = value2;
+  }
+  // BAZEL_SH is usually "c:\tools\msys64\bin\bash.exe", we need to return
+  // "c:\tools\msys64".
+  return std::make_pair(true, std::move(Dirname(Dirname(result))));
+}
+
+bool AsWindowsPath(const string& path, wstring* result) {
+  if (path.empty()) {
+    result->clear();
+    return true;
+  }
+
+  string mutable_path = path;
+  if (path[0] == '/') {
+    // This is an absolute MSYS path.
+    if (path.size() == 2 || (path.size() > 2 && path[2] == '/')) {
+      // The path is either "/x" or "/x/" or "/x/something". In all three cases
+      // "x" is the drive letter.
+      // TODO(laszlocsomor): use GetLogicalDrives to retrieve the list of drives
+      // and only apply this heuristic for the valid drives. It's possible that
+      // the user has a directory "/a" but no "A:\" drive, so in that case we
+      // should prepend the MSYS root.
+      mutable_path = path.substr(1, 1) + ":\\";
+      if (path.size() > 2) {
+        mutable_path += path.substr(3);
+      }
+    } else {
+      // The path is a normal MSYS path e.g. "/usr". Prefix it with the MSYS
+      // root.
+      // Define kMsysRoot only in this scope. This way we only initialize it
+      // and thus check for BAZEL_SH if we really need to, i.e. the caller
+      // passed an MSYS path and we have to convert it. If all paths ever passed
+      // are Windows paths, we don't need to check whether BAZEL_SH is defined.
+      static const MsysRoot kMsysRoot;
+      if (!kMsysRoot.IsValid()) {
+        return false;
+      }
+      mutable_path = JoinPath(kMsysRoot.GetPath(), path);
+    }
+  }  // otherwise this is a relative path, or absolute Windows path.
+
+  unique_ptr<WCHAR[]> mutable_wpath(CstringToWstring(mutable_path.c_str()));
+  WCHAR* p = mutable_wpath.get();
+  // Replace forward slashes with backslashes.
+  while (*p != L'\0') {
+    if (*p == L'/') {
+      *p = L'\\';
+    }
+    ++p;
+  }
+  result->assign(mutable_wpath.get());
+  return true;
+}
+
 #ifdef COMPILER_MSVC
 bool ReadFile(const string& filename, string* content, int max_size) {
   // TODO(bazel-team): implement this.
@@ -209,12 +294,10 @@ bool IsRootDirectory(const string& path) {
 
 bool IsAbsolute(const string& path) { return IsRootOrAbsolute(path, false); }
 
-#ifdef COMPILER_MSVC
 void SyncFile(const string& path) {
   // No-op on Windows native; unsupported by Cygwin.
+  // fsync always fails on Cygwin with "Permission denied" for some reason.
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 #ifdef COMPILER_MSVC
 time_t GetMtimeMillisec(const string& path) {

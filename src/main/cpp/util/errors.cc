@@ -41,4 +41,13 @@ void pdie(const int exit_status, const char *format, ...) {
   exit(exit_status);
 }
 
+void PrintError(const char *format, ...) {
+  fprintf(stderr, "Error: ");
+  va_list ap;
+  va_start(ap, format);
+  vfprintf(stderr, format, ap);
+  va_end(ap);
+  fprintf(stderr, ": %s\n", strerror(errno));
+}
+
 }  // namespace blaze_util
