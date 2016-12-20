@@ -351,21 +351,24 @@ def _swift_library_impl(ctx):
   # This is highly experimental and tracked in b/29465250
   has_wmo = ("-wmo" in ctx.attr.copts) or ("-whole-module-optimization" in ctx.attr.copts)
 
-  if not has_wmo:
-    for source in ctx.files.srcs:
-      basename = source.basename
-      obj = ctx.new_file(objs_outputs_path + basename + ".o")
+  for source in ctx.files.srcs:
+    basename = source.basename
+    output_map_entry = {}
+
+    # Output an object file
+    obj = ctx.new_file(objs_outputs_path + basename + ".o")
+    output_objs.append(obj)
+    output_map_entry["object"] = obj.path
+
+    # Output a partial module file, unless WMO is enabled in which case only
+    # the final, complete module will be generated.
+    if not has_wmo:
       partial_module = ctx.new_file(objs_outputs_path + basename +
                                     ".partial_swiftmodule")
-      output_objs.append(obj)
       swiftc_outputs.append(partial_module)
+      output_map_entry["swiftmodule"] = partial_module.path
 
-      swiftc_output_map += struct(**{
-          source.path: struct(object=obj.path, swiftmodule=partial_module.path)})
-  else:
-    # When WMO is enabled, there is only one output - the module object file,
-    # no need to deal with an output map
-    output_objs.append(ctx.new_file(objs_outputs_path + module_name + ".o"))
+    swiftc_output_map += struct(**{source.path: struct(**output_map_entry)})
 
   # Write down the intermediate outputs map for this compilation, to be used
   # with -output-file-map flag.
@@ -389,10 +392,13 @@ def _swift_library_impl(ctx):
       swiftc_output_map_file.path,
   ]
 
-  # When WMO is enabled, there's only one output, the module object file, which
-  # location should be explicitly given to the driver.
   if has_wmo:
-    args.extend(["-o", output_objs[0].path])
+    # WMO has two modes: threaded and not. We want the threaded mode because it
+    # will use the output map we generate. This leads to a better debug
+    # experience in lldb and Xcode.
+    # TODO(b/32571265): 12 has been chosen as the best option for a Mac Pro,
+    # we should get an interface in Bazel to get core count.
+    args.extend(["-num-threads", "12"])
 
   xcrun_action(
       ctx,
