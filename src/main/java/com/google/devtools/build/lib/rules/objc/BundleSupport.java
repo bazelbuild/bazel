@@ -341,6 +341,8 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
+              // Disable sandboxing due to Bazel issue #2189.
+              .disableSandboxing()
               .build(ruleContext));
     }
   }
