@@ -249,17 +249,20 @@ static void MountFilesystems() {
   // Make sure that our working directory is a mount point. The easiest way to
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir);
+  PRINT_DEBUG("sandbox root: %s", opt.sandbox_root_dir);
+
   CreateTarget(opt.working_dir + 1, true);
   if (mount(opt.working_dir, opt.working_dir + 1, NULL, MS_BIND, NULL) < 0) {
     DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir,
         opt.working_dir + 1);
   }
 
-  for (const char *bind_mount : opt.bind_mounts) {
-    PRINT_DEBUG("bind mount: %s", bind_mount);
-    CreateTarget(bind_mount + 1, IsDirectory(bind_mount));
-    if (mount(bind_mount, bind_mount + 1, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", bind_mount, bind_mount + 1);
+  for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
+    const char *source = opt.bind_mount_sources.at(i);
+    const char *target = opt.bind_mount_targets.at(i);
+    PRINT_DEBUG("bind mount: %s -> %s", source, target);
+    if (mount(source, target + 1, NULL, MS_BIND, NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source, target + 1);
     }
   }
 

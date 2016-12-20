@@ -40,8 +40,10 @@ struct Options {
   std::vector<const char *> inaccessible_files;
   // Directories where to mount an empty tmpfs (-e)
   std::vector<const char *> tmpfs_dirs;
-  // Files or directories to explicitly bind mount into the sandbox (-b)
-  std::vector<const char *> bind_mounts;
+  // Source of files or directories to explicitly bind mount in the sandbox (-M)
+  std::vector<const char *> bind_mount_sources;
+  // Target of files or directories to explicitly bind mount in the sandbox (-m)
+  std::vector<const char *> bind_mount_targets;
   // Create a new network namespace (-N)
   bool create_netns;
   // Pretend to be root inside the namespace (-R)

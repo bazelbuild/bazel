@@ -69,7 +69,11 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -i <file>  make a file or directory inaccessible for the "
           "sandboxed process\n"
           "  -e <dir>  mount an empty tmpfs on a directory\n"
-          "  -b <dir>  bind mount a file or directory inside the sandbox\n"
+          "  -M/-m <source/target>  directory to mount inside the sandbox\n"
+          "    Multiple directories can be specified and each of them will be "
+          "mounted readonly.\n"
+          "    The -M option specifies which directory to mount, the -m option "
+          "specifies where to\n"
           "  -N  if set, a new network namespace will be created\n"
           "  -R  if set, make the uid/gid be root, otherwise use nobody\n"
           "  -D  if set, debug info will be printed\n"
@@ -106,15 +110,24 @@ static int CheckNamespacesSupported() {
   return EXIT_SUCCESS;
 }
 
+static void ValidateIsAbsolutePath(char *path, char *program_name, char flag) {
+  if (path[0] != '/') {
+    Usage(program_name, "The -%c option must be used with absolute paths only.",
+          flag);
+  }
+}
+
 // Parses command line flags from an argv array and puts the results into an
 // Options structure passed in as an argument.
 static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   extern char *optarg;
   extern int optind, optopt;
   int c;
+  bool source_specified;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":CS:W:T:t:l:L:w:i:e:b:NRD")) != -1) {
+                     ":CS:W:T:t:l:L:w:i:e:M:m:NRD")) != -1) {
+    if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
@@ -122,22 +135,16 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         break;
       case 'S':
         if (opt.sandbox_root_dir == NULL) {
-          if (optarg[0] != '/') {
-            Usage(args->front(),
-                  "The -r option must be used with absolute paths only.");
-          }
+          ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
           opt.sandbox_root_dir = strdup(optarg);
         } else {
           Usage(args->front(),
-                "Multiple root directories (-r) specified, expected one.");
+                "Multiple root directories (-S) specified, expected one.");
         }
         break;
       case 'W':
         if (opt.working_dir == NULL) {
-          if (optarg[0] != '/') {
-            Usage(args->front(),
-                  "The -W option must be used with absolute paths only.");
-          }
+          ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
           opt.working_dir = strdup(optarg);
         } else {
           Usage(args->front(),
@@ -173,32 +180,33 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         }
         break;
       case 'w':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -w option must be used with absolute paths only.");
-        }
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
         opt.writable_files.push_back(strdup(optarg));
         break;
       case 'i':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -i option must be used with absolute paths only.");
-        }
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
         opt.inaccessible_files.push_back(strdup(optarg));
         break;
       case 'e':
-        if (optarg[0] != '/') {
-          Usage(args->front(),
-                "The -e option must be used with absolute paths only.");
-        }
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
         opt.tmpfs_dirs.push_back(strdup(optarg));
         break;
-      case 'b':
-        if (optarg[0] != '/') {
+      case 'M':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        // Add the current source path to both source and target lists
+        opt.bind_mount_sources.push_back(strdup(optarg));
+        opt.bind_mount_targets.push_back(strdup(optarg));
+        source_specified = true;
+        break;
+      case 'm':
+        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
+        if (!source_specified) {
           Usage(args->front(),
-                "The -b option must be used with absolute paths only.");
+                "The -m option must be strictly preceded by an -M option.");
         }
-        opt.bind_mounts.push_back(strdup(optarg));
+        opt.bind_mount_targets.pop_back();
+        opt.bind_mount_targets.push_back(strdup(optarg));
+        source_specified = false;
         break;
       case 'N':
         opt.create_netns = true;

@@ -445,6 +445,97 @@ EOF
   expect_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 }
 
+function test_sandbox_mount_customized_path () {
+  # Create BUILD file
+  cat > BUILD <<'EOF'
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "hello-world",
+    srcs = ["hello-world.cc"],
+)
+EOF
+
+  # Create cc file
+  cat > hello-world.cc << 'EOF'
+#include <iostream>
+int main(int argc, char** argv) {
+  std::cout << "Hello, world!" << std::endl;
+  return 0;
+}
+EOF
+
+  # Create WORKSPACE file
+  cat > WORKSPACE <<'EOF'
+local_repository(
+  name = 'x86_64_unknown_linux_gnu',
+  path = './downloaded_toolchain',
+)
+EOF
+
+  # Prepare the sandbox root
+  SANDBOX_ROOT="${TEST_TMPDIR}/sandbox.root"
+  mkdir -p ${SANDBOX_ROOT}
+
+  # Define the mount source and target.
+  source="${TEST_TMPDIR}/workspace/downloaded_toolchain/x86_64-unknown-linux-gnu/sysroot/lib64/ld-2.19.so"
+  target_root="${TEST_SRCDIR}/mount_targets"
+  target_folder="${target_root}/x86_64-unknown-linux-gnu/sysroot/lib64"
+  target="${target_folder}/ld-2.19.so"
+
+  # Download the toolchain package and unpack it.
+  wget -q https://asci-toolchain.appspot.com.storage.googleapis.com/toolchain-testing/mount_path_toolchain.tar.gz
+  mkdir downloaded_toolchain
+  tar -xf mount_path_toolchain.tar.gz -C ./downloaded_toolchain
+  chmod -R 0755 downloaded_toolchain
+
+  # Replace the target_root_placeholder with the actual target_root
+  sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL
+
+  # Prepare the bazel command flags
+  flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --verbose_failures --spawn_strategy=sandboxed"
+  flags="${flags} --sandbox_add_mount_pair=${source}:${target}"
+
+  # Execute the bazel build command without creating the target. Should fail.
+  bazel clean --expunge &> $TEST_log
+  bazel build $flags //:hello-world &> $TEST_log && fail "Should fail"
+  expect_log "Bazel only supports bind mounting on top of existing files/directories."
+
+  # Create the mount target manually as Bazel does not create target paths
+  mkdir -p ${target_folder}
+  touch ${target}
+
+  # Execute bazel build command again. Should build.
+  bazel clean --expunge &> $TEST_log
+  bazel build $flags //:hello-world &> $TEST_log || fail "Should build"
+
+  # Remove the mount target folder as Bazel does not do the cleanup
+  rm -rf ${target_root}/x86_64-unknown-linux-gnu
+
+  # Assert that output binary exists
+  test -f bazel-bin/hello-world || fail "output not found"
+
+  # Use linux_sandbox binary to run bazel-bin/hello-world binary in the sandbox environment
+  # First, no path mounting. The execution should fail.
+  echo "Run the binary bazel-bin/hello-world without mounting the path"
+  $linux_sandbox -D -S ${SANDBOX_ROOT} -- bazel-bin/hello-world &> $TEST_log || code=$?
+  expect_log "child exited normally with exitcode 1"
+
+  # Second, with path mounting. The execution should succeed.
+  echo "Run the binary bazel-bin/hello-world with mounting the path"
+  # Create the mount target manually as sandbox binary does not create target paths
+  mkdir -p ${target_folder}
+  touch ${target}
+  $linux_sandbox -D -S ${SANDBOX_ROOT} \
+  -M ${source} \
+  -m ${target} \
+  -- bazel-bin/hello-world &> $TEST_log || code=$?
+  expect_log "Hello, world!"
+  expect_log "child exited normally with exitcode 0"
+  # Remove the mount target folder as sandbox binary does not do the cleanup
+  rm -rf ${target_root}/x86_64-unknown-linux-gnu
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0
