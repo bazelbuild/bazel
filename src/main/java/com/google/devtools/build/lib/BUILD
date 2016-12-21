@@ -203,6 +203,7 @@ java_library(
         "util/VarInt.java",
     ],
     deps = [
+        ":concurrent",
         ":preconditions",
         "//third_party:guava",
     ],
