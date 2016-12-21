@@ -18,6 +18,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/apple",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:apache_velocity",
         "//third_party:guava",

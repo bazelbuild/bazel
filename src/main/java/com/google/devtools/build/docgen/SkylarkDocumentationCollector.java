@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -195,6 +196,7 @@ final class SkylarkDocumentationCollector {
     collectBuiltinModule(modules, AbstractAction.class);
 
     collectBuiltinModule(modules, AppleConfiguration.class);
+    collectBuiltinModule(modules, ObjcConfiguration.class);
     collectBuiltinModule(modules, CppConfiguration.class);
     collectBuiltinModule(modules, JavaConfiguration.class);
     collectBuiltinModule(modules, Jvm.class);
