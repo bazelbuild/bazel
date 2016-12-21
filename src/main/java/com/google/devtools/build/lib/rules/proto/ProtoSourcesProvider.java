@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import javax.annotation.Nullable;
 
+// TODO(carmi): Rename the class to ProtoInfoProvider.
 /**
  * Configured target classes that implement this class can contribute .proto files to the
  * compilation of proto_library rules.
@@ -38,9 +40,14 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> transitiveImports,
       NestedSet<Artifact> transitiveProtoSources,
       ImmutableList<Artifact> protoSources,
-      ImmutableList<Artifact> checkDepsProtoSources) {
+      ImmutableList<Artifact> checkDepsProtoSources,
+      @Nullable Artifact descriptorSet) {
     return new AutoValue_ProtoSourcesProvider(
-        transitiveImports, transitiveProtoSources, protoSources, checkDepsProtoSources);
+        transitiveImports,
+        transitiveProtoSources,
+        protoSources,
+        checkDepsProtoSources,
+        descriptorSet);
   }
 
   /**
@@ -94,6 +101,21 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
     structField = true
   )
   public abstract ImmutableList<Artifact> getCheckDepsProtoSources();
+
+  /**
+   * Be careful while using this artifact - it is the parsing of the transitive set of .proto files.
+   * It's possible to cause a O(n^2) behavior, where n is the length of a proto chain-graph.
+   */
+  @SkylarkCallable(
+    name = "descriptor_set",
+    doc =
+        "The FileDescriptorSet of all transitive sources. Returns None if "
+            + "--output_descriptor_set isn't enabled or if there are no sources",
+    structField = true,
+    allowReturnNones = true
+  )
+  @Nullable
+  public abstract Artifact descriptorSet();
 
   ProtoSourcesProvider() {}
 }

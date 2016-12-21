@@ -46,11 +46,6 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> transitiveImports =
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
 
-    // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
-    ProtoSourcesProvider sourcesProvider =
-        ProtoSourcesProvider.create(
-            transitiveImports, transitiveImports, protoSources, checkDepsProtoSources);
-
     NestedSet<Artifact> protosInDirectDeps =
         areDepsStrict(ruleContext) ? ProtoCommon.computeProtosInDirectDeps(ruleContext) : null;
 
@@ -67,10 +62,11 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder result = new RuleConfiguredTargetBuilder(ruleContext);
 
+    Artifact descriptorSetOutput = null;
     if (checkDepsProtoSources.isEmpty() || !outputDescriptorSetFlagEnabled(ruleContext)) {
       result.setFilesToBuild(NestedSetBuilder.<Artifact>create(STABLE_ORDER));
     } else {
-      Artifact descriptorSetOutput =
+      descriptorSetOutput =
           ruleContext.getGenfilesArtifact(
               ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
       ProtoCompileActionBuilder.writeDescriptorSet(
@@ -85,8 +81,16 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
       dataRunfiles.addArtifact(descriptorSetOutput);
 
       result.setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput));
-      result.addProvider(DescriptorSetProvider.create(descriptorSetOutput));
     }
+
+    // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
+    ProtoSourcesProvider sourcesProvider =
+        ProtoSourcesProvider.create(
+            transitiveImports,
+            transitiveImports,
+            protoSources,
+            checkDepsProtoSources,
+            descriptorSetOutput);
 
     return result
         .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles.build()))

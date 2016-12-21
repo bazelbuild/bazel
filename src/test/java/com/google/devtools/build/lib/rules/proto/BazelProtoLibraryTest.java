@@ -40,6 +40,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     Artifact file =
         ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
     assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
+    assertThat(target.getProvider(ProtoSourcesProvider.class).descriptorSet()).isEqualTo(file);
 
     assertThat(getGeneratingSpawnAction(file).getRemainingArguments())
         .containsAllOf(
@@ -73,6 +74,38 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     ConfiguredTarget target = scratchConfiguredTarget("x", "foo", "proto_library(name='foo')");
     assertThat(ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin"))
         .isNull();
+
+    assertThat(target.getProvider(ProtoSourcesProvider.class).descriptorSet()).isNull();
+  }
+
+  @Test
+  public void testDescriptorSetOutput_noSrcs_transitive() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "x",
+            "foo",
+            "proto_library(name='foo', deps = [':dep1'])",
+            "proto_library(name='dep1', deps = [':dep2'])",
+            "proto_library(name='dep2')");
+    assertThat(ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin"))
+        .isNull();
+
+    assertThat(target.getProvider(ProtoSourcesProvider.class).descriptorSet()).isNull();
+  }
+
+  @Test
+  public void testDescriptorSetOutput_srcs_transitive() throws Exception {
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "x",
+            "foo",
+            "proto_library(name='foo', deps = [':dep1'])",
+            "proto_library(name='dep1', deps = [':dep2'])",
+            "proto_library(name='dep2', srcs=['foo.proto'])");
+    Artifact file =
+        ActionsTestUtil.getFirstArtifactEndingWith(getFilesToBuild(target), ".proto.bin");
+    assertThat(file.getRootRelativePathString()).isEqualTo("x/foo-descriptor-set.proto.bin");
+    assertThat(target.getProvider(ProtoSourcesProvider.class).descriptorSet()).isEqualTo(file);
   }
 
   @Test
