@@ -402,7 +402,7 @@ def main():
       help='The path to the Java executable.')
   parser.add_argument(
       '--jvm_flags',
-      default='',
+      default='-Xss4m',
       help='A comma-separated list of flags to pass to the JVM.')
   parser.add_argument(
       '--j2objc',
