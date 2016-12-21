@@ -551,6 +551,11 @@ def _impl(repository_ctx):
     "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "some/path")
   repository_ctx.download_and_extract(
     "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file_sha256}", "", "")
+  repository_ctx.download_and_extract(
+    url = ["http://localhost:${fileserver_port}/download_and_extract3.zip"],
+    output = "other/path",
+    sha256 = "${file_sha256}"
+  )
 repo = repository_rule(implementation=_impl, local=False)
 EOF
 
@@ -579,6 +584,9 @@ EOF
   diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
     "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip was not extracted successfully"
+  diff "${output_base}/external/foo/other/path/server_dir/download_and_extract3.txt" \
+    "${file_prefix}3.txt" >/dev/null \
+    || fail "download_and_extract3.tar.gz was not extracted successfully"
 }
 
 # Test native.bazel_version
