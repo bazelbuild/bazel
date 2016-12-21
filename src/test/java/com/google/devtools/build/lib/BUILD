@@ -25,6 +25,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/test/java/com/google/devtools/build/lib/skylark:srcs",
         "//src/test/java/com/google/devtools/build/lib/skyframe:srcs",
+        "//src/test/java/com/google/devtools/build/lib/rules/android:srcs",
         "//src/test/java/com/google/devtools/build/lib/rules/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:srcs",
         "//src/test/java/com/google/devtools/build/lib/buildeventstream/transports:srcs",
@@ -555,6 +556,7 @@ java_library(
     srcs = glob([
         "packages/util/*.java",
     ]),
+    resources = ["packages/util/MOCK_ANDROID_CROSSTOOL"],
     deps = [
         ":foundations_testutil",
         ":testutil",

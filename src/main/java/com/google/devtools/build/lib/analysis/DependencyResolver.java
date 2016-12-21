@@ -375,7 +375,9 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Returns true if the rule's attribute triggers a split in this configuration.
+   * Returns the BuildOptions if the rule's attribute triggers a split in this configuration, or
+   * the empty collection if the attribute does not trigger a split transition or if the split
+   * transition does not apply.
    *
    * <p>Even though the attribute may have a split, splits don't have to apply in every
    * configuration (see {@link Attribute.SplitTransition#split}).

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
@@ -69,9 +70,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -119,6 +122,14 @@ public final class SkylarkRuleContext {
   public static final String ATTR_DOC =
       "A struct to access the values of the attributes. The values are provided by "
           + "the user (if not, a default value is used).";
+  public static final String SPLIT_ATTR_DOC =
+      "A struct to access the values of attributes with split configurations. If the attribute is "
+          + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "
+          + "to lists of the ConfiguredTargets in that branch of the splitt. If the attribute is a "
+          + "label, then the value of split_attr is a dict of the keys of the split (as strings) "
+          + "to single ConfiguredTargets. Attributes with split configurations still appear in the "
+          + "attr struct, but their values will be single lists with all the branches of the split "
+          + "merged together.";
   public static final String OUTPUTS_DOC =
       "A <code>struct</code> containing all the output files."
           + " The struct is generated the following way:<br>"
@@ -151,6 +162,7 @@ public final class SkylarkRuleContext {
   private final SkylarkDict<String, String> makeVariables;
   private final SkylarkRuleAttributesCollection attributesCollection;
   private final SkylarkRuleAttributesCollection ruleAttributesCollection;
+  private final SkylarkClassObject splitAttributes;
 
   // TODO(bazel-team): we only need this because of the css_binary rule.
   private final ImmutableMap<Artifact, Label> artifactsLabelMap;
@@ -228,6 +240,7 @@ public final class SkylarkRuleContext {
       this.attributesCollection =
           buildAttributesCollection(
               attributes, ruleContext, attributeValueExtractorForRule(ruleContext));
+      this.splitAttributes = buildSplitAttributeInfo(attributes, ruleContext);
       this.ruleAttributesCollection = null;
     } else { // ASPECT
       this.artifactsLabelMap = ImmutableMap.of();
@@ -237,6 +250,7 @@ public final class SkylarkRuleContext {
               ruleContext.getAspectAttributes().values(),
               ruleContext,
               ATTRIBUTE_VALUE_EXTRACTOR_FOR_ASPECT);
+      this.splitAttributes = null;
       this.ruleAttributesCollection =
           buildAttributesCollection(
               ruleContext.getRule().getAttributes(),
@@ -336,6 +350,52 @@ public final class SkylarkRuleContext {
         fileBuilder.build(),
         filesBuilder.build(),
         executableRunfilesbuilder.build());
+  }
+
+  private static SkylarkClassObject buildSplitAttributeInfo(
+      Collection<Attribute> attributes, RuleContext ruleContext) {
+
+    ImmutableMap.Builder<String, Object> splitAttrInfos = ImmutableMap.builder();
+    for (Attribute attr : attributes) {
+
+      if (attr.hasSplitConfigurationTransition()) {
+
+        Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereqs =
+            ruleContext.getSplitPrerequisites(attr.getName());
+
+        Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
+        for (Entry<Optional<String>, ? extends List<? extends TransitiveInfoCollection>> splitPrereq
+            : splitPrereqs.entrySet()) {
+
+          Object value;
+          if (attr.getType() == BuildType.LABEL) {
+            Preconditions.checkState(splitPrereq.getValue().size() == 1);
+            value = splitPrereq.getValue().get(0);
+          } else {
+            // BuildType.LABEL_LIST
+            value = SkylarkList.createImmutable(splitPrereq.getValue());
+          }
+
+          if (splitPrereq.getKey().isPresent()) {
+            splitPrereqsMap.put(splitPrereq.getKey().get(), value);
+          } else {
+            // If the split transition is not in effect, then the key will be missing since there's
+            // nothing to key on because the dependencies aren't split and getSplitPrerequisites()
+            // behaves like getPrerequisites(). This also means there should be only one entry in
+            // the map. Use None in Skylark to represent this.
+            Preconditions.checkState(splitPrereqs.size() == 1);
+            splitPrereqsMap.put(Runtime.NONE, value);
+          }
+        }
+
+        splitAttrInfos.put(attr.getPublicName(), SkylarkDict.copyOf(null, splitPrereqsMap));
+      }
+    }
+
+    return SkylarkClassObjectConstructor.STRUCT.create(
+        splitAttrInfos.build(),
+        "No attribute '%s' in split_attr. Make sure that this attribute is defined with a "
+          + "split configuration.");
   }
 
   @SkylarkModule(
@@ -456,6 +516,15 @@ public final class SkylarkRuleContext {
   @SkylarkCallable(name = "attr", structField = true, doc = ATTR_DOC)
   public SkylarkClassObject getAttr() {
     return attributesCollection.getAttr();
+  }
+
+  @SkylarkCallable(name = "split_attr", structField = true, doc = SPLIT_ATTR_DOC)
+  public SkylarkClassObject getSplitAttr() throws EvalException {
+    if (splitAttributes == null) {
+      throw new EvalException(
+          Location.BUILTIN, "'split_attr' is available only in rule implementations");
+    }
+    return splitAttributes;
   }
 
   /**

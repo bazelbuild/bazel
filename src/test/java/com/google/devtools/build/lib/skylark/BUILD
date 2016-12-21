@@ -59,6 +59,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:actions_testutil",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:foundations_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
         "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",

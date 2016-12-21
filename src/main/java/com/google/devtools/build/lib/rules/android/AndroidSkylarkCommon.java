@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
   doc = "Common utilities and fucntionality related to Android rules."
 )
 public class AndroidSkylarkCommon {
+
   @SkylarkCallable(
     name = "resource_source_directory",
     allowReturnNones = true,
@@ -37,5 +40,15 @@ public class AndroidSkylarkCommon {
   )
   public PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
     return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
+  }
+
+  @SkylarkCallable(
+      name = "multi_cpu_configuration",
+      doc = "A configuration for rule attributes that compiles native code according to "
+          + "the --fat_apk_cpu and --android_crosstool_top flags.",
+      structField = true
+  )
+  public SplitTransition<BuildOptions> getAndroidSplitTransition() {
+    return AndroidRuleClasses.ANDROID_SPLIT_TRANSITION;
   }
 }

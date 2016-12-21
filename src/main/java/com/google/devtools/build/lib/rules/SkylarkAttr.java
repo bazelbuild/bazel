@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
@@ -282,6 +283,8 @@ public final class SkylarkAttr {
         builder.cfg(ConfigurationTransition.DATA);
       } else if (trans.equals("host")) {
         builder.cfg(ConfigurationTransition.HOST);
+      } else if (trans instanceof SplitTransition<?>) {
+        builder.cfg((SplitTransition<?>) trans);
       } else if (!trans.equals("target")) {
         throw new EvalException(ast.getLocation(),
             "cfg must be either 'data', 'host', or 'target'.");

@@ -51,8 +51,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
-import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -188,72 +189,90 @@ public final class AndroidRuleClasses {
   }
 
   public static final SplitTransition<BuildOptions> ANDROID_SPLIT_TRANSITION =
-      new SplitTransition<BuildOptions>() {
-        @Override
-        public boolean defaultsToSelf() {
-          return true;
+      new AndroidSplitTransition();
+      
+  private static final class AndroidSplitTransition implements
+      SplitTransition<BuildOptions>, SkylarkValue {
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+
+    private static void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
+      AndroidConfiguration.Options inputAndroidOptions =
+          input.get(AndroidConfiguration.Options.class);
+      AndroidConfiguration.Options outputAndroidOptions =
+          output.get(AndroidConfiguration.Options.class);
+
+      CppOptions cppOptions = output.get(CppOptions.class);
+      if (inputAndroidOptions.androidCrosstoolTop != null
+          && !cppOptions.crosstoolTop.equals(inputAndroidOptions.androidCrosstoolTop)) {
+        if (cppOptions.hostCrosstoolTop == null) {
+          cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
+        }
+        cppOptions.crosstoolTop = inputAndroidOptions.androidCrosstoolTop;
+      }
+
+      outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
+    }
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+
+      AndroidConfiguration.Options androidOptions =
+          buildOptions.get(AndroidConfiguration.Options.class);
+      CppOptions cppOptions = buildOptions.get(CppOptions.class);
+      Label androidCrosstoolTop = androidOptions.androidCrosstoolTop;
+
+      if (androidOptions.fatApkCpus.isEmpty()) {
+
+        if (androidOptions.cpu.isEmpty()
+            || androidCrosstoolTop == null
+            || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
+          return ImmutableList.of();
+
+        } else {
+
+          BuildOptions splitOptions = buildOptions.clone();
+          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
+          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
+          setCrosstoolToAndroid(splitOptions, buildOptions);
+          return ImmutableList.of(splitOptions);
         }
 
-        private void setCrosstoolToAndroid(BuildOptions output, BuildOptions input) {
-          AndroidConfiguration.Options inputAndroidOptions =
-              input.get(AndroidConfiguration.Options.class);
-          AndroidConfiguration.Options outputAndroidOptions =
-              output.get(AndroidConfiguration.Options.class);
+      } else {
 
-          CppOptions cppOptions = output.get(CppOptions.class);
-          if (inputAndroidOptions.androidCrosstoolTop != null
-              && !cppOptions.crosstoolTop.equals(inputAndroidOptions.androidCrosstoolTop)) {
-            if (cppOptions.hostCrosstoolTop == null) {
-              cppOptions.hostCrosstoolTop = cppOptions.crosstoolTop;
-            }
-            cppOptions.crosstoolTop = inputAndroidOptions.androidCrosstoolTop;
-          }
+        ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
+        for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
+          BuildOptions splitOptions = buildOptions.clone();
+          // Disable fat APKs for the child configurations.
+          splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
 
-          outputAndroidOptions.configurationDistinguisher = ConfigurationDistinguisher.ANDROID;
+          // Set the cpu & android_cpu.
+          // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
+          splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
+          splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
+          splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
+          splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
+          setCrosstoolToAndroid(splitOptions, buildOptions);
+          result.add(splitOptions);
         }
+        return result.build();
+      }
+    }
 
-        @Override
-        public List<BuildOptions> split(BuildOptions buildOptions) {
-          AndroidConfiguration.Options androidOptions =
-              buildOptions.get(AndroidConfiguration.Options.class);
-          CppOptions cppOptions = buildOptions.get(CppOptions.class);
-          Label androidCrosstoolTop = androidOptions.androidCrosstoolTop;
-          if (androidOptions.fatApkCpus.isEmpty()
-              && (androidCrosstoolTop == null
-                  || androidCrosstoolTop.equals(cppOptions.crosstoolTop)
-                  || androidOptions.cpu.isEmpty())) {
-            return ImmutableList.of();
-          }
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
 
-          if (androidOptions.fatApkCpus.isEmpty()) {
-            BuildOptions splitOptions = buildOptions.clone();
-            splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-            // getSplitPrerequisites() will complain if cpu is null after this transition,
-            // so default to android_cpu.
-            splitOptions.get(BuildConfiguration.Options.class).cpu = androidOptions.cpu;
-            splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-            setCrosstoolToAndroid(splitOptions, buildOptions);
-            return ImmutableList.of(splitOptions);
-          }
-
-          List<BuildOptions> result = new ArrayList<>();
-          for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
-            BuildOptions splitOptions = buildOptions.clone();
-            // Disable fat APKs for the child configurations.
-            splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
-
-            // Set the cpu & android_cpu.
-            // TODO(bazel-team): --android_cpu doesn't follow --cpu right now; it should.
-            splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
-            splitOptions.get(BuildConfiguration.Options.class).cpu = cpu;
-            splitOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
-            splitOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
-            setCrosstoolToAndroid(splitOptions, buildOptions);
-            result.add(splitOptions);
-          }
-          return result;
-        }
-      };
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "android_common.multi_cpu_configuration");
+    }
+  }
 
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 
