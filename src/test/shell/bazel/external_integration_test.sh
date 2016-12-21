@@ -149,8 +149,15 @@ fi
   base_external_path=bazel-out/../external/endangered/fox
   assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
   assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
-  ls -l ${base_external_path}/*
-  assert_equals "1078100502" "$(stat -c %Y ${base_external_path}/male)"
+  case "${PLATFORM}" in
+    darwin)
+      ts="$(stat -f %m ${base_external_path}/male)"
+      ;;
+    *)
+      ts="$(stat -c %Y ${base_external_path}/male)"
+      ;;
+  esac
+  assert_equals "1078100502" "$ts"
 }
 
 function assert_files_same() {
