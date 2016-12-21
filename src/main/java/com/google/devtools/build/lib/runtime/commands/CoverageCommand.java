@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -254,17 +253,6 @@ public class CoverageCommand extends TestCommand {
         for (Label label : attributes.get("tests", BuildType.LABEL_LIST)) {
           // Add package-based filters for all tests in the test suite.
           packageFilters.add(getInstrumentedPrefix(label.getPackageName()));
-        }
-        for (Label label : attributes.get("suites", BuildType.LABEL_LIST)) {
-          try {
-            // Recursively process all nested test suites.
-            collectInstrumentedPackages(env,
-                ImmutableList.of(env.getPackageManager().getTarget(env.getReporter(), label)),
-                packageFilters);
-          } catch (NoSuchThingException e) {
-            // Do nothing - we can't get package name to add to the filter and real error
-            // will be reported later during actual build.
-          }
         }
       }
     }

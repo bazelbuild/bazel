@@ -75,9 +75,6 @@ final class TestsInSuiteFunction implements SkyFunction {
     // Note that testsAndSuites can contain input file targets; the test_suite rule does not
     // restrict the set of targets that can appear in tests or suites.
     builder.mergeError(getPrerequisites(env, testSuite, "tests", testsAndSuites));
-    if (testSuite.getRuleClassObject().hasAttr("suites", BuildType.LABEL_LIST)) {
-      builder.mergeError(getPrerequisites(env, testSuite, "suites", testsAndSuites));
-    }
 
     // 1. Add all tests
     for (Target test : testsAndSuites) {

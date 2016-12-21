@@ -1311,9 +1311,7 @@ public class Package {
       for (Rule rule : rules) {
         AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
         if (rule.getRuleClass().equals("test_suite")
-            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()
-            && (!attributes.has("suites", BuildType.LABEL_LIST)
-                || attributes.get("suites", BuildType.LABEL_LIST).isEmpty())) {
+            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
           rule.setAttributeValueByName("$implicit_tests", allTests);
         }
       }
