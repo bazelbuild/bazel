@@ -89,6 +89,7 @@ bool SetMtimeMillisec(const std::string& path, time_t mtime);
 bool MakeDirectories(const std::string &path, unsigned int mode);
 
 // Returns the current working directory.
+// The path is platform-specific (e.g. Windows path of Windows) and absolute.
 std::string GetCwd();
 
 // Changes the current working directory to `path`, returns true upon success.

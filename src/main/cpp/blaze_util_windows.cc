@@ -132,7 +132,7 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
         }
-        ExitImmediately(1);
+        _exit(1);
       }
       SigPrintf(
           "\n%s caught interrupt signal; shutting down.\n\n",
@@ -1142,15 +1142,6 @@ void UnsetEnv(const string& name) {
   pdie(255, "blaze::UnsetEnv is not implemented on Windows");
 #else  // not COMPILER_MSVC
   unsetenv(name.c_str());
-#endif  // COMPILER_MSVC
-}
-
-ATTRIBUTE_NORETURN void ExitImmediately(int exit_code) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::ExitImmediately is not implemented on Windows");
-#else  // not COMPILER_MSVC
-  _exit(exit_code);
 #endif  // COMPILER_MSVC
 }
 

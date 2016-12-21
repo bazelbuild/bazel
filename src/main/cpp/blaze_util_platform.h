@@ -185,11 +185,6 @@ void SetEnv(const std::string& name, const std::string& value);
 
 void UnsetEnv(const std::string& name);
 
-// Terminate the process immediately.
-// This is a wrapper around POSIX's _exit(2).
-// WARNING! This function can be called from a signal handler!
-ATTRIBUTE_NORETURN void ExitImmediately(int exit_code);
-
 // Ensure we have open file descriptors for stdin/stdout/stderr.
 void SetupStdStreams();
 

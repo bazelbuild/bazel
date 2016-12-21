@@ -66,7 +66,7 @@ static void handler(int signum) {
         if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
           KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
         }
-        ExitImmediately(1);
+        _exit(1);
       }
       SigPrintf(
           "\n%s caught interrupt signal; shutting down.\n\n",
@@ -386,10 +386,6 @@ void SetEnv(const string& name, const string& value) {
 
 void UnsetEnv(const string& name) {
   unsetenv(name.c_str());
-}
-
-ATTRIBUTE_NORETURN void ExitImmediately(int exit_code) {
-  _exit(exit_code);
 }
 
 void SetupStdStreams() {
