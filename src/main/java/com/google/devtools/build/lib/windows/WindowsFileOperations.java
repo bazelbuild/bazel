@@ -59,6 +59,7 @@ public class WindowsFileOperations {
    * @throws IOException if the `path` is not found or some other I/O error occurs
    */
   public static String getLongPath(String path) throws IOException {
+    WindowsJniLoader.loadJni();
     String[] result = new String[] {null};
     String[] error = new String[] {null};
     if (nativeGetLongPath(asLongPath(path), result, error)) {
