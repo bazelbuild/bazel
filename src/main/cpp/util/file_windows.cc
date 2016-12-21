@@ -217,14 +217,43 @@ bool AsWindowsPath(const string& path, wstring* result) {
   return true;
 }
 
-#ifdef COMPILER_MSVC
 bool ReadFile(const string& filename, string* content, int max_size) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::ReadFile is not implemented on Windows");
-  return false;
+  wstring wfilename;
+  if (!AsWindowsPath(filename, &wfilename)) {
+    // Failed to convert the path because it was an absolute MSYS path but we
+    // could not retrieve the BAZEL_SH envvar.
+    return false;
+  }
+
+  if (wfilename.size() > MAX_PATH) {
+    // CreateFileW requires that paths longer than MAX_PATH be prefixed with
+    // "\\?\", so add that here.
+    // TODO(laszlocsomor): add a test for this code path.
+    wfilename = wstring(L"\\\\?\\") + wfilename;
+  }
+
+  HANDLE handle = CreateFileW(
+      /* lpFileName */ wfilename.c_str(),
+      /* dwDesiredAccess */ GENERIC_READ,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  bool result = ReadFrom(
+      [handle](void* buf, int len) {
+        DWORD actually_read = 0;
+        ::ReadFile(handle, buf, len, &actually_read, NULL);
+        return actually_read;
+      },
+      content, max_size);
+  CloseHandle(handle);
+  return result;
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 #ifdef COMPILER_MSVC
 bool WriteFile(const void* data, size_t size, const string& filename) {

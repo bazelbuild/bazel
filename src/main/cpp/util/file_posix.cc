@@ -179,7 +179,6 @@ pair<string, string> SplitPath(const string &path) {
 
   return std::make_pair(string(path, 0, pos), string(path, pos + 1));
 }
-#endif  // not __CYGWIN__
 
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
@@ -190,6 +189,7 @@ bool ReadFile(const string &filename, string *content, int max_size) {
   close(fd);
   return result;
 }
+#endif  // not __CYGWIN__
 
 bool WriteFile(const void *data, size_t size, const string &filename) {
   UnlinkPath(filename);  // We don't care about the success of this.
