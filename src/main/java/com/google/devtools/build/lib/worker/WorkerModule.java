@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
-import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;

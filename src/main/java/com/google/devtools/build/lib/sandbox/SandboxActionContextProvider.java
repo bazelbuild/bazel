@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.exec.ActionContextProvider;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;

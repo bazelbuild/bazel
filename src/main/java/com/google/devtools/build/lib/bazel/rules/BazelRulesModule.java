@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.bazel.rules;
 
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.ExecutorBuilder;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;

@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 

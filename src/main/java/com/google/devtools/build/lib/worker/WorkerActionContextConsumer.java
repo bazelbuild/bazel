@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableMultimap.Builder;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.exec.ActionContextConsumer;
 
 /**
  * {@link ActionContextConsumer} that requests the action contexts necessary for worker process
