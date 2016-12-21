@@ -104,7 +104,7 @@ EOF
 echo $what_does_the_fox_say
 EOF
     chmod +x fox/male
-    touch --date=@1078100502 fox/male
+    touch -t 200403010021.42 fox/male
     ln -s male fox/male_relative
     ln -s /fox/male fox/male_absolute
     # Add some padding to the .zip to test that Bazel's download logic can
