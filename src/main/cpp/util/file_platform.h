@@ -44,11 +44,6 @@ bool WriteFile(const std::string &content, const std::string &filename);
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);
 
-// Checks each element of the PATH variable for executable. If none is found, ""
-// is returned.  Otherwise, the full path to executable is returned. Can die if
-// looking up PATH fails.
-std::string Which(const std::string &executable);
-
 // Returns true if this path exists.
 bool PathExists(const std::string& path);
 

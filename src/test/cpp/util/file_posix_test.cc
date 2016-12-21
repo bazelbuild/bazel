@@ -212,20 +212,6 @@ TEST(FileTest, HammerMakeDirectories) {
   //  ASSERT_TRUE(MakeDirectories(path, 0755));
 }
 
-TEST(FilePosixTest, Which) {
-  ASSERT_EQ("", Which(""));
-  ASSERT_EQ("", Which("foo"));
-  ASSERT_EQ("", Which("/"));
-
-  // /usr/bin/yes exists on Linux, Darwin, and MSYS, but "which yes" does not
-  // always return that (if $PATH is different).
-  string actual = Which("yes");
-  // Assert that it's an absolute path
-  ASSERT_EQ(0, actual.find("/"));
-  // Assert that it ends with /yes, we cannot assume more than that.
-  ASSERT_EQ(actual.size() - string("/yes").size(), actual.rfind("/yes"));
-}
-
 TEST(FilePosixTest, PathExists) {
   ASSERT_FALSE(PathExists("/this/should/not/exist/mkay"));
   ASSERT_FALSE(PathExists("non.existent"));

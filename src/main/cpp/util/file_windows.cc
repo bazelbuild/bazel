@@ -245,14 +245,6 @@ bool UnlinkPath(const string& file_path) {
 #endif  // COMPILER_MSVC
 
 #ifdef COMPILER_MSVC
-string Which(const string &executable) {
-  pdie(255, "blaze_util::Which is not implemented on Windows");
-  return "";
-}
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
-
-#ifdef COMPILER_MSVC
 bool PathExists(const string& path) {
   // TODO(bazel-team): implement this.
   pdie(255, "blaze_util::PathExists is not implemented on Windows");

@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>  // strerror
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/statfs.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -143,6 +144,30 @@ bool IsSharedLibrary(const string &filename) {
   return blaze_util::ends_with(filename, ".so");
 }
 
+static string Which(const string &executable) {
+  string path(GetEnv("PATH"));
+  if (path.empty()) {
+    die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+        "Could not get PATH to find %s", executable.c_str());
+  }
+
+  std::vector<std::string> pieces = blaze_util::Split(path, ':');
+  for (auto piece : pieces) {
+    if (piece.empty()) {
+      piece = ".";
+    }
+
+    struct stat file_stat;
+    string candidate = blaze_util::JoinPath(piece, executable);
+    if (access(candidate.c_str(), X_OK) == 0 &&
+        stat(candidate.c_str(), &file_stat) == 0 &&
+        S_ISREG(file_stat.st_mode)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
 string GetDefaultHostJavabase() {
   // if JAVA_HOME is defined, then use it as default.
   const char *javahome = getenv("JAVA_HOME");
@@ -151,7 +176,7 @@ string GetDefaultHostJavabase() {
   }
 
   // which javac
-  string javac_dir = blaze_util::Which("javac");
+  string javac_dir = Which("javac");
   if (javac_dir.empty()) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "Could not find javac");
   }
