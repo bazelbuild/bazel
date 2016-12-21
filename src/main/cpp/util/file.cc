@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <sstream>  // ostringstream
 #include <vector>
 
 #include "src/main/cpp/util/file_platform.h"
@@ -30,6 +31,61 @@ namespace blaze_util {
 using std::pair;
 using std::string;
 using std::vector;
+
+string NormalizePath(const string &path) {
+  if (path.empty()) {
+    return string();
+  }
+
+  static const string dot(".");
+  static const string dotdot("..");
+
+  vector<string> segments;
+  int segment_start = -1;
+  // Find the path segments in `path` (separated by "/").
+  for (int i = 0;; ++i) {
+    if (path[i] != '/' && path[i] != '\0') {
+      // The current character does not end a segment, so start one unless it's
+      // already started.
+      if (segment_start < 0) {
+        segment_start = i;
+      }
+    } else if (segment_start >= 0 && i > segment_start) {
+      // The current character is "/" or "\0", so this ends a segment.
+      // Add that to `segments` if there's anything to add; handle "." and "..".
+      string segment(path, segment_start, i - segment_start);
+      segment_start = -1;
+      if (segment == dotdot) {
+        if (!segments.empty()) {
+          segments.pop_back();
+        }
+      } else if (segment != dot) {
+        segments.push_back(segment);
+      }
+    }
+    if (path[i] == '\0') {
+      break;
+    }
+  }
+
+  // Handle the case when `path` was just "/" (or some degenerate form of it,
+  // e.g. "/..").
+  if (segments.empty() && path[0] == '/') {
+    return "/";
+  }
+
+  // Join all segments, make sure we preserve the leading "/" if any.
+  bool first = true;
+  std::ostringstream result;
+  for (const auto &s : segments) {
+    if (!first || path[0] == '/') {
+      result << "/";
+    }
+    first = false;
+    result << s;
+  }
+  return result.str();
+}
 
 bool ReadFrom(const std::function<int(void *, int)> &read_func, string *content,
               int max_size) {

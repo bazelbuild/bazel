@@ -34,6 +34,15 @@ class IPipe {
   virtual int Receive(void *buffer, int size) = 0;
 };
 
+// Returns a normalized form of the input `path`.
+// Normalization means removing "." references, resolving ".." references, and
+// deduplicating "/" characters.
+// For example if `path` is "foo/../bar/.//qux", the result is "bar/qux".
+// Uplevel references that cannot go any higher in the directory tree are simply
+// ignored, e.g. "/.." is normalized to "/" and "../../foo" is normalized to
+// "foo".
+std::string NormalizePath(const std::string &path);
+
 // Replaces 'content' with data read from a source using `read_func`.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads everything.
