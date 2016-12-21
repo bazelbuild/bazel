@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransitionProvider;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.MultiArchPlatformRule;
+
 import java.util.List;
 
 /**
@@ -159,20 +161,17 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
 
         splitOptions.get(AppleCommandLineOptions.class).applePlatformType = platformType;
         splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = cpu;
+        // Set for backwards compatibility with rules that depend on this flag, even when
+        // ios is not the platform type.
+        // TODO(b/28958783): Clean this up.
+        splitOptions.get(AppleCommandLineOptions.class).iosCpu = cpu;
         if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
           // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values
           // require additional flags to work (e.g. a custom crosstool) which now only need to be
           // set if this feature is explicitly requested.
-          String platformCpu = String.format("%s_%s", platformType, cpu);
-          AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(buildOptions,
-              splitOptions, platformCpu);
-        } else {
-          // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
-          // to decide architecture.
-          // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule, and remove this
-          // "else" clause.  Deprecate ios_cpu.
-          splitOptions.get(AppleCommandLineOptions.class).iosCpu = cpu;
+          splitOptions.get(BuildConfiguration.Options.class).cpu =
+              String.format("%s_%s", platformType, cpu);
         }
         splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
             configurationDistinguisher;
