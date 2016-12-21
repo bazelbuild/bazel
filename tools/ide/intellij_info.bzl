@@ -32,6 +32,7 @@ DEPS = struct(
         "_cc_toolchain",  # From C rules
         "module_target",
         "_java_toolchain",  # From java rules
+        "test",
     ],
     label_list = [
         "deps",
