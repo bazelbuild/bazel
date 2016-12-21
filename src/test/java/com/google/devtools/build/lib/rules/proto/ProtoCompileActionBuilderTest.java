@@ -24,14 +24,15 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ProtoCommandLineArgv;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,7 +52,7 @@ public class ProtoCompileActionBuilderTest {
         new FilesToRunProvider(
             ImmutableList.<Artifact>of(),
             null /* runfilesSupport */,
-            artifact("protoc-gen-javalite.exe"));
+            artifact("//:dont-care", "protoc-gen-javalite.exe"));
 
     ProtoLangToolchainProvider toolchainNoPlugin =
         ProtoLangToolchainProvider.create(
@@ -70,10 +71,12 @@ public class ProtoCompileActionBuilderTest {
     SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
-            ImmutableList.of(artifact("source_file.proto")),
+            ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
             null /* protosInDirectDeps */,
             NestedSetBuilder.create(
-                STABLE_ORDER, artifact("import1.proto"), artifact("import2.proto")),
+                STABLE_ORDER,
+                artifact("//:dont-care", "import1.proto"),
+                artifact("//:dont-care", "import2.proto")),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -112,10 +115,12 @@ public class ProtoCompileActionBuilderTest {
     SupportData supportData =
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
-            ImmutableList.of(artifact("source_file.proto")),
-            NestedSetBuilder.create(STABLE_ORDER, artifact("import1.proto")),
+            ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
+            NestedSetBuilder.create(STABLE_ORDER, artifact("//:dont-care", "import1.proto")),
             NestedSetBuilder.create(
-                STABLE_ORDER, artifact("import1.proto"), artifact("import2.proto")),
+                STABLE_ORDER,
+                artifact("//:dont-care", "import1.proto"),
+                artifact("//:dont-care", "import2.proto")),
             true /* hasProtoSources */);
 
     CustomCommandLine cmdLine =
@@ -259,40 +264,66 @@ public class ProtoCompileActionBuilderTest {
   public void testProtoCommandLineArgv() throws Exception {
     assertThat(
             new ProtoCommandLineArgv(
-                    null /* directDependencies */, ImmutableList.of(derivedArtifact("foo.proto")))
+                    null /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")))
                 .argv())
         .containsExactly("-Ifoo.proto=out/foo.proto");
 
     assertThat(
             new ProtoCommandLineArgv(
                     ImmutableList.<Artifact>of() /* directDependencies */,
-                    ImmutableList.of(derivedArtifact("foo.proto")))
+                    ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")))
                 .argv())
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=");
 
     assertThat(
             new ProtoCommandLineArgv(
-                    ImmutableList.of(derivedArtifact("foo.proto")) /* directDependencies */,
-                    ImmutableList.of(derivedArtifact("foo.proto")))
+                    ImmutableList.of(
+                        derivedArtifact("//:dont-care", "foo.proto")) /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")))
                 .argv())
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=foo.proto");
 
     assertThat(
             new ProtoCommandLineArgv(
                     ImmutableList.of(
-                        derivedArtifact("foo.proto"),
-                        derivedArtifact("bar.proto")) /* directDependencies */,
-                    ImmutableList.of(derivedArtifact("foo.proto")))
+                        derivedArtifact("//:dont-care", "foo.proto"),
+                        derivedArtifact("//:dont-care", "bar.proto")) /* directDependencies */,
+                    ImmutableList.of(derivedArtifact("//:dont-care", "foo.proto")))
                 .argv())
         .containsExactly("-Ifoo.proto=out/foo.proto", "--direct_dependencies=foo.proto:bar.proto");
   }
 
-  private Artifact artifact(String path) {
-    return new Artifact(new PathFragment(path), root);
+  /**
+   * Include-maps are the -Ivirtual=physical arguments passed to proto-compiler. When including a
+   * file named 'foo/bar.proto' from an external repository 'bla', the include-map should be
+   * -Ifoo/bar.proto=external/bla/foo/bar.proto. That is - 'virtual' should be the path relative to
+   * the external repo root, and physical should be the physical file location.
+   */
+  @Test
+  public void testIncludeMapsOfExternalFiles() throws Exception {
+    assertThat(
+            new ProtoCommandLineArgv(
+                    null /* protosInDirectoDependencies */,
+                    ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto")))
+                .argv())
+        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
+  }
+
+  private Artifact artifact(String ownerLabel, String path) {
+    return new Artifact(
+        root.getPath().getRelative(path),
+        root,
+        root.getExecPath().getRelative(path),
+        new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
   }
 
   /** Creates a dummy artifact with the given path, that actually resides in /out/<path>. */
-  private Artifact derivedArtifact(String path) {
-    return new Artifact(new PathFragment(path), derivedRoot);
+  private Artifact derivedArtifact(String ownerLabel, String path) {
+    return new Artifact(
+        derivedRoot.getPath().getRelative(path),
+        derivedRoot,
+        derivedRoot.getExecPath().getRelative(path),
+        new LabelArtifactOwner(Label.parseAbsoluteUnchecked(ownerLabel)));
   }
 }
