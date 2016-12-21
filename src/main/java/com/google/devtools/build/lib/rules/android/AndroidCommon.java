@@ -202,13 +202,6 @@ public class AndroidCommon {
       Artifact mainDexList) {
     List<String> args = new ArrayList<>();
     args.add("--dex");
-    // Add --no-locals to coverage builds.  Older coverage tools don't correctly preserve local
-    // variable information in stack frame maps that are required since Java 7, so to avoid runtime
-    // errors we just don't add local variable info in the first place.  This may no longer be
-    // necessary, however, as long as we use a coverage tool that generates stack frame maps.
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      args.add("--no-locals");  // TODO(bazel-team): Is this still needed?
-    }
 
     // Multithreaded dex does not work when using --multi-dex.
     if (!multidex) {
