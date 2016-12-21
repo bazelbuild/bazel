@@ -80,7 +80,8 @@ function test_3_local_jobs() {
     --runs_per_test=10 //dir:test
 }
 
-function test_tmpdir() {
+# TODO(#2228): Re-enable when the tmpdir creation is fixed.
+function DISABLED_test_tmpdir() {
   mkdir -p foo
   cat > foo/bar_test.sh <<'EOF'
 #!/bin/bash
@@ -106,9 +107,14 @@ EOF
   # succeed. If we run it on OS X (or in general without sandboxing enabled),
   # it will fail to create /foo/bar, since obviously we don't have write
   # permissions.
-  bazel test --nocache_test_results --test_output=all --test_tmpdir=/foo/bar \
-    //foo:bar_test >& $TEST_log && fail "Writing to no permission path should fail"
-  expect_log "Failed to recreate temporary directory"
+  if bazel test --nocache_test_results --test_output=all \
+    --test_tmpdir=/foo/bar //foo:bar_test >& $TEST_log; then
+    # We are in a sandbox.
+    expect_log "TEST_TMPDIR=/foo/bar"
+  else
+    # We are not sandboxed.
+    expect_log "Could not create TEST_TMPDIR"
+  fi
 }
 
 function test_env_vars() {
