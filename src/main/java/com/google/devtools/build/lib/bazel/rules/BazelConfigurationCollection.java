@@ -19,6 +19,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Table;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
@@ -34,7 +35,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
+import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
+import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -104,6 +108,17 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
         return super.getDynamicTransition(configurationTransition);
       }
     }
+
+    @Override
+    public BuildConfiguration toplevelConfigurationHook(Target toTarget) {
+      return (AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES
+          .contains(toTarget.getAssociatedRule().getRuleClass()))
+          ? Iterables.getOnlyElement(
+              configuration
+                  .getTransitions()
+                  .getSplitConfigurations(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION))
+          : configuration;
+    } 
   }
 
   @Override

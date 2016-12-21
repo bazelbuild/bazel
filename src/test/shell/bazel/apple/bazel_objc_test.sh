@@ -207,9 +207,9 @@ EOF
   # Dec 31 1969 or Jan 1 1970 -- either is fine.
   # We would use 'date' here, but the format is slightly different (Jan 1 vs.
   # Jan 01).
-  ar -tv bazel-bin/objclib/libobjclib.a \
+  ar -tv bazel-out/apple_crosstool-ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Dec 31" | grep "1969" \
-      || ar -tv bazel-bin/objclib/libobjclib.a \
+      || ar -tv bazel-out/apple_crosstool-ios_x86_64-fastbuild/bin/objclib/libobjclib.a \
       | grep "mysrc" | grep "Jan  1" | grep "1970" || \
       fail "Timestamp of contents of archive file should be zero"
 }

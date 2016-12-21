@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -1344,7 +1343,7 @@ public final class ReleaseBundlingSupport {
       ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
       for (String iosCpu : iosMultiCpus) {
         BuildOptions splitOptions = buildOptions.clone();
-        setArchitectureOptions(splitOptions, iosCpu);
+        setArchitectureOptions(splitOptions, buildOptions, iosCpu);
         setAdditionalOptions(splitOptions, buildOptions);
         splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
             getConfigurationDistinguisher();
@@ -1372,17 +1371,19 @@ public final class ReleaseBundlingSupport {
      */
     protected void setAdditionalOptions(BuildOptions splitOptions, BuildOptions originalOptions) {}
 
-    private void setArchitectureOptions(BuildOptions splitOptions, String iosCpu) {
+    private static void setArchitectureOptions(BuildOptions splitOptions, 
+        BuildOptions originalOptions, String iosCpu) {
       splitOptions.get(AppleCommandLineOptions.class).applePlatformType = PlatformType.IOS;
       splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = iosCpu;
       splitOptions.get(AppleCommandLineOptions.class).iosCpu = iosCpu;
-      if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
+     if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
         // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
         // This helps users of the iOS rules who do not depend on CC rules as these CPU values
         // require additional flags to work (e.g. a custom crosstool) which now only need to be set
         // if this feature is explicitly requested.
-        splitOptions.get(BuildConfiguration.Options.class).cpu = "ios_" + iosCpu;
-      }
+        AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(originalOptions,
+            splitOptions, "ios_" + iosCpu);
+     }
     }
 
     @Override
