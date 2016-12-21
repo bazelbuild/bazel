@@ -967,6 +967,7 @@ java_test(
         ":analysis_testutil",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:ProtoCcHeaderProvider",
         "//third_party:guava",

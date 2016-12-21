@@ -15,10 +15,13 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -119,6 +122,52 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         getConfiguredTarget("//x:foo_cc_proto").getProvider(CppCompilationContext.class);
     assertThat(prettyArtifactNames(context.getDeclaredIncludeSrcs()))
         .containsExactly("x/foo.pb.h", "x/bar.pb.h");
+  }
+
+  @Test
+  public void outputDirectoryForProtoCompileAction() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_proto_library(name = 'foo_cc_proto', deps = [':bar_proto'])",
+        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
+
+    Artifact hFile =
+        getFirstArtifactEndingWith(
+            getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto")), "bar.pb.h");
+    SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
+
+    assertThat(protoCompileAction.getArguments())
+        .contains(
+            String.format(
+                "--cpp_out=%s", getTargetConfiguration().getGenfilesFragment().toString()));
+  }
+
+  @Test
+  public void outputDirectoryForProtoCompileAction_externalRepos() throws Exception {
+    scratch.file(
+        "x/BUILD", "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
+
+    // Create the rule '@bla//foo:bar_proto'.
+    scratch.file(
+        "/bla/foo/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "proto_library(name = 'bar_proto', srcs = ['bar.proto'])");
+    String existingWorkspace =
+        new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
+    scratch.overwriteFile(
+        "WORKSPACE", "local_repository(name = 'bla', path = '/bla/')", existingWorkspace);
+    invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
+
+    Artifact hFile =
+        getFirstArtifactEndingWith(
+            getFilesToBuild(getConfiguredTarget("//x:foo_cc_proto")), "bar.pb.h");
+    SpawnAction protoCompileAction = getGeneratingSpawnAction(hFile);
+
+    assertThat(protoCompileAction.getArguments())
+        .contains(
+            String.format(
+                "--cpp_out=%s/external/bla",
+                getTargetConfiguration().getGenfilesFragment().toString()));
   }
 
   // TODO(carmi): test blacklisted protos. I don't currently understand what's the wanted behavior.
