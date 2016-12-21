@@ -65,8 +65,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+  /**
+   * Rule classes that need a top level transition to the apple crosstool.
+   * 
+   * <p>This list must not contain any rule classes that require some other split transition, as
+   * that transition would be suppressed by the top level transition to the apple crosstool. For
+   * example, if "apple_binary" were in this list, the multi-arch transition would not occur.
+   */
+  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES = ImmutableList.of(
+      "objc_library",
+      "objc_binary",
+      "experimental_objc_library"); 
 
+  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+  
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOs;
   private final DottedVersion watchosSdkVersion;
@@ -628,5 +640,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     APPLEBIN_WATCHOS,
     /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
     APPLEBIN_TVOS,
+    /** Distinguisher for the apple crosstool configuration. */
+    APPLE_CROSSTOOL,
   }
 }
