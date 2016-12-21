@@ -21,11 +21,13 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -157,7 +159,12 @@ public class WindowsFileSystemTest {
         .isFalse();
     assertThat(WindowsFileSystem.isJunction(new File(root, "longta~1/file2.txt")))
         .isFalse();
-    assertThat(WindowsFileSystem.isJunction(new File(root, "non-existent"))).isFalse();
+    try {
+      WindowsFileSystem.isJunction(new File(root, "non-existent"));
+      Assert.fail("expected failure");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("cannot find");
+    }
 
     assertThat(Arrays.asList(new File(root + "/shrtpath/a").list())).containsExactly("file1.txt");
     assertThat(Arrays.asList(new File(root + "/shrtpath/b").list())).containsExactly("file2.txt");
