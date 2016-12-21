@@ -44,8 +44,10 @@ public final class BazelJavaTestRule implements RuleDefinition {
     /* <!-- #BLAZE_RULE(java_test).IMPLICIT_OUTPUTS -->
     <ul>
       <li><code><var>name</var>.jar</code>: A Java archive.</li>
-      <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment. (Only
-        built if explicitly requested.)</li>
+      <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable
+        for deployment. (Only built if explicitly requested.) See the description of the
+        <code><var>name</var>_deploy.jar</code> output from
+        <a href="#java_binary">java_binary</a> for more details.</li>
     </ul>
     <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
     return builder

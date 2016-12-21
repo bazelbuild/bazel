@@ -64,6 +64,13 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
               contains the native libraries needed for dependencies. These are automatically loaded
               into the JVM at runtime.
             </p>
+            <p>If your target specifies a <a href="#java_binary.launcher">launcher</a>
+              attribute, then instead of being a normal JAR file, the _deploy.jar will be a
+              native binary. This will contain the launcher plus any native (C++) dependencies of
+              your rule, all linked into a static binary. The actual jar file's bytes will be
+              appended to that native binary, creating a single binary blob containing both the
+              executable and the Java code. You can execute the resulting jar file directly
+              like you would execute any native binary.</p>
           </li>
           <li><code><var>name</var>_deploy-src.jar</code>: An archive containing the sources
             collected from the transitive closure of the target. These will match the classes in the
