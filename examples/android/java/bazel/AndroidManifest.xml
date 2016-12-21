@@ -8,7 +8,8 @@
         android:targetSdkVersion="21" />
 
     <application
-        android:label="Bazel App" >
+        android:label="Bazel App"
+        android:theme="@style/MyTheme" >
         <activity
             android:name="bazel.MainActivity"
             android:label="Bazel" >

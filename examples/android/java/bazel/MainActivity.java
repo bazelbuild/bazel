@@ -1,13 +1,13 @@
 package bazel;
 
-import android.app.Activity;
 import android.os.Bundle;
+import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 
 /**
  * Main class for the Bazel Android "Hello, World" app.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends AppCompatActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
