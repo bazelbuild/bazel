@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -65,8 +64,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+  /**
+   * Rule classes that need a top level transition to the apple crosstool.
+   * 
+   * <p>This list must not contain any rule classes that require some other split transition, as
+   * that transition would be suppressed by the top level transition to the apple crosstool. For
+   * example, if "apple_binary" were in this list, the multi-arch transition would not occur.
+   */
+  public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES = ImmutableList.of(
+      "objc_library",
+      "objc_binary",
+      "experimental_objc_library"); 
 
+  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+  
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOs;
   private final DottedVersion watchosSdkVersion;
@@ -510,7 +521,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       components.add(appleSplitCpu);
     }
     if (configurationDistinguisher != ConfigurationDistinguisher.UNKNOWN) {
-      components.add(configurationDistinguisher.toString().toLowerCase(Locale.US));
+      components.add(configurationDistinguisher.getFileSystemName());
     }
 
     if (components.isEmpty()) {
@@ -613,20 +624,40 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * transition may exist with the same value in a single Bazel invocation.
    */
   public enum ConfigurationDistinguisher {
-    UNKNOWN,
+    UNKNOWN("unknown"),
     /** Split transition distinguisher for {@code ios_extension} rule. */
-    IOS_EXTENSION,
+    IOS_EXTENSION("ios_extension"),
     /** Split transition distinguisher for {@code ios_application} rule. */
-    IOS_APPLICATION,
+    IOS_APPLICATION("ios_application"),
     /** Split transition distinguisher for {@code ios_framework} rule. */
-    FRAMEWORK,
+    FRAMEWORK("framework"),
     /** Split transition distinguisher for {@code apple_watch1_extension} rule. */
-    WATCH_OS1_EXTENSION,
+    WATCH_OS1_EXTENSION("watch_os1_extension"),
     /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
-    APPLEBIN_IOS,
+    APPLEBIN_IOS("applebin_ios"),
     /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
-    APPLEBIN_WATCHOS,
+    APPLEBIN_WATCHOS("applebin_watchos"),
     /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
-    APPLEBIN_TVOS,
+    APPLEBIN_TVOS("applebin_tvos"),
+    /**
+     * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory
+     * names instead of "apple_crosstool" to avoid oversized path names, which can be problematic
+     * on OSX.
+     */
+    APPLE_CROSSTOOL("apl");
+
+    private final String fileSystemName;
+
+    private ConfigurationDistinguisher(String fileSystemName) {
+      this.fileSystemName = fileSystemName;
+    }
+
+    /**
+     * Returns the distinct string that should be used in creating output directories for a
+     * configuration with this distinguisher.
+     */
+    public String getFileSystemName() {
+      return fileSystemName;
+    }
   }
 }
