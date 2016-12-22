@@ -59,7 +59,7 @@ $ curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you want to install the testing version of Bazel, replace `stable` with `testing`.
 
-#### 3. Update and install Bazel
+#### 3. Install and update Bazel
 
 `$ sudo apt-get update && sudo apt-get install bazel`
 
