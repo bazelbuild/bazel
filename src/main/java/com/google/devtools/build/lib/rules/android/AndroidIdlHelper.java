@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -170,6 +171,15 @@ public class AndroidIdlHelper {
         .addAll(deps)
         .add(aidlLib)
         .build();
+  }
+
+  public static void addSupportLibProguardConfigs(RuleContext ruleContext,
+      NestedSetBuilder<Artifact> proguardConfigsbuilder) {
+    TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
+    if (aidlLib != null) {
+      proguardConfigsbuilder.addTransitive(
+          aidlLib.getProvider(ProguardSpecProvider.class).getTransitiveProguardSpecs());
+    }
   }
 
   /**
