@@ -251,8 +251,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
     return ImmutableList.<SplitTransition<BuildOptions>>builder().add(
             IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
+            AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION)
         .addAll(MultiArchSplitTransitionProvider.getPotentialSplitTransitions())
         .build();
   }
