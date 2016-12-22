@@ -15,33 +15,31 @@
  */
 package com.android.build.gradle.tasks;
 
-import static com.android.SdkConstants.ANDROID_STYLE_RESOURCE_PREFIX;
-import static com.android.SdkConstants.ANDROID_URI;
 import static com.android.SdkConstants.ATTR_NAME;
-import static com.android.SdkConstants.ATTR_PARENT;
 import static com.android.SdkConstants.ATTR_TYPE;
 import static com.android.SdkConstants.DOT_CLASS;
+import static com.android.SdkConstants.DOT_JAR;
 import static com.android.SdkConstants.DOT_XML;
 import static com.android.SdkConstants.FD_RES_VALUES;
-import static com.android.SdkConstants.PREFIX_ANDROID;
-import static com.android.SdkConstants.STYLE_RESOURCE_PREFIX;
 import static com.android.SdkConstants.TAG_ITEM;
 import static com.android.SdkConstants.TAG_RESOURCES;
-import static com.android.SdkConstants.TAG_STYLE;
 import static com.android.utils.SdkUtils.endsWithIgnoreCase;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.objectweb.asm.ClassReader.SKIP_DEBUG;
+import static org.objectweb.asm.ClassReader.SKIP_FRAMES;
 
+import com.android.SdkConstants;
 import com.android.annotations.NonNull;
 import com.android.annotations.Nullable;
 import com.android.annotations.VisibleForTesting;
 import com.android.ide.common.resources.ResourceUrl;
-import com.android.ide.common.resources.configuration.DensityQualifier;
-import com.android.ide.common.resources.configuration.FolderConfiguration;
-import com.android.ide.common.resources.configuration.ResourceQualifier;
 import com.android.ide.common.xml.XmlPrettyPrinter;
-import com.android.resources.FolderTypeRelationship;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
+import com.android.tools.lint.checks.ResourceUsageModel;
+import com.android.tools.lint.checks.ResourceUsageModel.Resource;
+import com.android.tools.lint.checks.StringFormatDetector;
+import com.android.utils.AsmUtils;
 import com.android.utils.Pair;
 import com.android.utils.XmlUtils;
 import com.google.common.base.Joiner;
@@ -58,7 +56,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -67,11 +64,20 @@ import java.util.logging.Formatter;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathException;
+import javax.xml.xpath.XPathExpression;
+import javax.xml.xpath.XPathFactory;
+import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.w3c.dom.Attr;
@@ -120,12 +126,15 @@ import org.xml.sax.SAXException;
  * menus and drawables, not value-based resources like strings and dimensions.
  */
 public class ResourceUsageAnalyzer {
+  private static final String ANDROID_RES = "android_res/";
 
-  public static final int TYPICAL_RESOURCE_COUNT = 200;
+  /** Special marker regexp which does not match a resource name */
+  static final String NO_MATCH = "-nomatch-";
+
   private final Set<String> resourcePackages;
   private final Path rTxt;
   private final Path proguardMapping;
-  private final Path classesJar;
+  private final Path classes;
   private final Path mergedManifest;
   private final Path mergedResourceDir;
   private final Logger logger;
@@ -135,39 +144,29 @@ public class ResourceUsageAnalyzer {
    */
   private List<Resource> unused;
   /**
-   * List of all known resources (parsed from R.java)
+   * Map from resource class owners (VM format class) to corresponding resource entries. This lets
+   * us map back from code references (obfuscated class and possibly obfuscated field reference)
+   * back to the corresponding resource type and name.
    */
-  private List<Resource> resources = Lists.newArrayListWithExpectedSize(TYPICAL_RESOURCE_COUNT);
-  /**
-   * Map from R field value to corresponding resource
-   */
-  private Map<Integer, Resource> valueToResource =
-      Maps.newHashMapWithExpectedSize(TYPICAL_RESOURCE_COUNT);
-  /**
-   * Map from resource type to map from resource name to resource object
-   */
-  private Map<ResourceType, Map<String, Resource>> typeToName =
-      Maps.newEnumMap(ResourceType.class);
-  /**
-   * Map from resource class owners (VM format class) to corresponding resource entries.
-   * This lets us map back from code references (obfuscated class and possibly obfuscated field
-   * reference) back to the corresponding resource type and name.
-   */
-  private final Map<String, Pair<ResourceType, Map<String, String>>> resourceObfuscation =
+  private Map<String, Pair<ResourceType, Map<String, String>>> resourceObfuscation =
       Maps.newHashMapWithExpectedSize(30);
+  /** Obfuscated name of android/support/v7/widget/SuggestionsAdapter.java */
+  private String suggestionsAdapter;
+  /** Obfuscated name of android/support/v7/internal/widget/ResourcesWrapper.java */
+  private String resourcesWrapper;
 
   public ResourceUsageAnalyzer(
       Set<String> resourcePackages,
       @NonNull Path rTxt,
-      @NonNull Path classesJar,
+      @NonNull Path classes,
       @NonNull Path manifest,
       @Nullable Path mapping,
       @NonNull Path resources,
-      Path logFile) {
+      @Nullable Path logFile) {
     this.resourcePackages = resourcePackages;
     this.rTxt = rTxt;
     this.proguardMapping = mapping;
-    this.classesJar = classesJar;
+    this.classes = classes;
     this.mergedManifest = manifest;
     this.mergedResourceDir = resources;
 
@@ -193,12 +192,13 @@ public class ResourceUsageAnalyzer {
       ParserConfigurationException, SAXException {
     parseResourceTxtFile(rTxt, resourcePackages);
     recordMapping(proguardMapping);
-    recordUsages(classesJar);
+    recordClassUsages(classes);
     recordManifestUsages(mergedManifest);
     recordResources(mergedResourceDir);
     keepPossiblyReferencedResources();
     dumpReferences();
-    findUnused();
+    model.processToolsAttributes();
+    unused = model.findUnused();
     removeUnused(destinationDir);
   }
 
@@ -209,6 +209,9 @@ public class ResourceUsageAnalyzer {
    * new reduced resource directory and removes unused values from all value xml files.
    *
    * @param destination directory to copy resources into; if null, delete resources in place
+   * @throws IOException
+   * @throws ParserConfigurationException
+   * @throws SAXException
    */
   private void removeUnused(Path destination) throws IOException,
       ParserConfigurationException, SAXException {
@@ -224,7 +227,7 @@ public class ResourceUsageAnalyzer {
           String folder = file.getParentFile().getName();
           ResourceFolderType folderType = ResourceFolderType.getFolderType(folder);
           if (folderType != null && folderType != ResourceFolderType.VALUES) {
-            logger.fine("Deleted unused resource " + file);
+            logger.fine("Deleted unused resource " + file + " for resource " + resource);
             assert skip != null;
             skip.add(file);
           } else {
@@ -248,10 +251,10 @@ public class ResourceUsageAnalyzer {
     // accurately removed from public.xml, but the declarations may be deleted if they occur in
     // other files. IDs should be added to values.xml so that there are no definitions in public.xml
     // without declarations.
-    createStubIds(values, rewritten);
-
     File publicXml = new File(mergedResourceDir.toFile(),
         FD_RES_VALUES + File.separatorChar + "public.xml");
+    createStubIds(values, rewritten, publicXml);
+
     trimPublicResources(publicXml, deleted, rewritten);
 
     filteredCopy(mergedResourceDir.toFile(), destination, skip, rewritten);
@@ -281,7 +284,7 @@ public class ResourceUsageAnalyzer {
   /**
    * Write stub values for IDs to values.xml to match those available in public.xml.
    */
-  private void createStubIds(File values, Map<File, String> rewritten)
+  private void createStubIds(File values, Map<File, String> rewritten, File publicXml)
       throws IOException, ParserConfigurationException, SAXException {
     if (values.exists()) {
       String xml = rewritten.get(values);
@@ -291,8 +294,25 @@ public class ResourceUsageAnalyzer {
       List<String> stubbed = Lists.newArrayList();
       Document document = XmlUtils.parseDocument(xml, true);
       Element root = document.getDocumentElement();
-      for (Resource resource : resources) {
-        if (resource.type == ResourceType.ID && !resource.hasDefault) {
+      for (Resource resource : model.getResources()) {
+        boolean inPublicXml = false;
+        if (resource.declarations != null) {
+          for (File file : resource.declarations) {
+            if (file.equals(publicXml)) {
+              inPublicXml = true;
+            }
+          }
+        }
+        NodeList existing = null;
+        try {
+          XPathExpression expr = XPathFactory.newInstance().newXPath().compile(
+              String.format("//item[@type=\"id\"][@name=\"%s\"]", resource.name));
+          existing = (NodeList) expr.evaluate(document, XPathConstants.NODESET);
+        } catch (XPathException e) {
+          // Failed to retrieve any existing declarations for resource.
+        }
+        if (resource.type == ResourceType.ID && inPublicXml
+            && (existing == null || existing.getLength() == 0)) {
           Element item = document.createElement(TAG_ITEM);
           item.setAttribute(ATTR_TYPE, resource.type.getName());
           item.setAttribute(ATTR_NAME, resource.name);
@@ -328,7 +348,7 @@ public class ResourceUsageAnalyzer {
             ResourceType type = ResourceType.getEnum(resourceElement.getAttribute(ATTR_TYPE));
             String name = resourceElement.getAttribute(ATTR_NAME);
             if (type != null && name != null) {
-              Resource resource = getResource(type, name);
+              Resource resource = model.getResource(type, name);
               if (resource != null && deleted.contains(resource)) {
                 root.removeChild(child);
               }
@@ -373,12 +393,12 @@ public class ResourceUsageAnalyzer {
   }
 
   private void stripUnused(Element element, List<String> removed) {
-    ResourceType type = getResourceType(element);
+    ResourceType type = ResourceUsageModel.getResourceType(element);
     if (type == ResourceType.ATTR) {
       // Not yet properly handled
       return;
     }
-    Resource resource = getResource(element);
+    Resource resource = model.getResource(element);
     if (resource != null) {
       if (resource.type == ResourceType.DECLARE_STYLEABLE
           || resource.type == ResourceType.ATTR) {
@@ -386,7 +406,7 @@ public class ResourceUsageAnalyzer {
         // tracking field references of the R_styleable_attr fields yet
         return;
       }
-      if (!resource.reachable
+      if (!resource.isReachable()
           && (resource.type == ResourceType.STYLE
               || resource.type == ResourceType.PLURALS
               || resource.type == ResourceType.ARRAY)) {
@@ -404,117 +424,59 @@ public class ResourceUsageAnalyzer {
         stripUnused((Element) child, removed);
       }
     }
-    if (resource != null && !resource.reachable && resource.isRelevantType()) {
+    if (resource != null && !resource.isReachable() && resource.type != ResourceType.ID) {
       removed.add(resource.getUrl());
       Node parent = element.getParentNode();
       parent.removeChild(element);
     }
   }
 
-  private static String getFieldName(Element element) {
-    return getFieldName(element.getAttribute(ATTR_NAME));
-  }
-
-  @Nullable
-  private Resource getResource(Element element) {
-    ResourceType type = getResourceType(element);
-    if (type != null) {
-      String name = getFieldName(element);
-      return getResource(type, name);
-    }
-    return null;
-  }
-
-  private static ResourceType getResourceType(Element element) {
-    String tagName = element.getTagName();
-    switch (tagName) {
-      case TAG_ITEM:
-        String typeName = element.getAttribute(ATTR_TYPE);
-        if (!typeName.isEmpty()) {
-          return ResourceType.getEnum(typeName);
-        }
-        break;
-      case "string-array":
-      case "integer-array":
-        return ResourceType.ARRAY;
-      default:
-        return ResourceType.getEnum(tagName);
-    }
-    return null;
-  }
-
-  private void findUnused() {
-    List<Resource> roots = Lists.newArrayList();
-    for (Resource resource : resources) {
-      if (resource.reachable && resource.type != ResourceType.ID
-          && resource.type != ResourceType.ATTR) {
-        roots.add(resource);
-      }
-    }
-    logger.fine(String.format("The root reachable resources are:\n  %s",
-        Joiner.on(",\n  ").join(roots)));
-    Map<Resource, Boolean> seen = new IdentityHashMap<>(resources.size());
-    for (Resource root : roots) {
-      visit(root, seen);
-    }
-    List<Resource> unused = Lists.newArrayListWithExpectedSize(resources.size());
-    for (Resource resource : resources) {
-      if (!resource.reachable && resource.isRelevantType()) {
-        unused.add(resource);
-      }
-    }
-    this.unused = unused;
-  }
-
-  private static void visit(Resource root, Map<Resource, Boolean> seen) {
-    if (seen.containsKey(root)) {
-      return;
-    }
-    seen.put(root, Boolean.TRUE);
-    root.reachable = true;
-    if (root.references != null) {
-      for (Resource referenced : root.references) {
-        visit(referenced, seen);
-      }
-    }
-  }
-
   private void dumpReferences() {
-    for (Resource resource : resources) {
-      if (resource.references != null) {
-        logger.fine(resource + " => " + resource.references);
-      }
-    }
+    logger.fine(model.dumpReferences());
   }
 
   private void keepPossiblyReferencedResources() {
-    if (!mFoundGetIdentifier || mStrings == null) {
+    if ((!foundGetIdentifier && !foundWebContent) || strings == null) {
       // No calls to android.content.res.Resources#getIdentifier; no need
       // to worry about string references to resources
       return;
     }
-    List<String> strings = new ArrayList<String>(mStrings);
-    Collections.sort(strings);
-    logger.fine(String.format("android.content.res.Resources#getIdentifier present: %s",
-        mFoundGetIdentifier));
+    if (!model.isSafeMode()) {
+      // User specifically asked for us not to guess resources to keep; they will
+      // explicitly mark them as kept if necessary instead
+      return;
+    }
+    List<String> sortedStrings = new ArrayList<String>(strings);
+    Collections.sort(sortedStrings);
+    logger.fine(
+        "android.content.res.Resources#getIdentifier present: " + foundGetIdentifier);
+    logger.fine("Web content present: " + foundWebContent);
     logger.fine("Referenced Strings:");
-    for (String s : strings) {
-      s = s.trim().replace("\n", "\\n");
-      if (s.length() > 40) {
-        s = s.substring(0, 37) + "...";
-      } else if (s.isEmpty()) {
+    for (String string : sortedStrings) {
+      string = string.trim().replace("\n", "\\n");
+      if (string.length() > 40) {
+        string = string.substring(0, 37) + "...";
+      } else if (string.isEmpty()) {
         continue;
       }
-      logger.fine("  " + s);
+      logger.fine("  " + string);
     }
-
+    int shortest = Integer.MAX_VALUE;
     Set<String> names = Sets.newHashSetWithExpectedSize(50);
-    for (Map<String, Resource> map : typeToName.values()) {
-      names.addAll(map.keySet());
+    for (Resource resource : model.getResources()) {
+      String name = resource.name;
+      names.add(name);
+      int length = name.length();
+      if (length < shortest) {
+        shortest = length;
+      }
     }
-    for (String string : mStrings) {
+    for (String string : strings) {
+      if (string.length() < shortest) {
+        continue;
+      }
       // Check whether the string looks relevant
-      // We consider three types of strings:
+      // We consider four types of strings:
       //  (1) simple resource names, e.g. "foo" from @layout/foo
       //      These might be the parameter to a getIdentifier() call, or could
       //      be composed into a fully qualified resource name for the getIdentifier()
@@ -523,16 +485,48 @@ public class ResourceUsageAnalyzer {
       //      These might be composed into a fully qualified resource name for
       //      getIdentifier().
       //  (3) Fully qualified resource names of the form package:type/name.
+      //  (4) If foundWebContent is true, look for android_res/ URL strings as well
+      if (foundWebContent) {
+        Resource resource = model.getResourceFromFilePath(string);
+        if (resource != null) {
+          ResourceUsageModel.markReachable(resource);
+          continue;
+        } else {
+          int start = 0;
+          int slash = string.lastIndexOf('/');
+          if (slash != -1) {
+            start = slash + 1;
+          }
+          int dot = string.indexOf('.', start);
+          String name = string.substring(start, dot != -1 ? dot : string.length());
+          if (names.contains(name)) {
+            for (Map<String, Resource> map : model.getResourceMaps()) {
+              resource = map.get(name);
+              if (resource != null) {
+                logger.fine(String.format(
+                    "Marking %s used because it matches string pool constant %s",
+                    resource, string));
+              }
+              ResourceUsageModel.markReachable(resource);
+            }
+          }
+        }
+      }
+      // Look for normal getIdentifier resource URLs
       int n = string.length();
       boolean justName = true;
+      boolean formatting = false;
       boolean haveSlash = false;
       for (int i = 0; i < n; i++) {
         char c = string.charAt(i);
         if (c == '/') {
           haveSlash = true;
           justName = false;
-        } else if (c == '.' || c == ':') {
+        } else if (c == '.' || c == ':' || c == '%') {
           justName = false;
+          if (c == '%') {
+            formatting = true;
+          }
         } else if (!Character.isJavaIdentifierPart(c)) {
           // This shouldn't happen; we've filtered out these strings in
           // the {@link #referencedString} method
@@ -544,7 +538,35 @@ public class ResourceUsageAnalyzer {
       if (justName) {
         // Check name (below)
         name = string;
+        // Check for a simple prefix match, e.g. as in
+        // getResources().getIdentifier("ic_video_codec_" + codecName, "drawable", ...)
+        for (Resource resource : model.getResources()) {
+          if (resource.name.startsWith(name)) {
+            logger.fine(String.format(
+                "Marking %s used because its prefix matches string pool constant %s",
+                resource, string));
+            ResourceUsageModel.markReachable(resource);
+          }
+        }
       } else if (!haveSlash) {
+        if (formatting) {
+          // Possibly a formatting string, e.g.
+          //   String name = String.format("my_prefix_%1d", index);
+          //   int res = getContext().getResources().getIdentifier(name, "drawable", ...)
+          try {
+            Pattern pattern = Pattern.compile(convertFormatStringToRegexp(string));
+            for (Resource resource : model.getResources()) {
+              if (pattern.matcher(resource.name).matches()) {
+                logger.fine(String.format(
+                    "Marking %s used because it format-string matches string pool constant %s",
+                    resource, string));
+                ResourceUsageModel.markReachable(resource);
+              }
+            }
+          } catch (PatternSyntaxException ignored) {
+            // Might not have been a formatting string after all!
+          }
+        }
         // If we have more than just a symbol name, we expect to also see a slash
         //noinspection UnnecessaryContinue
         continue;
@@ -565,24 +587,26 @@ public class ResourceUsageAnalyzer {
           if (type == null) {
             continue;
           }
-          Resource resource = getResource(type, name);
+          Resource resource = model.getResource(type, name);
           if (resource != null) {
-            logger.fine("Marking " + resource + " used because it "
-                + "matches string pool constant " + string);
+            logger.fine(String.format(
+                "Marking %s used because it matches string pool constant %s",
+                resource, string));
           }
-          markReachable(resource);
+          ResourceUsageModel.markReachable(resource);
           continue;
         }
         // fall through and check the name
       }
       if (names.contains(name)) {
-        for (Map<String, Resource> map : typeToName.values()) {
-          Resource resource = map.get(string);
+        for (Map<String, Resource> map : model.getResourceMaps()) {
+          Resource resource = map.get(name);
           if (resource != null) {
-            logger.fine("Marking " + resource + " used because it "
-                + "matches string pool constant " + string);
+            logger.fine(String.format(
+                "Marking %s used because it matches string pool constant %s",
+                resource, string));
           }
-          markReachable(resource);
+          ResourceUsageModel.markReachable(resource);
         }
       } else if (Character.isDigit(name.charAt(0))) {
         // Just a number? There are cases where it calls getIdentifier by
@@ -592,13 +616,71 @@ public class ResourceUsageAnalyzer {
         try {
           int id = Integer.parseInt(name);
           if (id != 0) {
-            markReachable(valueToResource.get(id));
+            ResourceUsageModel.markReachable(model.getResource(id));
           }
         } catch (NumberFormatException e) {
           // pass
         }
       }
     }
+  }
+
+  @VisibleForTesting
+  static String convertFormatStringToRegexp(String formatString) {
+    StringBuilder regexp = new StringBuilder();
+    int from = 0;
+    boolean hasEscapedLetters = false;
+    Matcher matcher = StringFormatDetector.FORMAT.matcher(formatString);
+    int length = formatString.length();
+    while (matcher.find(from)) {
+      int start = matcher.start();
+      int end = matcher.end();
+      if (start == 0 && end == length) {
+        // Don't match if the entire string literal starts with % and ends with
+        // the a formatting character, such as just "%d": this just matches absolutely
+        // everything and is unlikely to be used in a resource lookup
+        return NO_MATCH;
+      }
+      if (start > from) {
+        hasEscapedLetters |= appendEscapedPattern(formatString, regexp, from, start);
+      }
+      // If the wildcard follows a previous wildcard, just skip it
+      // (e.g. don't convert %s%s into .*.*; .* is enough.
+      int regexLength = regexp.length();
+      if (regexLength < 2
+          || regexp.charAt(regexLength - 1) != '*'
+          || regexp.charAt(regexLength - 2) != '.') {
+        regexp.append(".*");
+      }
+      from = end;
+    }
+    if (from < length) {
+      hasEscapedLetters |= appendEscapedPattern(formatString, regexp, from, length);
+    }
+    if (!hasEscapedLetters) {
+      // If the regexp contains *only* formatting characters, e.g. "%.0f%d", or
+      // if it contains only formatting characters and punctuation, e.g. "%s_%d",
+      // don't treat this as a possible resource name pattern string: it is unlikely
+      // to be intended for actual resource names, and has the side effect of matching
+      // most names.
+      return NO_MATCH;
+    }
+    return regexp.toString();
+  }
+
+  /**
+   * Appends the characters in the range [from,to> from formatString as escaped regexp characters
+   * into the given string builder. Returns true if there were any letters in the appended text.
+   */
+  private static boolean appendEscapedPattern(
+      @NonNull String formatString, @NonNull StringBuilder regexp, int from, int to) {
+    regexp.append(Pattern.quote(formatString.substring(from, to)));
+    for (int i = from; i < to; i++) {
+      if (Character.isLetter(formatString.charAt(i))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private void recordResources(Path resDir)
@@ -618,49 +700,21 @@ public class ResourceUsageAnalyzer {
   private void recordResources(@NonNull ResourceFolderType folderType, File folder)
       throws ParserConfigurationException, SAXException, IOException {
     File[] files = folder.listFiles();
-    FolderConfiguration config = FolderConfiguration.getConfigForFolder(folder.getName());
-    boolean isDefaultFolder = false;
-    if (config != null) {
-      isDefaultFolder = true;
-      for (int i = 0, n = FolderConfiguration.getQualifierCount(); i < n; i++) {
-        ResourceQualifier qualifier = config.getQualifier(i);
-        // Densities are special: even if they're present in just (say) drawable-hdpi
-        // we'll match it on any other density
-        if (qualifier != null && !(qualifier instanceof DensityQualifier)) {
-          isDefaultFolder = false;
-          break;
-        }
-      }
-    }
     if (files != null) {
       for (File file : files) {
         String path = file.getPath();
-        boolean isXml = endsWithIgnoreCase(path, DOT_XML);
-        Resource from = null;
-        // Record resource for the whole file
-        if (folderType != ResourceFolderType.VALUES) {
-          List<ResourceType> types = FolderTypeRelationship.getRelatedResourceTypes(
-              folderType);
-          ResourceType type = types.get(0);
-          assert type != ResourceType.ID : folderType;
-          String name = file.getName();
-          int extension = name.indexOf('.');
-          if (extension > 0) {
-            name = name.substring(0, extension);
+        model.file = file;
+        try {
+          boolean isXml = endsWithIgnoreCase(path, DOT_XML);
+          if (isXml) {
+            String xml = Files.toString(file, UTF_8);
+            Document document = XmlUtils.parseDocument(xml, true);
+            model.visitXmlDocument(file, folderType, document);
+          } else {
+            model.visitBinaryResource(folderType, file);
           }
-          Resource resource = getResource(type, name);
-          if (resource != null) {
-            resource.addLocation(file);
-            if (isDefaultFolder) {
-              resource.hasDefault = true;
-            }
-            from = resource;
-          }
-        }
-        if (isXml) {
-          // For value files, and drawables and colors etc also pull in resource
-          // references inside the file
-          recordResourcesUsages(file, isDefaultFolder, from);
+        } finally {
+          model.file = null;
         }
       }
     }
@@ -705,6 +759,30 @@ public class ResourceUsageAnalyzer {
       }
       int index = line.indexOf(resourceIndicator);
       if (index == -1) {
+        // Record obfuscated names of a few known appcompat usages of
+        // Resources#getIdentifier that are unlikely to be used for general
+        // resource name reflection
+        if (line.startsWith("android.support.v7.widget.SuggestionsAdapter ")) {
+          suggestionsAdapter =
+              line.substring(
+                          line.indexOf(arrowIndicator) + arrowIndicator.length(),
+                          line.indexOf(':') != -1 ? line.indexOf(':') : line.length())
+                      .trim()
+                      .replace('.', '/')
+                  + DOT_CLASS;
+        } else if (line.startsWith("android.support.v7.internal.widget.ResourcesWrapper ")
+            || line.startsWith("android.support.v7.widget.ResourcesWrapper ")
+            || (resourcesWrapper == null // Recently wrapper moved
+                && line.startsWith(
+                    "android.support.v7.widget.TintContextWrapper$TintResources "))) {
+          resourcesWrapper =
+              line.substring(
+                          line.indexOf(arrowIndicator) + arrowIndicator.length(),
+                          line.indexOf(':') != -1 ? line.indexOf(':') : line.length())
+                      .trim()
+                      .replace('.', '/')
+                  + DOT_CLASS;
+        }
         continue;
       }
       int arrow = line.indexOf(arrowIndicator, index + 3);
@@ -721,11 +799,12 @@ public class ResourceUsageAnalyzer {
         end = line.length();
       }
       String target = line.substring(arrow + arrowIndicator.length(), end).trim();
-      String ownerName = target.replace('.', '/');
-
+      String ownerName = AsmUtils.toInternalName(target);
       nameMap = Maps.newHashMap();
       Pair<ResourceType, Map<String, String>> pair = Pair.of(type, nameMap);
       resourceObfuscation.put(ownerName, pair);
+      // For fast lookup in isResourceClass
+      resourceObfuscation.put(ownerName + DOT_CLASS, pair);
     }
   }
 
@@ -733,33 +812,139 @@ public class ResourceUsageAnalyzer {
       throws IOException, ParserConfigurationException, SAXException {
     String xml = Files.toString(manifest.toFile(), UTF_8);
     Document document = XmlUtils.parseDocument(xml, true);
-    recordManifestUsages(document.getDocumentElement());
+    model.visitXmlDocument(manifest.toFile(), null, document);
   }
 
-  private void recordResourcesUsages(@NonNull File file, boolean isDefaultFolder,
-      @Nullable Resource from)
-      throws IOException, ParserConfigurationException, SAXException {
-    String xml = Files.toString(file, UTF_8);
-    Document document = XmlUtils.parseDocument(xml, true);
-    recordResourceReferences(file, isDefaultFolder, document.getDocumentElement(), from);
+  public static String getFieldName(@NonNull String styleName) {
+    return styleName.replace('.', '_').replace('-', '_').replace(':', '_');
   }
 
-  @Nullable
-  private Resource getResource(@NonNull ResourceType type, @NonNull String name) {
-    Map<String, Resource> nameMap = typeToName.get(type);
-    if (nameMap != null) {
-      return nameMap.get(getFieldName(name));
+  private Set<String> strings;
+  private boolean foundGetIdentifier;
+  private boolean foundWebContent;
+
+  private void referencedString(@NonNull String string) {
+    // See if the string is at all eligible; ignore strings that aren't
+    // identifiers (has java identifier chars and nothing but .:/), or are empty or too long
+    // We also allow "%", used for formatting strings.
+    if (string.isEmpty() || string.length() > 80) {
+      return;
     }
-    return null;
+    boolean haveIdentifierChar = false;
+    for (int i = 0, n = string.length(); i < n; i++) {
+      char c = string.charAt(i);
+      boolean identifierChar = Character.isJavaIdentifierPart(c);
+      if (!identifierChar && c != '.' && c != ':' && c != '/' && c != '%') {
+        // .:/ are for the fully qualified resource names, or for resource URLs or
+        // relative file names
+        return;
+      } else if (identifierChar) {
+        haveIdentifierChar = true;
+      }
+    }
+    if (!haveIdentifierChar) {
+      return;
+    }
+    if (strings == null) {
+      strings = Sets.newHashSetWithExpectedSize(300);
+    }
+    strings.add(string);
+
+    if (!foundWebContent && string.contains(ANDROID_RES)) {
+      foundWebContent = true;
+    }
   }
 
-  @Nullable
-  private Resource getResource(@NonNull String possibleUrlReference) {
-    ResourceUrl url = ResourceUrl.parse(possibleUrlReference);
-    if (url != null && !url.framework) {
-      return getResource(url.type, url.name);
+  private void recordClassUsages(Path file) throws IOException {
+    if (file.toFile().isDirectory()) {
+      File[] children = file.toFile().listFiles();
+      if (children != null) {
+        for (File child : children) {
+          recordClassUsages(child.toPath());
+        }
+      }
+    } else if (file.toFile().isFile()) {
+      if (file.toFile().getPath().endsWith(DOT_CLASS)) {
+        byte[] bytes = Files.toByteArray(file.toFile());
+        recordClassUsages(file.toFile(), file.toFile().getName(), bytes);
+      } else if (file.toFile().getPath().endsWith(DOT_JAR)) {
+        ZipInputStream zis = null;
+        try {
+          FileInputStream fis = new FileInputStream(file.toFile());
+          try {
+            zis = new ZipInputStream(fis);
+            ZipEntry entry = zis.getNextEntry();
+            while (entry != null) {
+              String name = entry.getName();
+              if (name.endsWith(DOT_CLASS)
+                  &&
+                  // Skip resource type classes like R$drawable; they will
+                  // reference the integer id's we're looking for, but these aren't
+                  // actual usages we need to track; if somebody references the
+                  // field elsewhere, we'll catch that
+                  !isResourceClass(name)) {
+                byte[] bytes = ByteStreams.toByteArray(zis);
+                if (bytes != null) {
+                  recordClassUsages(file.toFile(), name, bytes);
+                }
+              }
+              entry = zis.getNextEntry();
+            }
+          } finally {
+            Closeables.close(fis, true);
+          }
+        } finally {
+          Closeables.close(zis, true);
+        }
+      }
     }
-    return null;
+  }
+
+  private void recordClassUsages(File file, String name, byte[] bytes) {
+    ClassReader classReader = new ClassReader(bytes);
+    classReader.accept(new UsageVisitor(file, name), SKIP_DEBUG | SKIP_FRAMES);
+  }
+
+  private void parseResourceTxtFile(Path rTxt, Set<String> resourcePackages) throws IOException {
+    BufferedReader reader = java.nio.file.Files.newBufferedReader(rTxt, UTF_8);
+    String line;
+    while ((line = reader.readLine()) != null) {
+      String[] tokens = line.split(" ");
+      ResourceType type = ResourceType.getEnum(tokens[1]);
+      for (String resourcePackage : resourcePackages) {
+        String owner = resourcePackage.replace('.', '/') + "/R$" + type.getName();
+        Pair<ResourceType, Map<String, String>> pair = resourceObfuscation.get(owner);
+        if (pair == null) {
+          Map<String, String> nameMap = Maps.newHashMap();
+          pair = Pair.of(type, nameMap);
+        }
+        resourceObfuscation.put(owner, pair);
+      }
+      if (type == ResourceType.STYLEABLE) {
+        if (tokens[0].equals("int[]")) {
+          model.addResource(ResourceType.DECLARE_STYLEABLE, tokens[2], null);
+        } else {
+          // TODO(jongerrish): Implement stripping of styleables.
+        }
+      } else {
+        model.addResource(type, tokens[2], tokens[3]);
+      }
+    }
+  }
+
+  /** Returns whether the given class file name points to an aapt-generated compiled R class */
+  @VisibleForTesting
+  boolean isResourceClass(@NonNull String name) {
+    if (resourceObfuscation.containsKey(name)) {
+      return true;
+    }
+    assert name.endsWith(DOT_CLASS) : name;
+    int index = name.lastIndexOf('/');
+    if (index != -1 && name.startsWith("R$", index + 1)) {
+      String typeName = name.substring(index + 3, name.length() - DOT_CLASS.length());
+      return ResourceType.getEnum(typeName) != null;
+    }
+    return false;
   }
 
   @VisibleForTesting
@@ -773,380 +958,43 @@ public class ResourceUsageAnalyzer {
       if (renamedField != null) {
         name = renamedField;
       }
-      return getResource(type, name);
+      return model.getResource(type, name);
     }
     return null;
   }
 
-  private void recordManifestUsages(Node node) {
-    short nodeType = node.getNodeType();
-    if (nodeType == Node.ELEMENT_NODE) {
-      Element element = (Element) node;
-      NamedNodeMap attributes = element.getAttributes();
-      for (int i = 0, n = attributes.getLength(); i < n; i++) {
-        Attr attr = (Attr) attributes.item(i);
-        markReachable(getResource(attr.getValue()));
-      }
-    } else if (nodeType == Node.TEXT_NODE) {
-      // Does this apply to any manifests??
-      String text = node.getNodeValue().trim();
-      markReachable(getResource(text));
-    }
-    NodeList children = node.getChildNodes();
-    for (int i = 0, n = children.getLength(); i < n; i++) {
-      Node child = children.item(i);
-      recordManifestUsages(child);
-    }
-  }
-
-  private void recordResourceReferences(@NonNull File file, boolean isDefaultFolder,
-      @NonNull Node node, @Nullable Resource from) {
-    short nodeType = node.getNodeType();
-    if (nodeType == Node.ELEMENT_NODE) {
-      Element element = (Element) node;
-      if (from != null) {
-        NamedNodeMap attributes = element.getAttributes();
-        for (int i = 0, n = attributes.getLength(); i < n; i++) {
-          Attr attr = (Attr) attributes.item(i);
-          Resource resource = getResource(attr.getValue());
-          if (resource != null) {
-            from.addReference(resource);
-          }
-        }
-        // Android Wear. We *could* limit ourselves to only doing this in files
-        // referenced from a manifest meta-data element, e.g.
-        // <meta-data android:name="com.google.android.wearable.beta.app"
-        //    android:resource="@xml/wearable_app_desc"/>
-        // but given that that property has "beta" in the name, it seems likely
-        // to change and therefore hardcoding it for that key risks breakage
-        // in the future.
-        if ("rawPathResId".equals(element.getTagName())) {
-          StringBuilder sb = new StringBuilder();
-          NodeList children = node.getChildNodes();
-          for (int i = 0, n = children.getLength(); i < n; i++) {
-            Node child = children.item(i);
-            if (child.getNodeType() == Element.TEXT_NODE
-                || child.getNodeType() == Element.CDATA_SECTION_NODE) {
-              sb.append(child.getNodeValue());
-            }
-          }
-          if (sb.length() > 0) {
-            Resource resource = getResource(ResourceType.RAW, sb.toString().trim());
-            from.addReference(resource);
-          }
-        }
-      }
-      Resource definition = getResource(element);
-      if (definition != null) {
-        from = definition;
-        definition.addLocation(file);
-        if (isDefaultFolder) {
-          definition.hasDefault = true;
-        }
-      }
-      String tagName = element.getTagName();
-      if (TAG_STYLE.equals(tagName)) {
-        if (element.hasAttribute(ATTR_PARENT)) {
-          String parent = element.getAttribute(ATTR_PARENT);
-          if (!parent.isEmpty() && !parent.startsWith(ANDROID_STYLE_RESOURCE_PREFIX)
-              && !parent.startsWith(PREFIX_ANDROID)) {
-            String parentStyle = parent;
-            if (!parentStyle.startsWith(STYLE_RESOURCE_PREFIX)) {
-              parentStyle = STYLE_RESOURCE_PREFIX + parentStyle;
-            }
-            Resource ps = getResource(getFieldName(parentStyle));
-            if (ps != null && definition != null) {
-              definition.addReference(ps);
-            }
-          }
-        } else {
-          // Implicit parent styles by name
-          String name = getFieldName(element);
-          while (true) {
-            int index = name.lastIndexOf('_');
-            if (index != -1) {
-              name = name.substring(0, index);
-              Resource ps = getResource(STYLE_RESOURCE_PREFIX + getFieldName(name));
-              if (ps != null && definition != null) {
-                definition.addReference(ps);
-              }
-            } else {
-              break;
-            }
-          }
-        }
-      }
-      if (TAG_ITEM.equals(tagName)) {
-        // In style? If so the name: attribute can be a reference
-        if (element.getParentNode() != null
-            && element.getParentNode().getNodeName().equals(TAG_STYLE)) {
-          String name = element.getAttributeNS(ANDROID_URI, ATTR_NAME);
-          if (!name.isEmpty() && !name.startsWith("android:")) {
-            Resource resource = getResource(ResourceType.ATTR, name);
-            if (definition == null) {
-              Element style = (Element) element.getParentNode();
-              definition = getResource(style);
-              if (definition != null) {
-                from = definition;
-                definition.addReference(resource);
-              }
-            }
-          }
-        }
-      }
-    } else if (nodeType == Node.TEXT_NODE || nodeType == Node.CDATA_SECTION_NODE) {
-      String text = node.getNodeValue().trim();
-      Resource textResource = getResource(getFieldName(text));
-      if (textResource != null && from != null) {
-        from.addReference(textResource);
-      }
-    }
-    NodeList children = node.getChildNodes();
-    for (int i = 0, n = children.getLength(); i < n; i++) {
-      Node child = children.item(i);
-      recordResourceReferences(file, isDefaultFolder, child, from);
-    }
-  }
-
-  public static String getFieldName(@NonNull String styleName) {
-    return styleName.replace('.', '_').replace('-', '_').replace(':', '_');
-  }
-
-  private static void markReachable(@Nullable Resource resource) {
-    if (resource != null) {
-      resource.reachable = true;
-    }
-  }
-
-  private Set<String> mStrings;
-  private boolean mFoundGetIdentifier;
-
-  private void referencedString(@NonNull String string) {
-    // See if the string is at all eligible; ignore strings that aren't
-    // identifiers (has java identifier chars and nothing but .:/), or are empty or too long
-    if (string.isEmpty() || string.length() > 80) {
-      return;
-    }
-    boolean haveIdentifierChar = false;
-    for (int i = 0, n = string.length(); i < n; i++) {
-      char c = string.charAt(i);
-      boolean identifierChar = Character.isJavaIdentifierPart(c);
-      if (!identifierChar && c != '.' && c != ':' && c != '/') {
-        // .:/ are for the fully qualified resuorce names
-        return;
-      } else if (identifierChar) {
-        haveIdentifierChar = true;
-      }
-    }
-    if (!haveIdentifierChar) {
-      return;
-    }
-    if (mStrings == null) {
-      mStrings = Sets.newHashSetWithExpectedSize(300);
-    }
-    mStrings.add(string);
-  }
-
-  private void recordUsages(Path jarFile) throws IOException {
-    if (!jarFile.toFile().exists()) {
-      return;
-    }
-    ZipInputStream zis = null;
-    try {
-      FileInputStream fis = new FileInputStream(jarFile.toFile());
-      try {
-        zis = new ZipInputStream(fis);
-        ZipEntry entry = zis.getNextEntry();
-        while (entry != null) {
-          String name = entry.getName();
-          if (name.endsWith(DOT_CLASS)) {
-            byte[] bytes = ByteStreams.toByteArray(zis);
-            if (bytes != null) {
-              ClassReader classReader = new ClassReader(bytes);
-              classReader.accept(new UsageVisitor(), 0);
-            }
-          }
-          entry = zis.getNextEntry();
-        }
-      } finally {
-        Closeables.close(fis, true);
-      }
-    } finally {
-      Closeables.close(zis, true);
-    }
-  }
-
-  private void parseResourceTxtFile(Path rTxt, Set<String> resourcePackages) throws IOException {
-    BufferedReader reader = java.nio.file.Files.newBufferedReader(rTxt, UTF_8);
-    String line;
-    while ((line = reader.readLine()) != null) {
-      String[] tokens = line.split(" ");
-      ResourceType type = ResourceType.getEnum(tokens[1]);
-      for (String resourcePackage : resourcePackages) {
-        resourceObfuscation.put(resourcePackage.replace('.', '/') + "/R$" + type.getName(),
-            Pair.<ResourceType, Map<String, String>>of(type, Maps.<String, String>newHashMap()));
-      }
-      if (type == ResourceType.STYLEABLE) {
-        if (tokens[0].equals("int[]")) {
-          addResource(ResourceType.DECLARE_STYLEABLE, tokens[2], null);
-        } else {
-          // TODO(jongerrish): Implement stripping of styleables.
-        }
-      } else {
-        addResource(type, tokens[2], tokens[3]);
-      }
-    }
-  }
-
-  private void addResource(@NonNull ResourceType type, @NonNull String name,
-      @Nullable String value) {
-    int realValue = value != null ? Integer.decode(value) : -1;
-    Resource resource = getResource(type, name);
-    if (resource != null) {
-      //noinspection VariableNotUsedInsideIf
-      if (value != null) {
-        if (resource.value == -1) {
-          resource.value = realValue;
-        } else {
-          assert realValue == resource.value;
-        }
-      }
-      return;
-    }
-    resource = new Resource(type, name, realValue);
-    resources.add(resource);
-    if (realValue != -1) {
-      valueToResource.put(realValue, resource);
-    }
-    Map<String, Resource> nameMap = typeToName.get(type);
-    if (nameMap == null) {
-      nameMap = Maps.newHashMapWithExpectedSize(30);
-      typeToName.put(type, nameMap);
-    }
-    nameMap.put(name, resource);
-    // TODO: Assert that we don't set the same resource multiple times to different values.
-    // Could happen if you pass in stale data!
+  public int getUnusedResourceCount() {
+    return unused.size();
   }
 
   @VisibleForTesting
-  List<Resource> getAllResources() {
-    return resources;
+  ResourceUsageModel getModel() {
+    return model;
   }
 
   /**
-   * Metadata about an Android resource
+   * Class visitor responsible for looking for resource references in code. It looks for R.type.name
+   * references (as well as inlined constants for these, in the case of non-library code), as well
+   * as looking both for Resources#getIdentifier calls and recording string literals, used to handle
+   * dynamic lookup of resources.
    */
-  public static class Resource {
-
-    /**
-     * Type of resource
-     */
-    public ResourceType type;
-    /**
-     * Name of resource
-     */
-    public String name;
-    /**
-     * Integer id location
-     */
-    public int value;
-    /**
-     * Whether this resource can be reached from one of the roots (manifest, code)
-     */
-    public boolean reachable;
-    /**
-     * Whether this resource has a default definition (e.g. present in a resource folder with no
-     * qualifiers). For id references, an inline definition (@+id) does not count as a default
-     * definition.
-     */
-    public boolean hasDefault;
-    /**
-     * Resources this resource references. For example, a layout can reference another via an
-     * include; a style reference in a layout references that layout style, and so on.
-     */
-    public List<Resource> references;
-    public final List<File> declarations = Lists.newArrayList();
-
-    private Resource(ResourceType type, String name, int value) {
-      this.type = type;
-      this.name = name;
-      this.value = value;
-    }
-
-    @Override
-    public String toString() {
-      return type + ":" + name + ":" + value;
-    }
-
-    @SuppressWarnings("RedundantIfStatement") // Generated by IDE
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Resource resource = (Resource) o;
-      if (name != null ? !name.equals(resource.name) : resource.name != null) {
-        return false;
-      }
-      if (type != resource.type) {
-        return false;
-      }
-      return true;
-    }
-
-    @Override
-    public int hashCode() {
-      int result = type != null ? type.hashCode() : 0;
-      result = 31 * result + (name != null ? name.hashCode() : 0);
-      return result;
-    }
-
-    public void addLocation(@NonNull File file) {
-      declarations.add(file);
-    }
-
-    public void addReference(@Nullable Resource resource) {
-      if (resource != null) {
-        if (references == null) {
-          references = Lists.newArrayList();
-        } else if (references.contains(resource)) {
-          return;
-        }
-        references.add(resource);
-      }
-    }
-
-    public String getUrl() {
-      return '@' + type.getName() + '/' + name;
-    }
-
-    public boolean isRelevantType() {
-      return type != ResourceType.ID; // && getFolderType() != ResourceFolderType.VALUES;
-    }
-  }
-
   private class UsageVisitor extends ClassVisitor {
+    private final File jarFile;
+    private final String currentClass;
 
-    public UsageVisitor() {
+    public UsageVisitor(File jarFile, String name) {
       super(Opcodes.ASM5);
+      this.jarFile = jarFile;
+      currentClass = name;
     }
 
     @Override
-    public MethodVisitor visitMethod(int access, final String name,
-        String desc, String signature, String[] exceptions) {
+    public MethodVisitor visitMethod(
+        int access, final String name, String desc, String signature, String[] exceptions) {
       return new MethodVisitor(Opcodes.ASM5) {
         @Override
         public void visitLdcInsn(Object cst) {
-          if (cst instanceof Integer) {
-            Integer value = (Integer) cst;
-            markReachable(valueToResource.get(value));
-          } else if (cst instanceof String) {
-            String string = (String) cst;
-            referencedString(string);
-          }
+          handleCodeConstant(cst, "ldc");
         }
 
         @Override
@@ -1154,25 +1002,190 @@ public class ResourceUsageAnalyzer {
           if (opcode == Opcodes.GETSTATIC) {
             Resource resource = getResourceFromCode(owner, name);
             if (resource != null) {
-              markReachable(resource);
+              ResourceUsageModel.markReachable(resource);
             }
           }
         }
 
         @Override
         public void visitMethodInsn(
-            int opcode, String owner, String name, String desc, boolean isInterface) {
-          super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+            int opcode, String owner, String name, String desc, boolean itf) {
+          super.visitMethodInsn(opcode, owner, name, desc, itf);
           if (owner.equals("android/content/res/Resources")
               && name.equals("getIdentifier")
               && desc.equals("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I")) {
-            mFoundGetIdentifier = true;
+            if (currentClass.equals(resourcesWrapper)
+                || currentClass.equals(suggestionsAdapter)) {
+              // "benign" usages: don't trigger reflection mode just because
+              // the user has included appcompat
+              return;
+            }
+            foundGetIdentifier = true;
             // TODO: Check previous instruction and see if we can find a literal
             // String; if so, we can more accurately dispatch the resource here
             // rather than having to check the whole string pool!
           }
+          if (owner.equals("android/webkit/WebView") && name.startsWith("load")) {
+            foundWebContent = true;
+          }
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotationDefault() {
+          return new AnnotationUsageVisitor();
+        }
+
+        @Override
+        public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+          return new AnnotationUsageVisitor();
+        }
+
+        @Override
+        public AnnotationVisitor visitParameterAnnotation(
+            int parameter, String desc, boolean visible) {
+          return new AnnotationUsageVisitor();
         }
       };
+    }
+
+    @Override
+    public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+      return new AnnotationUsageVisitor();
+    }
+
+    @Override
+    public FieldVisitor visitField(
+        int access, String name, String desc, String signature, Object value) {
+      handleCodeConstant(value, "field");
+      return new FieldVisitor(Opcodes.ASM5) {
+        @Override
+        public AnnotationVisitor visitAnnotation(String desc, boolean visible) {
+          return new AnnotationUsageVisitor();
+        }
+      };
+    }
+
+    private class AnnotationUsageVisitor extends AnnotationVisitor {
+      public AnnotationUsageVisitor() {
+        super(Opcodes.ASM5);
+      }
+
+      @Override
+      public AnnotationVisitor visitAnnotation(String name, String desc) {
+        return new AnnotationUsageVisitor();
+      }
+
+      @Override
+      public AnnotationVisitor visitArray(String name) {
+        return new AnnotationUsageVisitor();
+      }
+
+      @Override
+      public void visit(String name, Object value) {
+        handleCodeConstant(value, "annotation");
+        super.visit(name, value);
+      }
+    }
+    /** Invoked when an ASM visitor encounters a constant: record corresponding reference */
+    private void handleCodeConstant(@Nullable Object cst, @NonNull String context) {
+      if (cst instanceof Integer) {
+        Integer value = (Integer) cst;
+        Resource resource = model.getResource(value);
+        if (ResourceUsageModel.markReachable(resource)) {
+          logger.fine(String.format("Marking %s reachable: referenced from %s in %s:%s",
+              resource, context, jarFile, currentClass));
+        }
+      } else if (cst instanceof int[]) {
+        int[] values = (int[]) cst;
+        for (int value : values) {
+          Resource resource = model.getResource(value);
+          if (ResourceUsageModel.markReachable(resource)) {
+            logger.fine(String.format("Marking %s reachable: referenced from %s in %s:%s",
+                resource, context, jarFile, currentClass));
+          }
+        }
+      } else if (cst instanceof String) {
+        String string = (String) cst;
+        referencedString(string);
+      }
+    }
+  }
+
+  private final ResourceShrinkerUsageModel model = new ResourceShrinkerUsageModel();
+
+  private class ResourceShrinkerUsageModel extends ResourceUsageModel {
+    public File file;
+
+    @NonNull
+    @Override
+    protected List<Resource> findRoots(@NonNull List<Resource> resources) {
+      List<Resource> roots = super.findRoots(resources);
+      logger.fine("The root reachable resources are:\n  " + Joiner.on(",\n  ").join(roots) + "\n");
+      return roots;
+    }
+
+    @Override
+    protected Resource declareResource(ResourceType type, String name, Node node) {
+      Resource resource = super.declareResource(type, name, node);
+      resource.addLocation(file);
+      return resource;
+    }
+
+    @Override
+    protected void referencedString(@NonNull String string) {
+      ResourceUsageAnalyzer.this.referencedString(string);
+      foundWebContent = true;
+    }
+
+    @Override
+    public Resource getResource(Element element) {
+      if (isPublic(element)) {
+        ResourceType type = getTypeFromPublic(element);
+        if (type != null) {
+            String name = getFieldName(element);
+            Resource resource = getResource(type, name);
+            return resource;
+        }
+        return null;
+      } else {
+        return super.getResource(element);
+      }
+    }
+
+    public boolean isPublic(Element element) {
+      return element.getTagName().equals(ResourceType.PUBLIC.getName());
+    }
+
+    public ResourceType getTypeFromPublic(Element element) {
+      String typeName = element.getAttribute(ATTR_TYPE);
+      if (!typeName.isEmpty()) {
+        return ResourceType.getEnum(typeName);
+      }
+      return null;
+    }
+
+    @Override
+    public void recordResourceReferences(ResourceFolderType folderType, Node node, Resource from) {
+      super.recordResourceReferences(folderType, node, from);
+      // The parent class does not consider id declarations in xml files to also be uses, which is
+      // wrong. Fix that behavior here by adding a reference to any id declarations.
+      if (from != null && node.getNodeType() == Node.ELEMENT_NODE) {
+        NamedNodeMap attributes = ((Element) node).getAttributes();
+        for (int i = 0; i < attributes.getLength(); i++) {
+          Attr attr = (Attr) attributes.item(i);
+          if (attr.getValue().startsWith(SdkConstants.PREFIX_RESOURCE_REF)
+              && SdkConstants.ATTR_ID.equals(attr.getLocalName())
+              && SdkConstants.ANDROID_URI.equals(attr.getNamespaceURI())) {
+            ResourceUrl url = ResourceUrl.parse(attr.getValue());
+            if (url != null) {
+              Resource resource = getResource(url.type, url.name);
+              if (resource != null) {
+                from.addReference(resource);
+              }
+            }
+          }
+        }
+      }
     }
   }
 }
