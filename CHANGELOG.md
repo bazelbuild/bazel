@@ -1,28 +1,50 @@
-## Release 0.4.2 (2016-12-02)
+## Release 0.4.3 (2016-12-22)
 
-```
-Baseline: 6331a94
+Baseline: c645a45
 
 Cherry picks:
-   + 7b835d9: Do not patch WORKSPACE in the release process
-```
+   + af878d0: Add coverage support for java test. (series 4/4 of
+              open-sourcing coverage command for java test)
+   + 09b92a8: Rollback of commit
+              67b4d5250edcefa7220e928e529b1f385e2dc464.
+   + b11dd48: Fix bad bug with the parallel implementation of
+              BinaryOperatorExpression. Turns out that
+              ForkJoinTask#adapt(Callable) returns a ForkJoinTask
+              whose Future#get on error throws a ExecutionException
+              wrapping a RuntimeException wrapping the thrown checked
+              exception from the callable. This is documented
+              behavior [1] that I incorrectly didn't know about.
+   + 9012bf1: Fix scripts/packages/convert_changelog to read the
+              changelog correctly
+   + 55c97bc: Release script: if master branch does not exist, fall
+              back on origin/master
+   + 4fb378c: Debian repository: override section and priority fields
+   + acbcbc2: Fix release notes in emails
+   + 4975760: Fix PathFragment to not use Java8-only static hashCode
+              methods.
+   + 05fd076: Disable sandboxing for XibCompile actions.
 
 Incompatible changes:
 
-  - Callback functions in Skylark no longer support the cfg
-    parameter. This is a cleanup and only affects the signatures of
-    callbacks, since the parameter hasn't been set since September
-    2016.
+  - Skylark maven_jar and maven_aar settings attribute is now a label
+    so it can be checked into your workspace.
+  - --{no}experimental_use_rclass_generator is now a nop.
+
+New features:
+
+  - Coverage support (*experimental*) for pure Java target.
+    Use `bazel coverage //my:target` to generate coverage information
+    from a `java_test`.
 
 Important changes:
 
-  - Alias proto_library's produce a descriptor set that contains all
-    srcs of its dependencies.
-  - proto_library supports strict proto deps.
-  - Top level @androidsdk support library targets have been replaced
-    by @androidsdk//<group id>:<artifact id>-<version> for Android
-    SDK Support and Google Play Services libraries.
-
+  - Enable fallback URLs in Skylark http rules.
+  - cc_proto_library generates C++ code from proto_library rules.
+  - cc_library now supports the strip_prefix and strip_include_prefix
+    attributes for control of include paths.
+  - Skylark dicts internally don't rely on keys order anymore and
+    accept any hashable values (i.e. structs with immutable values)
+    as keys. Iteration order of dictionaries is no longer specified.
 ## Release 0.4.1 (2016-11-21)
 
 ```
