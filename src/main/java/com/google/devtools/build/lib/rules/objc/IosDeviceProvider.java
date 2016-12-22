@@ -15,19 +15,20 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.util.Preconditions;
-
+import java.util.Map;
 import javax.annotation.Nullable;
 
-/**
- * Provider that describes a simulator device.
- */
+/** Provider that describes a simulator device. */
 @Immutable
-public final class IosDeviceProvider implements TransitiveInfoProvider {
+public final class IosDeviceProvider extends SkylarkClassObject implements TransitiveInfoProvider {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
     private String type;
@@ -72,12 +73,20 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
     }
   }
 
+  /** Skylark name for the IosDeviceProvider. */
+  public static final String SKYLARK_NAME = "IosDevice";
+
+  /** Skylark constructor and identifier for the IosDeviceProvider. */
+  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      SkylarkClassObjectConstructor.createNative(SKYLARK_NAME);
+
   private final String type;
   private final DottedVersion iosVersion;
   private final DottedVersion xcodeVersion;
   private final String locale;
 
   private IosDeviceProvider(Builder builder) {
+    super(SKYLARK_CONSTRUCTOR, getSkylarkFields(builder));
     this.type = Preconditions.checkNotNull(builder.type);
     this.iosVersion = Preconditions.checkNotNull(builder.iosVersion);
     this.locale = Preconditions.checkNotNull(builder.locale);
@@ -111,5 +120,16 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
             Substitution.of("%(device_type)s", getType()),
             Substitution.of("%(simulator_sdk)s", getIosVersion().toString()),
             Substitution.of("%(locale)s", getLocale())));
+  }
+
+  private static Map<String, Object> getSkylarkFields(Builder builder) {
+    ImmutableMap.Builder<String, Object> skylarkFields =
+        new ImmutableMap.Builder<String, Object>()
+            .put("type", builder.type)
+            .put("ios_version", builder.iosVersion.toString());
+    if (builder.xcodeVersion != null) {
+      skylarkFields.put("xcode_version", builder.xcodeVersion.toString());
+    }
+    return skylarkFields.build();
   }
 }

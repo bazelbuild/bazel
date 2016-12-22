@@ -120,6 +120,18 @@ public class AppleSkylarkCommon {
     return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
   }
 
+
+  @SkylarkCallable(
+    name = IosDeviceProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for IosDeviceProvider. Use this as a key to access the "
+            + "attributes exposed by ios_device.",
+    structField = true
+  )
+  public SkylarkClassObjectConstructor getIosDeviceProviderConstructor() {
+    return IosDeviceProvider.SKYLARK_CONSTRUCTOR;
+  }
+
   @SkylarkSignature(
     name = "new_objc_provider",
     objectType = AppleSkylarkCommon.class,

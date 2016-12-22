@@ -72,7 +72,7 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
 
     return new RuleConfiguredTargetBuilder(context)
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(IosDeviceProvider.class, provider)
+        .addNativeDeclaredProvider(provider)
         .add(IosTestSubstitutionProvider.class, provider.iosTestSubstitutionProvider())
         .build();
   }
