@@ -155,7 +155,7 @@ public class AndroidSkylarkSplitTransitionTest extends BuildViewTestCase {
   public void testAndroidSplitTransitionNoTransition() throws Exception {
     writeAndroidSplitTransitionTestFiles();
 
-    useConfiguration("--fat_apk_cpu=", "--android_crosstool_top=");
+    useConfiguration("--fat_apk_cpu=", "--android_crosstool_top=", "--cpu=k8");
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
 
     @SuppressWarnings("unchecked")
