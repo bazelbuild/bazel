@@ -60,8 +60,8 @@ public final class SingleJarActionBuilder {
     Artifact singleJar = getSingleJar(ruleContext);
 
     // If singlejar's name ends with .jar, it is Java application, otherwise it is native.
-    // TODO(asmundak): once b/28640279 is fixed (that is, the native singlejar is released),
-    // eliminate this check, allowing only native singlejar.
+    // TODO(asmundak): once https://github.com/bazelbuild/bazel/issues/2241 is fixed (that is,
+    // the native singlejar is used on windows) remove support for the Java implementation
     if (singleJar.getFilename().endsWith(".jar")) {
       ruleContext.registerAction(
           new SpawnAction.Builder()
@@ -85,7 +85,6 @@ public final class SingleJarActionBuilder {
               .addOutput(outputJar)
               .addInputs(resources.values())
               .addInputs(resourceJars)
-              .addTransitiveInputs(hostJavabaseInputs)
               .setExecutable(singleJar)
               .setCommandLine(sourceJarCommandLine(outputJar, resources, resourceJars))
               .alwaysUseParameterFile(ParameterFileType.SHELL_QUOTED)
