@@ -385,7 +385,7 @@ public final class LinkCommandLine extends CommandLine {
                 new Variables.Builder()
                     .addAll(variables)
                     .addStringSequenceVariable(
-                        CppLinkActionBuilder.TOOLCHAIN_FLAGS_VARIABLE, getToolchainFlags())
+                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
                     .build()));
         break;
 
@@ -397,7 +397,7 @@ public final class LinkCommandLine extends CommandLine {
                 new Variables.Builder()
                     .addAll(variables)
                     .addStringSequenceVariable(
-                        CppLinkActionBuilder.TOOLCHAIN_FLAGS_VARIABLE, getToolchainFlags())
+                        CppLinkActionBuilder.LEGACY_LINK_FLAGS_VARIABLE, getToolchainFlags())
                     .build()));
         break;
 

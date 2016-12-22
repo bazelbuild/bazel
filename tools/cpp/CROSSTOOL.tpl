@@ -338,7 +338,7 @@ toolchain {
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
-     implies: 'toolchain_flags'
+     implies: 'legacy_link_flags'
   }
 
   action_config {
@@ -352,7 +352,7 @@ toolchain {
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
      implies: 'has_configured_linker_path'
-     implies: 'toolchain_flags'
+     implies: 'legacy_link_flags'
   }
 
   action_config {
@@ -491,13 +491,13 @@ toolchain {
   }
 
   feature {
-    name: 'toolchain_flags'
+    name: 'legacy_link_flags'
     flag_set {
-      expand_if_all_available: 'toolchain_flags'
+      expand_if_all_available: 'legacy_link_flags'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
       flag_group {
-        flag: '%{toolchain_flags}'
+        flag: '%{legacy_link_flags}'
       }
     }
   }

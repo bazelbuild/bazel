@@ -95,8 +95,8 @@ public class CppLinkActionBuilder {
   /** A build variable for the path where to generate interface library using the builder tool. */
   public static final String INTERFACE_LIBRARY_OUTPUT_VARIABLE = "interface_library_output_path";
 
-  /** A build variable for the custom flags specified in the crosstool. */
-  public static final String TOOLCHAIN_FLAGS_VARIABLE = "toolchain_flags";
+  /** A build variable for hard-coded linker flags currently only known by bazel. */
+  public static final String LEGACY_LINK_FLAGS_VARIABLE = "legacy_link_flags";
   /**
    * A build variable that is set to indicate a mostly static linking for which the linked binary
    * should be piped to /dev/null.
