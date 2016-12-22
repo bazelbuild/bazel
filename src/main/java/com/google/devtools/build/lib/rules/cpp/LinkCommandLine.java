@@ -308,13 +308,15 @@ public final class LinkCommandLine extends CommandLine {
     }
   }
   
-  private void addToolchainFlags(List<String> argv) {
+  private ImmutableList<String> getToolchainFlags() {
     boolean fullyStatic = (linkStaticness == LinkStaticness.FULLY_STATIC);
     boolean mostlyStatic = (linkStaticness == LinkStaticness.MOSTLY_STATIC);
     boolean sharedLinkopts =
         linkTargetType == LinkTargetType.DYNAMIC_LIBRARY
             || linkopts.contains("-shared")
             || cppConfiguration.getLinkOptions().contains("-shared");
+
+    List<String> toolchainFlags = new ArrayList<>();
 
     /*
      * For backwards compatibility, linkopts come _after_ inputFiles.
@@ -328,22 +330,22 @@ public final class LinkCommandLine extends CommandLine {
      * (global defaults, per-target linkopts, and command-line linkopts),
      * we have no idea what the right order should be, or if anyone cares.
      */
-    argv.addAll(linkopts);
+    toolchainFlags.addAll(linkopts);
     // Extra toolchain link options based on the output's link staticness.
     if (fullyStatic) {
-      argv.addAll(cppConfiguration.getFullyStaticLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(cppConfiguration.getFullyStaticLinkOptions(features, sharedLinkopts));
     } else if (mostlyStatic) {
-      argv.addAll(cppConfiguration.getMostlyStaticLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(cppConfiguration.getMostlyStaticLinkOptions(features, sharedLinkopts));
     } else {
-      argv.addAll(cppConfiguration.getDynamicLinkOptions(features, sharedLinkopts));
+      toolchainFlags.addAll(cppConfiguration.getDynamicLinkOptions(features, sharedLinkopts));
     }
 
     // Extra test-specific link options.
     if (useTestOnlyFlags) {
-      argv.addAll(cppConfiguration.getTestOnlyLinkOptions());
+      toolchainFlags.addAll(cppConfiguration.getTestOnlyLinkOptions());
     }
 
-    argv.addAll(cppConfiguration.getLinkOptions());
+    toolchainFlags.addAll(cppConfiguration.getLinkOptions());
 
     // -pie is not compatible with shared and should be
     // removed when the latter is part of the link command. Should we need to further
@@ -351,13 +353,15 @@ public final class LinkCommandLine extends CommandLine {
     // command line / CROSSTOOL flags that distinguish them. But as long as this is
     // the only relevant use case we're just special-casing it here.
     if (linkTargetType == LinkTargetType.DYNAMIC_LIBRARY) {
-      Iterables.removeIf(argv, Predicates.equalTo("-pie"));
+      Iterables.removeIf(toolchainFlags, Predicates.equalTo("-pie"));
     }
 
     // Fission mode: debug info is in .dwo files instead of .o files. Inform the linker of this.
     if (linkTargetType.staticness() == Staticness.DYNAMIC && cppConfiguration.useFission()) {
-      argv.add("-Wl,--gdb-index");
+      toolchainFlags.add("-Wl,--gdb-index");
     }
+
+    return ImmutableList.copyOf(toolchainFlags);
   }
 
   /**
@@ -375,14 +379,26 @@ public final class LinkCommandLine extends CommandLine {
     switch (linkTargetType) {
       case EXECUTABLE:
         argv.add(cppConfiguration.getCppExecutable().getPathString());
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        addToolchainFlags(argv);
+        argv.addAll(
+            featureConfiguration.getCommandLine(
+                actionName,
+                new Variables.Builder()
+                    .addAll(variables)
+                    .addStringSequenceVariable(
+                        CppLinkActionBuilder.TOOLCHAIN_FLAGS_VARIABLE, getToolchainFlags())
+                    .build()));
         break;
 
       case DYNAMIC_LIBRARY:
         argv.add(toolPath);
-        argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
-        addToolchainFlags(argv);
+        argv.addAll(
+            featureConfiguration.getCommandLine(
+                actionName,
+                new Variables.Builder()
+                    .addAll(variables)
+                    .addStringSequenceVariable(
+                        CppLinkActionBuilder.TOOLCHAIN_FLAGS_VARIABLE, getToolchainFlags())
+                    .build()));
         break;
 
       case STATIC_LIBRARY:

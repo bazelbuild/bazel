@@ -505,7 +505,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput.ifso"));
 
     List<String> commandLine = builder.build().getCommandLine();
-    assertThat(commandLine.size()).isGreaterThan(6);
+    assertThat(commandLine).hasSize(6);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
     assertThat(commandLine.get(1)).isEqualTo("yes");
     assertThat(commandLine.get(2)).isEqualTo("tools/interface_so_builder");
