@@ -150,7 +150,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     assertThat(Joiner.on(" ").join(arguments))
         .matches(
-            ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir -lbar -lqux(?= ).* -ldl -lutil .*");
+            ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
+                + "-lbar -lqux(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
   }

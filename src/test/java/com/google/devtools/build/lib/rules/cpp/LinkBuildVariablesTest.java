@@ -109,7 +109,7 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
   @Test
   public void testForcePicBuildVariable() throws Exception {
     useConfiguration("--force_pic");
-    scratch.file("x/BUILD", "cc_binary(", "   name = 'bin',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:bin");
@@ -124,7 +124,7 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
@@ -144,6 +144,21 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLibrarySearchDirectoriesAreExported() throws Exception {
+    AnalysisMock.get().ccSupport().setupCrosstool(mockToolsConfig);
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/bar.so'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+    Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
+    List<String> variableValue =
+        getVariableValue(variables, CppLinkActionBuilder.LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
+    assertThat(Iterables.getOnlyElement(variableValue)).contains("some-dir");
+  }
+
+  @Test
   public void testInterfaceLibraryBuildingVariablesWhenGenerationPossible() throws Exception {
     // Make sure the interface shared object generation is enabled in the configuration
     // (which it is not by default for some windows toolchains)
@@ -152,7 +167,7 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
@@ -186,7 +201,7 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
         .setupCrosstool(mockToolsConfig, "supports_interface_shared_objects: true");
     useConfiguration();
 
-    scratch.file("x/BUILD", "cc_library(", "   name = 'foo',", "   srcs = ['a.cc'],", ")");
+    scratch.file("x/BUILD", "cc_library(name = 'foo', srcs = ['a.cc'])");
     scratch.file("x/a.cc");
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");

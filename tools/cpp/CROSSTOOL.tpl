@@ -440,6 +440,19 @@ toolchain {
   feature {
     name: 'input_param_flags'
     flag_set {
+      expand_if_all_available: 'library_search_directories'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+        iterate_over: 'library_search_directories'
+        flag: "-L%{library_search_directories}"
+      }
+    }
+    flag_set {
       expand_if_all_available: 'libopts'
       action: 'c++-link-executable'
       action: 'c++-link-dynamic-library'
