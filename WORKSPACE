@@ -64,10 +64,3 @@ new_local_repository(
     path = "./third_party/protobuf/3.0.0/",
     build_file = "./third_party/protobuf/3.0.0/com_google_protobuf_java.BUILD",
 )
-
-load('//tools/build_defs/pkg:apt_get.bzl', 'apt_get')
-
-apt_get(
-    name = "graphviz",
-    exports_files = ["usr/bin/dot"],
-)
