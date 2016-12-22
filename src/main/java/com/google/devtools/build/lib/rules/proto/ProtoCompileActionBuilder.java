@@ -211,7 +211,7 @@ public class ProtoCompileActionBuilder {
     }
   }
 
-  private SpawnAction.Builder createAction() {
+  private SpawnAction.Builder createAction() throws MissingPrerequisiteException {
     SpawnAction.Builder result =
         new SpawnAction.Builder().addTransitiveInputs(supportData.getTransitiveImports());
 
@@ -222,7 +222,7 @@ public class ProtoCompileActionBuilder {
 
     FilesToRunProvider compilerTarget =
         ruleContext.getExecutablePrerequisite(":proto_compiler", RuleConfiguredTarget.Mode.HOST);
-    if (ruleContext.hasErrors()) {
+    if (compilerTarget == null) {
       throw new MissingPrerequisiteException();
     }
 
@@ -246,20 +246,21 @@ public class ProtoCompileActionBuilder {
   }
 
   @Nullable
-  private FilesToRunProvider getLangPluginTarget() {
+  private FilesToRunProvider getLangPluginTarget() throws MissingPrerequisiteException {
     if (langPluginName == null) {
       return null;
     }
     FilesToRunProvider result =
         ruleContext.getExecutablePrerequisite(langPluginName, RuleConfiguredTarget.Mode.HOST);
-    if (ruleContext.hasErrors()) {
+    if (result == null) {
       throw new MissingPrerequisiteException();
     }
     return result;
   }
 
   /** Commandline generator for protoc invocations. */
-  private CustomCommandLine.Builder createProtoCompilerCommandLine() {
+  private CustomCommandLine.Builder createProtoCompilerCommandLine()
+      throws MissingPrerequisiteException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPluginName == null) {
@@ -351,7 +352,7 @@ public class ProtoCompileActionBuilder {
   }
 
   /** Signifies that a prerequisite could not be satisfied. */
-  private static class MissingPrerequisiteException extends RuntimeException {}
+  private static class MissingPrerequisiteException extends Exception {}
 
   public static void writeDescriptorSet(
       RuleContext ruleContext,
@@ -421,8 +422,8 @@ public class ProtoCompileActionBuilder {
 
     FilesToRunProvider compilerTarget =
         ruleContext.getExecutablePrerequisite(":proto_compiler", RuleConfiguredTarget.Mode.HOST);
-    if (ruleContext.hasErrors()) {
-      throw new MissingPrerequisiteException();
+    if (compilerTarget == null) {
+      return;
     }
 
     result
