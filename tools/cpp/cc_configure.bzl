@@ -229,15 +229,16 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
               "-B" + str(repository_ctx.path(cc).dirname),
               # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
               "-B/usr/bin",
-              # Have gcc return the exit code from ld.
-              "-pass-exit-codes",
               # Stamp the binary with a unique identifier.
               "-Wl,--build-id=md5",
               "-Wl,--hash-style=gnu"
               # Gold linker only? Can we enable this by default?
               # "-Wl,--warn-execstack",
               # "-Wl,--detect-odr-violations"
-          ]
+          ] + _add_option_if_supported(
+              # Have gcc return the exit code from ld.
+              repository_ctx, cc, "-pass-exit-codes"
+          )
       ),
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
