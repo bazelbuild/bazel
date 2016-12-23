@@ -61,7 +61,7 @@ INFO: Elapsed time: 2.255s, Critical Path: 0.07s
 ```
 
 We note two things. First, targets are normally referred to by their
-[label](/docs/build- ref.html#labels), which is specified by the
+[label](/docs/build-ref.html#labels), which is specified by the
 [name](/docs/be/general.html#genrule.name) attribute of the rule. (Referencing
 them by the output file name is also possible, but this is not the preferred
 way.) Second, Bazel puts the generated files into a separate directory (the
