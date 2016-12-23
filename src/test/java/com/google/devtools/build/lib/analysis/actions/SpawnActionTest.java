@@ -441,7 +441,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         "  ctx.action(outputs = [f], command = 'echo foo > \"$1\"')",
         "  return struct(output=f)",
         "def _rule_impl(ctx):",
-        "  return struct(files=set([artifact.output for artifact in ctx.attr.deps]))",
+        "  return struct(files=depset([artifact.output for artifact in ctx.attr.deps]))",
         "aspect1 = aspect(_aspect_impl, attr_aspects=['deps'], ",
         "    attrs = {'parameter': attr.string(values = ['param_value'])})",
         "testrule = rule(_rule_impl, attrs = { ",

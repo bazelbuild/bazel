@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -35,50 +36,56 @@ import org.junit.runners.JUnit4;
 public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
+  public void testLegacySetConstructor() throws Exception {
+    eval("ds = set([1, 2, 3], order='compile')");
+    SkylarkNestedSet ds = get("ds");
+    assertThat(ds.getOrder().getName()).isEqualTo("compile");
+    assertThat(ds.expandedSet()).isEqualTo(ImmutableSet.of(1, 2, 3));
+  }
+
+  @Test
   public void testNsetBuilder() throws Exception {
-    eval("n = set(order='stable')");
+    eval("n = depset(order='stable')");
     assertThat(lookup("n")).isInstanceOf(SkylarkNestedSet.class);
   }
 
   @Test
   public void testNsetOrder() throws Exception {
-    eval("n = set(['a', 'b'], order='compile')");
+    eval("n = depset(['a', 'b'], order='compile')");
     assertEquals(Order.COMPILE_ORDER, get("n").getSet(String.class).getOrder());
   }
 
   @Test
   public void testEmptyNsetGenericType() throws Exception {
-    eval("n = set()");
+    eval("n = depset()");
     assertEquals(SkylarkType.TOP, get("n").getContentType());
   }
 
   @Test
   public void testFunctionReturnsNset() throws Exception {
-    eval("def func():",
-         "  n = set()",
-         "  n += ['a']",
-         "  return n",
-         "s = func()");
+    eval("def func():", "  n = depset()", "  n += ['a']", "  return n", "s = func()");
     assertEquals(ImmutableList.of("a"), get("s").toCollection());
   }
 
   @Test
   public void testNsetTwoReferences() throws Exception {
-    eval("def func():",
-         "  n1 = set()",
-         "  n1 += ['a']",
-         "  n2 = n1",
-         "  n2 += ['b']",
-         "  return n1",
-         "n = func()");
+    eval(
+        "def func():",
+        "  n1 = depset()",
+        "  n1 += ['a']",
+        "  n2 = n1",
+        "  n2 += ['b']",
+        "  return n1",
+        "n = func()");
     assertEquals(ImmutableList.of("a"), get("n").toCollection());
   }
 
   @Test
   public void testNsetNestedItem() throws Exception {
-    eval("def func():",
-        "  n1 = set()",
-        "  n2 = set()",
+    eval(
+        "def func():",
+        "  n1 = depset()",
+        "  n2 = depset()",
         "  n1 += ['a']",
         "  n2 += ['b']",
         "  n1 += n2",
@@ -89,26 +96,24 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetNestedItemBadOrder() throws Exception {
-    checkEvalError("LINK_ORDER != COMPILE_ORDER",
-        "set(['a', 'b'], order='compile') + set(['c', 'd'], order='link')");
+    checkEvalError(
+        "LINK_ORDER != COMPILE_ORDER",
+        "depset(['a', 'b'], order='compile') + depset(['c', 'd'], order='link')");
   }
 
   @Test
   public void testNsetItemList() throws Exception {
-    eval("def func():",
-        "  n = set()",
-        "  n += ['a', 'b']",
-        "  return n",
-        "n = func()");
+    eval("def func():", "  n = depset()", "  n += ['a', 'b']", "  return n", "n = func()");
     assertEquals(ImmutableList.of("a", "b"), get("n").toCollection());
   }
 
   @Test
   public void testNsetFuncParamNoSideEffects() throws Exception {
-    eval("def func1(n):",
+    eval(
+        "def func1(n):",
         "  n += ['b']",
         "def func2():",
-        "  n = set()",
+        "  n = depset()",
         "  n += ['a']",
         "  func1(n)",
         "  return n",
@@ -118,11 +123,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetTransitiveOrdering() throws Exception {
-    eval("def func():",
-        "  na = set(['a'], order='compile')",
-        "  nb = set(['b'], order='compile')",
-        "  nc = set(['c'], order='compile') + na",
-        "  return set() + nb + nc",
+    eval(
+        "def func():",
+        "  na = depset(['a'], order='compile')",
+        "  nb = depset(['b'], order='compile')",
+        "  nc = depset(['c'], order='compile') + na",
+        "  return depset() + nb + nc",
         "n = func()");
     // The iterator lists the Transitive sets first
     assertEquals(ImmutableList.of("b", "a", "c"), get("n").toCollection());
@@ -130,8 +136,9 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetOrdering() throws Exception {
-    eval("def func():",
-        "  na = set()",
+    eval(
+        "def func():",
+        "  na = depset()",
         "  na += [4]",
         "  na += [2, 4]",
         "  na += [3, 4, 5]",
@@ -143,26 +150,24 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetBadOrder() throws Exception {
-    checkEvalError("Invalid order: non_existing", "set(order='non_existing')");
+    checkEvalError("Invalid order: non_existing", "depset(order='non_existing')");
   }
 
   @Test
   public void testNsetBadRightOperand() throws Exception {
-    checkEvalError("cannot add value of type 'string' to a set", "l = ['a']\n" + "set() + l[0]");
+    checkEvalError("cannot add value of type 'string' to a depset", "l = ['a']", "depset() + l[0]");
   }
 
   @Test
   public void testNsetToString() throws Exception {
-    eval("s = set() + [2, 4, 6] + [3, 4, 5]",
-        "x = str(s)");
-    assertEquals("set([2, 4, 6, 3, 5])", lookup("x"));
+    eval("s = depset() + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
+    assertEquals("depset([2, 4, 6, 3, 5])", lookup("x"));
   }
 
   @Test
   public void testNsetToStringWithOrder() throws Exception {
-    eval("s = set(order = 'link') + [2, 4, 6] + [3, 4, 5]",
-        "x = str(s)");
-    assertEquals("set([2, 4, 6, 3, 5], order = \"link\")", lookup("x"));
+    eval("s = depset(order = 'link') + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
+    assertEquals("depset([2, 4, 6, 3, 5], order = \"link\")", lookup("x"));
   }
 
   @SuppressWarnings("unchecked")

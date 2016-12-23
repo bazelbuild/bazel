@@ -1106,7 +1106,8 @@ public class MethodLibrary {
             throw new EvalException(
                 loc, "Argument to reversed() must be a sequence, not a dictionary.");
           } else if (sequence instanceof NestedSet || sequence instanceof SkylarkNestedSet) {
-            throw new EvalException(loc, "Argument to reversed() must be a sequence, not a set.");
+            throw new EvalException(
+                loc, "Argument to reversed() must be a sequence, not a depset.");
           }
           LinkedList<Object> tmpList = new LinkedList<>();
           for (Object element : EvalUtils.toIterable(sequence, loc)) {
@@ -1524,9 +1525,9 @@ public class MethodLibrary {
     name = "tuple",
     returnType = Tuple.class,
     doc =
-        "Converts a collection (e.g. set or dictionary) to a tuple."
+        "Converts a collection (e.g. list, tuple or dictionary) to a tuple."
             + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
-            + "tuple(set([2, 3, 2])) == (2, 3)\n"
+            + "tuple((2, 3, 2)) == (2, 3, 2)\n"
             + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
     useLocation = true
@@ -1542,9 +1543,9 @@ public class MethodLibrary {
     name = "list",
     returnType = MutableList.class,
     doc =
-        "Converts a collection (e.g. set or dictionary) to a list."
+        "Converts a collection (e.g. list, tuple or dictionary) to a list."
             + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
-            + "list(set([2, 3, 2])) == [2, 3]\n"
+            + "list((2, 3, 2)) == [2, 3, 2]\n"
             + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
     parameters = {@Param(name = "x", doc = "The object to convert.")},
     useLocation = true,
@@ -1560,7 +1561,7 @@ public class MethodLibrary {
   @SkylarkSignature(
     name = "len",
     returnType = Integer.class,
-    doc = "Returns the length of a string, list, tuple, set, or dictionary.",
+    doc = "Returns the length of a string, list, tuple, depset, or dictionary.",
     parameters = {@Param(name = "x", doc = "The object to check length of.")},
     useLocation = true
   )
@@ -1698,8 +1699,9 @@ public class MethodLibrary {
     returnType = SkylarkDict.class,
     doc =
         "Creates a <a href=\"#modules.dict\">dictionary</a> from an optional positional "
-            + "argument and an optional set of keyword arguments. Values from the keyword argument "
-            + "will overwrite values from the positional argument if a key appears multiple times.",
+            + "argument and an optional set of keyword arguments. Values from the keyword "
+            + "argument will overwrite values from the positional argument if a key appears "
+            + "multiple times.",
     parameters = {
       @Param(
         name = "args",
@@ -1711,21 +1713,23 @@ public class MethodLibrary {
       ),
     },
     extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
-    useLocation = true, useEnvironment = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction dict =
       new BuiltinFunction("dict") {
-        public SkylarkDict invoke(Object args, SkylarkDict<String, Object> kwargs,
-            Location loc, Environment env)
+        public SkylarkDict invoke(
+            Object args, SkylarkDict<String, Object> kwargs, Location loc, Environment env)
             throws EvalException {
-          SkylarkDict<Object, Object> argsDict = (args instanceof SkylarkDict)
-              ? (SkylarkDict<Object, Object>) args : getDictFromArgs(args, loc, env);
+          SkylarkDict<Object, Object> argsDict =
+              (args instanceof SkylarkDict)
+                  ? (SkylarkDict<Object, Object>) args
+                  : getDictFromArgs(args, loc, env);
           return SkylarkDict.plus(argsDict, kwargs, env);
         }
 
         private SkylarkDict<Object, Object> getDictFromArgs(
-            Object args, Location loc, Environment env)
-            throws EvalException {
+            Object args, Location loc, Environment env) throws EvalException {
           SkylarkDict<Object, Object> result = SkylarkDict.of(env);
           int pos = 0;
           for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
@@ -1746,8 +1750,7 @@ public class MethodLibrary {
                   location,
                   String.format(
                       "Sequence #%d has length %d, but exactly two elements are required",
-                      pos,
-                      numElements));
+                      pos, numElements));
             }
             return tuple;
           } catch (ConversionException e) {

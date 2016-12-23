@@ -854,16 +854,17 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testInSet() throws Exception {
-    new SkylarkTest().testStatement("'b' in set(['a', 'b'])", Boolean.TRUE)
-        .testStatement("'c' in set(['a', 'b'])", Boolean.FALSE)
-        .testStatement("1 in set(['a', 'b'])", Boolean.FALSE);
+    new SkylarkTest()
+        .testStatement("'b' in depset(['a', 'b'])", Boolean.TRUE)
+        .testStatement("'c' in depset(['a', 'b'])", Boolean.FALSE)
+        .testStatement("1 in depset(['a', 'b'])", Boolean.FALSE);
   }
 
   @Test
   public void testUnionSet() throws Exception {
     new SkylarkTest()
-        .testStatement("str(set([1, 3]) | set([1, 2]))", "set([1, 2, 3])")
-        .testStatement("str(set([1, 2]) | [1, 3])", "set([1, 2, 3])")
+        .testStatement("str(depset([1, 3]) | depset([1, 2]))", "depset([1, 2, 3])")
+        .testStatement("str(depset([1, 2]) | [1, 3])", "depset([1, 2, 3])")
         .testIfExactError("unsupported operand type(s) for |: 'int' and 'int'", "2 | 4");
   }
 

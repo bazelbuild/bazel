@@ -215,7 +215,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testModulesReadOnlyInFuncDefBody() {
-    parse("def func():", "  cmd_helper = set()");
+    parse("def func():", "  cmd_helper = depset()");
   }
 
   @Test

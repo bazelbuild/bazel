@@ -236,7 +236,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/extension.bzl",
         "def _impl(ctx):",
         "  f = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "']",
-        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'] | set([])",
+        "  g = ctx.attr.dep.output_groups['_hidden_top_level" + INTERNAL_SUFFIX + "'] | depset([])",
         "  return struct(result = g, ",
         "                output_groups = { 'my_group' : g })",
         "my_rule = rule(implementation = _impl,",
@@ -331,7 +331,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "load('/test/skylark/functions', 'first')",
         "def custom_rule_impl(ctx):",
         "  attr1 = ctx.files.attr1",
-        "  ftb = set(attr1)",
+        "  ftb = depset(attr1)",
         "  foo()",
         "  return struct(provider_key = ftb)",
         "def foo():",
@@ -365,7 +365,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
         "  attr1 = ctx.files.attr1",
-        "  ftb = set(attr1)",
+        "  ftb = depset(attr1)",
         "  return struct(runfiles = ctx.runfiles(), files = ftb)",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
@@ -602,7 +602,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "test/skylark/extension.bzl",
         "def custom_rule_impl(ctx):",
         "  attr1 = ctx.files.attr1",
-        "  ftb = set(attr1)",
+        "  ftb = depset(attr1)",
         "  return struct(provider_key = ftb)",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
@@ -688,7 +688,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ctx.action(",
         "    outputs = files,",
         "    command = 'echo')",
-        "  ftb = set(files)",
+        "  ftb = depset(files)",
         "  return struct(runfiles = ctx.runfiles(), files = ftb)",
         "",
         "def output_func(attr1, attr2):",
@@ -725,7 +725,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ctx.action(",
         "    outputs = files,",
         "    command = 'echo')",
-        "  return struct(files = set(files))",
+        "  return struct(files = depset(files))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
         "  attrs = {",
@@ -844,7 +844,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ctx.action(",
         "    outputs = files,",
         "    command = 'echo')",
-        "  ftb = set(files)",
+        "  ftb = depset(files)",
         "  for i in ctx.outputs.out:",
         "    ctx.file_action(output=i, content='hi there')",
         "",
@@ -936,7 +936,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/skylark/extension.bzl",
         "def _impl(ctx):",
-        "  return struct(bad=set([set([])]))",
+        "  return struct(bad=depset([depset([])]))",
         "my_rule = rule(implementation = _impl)");
     scratch.file(
         "test/skylark/BUILD",
@@ -944,7 +944,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "my_rule(name = 'r')");
 
     getConfiguredTarget("//test/skylark:r");
-    assertContainsEvent("Value of provider 'bad' is of an illegal type: set\n");
+    assertContainsEvent("Value of provider 'bad' is of an illegal type: depset\n");
   }
 
   @Test
@@ -1006,7 +1006,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/skylark/extension.bzl",
         "def helper_func(attr1):",
-        "  return set(attr1)",
+        "  return depset(attr1)",
         "",
         "def custom_rule_impl(ctx):",
         "  attr1 = ctx.files.attr1",

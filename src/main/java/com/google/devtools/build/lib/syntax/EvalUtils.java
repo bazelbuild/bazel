@@ -53,43 +53,45 @@ public final class EvalUtils {
   /**
    * Compare two Skylark objects.
    *
-   * <p> It may throw an unchecked exception ComparisonException that should be wrapped in
-   * an EvalException.
+   * <p>It may throw an unchecked exception ComparisonException that should be wrapped in an
+   * EvalException.
    */
-  public static final Ordering<Object> SKYLARK_COMPARATOR = new Ordering<Object>() {
-    private int compareLists(SkylarkList o1, SkylarkList o2) {
-      for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
-        int cmp = compare(o1.get(i), o2.get(i));
-        if (cmp != 0) {
-          return cmp;
+  public static final Ordering<Object> SKYLARK_COMPARATOR =
+      new Ordering<Object>() {
+        private int compareLists(SkylarkList o1, SkylarkList o2) {
+          for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
+            int cmp = compare(o1.get(i), o2.get(i));
+            if (cmp != 0) {
+              return cmp;
+            }
+          }
+          return Integer.compare(o1.size(), o2.size());
         }
-      }
-      return Integer.compare(o1.size(), o2.size());
-    }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public int compare(Object o1, Object o2) {
-      o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
-      o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
+        @Override
+        @SuppressWarnings("unchecked")
+        public int compare(Object o1, Object o2) {
+          o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
+          o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
-      if (o1 instanceof ClassObject && o2 instanceof ClassObject) {
-        throw new ComparisonException("Cannot compare structs");
-      }
-      if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
-        throw new ComparisonException("Cannot compare sets");
-      }
-      if (o1 instanceof SkylarkList && o2 instanceof SkylarkList
-          && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
-        return compareLists((SkylarkList) o1, (SkylarkList) o2);
-      }
-      try {
-        return ((Comparable<Object>) o1).compareTo(o2);
-      } catch (ClassCastException e) {
-        return compareByClass(o1, o2);
-      }
-    }
-  };
+          if (o1 instanceof ClassObject && o2 instanceof ClassObject) {
+            throw new ComparisonException("Cannot compare structs");
+          }
+          if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
+            throw new ComparisonException("Cannot compare depsets");
+          }
+          if (o1 instanceof SkylarkList
+              && o2 instanceof SkylarkList
+              && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
+            return compareLists((SkylarkList) o1, (SkylarkList) o2);
+          }
+          try {
+            return ((Comparable<Object>) o1).compareTo(o2);
+          } catch (ClassCastException e) {
+            return compareByClass(o1, o2);
+          }
+        }
+      };
 
   public static final int compareByClass(Object o1, Object o2) {
     try {
@@ -211,7 +213,7 @@ public final class EvalUtils {
     if (fullDetails) {
       if (object instanceof SkylarkNestedSet) {
         SkylarkNestedSet set = (SkylarkNestedSet) object;
-        return "set of " + set.getContentType() + "s";
+        return "depset of " + set.getContentType() + "s";
       }
       if (object instanceof SelectorList) {
         SelectorList list = (SelectorList) object;
@@ -254,7 +256,7 @@ public final class EvalUtils {
       return "function";
     } else if (c.equals(SelectorValue.class)) {
       return "select";
-    } else if (NestedSet.class.isAssignableFrom(c) || SkylarkNestedSet.class.isAssignableFrom(c)) {
+    } else if (NestedSet.class.isAssignableFrom(c)) {
       // TODO(bazel-team): no one should be seeing naked NestedSet at all.
       return "set";
     } else {

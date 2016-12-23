@@ -229,7 +229,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @SuppressWarnings("unchecked")
   @Test
   public void testListComprehensionsWithNestedSet() throws Exception {
-    Object result = eval("[x + x for x in set([1, 2, 3])]");
+    Object result = eval("[x + x for x in depset([1, 2, 3])]");
     assertThat((Iterable<Object>) result).containsExactly(2, 4, 6).inOrder();
   }
 
@@ -675,9 +675,9 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRunfilesBadSetGenericType() throws Exception {
     checkErrorContains(
-        "expected set of Files or NoneType for 'transitive_files' while calling runfiles "
-            + "but got set of ints instead: set([1, 2, 3])",
-        "ruleContext.runfiles(transitive_files=set([1, 2, 3]))");
+        "expected depset of Files or NoneType for 'transitive_files' while calling runfiles "
+            + "but got depset of ints instead: depset([1, 2, 3])",
+        "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
   @Test
@@ -728,7 +728,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             ruleContext,
-            "ftb = set() + ruleContext.files.srcs",
+            "ftb = depset() + ruleContext.files.srcs",
             "ruleContext.runfiles(transitive_files = ftb)");
     assertEquals(
         ActionsTestUtil.baseArtifactNames(getRunfileArtifacts(result)),
@@ -803,7 +803,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testNsetContainsList() throws Exception {
     checkErrorContains(
-        "sets cannot contain items of type 'list'", "set() + [ruleContext.files.srcs]");
+        "depsets cannot contain items of type 'list'", "depset() + [ruleContext.files.srcs]");
   }
 
   @Test
@@ -811,7 +811,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result =
         evalRuleContextCode(
-            ruleContext, "f = set(ruleContext.files.srcs)", "cmd_helper.join_paths(':', f)");
+            ruleContext, "f = depset(ruleContext.files.srcs)", "cmd_helper.join_paths(':', f)");
     assertEquals("foo/a.txt:foo/b.img", result);
   }
 

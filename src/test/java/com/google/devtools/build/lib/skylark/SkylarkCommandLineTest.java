@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +45,7 @@ public class SkylarkCommandLineTest extends SkylarkTestCase {
     Object result =
         evalRuleContextCode(
             createRuleContext("//foo:foo"),
-            "cmd_helper.template(set(ruleContext.files.srcs), '--%{short_path}=%{path}')");
+            "cmd_helper.template(depset(ruleContext.files.srcs), '--%{short_path}=%{path}')");
     SkylarkList list = (SkylarkList) result;
     assertThat(list).containsExactly("--foo/a.txt=foo/a.txt", "--foo/b.img=foo/b.img").inOrder();
   }

@@ -943,7 +943,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testStructsInSets() throws Exception {
-    eval("set([struct(a='a')])");
+    eval("depset([struct(a='a')])");
   }
 
   @Test
@@ -977,9 +977,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testNsetGoodCompositeItem() throws Exception {
-    eval("def func():",
-        "  return set([struct(a='a')])",
-        "s = func()");
+    eval("def func():", "  return depset([struct(a='a')])", "s = func()");
     Collection<Object> result = ((SkylarkNestedSet) lookup("s")).toCollection();
     assertThat(result).hasSize(1);
     assertThat(result.iterator().next()).isInstanceOf(SkylarkClassObject.class);
@@ -987,8 +985,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testNsetBadMutableItem() throws Exception {
-    checkEvalError("sets cannot contain mutable items", "set([([],)])");
-    checkEvalError("sets cannot contain mutable items", "set([struct(a=[])])");
+    checkEvalError("depsets cannot contain mutable items", "depset([([],)])");
+    checkEvalError("depsets cannot contain mutable items", "depset([struct(a=[])])");
   }
 
   private static SkylarkClassObject makeStruct(String field, Object value) {

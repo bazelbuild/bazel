@@ -71,7 +71,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testMinWithSet() throws Exception {
-    new BothModesTest().testStatement("min(set([-1]))", -1).testStatement("min(set([5, 2, 3]))", 2);
+    new BothModesTest()
+        .testStatement("min(depset([-1]))", -1)
+        .testStatement("min(depset([5, 2, 3]))", 2);
   }
 
   @Test
@@ -123,7 +125,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testMaxWithSet() throws Exception {
-    new BothModesTest().testStatement("max(set([-1]))", -1).testStatement("max(set([5, 2, 3]))", 5);
+    new BothModesTest()
+        .testStatement("max(depset([-1]))", -1)
+        .testStatement("max(depset([5, 2, 3]))", 5);
   }
 
   @Test
@@ -295,9 +299,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testAllWithSet() throws Exception {
     new BothModesTest()
-        .testStatement("all(set([0]))", false)
-        .testStatement("all(set([1, 0]))", false)
-        .testStatement("all(set([1]))", true);
+        .testStatement("all(depset([0]))", false)
+        .testStatement("all(depset([1, 0]))", false)
+        .testStatement("all(depset([1]))", true);
   }
 
   @Test
@@ -336,8 +340,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testAnyWithSet() throws Exception {
     new BothModesTest()
-        .testStatement("any(set([0]))", false)
-        .testStatement("any(set([1, 0]))", true);
+        .testStatement("any(depset([0]))", false)
+        .testStatement("any(depset([1, 0]))", true);
   }
 
   @Test
@@ -386,7 +390,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\ts[0]",
             "def foo():",
-            "  s = set()",
+            "  s = depset()",
             "  if s[0] == 1:",
             "    x = 1",
             "foo()");
@@ -438,9 +442,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+            "Method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
                 + "'new_elements' is string, but should be Iterable",
-            "set([]).union('a')")
+            "depset([]).union('a')")
         .testIfErrorContains(
             "Method string.startswith(sub: string, start: int, end: int or NoneType) is not "
                 + "applicable for arguments (int, int, NoneType): 'sub' is int, "
@@ -455,7 +459,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testHasAttr() throws Exception {
     new SkylarkTest()
-        .testStatement("hasattr(set(), 'union')", Boolean.TRUE)
+        .testStatement("hasattr(depset(), 'union')", Boolean.TRUE)
         .testStatement("hasattr('test', 'count')", Boolean.TRUE)
         .testStatement("hasattr(dict(a = 1, b = 2), 'items')", Boolean.TRUE)
         .testStatement("hasattr({}, 'items')", Boolean.TRUE);
@@ -969,7 +973,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "Argument to reversed() must be a sequence, not a dictionary.", "reversed({1: 3})");
     new SkylarkTest()
         .testIfExactError(
-            "Argument to reversed() must be a sequence, not a set.", "reversed(set([1]))");
+            "Argument to reversed() must be a sequence, not a depset.", "reversed(depset([1]))");
   }
 
   @Test
@@ -1112,7 +1116,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("sorted(['a','x','b','z'])", "[\"a\", \"b\", \"x\", \"z\"]")
         .testEval("sorted([sorted, sorted])", "[sorted, sorted]")
         .testEval("sorted({1: True, 5: True, 4: False})", "[1, 4, 5]")
-        .testEval("sorted(set([1, 5, 4]))", "[1, 4, 5]");
+        .testEval("sorted(depset([1, 5, 4]))", "[1, 4, 5]");
   }
 
   @Test
@@ -1411,42 +1415,47 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testSetUnionWithList() throws Exception {
-    evaluateSet("set([]).union(['a', 'b', 'c'])", "a", "b", "c");
-    evaluateSet("set(['a']).union(['b', 'c'])", "a", "b", "c");
-    evaluateSet("set(['a', 'b']).union(['c'])", "a", "b", "c");
-    evaluateSet("set(['a', 'b', 'c']).union([])", "a", "b", "c");
+    evaluateSet("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
+    evaluateSet("depset(['a']).union(['b', 'c'])", "a", "b", "c");
+    evaluateSet("depset(['a', 'b']).union(['c'])", "a", "b", "c");
+    evaluateSet("depset(['a', 'b', 'c']).union([])", "a", "b", "c");
   }
 
   @Test
   public void testSetUnionWithSet() throws Exception {
-    evaluateSet("set([]).union(set(['a', 'b', 'c']))", "a", "b", "c");
-    evaluateSet("set(['a']).union(set(['b', 'c']))", "a", "b", "c");
-    evaluateSet("set(['a', 'b']).union(set(['c']))", "a", "b", "c");
-    evaluateSet("set(['a', 'b', 'c']).union(set([]))", "a", "b", "c");
+    evaluateSet("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
+    evaluateSet("depset(['a']).union(depset(['b', 'c']))", "a", "b", "c");
+    evaluateSet("depset(['a', 'b']).union(depset(['c']))", "a", "b", "c");
+    evaluateSet("depset(['a', 'b', 'c']).union(depset([]))", "a", "b", "c");
   }
 
   @Test
   public void testSetUnionDuplicates() throws Exception {
-    evaluateSet("set(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
-    evaluateSet("set(['a', 'a', 'a']).union(['a', 'a'])", "a");
+    evaluateSet("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
+    evaluateSet("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
 
-    evaluateSet("set(['a', 'b', 'c']).union(set(['a', 'b', 'c']))", "a", "b", "c");
-    evaluateSet("set(['a', 'a', 'a']).union(set(['a', 'a']))", "a");
+    evaluateSet("depset(['a', 'b', 'c']).union(depset(['a', 'b', 'c']))", "a", "b", "c");
+    evaluateSet("depset(['a', 'a', 'a']).union(depset(['a', 'a']))", "a");
   }
 
   @Test
   public void testSetUnionError() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("insufficient arguments received by union", "set(['a']).union()")
+        .testIfErrorContains("insufficient arguments received by union", "depset(['a']).union()")
         .testIfErrorContains(
-            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+            "Method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
                 + "'new_elements' is string, but should be Iterable",
-            "set(['a']).union('b')");
+            "depset(['a']).union('b')");
   }
 
   @Test
   public void testSetUnionSideEffects() throws Exception {
-    eval("def func():", "  n1 = set(['a'])", "  n2 = n1.union(['b'])", "  return n1", "n = func()");
+    eval(
+        "def func():",
+        "  n1 = depset(['a'])",
+        "  n2 = n1.union(['b'])",
+        "  return n1",
+        "n = func()");
     assertEquals(ImmutableList.of("a"), ((SkylarkNestedSet) lookup("n")).toCollection());
   }
 
@@ -1791,7 +1800,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("str(zip([1], []))", "[]")
         .testIfErrorContains("type 'int' is not iterable", "zip(123)")
         .testIfErrorContains("type 'int' is not iterable", "zip([1], 1)")
-        .testStatement("str(zip([1], set([2])))", "[(1, 2)]");
+        .testStatement("str(zip([1], depset([2])))", "[(1, 2)]");
   }
 
   @Test
@@ -1854,7 +1863,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testTupleCoercion() throws Exception {
     new BothModesTest()
         .testStatement("tuple([1, 2]) == (1, 2)", true)
-        .testStatement("tuple(set([1, 2])) == (1, 2)", true)
+        .testStatement("tuple(depset([1, 2])) == (1, 2)", true)
         // Depends on current implementation of dict
         .testStatement("tuple({1: 'foo', 2: 'bar'}) == (1, 2)", true);
   }
