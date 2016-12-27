@@ -48,8 +48,8 @@ import javax.annotation.Nullable;
         + "s = s | depset([4, 5])   # s == {1, 2, 3, {4, 5}}\n"
         + "other = depset([\"a\", \"b\", \"c\"], order=\"compile\")</pre>"
         + "Note that in these examples <code>{..}</code> is not a valid literal to create depsets. "
-        + "Sets have a fixed generic type, so <code>set([1]) + [\"a\"]</code> or "
-        + "<code>set([1]) + depset([\"a\"])</code> results in an error.<br>"
+        + "Depsets have a fixed generic type, so <code>depset([1]) + [\"a\"]</code> or "
+        + "<code>depset([1]) + depset([\"a\"])</code> results in an error.<br>"
         + "Elements in a depset can neither be mutable or be of type <code>list</code>, "
         + "<code>struct</code> or <code>dict</code>.<br>"
         + "When aggregating data from providers, depsets can take significantly less memory than "
@@ -267,7 +267,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
 
   @Override
   public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "depset(");
+    Printer.append(buffer, "set(");
     Printer.printList(buffer, this, "[", ", ", "]", null, quotationMark);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {

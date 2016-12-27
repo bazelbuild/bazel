@@ -161,13 +161,13 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testNsetToString() throws Exception {
     eval("s = depset() + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
-    assertEquals("depset([2, 4, 6, 3, 5])", lookup("x"));
+    assertEquals("set([2, 4, 6, 3, 5])", lookup("x"));
   }
 
   @Test
   public void testNsetToStringWithOrder() throws Exception {
     eval("s = depset(order = 'link') + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
-    assertEquals("depset([2, 4, 6, 3, 5], order = \"link\")", lookup("x"));
+    assertEquals("set([2, 4, 6, 3, 5], order = \"link\")", lookup("x"));
   }
 
   @SuppressWarnings("unchecked")
