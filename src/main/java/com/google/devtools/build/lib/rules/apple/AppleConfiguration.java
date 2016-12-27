@@ -77,7 +77,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       "experimental_objc_library"); 
 
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
-  
+
+  @Nullable private final DottedVersion xcodeVersion;
   private final DottedVersion iosSdkVersion;
   private final DottedVersion iosMinimumOs;
   private final DottedVersion watchosSdkVersion;
@@ -89,7 +90,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final String appleSplitCpu;
   private final PlatformType applePlatformType;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final Optional<DottedVersion> xcodeVersion;
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
@@ -99,7 +99,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label defaultProvisioningProfileLabel;
 
   AppleConfiguration(AppleCommandLineOptions appleOptions,
-      Optional<DottedVersion> xcodeVersionOverride,
+      @Nullable DottedVersion xcodeVersion,
       DottedVersion iosSdkVersion,
       DottedVersion watchosSdkVersion,
       DottedVersion watchosMinimumOs,
@@ -120,7 +120,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.macosXSdkVersion =
         Preconditions.checkNotNull(macosXSdkVersion, "macOsXSdkVersion");
 
-    this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
+    this.xcodeVersion = xcodeVersion;
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.appleSplitCpu = Preconditions.checkNotNull(appleOptions.appleSplitCpu, "appleSplitCpu");
     this.applePlatformType =
@@ -207,9 +207,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the value of the xcode version, if available. This is determined based on a combination
    * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
-   * {@code --xcode_version_config} flag.
+   * {@code --xcode_version_config} flag. Returns null if no xcode is available.
    */
-  public Optional<DottedVersion> getXcodeVersion() {
+  @SkylarkCallable(name = "xcode_version")
+  @Nullable
+  public DottedVersion getXcodeVersion() {
     return xcodeVersion;
   }
 
@@ -238,9 +240,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           + "toolchain. Keys are variable names and values are their corresponding values."
     )
   public Map<String, String> getAppleHostSystemEnv() {
-    Optional<DottedVersion> xcodeVersion = getXcodeVersion();
-    if (xcodeVersion.isPresent()) {
-      return getXcodeVersionEnv(xcodeVersion.get());
+    DottedVersion xcodeVersion = getXcodeVersion();
+    if (xcodeVersion != null) {
+      return getXcodeVersionEnv(xcodeVersion);
     } else {
       return ImmutableMap.of();
     }
@@ -566,7 +568,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
           ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
       AppleConfiguration configuration =
-          new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
+          new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion().orNull(),
               iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
               tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion);
 
@@ -576,13 +578,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
     private void validate(AppleConfiguration config)
         throws InvalidConfigurationException {
-      Optional<DottedVersion> xcodeVersion = config.getXcodeVersion();
+      DottedVersion xcodeVersion = config.getXcodeVersion();
       if (config.getBitcodeMode() != AppleBitcodeMode.NONE
-          && xcodeVersion.isPresent()
-          && xcodeVersion.get().compareTo(MINIMUM_BITCODE_XCODE_VERSION) < 0) {
+          && xcodeVersion != null
+          && xcodeVersion.compareTo(MINIMUM_BITCODE_XCODE_VERSION) < 0) {
         throw new InvalidConfigurationException(
             String.format("apple_bitcode mode '%s' is unsupported for xcode version '%s'",
-                config.getBitcodeMode(), xcodeVersion.get()));
+                config.getBitcodeMode(), xcodeVersion));
       }
     }
 

@@ -49,8 +49,8 @@ public final class IosDevice implements RuleConfiguredTargetFactory {
     DottedVersion xcodeVersion = null;
     if (xcodeVersionProperties != null && xcodeVersionProperties.getXcodeVersion().isPresent()) {
       xcodeVersion = xcodeVersionProperties.getXcodeVersion().get();
-    } else if (appleConfiguration.getXcodeVersion().isPresent()) {
-      xcodeVersion = appleConfiguration.getXcodeVersion().get();
+    } else if (appleConfiguration.getXcodeVersion() != null) {
+      xcodeVersion = appleConfiguration.getXcodeVersion();
     }
 
     DottedVersion iosVersion;

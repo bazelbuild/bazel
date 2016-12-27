@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -33,10 +32,6 @@ import java.util.Map;
  * Implementation for apple_cc_toolchain rule.
  */
 public class AppleCcToolchain extends CcToolchain {
-
-  // TODO(bazel-team): Compute default based on local Xcode instead of hardcoded 7.2.
-  private static final DottedVersion DEFAULT_XCODE_VERSION = DottedVersion.fromString("7.2");
-
   private static final String XCODE_VERSION_KEY = "xcode_version";
   private static final String IOS_SDK_VERSION_KEY = "ios_sdk_version";
   private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
@@ -60,7 +55,7 @@ public class AppleCcToolchain extends CcToolchain {
   protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     
-    if (!appleConfiguration.getXcodeVersion().isPresent()) {
+    if (appleConfiguration.getXcodeVersion() == null) {
       ruleContext.ruleError("Xcode version must be specified to use an Apple CROSSTOOL");
     }
     
@@ -71,7 +66,7 @@ public class AppleCcToolchain extends CcToolchain {
     return ImmutableMap.<String, String>builder()
         .put(
             XCODE_VERSION_KEY,
-            appleConfiguration.getXcodeVersion().or(DEFAULT_XCODE_VERSION)
+            appleConfiguration.getXcodeVersion()
                 .toStringWithMinimumComponents(2))
         .put(
             IOS_SDK_VERSION_KEY,
