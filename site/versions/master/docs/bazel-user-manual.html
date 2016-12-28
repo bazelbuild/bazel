@@ -3096,6 +3096,21 @@ adb -s deadbeef install ...
     <ul>
       <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
       information on actions and rules to the HTML visualization</li>
+        <ul>
+          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Skylark
+          functions clicked in the statistics table. This will increase file size massively</li>
+          <li><code id='flag--nochart'>--nochart</code> hides the task chart from generated HTML
+          </li>
+        </ul>
+    </ul>
+  </li>
+  <li><code id='flag--combine'>--combine</code> combines multiple profile data files into a single
+  report. Does not generate HTML task charts</li>
+  <li><code id='flag--task_tree'>--task_tree</code> prints the tree of tasks matching the given
+  regular expression
+    <ul>
+      <li><code id='flag--task_tree_threshold'>--task_tree_threshold</code> skip tasks with duration
+      less than threshhold, in milliseconds. Default is 50ms</li>
     </ul>
   </li>
 </ul>
