@@ -784,7 +784,18 @@ public final class Runfiles {
      *     created.
      */
     public Builder(String workspace, boolean legacyExternalRunfiles) {
-      this.suffix = new PathFragment(workspace);
+      this(new PathFragment(workspace), legacyExternalRunfiles);
+    }
+
+    /**
+     * Creates a builder with the given suffix.
+     * @param suffix is the PathFragment wrapping the string specified in workspace() in the
+     *     WORKSPACE file.
+     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be
+     *     created.
+     */
+    private Builder(PathFragment suffix, boolean legacyExternalRunfiles) {
+      this.suffix = suffix;
       this.legacyExternalRunfiles = legacyExternalRunfiles;
     }
 
@@ -1105,5 +1116,20 @@ public final class Runfiles {
         return Collections.emptyList();
       }
     }
+  }
+
+  /**
+   * Provides a Skylark-visible way to merge two Runfiles objects. 
+   */
+  @SkylarkCallable(
+    name = "merge",
+    doc = "Returns a new runfiles object that includes all the contents of this one and the "
+        + "argument."
+  )
+  public Runfiles merge(Runfiles other) {
+    Runfiles.Builder builder = new Runfiles.Builder(suffix, false);
+    builder.merge(this);
+    builder.merge(other);
+    return builder.build();
   }
 }

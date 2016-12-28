@@ -386,4 +386,23 @@ public class RunfilesTest extends FoundationTestCase {
         Maps.immutableEntry(new PathFragment("repo/b"), artifactExternalB));
     checkConflictWarning();
   }
+
+  @Test
+  public void testMergeWithSymlinks() {
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    Artifact artifactA = new Artifact(new PathFragment("a/target"), root);
+    Artifact artifactB = new Artifact(new PathFragment("b/target"), root);
+    PathFragment sympathA = new PathFragment("a/symlink");
+    PathFragment sympathB = new PathFragment("b/symlink");
+    Runfiles runfilesA = new Runfiles.Builder("TESTING")
+        .addSymlink(sympathA, artifactA)
+        .build();
+    Runfiles runfilesB = new Runfiles.Builder("TESTING")
+        .addSymlink(sympathB, artifactB)
+        .build();
+
+    Runfiles runfilesC = runfilesA.merge(runfilesB);
+    assertThat(runfilesC.getSymlinksAsMap(null).get(sympathA)).isEqualTo(artifactA);
+    assertThat(runfilesC.getSymlinksAsMap(null).get(sympathB)).isEqualTo(artifactB);
+  }
 }
