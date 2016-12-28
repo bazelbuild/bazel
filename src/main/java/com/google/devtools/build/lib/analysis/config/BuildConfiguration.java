@@ -1178,6 +1178,20 @@ public final class BuildConfiguration {
     if (this == other) {
       return true;
     }
+    if (!useDynamicConfigurations()) {
+      // Static configurations aren't safe for value equality because they include transition
+      // references to other configurations (see setConfigurationTransitions). For example, imagine
+      // in one build target config A has a reference to data config B. Now imagine a second build
+      // where target config C has a reference to data config D. If A and B are value-equal, that
+      // means a call to ConfiguredTargetKey("//foo", C) might return the SkyKey for ("//foo", A).
+      // This is not just possible but *likely* due to SkyKey interning (see
+      // SkyKey.SKY_KEY_INTERNER). This means a data transition on that config could incorrectly
+      // return B, which is not safe because B is not necessarily value-equal to D.
+      //
+      // This becomes safe with dynamic configurations: transitions are completely triggered by
+      // external logic and configs have no awareness of them at all.
+      return false;
+    }
     if (!(other instanceof BuildConfiguration)) {
       return false;
     }
@@ -1193,6 +1207,9 @@ public final class BuildConfiguration {
 
   @Override
   public int hashCode() {
+    if (!useDynamicConfigurations()) {
+      return BuildConfiguration.super.hashCode();
+    }
     return hashCode;
   }
 
