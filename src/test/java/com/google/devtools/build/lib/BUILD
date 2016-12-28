@@ -20,6 +20,15 @@ WINDOWS_ON_WINDOWS_TESTS = glob(
 # All Windows-specific tests. Use this to exclude Windows tests from globs.
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
 
+JNI_LIB = select({
+    "//src:windows": ["//src/main/native:windows_jni.dll"],
+    "//src:windows_msvc": ["//src/main/native:windows_jni.dll"],
+    "//conditions:default": [
+        "//src/main/native:libunix.dylib",
+        "//src/main/native:libunix.so",
+    ],
+})
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
@@ -78,14 +87,7 @@ java_library(
         "vfs/util/*.java",
         "events/util/*.java",
     ]),
-    data = select({
-        "//src:windows": [],
-        "//src:windows_msvc": [],
-        "//conditions:default": [
-            "//src/main/native:libunix.dylib",
-            "//src/main/native:libunix.so",
-        ],
-    }),
+    data = JNI_LIB,
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
@@ -217,14 +219,7 @@ java_test(
     srcs = WINDOWS_ON_WINDOWS_TESTS,
     data = [
         ":MockSubprocess_deploy.jar",
-    ] + select({
-        "//src:windows": ["//src/main/native:windows_jni.dll"],
-        "//src:windows_msvc": ["//src/main/native:windows_jni.dll"],
-        "//conditions:default": [
-            "//src/main/native:libunix.dylib",
-            "//src/main/native:libunix.so",
-        ],
-    }),
+    ] + JNI_LIB,
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":test_runner",

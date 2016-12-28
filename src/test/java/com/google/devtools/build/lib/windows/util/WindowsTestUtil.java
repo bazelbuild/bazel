@@ -22,25 +22,18 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.windows.WindowsJniLoader;
-import java.io.BufferedReader;
+import com.google.devtools.build.lib.windows.WindowsRunfiles;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /** Utilities for running Java tests on Windows. */
 public final class WindowsTestUtil {
-
-  private static Map<String, String> runfiles;
 
   /** A path where temp files can be created. It is NOT owned by this class. */
   private final String scratchRoot;
@@ -50,9 +43,8 @@ public final class WindowsTestUtil {
   }
 
   /** Ensure the actual JNI DLL is loaded. */
-  public static void loadJni() throws Exception {
-    String jniDllPath = WindowsTestUtil.getRunfile("io_bazel/src/main/native/windows_jni.dll");
-    WindowsJniLoader.loadJniForTesting(jniDllPath);
+  public static void loadJni() {
+    WindowsJniLoader.loadJni();
   }
 
   /**
@@ -145,29 +137,7 @@ public final class WindowsTestUtil {
   }
 
   public static String getRunfile(String runfilesPath) throws IOException {
-    ensureRunfilesParsed();
-    return runfiles.get(runfilesPath);
-  }
-
-  private static synchronized void ensureRunfilesParsed() throws IOException {
-    if (runfiles != null) {
-      return;
-    }
-
-    runfiles = new HashMap<>();
-    InputStream fis = new FileInputStream(System.getenv("RUNFILES_MANIFEST_FILE"));
-    InputStreamReader isr = new InputStreamReader(fis, Charset.forName("UTF-8"));
-    try (BufferedReader br = new BufferedReader(isr)) {
-      String line;
-      while ((line = br.readLine()) != null) {
-        String[] splitLine = line.split(" "); // This is buggy when the path contains spaces
-        if (splitLine.length != 2) {
-          continue;
-        }
-
-        runfiles.put(splitLine[0], splitLine[1]);
-      }
-    }
+    return WindowsRunfiles.getRunfile(runfilesPath);
   }
 
   public Path createVfsPath(FileSystem fs, String path) throws IOException {
