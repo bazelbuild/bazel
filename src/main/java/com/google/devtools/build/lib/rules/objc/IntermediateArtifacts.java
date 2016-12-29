@@ -409,14 +409,8 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    String moduleName =
-        ruleContext
-            .getLabel()
-            .toString()
-            .replace("//", "")
-            .replace("@", "")
-            .replace("/", "_")
-            .replace(":", "_");
+    String moduleName = ObjcCommon.getClangModuleName(ruleContext);
+
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
     return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);

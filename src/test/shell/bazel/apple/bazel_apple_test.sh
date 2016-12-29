@@ -342,6 +342,61 @@ EOF
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 
+function test_swift_imports_swift_custom_module_name() {
+  rm -rf ios
+  mkdir -p ios
+
+  cat >ios/main.swift <<EOF
+import Foundation
+import IosUtil
+
+public class SwiftClass {
+  public func bar() -> String {
+    return Utility().foo()
+  }
+}
+EOF
+
+  cat >ios/Utility.h <<EOF
+#import <Foundation/Foundation.h>
+
+@interface Utility : NSObject
+
+- (NSString * _Nonnull)foo;
+
+@end
+EOF
+  cat >ios/Utility.m <<EOF
+#import "Utility.h"
+
+@implementation Utility
+
+- (NSString *)foo;
+{
+    return @"Cheeseburger";
+}
+
+@end
+EOF
+
+  cat >ios/BUILD <<EOF
+load("//tools/build_defs/apple:swift.bzl", "swift_library")
+
+swift_library(name = "swift_lib",
+              srcs = ["main.swift"],
+              deps = [":util"])
+
+objc_library(name = "util",
+             module_name = "IosUtil",
+             srcs = ['Utility.m'],
+             hdrs = ['Utility.h'],
+             enable_modules = True)
+EOF
+
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+}
+
 function test_swift_tests() {
   make_app
 

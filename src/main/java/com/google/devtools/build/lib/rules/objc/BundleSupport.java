@@ -290,7 +290,7 @@ final class BundleSupport {
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString())
             .add("--module")
-            .add(ruleContext.getLabel().getName());
+            .add(ObjcCommon.getClangModuleName(ruleContext));
 
     for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));

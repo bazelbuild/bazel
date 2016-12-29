@@ -642,6 +642,7 @@ public final class ObjcCommon {
         ruleContext.getTokenizedStringListAttr("copts"));
   }
 
+
   static boolean shouldUseObjcModules(RuleContext ruleContext) {
     for (String copt : getNonCrosstoolCopts(ruleContext)) {
       if (copt.contains("-fmodules")) {
@@ -659,6 +660,22 @@ public final class ObjcCommon {
     }
 
     return false;
+  }
+
+  static String getClangModuleName(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("module_name", Type.STRING)) {
+      return ruleContext.attributes().get("module_name", Type.STRING);
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return
+        ruleContext
+            .getLabel()
+            .toString()
+            .replace("//", "")
+            .replace("@", "")
+            .replace("/", "_")
+            .replace(":", "_");
   }
 
   static ImmutableList<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
