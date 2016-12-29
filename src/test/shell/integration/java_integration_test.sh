@@ -761,12 +761,10 @@ function test_header_compilation() {
 
   bazel build -s --java_header_compilation=true \
       //$pkg/java/main:main || fail "build failed"
-  echo >&2 "DEBUG[${FUNCNAME[0]}]: start"
-  unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library-hjar.jar >&2
-  echo >&2 "DEBUG[${FUNCNAME[0]}]: end"
   unzip -l ${PRODUCT_NAME}-bin/$pkg/java/hello_library/libhello_library-hjar.jar \
-    | grep -q " hello_library/HelloLibrary.class" \
-    || fail "missing class file from header compilation"
+    > $TEST_log
+  expect_log " hello_library/HelloLibrary.class" \
+    "missing class file from header compilation"
 }
 
 function test_header_compilation_errors() {
