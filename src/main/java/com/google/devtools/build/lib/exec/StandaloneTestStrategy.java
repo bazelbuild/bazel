@@ -37,12 +37,15 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
+import com.google.devtools.build.lib.rules.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData.Builder;
 import com.google.devtools.common.options.OptionsClassProvider;
 import java.io.Closeable;
 import java.io.IOException;
@@ -89,29 +92,138 @@ public class StandaloneTestStrategy extends TestStrategy {
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
     Executor executor = actionExecutionContext.getExecutor();
+
+    TestResultData.Builder dataBuilder = TestResultData.newBuilder();
+
     try {
-      prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
-
-      ResourceSet resources =
-          action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
-
-      try (FileOutErr fileOutErr =
-              new FileOutErr(
-                  action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr());
-          ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
-        TestResultData data =
-            executeTest(
+      int maxAttempts = getTestAttempts(action);
+      TestResultData data =
+          executeTestAttempt(
+              action,
+              actionExecutionContext,
+              execRoot,
+              coverageDir,
+              runfilesDir,
+              tmpDir,
+              env,
+              workingDirectory);
+      int attempt;
+      for (attempt = 1;
+          data.getStatus() != BlazeTestStatus.PASSED && attempt < maxAttempts;
+          attempt++) {
+        processFailedTestAttempt(
+            attempt, executor, action, dataBuilder, data, actionExecutionContext.getFileOutErr());
+        data =
+            executeTestAttempt(
                 action,
-                actionExecutionContext.withFileOutErr(fileOutErr),
-                env,
+                actionExecutionContext,
                 execRoot,
-                runfilesDir);
-        appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
-        finalizeTest(actionExecutionContext, action, data);
+                coverageDir,
+                runfilesDir,
+                tmpDir,
+                env,
+                workingDirectory);
       }
+      processLastTestAttempt(attempt, dataBuilder, data);
+      finalizeTest(actionExecutionContext, action, dataBuilder.build());
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
+    }
+  }
+
+  private void processFailedTestAttempt(
+      int attempt,
+      Executor executor,
+      TestRunnerAction action,
+      Builder dataBuilder,
+      TestResultData data,
+      FileOutErr outErr)
+      throws IOException {
+    // Rename outputs
+    String namePrefix =
+        FileSystemUtils.removeExtension(action.getTestLog().getExecPath().getBaseName());
+    Path attemptsDir =
+        action.getTestLog().getPath().getParentDirectory().getChild(namePrefix + "_attempts");
+    attemptsDir.createDirectory();
+    String attemptPrefix = "attempt_" + attempt;
+    Path testLog = attemptsDir.getChild(attemptPrefix + ".log");
+    if (action.getTestLog().getPath().exists()) {
+      action.getTestLog().getPath().renameTo(testLog);
+    }
+    ResolvedPaths resolvedPaths = action.resolve(executor.getExecRoot());
+    if (resolvedPaths.getXmlOutputPath().exists()) {
+      Path destinationPath = attemptsDir.getChild(attemptPrefix + ".xml");
+      resolvedPaths.getXmlOutputPath().renameTo(destinationPath);
+    }
+    // Add the test log to the output
+    dataBuilder.addFailedLogs(testLog.toString());
+    dataBuilder.addTestTimes(data.getTestTimes(0));
+
+    // Publish an event, recreate a TestResultData with the good log file.
+    TestResultData.Builder builder = TestResultData.newBuilder();
+    builder.setStatus(data.getStatus());
+    builder.setFailedStatus(data.getFailedStatus());
+    builder.setCachable(data.getCachable());
+    builder.addFailedLogs(testLog.toString());
+    builder.setTestPassed(false);
+    builder.addTestTimes(data.getTestTimes(0));
+    builder.setRunDurationMillis(data.getRunDurationMillis());
+    if (data.hasTestCase()) {
+      builder.setTestCase(data.getTestCase());
+    }
+    processTestOutput(executor, outErr, new TestResult(action, data, false), testLog);
+  }
+
+  private void processLastTestAttempt(int attempt, Builder dataBuilder, TestResultData data) {
+    dataBuilder.setCachable(data.getCachable());
+    dataBuilder.setHasCoverage(data.getHasCoverage());
+    dataBuilder.setStatus(
+        data.getStatus() == BlazeTestStatus.PASSED && attempt > 1
+            ? BlazeTestStatus.FLAKY
+            : data.getStatus());
+    dataBuilder.setTestPassed(data.getTestPassed());
+    dataBuilder.setCachable(data.getCachable());
+    for (int i = 0; i < data.getFailedLogsCount(); i++) {
+      dataBuilder.addFailedLogs(data.getFailedLogs(i));
+    }
+    if (data.hasTestPassed()) {
+      dataBuilder.setPassedLog(data.getPassedLog());
+    }
+    dataBuilder.addTestTimes(data.getTestTimes(0));
+    dataBuilder.setRunDurationMillis(data.getRunDurationMillis());
+    if (data.hasTestCase()) {
+      dataBuilder.setTestCase(data.getTestCase());
+    }
+  }
+
+  private TestResultData executeTestAttempt(
+      TestRunnerAction action,
+      ActionExecutionContext actionExecutionContext,
+      Path execRoot,
+      Path coverageDir,
+      Path runfilesDir,
+      Path tmpDir,
+      Map<String, String> env,
+      Path workingDirectory)
+      throws IOException, ExecException, InterruptedException {
+    prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
+    ResourceSet resources =
+        action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
+
+    try (FileOutErr fileOutErr =
+            new FileOutErr(
+                action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr());
+        ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
+      TestResultData data =
+          executeTest(
+              action,
+              actionExecutionContext.withFileOutErr(fileOutErr),
+              env,
+              execRoot,
+              runfilesDir);
+      appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
+      return data;
     }
   }
 
@@ -244,9 +356,10 @@ public class StandaloneTestStrategy extends TestStrategy {
    * --test_output=errors). Will also try to group output lines together (up to 10000 lines) so
    * parallel test outputs will not get interleaved.
    */
-  protected void processTestOutput(Executor executor, FileOutErr outErr, TestResult result)
+  protected void processTestOutput(
+      Executor executor, FileOutErr outErr, TestResult result, Path testLogPath)
       throws IOException {
-    Path testOutput = executor.getExecRoot().getRelative(result.getTestLogPath().asFragment());
+    Path testOutput = executor.getExecRoot().getRelative(testLogPath.asFragment());
     boolean isPassed = result.getData().getTestPassed();
     try {
       if (TestLogHelper.shouldOutputTestLog(executionOptions.testOutput, isPassed)) {
@@ -280,10 +393,15 @@ public class StandaloneTestStrategy extends TestStrategy {
     postTestResult(actionExecutionContext.getExecutor(), result);
 
     processTestOutput(
-        actionExecutionContext.getExecutor(), actionExecutionContext.getFileOutErr(), result);
+        actionExecutionContext.getExecutor(),
+        actionExecutionContext.getFileOutErr(),
+        result,
+        result.getTestLogPath());
     // TODO(bazel-team): handle --test_output=errors, --test_output=all.
 
-    if (!executionOptions.testKeepGoing && data.getStatus() != BlazeTestStatus.PASSED) {
+    if (!executionOptions.testKeepGoing
+        && data.getStatus() != BlazeTestStatus.FLAKY
+        && data.getStatus() != BlazeTestStatus.PASSED) {
       throw new TestExecException("Test failed: aborting");
     }
   }

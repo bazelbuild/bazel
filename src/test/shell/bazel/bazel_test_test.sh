@@ -374,4 +374,64 @@ EOF
   expect_log 'FAILED.*com\.example\.myproject\.Fail\.testFail'
 }
 
+function test_flaky_test() {
+  cat >BUILD <<EOF
+sh_test(name = "flaky", flaky = True, srcs = ["flaky.sh"])
+sh_test(name = "pass", flaky = True, srcs = ["true.sh"])
+sh_test(name = "fail", flaky = True, srcs = ["false.sh"])
+EOF
+  FLAKE_FILE="${TEST_TMPDIR}/flake"
+  rm -f "${FLAKE_FILE}"
+  cat >flaky.sh <<EOF
+#!/bin/sh
+if ! [ -f "${FLAKE_FILE}" ]; then
+  echo 1 > "${FLAKE_FILE}"
+  echo "fail"
+  exit 1
+fi
+echo "pass"
+EOF
+  cat >true.sh <<EOF
+#!/bin/sh
+echo "pass"
+exit 0
+EOF
+  cat >false.sh <<EOF
+#!/bin/sh
+echo "fail"
+exit 1
+EOF
+  chmod +x true.sh flaky.sh false.sh
+
+  # We do not use sandboxing so we can trick to be deterministically flaky
+  bazel test --spawn_strategy=standalone //:flaky &> $TEST_log \
+      || fail "//:flaky should have passed with flaky support"
+  [ -f "${FLAKE_FILE}" ] || fail "Flaky test should have created the flake-file!"
+
+  expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
+  expect_log_once "PASS: //:flaky"
+  expect_log_once "FLAKY"
+  assert_equals "fail" "$(tail -1 bazel-testlogs/flaky/test_attempts/attempt_1.log)"
+  assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
+  assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
+
+  bazel test //:pass &> $TEST_log \
+      || fail "//:pass should have passed"
+  expect_log_once "PASS: //:pass"
+  expect_log_once PASSED
+  [ ! -d bazel-test_logs/pass/test_attempts ] \
+    || fail "Got test attempts while expected non for non-flaky tests"
+  assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
+
+  bazel test //:fail &> $TEST_log \
+      && fail "//:fail should have failed" \
+      || true
+  expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
+  expect_log_once "FAIL: //:fail (.*/fail/test.log)"
+  expect_log_once "FAILED"
+  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
+  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test.log)"
+}
+
 run_suite "test tests"

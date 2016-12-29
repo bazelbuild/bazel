@@ -433,7 +433,7 @@ function expect_log_n() {
     local expectednum=${2:-1}
     local message=${3:-Expected regexp "$pattern" not found exactly $expectednum times}
     local count=$(grep -sc -- "$pattern" $TEST_log)
-    [ $count = $expectednum ] && return 0
+    [[ $count = $expectednum ]] && return 0
     fail "$message"
     return 1
 }
