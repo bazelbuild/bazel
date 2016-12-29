@@ -57,6 +57,7 @@ import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -583,7 +584,7 @@ public final class ObjcCommon {
         return false;
       }
     }
-    
+
     /**
      * Returns {@code true} if the given rule context has a launch storyboard set.
      */
@@ -658,6 +659,35 @@ public final class ObjcCommon {
     }
 
     return false;
+  }
+
+  /**
+   * Determines clang module name for a rule. The default is the fully qualified label with
+   * underscores replacing reserved characters.
+   *
+   * It can be overridden with the "module_name" attribute of objc_library.
+   *
+   * User-defined module names are not validated since it is legal in the clang modulemap language
+   * to use an arbitrary string literal, however it is not possible to use {@code @import} syntax
+   * for modules names that contain symbols, spaces, etc.
+   */
+  static String getClangModuleName(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("module_name", Type.STRING)) {
+      String moduleName = ruleContext.attributes().get("module_name", Type.STRING);
+      if (!Strings.isNullOrEmpty(moduleName)) {
+        return moduleName;
+      }
+    }
+
+    // Otherwise, just use target name, it doesn't matter.
+    return
+        ruleContext
+            .getLabel()
+            .toString()
+            .replace("//", "")
+            .replace("@", "")
+            .replace("/", "_")
+            .replace(":", "_");
   }
 
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
