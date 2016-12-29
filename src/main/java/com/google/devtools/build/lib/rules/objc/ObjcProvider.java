@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -39,9 +36,14 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.TargetControl;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import com.google.common.base.Optional;
+
+import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
+import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 /**
  * A provider that provides all compiling and linking information in the transitive closure of its
@@ -220,10 +222,13 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    * Information about this provider's module map, in the form of a {@link CppModuleMap}. This
    * is intransitive, and can be used to get just the target's module map to pass to clang or to
    * get the module maps for direct but not transitive dependencies. You should only add module maps
-   * for this key using {@link Builder#addWithoutPropagating}.
+   * for this key using {@link Builder#addAllNonPropagable}.
    */
-  public static final Key<CppModuleMap> TOP_LEVEL_MODULE_MAP =
-      new Key<>(STABLE_ORDER, "top_level_module_map", CppModuleMap.class);
+  public static final Key<Artifact> TOP_LEVEL_MODULE_MAP =
+      new Key<>(STABLE_ORDER, "top_level_module_map", Artifact.class);
+
+  public static final Key<String> TOP_LEVEL_MODULE_NAME =
+      new Key<>(STABLE_ORDER, "top_level_module_name", String.class);
 
   /**
    * Merge zips to include in the bundle. The entries of these zip files are included in the final
@@ -428,6 +433,8 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           STATIC_FRAMEWORK_FILE,
           STORYBOARD,
           STRINGS,
+          TOP_LEVEL_MODULE_MAP,
+          TOP_LEVEL_MODULE_NAME,
           WEAK_SDK_FRAMEWORK,
           XCASSETS_DIR,
           XCDATAMODEL,
@@ -448,9 +455,14 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
       // Flag enum is not exposed to skylark.
       FLAG,
       // Bundle not exposed to skylark.
-      NESTED_BUNDLE,
-      // CppModuleMap is not exposed to skylark.
-      TOP_LEVEL_MODULE_MAP);
+      NESTED_BUNDLE);
+
+  /** These are added as nonPropagatedItems when converting from a Skylark provider */
+  static final ImmutableSet<Key<?>> NON_PROPAGATED_KEYS_FOR_SKYLARK =
+      ImmutableSet.of(
+          TOP_LEVEL_MODULE_MAP,
+          TOP_LEVEL_MODULE_NAME
+      );
 
   /**
    * Set of {@link ObjcProvider} whose values are not subtracted via {@link #subtractSubtrees}.
@@ -592,6 +604,27 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
             get(LIBRARY), Predicates.not(Predicates.in(jreLibs.toSet()))))
         .addAll(jreLibs)
         .build();
+  }
+
+  /** Combines {@link #TOP_LEVEL_MODULE_MAP} and {@link #TOP_LEVEL_MODULE_NAME} if they exist to make a CppModuleMap */
+  Optional<CppModuleMap> getTopLevelModuleMap() {
+    // JRE libraries must be ordered after all regular objc libraries.
+    Collection<String> topLevelModuleName = this.get(TOP_LEVEL_MODULE_NAME).toCollection();
+    Collection<Artifact> topLevelModuleMap = this.get(TOP_LEVEL_MODULE_MAP).toCollection();
+
+    if (topLevelModuleName.isEmpty() && topLevelModuleMap.isEmpty()) {
+      return Optional.absent();
+    } else if (topLevelModuleName.size() == 1 && topLevelModuleMap.size() == 1) {
+      Artifact artifact = topLevelModuleMap.iterator().next();
+      String name = topLevelModuleName.iterator().next();
+      CppModuleMap moduleMap = new CppModuleMap(artifact, name);
+      return Optional.of(moduleMap);
+    } else {
+      throw new IllegalArgumentException(
+          String.format(
+              AppleSkylarkCommon.BAD_TOP_LEVEL_MODULE_MAP,
+              topLevelModuleMap, topLevelModuleName));
+    }
   }
 
   /** Returns the list of .a files required for linking that arise from cc libraries. */
@@ -841,7 +874,11 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
      * an appropriate SkylarkNestedSet.
      */
     void addElementsFromSkylark(Key<?> key, Object toAdd) {
-      uncheckedAddAll(key, ObjcProviderSkylarkConverters.convertToJava(key, toAdd), this.items);
+      if (NON_PROPAGATED_KEYS_FOR_SKYLARK.contains(key)) {
+        uncheckedAddAll(key, ObjcProviderSkylarkConverters.convertToJava(key, toAdd), this.nonPropagatedItems);
+      } else {
+        uncheckedAddAll(key, ObjcProviderSkylarkConverters.convertToJava(key, toAdd), this.items);
+      }
     }
 
     /**
@@ -933,6 +970,10 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           skylarkFields.put(
               key.getSkylarkKeyName(),
               ObjcProviderSkylarkConverters.convertToSkylark(key, strictDependency.get(key)));
+        } else if (nonPropagated.containsKey(key)) {
+          skylarkFields.put(
+              key.getSkylarkKeyName(),
+              ObjcProviderSkylarkConverters.convertToSkylark(key, nonPropagated.get(key)));
         } else {
           skylarkFields.put(
               key.getSkylarkKeyName(),

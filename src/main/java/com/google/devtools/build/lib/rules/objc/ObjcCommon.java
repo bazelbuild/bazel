@@ -49,6 +49,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAME
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_MAP;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.TOP_LEVEL_MODULE_NAME;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.WEAK_SDK_FRAMEWORK;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -553,8 +555,11 @@ public final class ObjcCommon {
 
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
-        objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
-        objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);
+        Artifact moduleMapArtifact = moduleMap.getArtifact();
+        objcProvider.add(MODULE_MAP, moduleMapArtifact);
+
+        objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_MAP, Collections.singleton(moduleMapArtifact));
+        objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_NAME, Collections.singleton(moduleMap.getName()));
       }
 
       objcProvider

@@ -20,6 +20,11 @@ load("shared",
      "module_cache_path",
      "label_scoped_path")
 
+load("modulemap",
+     "module",
+     "submodule",
+     "modulemap_action")
+
 def _parent_dirs(dirs):
   """Returns a set of parent directories for each directory in dirs."""
   return set([f.rpartition("/")[0] for f in dirs])
@@ -278,13 +283,7 @@ def swiftc_args(ctx):
       # Pass DEFINE or copt values from objc configuration and rules to clang
       + ["-D" + x for x in objc_defines] + ctx.fragments.objc.copts
       + _clang_compilation_mode_flags(ctx)
-
-      # Load module maps explicitly instead of letting Clang discover them on
-      # search paths. This is needed to avoid a case where Clang may load the
-      # same header both in modular and non-modular contexts, leading to
-      # duplicate definitions in the same file.
-      # https://llvm.org/bugs/show_bug.cgi?id=19501
-      + ["-fmodule-map-file=%s" % x.path for x in objc_module_maps])
+  )
 
   args = [
       "-emit-object",
@@ -314,6 +313,40 @@ def swiftc_args(ctx):
   return args
 
 
+def _modulemap_info(
+    name,
+    output_header,
+    objc_providers,
+    unextended=False):
+  """Returns kwargs to be passed into modulemap_action"""
+  external_modules = {}
+
+  for o in objc_providers:
+    if len(o.top_level_module_map) and len(o.top_level_module_name):
+      if  len(o.top_level_module_map) != 1:
+        fail("Expected only one entyr in top_level_module_map, but got " + str(o.top_level_module_map))
+      elif len(o.top_level_module_name) != 1:
+        fail("Expected only one entry in top_level_module_name, but got " + str(o.top_level_module_name))
+
+      use_name = list(o.top_level_module_name)[0]
+      use_artifact = list(o.top_level_module_map)[0]
+      external_modules[use_name] = use_artifact
+
+  maybe_extra_swift_module = [] if unextended else [module(
+                                     name=name + ".Swift",
+                                     hdrs = [output_header],
+                                     export = [],
+                                   )]
+
+  main_module = module(
+    name = name,
+    use = external_modules.keys(),
+  )
+  return dict(
+    modules=[main_module] + maybe_extra_swift_module,
+    external_modules = external_modules,
+  )
+
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
 
@@ -340,7 +373,16 @@ def _swift_library_impl(ctx):
   output_module = ctx.new_file(objs_outputs_path + module_name + ".swiftmodule")
 
   # These filenames are guaranteed to be unique, no need to scope.
-  output_header = ctx.new_file(ctx.label.name + "-Swift.h")
+  output_header = ctx.new_file(module_name + "-Swift.h")
+
+  # Unextended modulemap is used when compiling ourselves. It does not contain the .Swift clang submodule.
+  unextended_modulemap = ctx.new_file(ctx.label.name + "-unextended.modulemap")
+  modulemap_action(ctx, output=unextended_modulemap, **_modulemap_info(module_name, output_header, objc_providers, unextended=True))
+
+  # This is the modulemap our dependents use. It includes our -Swift header.
+  output_modulemap = ctx.new_file(ctx.label.name + ".modulemap")
+  modulemap_action(ctx, output=output_modulemap, **_modulemap_info(module_name, output_header, objc_providers))
+
   swiftc_output_map_file = ctx.new_file(ctx.label.name + ".output_file_map.json")
 
   swiftc_output_map = struct()  # Maps output types to paths.
@@ -382,8 +424,11 @@ def _swift_library_impl(ctx):
   ctx.file_action(output=swiftc_output_map_file, content=swiftc_output_map.to_json())
 
   args = _swift_xcrun_args(ctx) + ["swiftc"] + swiftc_args(ctx)
+  args += sorted(set(["-I" + d.dirname for d in dep_modules + [output_module]]))
+
   args += [
-      "-I" + output_module.dirname,
+      "-Xcc", "-fmodule-map-file=" + unextended_modulemap.path,
+      "-import-underlying-module",
       "-emit-module-path",
       output_module.path,
       "-emit-objc-header-path",
@@ -402,7 +447,7 @@ def _swift_library_impl(ctx):
 
   xcrun_action(
       ctx,
-      inputs=swiftc_inputs(ctx) + [swiftc_output_map_file],
+      inputs=swiftc_inputs(ctx) + [swiftc_output_map_file, unextended_modulemap],
       outputs=[output_module, output_header] + output_objs + swiftc_outputs,
       mnemonic="SwiftCompile",
       arguments=args,
@@ -434,7 +479,11 @@ def _swift_library_impl(ctx):
       providers=objc_providers,
       linkopt=_swift_linkopts(ctx) + extra_linker_args,
       link_inputs=set([output_module]),
-      uses_swift=True,)
+      top_level_module_map=set([output_modulemap]),
+      top_level_module_name=set([module_name]),
+      module_map=set([output_modulemap]),
+      uses_swift=True,
+  )
 
   return struct(
       swift=struct(
@@ -442,7 +491,7 @@ def _swift_library_impl(ctx):
           transitive_modules=[output_module] + dep_modules,
           transitive_defines=swiftc_defines),
       objc=objc_provider,
-      files=set([output_lib, output_module, output_header]))
+      files=set([output_lib, output_module, output_header, output_modulemap]))
 
 SWIFT_LIBRARY_ATTRS = {
     "srcs": attr.label_list(allow_files = [".swift"], allow_empty=False),

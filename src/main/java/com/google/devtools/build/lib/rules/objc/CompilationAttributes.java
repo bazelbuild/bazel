@@ -278,14 +278,14 @@ final class CompilationAttributes {
           Iterable<ObjcProvider> providers =
               ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class);
           for (ObjcProvider provider : providers) {
-            moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
+            moduleMaps.addAll(provider.getTopLevelModuleMap().asSet());
           }
         }
         if (ruleContext.attributes().has("non_propagated_deps", BuildType.LABEL_LIST)) {
           Iterable<ObjcProvider> providers =
               ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class);
           for (ObjcProvider provider : providers) {
-            moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
+            moduleMaps.addAll(provider.getTopLevelModuleMap().asSet());
           }
         }
       }

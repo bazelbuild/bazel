@@ -60,6 +60,11 @@ public class AppleSkylarkCommon {
           + "iterable with %s.";
 
   @VisibleForTesting
+  public static final String BAD_TOP_LEVEL_MODULE_MAP =
+      "Expected either 0 or 1 of 'top_level_module_map' and 'top_level_module_name' to be set, "
+          + "instead found %s and %s";
+
+  @VisibleForTesting
   public static final String NOT_SET_ERROR = "Value for key %s must be a set, instead found %s.";
 
   @VisibleForTesting
