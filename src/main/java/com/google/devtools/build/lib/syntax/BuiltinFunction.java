@@ -159,7 +159,7 @@ public class BuiltinFunction extends BaseFunction {
       if (e instanceof EvalException) {
         throw ((EvalException) e).ensureLocation(loc);
       } else if (e instanceof IllegalArgumentException) {
-        throw new EvalException(loc, "Illegal argument in call to " + getName(), e);
+        throw new EvalException(loc, "illegal argument in call to " + getName(), e);
       }
       // TODO(bazel-team): replace with Throwables.throwIfInstanceOf once Guava 20 is released.
       Throwables.propagateIfInstanceOf(e, InterruptedException.class);
@@ -179,9 +179,12 @@ public class BuiltinFunction extends BaseFunction {
           throw new EvalException(
               loc,
               String.format(
-                  "Method %s is not applicable for arguments %s: '%s' is %s, but should be %s",
-                  getShortSignature(true), printTypeString(args, args.length - extraArgsCount),
-                  paramName, EvalUtils.getDataTypeName(args[i]),
+                  "method %s is not applicable for arguments %s: "
+                      + "'%s' is '%s', but should be '%s'",
+                  getShortSignature(true),
+                  printTypeString(args, args.length - extraArgsCount),
+                  paramName,
+                  EvalUtils.getDataTypeName(args[i]),
                   EvalUtils.getDataTypeNameFromClass(types[i])));
         }
       }
@@ -351,7 +354,7 @@ public class BuiltinFunction extends BaseFunction {
     @Override
     public Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
       throws EvalException {
-      throw new EvalException(null, "Tried to invoke a Factory for function " + this);
+      throw new EvalException(null, "tried to invoke a Factory for function " + this);
     }
 
     /** Instantiate the Factory

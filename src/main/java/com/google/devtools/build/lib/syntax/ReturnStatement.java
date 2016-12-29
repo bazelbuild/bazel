@@ -33,8 +33,11 @@ public class ReturnStatement extends Statement {
     Object value;
 
     public ReturnException(Location location, Object value) {
-      super(location, "Return statements must be inside a function",
-          /*dueToIncompleteAST=*/ false, /*fillInJavaStackTrace=*/ false);
+      super(
+          location,
+          "return statements must be inside a function",
+          /*dueToIncompleteAST=*/ false, /*fillInJavaStackTrace=*/
+          false);
       this.value = value;
     }
 

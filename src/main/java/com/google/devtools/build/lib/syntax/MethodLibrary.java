@@ -1001,7 +1001,7 @@ public class MethodLibrary {
     try {
       return maxOrdering.max(getIterable(args, loc));
     } catch (NoSuchElementException ex) {
-      throw new EvalException(loc, "Expected at least one argument");
+      throw new EvalException(loc, "expected at least one argument");
     }
   }
 
@@ -1207,7 +1207,7 @@ public class MethodLibrary {
             }
             i++;
           }
-          throw new EvalException(loc, Printer.format("Item %r not found in list", x));
+          throw new EvalException(loc, Printer.format("item %r not found in list", x));
         }
       };
 
@@ -1235,7 +1235,7 @@ public class MethodLibrary {
               return Runtime.NONE;
             }
           }
-          throw new EvalException(loc, Printer.format("Item %r not found in list", x));
+          throw new EvalException(loc, Printer.format("item %r not found in list", x));
         }
       };
 
@@ -1749,15 +1749,13 @@ public class MethodLibrary {
               throw new EvalException(
                   location,
                   String.format(
-                      "Sequence #%d has length %d, but exactly two elements are required",
+                      "item #%d has length %d, but exactly two elements are required",
                       pos, numElements));
             }
             return tuple;
           } catch (ConversionException e) {
             throw new EvalException(
-                loc,
-                String.format(
-                    "Cannot convert dictionary update sequence element #%d to a sequence", pos));
+                loc, String.format("cannot convert item #%d to a sequence", pos));
           }
         }
       };
@@ -1945,7 +1943,7 @@ public class MethodLibrary {
             throw new EvalException(
                 loc,
                 Printer.format(
-                    "Object of type '%s' has no attribute %r%s",
+                    "object of type '%s' has no attribute %r%s",
                     EvalUtils.getDataTypeName(obj),
                     name,
                     isRealMethod ? ", however, a method of that name exists" : ""));

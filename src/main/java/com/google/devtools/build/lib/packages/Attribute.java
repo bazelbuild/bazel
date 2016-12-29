@@ -1004,8 +1004,8 @@ public final class Attribute implements Comparable<Attribute> {
       SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
       RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
       if (oldAspect != null) {
-        throw new EvalException(location,
-            String.format("Aspect %s added more than once", skylarkAspect.getName()));
+        throw new EvalException(
+            location, String.format("aspect %s added more than once", skylarkAspect.getName()));
       }
       return this;
     }
@@ -1455,7 +1455,7 @@ public final class Attribute implements Comparable<Attribute> {
         throw new EvalException(
             location,
             String.format(
-                "Expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
+                "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
       }
     }
 

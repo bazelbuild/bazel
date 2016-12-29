@@ -294,16 +294,16 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "str",
         "\t\tstr.index(1)"
             + System.lineSeparator()
-            + "Method string.index(sub: string, start: int, end: int or NoneType) is not "
-            + "applicable for arguments (int, int, NoneType): 'sub' is int, "
-            + "but should be string");
+            + "method string.index(sub: string, start: int, end: int or NoneType) is not "
+            + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "
+            + "but should be 'string'");
   }
 
   @Test
   public void testStackTraceMissingMethod() throws Exception {
     runStackTraceTest(
         "None",
-        "\t\tNone.index(1)" + System.lineSeparator() + "Type NoneType has no function index(int)");
+        "\t\tNone.index(1)" + System.lineSeparator() + "type 'NoneType' has no method index(int)");
   }
 
   protected void runStackTraceTest(String object, String errorMessage) throws Exception {

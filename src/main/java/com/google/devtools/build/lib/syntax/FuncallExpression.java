@@ -265,10 +265,6 @@ public final class FuncallExpression extends Expression {
     return numPositionalArgs;
   }
 
-  private String functionName() {
-    return "function " + func.getName();
-  }
-
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -291,7 +287,7 @@ public final class FuncallExpression extends Expression {
     try {
       return methodCache.get(objClass).get(methodName);
     } catch (ExecutionException e) {
-      throw new EvalException(loc, "Method invocation failed: " + e);
+      throw new EvalException(loc, "method invocation failed: " + e);
     }
   }
 
@@ -308,7 +304,7 @@ public final class FuncallExpression extends Expression {
     try {
       Method method = methodDescriptor.getMethod();
       if (obj == null && !Modifier.isStatic(method.getModifiers())) {
-        throw new EvalException(loc, "Method '" + methodName + "' is not static");
+        throw new EvalException(loc, "method '" + methodName + "' is not static");
       }
       // This happens when the interface is public but the implementation classes
       // have reduced visibility.
@@ -321,16 +317,20 @@ public final class FuncallExpression extends Expression {
         if (methodDescriptor.getAnnotation().allowReturnNones()) {
           return Runtime.NONE;
         } else {
-          throw new EvalException(loc,
-              "Method invocation returned None, please contact Skylark developers: " + methodName
-              + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
+          throw new EvalException(
+              loc,
+              "method invocation returned None, please file a bug report: "
+                  + methodName
+                  + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
       // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
       result = SkylarkType.convertToSkylark(result, method, env);
       if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
-        throw new EvalException(loc, Printer.format(
-            "Method '%s' returns an object of invalid type %r", methodName, result.getClass()));
+        throw new EvalException(
+            loc,
+            Printer.format(
+                "method '%s' returns an object of invalid type %r", methodName, result.getClass()));
       }
       return result;
     } catch (IllegalAccessException e) {
@@ -344,7 +344,7 @@ public final class FuncallExpression extends Expression {
         throw new EvalExceptionWithJavaCause(loc, e.getCause());
       } else {
         // This is unlikely to happen
-        throw new EvalException(loc, "Method invocation failed: " + e);
+        throw new EvalException(loc, "method invocation failed: " + e);
       }
     }
   }
@@ -374,7 +374,7 @@ public final class FuncallExpression extends Expression {
               throw new EvalException(
                   getLocation(),
                   String.format(
-                      "Type %s has multiple matches for %s",
+                      "type '%s' has multiple matches for function %s",
                       EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs)));
             }
           }
@@ -386,13 +386,13 @@ public final class FuncallExpression extends Expression {
       if (argumentListConversionResult == null || argumentListConversionResult.getError() == null) {
         errorMessage =
             String.format(
-                "Type %s has no %s",
+                "type '%s' has no method %s",
                 EvalUtils.getDataTypeNameFromClass(objClass), formatMethod(args, kwargs));
 
       } else {
         errorMessage =
             String.format(
-                "%s (in %s of %s).",
+                "%s, in method %s of '%s'",
                 argumentListConversionResult.getError(),
                 formatMethod(args, kwargs),
                 EvalUtils.getDataTypeNameFromClass(objClass));
@@ -429,7 +429,7 @@ public final class FuncallExpression extends Expression {
     }
     if (mandatoryPositionals > args.size()
         || args.size() > mandatoryPositionals + callable.parameters().length) {
-      return ArgumentListConversionResult.fromError("Too many arguments");
+      return ArgumentListConversionResult.fromError("too many arguments");
     }
     // First process the legacy positional parameters.
     int i = 0;
@@ -482,25 +482,25 @@ public final class FuncallExpression extends Expression {
         // Use default value
         if (param.defaultValue().isEmpty()) {
           return ArgumentListConversionResult.fromError(
-              String.format("Parameter '%s' has no default value", param.name()));
+              String.format("parameter '%s' has no default value", param.name()));
         }
         value = SkylarkSignatureProcessor.getDefaultValue(param, null);
       }
       builder.add(value);
       if (!param.noneable() && value instanceof NoneType) {
         return ArgumentListConversionResult.fromError(
-            String.format("Parameter '%s' cannot be None", param.name()));
+            String.format("parameter '%s' cannot be None", param.name()));
       }
     }
     if (i < args.size() || !keys.isEmpty()) {
-      return ArgumentListConversionResult.fromError("Too many arguments");
+      return ArgumentListConversionResult.fromError("too many arguments");
     }
     return ArgumentListConversionResult.fromArgumentList(builder.build());
   }
 
   private String formatMethod(List<Object> args, Map<String, Object> kwargs) {
     StringBuilder sb = new StringBuilder();
-    sb.append(functionName()).append("(");
+    sb.append(func.getName()).append("(");
     boolean first = true;
     for (Object obj : args) {
       if (!first) {
@@ -577,12 +577,12 @@ public final class FuncallExpression extends Expression {
     if (!(items instanceof Map<?, ?>)) {
       throw new EvalException(
           location,
-          "Argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
+          "argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
     }
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
         throw new EvalException(
-            location, "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
+            location, "keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
       }
       addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
     }
@@ -717,7 +717,7 @@ public final class FuncallExpression extends Expression {
         try {
           return callFunction(javaMethod.first.getMethod().invoke(obj), env);
         } catch (IllegalAccessException e) {
-          throw new EvalException(getLocation(), "Method invocation failed: " + e);
+          throw new EvalException(getLocation(), "method invocation failed: " + e);
         } catch (InvocationTargetException e) {
           if (e.getCause() instanceof FuncallException) {
             throw new EvalException(getLocation(), e.getCause().getMessage());
@@ -725,7 +725,7 @@ public final class FuncallExpression extends Expression {
             throw new EvalExceptionWithJavaCause(getLocation(), e.getCause());
           } else {
             // This is unlikely to happen
-            throw new EvalException(getLocation(), "Method invocation failed: " + e);
+            throw new EvalException(getLocation(), "method invocation failed: " + e);
           }
         }
       }

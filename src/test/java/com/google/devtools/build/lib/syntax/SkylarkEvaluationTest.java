@@ -691,28 +691,28 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testJavaCallsNotSkylarkCallable() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no function value()", "mock.value()");
+        .testIfExactError("type 'Mock' has no method value()", "mock.value()");
   }
 
   @Test
   public void testNoOperatorIndex() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no operator [](int)", "mock[2]");
+        .testIfExactError("type 'Mock' has no operator [](int)", "mock[2]");
   }
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Type Mock has no function bad()", "mock.bad()");
+        .testIfExactError("type 'Mock' has no method bad()", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "Type int has no function bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
+            "type 'int' has no method bad(string, string, string)", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
@@ -720,7 +720,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockMultipleMethodClass())
         .testIfExactError(
-            "Type MockMultipleMethodClass has multiple matches for function method(string)",
+            "type 'MockMultipleMethodClass' has multiple matches for function method(string)",
             "s = mock.method('string')");
   }
 
@@ -729,7 +729,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "Type Mock has no function isEmpty(string str)", "mock.isEmpty(str='abc')");
+            "type 'Mock' has no method isEmpty(string str)", "mock.isEmpty(str='abc')");
   }
 
 
@@ -743,14 +743,14 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool) of Mock).",
+            "parameter 'named' has no default value, in method with_params(int, bool) of 'Mock'",
             "mock.with_params(1, True)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'named' has no default value (in function with_params(int, bool, bool) "
-                + "of Mock).",
+            "parameter 'named' has no default value, in method with_params(int, bool, bool) "
+                + "of 'Mock'",
             "mock.with_params(1, True, True)");
     new SkylarkTest()
         .update("mock", new Mock())
@@ -768,21 +768,21 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Too many arguments (in function with_params(int, bool, bool named, "
-                + "bool posOrNamed, int n) of Mock).",
+            "too many arguments, in method with_params(int, bool, bool named, "
+                + "bool posOrNamed, int n) of 'Mock'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
     new SkylarkTest()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
-            "Parameter 'nonNoneable' cannot be None (in function with_params(int, bool, bool, "
-                + "bool named, bool optionalNamed, NoneType nonNoneable) of Mock).",
+            "parameter 'nonNoneable' cannot be None, in method with_params(int, bool, bool, "
+                + "bool named, bool optionalNamed, NoneType nonNoneable) of 'Mock'",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
   }
 
   @Test
   public void testNoJavaCallsWithoutSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("Type int has no function to_string()", "s = 3.to_string()");
+    new SkylarkTest().testIfExactError("type 'int' has no method to_string()", "s = 3.to_string()");
   }
 
   @Test
@@ -790,7 +790,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new MockSubClass())
         .testIfExactError(
-            "Type Mock has no function is_empty_class_not_annotated(string)",
+            "type 'Mock' has no method is_empty_class_not_annotated(string)",
             "b = mock.is_empty_class_not_annotated('a')");
   }
 
@@ -822,7 +822,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("Object of type 'Mock' has no field \"function\"", "v = mock.function");
+        .testIfExactError("object of type 'Mock' has no field \"function\"", "v = mock.function");
   }
 
   @Test
@@ -830,17 +830,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     new SkylarkTest()
         .update("mock", new Mock())
         .testIfExactError(
-            "Method 'return_bad' returns an object of invalid type Bad",
-            "mock.return_bad()");
+            "method 'return_bad' returns an object of invalid type Bad", "mock.return_bad()");
   }
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError(
-            "Method invocation returned None,"
-            + " please contact Skylark developers: nullfunc_failing(\"abc\", 1)",
+        .testIfErrorContains(
+            "method invocation returned None,"
+                + " please file a bug report: nullfunc_failing(\"abc\", 1)",
             "mock.nullfunc_failing('abc', 1)");
   }
 
@@ -872,7 +871,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testClassObjectCannotAccessNestedSet() throws Exception {
     new SkylarkTest()
         .update("mock", new MockClassObject())
-        .testIfExactError("Type is not allowed in Skylark: NestedSet", "v = mock.nset");
+        .testIfErrorContains("internal error: type 'NestedSet' is not allowed", "v = mock.nset");
   }
 
   @Test
@@ -908,8 +907,9 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testStaticDirectJavaCallMethodIsNonStatic() throws Exception {
-    new SkylarkTest().update("Mock", Mock.class).testIfExactError("Method 'is_empty' is not static",
-        "val = Mock.is_empty('a')");
+    new SkylarkTest()
+        .update("Mock", Mock.class)
+        .testIfExactError("method 'is_empty' is not static", "val = Mock.is_empty('a')");
   }
 
   @Test
@@ -925,8 +925,8 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
-    new SkylarkTest().testIfExactError("Object of type 'string' has no field \"field\"",
-        "x = 'a'.field");
+    new SkylarkTest()
+        .testIfExactError("object of type 'string' has no field \"field\"", "x = 'a'.field");
   }
 
   @Test

@@ -36,11 +36,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +46,9 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@code PackageFactory}.
@@ -690,9 +688,9 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "Method glob(include: sequence of strings, *, exclude: sequence of strings, "
+        "method glob(include: sequence of strings, *, exclude: sequence of strings, "
             + "exclude_directories: int) is not applicable for arguments (int, int, int): "
-            + "'include' is int, but should be sequence");
+            + "'include' is 'int', but should be 'sequence'");
   }
 
   @Test

@@ -44,7 +44,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testMinWithInvalidArgs() throws Exception {
     new SkylarkTest()
         .testIfExactError("type 'int' is not iterable", "min(1)")
-        .testIfExactError("Expected at least one argument", "min([])");
+        .testIfExactError("expected at least one argument", "min([])");
   }
 
   @Test
@@ -100,7 +100,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testMaxWithInvalidArgs() throws Exception {
     new BothModesTest()
         .testIfExactError("type 'int' is not iterable", "max(1)")
-        .testIfExactError("Expected at least one argument", "max([])");
+        .testIfExactError("expected at least one argument", "max([])");
   }
 
   @Test
@@ -402,8 +402,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     // only one built-in function.
     new BothModesTest()
         .testIfExactError(
-            "Method string.index(sub: string, start: int, end: int or NoneType) is not applicable "
-                + "for arguments (int, int, NoneType): 'sub' is int, but should be string",
+            "method string.index(sub: string, start: int, end: int or NoneType) is not applicable "
+                + "for arguments (int, int, NoneType): 'sub' is 'int', but should be 'string'",
             "'test'.index(1)");
   }
 
@@ -427,9 +427,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\t\t'test'.index(x)"
                 + LINE_SEPARATOR
-                + "Method string.index(sub: string, start: int, end: int or NoneType) "
+                + "method string.index(sub: string, start: int, end: int or NoneType) "
                 + "is not applicable "
-                + "for arguments (int, int, NoneType): 'sub' is int, but should be string",
+                + "for arguments (int, int, NoneType): 'sub' is 'int', but should be 'string'",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -442,13 +442,13 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
-                + "'new_elements' is string, but should be Iterable",
+            "method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is 'string', but should be 'Iterable'",
             "depset([]).union('a')")
         .testIfErrorContains(
-            "Method string.startswith(sub: string, start: int, end: int or NoneType) is not "
-                + "applicable for arguments (int, int, NoneType): 'sub' is int, "
-                + "but should be string",
+            "method string.startswith(sub: string, start: int, end: int or NoneType) is not "
+                + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "
+                + "but should be 'string'",
             "'test'.startswith(1)")
         .testIfErrorContains(
             "expected value of type 'list(object)' for parameter args in dict(), "
@@ -469,7 +469,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testGetAttrMissingField() throws Exception {
     new SkylarkTest()
         .testIfExactError(
-            "Object of type 'string' has no attribute \"not_there\"",
+            "object of type 'string' has no attribute \"not_there\"",
             "getattr('a string', 'not_there')")
         .testStatement("getattr('a string', 'not_there', 'use this')", "use this")
         .testStatement("getattr('a string', 'not there', None)", Runtime.NONE);
@@ -478,7 +478,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testGetAttrWithMethods() throws Exception {
     String msg =
-        "Object of type 'string' has no attribute \"count\", however, "
+        "object of type 'string' has no attribute \"count\", however, "
             + "a method of that name exists";
     new SkylarkTest()
         .testIfExactError(msg, "getattr('a string', 'count')")
@@ -1032,8 +1032,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testListSlice_WrongType() throws Exception {
     new BothModesTest()
-        .testIfExactError("Slice start must be an integer, not 'a'", "'123'['a'::]")
-        .testIfExactError("Slice end must be an integer, not 'b'", "'123'[:'b':]");
+        .testIfExactError("slice start must be an integer, not 'a'", "'123'['a'::]")
+        .testIfExactError("slice end must be an integer, not 'b'", "'123'[:'b':]");
   }
 
   @Test
@@ -1078,7 +1078,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testListSliceStep_InvalidStep() throws Exception {
-    String msg = "Slice step cannot be zero";
+    String msg = "slice step cannot be zero";
     new BothModesTest()
         .testIfExactError(msg, "[1, 2, 3][::0]")
         .testIfExactError(msg, "[1, 2, 3][1::0]")
@@ -1102,7 +1102,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("(1, 2, 3, 4, 5)[3:1:-1]", "(4, 3)")
         .testEval("(1, 2, 3, 4, 5)[::-2]", "(5, 3, 1)")
         .testEval("(1, 2, 3, 4, 5)[::-10]", "(5,)")
-        .testIfExactError("Slice step cannot be zero", "(1, 2, 3)[1::0]");
+        .testIfExactError("slice step cannot be zero", "(1, 2, 3)[1::0]");
   }
 
   @Test
@@ -1141,16 +1141,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDictionaryKeyNotFound() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("Key \"0\" not found in dictionary", "{}['0']")
-        .testIfErrorContains("Key 0 not found in dictionary", "{'0': 1, 2: 3, 4: 5}[0]");
+        .testIfErrorContains("key \"0\" not found in dictionary", "{}['0']")
+        .testIfErrorContains("key 0 not found in dictionary", "{'0': 1, 2: 3, 4: 5}[0]");
   }
 
   @Test
   public void testListAccessBadIndex() throws Exception {
     new BothModesTest()
-        .testIfErrorContains(
-            "Indices must be integers, not string",
-            "[[1], [2]]['a']");
+        .testIfErrorContains("indices must be integers, not string", "[[1], [2]]['a']");
   }
 
   @Test
@@ -1181,9 +1179,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testStringIndexingOutOfRange() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("Index out of range", "'abcdef'[10]")
-        .testIfErrorContains("Index out of range", "'abcdef'[-11]")
-        .testIfErrorContains("Index out of range", "'abcdef'[42]");
+        .testIfErrorContains("index out of range", "'abcdef'[10]")
+        .testIfErrorContains("index out of range", "'abcdef'[-11]")
+        .testIfErrorContains("index out of range", "'abcdef'[42]");
   }
 
   @Test
@@ -1200,8 +1198,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testStringSlice_WrongType() throws Exception {
     new BothModesTest()
-        .testIfExactError("Slice start must be an integer, not 'a'", "'123'['a'::]")
-        .testIfExactError("Slice end must be an integer, not 'b'", "'123'[:'b':]");
+        .testIfExactError("slice start must be an integer, not 'a'", "'123'['a'::]")
+        .testIfExactError("slice end must be an integer, not 'b'", "'123'[:'b':]");
   }
 
   @Test
@@ -1246,7 +1244,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testStringSliceStep_InvalidStep() throws Exception {
-    String msg = "Slice step cannot be zero";
+    String msg = "slice step cannot be zero";
     new BothModesTest()
         .testIfExactError(msg, "'123'[::0]")
         .testIfExactError(msg, "'123'[1::0]")
@@ -1300,13 +1298,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
             "expected value of type 'list(object)' for parameter args in dict(), "
                 + "but got \"a\" (string)",
             "dict('a')")
-        .testIfErrorContains(
-            "Cannot convert dictionary update sequence element #0 to a sequence", "dict(['a'])")
-        .testIfErrorContains(
-            "Cannot convert dictionary update sequence element #0 to a sequence", "dict([('a')])")
+        .testIfErrorContains("cannot convert item #0 to a sequence", "dict(['a'])")
+        .testIfErrorContains("cannot convert item #0 to a sequence", "dict([('a')])")
         .testIfErrorContains("too many (3) positional arguments", "dict((3,4), (3,2), (1,2))")
         .testIfErrorContains(
-            "Sequence #0 has length 3, but exactly two elements are required",
+            "item #0 has length 3, but exactly two elements are required",
             "dict([('a', 'b', 'c')])");
   }
 
@@ -1443,8 +1439,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("insufficient arguments received by union", "depset(['a']).union()")
         .testIfErrorContains(
-            "Method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
-                + "'new_elements' is string, but should be Iterable",
+            "method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is 'string', but should be 'Iterable'",
             "depset(['a']).union('b')");
   }
 
@@ -1472,8 +1468,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("[2, 4, 6].index(4)", 1)
         .testStatement("[2, 4, 6].index(4)", 1)
         .testStatement("[0, 1, [1]].index([1])", 2)
-        .testIfErrorContains("Item \"a\" not found in list", "[1, 2].index('a')")
-        .testIfErrorContains("Item 0 not found in list", "[].index(0)");
+        .testIfErrorContains("item \"a\" not found in list", "[1, 2].index('a')")
+        .testIfErrorContains("item 0 not found in list", "[].index(0)");
   }
 
   @Test
@@ -1493,15 +1489,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testListIndexOutOfRange() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Index out of range (index is 3, but sequence has 3 elements)", "[0, 1, 2][3]")
+            "index out of range (index is 3, but sequence has 3 elements)", "[0, 1, 2][3]")
         .testIfErrorContains(
-            "Index out of range (index is -4, but sequence has 3 elements)", "[0, 1, 2][-4]")
+            "index out of range (index is -4, but sequence has 3 elements)", "[0, 1, 2][-4]")
         .testIfErrorContains(
-            "Index out of range (index is -2, but sequence has 1 elements)", "[0][-2]")
+            "index out of range (index is -2, but sequence has 1 elements)", "[0][-2]")
         .testIfErrorContains(
-            "Index out of range (index is 1, but sequence has 1 elements)", "[0][1]")
+            "index out of range (index is 1, but sequence has 1 elements)", "[0][1]")
         .testIfErrorContains(
-            "Index out of range (index is 1, but sequence has 0 elements)", "[][1]");
+            "index out of range (index is 1, but sequence has 0 elements)", "[][1]");
   }
 
   @Test
@@ -1511,8 +1507,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("hash('skylark')", "skylark".hashCode())
         .testStatement("hash('google')", "google".hashCode())
         .testIfErrorContains(
-            "Method hash(value: string) is not applicable for arguments (NoneType): "
-                + "'value' is NoneType, but should be string",
+            "method hash(value: string) is not applicable for arguments (NoneType): "
+                + "'value' is 'NoneType', but should be 'string'",
             "hash(None)");
   }
 
@@ -1550,8 +1546,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testEnumerateBadArg() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method enumerate(list: sequence) is not applicable for arguments (string): "
-                + "'list' is string, but should be sequence",
+            "method enumerate(list: sequence) is not applicable for arguments (string): "
+                + "'list' is 'string', but should be 'sequence'",
             "enumerate('a')");
   }
 
@@ -1568,7 +1564,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e"))
         .setUp("FOO.insert(10, 'g')")
         .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e", "g"))
-        .testIfErrorContains("Type tuple has no function insert(int)", "(1, 2).insert(3)");
+        .testIfErrorContains("type 'tuple' has no method insert(int)", "(1, 2).insert(3)");
   }
 
   @Test
@@ -1576,7 +1572,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BuildTest()
         .setUp("FOO = ['a', 'b']", "FOO.append('c')")
         .testLookup("FOO", MutableList.of(env, "a", "b", "c"))
-        .testIfErrorContains("Type tuple has no function append(int)", "(1, 2).append(3)");
+        .testIfErrorContains("type 'tuple' has no method append(int)", "(1, 2).append(3)");
   }
 
   @Test
@@ -1584,10 +1580,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BuildTest()
         .setUp("FOO = ['a', 'b']", "FOO.extend(['c', 'd'])", "FOO.extend(('e', 'f'))")
         .testLookup("FOO", MutableList.of(env, "a", "b", "c", "d", "e", "f"))
-        .testIfErrorContains("Type tuple has no function extend(list)", "(1, 2).extend([3, 4])")
+        .testIfErrorContains("type 'tuple' has no method extend(list)", "(1, 2).extend([3, 4])")
         .testIfErrorContains(
-            "Method list.extend(items: sequence) is not applicable for arguments "
-                + "(int): 'items' is int, but should be sequence",
+            "method list.extend(items: sequence) is not applicable for arguments "
+                + "(int): 'items' is 'int', but should be 'sequence'",
             "[1, 2].extend(3)");
   }
 
@@ -1602,10 +1598,10 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testLookup("foo", MutableList.of(env, "b"))
         .setUp("foo.remove('b')")
         .testLookup("foo", MutableList.of(env))
-        .testIfErrorContains("Item 3 not found in list", "[1, 2].remove(3)");
+        .testIfErrorContains("item 3 not found in list", "[1, 2].remove(3)");
 
     new BothModesTest()
-        .testIfErrorContains("Type tuple has no function remove(int)", "(1, 2).remove(3)");
+        .testIfErrorContains("type 'tuple' has no method remove(int)", "(1, 2).remove(3)");
   }
 
   @Test
@@ -1624,9 +1620,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testLookup("ret", 3);
     new BothModesTest()
         .testIfErrorContains(
-            "Index out of range (index is 3, but sequence has 2 elements)", "[1, 2].pop(3)");
+            "index out of range (index is 3, but sequence has 2 elements)", "[1, 2].pop(3)");
 
-    new BothModesTest().testIfErrorContains("Type tuple has no function pop()", "(1, 2).pop()");
+    new BothModesTest().testIfErrorContains("type 'tuple' has no method pop()", "(1, 2).pop()");
   }
 
   @Test
@@ -1661,8 +1657,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testIndexOnFunction() throws Exception {
     new BothModesTest()
-        .testIfErrorContains("Type function has no operator [](int)", "len[1]")
-        .testIfErrorContains("Type function has no operator [:](int, int, int)", "len[1:4]");
+        .testIfErrorContains("type 'function' has no operator [](int)", "len[1]")
+        .testIfErrorContains("type 'function' has no operator [:](int, int, int)", "len[1:4]");
   }
 
   @Test

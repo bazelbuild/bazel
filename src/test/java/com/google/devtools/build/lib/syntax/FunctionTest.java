@@ -324,14 +324,14 @@ public class FunctionTest extends EvaluationTestCase {
 
   @Test
   public void testKwargsBadKey() throws Exception {
-    checkEvalError("Keywords must be strings, not int",
-        "def func(a, b): return a + b",
-        "func('a', **{3: 1})");
+    checkEvalError(
+        "keywords must be strings, not int", "def func(a, b): return a + b", "func('a', **{3: 1})");
   }
 
   @Test
   public void testKwargsIsNotDict() throws Exception {
-    checkEvalError("Argument after ** must be a dictionary, not int",
+    checkEvalError(
+        "argument after ** must be a dictionary, not int",
         "def func(a, b): return a + b",
         "func('a', **42)");
   }

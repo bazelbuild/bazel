@@ -58,9 +58,8 @@ public final class IndexExpression extends Expression {
     throw new EvalException(
         loc,
         Printer.format(
-            "Type %s has no operator [](%s)",
-            EvalUtils.getDataTypeName(objValue),
-            EvalUtils.getDataTypeName(keyValue)));
+            "type '%s' has no operator [](%s)",
+            EvalUtils.getDataTypeName(objValue), EvalUtils.getDataTypeName(keyValue)));
   }
 
   @Override

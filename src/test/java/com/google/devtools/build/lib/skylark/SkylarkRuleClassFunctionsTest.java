@@ -245,11 +245,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
-    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+    checkErrorContains(
+        "element in 'providers' is of unexpected type."
             + " Should be list of string, but got list with an element of type int.",
         "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
 
-    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+    checkErrorContains(
+        "element in 'providers' is of unexpected type."
             + " Should be list of string, but got string.",
         "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
   }
@@ -270,12 +272,11 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelListWithAspectsError() throws Exception {
     checkErrorContains(
-        "Illegal argument: expected type Aspect for 'aspects' element but got type int instead",
+        "expected type 'Aspect' for 'aspects' element but got type 'int' instead",
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(implementation = _impl)",
-        "attr.label_list(aspects = [my_aspect, 123])"
-    );
+        "attr.label_list(aspects = [my_aspect, 123])");
   }
 
   @Test
@@ -392,9 +393,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testAttrDefaultValueBadType() throws Exception {
     checkErrorContains(
-        "Method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (int, bool, list): 'default' is int, "
-            + "but should be string",
+        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
+            + "is not applicable for arguments (int, bool, list): 'default' is 'int', "
+            + "but should be 'string'",
         "attr.string(default = 1)");
   }
 
@@ -469,9 +470,9 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLateBoundAttrWorksWithOnlyLabel() throws Exception {
     checkEvalError(
-        "Method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
-            + "is not applicable for arguments (function, bool, list): 'default' is function, "
-            + "but should be string",
+        "method attr.string(*, default: string, mandatory: bool, values: sequence of strings) "
+            + "is not applicable for arguments (function, bool, list): 'default' is 'function', "
+            + "but should be 'string'",
         "def attr_value(cfg): return 'a'",
         "attr.string(default=attr_value)");
   }
@@ -558,8 +559,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testRuleBadTypeInAdd() throws Exception {
     registerDummyUserDefinedFunction();
     checkErrorContains(
-        "Illegal argument: "
-            + "expected <String, Descriptor> type for 'attrs' but got <string, string> instead",
+        "expected <String, Descriptor> type for 'attrs' but got <string, string> instead",
         "rule(impl, attrs = {'a1': 'some text'})");
   }
 
@@ -908,8 +908,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testGetattrNoAttr() throws Exception {
-    checkErrorContains("Object of type 'struct' has no attribute \"b\"",
-        "s = struct(a='val')", "getattr(s, 'b')");
+    checkErrorContains(
+        "object of type 'struct' has no attribute \"b\"", "s = struct(a='val')", "getattr(s, 'b')");
   }
 
   @Test

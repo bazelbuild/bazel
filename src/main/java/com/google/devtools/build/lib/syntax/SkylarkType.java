@@ -601,9 +601,8 @@ public abstract class SkylarkType implements Serializable {
    */
   static void checkTypeAllowedInSkylark(Object object, Location loc) throws EvalException {
     if (!isTypeAllowedInSkylark(object)) {
-      throw new EvalException(loc,
-                    "Type is not allowed in Skylark: "
-          + object.getClass().getSimpleName());
+      throw new EvalException(
+          loc, "internal error: type '" + object.getClass().getSimpleName() + "' is not allowed");
     }
   }
 
@@ -660,19 +659,25 @@ public abstract class SkylarkType implements Serializable {
       return ImmutableMap.of();
     }
     if (!(obj instanceof Map<?, ?>)) {
-      throw new EvalException(null, String.format(
-          "Illegal argument: expected a dictionary for %s but got %s instead",
-          what, EvalUtils.getDataTypeName(obj)));
+      throw new EvalException(
+          null,
+          String.format(
+              "expected a dictionary for '%s' but got '%s' instead",
+              what, EvalUtils.getDataTypeName(obj)));
     }
 
     for (Map.Entry<?, ?> input : ((Map<?, ?>) obj).entrySet()) {
       if (!keyType.isAssignableFrom(input.getKey().getClass())
           || !valueType.isAssignableFrom(input.getValue().getClass())) {
-        throw new EvalException(null, String.format(
-            "Illegal argument: expected <%s, %s> type for '%s' but got <%s, %s> instead",
-            keyType.getSimpleName(), valueType.getSimpleName(), what,
-            EvalUtils.getDataTypeName(input.getKey()),
-            EvalUtils.getDataTypeName(input.getValue())));
+        throw new EvalException(
+            null,
+            String.format(
+                "expected <%s, %s> type for '%s' but got <%s, %s> instead",
+                keyType.getSimpleName(),
+                valueType.getSimpleName(),
+                what,
+                EvalUtils.getDataTypeName(input.getKey()),
+                EvalUtils.getDataTypeName(input.getValue())));
       }
     }
 
@@ -735,8 +740,10 @@ public abstract class SkylarkType implements Serializable {
   public static void checkType(Object object, Class<?> type, @Nullable Object description)
       throws EvalException {
     if (!type.isInstance(object)) {
-      throw new EvalException(null,
-          Printer.format("Illegal argument: expected type %r %sbut got type %s instead",
+      throw new EvalException(
+          null,
+          Printer.format(
+              "expected type '%r' %sbut got type '%s' instead",
               type,
               description == null ? "" : String.format("for %s ", description),
               EvalUtils.getDataTypeName(object)));

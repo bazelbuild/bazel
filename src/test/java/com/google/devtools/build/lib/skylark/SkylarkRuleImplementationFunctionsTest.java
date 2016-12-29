@@ -368,7 +368,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionBadGenericArg() throws Exception {
     checkErrorContains(
         createRuleContext("//foo:foo"),
-        "Illegal argument: expected type File for 'outputs' element but got type string instead",
+        "expected type 'File' for 'outputs' element but got type 'string' instead",
         "l = ['a', 'b']",
         "ruleContext.action(",
         "  outputs = l,",
@@ -597,8 +597,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     checkErrorContains(
         ruleContext,
-        "Method ctx.file_action(output: File, content: string, executable: bool) is not "
-            + "applicable for arguments (File, int, bool): 'content' is int, but should be string",
+        "method ctx.file_action(output: File, content: string, executable: bool) is not applicable "
+            + "for arguments (File, int, bool): 'content' is 'int', but should be 'string'",
         "ruleContext.file_action(",
         "  output = ruleContext.files.srcs[0],",
         "  content = 1,",
@@ -668,7 +668,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRunfilesBadListGenericType() throws Exception {
     checkErrorContains(
-        "Illegal argument: expected type File for 'files' element but got type string instead",
+        "expected type 'File' for 'files' element but got type 'string' instead",
         "ruleContext.runfiles(files = ['some string'])");
   }
 
@@ -683,18 +683,16 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testRunfilesBadMapGenericType() throws Exception {
     checkErrorContains(
-        "Illegal argument: expected type string for 'symlinks' key " + "but got type int instead",
+        "expected type 'string' for 'symlinks' key " + "but got type 'int' instead",
         "ruleContext.runfiles(symlinks = {123: ruleContext.files.srcs[0]})");
     checkErrorContains(
-        "Illegal argument: expected type File for 'symlinks' value " + "but got type int instead",
+        "expected type 'File' for 'symlinks' value " + "but got type 'int' instead",
         "ruleContext.runfiles(symlinks = {'some string': 123})");
     checkErrorContains(
-        "Illegal argument: expected type string for 'root_symlinks' key "
-            + "but got type int instead",
+        "expected type 'string' for 'root_symlinks' key " + "but got type 'int' instead",
         "ruleContext.runfiles(root_symlinks = {123: ruleContext.files.srcs[0]})");
     checkErrorContains(
-        "Illegal argument: expected type File for 'root_symlinks' value "
-            + "but got type int instead",
+        "expected type 'File' for 'root_symlinks' value " + "but got type 'int' instead",
         "ruleContext.runfiles(root_symlinks = {'some string': 123})");
   }
 

@@ -189,8 +189,10 @@ public final class SkylarkDict<K, V>
     if (obj instanceof SkylarkDict) {
       return ((SkylarkDict<?, ?>) obj).getContents(keyType, valueType, description);
     }
-    throw new EvalException(null,
-        Printer.format("Illegal argument: %s is not of expected type dict or NoneType",
+    throw new EvalException(
+        null,
+        Printer.format(
+            "%s is not of expected type dict or NoneType",
             description == null ? Printer.repr(obj) : String.format("'%s'", description)));
   }
 
@@ -218,7 +220,7 @@ public final class SkylarkDict<K, V>
   @Override
   public final Object getIndex(Object key, Location loc) throws EvalException {
     if (!this.containsKey(key)) {
-      throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
+      throw new EvalException(loc, Printer.format("key %r not found in dictionary", key));
     }
     return this.get(key);
   }
