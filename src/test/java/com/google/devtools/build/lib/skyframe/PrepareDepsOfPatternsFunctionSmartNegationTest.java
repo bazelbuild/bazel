@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -27,12 +28,10 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
-
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /** Tests for {@link PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
@@ -60,11 +59,11 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
     // Then the graph contains package values for "@//foo" and "@//foo/foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
+    assertTrue(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph));
+    assertTrue(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph));
 
     // But the graph does not contain a value for the target "@//foo/foo:foofoo".
-    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo"))));
+    assertFalse(exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo")), walkableGraph));
   }
 
   @Test
@@ -104,14 +103,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
     // Then the graph contains a package value for "@//foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
+    assertTrue(exists(PackageValue.key(PackageIdentifier.parse("@//foo")), walkableGraph));
 
     // But no package value for "@//foo/foo",
-    assertFalse(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
+    assertFalse(exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo")), walkableGraph));
 
     // And the graph does not contain a value for the target "@//foo/foo:foofoo".
     Label label = Label.create("@//foo/foo", "foofoo");
-    assertFalse(walkableGraph.exists(getKeyForLabel(label)));
+    assertFalse(exists(getKeyForLabel(label), walkableGraph));
   }
 
   @Test

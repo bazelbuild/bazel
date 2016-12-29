@@ -32,26 +32,18 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     this.graph = graph;
   }
 
+  @Nullable
   private NodeEntry getEntryForValue(SkyKey key) throws InterruptedException {
     NodeEntry entry =
-        Preconditions.checkNotNull(
-            graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key),
-            key);
-    Preconditions.checkState(entry.isDone(), "%s %s", key, entry);
-    return entry;
-  }
-
-  @Override
-  public boolean exists(SkyKey key) throws InterruptedException {
-    NodeEntry entry =
-        graph.getBatch(null, Reason.EXISTENCE_CHECKING, ImmutableList.of(key)).get(key);
-    return entry != null && entry.isDone();
+        graph.getBatch(null, Reason.WALKABLE_GRAPH_VALUE, ImmutableList.of(key)).get(key);
+    return entry != null && entry.isDone() ? entry : null;
   }
 
   @Nullable
   @Override
   public SkyValue getValue(SkyKey key) throws InterruptedException {
-    return getEntryForValue(key).getValue();
+    NodeEntry entry = getEntryForValue(key);
+    return entry == null ? null : entry.getValue();
   }
 
   private static SkyValue getValue(NodeEntry entry) throws InterruptedException {
@@ -93,10 +85,24 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return result;
   }
 
+  @Override
+  public boolean isCycle(SkyKey key) throws InterruptedException {
+    NodeEntry entry = getEntryForValue(key);
+    if (entry == null) {
+      return false;
+    }
+    ErrorInfo errorInfo = entry.getErrorInfo();
+    return errorInfo != null && errorInfo.getCycleInfo() != null;
+  }
+
   @Nullable
   @Override
   public Exception getException(SkyKey key) throws InterruptedException {
-    ErrorInfo errorInfo = getEntryForValue(key).getErrorInfo();
+    NodeEntry entry = getEntryForValue(key);
+    if (entry == null) {
+      return null;
+    }
+    ErrorInfo errorInfo = entry.getErrorInfo();
     return errorInfo == null ? null : errorInfo.getException();
   }
 

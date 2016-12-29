@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
@@ -191,7 +192,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     while (!Iterables.isEmpty(nodesToVisit)) {
       List<SkyKey> existingNodes = new ArrayList<>();
       for (SkyKey key : nodesToVisit) {
-        if (graph.exists(key) && graph.getValue(key) != null && visitedNodes.add(key)) {
+        if (exists(key, graph) && graph.getValue(key) != null && visitedNodes.add(key)) {
           existingNodes.add(key);
         }
       }

@@ -135,7 +135,7 @@ public class FilesystemValueChecker {
     @Override
     @Nullable
     public SkyValue get(SkyKey key) throws InterruptedException {
-      return walkableGraph.exists(key) ? walkableGraph.getValue(key) : null;
+      return walkableGraph.getValue(key);
     }
   }
 

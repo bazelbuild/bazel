@@ -81,22 +81,21 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       throws NoSuchPackageException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
 
-    PackageValue pkgValue;
-    if (graph.exists(pkgKey)) {
-      pkgValue = (PackageValue) graph.getValue(pkgKey);
-      if (pkgValue == null) {
-        NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
-        if (nspe != null) {
-          throw nspe;
-        }
-        throw new NoSuchPackageException(packageName, "Package depends on a cycle");
-      }
+    PackageValue pkgValue = (PackageValue) graph.getValue(pkgKey);
+    if (pkgValue != null) {
+      return pkgValue.getPackage();
+    }
+    NoSuchPackageException nspe = (NoSuchPackageException) graph.getException(pkgKey);
+    if (nspe != null) {
+      throw nspe;
+    }
+    if (graph.isCycle(pkgKey)) {
+      throw new NoSuchPackageException(packageName, "Package depends on a cycle");
     } else {
       // If the package key does not exist in the graph, then it must not correspond to any package,
       // because the SkyQuery environment has already loaded the universe.
       throw new BuildFileNotFoundException(packageName, "BUILD file not found on package path");
     }
-    return pkgValue.getPackage();
   }
 
   @Override
@@ -139,22 +138,25 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
-    if (!graph.exists(packageLookupKey)) {
-      // If the package lookup key does not exist in the graph, then it must not correspond to any
-      // package, because the SkyQuery environment has already loaded the universe.
-      return false;
-    }
     PackageLookupValue packageLookupValue = (PackageLookupValue) graph.getValue(packageLookupKey);
     if (packageLookupValue == null) {
-      Exception exception = Preconditions.checkNotNull(graph.getException(packageLookupKey),
-          "During package lookup for '%s', got null for exception", packageName);
-      if (exception instanceof NoSuchPackageException
-          || exception instanceof InconsistentFilesystemException) {
-        eventHandler.handle(Event.error(exception.getMessage()));
+      // Package lookups can't depend on Skyframe cycles.
+      Preconditions.checkState(!graph.isCycle(packageLookupKey), packageLookupKey);
+      Exception exception = graph.getException(packageLookupKey);
+      if (exception == null) {
+        // If the package lookup key does not exist in the graph, then it must not correspond to any
+        // package, because the SkyQuery environment has already loaded the universe.
         return false;
       } else {
-        throw new IllegalStateException("During package lookup for '" + packageName
-            + "', got unexpected exception type", exception);
+        if (exception instanceof NoSuchPackageException
+            || exception instanceof InconsistentFilesystemException) {
+          eventHandler.handle(Event.error(exception.getMessage()));
+          return false;
+        } else {
+          throw new IllegalStateException(
+              "During package lookup for '" + packageName + "', got unexpected exception type",
+              exception);
+        }
       }
     }
     return packageLookupValue.packageExists();
@@ -190,7 +192,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       roots.addAll(pkgPath.getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
+          (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
       if (repositoryValue == null) {
         // If this key doesn't exist, the repository is outside the universe, so we return
         // "nothing".
