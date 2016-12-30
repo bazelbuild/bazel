@@ -43,6 +43,7 @@ def module(
     textual_hdrs = [],
     use = [],
     export = ["*"],
+    umbrella_header = None,
 ):
   """Creates struct to represent a submodule
 
@@ -61,6 +62,7 @@ def module(
     textual_hdrs = textual_hdrs,
     use=use,
     export = export,
+    umbrella_header = umbrella_header,
   )
 
 
@@ -88,6 +90,9 @@ def _submodule_contents(output, module):
 def _module_contents(output, module):
   contents = 'module ' + module.name + ' {\n'
 
+  if module.umbrella_header:
+    contents += 'umbrella header "' + _rel_path(output, module.umbrella_header) + '"\n'
+
   contents += _module_common_contents(
     output=output,
     hdrs=module.hdrs,
@@ -99,6 +104,9 @@ def _module_contents(output, module):
   contents += '\n'.join([_submodule_contents(output, s) for s in module.submodules]) + '\n'
 
   contents += ''.join(['  use "' + u + '"\n' for u in module.use])
+
+  if module.umbrella_header:
+    contents += 'module * { export * }\n'
 
   contents += '}\n'
 
