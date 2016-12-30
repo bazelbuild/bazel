@@ -557,6 +557,7 @@ public final class ObjcCommon {
       if (hasModuleMap) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         Artifact moduleMapArtifact = moduleMap.getArtifact();
+
         objcProvider.add(MODULE_MAP, moduleMapArtifact);
 
         objcProvider.addAllNonPropagable(TOP_LEVEL_MODULE_MAP, Collections.singleton(moduleMapArtifact));
