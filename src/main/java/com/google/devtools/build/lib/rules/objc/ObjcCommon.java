@@ -58,6 +58,7 @@ import static com.google.devtools.build.lib.vfs.PathFragment.TO_PATH_FRAGMENT;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -669,7 +670,10 @@ public final class ObjcCommon {
 
   static String getClangModuleName(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_name", Type.STRING)) {
-      return ruleContext.attributes().get("module_name", Type.STRING);
+      String moduleName = ruleContext.attributes().get("module_name", Type.STRING);
+      if (!Strings.isNullOrEmpty(moduleName)) {
+        return moduleName;
+      }
     }
 
     // Otherwise, just use target name, it doesn't matter.
