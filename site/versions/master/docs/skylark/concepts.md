@@ -32,12 +32,12 @@ argument list can contain both aliases and regular symbol names. The following
 example is perfectly legal (please note when to use quotation marks).
 
 ```python
-load("/path/to:my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
+load(":my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
 Symbols starting with `_` are private and cannot be loaded from other files.
-Visibility doesn't affect loading: you don't need to use `exports_files` to make
-a `.bzl` file visible.
+Visibility doesn't affect loading (yet): you don't need to use `exports_files`
+to make a `.bzl` file visible.
 
 ## Macros and rules
 
@@ -130,30 +130,40 @@ fct()
 ```
 
 The variable `var` is created when `foo.bzl` is loaded. `fct()` is called during
-the same context, so it is safe. At the end of the evaluation, the definition
-`var = [5]` is exported. Any other file can load it, and it is possible that
-multiple files will load it at the same time. For this reason, the following
-code is not legal:
+the same context, so it is safe. At the end of the evaluation, the environment
+contains an entry mapping the identifier `var` to a list `[5]`; this list is
+then frozen.
+
+It is possible for multiple other files to load symbols from `foo.bzl` at the
+same time. For this reason, the following code is not legal:
 
 ```python
 load(":foo.bzl", "var", "fct")
 
-var.append(6)  # not allowed
+var.append(6)  # runtime error, the list stored in var is frozen
 
-fct()  # not allowed
+fct()          # runtime error, fct() attempts to modify a frozen list
 ```
 
-Since the call to `fct()` attempts to mutate the shared variable `var`, it will
-fail. `fct()` can only be called during the evaluation of `foo.bzl`. It cannot
-be called from another file. It is also forbidden to call it during the analysis
-phase (i.e. when a custom rule is analyzed).
+Evaluation contexts are also created for the analysis of each custom rule. This
+means that any values that are returned from the rule's analysis are frozen.
+Note that by the time a custom rule's analysis begins, the .bzl file in which
+it is defined has already been loaded, and so the global variables are already
+frozen.
+
+There are also restrictions on rebinding variables. In .bzl files, it is illegal
+to overwrite an existing global or built-in variable, such as by assigning to
+it, even when the module has not yet been frozen.
 
 ## Differences with Python
 
 In addition to the mutability restrictions, there are also differences with
 Python:
 
-* All global variables cannot be reassigned
+* All global variables cannot be reassigned.
+
+* `for` statements are not allowed at the top-level; factor them into functions
+  instead.
 
 * Sets and dictionaries have a deterministic order of iteration (see
   [documentation](lib/globals.html#set) for sets).
@@ -170,17 +180,30 @@ Python:
   `for x in list(my_list): ...`. You can still modify its deep contents
   regardless.
 
+* Global (non-function) variables must be declared before they can be used in
+  a function, even if the function is not called until after the global variable
+  declaration. However, it is fine to define `f()` before `g()`, even if `f()`
+  calls `g()`.
+
+The following Python features are not supported:
+
+* `class` (see [`struct`](lib/globals.html#struct) function)
+* `import` (see [`load`](#loading-a-skylark-extension) statement)
+* `while`, `yield`
+* `lambda` and nested functions
+* `is` (use `==` instead)
+* `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
+  for fatal errors).
+* `global`, `nonlocal`
+* most builtin functions, most methods
+
+## Upcoming changes
+
 The following items are upcoming changes.
 
 * Comprehensions currently "leak" the values of their loop variables into the
   surrounding scope (Python 2 semantics). This will be changed so that
   comprehension variables are local (Python 3 semantics).
-
-* `load()` statements can currently appear anywhere at the top-level of a file
-  so long as it is not in an indented block of code. In BUILD files, they may
-  overwrite an existing variable with the loaded symbol. In the future, `load()`
-  statements will be required to appear at the beginning of the file and will
-  not be able to overwrite any names (use load aliases to avoid name clashes).
 
 * Previously dictionaries were guaranteed to use sorted order for their keys.
   Going forward, there is no guarantee on order besides that it is
@@ -217,15 +240,23 @@ The following items are upcoming changes.
 * The set datatype will be renamed in order to avoid confusion with Python's
   set datatype, which behaves very differently.
 
-The following Python features are not supported:
+These changes concern the `load()` syntax in particular.
 
-* `class` (see [`struct`](lib/globals.html#struct) function)
-* `import` (see [`load`](#loading-a-skylark-extension) statement)
-* `while`, `yield`
-* `lambda` and nested functions
-* `is` (use `==` instead)
-* `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
-  for fatal errors).
-* most builtin functions, most methods
+* Currently a `load()` statement can appear anywhere in a file so long as it is
+  at the top-level (not in an indented block of code). In the future they will
+  be required to appear at the beginning of the file, i.e., before any
+  non-`load()` statement.
+
+* In BUILD files, `load()` can overwrite an existing variable with the loaded
+  symbol. This will be disallowed in order to improve consistency with .bzl
+  files. Use load aliases to avoid name clashes.
+
+* The .bzl file can be specified as either a path or a label. In the future only
+  the label form will be allowed.
+
+* Cross-package visibility restrictions do not yet apply to loaded .bzl files.
+  At some point this will change. In order to load a .bzl from another package
+  it will need to be exported, such as by using an `exports_files` declaration.
+  The exact syntax has not yet been decided.
 
 
