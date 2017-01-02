@@ -102,6 +102,29 @@ public class MethodLibrary {
     }
   };
 
+  /**
+   * For consistency with Python we recognize the same whitespace characters as they do over the
+   * range 0x00-0xFF. See https://hg.python.org/cpython/file/3.6/Objects/unicodetype_db.h#l5738
+   * This list is a consequence of Unicode character information.
+   *
+   * Note that this differs from Python 2.7, which uses ctype.h#isspace(), and from
+   * java.lang.Character#isWhitespace(), which does not recognize U+00A0.
+   */
+  private static final String LATIN1_WHITESPACE = (
+      "\u0009"
+    + "\n"
+    + "\u000B"
+    + "\u000C"
+    + "\r"
+    + "\u001C"
+    + "\u001D"
+    + "\u001E"
+    + "\u001F"
+    + "\u0020"
+    + "\u0085"
+    + "\u00A0"
+  );
+
   private static String stringLStrip(String self, String chars) {
     CharMatcher matcher = CharMatcher.anyOf(chars);
     for (int i = 0; i < self.length(); i++) {
@@ -137,14 +160,16 @@ public class MethodLibrary {
       @Param(
         name = "chars",
         type = String.class,
-        doc = "The characters to remove",
-        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
+        noneable = true,
+        doc = "The characters to remove, or all whitespace if None",
+        defaultValue = "None"
       )
     }
   )
   private static final BuiltinFunction lstrip =
       new BuiltinFunction("lstrip") {
-        public String invoke(String self, String chars) {
+        public String invoke(String self, Object charsOrNone) {
+          String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
           return stringLStrip(self, chars);
         }
       };
@@ -162,16 +187,18 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string"),
       @Param(
-        name = "chars",
-        type = String.class,
-        doc = "The characters to remove",
-        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
-      )
+          name = "chars",
+          type = String.class,
+          noneable = true,
+          doc = "The characters to remove, or all whitespace if None",
+          defaultValue = "None"
+        )
     }
   )
   private static final BuiltinFunction rstrip =
       new BuiltinFunction("rstrip") {
-        public String invoke(String self, String chars) {
+        public String invoke(String self, Object charsOrNone) {
+          String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
           return stringRStrip(self, chars);
         }
       };
@@ -189,16 +216,18 @@ public class MethodLibrary {
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string"),
       @Param(
-        name = "chars",
-        type = String.class,
-        doc = "The characters to remove",
-        defaultValue = "' \\t\\n\\r'"  // \f \v are illegal in Skylark
-      )
+          name = "chars",
+          type = String.class,
+          noneable = true,
+          doc = "The characters to remove, or all whitespace if None",
+          defaultValue = "None"
+        )
     }
   )
   private static final BuiltinFunction strip =
       new BuiltinFunction("strip") {
-        public String invoke(String self, String chars) {
+        public String invoke(String self, Object charsOrNone) {
+          String chars = charsOrNone != Runtime.NONE ? (String) charsOrNone : LATIN1_WHITESPACE;
           return stringLStrip(stringRStrip(self, chars), chars);
         }
       };

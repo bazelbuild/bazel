@@ -1810,42 +1810,53 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("'AbZ'.isalpha()", true);
   }
 
-  @Test
-  public void testLStrip() throws Exception {
-    new BothModesTest()
-        .testStatement("'a b c'.lstrip('')", "a b c")
-        .testStatement("'abcba'.lstrip('ba')", "cba")
-        .testStatement("'abc'.lstrip('xyz')", "abc")
-        .testStatement("'  a b c  '.lstrip()", "a b c  ")
-        // the "\\"s are because Java absorbs one level of "\"s
-        .testStatement("' \\t\\na b c '.lstrip()", "a b c ")
-        .testStatement("' a b c '.lstrip('')", " a b c ");
-  }
-
-  @Test
-  public void testRStrip() throws Exception {
-    new BothModesTest()
-        .testStatement("'a b c'.rstrip('')", "a b c")
-        .testStatement("'abcba'.rstrip('ba')", "abc")
-        .testStatement("'abc'.rstrip('xyz')", "abc")
-        .testStatement("'  a b c  '.rstrip()", "  a b c")
-        // the "\\"s are because Java absorbs one level of "\"s
-        .testStatement("' a b c \\t \\n'.rstrip()", " a b c")
-        .testStatement("' a b c '.rstrip('')", " a b c ");
+  /**
+   * Assert that lstrip(), rstrip(), and strip() produce the expected result for a given input
+   * string and chars argument. If chars is null no argument is passed.
+   */
+  private void checkStrip(
+      String input, Object chars,
+      String expLeft, String expRight, String expBoth) throws Exception {
+    if (chars == null) {
+      new BothModesTest()
+          .update("s", input)
+          .testStatement("s.lstrip()", expLeft)
+          .testStatement("s.rstrip()", expRight)
+          .testStatement("s.strip()", expBoth);
+    } else {
+      new BothModesTest()
+          .update("s", input)
+          .update("chars", chars)
+          .testStatement("s.lstrip(chars)", expLeft)
+          .testStatement("s.rstrip(chars)", expRight)
+          .testStatement("s.strip(chars)", expBoth);
+    }
   }
 
   @Test
   public void testStrip() throws Exception {
-    new BothModesTest()
-        .testStatement("'a b c'.strip('')", "a b c")
-        .testStatement("'abcba'.strip('ba')", "c")
-        .testStatement("'abc'.strip('xyz')", "abc")
-        .testStatement("'  a b c  '.strip()", "a b c")
-        .testStatement("' a b c\\t'.strip()", "a b c")
-        .testStatement("'a b c'.strip('.')", "a b c")
-        // the "\\"s are because Java absorbs one level of "\"s
-        .testStatement("' \\t\\n\\ra b c \\t\\n\\r'.strip()", "a b c")
-        .testStatement("' a b c '.strip('')", " a b c ");
+    // Strip nothing.
+    checkStrip("a b c", "", "a b c", "a b c", "a b c");
+    checkStrip(" a b c ", "", " a b c ", " a b c ", " a b c ");
+    // Normal case, found and not found.
+    checkStrip("abcba", "ba", "cba", "abc", "c");
+    checkStrip("abc", "xyz", "abc", "abc", "abc");
+    // Default whitespace.
+    checkStrip(" a b c ", null, "a b c ", " a b c", "a b c");
+    checkStrip(" a b c ", Runtime.NONE, "a b c ", " a b c", "a b c");
+    // Default whitespace with full range of Latin-1 whitespace chars.
+    String whitespace = "\u0009\n\u000B\u000C\r\u001C\u001D\u001E\u001F\u0020\u0085\u00A0";
+    checkStrip(
+        whitespace + "a" + whitespace, null,
+        "a" + whitespace, whitespace + "a", "a");
+    checkStrip(
+        whitespace + "a" + whitespace, Runtime.NONE,
+        "a" + whitespace, whitespace + "a", "a");
+    // Empty cases.
+    checkStrip("", "", "", "", "");
+    checkStrip("abc", "abc", "", "", "");
+    checkStrip("", "xyz", "", "", "");
+    checkStrip("", null, "", "", "");
   }
 
   @Test
