@@ -139,14 +139,21 @@ pair<string, string> SplitPath(const string& path) {
 
 class MsysRoot {
  public:
-  MsysRoot() : data_(Get()) {}
-  bool IsValid() const { return data_.first; }
-  const string& GetPath() const { return data_.second; }
+  static bool IsValid() { return instance_.data_.first; }
+  static const string& GetPath() { return instance_.data_.second; }
+  static void ReInitForTesting() { instance_.data_ = Get(); }
 
  private:
-  const std::pair<bool, string> data_;
+  std::pair<bool, string> data_;
+  static MsysRoot instance_;
+
   static std::pair<bool, string> Get();
+  MsysRoot() : data_(Get()) {}
 };
+
+MsysRoot MsysRoot::instance_;
+
+void ReinitMsysRootForTesting() { MsysRoot::ReInitForTesting(); }
 
 std::pair<bool, string> MsysRoot::Get() {
   string result;
@@ -164,6 +171,8 @@ std::pair<bool, string> MsysRoot::Get() {
     }
     result = value2;
   }
+
+  ToLower(&result);
 
   // BAZEL_SH is usually "c:\tools\msys64\usr\bin\bash.exe", we need to return
   // "c:\tools\msys64". Look for the rightmost msys-looking component.
@@ -200,15 +209,10 @@ bool AsWindowsPath(const string& path, wstring* result) {
     } else {
       // The path is a normal MSYS path e.g. "/usr". Prefix it with the MSYS
       // root.
-      // Define kMsysRoot only in this scope. This way we only initialize it
-      // and thus check for BAZEL_SH if we really need to, i.e. the caller
-      // passed an MSYS path and we have to convert it. If all paths ever passed
-      // are Windows paths, we don't need to check whether BAZEL_SH is defined.
-      static const MsysRoot kMsysRoot;
-      if (!kMsysRoot.IsValid()) {
+      if (!MsysRoot::IsValid()) {
         return false;
       }
-      mutable_path = JoinPath(kMsysRoot.GetPath(), path);
+      mutable_path = JoinPath(MsysRoot::GetPath(), path);
     }
   }  // otherwise this is a relative path, or absolute Windows path.
 

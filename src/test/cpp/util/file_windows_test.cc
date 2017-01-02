@@ -24,6 +24,8 @@
 
 namespace blaze_util {
 
+void ReinitMsysRootForTesting();  // defined in file_windows.cc
+
 TEST(FileTest, TestDirname) {
   ASSERT_EQ("", Dirname(""));
   ASSERT_EQ("/", Dirname("/"));
@@ -96,6 +98,7 @@ TEST(FileTest, IsRootDirectory) {
 
 TEST(FileTest, TestAsWindowsPath) {
   SetEnvironmentVariableA("BAZEL_SH", "c:\\msys\\some\\long\\path\\bash.exe");
+  ReinitMsysRootForTesting();
   std::wstring actual;
 
   ASSERT_TRUE(AsWindowsPath("", &actual));
@@ -132,6 +135,27 @@ TEST(FileTest, TestAsWindowsPath) {
   longpath = std::string("/c/") + longpath;
   ASSERT_TRUE(AsWindowsPath(longpath, &actual));
   ASSERT_EQ(wlongpath, actual);
+}
+
+TEST(FileTest, TestMsysRootRetrieval) {
+  std::wstring actual;
+
+  SetEnvironmentVariableA("BAZEL_SH", "c:/foo/msys/bar/qux.exe");
+  ReinitMsysRootForTesting();
+  ASSERT_TRUE(AsWindowsPath("/blah", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\foo\\msys\\blah"), actual);
+
+  SetEnvironmentVariableA("BAZEL_SH", "c:/foo/MSYS64/bar/qux.exe");
+  ReinitMsysRootForTesting();
+  ASSERT_TRUE(AsWindowsPath("/blah", &actual));
+  ASSERT_EQ(std::wstring(L"c:\\foo\\msys64\\blah"), actual);
+
+  SetEnvironmentVariableA("BAZEL_SH", "c:/qux.exe");
+  ReinitMsysRootForTesting();
+  ASSERT_FALSE(AsWindowsPath("/blah", &actual));
+
+  SetEnvironmentVariableA("BAZEL_SH", nullptr);
+  ReinitMsysRootForTesting();
 }
 
 }  // namespace blaze_util
