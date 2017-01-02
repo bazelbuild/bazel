@@ -94,4 +94,17 @@ public final class SpellChecker {
     }
     return best;
   }
+
+  /**
+   * Return a string to be used at the end of an error message. It is either an empty string, or a
+   * spelling suggestion, e.g. " (did you mean 'x'?)".
+   */
+  public static String didYouMean(String input, Iterable<String> words) {
+    String suggestion = suggest(input, words);
+    if (suggestion == null) {
+      return "";
+    } else {
+      return " (did you mean '" + suggestion + "'?)";
+    }
+  }
 }

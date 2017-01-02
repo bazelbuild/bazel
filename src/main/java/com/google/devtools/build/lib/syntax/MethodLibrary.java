@@ -39,7 +39,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -1960,12 +1959,7 @@ public class MethodLibrary {
       return true;
     }
 
-    try {
-      return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
-    } catch (ExecutionException e) {
-      // This shouldn't happen
-      throw new EvalException(loc, e.getMessage());
-    }
+    return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
   }
 
   @SkylarkSignature(
@@ -1988,12 +1982,7 @@ public class MethodLibrary {
             fields.addAll(((ClassObject) object).getKeys());
           }
           fields.addAll(Runtime.getFunctionNames(object.getClass()));
-          try {
-            fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
-          } catch (ExecutionException e) {
-            // This shouldn't happen
-            throw new EvalException(loc, e.getMessage());
-          }
+          fields.addAll(FuncallExpression.getMethodNames(object.getClass()));
           return new MutableList(fields, env);
         }
       };

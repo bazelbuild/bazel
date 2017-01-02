@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.ArrayList;
 import java.util.List;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
@@ -64,19 +65,22 @@ public final class DotExpression extends Expression {
    */
   public static Object checkResult(Object objValue, Object result, String name, Location loc)
       throws EvalException {
-    if (result == null) {
-      if (objValue instanceof ClassObject) {
-        String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
-        if (customErrorMessage != null) {
-          throw new EvalException(loc, customErrorMessage);
-        }
-      }
-      throw new EvalException(
-          loc,
-          Printer.format(
-              "object of type '%s' has no field %r", EvalUtils.getDataTypeName(objValue), name));
+    if (result != null) {
+      return result;
     }
-    return result;
+    String suffix = "";
+    if (objValue instanceof ClassObject) {
+      String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
+      if (customErrorMessage != null) {
+        throw new EvalException(loc, customErrorMessage);
+      }
+      suffix = SpellChecker.didYouMean(name, ((ClassObject) objValue).getKeys());
+    }
+    throw new EvalException(
+        loc,
+        String.format(
+            "object of type '%s' has no field '%s'%s",
+            EvalUtils.getDataTypeName(objValue), name, suffix));
   }
 
   /**
@@ -102,9 +106,10 @@ public final class DotExpression extends Expression {
       }
     }
 
-    Iterable<MethodDescriptor> methods = objValue instanceof Class<?>
-        ? FuncallExpression.getMethods((Class<?>) objValue, name, loc)
-        : FuncallExpression.getMethods(objValue.getClass(), name, loc);
+    Iterable<MethodDescriptor> methods =
+        objValue instanceof Class<?>
+            ? FuncallExpression.getMethods((Class<?>) objValue, name)
+            : FuncallExpression.getMethods(objValue.getClass(), name);
 
     if (methods != null) {
       methods =

@@ -212,7 +212,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         case "field": return "a";
         case "nset": return NestedSetBuilder.stableOrder().build();
       }
-      throw new IllegalStateException();
+      return null;
     }
 
     @Override
@@ -822,7 +822,16 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testStructAccessOfMethod() throws Exception {
     new SkylarkTest()
         .update("mock", new Mock())
-        .testIfExactError("object of type 'Mock' has no field \"function\"", "v = mock.function");
+        .testIfExactError("object of type 'Mock' has no field 'function'", "v = mock.function");
+  }
+
+  @Test
+  public void testStructAccessTypo() throws Exception {
+    new SkylarkTest()
+        .update("mock", new MockClassObject())
+        .testIfExactError(
+            "object of type 'MockClassObject' has no field 'fild' (did you mean 'field'?)",
+            "mock.fild");
   }
 
   @Test
@@ -926,7 +935,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
     new SkylarkTest()
-        .testIfExactError("object of type 'string' has no field \"field\"", "x = 'a'.field");
+        .testIfExactError("object of type 'string' has no field 'field'", "x = 'a'.field");
   }
 
   @Test
