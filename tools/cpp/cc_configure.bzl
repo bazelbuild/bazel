@@ -190,9 +190,20 @@ def _add_option_if_supported(repository_ctx, cc, option):
   ])
   return [option] if result.stderr.find(option) == -1 else []
 
+def _is_gold_supported(repository_ctx, cc):
+  """Checks that `gold` is supported by the C compiler."""
+  result = repository_ctx.execute([
+      cc,
+      "-fuse-ld=gold",
+      "-o",
+      "/dev/null",
+      str(repository_ctx.path("tools/cpp/empty.cc"))
+  ])
+  return result.return_code == 0
 
 def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
+  supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
       "abi_version": "local",
       "abi_libc_version": "local",
@@ -200,12 +211,12 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "compiler": "compiler",
       "host_system_name": "local",
       "needsPic": True,
-      "supports_gold_linker": False,
+      "supports_gold_linker": supports_gold_linker,
       "supports_incremental_linker": False,
       "supports_fission": False,
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
-      "supports_start_end_lib": False,
+      "supports_start_end_lib": supports_gold_linker,
       "target_libc": "macosx" if darwin else "local",
       "target_cpu": cpu_value,
       "target_system_name": "local",
@@ -216,7 +227,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-lstdc++",
           "-lm",  # Some systems expect -lm in addition to -lstdc++
           # Anticipated future default.
-      ] + _add_option_if_supported(
+      ] + (
+          ["-fuse-ld=gold"] if supports_gold_linker else []
+      ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-no-as-needed"
       ) + _add_option_if_supported(
           repository_ctx, cc, "-Wl,-z,relro,-z,now"
@@ -503,7 +516,7 @@ def _get_env(repository_ctx):
     return ""
 
 def _impl(repository_ctx):
-  repository_ctx.file("tools/cpp/empty.cc")
+  repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   cpu_value = _get_cpu_value(repository_ctx)
   if cpu_value == "freebsd":
     # This is defaulting to the static crosstool, we should eventually do those platform too.
