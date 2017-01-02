@@ -95,7 +95,7 @@ TEST(FileTest, IsRootDirectory) {
 }
 
 TEST(FileTest, TestAsWindowsPath) {
-  SetEnvironmentVariableA("BAZEL_SH", "c:\\dummy\\msys\\bin\\bash.exe");
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\msys\\some\\long\\path\\bash.exe");
   std::wstring actual;
 
   ASSERT_TRUE(AsWindowsPath("", &actual));
@@ -120,7 +120,7 @@ TEST(FileTest, TestAsWindowsPath) {
   ASSERT_EQ(std::wstring(L"d:\\progra~1\\micros~1"), actual);
 
   ASSERT_TRUE(AsWindowsPath("/foo", &actual));
-  ASSERT_EQ(std::wstring(L"c:\\dummy\\msys\\foo"), actual);
+  ASSERT_EQ(std::wstring(L"c:\\msys\\foo"), actual);
 
   std::wstring wlongpath(L"dummy_long_path\\");
   std::string longpath("dummy_long_path/");

@@ -164,9 +164,17 @@ std::pair<bool, string> MsysRoot::Get() {
     }
     result = value2;
   }
-  // BAZEL_SH is usually "c:\tools\msys64\bin\bash.exe", we need to return
-  // "c:\tools\msys64".
-  return std::make_pair(true, std::move(Dirname(Dirname(result))));
+
+  // BAZEL_SH is usually "c:\tools\msys64\usr\bin\bash.exe", we need to return
+  // "c:\tools\msys64". Look for the rightmost msys-looking component.
+  while (!IsRootDirectory(result) &&
+         Basename(result).find("msys") == string::npos) {
+    result = Dirname(result);
+  }
+  if (IsRootDirectory(result)) {
+    return std::make_pair(false, "");
+  }
+  return std::make_pair(true, std::move(result));
 }
 
 bool AsWindowsPath(const string& path, wstring* result) {
