@@ -19,14 +19,14 @@ import java.io.OutputStream;
 import java.util.Arrays;
 
 /**
- * An OutputStream that delegates all writes to a Reporter.
+ * An OutputStream that delegates all writes to an EventHandler.
  */
 public final class ReporterStream extends OutputStream {
-  private final EventHandler reporter;
+  private final EventHandler handler;
   private final EventKind eventKind;
 
-  public ReporterStream(EventHandler reporter, EventKind eventKind) {
-    this.reporter = Preconditions.checkNotNull(reporter);
+  public ReporterStream(EventHandler handler, EventKind eventKind) {
+    this.handler = Preconditions.checkNotNull(handler);
     this.eventKind = Preconditions.checkNotNull(eventKind);
   }
 
@@ -42,7 +42,7 @@ public final class ReporterStream extends OutputStream {
 
   @Override
   public void write(int b) {
-    reporter.handle(Event.of(eventKind, null, new byte[] { (byte) b }));
+    handler.handle(Event.of(eventKind, null, new byte[] { (byte) b }));
   }
 
   @Override
@@ -52,6 +52,6 @@ public final class ReporterStream extends OutputStream {
 
   @Override
   public void write(byte[] bytes, int offset, int len) {
-    reporter.handle(Event.of(eventKind, null, Arrays.copyOfRange(bytes, offset, offset + len)));
+    handler.handle(Event.of(eventKind, null, Arrays.copyOfRange(bytes, offset, offset + len)));
   }
 }

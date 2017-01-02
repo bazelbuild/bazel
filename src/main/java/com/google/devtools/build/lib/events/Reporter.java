@@ -123,7 +123,7 @@ public final class Reporter implements EventHandler, ExceptionListener {
   }
 
   /**
-   * Reports the start of a particular task.
+   * Reports the end of a particular task.
    * Is a wrapper around report() with event kind FINISH.
    * Should always be matched by a corresponding call to startTask()
    * with the same message, except that the leading percentage

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.events;
 import com.google.devtools.build.lib.util.Preconditions;
 
 /**
- * An ErrorEventListener which delegates to another ErrorEventListener.
+ * An EventHandler which delegates to another EventHandler.
  * Primarily useful as a base class for extending behavior.
  */
 public class DelegatingEventHandler implements EventHandler {

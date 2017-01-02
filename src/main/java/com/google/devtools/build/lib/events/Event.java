@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.events;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.Serializable;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -36,11 +35,12 @@ public final class Event implements Serializable {
 
   /**
    * An alternative representation for message.
-   * Exactly one of message or messageBytes will be non-null.
-   * If messageBytes is non-null, then it contains the bytes
-   * of the message, encoded using the platform's default charset.
-   * We do this to avoid converting back and forth between Strings
-   * and bytes.
+   *
+   * <p>Exactly one of message or messageBytes will be non-null. If messageBytes is non-null, then
+   * it contains the bytes of the message (encoding currently unspecified). We do this to avoid
+   * converting back and forth between Strings and bytes.
+   * 
+   * TODO(bazel-team): Fix the encoding to be consistent, e.g. use UTF-8 everywhere.
    */
   private final byte[] messageBytes;
 
@@ -77,7 +77,8 @@ public final class Event implements Serializable {
   }
 
   public String getMessage() {
-    return message != null ? message : new String(messageBytes);
+    // TODO(bazel-team): Don't rely on the platform default charset.
+    return message != null ? message : new String(messageBytes, Charset.defaultCharset());
   }
 
   public byte[] getMessageBytes() {
@@ -149,6 +150,9 @@ public final class Event implements Serializable {
     return new Event(kind, location, message, null);
   }
 
+  /**
+   * Construct an event by passing in the {@code byte[]} array instead of a String.
+   */
   public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
     return new Event(kind, location, messageBytes, null);
   }
