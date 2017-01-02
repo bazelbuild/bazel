@@ -1168,6 +1168,18 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test/skylark:cr");
   }
 
+  @Test
+  public void testLoadSymbolTypo() throws Exception {
+    scratch.file("test/skylark/ext1.bzl", "myvariable = 2");
+
+    scratch.file("test/skylark/BUILD", "load('//test/skylark:ext1.bzl', 'myvariables')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test/skylark:test_target");
+    assertContainsEvent(
+        "file '//test/skylark:ext1.bzl' does not contain symbol 'myvariables' "
+            + "(did you mean 'myvariable'?)");
+  }
 
   /**
    * Skylark integration test that forces inlining.

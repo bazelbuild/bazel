@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -276,6 +277,10 @@ public final class Environment implements Freezable {
     /** does this Extension contain a binding for the named variable? */
     public boolean containsKey(String varname) {
       return bindings.containsKey(varname);
+    }
+
+    public Set<String> allKeys() {
+      return bindings.keySet();
     }
   }
 
@@ -759,8 +764,11 @@ public final class Environment implements Freezable {
           importString));
     }
 
-    LoadFailedException(String importString, String symbolString) {
-      super(String.format("file '%s' does not contain symbol '%s'", importString, symbolString));
+    LoadFailedException(String importString, String symbolString, Iterable<String> allKeys) {
+      super(
+          String.format(
+              "file '%s' does not contain symbol '%s'%s",
+              importString, symbolString, SpellChecker.didYouMean(symbolString, allKeys)));
     }
   }
 
@@ -775,7 +783,7 @@ public final class Environment implements Freezable {
     Extension ext = importedExtensions.get(importString);
 
     if (!ext.containsKey(nameInLoadedFile)) {
-      throw new LoadFailedException(importString, nameInLoadedFile);
+      throw new LoadFailedException(importString, nameInLoadedFile, ext.allKeys());
     }
 
     Object value = ext.get(nameInLoadedFile);
