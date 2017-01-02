@@ -103,7 +103,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionDoesNotExist() {
-    checkError("function 'foo' does not exist", "def bar(): a = foo() + 'a'");
+    checkError("name 'foo' is not defined", "def bar(): a = foo() + 'a'");
   }
 
   @Test

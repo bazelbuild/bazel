@@ -105,6 +105,16 @@ public final class ValidationEnvironment {
         || (parent != null && topLevel().variables.contains(varname));
   }
 
+  /** Returns the set of all accessible symbols (both local and global) */
+  public Set<String> getAllSymbols() {
+    Set<String> all = new HashSet<>();
+    all.addAll(variables);
+    if (parent != null) {
+      all.addAll(parent.getAllSymbols());
+    }
+    return all;
+  }
+
   private ValidationEnvironment topLevel() {
     return Preconditions.checkNotNull(parent == null ? this : parent);
   }

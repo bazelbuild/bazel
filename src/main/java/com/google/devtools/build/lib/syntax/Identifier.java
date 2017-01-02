@@ -17,10 +17,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
 import com.google.devtools.build.lib.syntax.compiler.Variable.SkylarkVariable;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
+import com.google.devtools.build.lib.util.SpellChecker;
+import java.util.Set;
 import javax.annotation.Nullable;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 // TODO(bazel-team): for extra performance:
 // (1) intern the strings, so we can use == to compare, and have .equals use the assumption.
@@ -74,7 +74,7 @@ public final class Identifier extends Expression {
   Object doEval(Environment env) throws EvalException {
     Object value = env.lookup(name);
     if (value == null) {
-      throw createInvalidIdentifierException();
+      throw createInvalidIdentifierException(env.getVariableNames());
     }
     return value;
   }
@@ -87,14 +87,23 @@ public final class Identifier extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     if (!env.hasSymbolInEnvironment(name)) {
-      throw createInvalidIdentifierException();
+      throw createInvalidIdentifierException(env.getAllSymbols());
     }
   }
 
-  private EvalException createInvalidIdentifierException() {
-    return name.equals("$error$")
-        ? new EvalException(getLocation(), "contains syntax error(s)", true)
-        : new EvalException(getLocation(), "name '" + name + "' is not defined");
+  private EvalException createInvalidIdentifierException(Set<String> symbols) {
+    if (name.equals("$error$")) {
+      return new EvalException(getLocation(), "contains syntax error(s)", true);
+    }
+
+    String suggestion = SpellChecker.suggest(name, symbols);
+    if (suggestion == null) {
+      suggestion = "";
+    } else {
+      suggestion = " (did you mean '" + suggestion + "'?)";
+    }
+
+    return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
   }
 
   @Override

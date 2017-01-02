@@ -1044,6 +1044,15 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testTypo() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "name 'my_variable' is not defined (did you mean 'myVariable'?)",
+            "myVariable = 2",
+            "x = my_variable + 1");
+  }
+
+  @Test
   public void testNoneTrueFalseInSkylark() throws Exception {
     new SkylarkTest().setUp("a = None",
       "b = True",

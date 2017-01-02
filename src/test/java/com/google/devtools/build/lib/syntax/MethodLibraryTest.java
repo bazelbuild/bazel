@@ -518,7 +518,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
     new SkylarkTest()
         .testIfErrorContains(
-            "ERROR 1:1: function 'join' does not exist", "join(' ', [ 'a', 'b', 'c' ])");
+            "ERROR 1:1: name 'join' is not defined", "join(' ', [ 'a', 'b', 'c' ])");
 
     new BothModesTest().testStatement("' '.join([ 'a', 'b', 'c' ])", "a b c");
   }

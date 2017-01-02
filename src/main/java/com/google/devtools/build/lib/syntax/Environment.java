@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -723,11 +722,7 @@ public final class Environment implements Freezable {
     eventHandler.handle(event);
   }
 
-  /**
-   * @return the (immutable) set of names of all variables defined in this
-   * Environment. Exposed for testing.
-   */
-  @VisibleForTesting
+  /** @return the (immutable) set of names of all variables defined in this Environment. */
   public Set<String> getVariableNames() {
     Set<String> vars = new HashSet<>();
     if (lexicalFrame != null) {
