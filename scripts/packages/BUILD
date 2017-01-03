@@ -1,3 +1,5 @@
+package(default_visibility = ["//scripts/packages:__subpackages__"])
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

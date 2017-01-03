@@ -20,7 +20,7 @@ genrule(
         "//src:bazel",
         "//tools/defaults:jdk",
     ],
-    visibility = ["//scripts/packages:__pkg__"],
+    visibility = ["//scripts/packages:__subpackages__"],
 )
 
 sh_test(
