@@ -56,7 +56,7 @@ file. For the backend server, these are references to the App Engine SDK,
 the Java Servlet SDK and other libraries needed to build the App Engine
 applications.
 
-### Add a new\_http\_archive rule
+### Add a git\_repository rule
 
 When you built the Android app, you added a reference to the location on your
 filesystem where you downloaded and installed the Android SDK. For the
