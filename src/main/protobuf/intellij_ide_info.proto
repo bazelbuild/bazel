@@ -113,7 +113,7 @@ message JavaToolchainIdeInfo {
 
 message TargetKey {
   string label = 1;
-  string aspect_id = 2;
+  repeated string aspect_ids = 3;
 }
 
 message Dependency {
