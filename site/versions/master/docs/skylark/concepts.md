@@ -190,6 +190,9 @@ The following Python features are not supported:
 * `class` (see [`struct`](lib/globals.html#struct) function)
 * `import` (see [`load`](#loading-a-skylark-extension) statement)
 * `while`, `yield`
+* set literals (`{2, 4, 6}`) and set comprehensions
+  (`{2*x for x in [1, 2, 3]}`). Instead, call `set` on lists (`set([2, 4, 6])`)
+  and list comprehensions (`set([2*x for x in [1, 2, 3]])`).
 * `lambda` and nested functions
 * `is` (use `==` instead)
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
