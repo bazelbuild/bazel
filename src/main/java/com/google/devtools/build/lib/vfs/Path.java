@@ -63,10 +63,16 @@ public class Path implements Comparable<Path>, Serializable {
     public static final class TranslatedPath {
       public final Path parent;
       public final String child;
+      public final boolean cacheable;
 
-      public TranslatedPath(Path parent, String child) {
+      public TranslatedPath(Path parent, String child, boolean cacheable) {
         this.parent = parent;
         this.child = child;
+        this.cacheable = cacheable;
+      }
+
+      public TranslatedPath(Path parent, String child) {
+        this(parent, child, true);
       }
     }
 
@@ -317,6 +323,10 @@ public class Path implements Comparable<Path>, Serializable {
     Path parent = translated.parent;
     // We get a canonical instance since 'children' is an IdentityHashMap.
     String childName = StringCanonicalizer.intern(translated.child);
+    if (!translated.cacheable) {
+      // Non-cacheable children won't show up in `children` so applyToChildren won't run for these.
+      return parent.createChildPath(childName);
+    }
     // We use double-checked locking so that we only hold the lock when we might need to mutate the
     // 'children' variable. 'children' will never become null if it's already non-null, so we only
     // need to worry about the case where it's currently null and we race with another thread
@@ -333,7 +343,7 @@ public class Path implements Comparable<Path>, Serializable {
       Reference<Path> childRef = parent.children.get(childName);
       Path child;
       if (childRef == null || (child = childRef.get()) == null) {
-        child = parent.fileSystem.getPathFactory().createChildPath(parent, childName);
+        child = parent.createChildPath(childName);
         parent.children.put(childName, new PathWeakReferenceForCleanup(child, REFERENCE_QUEUE));
       }
       return child;

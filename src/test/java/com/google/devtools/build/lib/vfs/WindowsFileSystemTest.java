@@ -15,7 +15,9 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertSame;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
@@ -23,8 +25,10 @@ import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.junit.After;
 import org.junit.Assert;
@@ -225,5 +229,95 @@ public class WindowsFileSystemTest {
     assertThat(longPath.mkdir()).isTrue();
     assertThat(WindowsFileSystem.isJunction(longPath)).isFalse();
     assertThat(WindowsFileSystem.isJunction(shortPath)).isFalse();
+  }
+
+  @Test
+  public void testShortPathResolution() throws Exception {
+    String shortPath = "shortp~1.res/foo/withsp~1/bar/~witht~1/hello.txt";
+    String longPath = "shortpath.resolution/foo/with spaces/bar/~with tilde/hello.txt";
+    testUtil.scratchFile(longPath, "hello");
+    Path p = fs.getPath(scratchRoot).getRelative(shortPath);
+    assertThat(p.getPathString()).endsWith(longPath);
+    assertThat(p).isEqualTo(fs.getPath(scratchRoot).getRelative(shortPath));
+    assertThat(p).isEqualTo(fs.getPath(scratchRoot).getRelative(longPath));
+    assertSame(p, fs.getPath(scratchRoot).getRelative(shortPath));
+    assertSame(p, fs.getPath(scratchRoot).getRelative(longPath));
+  }
+
+  @Test
+  public void testUnresolvableShortPathWhichIsThenCreated() throws Exception {
+    String shortPath = "unreso~1.sho/foo/will~1.exi/bar/hello.txt";
+    String longPrefix = "unresolvable.shortpath/foo/";
+    String longPath = longPrefix + "will.exist/bar/hello.txt";
+    testUtil.scratchDir(longPrefix);
+    final Path foo = fs.getPath(scratchRoot).getRelative(longPrefix);
+
+    // Assert that we can create an unresolvable path.
+    Path p = fs.getPath(scratchRoot).getRelative(shortPath);
+    assertThat(p.getPathString()).endsWith(longPrefix + "will~1.exi/bar/hello.txt");
+    // Assert that said path is not cached in its parent's `children` cache.
+    final List<String> children = new ArrayList<>();
+    Predicate<Path> collector =
+        new Predicate<Path>() {
+          @Override
+          public boolean apply(Path child) {
+            children.add(child.relativeTo(foo).getPathString());
+            return true;
+          }
+        };
+    foo.applyToChildren(collector);
+    assertThat(children).isEmpty();
+    // Assert that we can then create the whole path, and can now resolve the short form.
+    testUtil.scratchFile(longPath, "hello");
+    Path q = fs.getPath(scratchRoot).getRelative(shortPath);
+    assertThat(q.getPathString()).endsWith(longPath);
+    // Assert however that the unresolved and resolved Path objects are different, and only the
+    // resolved one is cached.
+    assertThat(p).isNotEqualTo(q);
+    foo.applyToChildren(collector);
+    assertThat(children).containsExactly("will.exist");
+  }
+
+  /**
+   * Test the scenario when a short path resolves to different long ones over time.
+   *
+   * <p>This can happen if the user deletes a directory during the bazel server's lifetime, then
+   * recreates it with the same name prefix such that the resulting directory's 8dot3 name is the
+   * same as the old one's.
+   */
+  @Test
+  public void testShortPathResolvesToDifferentPathsOverTime() throws Exception {
+    Path p1 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    Path p2 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    assertThat(p1.exists()).isFalse();
+    assertThat(p1).isEqualTo(p2);
+    assertThat(p1).isNotSameAs(p2);
+
+    testUtil.scratchDir("longpathnow");
+    Path q1 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    Path q2 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    assertThat(q1.exists()).isTrue();
+    assertThat(q1).isEqualTo(q2);
+    // Assert q1 == q2, because we could successfully resolve the short path to a long name and we
+    // cache them by the long name, so it's irrelevant they were created from a 8dot3 name, or what
+    // that name resolves to later in time.
+    assertThat(q1).isSameAs(q2);
+    assertThat(q1).isSameAs(fs.getPath(scratchRoot).getRelative("longpathnow"));
+
+    // Delete the original resolution of "longpa~1" ("longpathnow").
+    assertThat(q1.delete()).isTrue();
+    assertThat(q1.exists()).isFalse();
+
+    // Create a directory whose 8dot3 name is also "longpa~1" but its long name is different.
+    testUtil.scratchDir("longpaththen");
+    Path r1 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    Path r2 = fs.getPath(scratchRoot).getRelative("longpa~1");
+    assertThat(r1.exists()).isTrue();
+    assertThat(r1).isEqualTo(r2);
+    assertThat(r1).isSameAs(r2);
+    assertThat(r1).isSameAs(fs.getPath(scratchRoot).getRelative("longpaththen"));
+    // r1 == r2 and q1 == q2, but r1 != q1, because the resolution of "longpa~1" changed over time.
+    assertThat(r1).isNotEqualTo(q1);
+    assertThat(r1).isNotSameAs(q1);
   }
 }

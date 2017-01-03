@@ -14,9 +14,12 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
 import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -28,13 +31,61 @@ import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
-/** Jury-rigged file system for Windows. */
+/** File system implementation for Windows. */
 @ThreadSafe
 public class WindowsFileSystem extends JavaIoFileSystem {
 
+  // Properties of 8dot3 (DOS-style) short file names:
+  // - they are at most 11 characters long
+  // - they have a prefix (before "~") that is {1..6} characters long, may contain numbers, letters,
+  //   "_", even "~", and maybe even more
+  // - they have a "~" after the prefix
+  // - have {1..6} numbers after "~" (according to [1] this is only one digit, but MSDN doesn't
+  //   clarify this), the combined length up till this point is at most 8
+  // - they have an optional "." afterwards, and another {0..3} more characters
+  // - just because a path looks like a short name it isn't necessarily one; the user may create
+  //   such names and they'd resolve to themselves
+  // [1] https://en.wikipedia.org/wiki/8.3_filename#VFAT_and_Computer-generated_8.3_filenames
+  //     bullet point (3) (on 2016-12-05)
   @VisibleForTesting
-  enum WindowsPathFactory implements PathFactory {
+  static final Predicate<String> SHORT_NAME_MATCHER =
+      new Predicate<String>() {
+        private final Pattern pattern = Pattern.compile("^(.{1,6})~([0-9]{1,6})(\\..{0,3}){0,1}");
+
+        @Override
+        public boolean apply(@Nullable String input) {
+          Matcher m = pattern.matcher(input);
+          return input.length() <= 12
+              && m.matches()
+              && m.groupCount() >= 2
+              && (m.group(1).length() + m.group(2).length()) < 8; // the "~" makes it at most 8
+        }
+      };
+
+  /** Resolves DOS-style, shortened path names, returning the last segment's long form. */
+  private static final Function<String, String> WINDOWS_SHORT_PATH_RESOLVER =
+      new Function<String, String>() {
+        @Override
+        @Nullable
+        public String apply(String path) {
+          try {
+            // Since Path objects are created hierarchically, we know for sure that every segment of
+            // the path, except the last one, is already canonicalized, so we can return just that.
+            // Plus the returned value is passed to Path.getChild so we must not return a full
+            // path here.
+            return new PathFragment(WindowsFileOperations.getLongPath(path)).getBaseName();
+          } catch (IOException e) {
+            return null;
+          }
+        }
+      };
+
+  @VisibleForTesting
+  private enum WindowsPathFactory implements PathFactory {
     INSTANCE {
       @Override
       public Path createRootPath(FileSystem filesystem) {
@@ -49,52 +100,104 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
       @Override
       public TranslatedPath translatePath(Path parent, String child) {
-        if (parent != null && parent.isRootDirectory()) {
-          // This is a top-level directory. It's either a drive name ("C:" or "c") or some other
-          // Unix path (e.g. "/usr").
-          //
-          // We need to translate it to an absolute Windows path. The correct way would be looking
-          // up /etc/mtab to see if any mount point matches the prefix of the path, and change the
-          // prefix to the mounted path. Looking up /etc/mtab each time we create a path however
-          // would be too expensive so we use a heuristic instead.
-          //
-          // If the name looks like a volume name ("C:" or "c") then we treat it as such, otherwise
-          // we make it relative to UNIX_ROOT, thus "/usr" becomes "C:/tools/msys64/usr".
-          //
-          // This heuristic ignores other mount points as well as procfs.
-
-          // TODO(laszlocsomor): use GetLogicalDrives to retrieve the list of drives and only apply
-          // this heuristic for the valid drives. It's possible that the user has a directory "/a"
-          // but no "A:\" drive, so in that case we should prepend the MSYS root.
-
-          // TODO(laszlocsomor): get rid of this heuristic and translate paths using /etc/mtab.
-          // Figure out how to handle non-top-level mount points (e.g. "/usr/bin" is mounted to
-          // "/bin"), which is problematic because Paths are created segment by segment, so
-          // individual Path objects don't know they are parts of a mount point path.
-          // Another challenge is figuring out how and when to read /etc/mtab. A simple approach is
-          // to do it in determineUnixRoot, but then we won't pick up mount changes during the
-          // lifetime of the Bazel server process. A correct approach would be to establish a
-          // Skyframe FileValue-dependency on it, but it's unclear how this class could request or
-          // retrieve Skyframe-computed data.
-
-          if (WindowsPath.isWindowsVolumeName(child)) {
-            child = WindowsPath.getDriveLetter((WindowsPath) parent, child) + ":";
-          } else {
-            Preconditions.checkNotNull(
-                UNIX_ROOT,
-                "Could not determine Unix path root or it is not an absolute Windows path. Set the "
-                    + "\"%s\" JVM argument, or export the \"%s\" environment variable for the MSYS "
-                    + "bash and have /usr/bin/cygpath installed. Parent is \"%s\", name is \"%s\".",
-                WINDOWS_UNIX_ROOT_JVM_ARG,
-                BAZEL_SH_ENV_VAR,
-                parent,
-                child);
-            parent = parent.getRelative(UNIX_ROOT);
-          }
-        }
-        return new TranslatedPath(parent, child);
+        return WindowsPathFactory.translatePath(parent, child, WINDOWS_SHORT_PATH_RESOLVER);
       }
     };
+
+    private static TranslatedPath translatePath(
+        Path parent, String child, Function<String, String> resolver) {
+      if (parent != null && parent.isRootDirectory()) {
+        // This is a top-level directory. It's either a drive name ("C:" or "c") or some other
+        // Unix path (e.g. "/usr").
+        //
+        // We need to translate it to an absolute Windows path. The correct way would be looking
+        // up /etc/mtab to see if any mount point matches the prefix of the path, and change the
+        // prefix to the mounted path. Looking up /etc/mtab each time we create a path however
+        // would be too expensive so we use a heuristic instead.
+        //
+        // If the name looks like a volume name ("C:" or "c") then we treat it as such, otherwise
+        // we make it relative to UNIX_ROOT, thus "/usr" becomes "C:/tools/msys64/usr".
+        //
+        // This heuristic ignores other mount points as well as procfs.
+
+        // TODO(laszlocsomor): use GetLogicalDrives to retrieve the list of drives and only apply
+        // this heuristic for the valid drives. It's possible that the user has a directory "/a"
+        // but no "A:\" drive, so in that case we should prepend the MSYS root.
+
+        // TODO(laszlocsomor): get rid of this heuristic and translate paths using /etc/mtab.
+        // Figure out how to handle non-top-level mount points (e.g. "/usr/bin" is mounted to
+        // "/bin"), which is problematic because Paths are created segment by segment, so
+        // individual Path objects don't know they are parts of a mount point path.
+        // Another challenge is figuring out how and when to read /etc/mtab. A simple approach is
+        // to do it in determineUnixRoot, but then we won't pick up mount changes during the
+        // lifetime of the Bazel server process. A correct approach would be to establish a
+        // Skyframe FileValue-dependency on it, but it's unclear how this class could request or
+        // retrieve Skyframe-computed data.
+        //
+        // Or wait until https://github.com/bazelbuild/bazel/issues/2107 is fixed and forget about
+        // Unix paths altogether. :)
+
+        if (WindowsPath.isWindowsVolumeName(child)) {
+          child = WindowsPath.getDriveLetter((WindowsPath) parent, child) + ":";
+        } else {
+          Preconditions.checkNotNull(
+              UNIX_ROOT,
+              "Could not determine Unix path root or it is not an absolute Windows path. Set the "
+                  + "\"%s\" JVM argument, or export the \"%s\" environment variable for the MSYS "
+                  + "bash and have /usr/bin/cygpath installed. Parent is \"%s\", name is \"%s\".",
+              WINDOWS_UNIX_ROOT_JVM_ARG,
+              BAZEL_SH_ENV_VAR,
+              parent,
+              child);
+          parent = parent.getRelative(UNIX_ROOT);
+        }
+      }
+
+      String resolvedChild = child;
+      if (parent != null && !parent.isRootDirectory() && SHORT_NAME_MATCHER.apply(child)) {
+        String pathString = parent.getPathString();
+        if (!pathString.endsWith("/")) {
+          pathString += "/";
+        }
+        pathString += child;
+        resolvedChild = resolver.apply(pathString);
+      }
+      return new TranslatedPath(
+          parent,
+          // If resolution succeeded, or we didn't attempt to resolve, then `resolvedChild` has the
+          // child name. If it's null, then resolution failed; use the unresolved child name in that
+          // case.
+          resolvedChild != null ? resolvedChild : child,
+          // If resolution failed, likely because the path doesn't exist, then do not cache the
+          // child. If we did, then in case the path later came into existence, we'd have a stale
+          // cache entry.
+          /* cacheable */ resolvedChild != null);
+    }
+
+    /**
+     * Creates a {@link PathFactory} with a mock shortname resolver.
+     *
+     * <p>The factory works exactly like the actual one ({@link WindowsPathFactory#INSTANCE}) except
+     * it's using the mock resolver.
+     */
+    public static PathFactory createForTesting(final Function<String, String> mockResolver) {
+      return new PathFactory() {
+        @Override
+        public Path createRootPath(FileSystem filesystem) {
+          return INSTANCE.createRootPath(filesystem);
+        }
+
+        @Override
+        public Path createChildPath(Path parent, String childName) {
+          return INSTANCE.createChildPath(parent, childName);
+        }
+
+        @Override
+        public TranslatedPath translatePath(Path parent, String child) {
+          return WindowsPathFactory.translatePath(parent, child, mockResolver);
+        }
+      };
+    }
   }
 
   private static final class WindowsPath extends Path {
@@ -192,6 +295,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         }
       }
     }
+  }
+
+  @VisibleForTesting
+  static PathFactory getPathFactoryForTesting(Function<String, String> mockResolver) {
+    return WindowsPathFactory.createForTesting(mockResolver);
   }
 
   private static final String WINDOWS_UNIX_ROOT_JVM_ARG = "bazel.windows_unix_root";
