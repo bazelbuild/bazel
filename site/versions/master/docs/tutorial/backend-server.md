@@ -16,7 +16,7 @@ Here, you'll do the following:
 *   Create a `BUILD` file
 *   Run the build
 *   Find the build outputs
-*   Run the application in a local development server
+*   Run the application on a local development server
 *   Deploy to Google App Engine
 
 Bazel provides a set of [App Engine build rules](/docs/be/appengine.html)
