@@ -1,7 +1,14 @@
+package(default_visibility = ["//scripts/packages:__subpackages__"])
+
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//scripts:__pkg__"],
+    srcs = glob(["**"]) + [
+        "//scripts/packages/fedora:srcs",
+    ],
+    visibility = [
+        "//scripts:__pkg__",
+        "//scripts/packages:__subpackages__",
+    ],
 )
 
 filegroup(
