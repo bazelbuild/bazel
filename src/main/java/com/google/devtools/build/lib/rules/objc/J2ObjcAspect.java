@@ -303,9 +303,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           .build();
     }
     Optional<Artifact> genSrcJar;
-    boolean annotationProcessingEnabled =
-        ruleContext.getFragment(J2ObjcConfiguration.class).annotationProcessingEnabled();
-    if (genJarProvider != null && annotationProcessingEnabled) {
+    if (genJarProvider != null) {
       genSrcJar = Optional.fromNullable(genJarProvider.getGenSourceJar());
     } else {
       genSrcJar = Optional.<Artifact>absent();

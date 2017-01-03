@@ -51,13 +51,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       )
   public boolean explicitJreDeps;
 
-  @Option(name = "experimental_j2objc_annotation_processing",
-      defaultValue = "true",
-      category = "undocumented",
-      help = "Whether to enable j2objc Java annotation processing."
-      )
-  public boolean annotationProcessingEnabled;
-
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }
