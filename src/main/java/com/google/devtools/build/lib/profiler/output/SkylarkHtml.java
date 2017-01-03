@@ -218,8 +218,15 @@ public final class SkylarkHtml extends HtmlPrinter {
         double relativeTotal = (double) stats.totalNanos / totalNanos;
         double relativeSelf = (double) selfStats.totalNanos / stats.totalNanos;
         String[] split = stats.name.split("#");
-        String location = split[0];
-        String name = split[1];
+        String location;
+        String name;
+        if (split.length > 1) {
+          location = split[0];
+          name = split[1];
+        } else {
+          location = "(unknown)";
+          name = split[0];
+        }
         lnPrintf("[{v:'%s', f:'%s'}, ", location, abbreviatePath(location));
         printf("'%s', ", name);
         printf("%d, ", stats.count);
