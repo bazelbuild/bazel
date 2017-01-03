@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
@@ -41,4 +43,14 @@ public class EventTest extends EventTestTemplate {
     assertEquals(31, event.getLocation().getEndOffset());
   }
 
+  @Test
+  public void eventEncoding() {
+    String message = "Bazel \u1f33f";
+    Event ev1 = Event.of(EventKind.WARNING, null, message);
+    assertThat(ev1.getMessage()).isEqualTo(message);
+    assertThat(ev1.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+    Event ev2 = Event.of(EventKind.WARNING, null, message.getBytes(UTF_8));
+    assertThat(ev2.getMessage()).isEqualTo(message);
+    assertThat(ev2.getMessageBytes()).isEqualTo(message.getBytes(UTF_8));
+  }
 }
