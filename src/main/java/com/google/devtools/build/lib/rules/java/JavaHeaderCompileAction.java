@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -82,8 +81,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
         outputs,
         LOCAL_RESOURCES,
         commandLine,
-        ImmutableMap.<String, String>of(),
-        ImmutableSet.<String>of(),
+        JavaCompileAction.UTF8_ENVIRONMENT,
+        /*executionInfo=*/ ImmutableSet.<String>of(),
         progressMessage,
         "Turbine");
   }

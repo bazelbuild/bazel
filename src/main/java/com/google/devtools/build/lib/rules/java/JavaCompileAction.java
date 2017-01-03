@@ -99,6 +99,10 @@ public final class JavaCompileAction extends AbstractAction {
   /** Default number of unused jars below which we ignore minimum classpath optimization. */
   private static final int MINIMUM_REDUCTION_TO_SAVE_USED_INPUTS = 0;
 
+  /** A {@link clientEnvironmentVariables} entry that sets the UTF-8 charset. */
+  static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
+      ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
+
   private static final Logger logger = Logger.getLogger(JavaCompileAction.class.getName());
 
   private final CommandLine javaCompileCommandLine;
@@ -389,12 +393,7 @@ public final class JavaCompileAction extends AbstractAction {
 
   @VisibleForTesting
   Spawn createSpawn() {
-    return new BaseSpawn(
-        getCommand(),
-        ImmutableMap.of("LC_CTYPE", "en_US.UTF-8"),
-        executionInfo,
-        this,
-        LOCAL_RESOURCES) {
+    return new BaseSpawn(getCommand(), UTF8_ENVIRONMENT, executionInfo, this, LOCAL_RESOURCES) {
       @Override
       public Iterable<? extends ActionInput> getInputFiles() {
         // Reduce inputs for minclasspath compile. Requires use of minCommandLine.
