@@ -572,6 +572,26 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
+  public void testExpandIfEqual() throws Exception {
+    assertThat(
+        getCommandLineForFlagGroups(
+            "flag_group {"
+                + "  expand_if_equal: { variable: 'var' value: 'equal_value' }"
+                + "  flag: '-foo_%{var}'"
+                + "}"
+                + "flag_group {"
+                + "  expand_if_equal: { variable: 'var' value: 'non_equal_value' }"
+                + "  flag: '-bar_%{var}'"
+                + "}"
+                + "flag_group {"
+                + "  expand_if_equal: { variable: 'non_existing_var' value: 'non_existing' }"
+                + "  flag: '-baz_%{non_existing_var}'"
+                + "}",
+            createVariables("var", "equal_value")))
+        .containsExactly("-foo_equal_value");
+  }
+
+  @Test
   public void testLegacyListVariableExpansion() throws Exception {
     assertThat(getCommandLineForFlag("%{v}", createVariables("v", "1", "v", "2")))
         .containsExactly("1", "2");

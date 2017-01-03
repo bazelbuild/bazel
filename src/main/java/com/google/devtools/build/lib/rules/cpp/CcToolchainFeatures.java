@@ -331,6 +331,17 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  @Immutable
+  private static class VariableWithValue {
+    public final String variable;
+    public final String value;
+
+    public VariableWithValue(String variable, String value) {
+      this.variable = variable;
+      this.value = value;
+    }
+  }
+
   /**
    * A group of flags. When iterateOverVariable is specified, we assume the variable is a sequence
    * and the flag_group will be expanded repeatedly for every value in the sequence.
@@ -343,6 +354,7 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableSet<String> expandIfAllAvailable;
     private final String expandIfTrue;
     private final String expandIfFalse;
+    private final VariableWithValue expandIfEqual;
 
     /**
      * TODO(b/32655571): Cleanup and get rid of usedVariables field once implicit iteration is not
@@ -380,6 +392,13 @@ public class CcToolchainFeatures implements Serializable {
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
       this.expandIfTrue = Strings.emptyToNull(flagGroup.getExpandIfTrue());
       this.expandIfFalse = Strings.emptyToNull(flagGroup.getExpandIfFalse());
+      if (flagGroup.hasExpandIfEqual()) {
+        this.expandIfEqual = new VariableWithValue(
+            flagGroup.getExpandIfEqual().getVariable(),
+            flagGroup.getExpandIfEqual().getValue());
+      } else {
+        this.expandIfEqual = null;
+      }
     }
     
     @Override
@@ -419,6 +438,14 @@ public class CcToolchainFeatures implements Serializable {
       if (expandIfFalse != null
           && variables.isAvailable(expandIfFalse)
           && variables.getVariable(expandIfFalse).isTruthy()) {
+        return false;
+      }
+      if (expandIfEqual != null
+          && (!variables.isAvailable(expandIfEqual.variable)
+              || !variables
+                .getVariable(expandIfEqual.variable)
+                .getStringValue(expandIfEqual.variable)
+                .equals(expandIfEqual.value))) {
         return false;
       }
       return true;

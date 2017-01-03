@@ -104,6 +104,14 @@ message CToolchain {
     optional string expand_if_true = 5;
 
     optional string expand_if_false = 6;
+
+    optional VariableWithValue expand_if_equal = 7;
+  }
+
+  message VariableWithValue {
+    required string variable = 1;
+
+    required string value = 2;
   }
 
   // A key/value pair to be added as an environment variable. The value of
