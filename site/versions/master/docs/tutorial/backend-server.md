@@ -16,7 +16,7 @@ Here, you'll do the following:
 *   Create a `BUILD` file
 *   Run the build
 *   Find the build outputs
-*   Deploy to a local development server
+*   Run the application on a local development server
 *   Deploy to Google App Engine
 
 Bazel provides a set of [App Engine build rules](/docs/be/appengine.html)
@@ -182,26 +182,30 @@ INFO: Elapsed time: 56.867s, Critical Path: 2.72s
 The `.war` file and other outputs are located in the
 `$WORKSPACE/bazel-bin/backend` directory.
 
-## Deploy to a local development server
+In particular, the `appengine_war` rule generates scripts that you can use to
+run your backend locally or deploy it to Google App Engine:
 
-The `appengine_war` rule generates an upload script that you can use to deploy
-your backend server on Google App Engine. Here, you'll start a local App Engine
-development server in your environment and deploy your application there.
+## Run the application on a local development server
 
-To deploy the application, enter the following:
+Here, you'll start a local App Engine development server in your environment and
+run your application on it.
+
+To run the application, enter the following:
 
 ```bash
 $ bazel-bin/backend/backend --port=12345
 ```
 
-Your application URL will be `http://localhost:12345`
+Your application will be available at `http://localhost:12345`
 
 ## Deploy to Google App Engine
 
 You can also deploy the application to the live App Engine serving
 environment on Google Cloud Platform. For this scenario, you must first create
-a project in the
-[Google Developers Console](https://console.developers.google.com).
+a new Cloud Platform project and App Engine application using the Google Cloud
+Platform Console.
+Follow [this link](https://console.cloud.google.com/projectselector/appengine/create?lang=java&st=true)
+to perform these actions.
 
 To deploy the application, enter the following:
 
