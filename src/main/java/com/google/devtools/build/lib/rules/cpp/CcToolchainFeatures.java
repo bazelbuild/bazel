@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
+import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -377,8 +378,8 @@ public class CcToolchainFeatures implements Serializable {
       this.usedVariables = usedVariables.build();
       this.expandables = expandables.build();
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
-      this.expandIfTrue = flagGroup.getExpandIfTrue();
-      this.expandIfFalse = flagGroup.getExpandIfFalse();
+      this.expandIfTrue = Strings.emptyToNull(flagGroup.getExpandIfTrue());
+      this.expandIfFalse = Strings.emptyToNull(flagGroup.getExpandIfFalse());
     }
     
     @Override
