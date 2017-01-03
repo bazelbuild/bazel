@@ -202,8 +202,10 @@ Your application will be available at `http://localhost:12345`
 
 You can also deploy the application to the live App Engine serving
 environment on Google Cloud Platform. For this scenario, you must first create
-a Google Cloud Platform project in the
-[Google Cloud Console](https://console.cloud.google.com).
+a new Cloud Platform project and App Engine application using the Cloud
+Platform Console.
+Follow [this link](https://console.cloud.google.com/projectselector/appengine/create?lang=java&st=true)
+to perform these actions.
 
 To deploy the application, enter the following:
 
