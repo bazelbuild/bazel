@@ -526,6 +526,22 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
+  public void testExpandIfTrueDoesntExpandIfMissing() throws Exception {
+    assertThat(
+        getCommandLineForFlagGroups(
+            "flag_group {"
+                + "  expand_if_true: 'missing'"
+                + "  flag: '-A%{missing}'"
+                + "}"
+                + "flag_group {"
+                + "  expand_if_false: 'missing'"
+                + "  flag: '-B%{missing}'"
+                + "}",
+            createVariables()))
+        .isEmpty();
+  }
+
+  @Test
   public void testExpandIfTrueExpandsIfOne() throws Exception {
     assertThat(
             getCommandLineForFlagGroups(

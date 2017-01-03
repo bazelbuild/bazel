@@ -431,13 +431,13 @@ public class CcToolchainFeatures implements Serializable {
         }
       }
       if (expandIfTrue != null
-          && variables.isAvailable(expandIfTrue)
-          && !variables.getVariable(expandIfTrue).isTruthy()) {
+          && (!variables.isAvailable(expandIfTrue)
+              || !variables.getVariable(expandIfTrue).isTruthy())) {
         return false;
       }
       if (expandIfFalse != null
-          && variables.isAvailable(expandIfFalse)
-          && variables.getVariable(expandIfFalse).isTruthy()) {
+          && (!variables.isAvailable(expandIfFalse)
+              || variables.getVariable(expandIfFalse).isTruthy())) {
         return false;
       }
       if (expandIfEqual != null
