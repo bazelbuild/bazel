@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -359,7 +360,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
         action.getOutputs(), tsgm.get());
-    long actionStartTime = System.nanoTime();
+    long actionStartTime = BlazeClock.nanoTime();
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
       state.token =

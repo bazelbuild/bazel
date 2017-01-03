@@ -23,10 +23,8 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
-
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -80,7 +78,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
         // way.
         for (SimpleCriticalPathComponent stat : criticalPath.components().reverse()) {
           Profiler.instance().logSimpleTaskDuration(
-              TimeUnit.MILLISECONDS.toNanos(stat.getStartWallTimeMillis(BlazeClock.instance())),
+              stat.getStartNanos(),
               stat.getElapsedTimeNanos(),
               ProfilerTask.CRITICAL_PATH_COMPONENT, stat.getAction());
         }
