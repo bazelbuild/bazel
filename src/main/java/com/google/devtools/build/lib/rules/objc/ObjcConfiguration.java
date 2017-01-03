@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(
   name = "objc",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
-  doc = "A configuration fragment for Objective-C"
+  doc = "A configuration fragment for Objective-C."
 )
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {

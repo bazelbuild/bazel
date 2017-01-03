@@ -42,11 +42,12 @@ public final class Runtime {
       doc = "Literal for the boolean false.")
   private static final Boolean FALSE = false;
 
-  /**
-   * There should be only one instance of this type to allow "== None" tests.
-   */
-  @SkylarkModule(name = "NoneType", documented = false,
-    doc = "Unit type, containing the unique value None")
+  /** There should be only one instance of this type to allow "== None" tests. */
+  @SkylarkModule(
+    name = "NoneType",
+    documented = false,
+    doc = "Unit type, containing the unique value None."
+  )
   @Immutable
   public static final class NoneType implements SkylarkValue {
     private NoneType() {}

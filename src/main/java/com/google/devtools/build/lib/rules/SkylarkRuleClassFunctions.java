@@ -194,15 +194,18 @@ public class SkylarkRuleClassFunctions {
         .build();
   }
 
-  @SkylarkSignature(name = "struct", returnType = SkylarkClassObject.class, doc =
-      "Creates an immutable struct using the keyword arguments as attributes. It is used to group "
-          + "multiple values together. Example:<br>"
-          + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
-          + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
-      extraKeywords = @Param(name = "kwargs", doc = "the struct attributes"),
-      useLocation = true)
-  private static final SkylarkClassObjectConstructor struct =
-      SkylarkClassObjectConstructor.STRUCT;
+  @SkylarkSignature(
+    name = "struct",
+    returnType = SkylarkClassObject.class,
+    doc =
+        "Creates an immutable struct using the keyword arguments as attributes. It is used to "
+            + "group multiple values together. Example:<br>"
+            + "<pre class=\"language-python\">s = struct(x = 2, y = 3)\n"
+            + "return s.x + getattr(s, \"y\")  # returns 5</pre>",
+    extraKeywords = @Param(name = "kwargs", doc = "the struct attributes."),
+    useLocation = true
+  )
+  private static final SkylarkClassObjectConstructor struct = SkylarkClassObjectConstructor.STRUCT;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-
@@ -738,47 +741,54 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  @SkylarkSignature(name = "Label", doc = "Creates a Label referring to a BUILD target. Use "
-      + "this function only when you want to give a default value for the label attributes. "
-      + "The argument must refer to an absolute label. "
-      + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
-      returnType = Label.class,
-      objectType = Label.class,
-      parameters = {@Param(name = "label_string", type = String.class,
-          doc = "the label string"),
-          @Param(
-              name = "relative_to_caller_repository",
-              type = Boolean.class,
-              defaultValue = "False",
-              named = true,
-              positional = false,
-              doc = "whether the label should be resolved relative to the label of the file this "
-                  + "function is called from.")},
-      useLocation = true,
-      useEnvironment = true)
-  private static final BuiltinFunction label = new BuiltinFunction("Label") {
-    @SuppressWarnings({"unchecked", "unused"})
-    public Label invoke(
-        String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
-        throws EvalException {
-      Label parentLabel = null;
-      if (relativeToCallerRepository) {
-        parentLabel = env.getCallerLabel();
-      } else {
-        parentLabel = env.getGlobals().label();
-      }
-      try {
-        if (parentLabel != null) {
-          LabelValidator.parseAbsoluteLabel(labelString);
-          labelString = parentLabel.getRelative(labelString)
-              .getUnambiguousCanonicalForm();
+  @SkylarkSignature(
+    name = "Label",
+    doc =
+        "Creates a Label referring to a BUILD target. Use "
+            + "this function only when you want to give a default value for the label attributes. "
+            + "The argument must refer to an absolute label. "
+            + "Example: <br><pre class=language-python>Label(\"//tools:default\")</pre>",
+    returnType = Label.class,
+    objectType = Label.class,
+    parameters = {
+      @Param(name = "label_string", type = String.class, doc = "the label string."),
+      @Param(
+        name = "relative_to_caller_repository",
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc =
+            "whether the label should be resolved relative to the label of the file this "
+                + "function is called from."
+      )
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction label =
+      new BuiltinFunction("Label") {
+        @SuppressWarnings({"unchecked", "unused"})
+        public Label invoke(
+            String labelString, Boolean relativeToCallerRepository, Location loc, Environment env)
+            throws EvalException {
+          Label parentLabel = null;
+          if (relativeToCallerRepository) {
+            parentLabel = env.getCallerLabel();
+          } else {
+            parentLabel = env.getGlobals().label();
+          }
+          try {
+            if (parentLabel != null) {
+              LabelValidator.parseAbsoluteLabel(labelString);
+              labelString = parentLabel.getRelative(labelString).getUnambiguousCanonicalForm();
+            }
+            return labelCache.get(labelString);
+          } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
+            throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
+          }
         }
-        return labelCache.get(labelString);
-      } catch (LabelValidator.BadLabelException | LabelSyntaxException | ExecutionException e) {
-        throw new EvalException(loc, "Illegal absolute label syntax: " + labelString);
-      }
-    }
-  };
+      };
 
   // We want the Label ctor to show up under the Label documentation, but to be a "global
   // function." Thus, we create a global Label object here, which just points to the Skylark
@@ -787,20 +797,30 @@ public class SkylarkRuleClassFunctions {
       documented = false)
   private static final BuiltinFunction globalLabel = label;
 
-  @SkylarkSignature(name = "FileType",
-      doc = "Deprecated. Creates a file filter from a list of strings. For example, to match "
-          + "files ending with .cc or .cpp, use: "
-          + "<pre class=language-python>FileType([\".cc\", \".cpp\"])</pre>",
-      returnType = SkylarkFileType.class,
-      objectType = SkylarkFileType.class,
-      parameters = {
-          @Param(name = "types", type = SkylarkList.class, generic1 = String.class,
-              defaultValue = "[]", doc = "a list of the accepted file extensions")})
-  private static final BuiltinFunction fileType = new BuiltinFunction("FileType") {
-    public SkylarkFileType invoke(SkylarkList types) throws EvalException {
-      return SkylarkFileType.of(types.getContents(String.class, "types"));
+  @SkylarkSignature(
+    name = "FileType",
+    doc =
+        "Deprecated. Creates a file filter from a list of strings. For example, to match "
+            + "files ending with .cc or .cpp, use: "
+            + "<pre class=language-python>FileType([\".cc\", \".cpp\"])</pre>",
+    returnType = SkylarkFileType.class,
+    objectType = SkylarkFileType.class,
+    parameters = {
+      @Param(
+        name = "types",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc = "a list of the accepted file extensions."
+      )
     }
-  };
+  )
+  private static final BuiltinFunction fileType =
+      new BuiltinFunction("FileType") {
+        public SkylarkFileType invoke(SkylarkList types) throws EvalException {
+          return SkylarkFileType.of(types.getContents(String.class, "types"));
+        }
+      };
 
   // We want the FileType ctor to show up under the FileType documentation, but to be a "global
   // function." Thus, we create a global FileType object here, which just points to the Skylark
@@ -809,89 +829,103 @@ public class SkylarkRuleClassFunctions {
       documented = false)
   private static final BuiltinFunction globalFileType = fileType;
 
-  @SkylarkSignature(name = "to_proto",
-      doc = "Creates a text message from the struct parameter. This method only works if all "
-          + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-          + "list of these types. Quotes and new lines in strings are escaped. "
-          + "Keys are iterated in the sorted order. "
-          + "Examples:<br><pre class=language-python>"
-          + "struct(key=123).to_proto()\n# key: 123\n\n"
-          + "struct(key=True).to_proto()\n# key: true\n\n"
-          + "struct(key=[1, 2, 3]).to_proto()\n# key: 1\n# key: 2\n# key: 3\n\n"
-          + "struct(key='text').to_proto()\n# key: \"text\"\n\n"
-          + "struct(key=struct(inner_key='text')).to_proto()\n"
-          + "# key {\n#   inner_key: \"text\"\n# }\n\n"
-          + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()\n"
-          + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
-          + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
-          + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
-      objectType = SkylarkClassObject.class, returnType = String.class,
-      parameters = {
-          // TODO(bazel-team): shouldn't we accept any ClassObject?
-          @Param(name = "self", type = SkylarkClassObject.class,
-              doc = "this struct")},
-      useLocation = true)
-  private static final BuiltinFunction toProto = new BuiltinFunction("to_proto") {
-    public String invoke(SkylarkClassObject self, Location loc) throws EvalException {
-      StringBuilder sb = new StringBuilder();
-      printProtoTextMessage(self, sb, 0, loc);
-      return sb.toString();
-    }
-
-    private void printProtoTextMessage(
-        ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
-      // For determinism sort the keys alphabetically
-      List<String> keys = new ArrayList<>(object.getKeys());
-      Collections.sort(keys);
-      for (String key : keys) {
-        printProtoTextMessage(key, object.getValue(key), sb, indent, loc);
-      }
-    }
-
-    private void printProtoTextMessage(String key, Object value, StringBuilder sb,
-        int indent, Location loc, String container) throws EvalException {
-      if (value instanceof ClassObject) {
-        print(sb, key + " {", indent);
-        printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
-        print(sb, "}", indent);
-      } else if (value instanceof String) {
-        print(sb,
-            key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
-            indent);
-      } else if (value instanceof Integer) {
-        print(sb, key + ": " + value, indent);
-      } else if (value instanceof Boolean) {
-        // We're relying on the fact that Java converts Booleans to Strings in the same way
-        // as the protocol buffers do.
-        print(sb, key + ": " + value, indent);
-      } else {
-        throw new EvalException(loc,
-            "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-                + EvalUtils.getDataTypeName(value) + " for " + container + " '" + key + "'");
-      }
-    }
-
-    private void printProtoTextMessage(String key, Object value, StringBuilder sb,
-        int indent, Location loc) throws EvalException {
-      if (value instanceof SkylarkList) {
-        for (Object item : ((SkylarkList) value)) {
-          // TODO(bazel-team): There should be some constraint on the fields of the structs
-          // in the same list but we ignore that for now.
-          printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
+  @SkylarkSignature(
+    name = "to_proto",
+    doc =
+        "Creates a text message from the struct parameter. This method only works if all "
+            + "struct elements (recursively) are strings, ints, booleans, other structs or a "
+            + "list of these types. Quotes and new lines in strings are escaped. "
+            + "Keys are iterated in the sorted order. "
+            + "Examples:<br><pre class=language-python>"
+            + "struct(key=123).to_proto()\n# key: 123\n\n"
+            + "struct(key=True).to_proto()\n# key: true\n\n"
+            + "struct(key=[1, 2, 3]).to_proto()\n# key: 1\n# key: 2\n# key: 3\n\n"
+            + "struct(key='text').to_proto()\n# key: \"text\"\n\n"
+            + "struct(key=struct(inner_key='text')).to_proto()\n"
+            + "# key {\n#   inner_key: \"text\"\n# }\n\n"
+            + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_proto()\n"
+            + "# key {\n#   inner_key: 1\n# }\n# key {\n#   inner_key: 2\n# }\n\n"
+            + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_proto()\n"
+            + "# key {\n#    inner_key {\n#     inner_inner_key: \"text\"\n#   }\n# }\n</pre>",
+    objectType = SkylarkClassObject.class,
+    returnType = String.class,
+    parameters = {
+      // TODO(bazel-team): shouldn't we accept any ClassObject?
+      @Param(name = "self", type = SkylarkClassObject.class, doc = "this struct.")
+    },
+    useLocation = true
+  )
+  private static final BuiltinFunction toProto =
+      new BuiltinFunction("to_proto") {
+        public String invoke(SkylarkClassObject self, Location loc) throws EvalException {
+          StringBuilder sb = new StringBuilder();
+          printProtoTextMessage(self, sb, 0, loc);
+          return sb.toString();
         }
-      } else {
-        printProtoTextMessage(key, value, sb, indent, loc, "struct field");
-      }
-    }
 
-      private void print(StringBuilder sb, String text, int indent) {
-        for (int i = 0; i < indent; i++) {
-          sb.append("  ");
+        private void printProtoTextMessage(
+            ClassObject object, StringBuilder sb, int indent, Location loc) throws EvalException {
+          // For determinism sort the keys alphabetically
+          List<String> keys = new ArrayList<>(object.getKeys());
+          Collections.sort(keys);
+          for (String key : keys) {
+            printProtoTextMessage(key, object.getValue(key), sb, indent, loc);
+          }
         }
-      sb.append(text);
-      sb.append("\n");
-    }
-  };
+
+        private void printProtoTextMessage(
+            String key, Object value, StringBuilder sb, int indent, Location loc, String container)
+            throws EvalException {
+          if (value instanceof ClassObject) {
+            print(sb, key + " {", indent);
+            printProtoTextMessage((ClassObject) value, sb, indent + 1, loc);
+            print(sb, "}", indent);
+          } else if (value instanceof String) {
+            print(
+                sb,
+                key + ": \"" + escapeDoubleQuotesAndBackslashesAndNewlines((String) value) + "\"",
+                indent);
+          } else if (value instanceof Integer) {
+            print(sb, key + ": " + value, indent);
+          } else if (value instanceof Boolean) {
+            // We're relying on the fact that Java converts Booleans to Strings in the same way
+            // as the protocol buffers do.
+            print(sb, key + ": " + value, indent);
+          } else {
+            throw new EvalException(
+                loc,
+                "Invalid text format, expected a struct, a string, a bool, or an int but got a "
+                    + EvalUtils.getDataTypeName(value)
+                    + " for "
+                    + container
+                    + " '"
+                    + key
+                    + "'");
+          }
+        }
+
+        private void printProtoTextMessage(
+            String key, Object value, StringBuilder sb, int indent, Location loc)
+            throws EvalException {
+          if (value instanceof SkylarkList) {
+            for (Object item : ((SkylarkList) value)) {
+              // TODO(bazel-team): There should be some constraint on the fields of the structs
+              // in the same list but we ignore that for now.
+              printProtoTextMessage(key, item, sb, indent, loc, "list element in struct field");
+            }
+          } else {
+            printProtoTextMessage(key, value, sb, indent, loc, "struct field");
+          }
+        }
+
+        private void print(StringBuilder sb, String text, int indent) {
+          for (int i = 0; i < indent; i++) {
+            sb.append("  ");
+          }
+          sb.append(text);
+          sb.append("\n");
+        }
+      };
 
   /**
    * Escapes the given string for use in proto/JSON string.
@@ -902,81 +936,92 @@ public class SkylarkRuleClassFunctions {
     return TextFormat.escapeDoubleQuotesAndBackslashes(string).replace("\n", "\\n");
   }
 
-  @SkylarkSignature(name = "to_json",
-      doc = "Creates a JSON string from the struct parameter. This method only works if all "
-          + "struct elements (recursively) are strings, ints, booleans, other structs or a "
-          + "list of these types. Quotes and new lines in strings are escaped. "
-          + "Examples:<br><pre class=language-python>"
-          + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
-          + "struct(key=True).to_json()\n# {\"key\":true}\n\n"
-          + "struct(key=[1, 2, 3]).to_json()\n# {\"key\":[1,2,3]}\n\n"
-          + "struct(key='text').to_json()\n# {\"key\":\"text\"}\n\n"
-          + "struct(key=struct(inner_key='text')).to_json()\n"
-          + "# {\"key\":{\"inner_key\":\"text\"}}\n\n"
-          + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
-          + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
-          + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
-          + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
-      objectType = SkylarkClassObject.class, returnType = String.class,
-      parameters = {
-          // TODO(bazel-team): shouldn't we accept any ClassObject?
-          @Param(name = "self", type = SkylarkClassObject.class,
-              doc = "this struct")},
-      useLocation = true)
-  private static final BuiltinFunction toJson = new BuiltinFunction("to_json") {
-    public String invoke(SkylarkClassObject self, Location loc) throws EvalException {
-      StringBuilder sb = new StringBuilder();
-      printJson(self, sb, loc, "struct field", null);
-      return sb.toString();
-    }
-
-    private void printJson(Object value, StringBuilder sb, Location loc, String container,
-        String key) throws EvalException {
-      if (value == Runtime.NONE) {
-        sb.append("null");
-      } else if (value instanceof ClassObject) {
-        sb.append("{");
-
-        String join = "";
-        for (String subKey : ((ClassObject) value).getKeys()) {
-          sb.append(join);
-          join = ",";
-          sb.append("\"");
-          sb.append(subKey);
-          sb.append("\":");
-          printJson(((ClassObject) value).getValue(subKey), sb, loc, "struct field", subKey);
+  @SkylarkSignature(
+    name = "to_json",
+    doc =
+        "Creates a JSON string from the struct parameter. This method only works if all "
+            + "struct elements (recursively) are strings, ints, booleans, other structs or a "
+            + "list of these types. Quotes and new lines in strings are escaped. "
+            + "Examples:<br><pre class=language-python>"
+            + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
+            + "struct(key=True).to_json()\n# {\"key\":true}\n\n"
+            + "struct(key=[1, 2, 3]).to_json()\n# {\"key\":[1,2,3]}\n\n"
+            + "struct(key='text').to_json()\n# {\"key\":\"text\"}\n\n"
+            + "struct(key=struct(inner_key='text')).to_json()\n"
+            + "# {\"key\":{\"inner_key\":\"text\"}}\n\n"
+            + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
+            + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
+            + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
+            + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
+    objectType = SkylarkClassObject.class,
+    returnType = String.class,
+    parameters = {
+      // TODO(bazel-team): shouldn't we accept any ClassObject?
+      @Param(name = "self", type = SkylarkClassObject.class, doc = "this struct.")
+    },
+    useLocation = true
+  )
+  private static final BuiltinFunction toJson =
+      new BuiltinFunction("to_json") {
+        public String invoke(SkylarkClassObject self, Location loc) throws EvalException {
+          StringBuilder sb = new StringBuilder();
+          printJson(self, sb, loc, "struct field", null);
+          return sb.toString();
         }
-        sb.append("}");
-      } else if (value instanceof List) {
-        sb.append("[");
-        String join = "";
-        for (Object item : ((List) value)) {
-          sb.append(join);
-          join = ",";
-          printJson(item, sb, loc, "list element in struct field", key);
-        }
-        sb.append("]");
-      } else if (value instanceof String) {
-        sb.append("\"");
-        sb.append(jsonEscapeString((String) value));
-        sb.append("\"");
-      } else if (value instanceof Integer || value instanceof Boolean) {
-        sb.append(value);
-      } else {
-        String errorMessage = "Invalid text format, expected a struct, a string, a bool, or an int "
-            + "but got a " + EvalUtils.getDataTypeName(value) + " for " + container;
-        if (key != null) {
-          errorMessage += " '" + key + "'";
-        }
-        throw new EvalException(loc, errorMessage);
-      }
-    }
 
-    private String jsonEscapeString(String string) {
-      return escapeDoubleQuotesAndBackslashesAndNewlines(string)
-          .replace("\r", "\\r").replace("\t", "\\t");
-    }
-  };
+        private void printJson(
+            Object value, StringBuilder sb, Location loc, String container, String key)
+            throws EvalException {
+          if (value == Runtime.NONE) {
+            sb.append("null");
+          } else if (value instanceof ClassObject) {
+            sb.append("{");
+
+            String join = "";
+            for (String subKey : ((ClassObject) value).getKeys()) {
+              sb.append(join);
+              join = ",";
+              sb.append("\"");
+              sb.append(subKey);
+              sb.append("\":");
+              printJson(((ClassObject) value).getValue(subKey), sb, loc, "struct field", subKey);
+            }
+            sb.append("}");
+          } else if (value instanceof List) {
+            sb.append("[");
+            String join = "";
+            for (Object item : ((List) value)) {
+              sb.append(join);
+              join = ",";
+              printJson(item, sb, loc, "list element in struct field", key);
+            }
+            sb.append("]");
+          } else if (value instanceof String) {
+            sb.append("\"");
+            sb.append(jsonEscapeString((String) value));
+            sb.append("\"");
+          } else if (value instanceof Integer || value instanceof Boolean) {
+            sb.append(value);
+          } else {
+            String errorMessage =
+                "Invalid text format, expected a struct, a string, a bool, or an int "
+                    + "but got a "
+                    + EvalUtils.getDataTypeName(value)
+                    + " for "
+                    + container;
+            if (key != null) {
+              errorMessage += " '" + key + "'";
+            }
+            throw new EvalException(loc, errorMessage);
+          }
+        }
+
+        private String jsonEscapeString(String string) {
+          return escapeDoubleQuotesAndBackslashesAndNewlines(string)
+              .replace("\r", "\\r")
+              .replace("\t", "\\t");
+        }
+      };
 
   @SkylarkSignature(name = "output_group",
       documented = false, //  TODO(dslomov): document.

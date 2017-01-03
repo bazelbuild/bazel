@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import javax.annotation.Nullable;
 
 /** Provides information about jar files produced by a Java rule. */
@@ -30,7 +29,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(
   name = "java_output_jars",
   category = SkylarkModuleCategory.NONE,
-  doc = "Information about outputs of a Java rule"
+  doc = "Information about outputs of a Java rule."
 )
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
 
@@ -41,7 +40,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
   @SkylarkModule(
     name = "java_output",
     category = SkylarkModuleCategory.NONE,
-    doc = "Java classes jar, together with their associated source and interface archives"
+    doc = "Java classes jar, together with their associated source and interface archives."
   )
   @Immutable
   public static class OutputJar {
@@ -59,7 +58,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     @Nullable
     @SkylarkCallable(
       name = "class_jar",
-      doc = "A classes jar file",
+      doc = "A classes jar file.",
       allowReturnNones = true,
       structField = true
     )
@@ -70,7 +69,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     @Nullable
     @SkylarkCallable(
       name = "ijar",
-      doc = "A interface jar file",
+      doc = "A interface jar file.",
       allowReturnNones = true,
       structField = true
     )
@@ -81,7 +80,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     @Nullable
     @SkylarkCallable(
       name = "source_jar",
-      doc = "A sources archive file",
+      doc = "A sources archive file.",
       allowReturnNones = true,
       structField = true
     )

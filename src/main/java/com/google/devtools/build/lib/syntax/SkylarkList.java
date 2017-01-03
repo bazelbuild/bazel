@@ -33,10 +33,10 @@ import javax.annotation.Nullable;
   name = "sequence",
   documented = false,
   category = SkylarkModuleCategory.BUILTIN,
-  doc = "common type of lists and tuples"
+  doc = "common type of lists and tuples."
 )
-public abstract class SkylarkList<E> extends MutableCollection<E> implements List<E>, RandomAccess,
-    SkylarkIndexable {
+public abstract class SkylarkList<E> extends MutableCollection<E>
+    implements List<E>, RandomAccess, SkylarkIndexable {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.

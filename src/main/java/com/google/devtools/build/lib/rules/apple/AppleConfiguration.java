@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 /** A configuration containing flags required for Apple platforms and tools. */
 @SkylarkModule(
   name = "apple",
-  doc = "A configuration fragment for Apple platforms",
+  doc = "A configuration fragment for Apple platforms.",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 @Immutable
@@ -535,7 +535,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   /** Returns the identifier for an Xcode toolchain to use with tools. */
   @SkylarkCallable(
     name = "xcode_toolchain",
-    doc = "Identifier for the custom Xcode toolchain to use in build or None if not specified",
+    doc = "Identifier for the custom Xcode toolchain to use in build or None if not specified.",
     allowReturnNones = true,
     structField = true
   )

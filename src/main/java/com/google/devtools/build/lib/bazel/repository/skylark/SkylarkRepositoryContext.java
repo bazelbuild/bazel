@@ -356,7 +356,7 @@ public class SkylarkRepositoryContext {
   @SkylarkCallable(
     name = "os",
     structField = true,
-    doc = "A struct to access information from the system "
+    doc = "A struct to access information from the system."
   )
   public SkylarkOS getOS() {
     return osObject;

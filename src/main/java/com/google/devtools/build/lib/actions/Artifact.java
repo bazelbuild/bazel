@@ -357,12 +357,15 @@ public class Artifact
   }
 
   /**
-   * Returns true iff this is a source Artifact as determined by its path and
-   * root relationships. Note that this will report all Artifacts in the output
-   * tree, including in the include symlink tree, as non-source.
+   * Returns true iff this is a source Artifact as determined by its path and root relationships.
+   * Note that this will report all Artifacts in the output tree, including in the include symlink
+   * tree, as non-source.
    */
-  @SkylarkCallable(name = "is_source", structField =  true,
-      doc = "Returns true if this is a source file, i.e. it is not generated")
+  @SkylarkCallable(
+    name = "is_source",
+    structField = true,
+    doc = "Returns true if this is a source file, i.e. it is not generated."
+  )
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }

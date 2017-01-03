@@ -73,24 +73,19 @@ public class SkylarkRuleImplementationFunctions {
   // TODO(bazel-team): add all the remaining parameters
   // TODO(bazel-team): merge executable and arguments
   /**
-   * A Skylark built-in function to create and register a SpawnAction using a
-   * dictionary of parameters:
-   * action(
-   *     inputs = [input1, input2, ...],
-   *     outputs = [output1, output2, ...],
-   *     executable = executable,
-   *     arguments = [argument1, argument2, ...],
-   *     mnemonic = 'Mnemonic',
-   *     command = 'command',
-   * )
+   * A Skylark built-in function to create and register a SpawnAction using a dictionary of
+   * parameters: action( inputs = [input1, input2, ...], outputs = [output1, output2, ...],
+   * executable = executable, arguments = [argument1, argument2, ...], mnemonic = 'Mnemonic',
+   * command = 'command', )
    */
   @SkylarkSignature(
     name = "action",
-    doc = "Creates an action that runs an executable or a shell command. You must specify either "
-        + "<code>command</code> or <code>executable</code>.\n"
-        + "Actions and genrules are very similar, but have different use cases. Actions are "
-        + "used inside rules, and genrules are used inside macros. Genrules also have make "
-        + "variable expansion.",
+    doc =
+        "Creates an action that runs an executable or a shell command. You must specify either "
+            + "<code>command</code> or <code>executable</code>.\n"
+            + "Actions and genrules are very similar, but have different use cases. Actions are "
+            + "used inside rules, and genrules are used inside macros. Genrules also have make "
+            + "variable expansion.",
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
@@ -101,7 +96,7 @@ public class SkylarkRuleImplementationFunctions {
         generic1 = Artifact.class,
         named = true,
         positional = false,
-        doc = "list of the output files of the action"
+        doc = "list of the output files of the action."
       ),
       @Param(
         name = "inputs",
@@ -110,20 +105,20 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "list of the input files of the action"
+        doc = "list of the input files of the action."
       ),
       @Param(
         name = "executable",
         type = Object.class,
         allowedTypes = {
-            @ParamType(type = Artifact.class),
-            @ParamType(type = PathFragment.class),
-            @ParamType(type = Runtime.NoneType.class),
+          @ParamType(type = Artifact.class),
+          @ParamType(type = PathFragment.class),
+          @ParamType(type = Runtime.NoneType.class),
         },
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "the executable file to be called by the action"
+        doc = "the executable file to be called by the action."
       ),
       @Param(
         name = "arguments",
@@ -132,7 +127,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "[]",
         named = true,
         positional = false,
-        doc = "command line arguments of the action"
+        doc = "command line arguments of the action."
       ),
       @Param(
         name = "mnemonic",
@@ -141,22 +136,23 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "a one-word description of the action, e.g. CppCompile or GoLink"
+        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
       ),
       @Param(
         name = "command",
         type = Object.class,
         allowedTypes = {
-            @ParamType(type = String.class),
-            @ParamType(type = SkylarkList.class, generic1 = String.class),
-            @ParamType(type = Runtime.NoneType.class),
+          @ParamType(type = String.class),
+          @ParamType(type = SkylarkList.class, generic1 = String.class),
+          @ParamType(type = Runtime.NoneType.class),
         },
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "shell command to execute. It is usually preferable to "
-            + "use <code>executable</code> instead. "
-            + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."
+        doc =
+            "shell command to execute. It is usually preferable to "
+                + "use <code>executable</code> instead. "
+                + "Arguments are available with <code>$1</code>, <code>$2</code>, etc."
       ),
       @Param(
         name = "progress_message",
@@ -165,8 +161,9 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "progress message to show to the user during the build, "
-            + "e.g. \"Compiling foo.cc to create foo.o\""
+        doc =
+            "progress message to show to the user during the build, "
+                + "e.g. \"Compiling foo.cc to create foo.o\"."
       ),
       @Param(
         name = "use_default_shell_env",
@@ -174,7 +171,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "whether the action should use the built in shell environment or not"
+        doc = "whether the action should use the built in shell environment or not."
       ),
       @Param(
         name = "env",
@@ -183,7 +180,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "sets the dictionary of environment variables"
+        doc = "sets the dictionary of environment variables."
       ),
       @Param(
         name = "execution_requirements",
@@ -192,8 +189,10 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "information for scheduling the action. See "
-            + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> for useful keys."
+        doc =
+            "information for scheduling the action. See "
+                + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> "
+                + "for useful keys."
       ),
       @Param(
         name = "input_manifests",
@@ -202,8 +201,9 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "sets the map of input manifests files; "
-            + "they are typically generated by resolve_command"
+        doc =
+            "sets the map of input manifests files; "
+                + "they are typically generated by resolve_command."
       )
     },
     useLocation = true
@@ -291,8 +291,8 @@ public class SkylarkRuleImplementationFunctions {
             }
           }
 
-          String mnemonic = mnemonicUnchecked == Runtime.NONE
-              ? "Generating" : (String) mnemonicUnchecked;
+          String mnemonic =
+              mnemonicUnchecked == Runtime.NONE ? "Generating" : (String) mnemonicUnchecked;
           builder.setMnemonic(mnemonic);
           if (envUnchecked != Runtime.NONE) {
             builder.setEnvironment(
@@ -317,12 +317,12 @@ public class SkylarkRuleImplementationFunctions {
           }
           if (inputManifestsUnchecked != Runtime.NONE) {
             for (Map.Entry<PathFragment, Artifact> entry :
-                     SkylarkDict.castSkylarkDictOrNoneToDict(
-                         inputManifestsUnchecked,
-                         PathFragment.class,
-                         Artifact.class,
-                         "input manifest file map")
-                     .entrySet()) {
+                SkylarkDict.castSkylarkDictOrNoneToDict(
+                        inputManifestsUnchecked,
+                        PathFragment.class,
+                        Artifact.class,
+                        "input manifest file map")
+                    .entrySet()) {
               builder.addInputManifest(entry.getValue(), entry.getKey());
             }
           }
@@ -332,38 +332,55 @@ public class SkylarkRuleImplementationFunctions {
         }
       };
 
-  @SkylarkSignature(name = "expand_location",
-      doc =
-      "Expands all <code>$(location ...)</code> templates in the given string by replacing "
-      + "<code>$(location //x)</code> with the path of the output file of target //x. "
-      + "Expansion only works for labels that point to direct dependencies of this rule or that "
-      + "are explicitly listed in the optional argument <code>targets</code>. "
-      + "<br/><br/>"
-      + "<code>$(location ...)</code> will cause an error if the referenced target has multiple "
-      + "outputs. In this case, please use <code>$(locations ...)</code> since it produces a space-"
-      + "separated list of output paths. It can be safely used for a single output file, too.",
-      objectType = SkylarkRuleContext.class, returnType = String.class,
-      parameters = {
-          @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-          @Param(name = "input", type = String.class, doc = "string to be expanded"),
-          @Param(name = "targets", type = SkylarkList.class,
-              generic1 = AbstractConfiguredTarget.class, defaultValue = "[]",
-              doc = "list of targets for additional lookup information"),
-      },
-      useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction expandLocation = new BuiltinFunction("expand_location") {
-    @SuppressWarnings("unused")
-    public String invoke(SkylarkRuleContext ctx, String input, SkylarkList targets,
-        Location loc, Environment env) throws EvalException {
-      try {
-        return new LocationExpander(ctx.getRuleContext(),
-                makeLabelMap(targets.getContents(AbstractConfiguredTarget.class, "targets")), false)
-            .expand(input);
-      } catch (IllegalStateException ise) {
-        throw new EvalException(loc, ise);
-      }
-    }
-  };
+  @SkylarkSignature(
+    name = "expand_location",
+    doc =
+        "Expands all <code>$(location ...)</code> templates in the given string by replacing "
+            + "<code>$(location //x)</code> with the path of the output file of target //x. "
+            + "Expansion only works for labels that point to direct dependencies of this rule or "
+            + "that are explicitly listed in the optional argument <code>targets</code>. "
+            + "<br/><br/>"
+            + "<code>$(location ...)</code> will cause an error if the referenced target has "
+            + "multiple outputs. In this case, please use <code>$(locations ...)</code> since it "
+            + "produces a space-separated list of output paths. It can be safely used for a "
+            + "single output file, too.",
+    objectType = SkylarkRuleContext.class,
+    returnType = String.class,
+    parameters = {
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(name = "input", type = String.class, doc = "string to be expanded."),
+      @Param(
+        name = "targets",
+        type = SkylarkList.class,
+        generic1 = AbstractConfiguredTarget.class,
+        defaultValue = "[]",
+        doc = "list of targets for additional lookup information."
+      ),
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction expandLocation =
+      new BuiltinFunction("expand_location") {
+        @SuppressWarnings("unused")
+        public String invoke(
+            SkylarkRuleContext ctx,
+            String input,
+            SkylarkList targets,
+            Location loc,
+            Environment env)
+            throws EvalException {
+          try {
+            return new LocationExpander(
+                    ctx.getRuleContext(),
+                    makeLabelMap(targets.getContents(AbstractConfiguredTarget.class, "targets")),
+                    false)
+                .expand(input);
+          } catch (IllegalStateException ise) {
+            throw new EvalException(loc, ise);
+          }
+        }
+      };
 
   /**
    * Builds a map: Label -> List of files from the given labels
@@ -390,14 +407,14 @@ public class SkylarkRuleImplementationFunctions {
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-      @Param(name = "output", type = Artifact.class, doc = "the output file"),
-      @Param(name = "content", type = String.class, doc = "the contents of the file"),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(name = "output", type = Artifact.class, doc = "the output file."),
+      @Param(name = "content", type = String.class, doc = "the contents of the file."),
       @Param(
         name = "executable",
         type = Boolean.class,
         defaultValue = "False",
-        doc = "whether the output file should be executable (default is False)"
+        doc = "whether the output file should be executable (default is False)."
       )
     }
   )
@@ -413,91 +430,141 @@ public class SkylarkRuleImplementationFunctions {
         }
       };
 
-  @SkylarkSignature(name = "empty_action",
-      doc =
-      "Creates an empty action that neither executes a command nor produces any "
-      + "output, but that is useful for inserting 'extra actions'.",
-      objectType = SkylarkRuleContext.class, returnType = Runtime.NoneType.class,
-      parameters = {
-          @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-          @Param(name = "mnemonic", type = String.class, named = true, positional = false,
-          doc = "a one-word description of the action, e.g. CppCompile or GoLink"),
-          @Param(name = "inputs", type = SkylarkList.class, generic1 = Artifact.class,
-              named = true, positional = false,
-              defaultValue = "[]", doc = "list of the input files of the action"),
-      })
-  private static final BuiltinFunction createEmptyAction = new BuiltinFunction("empty_action") {
-    @SuppressWarnings("unused")
-    public Runtime.NoneType invoke(SkylarkRuleContext ctx, String mnemonic, SkylarkList inputs)
-        throws EvalException, ConversionException {
-      RuleContext ruleContext = ctx.getRuleContext();
-      Action action = new PseudoAction<SpawnInfo>(generateUuid(ruleContext),
-          ruleContext.getActionOwner(), convertInputs(inputs), generateDummyOutputs(ruleContext),
-          mnemonic, SpawnInfo.spawnInfo, createEmptySpawnInfo());
-      ruleContext.registerAction(action);
-
-      return Runtime.NONE;
+  @SkylarkSignature(
+    name = "empty_action",
+    doc =
+        "Creates an empty action that neither executes a command nor produces any "
+            + "output, but that is useful for inserting 'extra actions'.",
+    objectType = SkylarkRuleContext.class,
+    returnType = Runtime.NoneType.class,
+    parameters = {
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(
+        name = "mnemonic",
+        type = String.class,
+        named = true,
+        positional = false,
+        doc = "a one-word description of the action, e.g. CppCompile or GoLink."
+      ),
+      @Param(
+        name = "inputs",
+        type = SkylarkList.class,
+        generic1 = Artifact.class,
+        named = true,
+        positional = false,
+        defaultValue = "[]",
+        doc = "list of the input files of the action."
+      ),
     }
+  )
+  private static final BuiltinFunction createEmptyAction =
+      new BuiltinFunction("empty_action") {
+        @SuppressWarnings("unused")
+        public Runtime.NoneType invoke(SkylarkRuleContext ctx, String mnemonic, SkylarkList inputs)
+            throws EvalException, ConversionException {
+          RuleContext ruleContext = ctx.getRuleContext();
+          Action action =
+              new PseudoAction<SpawnInfo>(
+                  generateUuid(ruleContext),
+                  ruleContext.getActionOwner(),
+                  convertInputs(inputs),
+                  generateDummyOutputs(ruleContext),
+                  mnemonic,
+                  SpawnInfo.spawnInfo,
+                  createEmptySpawnInfo());
+          ruleContext.registerAction(action);
 
-    private NestedSet<Artifact> convertInputs(SkylarkList inputs) throws EvalException {
-      return NestedSetBuilder.<Artifact>compileOrder()
-          .addAll(inputs.getContents(Artifact.class, "inputs")).build();
+          return Runtime.NONE;
+        }
+
+        private NestedSet<Artifact> convertInputs(SkylarkList inputs) throws EvalException {
+          return NestedSetBuilder.<Artifact>compileOrder()
+              .addAll(inputs.getContents(Artifact.class, "inputs"))
+              .build();
+        }
+
+        protected UUID generateUuid(RuleContext ruleContext) {
+          return UUID.nameUUIDFromBytes(
+              String.format("empty action %s", ruleContext.getLabel())
+                  .getBytes(StandardCharsets.UTF_8));
+        }
+
+        protected ImmutableList<Artifact> generateDummyOutputs(RuleContext ruleContext) {
+          return ImmutableList.of(PseudoAction.getDummyOutput(ruleContext));
+        }
+
+        protected SpawnInfo createEmptySpawnInfo() {
+          return SpawnInfo.newBuilder().build();
+        }
+      };
+
+  @SkylarkSignature(
+    name = "template_action",
+    doc = "Creates a template expansion action.",
+    objectType = SkylarkRuleContext.class,
+    returnType = TemplateExpansionAction.class,
+    parameters = {
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context."),
+      @Param(
+        name = "template",
+        type = Artifact.class,
+        named = true,
+        positional = false,
+        doc = "the template file, which is a UTF-8 encoded text file."
+      ),
+      @Param(
+        name = "output",
+        type = Artifact.class,
+        named = true,
+        positional = false,
+        doc = "the output file, which is a UTF-8 encoded text file."
+      ),
+      @Param(
+        name = "substitutions",
+        type = SkylarkDict.class,
+        named = true,
+        positional = false,
+        doc = "substitutions to make when expanding the template."
+      ),
+      @Param(
+        name = "executable",
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = "whether the output file should be executable (default is False)."
+      )
     }
-
-    protected UUID generateUuid(RuleContext ruleContext) {
-      return UUID.nameUUIDFromBytes(
-          String.format("empty action %s", ruleContext.getLabel())
-              .getBytes(StandardCharsets.UTF_8));
-    }
-
-    protected ImmutableList<Artifact> generateDummyOutputs(RuleContext ruleContext) {
-      return ImmutableList.of(PseudoAction.getDummyOutput(ruleContext));
-    }
-
-    protected SpawnInfo createEmptySpawnInfo() {
-      return SpawnInfo.newBuilder().build();
-    }
-  };
-
-  @SkylarkSignature(name = "template_action",
-      doc = "Creates a template expansion action.",
-      objectType = SkylarkRuleContext.class,
-      returnType = TemplateExpansionAction.class,
-      parameters = {
-        @Param(name = "self", type = SkylarkRuleContext.class, doc = "this context"),
-        @Param(name = "template", type = Artifact.class,
-            named = true, positional = false,
-            doc = "the template file, which is a UTF-8 encoded text file"),
-        @Param(name = "output", type = Artifact.class,
-            named = true, positional = false,
-            doc = "the output file, which is a UTF-8 encoded text file"),
-        @Param(name = "substitutions", type = SkylarkDict.class,
-            named = true, positional = false,
-            doc = "substitutions to make when expanding the template"),
-        @Param(name = "executable", type = Boolean.class, defaultValue = "False",
-            named = true, positional = false,
-            doc = "whether the output file should be executable (default is False)")})
+  )
   private static final BuiltinFunction createTemplateAction =
       new BuiltinFunction("template_action", Arrays.<Object>asList(false)) {
-        public TemplateExpansionAction invoke(SkylarkRuleContext ctx, Artifact template,
-            Artifact output, SkylarkDict<?, ?> substitutionsUnchecked, Boolean executable)
+        public TemplateExpansionAction invoke(
+            SkylarkRuleContext ctx,
+            Artifact template,
+            Artifact output,
+            SkylarkDict<?, ?> substitutionsUnchecked,
+            Boolean executable)
             throws EvalException, ConversionException {
           ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
-          for (Map.Entry<String, String> substitution : substitutionsUnchecked.getContents(
-              String.class, String.class, "substitutions").entrySet()) {
+          for (Map.Entry<String, String> substitution :
+              substitutionsUnchecked
+                  .getContents(String.class, String.class, "substitutions")
+                  .entrySet()) {
             // ParserInputSource.create(Path) uses Latin1 when reading BUILD files, which might
             // contain UTF-8 encoded symbols as part of template substitution.
             // As a quick fix, the substitution values are corrected before being passed on.
             // In the long term, fixing ParserInputSource.create(Path) would be a better approach.
-            substitutionsBuilder.add(Substitution.of(
-                substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
+            substitutionsBuilder.add(
+                Substitution.of(
+                    substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
           }
-          TemplateExpansionAction action = new TemplateExpansionAction(
-              ctx.getRuleContext().getActionOwner(),
-              template,
-              output,
-              substitutionsBuilder.build(),
-              executable);
+          TemplateExpansionAction action =
+              new TemplateExpansionAction(
+                  ctx.getRuleContext().getActionOwner(),
+                  template,
+                  output,
+                  substitutionsBuilder.build(),
+                  executable);
           ctx.getRuleContext().registerAction(action);
           return action;
         }
@@ -614,22 +681,24 @@ public class SkylarkRuleImplementationFunctions {
 
   @SkylarkSignature(
     name = "resolve_command",
-    doc = "Experimental."
-    + "Returns a tuple (inputs, command, input_manifests) of the list of resolved inputs, "
-    + "the argv list for the resolved command, and "
-    + "the dict mapping locations to runfiles required to run the command, "
-    + "all of them suitable for passing as the same-named arguments of the ctx.action method.",
+    doc =
+        "Experimental."
+            + "Returns a tuple (inputs, command, input_manifests) of the list of resolved inputs, "
+            + "the argv list for the resolved command, and "
+            + "the dict mapping locations to runfiles required to run the command, "
+            + "all of them suitable for passing as the same-named arguments of the ctx.action "
+            + "method.",
     objectType = SkylarkRuleContext.class,
     returnType = Tuple.class,
     parameters = {
-      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this RuleContext"),
+      @Param(name = "self", type = SkylarkRuleContext.class, doc = "this RuleContext."),
       @Param(
         name = "command",
         type = String.class, // string
         defaultValue = "''",
         named = true,
         positional = false,
-        doc = "command to resolve"
+        doc = "command to resolve."
       ),
       @Param(
         name = "attribute",
@@ -638,7 +707,7 @@ public class SkylarkRuleImplementationFunctions {
         noneable = true,
         named = true,
         positional = false,
-        doc = "name of the associated attribute for which to issue an error, or None"
+        doc = "name of the associated attribute for which to issue an error, or None."
       ),
       @Param(
         name = "expand_locations",
@@ -646,8 +715,9 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "False",
         named = true,
         positional = false,
-        doc = "shall we expand $(location) variables? "
-            + "See <a href=\"#expand_location\">ctx.expand_location()</a> for more details."
+        doc =
+            "shall we expand $(location) variables? "
+                + "See <a href=\"#expand_location\">ctx.expand_location()</a> for more details."
       ),
       @Param(
         name = "make_variables",
@@ -656,7 +726,7 @@ public class SkylarkRuleImplementationFunctions {
         defaultValue = "None",
         named = true,
         positional = false,
-        doc = "make variables to expand, or None"
+        doc = "make variables to expand, or None."
       ),
       @Param(
         name = "tools",
@@ -665,7 +735,7 @@ public class SkylarkRuleImplementationFunctions {
         generic1 = TransitiveInfoCollection.class,
         named = true,
         positional = false,
-        doc = "list of tools (list of targets)"
+        doc = "list of tools (list of targets)."
       ),
       @Param(
         name = "label_dict",
@@ -675,7 +745,7 @@ public class SkylarkRuleImplementationFunctions {
         positional = false,
         doc =
             "dictionary of resolved labels and the corresponding list of Files "
-        + "(a dict of Label : list of Files)"
+                + "(a dict of Label : list of Files)"
       ),
       @Param(
         name = "execution_requirements",
@@ -685,10 +755,12 @@ public class SkylarkRuleImplementationFunctions {
         positional = false,
         doc =
             "information for scheduling the action to resolve this command. See "
-            + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> for useful keys."
+                + "<a href=\"/docs/be/common-definitions.html#common.tags\">tags</a> "
+                + "for useful keys."
       ),
     },
-    useLocation = true, useEnvironment = true
+    useLocation = true,
+    useEnvironment = true
   )
   private static final BuiltinFunction resolveCommand =
       new BuiltinFunction("resolve_command") {
@@ -708,30 +780,31 @@ public class SkylarkRuleImplementationFunctions {
           Label ruleLabel = ctx.getLabel();
           Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
           // The best way to fix this probably is to convert CommandHelper to Skylark.
-          CommandHelper helper = new CommandHelper(
-              ctx.getRuleContext(),
-              tools.getContents(TransitiveInfoCollection.class, "tools"),
-              ImmutableMap.copyOf(labelDict));
+          CommandHelper helper =
+              new CommandHelper(
+                  ctx.getRuleContext(),
+                  tools.getContents(TransitiveInfoCollection.class, "tools"),
+                  ImmutableMap.copyOf(labelDict));
           String attribute =
               Type.STRING.convertOptional(attributeUnchecked, "attribute", ruleLabel);
           if (expandLocations) {
-            command = helper.resolveCommandAndExpandLabels(
-                command, attribute, false, false);
+            command = helper.resolveCommandAndExpandLabels(command, attribute, false, false);
           }
           if (!EvalUtils.isNullOrNone(makeVariablesUnchecked)) {
-            Map<String, String> makeVariables = Type.STRING_DICT.convert(
-                makeVariablesUnchecked, "make_variables", ruleLabel);
+            Map<String, String> makeVariables =
+                Type.STRING_DICT.convert(makeVariablesUnchecked, "make_variables", ruleLabel);
             command = ctx.expandMakeVariables(attribute, command, makeVariables);
           }
           List<Artifact> inputs = new ArrayList<>();
           inputs.addAll(helper.getResolvedTools());
 
-          ImmutableMap<String, String> executionRequirements = ImmutableMap.copyOf(
-              SkylarkDict.castSkylarkDictOrNoneToDict(
-                    executionRequirementsUnchecked,
-                    String.class,
-                    String.class,
-                    "execution_requirements"));
+          ImmutableMap<String, String> executionRequirements =
+              ImmutableMap.copyOf(
+                  SkylarkDict.castSkylarkDictOrNoneToDict(
+                      executionRequirementsUnchecked,
+                      String.class,
+                      String.class,
+                      "execution_requirements"));
           List<String> argv =
               helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
           return Tuple.<Object>of(

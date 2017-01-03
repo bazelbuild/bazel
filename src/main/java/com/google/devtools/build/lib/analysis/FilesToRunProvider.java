@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
 import javax.annotation.Nullable;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
@@ -67,12 +66,10 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
     return runfilesSupport;
   }
 
-  /**
-   * Returns the Executable or null if it does not exist.
-   */
+  /** Returns the Executable or null if it does not exist. */
   @SkylarkCallable(
     name = "executable",
-    doc = "The main executable or None if it does not exist",
+    doc = "The main executable or None if it does not exist.",
     structField = true,
     allowReturnNones = true
   )
@@ -87,7 +84,7 @@ public final class FilesToRunProvider implements TransitiveInfoProvider {
    */
   @SkylarkCallable(
     name = "runfiles_manifest",
-    doc = "The runfiles manifest or None if it does not exist",
+    doc = "The runfiles manifest or None if it does not exist.",
     structField = true,
     allowReturnNones = true
   )

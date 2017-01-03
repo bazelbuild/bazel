@@ -67,7 +67,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "source_jars",
-    doc = "Returns the Jars containing Java source files for the target",
+    doc = "Returns the Jars containing Java source files for the target.",
     structField = true
   )
   public NestedSet<Artifact> getSourceJars() {
@@ -79,7 +79,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "transitive_deps",
-    doc = "Returns the transitive set of Jars required to build the target",
+    doc = "Returns the transitive set of Jars required to build the target.",
     structField = true
   )
   public NestedSet<Artifact> getTransitiveDeps() {
@@ -91,7 +91,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "transitive_runtime_deps",
-    doc = "Returns the transitive set of Jars required on the target's runtime classpath",
+    doc = "Returns the transitive set of Jars required on the target's runtime classpath.",
     structField = true
   )
   public NestedSet<Artifact> getTransitiveRuntimeDeps() {
@@ -117,7 +117,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "outputs",
-    doc = "Returns information about outputs of this Java target",
+    doc = "Returns information about outputs of this Java target.",
     structField = true
   )
   public JavaRuleOutputJarsProvider getOutputJars() {
@@ -141,7 +141,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     name = "annotation_processing",
     structField = true,
     allowReturnNones = true,
-    doc = "Returns information about annotation processing for this Java target"
+    doc = "Returns information about annotation processing for this Java target."
   )
   public JavaGenJarsProvider getGenJarsProvider() {
     return genJarsProvider;
@@ -151,7 +151,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     name = "compilation_info",
     structField = true,
     allowReturnNones = true,
-    doc = "Returns compilation information for this Java target"
+    doc = "Returns compilation information for this Java target."
   )
   public JavaCompilationInfoProvider getCompilationInfoProvider() {
     return compilationInfoProvider;

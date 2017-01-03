@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 @Immutable
 @SkylarkModule(
   name = "java",
-  doc = "A java compiler configuration",
+  doc = "A java compiler configuration.",
   category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
 )
 public final class JavaConfiguration extends Fragment {

@@ -156,12 +156,12 @@ public class MethodLibrary {
             + "\"abcba\".lstrip(\"ba\") == \"cba\""
             + "</pre>",
     parameters = {
-      @Param(name = "self", type = String.class, doc = "This string"),
+      @Param(name = "self", type = String.class, doc = "This string."),
       @Param(
         name = "chars",
         type = String.class,
         noneable = true,
-        doc = "The characters to remove, or all whitespace if None",
+        doc = "The characters to remove, or all whitespace if None.",
         defaultValue = "None"
       )
     }
@@ -185,14 +185,14 @@ public class MethodLibrary {
             + "\"abcba\".rstrip(\"ba\") == \"abc\""
             + "</pre>",
     parameters = {
-      @Param(name = "self", type = String.class, doc = "This string"),
+      @Param(name = "self", type = String.class, doc = "This string."),
       @Param(
-          name = "chars",
-          type = String.class,
-          noneable = true,
-          doc = "The characters to remove, or all whitespace if None",
-          defaultValue = "None"
-        )
+        name = "chars",
+        type = String.class,
+        noneable = true,
+        doc = "The characters to remove, or all whitespace if None.",
+        defaultValue = "None"
+      )
     }
   )
   private static final BuiltinFunction rstrip =
@@ -214,14 +214,14 @@ public class MethodLibrary {
             + "\"abcba\".strip(\"ba\") == \"abc\""
             + "</pre>",
     parameters = {
-      @Param(name = "self", type = String.class, doc = "This string"),
+      @Param(name = "self", type = String.class, doc = "This string."),
       @Param(
-          name = "chars",
-          type = String.class,
-          noneable = true,
-          doc = "The characters to remove, or all whitespace if None",
-          defaultValue = "None"
-        )
+        name = "chars",
+        type = String.class,
+        noneable = true,
+        doc = "The characters to remove, or all whitespace if None.",
+        defaultValue = "None"
+      )
     }
   )
   private static final BuiltinFunction strip =
@@ -941,14 +941,14 @@ public class MethodLibrary {
           name = "args",
           type = SkylarkList.class,
           defaultValue = "()",
-          doc = "List of arguments"
+          doc = "List of arguments."
         ),
     extraKeywords =
         @Param(
           name = "kwargs",
           type = SkylarkDict.class,
           defaultValue = "{}",
-          doc = "Dictionary of arguments"
+          doc = "Dictionary of arguments."
         ),
     useLocation = true
   )
@@ -1795,7 +1795,7 @@ public class MethodLibrary {
         "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
             + " the input list.\n<pre class=\"language-python\">"
             + "enumerate([24, 21, 84]) == [(0, 24), (1, 21), (2, 84)]</pre>\n",
-    parameters = {@Param(name = "list", type = SkylarkList.class, doc = "input list")},
+    parameters = {@Param(name = "list", type = SkylarkList.class, doc = "input list.")},
     useEnvironment = true
   )
   private static final BuiltinFunction enumerate =
@@ -1811,23 +1811,25 @@ public class MethodLibrary {
         }
       };
 
-  @SkylarkSignature(name = "hash", returnType = Integer.class,
-      doc = "Return a hash value for a string. This is computed deterministically using the same "
-          + "algorithm as Java's <code>String.hashCode()</code>, namely: "
-          + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[0]"
-          + "</pre> Hashing of values besides strings is not currently supported.",
-          // Deterministic hashing is important for the consistency of builds, hence why we
-          // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
-          // Python, which promise stable hashing only within a given execution of the program.
-      parameters = {
-        @Param(name = "value", type = String.class,
-            doc = "String value to hash")
-      })
-  private static final BuiltinFunction hash = new BuiltinFunction("hash") {
-    public Integer invoke(String value) throws EvalException {
-      return value.hashCode();
-    }
-  };
+  @SkylarkSignature(
+    name = "hash",
+    returnType = Integer.class,
+    doc =
+        "Return a hash value for a string. This is computed deterministically using the same "
+            + "algorithm as Java's <code>String.hashCode()</code>, namely: "
+            + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[0]"
+            + "</pre> Hashing of values besides strings is not currently supported.",
+    // Deterministic hashing is important for the consistency of builds, hence why we
+    // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
+    // Python, which promise stable hashing only within a given execution of the program.
+    parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")}
+  )
+  private static final BuiltinFunction hash =
+      new BuiltinFunction("hash") {
+        public Integer invoke(String value) throws EvalException {
+          return value.hashCode();
+        }
+      };
 
   @SkylarkSignature(
     name = "range",
@@ -2076,44 +2078,50 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "zip",
-      doc = "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
-          + "the i-th element from each of the argument sequences or iterables. The list has the "
-          + "size of the shortest input. With a single iterable argument, it returns a list of "
-          + "1-tuples. With no arguments, it returns an empty list. Examples:"
-          + "<pre class=\"language-python\">"
-          + "zip()  # == []\n"
-          + "zip([1, 2])  # == [(1,), (2,)]\n"
-          + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
-          + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
-      extraPositionals = @Param(name = "args", doc = "lists to zip"),
-      returnType = MutableList.class, useLocation = true, useEnvironment = true)
-  private static final BuiltinFunction zip = new BuiltinFunction("zip") {
-    public MutableList<?> invoke(SkylarkList<?> args, Location loc, Environment env)
-        throws EvalException {
-      Iterator<?>[] iterators = new Iterator<?>[args.size()];
-      for (int i = 0; i < args.size(); i++) {
-        iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
-      }
-      List<Tuple<?>> result = new ArrayList<>();
-      boolean allHasNext;
-      do {
-        allHasNext = !args.isEmpty();
-        List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
-        for (Iterator<?> iterator : iterators) {
-          if (iterator.hasNext()) {
-            elem.add(iterator.next());
-          } else {
-            allHasNext = false;
+  @SkylarkSignature(
+    name = "zip",
+    doc =
+        "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
+            + "the i-th element from each of the argument sequences or iterables. The list has the "
+            + "size of the shortest input. With a single iterable argument, it returns a list of "
+            + "1-tuples. With no arguments, it returns an empty list. Examples:"
+            + "<pre class=\"language-python\">"
+            + "zip()  # == []\n"
+            + "zip([1, 2])  # == [(1,), (2,)]\n"
+            + "zip([1, 2], [3, 4])  # == [(1, 3), (2, 4)]\n"
+            + "zip([1, 2], [3, 4, 5])  # == [(1, 3), (2, 4)]</pre>",
+    extraPositionals = @Param(name = "args", doc = "lists to zip."),
+    returnType = MutableList.class,
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction zip =
+      new BuiltinFunction("zip") {
+        public MutableList<?> invoke(SkylarkList<?> args, Location loc, Environment env)
+            throws EvalException {
+          Iterator<?>[] iterators = new Iterator<?>[args.size()];
+          for (int i = 0; i < args.size(); i++) {
+            iterators[i] = EvalUtils.toIterable(args.get(i), loc).iterator();
           }
+          List<Tuple<?>> result = new ArrayList<>();
+          boolean allHasNext;
+          do {
+            allHasNext = !args.isEmpty();
+            List<Object> elem = Lists.newArrayListWithExpectedSize(args.size());
+            for (Iterator<?> iterator : iterators) {
+              if (iterator.hasNext()) {
+                elem.add(iterator.next());
+              } else {
+                allHasNext = false;
+              }
+            }
+            if (allHasNext) {
+              result.add(Tuple.copyOf(elem));
+            }
+          } while (allHasNext);
+          return new MutableList(result, env);
         }
-        if (allHasNext) {
-          result.add(Tuple.copyOf(elem));
-        }
-      } while (allHasNext);
-      return new MutableList(result, env);
-    }
-  };
+      };
 
   /** Skylark String module. */
   @SkylarkModule(

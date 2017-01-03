@@ -505,7 +505,7 @@ public final class PackageFactory {
     name = "glob",
     objectType = Object.class,
     returnType = SkylarkList.class,
-    doc = "Returns a list of files that match glob search pattern",
+    doc = "Returns a list of files that match glob search pattern.",
     parameters = {
       @Param(
         name = "include",
@@ -613,30 +613,34 @@ public final class PackageFactory {
   }
 
   /**
-   * Returns a function value implementing the "mocksubinclude" function,
-   * emitted by the PythonPreprocessor.  We annotate the
-   * package with additional dependencies.  (A 'real' subinclude will never be
-   * seen by the parser, because the presence of "subinclude" triggers
-   * preprocessing.)
+   * Returns a function value implementing the "mocksubinclude" function, emitted by the
+   * PythonPreprocessor. We annotate the package with additional dependencies. (A 'real' subinclude
+   * will never be seen by the parser, because the presence of "subinclude" triggers preprocessing.)
    */
-  @SkylarkSignature(name = "mocksubinclude", returnType = Runtime.NoneType.class,
-      doc = "implement the mocksubinclude function emitted by the PythonPreprocessor",
-      parameters = {
-        @Param(name = "label", type = Object.class,
-            doc = "a label designator."),
-        @Param(name = "path", type = String.class,
-            doc = "a path.")},
-      documented = false, useLocation = true)
+  @SkylarkSignature(
+    name = "mocksubinclude",
+    returnType = Runtime.NoneType.class,
+    doc = "implement the mocksubinclude function emitted by the PythonPreprocessor.",
+    parameters = {
+      @Param(name = "label", type = Object.class, doc = "a label designator."),
+      @Param(name = "path", type = String.class, doc = "a path.")
+    },
+    documented = false,
+    useLocation = true
+  )
   private static final BuiltinFunction.Factory newMockSubincludeFunction =
       new BuiltinFunction.Factory("mocksubinclude") {
         public BuiltinFunction create(final PackageContext context) {
           return new BuiltinFunction("mocksubinclude", this) {
-            public Runtime.NoneType invoke(Object labelO, String pathString,
-                Location loc) throws ConversionException {
-              Label label = BuildType.LABEL.convert(labelO, "'mocksubinclude' argument",
-                  context.pkgBuilder.getBuildFileLabel());
-              Path path = pathString.isEmpty()
-                  ? null : context.pkgBuilder.getFilename().getRelative(pathString);
+            public Runtime.NoneType invoke(Object labelO, String pathString, Location loc)
+                throws ConversionException {
+              Label label =
+                  BuildType.LABEL.convert(
+                      labelO, "'mocksubinclude' argument", context.pkgBuilder.getBuildFileLabel());
+              Path path =
+                  pathString.isEmpty()
+                      ? null
+                      : context.pkgBuilder.getFilename().getRelative(pathString);
               // A subinclude within a package counts as a file declaration.
               if (label.getPackageIdentifier().equals(context.pkgBuilder.getPackageIdentifier())) {
                 if (loc == null) {
@@ -708,32 +712,52 @@ public final class PackageFactory {
         }
       };
 
-  /**
-   * Returns a function-value implementing "exports_files" in the specified
-   * package context.
-   */
-  @SkylarkSignature(name = "exports_files", returnType = Runtime.NoneType.class,
-      doc = "Declare a set of files as exported",
-      parameters = {
-        @Param(name = "srcs", type = SkylarkList.class, generic1 = String.class,
-            doc = "A list of strings, the names of the files to export."),
-        // TODO(blaze-team): make it possible to express a list of label designators,
-        // i.e. a java List or Skylark list of Label or String.
-        @Param(name = "visibility", type = SkylarkList.class, noneable = true,
-            defaultValue = "None",
-            doc = "A list of Labels specifying the visibility of the exported files "
-            + "(defaults to public)"),
-        @Param(name = "licenses", type = SkylarkList.class, generic1 = String.class,
-            noneable = true, defaultValue = "None",
-            doc = "A list of strings specifying the licenses used in the exported code.")},
-      documented = false, useAst = true, useEnvironment = true)
+  /** Returns a function-value implementing "exports_files" in the specified package context. */
+  @SkylarkSignature(
+    name = "exports_files",
+    returnType = Runtime.NoneType.class,
+    doc = "Declare a set of files as exported",
+    parameters = {
+      @Param(
+        name = "srcs",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        doc = "A list of strings, the names of the files to export."
+      ),
+      // TODO(blaze-team): make it possible to express a list of label designators,
+      // i.e. a java List or Skylark list of Label or String.
+      @Param(
+        name = "visibility",
+        type = SkylarkList.class,
+        noneable = true,
+        defaultValue = "None",
+        doc =
+            "A list of Labels specifying the visibility of the exported files "
+                + "(defaults to public)."
+      ),
+      @Param(
+        name = "licenses",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        noneable = true,
+        defaultValue = "None",
+        doc = "A list of strings specifying the licenses used in the exported code."
+      )
+    },
+    documented = false,
+    useAst = true,
+    useEnvironment = true
+  )
   private static final BuiltinFunction.Factory newExportsFilesFunction =
       new BuiltinFunction.Factory("exports_files") {
-        public BuiltinFunction create () {
+        public BuiltinFunction create() {
           return new BuiltinFunction("exports_files", this) {
             public Runtime.NoneType invoke(
-                SkylarkList srcs, Object visibility, Object licenses,
-                FuncallExpression ast, Environment env)
+                SkylarkList srcs,
+                Object visibility,
+                Object licenses,
+                FuncallExpression ast,
+                Environment env)
                 throws EvalException, ConversionException {
               return callExportsFiles(srcs, visibility, licenses, ast, env);
             }
@@ -856,29 +880,53 @@ public final class PackageFactory {
         }
       };
 
-  @SkylarkSignature(name = "package_group", returnType = Runtime.NoneType.class,
-      doc = "Declare a set of files as exported",
-      parameters = {
-        @Param(name = "name", type = String.class, named = true, positional = false,
-            doc = "The name of the rule."),
-        @Param(name = "packages", type = SkylarkList.class, generic1 = String.class,
-            defaultValue = "[]",
-            named = true,
-            positional = false,
-            doc = "A list of Strings specifying the packages grouped."),
-        // java list or list of label designators: Label or String
-        @Param(name = "includes", type = SkylarkList.class, generic1 = Object.class,
-            defaultValue = "[]",
-            named = true,
-            positional = false,
-            doc = "A list of Label specifiers for the files to include.")},
-      documented = false, useAst = true, useEnvironment = true)
+  @SkylarkSignature(
+    name = "package_group",
+    returnType = Runtime.NoneType.class,
+    doc = "Declare a set of files as exported.",
+    parameters = {
+      @Param(
+        name = "name",
+        type = String.class,
+        named = true,
+        positional = false,
+        doc = "The name of the rule."
+      ),
+      @Param(
+        name = "packages",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        named = true,
+        positional = false,
+        doc = "A list of Strings specifying the packages grouped."
+      ),
+      // java list or list of label designators: Label or String
+      @Param(
+        name = "includes",
+        type = SkylarkList.class,
+        generic1 = Object.class,
+        defaultValue = "[]",
+        named = true,
+        positional = false,
+        doc = "A list of Label specifiers for the files to include."
+      )
+    },
+    documented = false,
+    useAst = true,
+    useEnvironment = true
+  )
   private static final BuiltinFunction.Factory newPackageGroupFunction =
       new BuiltinFunction.Factory("package_group") {
         public BuiltinFunction create() {
           return new BuiltinFunction("package_group", this) {
-            public Runtime.NoneType invoke(String name, SkylarkList packages, SkylarkList includes,
-                FuncallExpression ast, Environment env) throws EvalException, ConversionException {
+            public Runtime.NoneType invoke(
+                String name,
+                SkylarkList packages,
+                SkylarkList includes,
+                FuncallExpression ast,
+                Environment env)
+                throws EvalException, ConversionException {
               return callPackageFunction(name, packages, includes, ast, env);
             }
           };

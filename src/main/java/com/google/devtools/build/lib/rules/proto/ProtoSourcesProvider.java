@@ -51,13 +51,12 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   }
 
   /**
-   * Transitive imports including weak dependencies
-   * This determines the order of "-I" arguments to the protocol compiler, and
-   * that is probably important
+   * Transitive imports including weak dependencies This determines the order of "-I" arguments to
+   * the protocol compiler, and that is probably important
    */
   @SkylarkCallable(
     name = "transitive_imports",
-    doc = "Transitive imports including weak dependencies",
+    doc = "Transitive imports including weak dependencies.",
     structField = true
   )
   public abstract NestedSet<Artifact> getTransitiveImports();

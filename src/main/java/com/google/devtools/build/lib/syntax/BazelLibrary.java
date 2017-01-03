@@ -142,8 +142,8 @@ public class BazelLibrary {
         "Creates a new <a href=\"depset.html\">depset</a> that contains both "
             + "the input depset as well as all additional elements.",
     parameters = {
-      @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset"),
-      @Param(name = "new_elements", type = Iterable.class, doc = "The elements to be added")
+      @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
+      @Param(name = "new_elements", type = Iterable.class, doc = "The elements to be added.")
     },
     useLocation = true
   )

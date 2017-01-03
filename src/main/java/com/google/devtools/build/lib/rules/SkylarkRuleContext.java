@@ -668,8 +668,10 @@ public final class SkylarkRuleContext {
   }
 
 
-  @SkylarkCallable(structField = true,
-      doc = "Dictionary (String to String) of configuration variables")
+  @SkylarkCallable(
+    structField = true,
+    doc = "Dictionary (String to String) of configuration variables."
+  )
   public SkylarkDict<String, String> var() {
     return makeVariables;
   }
@@ -835,8 +837,11 @@ public final class SkylarkRuleContext {
     return ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact();
   }
 
-  @SkylarkCallable(name = "build_file_path", structField = true, documented = true,
-      doc = "Returns path to the BUILD file for this rule, relative to the source root"
+  @SkylarkCallable(
+    name = "build_file_path",
+    structField = true,
+    documented = true,
+    doc = "Returns path to the BUILD file for this rule, relative to the source root."
   )
   public String getBuildFileRelativePath() {
     Package pkg = ruleContext.getRule().getPackage();

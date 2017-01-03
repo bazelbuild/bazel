@@ -37,21 +37,31 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 )
 public class SkylarkCommandLine {
 
-  @SkylarkSignature(name = "join_paths", objectType = SkylarkCommandLine.class,
-      returnType = String.class,
-      doc = "Creates a single command line argument joining the paths of a set "
-          + "of files on the separator string.",
-      parameters = {
-      @Param(name = "separator", type = String.class, doc = "the separator string to join on"),
-      @Param(name = "files", type = SkylarkNestedSet.class, generic1 = Artifact.class,
-             doc = "the files to concatenate")})
-  private static BuiltinFunction joinPaths = new BuiltinFunction("join_paths") {
-    public String invoke(String separator, SkylarkNestedSet files) {
-      NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
-      // TODO(bazel-team): lazy evaluate
-      return Artifact.joinExecPaths(separator, artifacts);
+  @SkylarkSignature(
+    name = "join_paths",
+    objectType = SkylarkCommandLine.class,
+    returnType = String.class,
+    doc =
+        "Creates a single command line argument joining the paths of a set "
+            + "of files on the separator string.",
+    parameters = {
+      @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
+      @Param(
+        name = "files",
+        type = SkylarkNestedSet.class,
+        generic1 = Artifact.class,
+        doc = "the files to concatenate."
+      )
     }
-  };
+  )
+  private static BuiltinFunction joinPaths =
+      new BuiltinFunction("join_paths") {
+        public String invoke(String separator, SkylarkNestedSet files) {
+          NestedSet<Artifact> artifacts = files.getSet(Artifact.class);
+          // TODO(bazel-team): lazy evaluate
+          return Artifact.joinExecPaths(separator, artifacts);
+        }
+      };
 
   // TODO(bazel-team): this method should support sets of objects and substitute all struct fields.
   @SkylarkSignature(name = "template",

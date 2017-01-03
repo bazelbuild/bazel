@@ -706,7 +706,7 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "int_list",
-    doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints",
+    doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     parameters = {

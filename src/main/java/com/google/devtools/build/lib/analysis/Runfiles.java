@@ -330,12 +330,12 @@ public final class Runfiles {
   }
 
   /**
-   * Returns the collection of runfiles as artifacts, including both unconditional artifacts
-   * and pruning manifest candidates.
+   * Returns the collection of runfiles as artifacts, including both unconditional artifacts and
+   * pruning manifest candidates.
    */
   @SkylarkCallable(
     name = "files",
-    doc = "Returns the set of runfiles as files",
+    doc = "Returns the set of runfiles as files.",
     structField = true
   )
   public NestedSet<Artifact> getArtifacts() {
@@ -355,10 +355,8 @@ public final class Runfiles {
     return Iterables.filter(getArtifacts(), Artifact.MIDDLEMAN_FILTER);
   }
 
-  /**
-   * Returns the symlinks.
-   */
-  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks", structField = true)
+  /** Returns the symlinks. */
+  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
   }
@@ -1118,13 +1116,12 @@ public final class Runfiles {
     }
   }
 
-  /**
-   * Provides a Skylark-visible way to merge two Runfiles objects. 
-   */
+  /** Provides a Skylark-visible way to merge two Runfiles objects. */
   @SkylarkCallable(
     name = "merge",
-    doc = "Returns a new runfiles object that includes all the contents of this one and the "
-        + "argument."
+    doc =
+        "Returns a new runfiles object that includes all the contents of this one and the "
+            + "argument."
   )
   public Runfiles merge(Runfiles other) {
     Runfiles.Builder builder = new Runfiles.Builder(suffix, false);

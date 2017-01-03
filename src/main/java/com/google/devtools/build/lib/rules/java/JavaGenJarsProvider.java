@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
 import javax.annotation.Nullable;
 
 /** The collection of gen jars from the transitive closure. */
@@ -65,7 +64,7 @@ public final class JavaGenJarsProvider implements TransitiveInfoProvider {
   @SkylarkCallable(
     name = "enabled",
     structField = true,
-    doc = "Returns true if the Java rule uses annotation processing"
+    doc = "Returns true if the Java rule uses annotation processing."
   )
   public boolean usesAnnotationProcessing() {
     return usesAnnotationProcessing;
