@@ -638,21 +638,36 @@ public class JavaCommon {
     return builder.build();
   }
 
-  public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      NestedSet<Artifact> filesToBuild, @Nullable Artifact classJar) {
-    addTransitiveInfoProviders(builder, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
+  public void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      JavaSkylarkApiProvider.Builder skylarkApiProvider,
+      NestedSet<Artifact> filesToBuild,
+      @Nullable Artifact classJar) {
+    addTransitiveInfoProviders(
+        builder, skylarkApiProvider, filesToBuild, classJar, JAVA_COLLECTION_SPEC);
   }
 
-  public void addTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      NestedSet<Artifact> filesToBuild, @Nullable Artifact classJar,
+  public void addTransitiveInfoProviders(
+      RuleConfiguredTargetBuilder builder,
+      JavaSkylarkApiProvider.Builder skylarkApiProvider,
+      NestedSet<Artifact> filesToBuild,
+      @Nullable Artifact classJar,
       InstrumentationSpec instrumentationSpec) {
+
+    JavaCompilationInfoProvider compilationInfoProvider = createCompilationInfoProvider();
+    JavaExportsProvider exportsProvider = collectTransitiveExports();
+
+    skylarkApiProvider
+        .setCompilationInfoProvider(compilationInfoProvider)
+        .setExportsProvider(exportsProvider);
+
     builder
-        .add(InstrumentedFilesProvider.class,
+        .add(
+            InstrumentedFilesProvider.class,
             getInstrumentationFilesProvider(ruleContext, filesToBuild, instrumentationSpec))
-        .add(JavaExportsProvider.class, collectTransitiveExports())
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
+        .add(JavaExportsProvider.class, exportsProvider)
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
-        .add(JavaCompilationInfoProvider.class, createCompilationInfoProvider());
+        .add(JavaCompilationInfoProvider.class, compilationInfoProvider);
   }
 
   private static InstrumentedFilesProvider getInstrumentationFilesProvider(RuleContext ruleContext,
@@ -667,8 +682,11 @@ public class JavaCommon {
         /*withBaselineCoverage*/!TargetUtils.isTestRule(ruleContext.getTarget()));
   }
 
-  public void addGenJarsProvider(RuleConfiguredTargetBuilder builder,
-      @Nullable Artifact genClassJar, @Nullable Artifact genSourceJar) {
+  public void addGenJarsProvider(
+      RuleConfiguredTargetBuilder builder,
+      JavaSkylarkApiProvider.Builder javaSkylarkApiProvider,
+      @Nullable Artifact genClassJar,
+      @Nullable Artifact genSourceJar) {
     JavaGenJarsProvider genJarsProvider = collectTransitiveGenJars(
         javaCompilationHelper.usesAnnotationProcessing(),
         genClassJar, genSourceJar);
@@ -677,6 +695,7 @@ public class JavaCommon {
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenClassJars());
     genJarsBuilder.addTransitive(genJarsProvider.getTransitiveGenSourceJars());
 
+    javaSkylarkApiProvider.setGenJarsProvider1(genJarsProvider);
     builder
         .add(JavaGenJarsProvider.class, genJarsProvider)
         .addOutputGroup(JavaSemantics.GENERATED_JARS_OUTPUT_GROUP, genJarsBuilder.build());

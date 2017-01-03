@@ -161,25 +161,34 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
         filesBuilder, builder);
 
-    NestedSet<Artifact> filesToBuild = filesBuilder.build();
-    common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
-    common.addGenJarsProvider(builder, genClassJar, genSourceJar);
-
-    NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
-
-    CcLinkParamsProvider ccLinkParamsProvider = new CcLinkParamsProvider(ccLinkParamsStore);
+    JavaRuleOutputJarsProvider ruleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder()
+            .addOutputJar(classJar, iJar, srcJar)
+            .setJdeps(outputDepsProto)
+            .build();
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaCompilationArgsProvider.create(
             javaCompilationArgs, recursiveJavaCompilationArgs,
             compileTimeJavaDepArtifacts, runTimeJavaDepArtifacts);
+    JavaSourceJarsProvider sourceJarsProvider =
+        JavaSourceJarsProvider.create(transitiveSourceJars, ImmutableList.of(srcJar));
+    JavaSkylarkApiProvider.Builder skylarkApiProvider =
+        JavaSkylarkApiProvider.builder()
+            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
+            .setSourceJarsProvider(sourceJarsProvider)
+            .setCompilationArgsProvider(compilationArgsProvider);
+
+    NestedSet<Artifact> filesToBuild = filesBuilder.build();
+    common.addTransitiveInfoProviders(builder, skylarkApiProvider, filesToBuild, classJar);
+    common.addGenJarsProvider(builder, skylarkApiProvider, genClassJar, genSourceJar);
+
+    NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
+
+    CcLinkParamsProvider ccLinkParamsProvider = new CcLinkParamsProvider(ccLinkParamsStore);
     JavaProvider javaProvider = new JavaProvider(compilationArgsProvider);
     builder
-        .add(
-            JavaRuleOutputJarsProvider.class,
-            JavaRuleOutputJarsProvider.builder()
-                .addOutputJar(classJar, iJar, srcJar)
-                .setJdeps(outputDepsProto)
-                .build())
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
@@ -201,9 +210,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .add(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
-        .add(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.create(transitiveSourceJars, ImmutableList.of(srcJar)))
+        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         // TODO(bazel-team): this should only happen for java_plugin
         .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))

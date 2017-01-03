@@ -141,38 +141,43 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .setSourceJarsForJarFiles(srcJars)
         .build();
 
-    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProvider =
+    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProviderBuilder =
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
-      ruleOutputJarsProvider.addOutputJar(
-          jar,
-          compilationToRuntimeJarMap.inverse().get(jar),
-          srcJar);
+      ruleOutputJarsProviderBuilder.addOutputJar(
+          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJar);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
-    common.addTransitiveInfoProviders(ruleBuilder, filesToBuild, null);
+    JavaRuleOutputJarsProvider ruleOutputJarsProvider = ruleOutputJarsProviderBuilder.build();
+    JavaSourceJarsProvider sourceJarsProvider =
+        JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars);
+    JavaCompilationArgsProvider compilationArgsProvider =
+        JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs);
+    JavaSkylarkApiProvider.Builder skylarkApiProvider =
+        JavaSkylarkApiProvider.builder()
+            .setRuleOutputJarsProvider(ruleOutputJarsProvider)
+            .setSourceJarsProvider(sourceJarsProvider)
+            .setCompilationArgsProvider(compilationArgsProvider);
+    common.addTransitiveInfoProviders(ruleBuilder, skylarkApiProvider, filesToBuild, null);
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider.build())
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
-        .add(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
+        .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .add(
             JavaNativeLibraryProvider.class,
             new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaSourceInfoProvider.class, javaSourceInfoProvider)
-        .add(
-            JavaSourceJarsProvider.class,
-            JavaSourceJarsProvider.create(transitiveJavaSourceJars, srcJars))
+        .add(JavaSourceJarsProvider.class, sourceJarsProvider)
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveJavaSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs)
