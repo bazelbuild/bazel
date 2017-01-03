@@ -60,7 +60,7 @@ public final class SkylarkJavaMethodDoc extends SkylarkMethodDoc {
   }
 
   @Override
-  protected String getEntityDocumentation() {
+  public String getDocumentation() {
     return callable.doc();
   }
 

@@ -190,10 +190,10 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(objects).hasSize(1);
     assertThat(objects).containsKey("MockClassD");
     SkylarkModuleDoc moduleDoc = objects.get("MockClassD");
-    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD.");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
-    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test.");
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test");
     assertThat(methodDoc.getSignature()).isEqualTo("int MockClassD.test(arg0:int, b, *, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(3);
   }
@@ -204,10 +204,10 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(objects).hasSize(1);
     assertThat(objects).containsKey("MockClassE");
     SkylarkModuleDoc moduleDoc = objects.get("MockClassE");
-    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE.");
+    assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassE");
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
-    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get.");
+    assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get");
     assertThat(methodDoc.getSignature()).isEqualTo("int MockClassE.get()");
   }
 
