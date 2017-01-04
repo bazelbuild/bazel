@@ -499,6 +499,11 @@ java_import(
 )
 
 java_import(
+    name = "turbine",
+    jars = ["turbine/turbine-0.1-20170104.jar"],
+)
+
+java_import(
     name = "truth",
     jars = ["truth/truth-0.28.jar"],
 )

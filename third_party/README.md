@@ -251,6 +251,11 @@ a minimal set of extra dependencies.
 * Version: 3.6.4
 * License: Apache License 2.0
 
+## [turbine](https://github.com/google/turbine)
+
+* Version: 0.1-20170104
+* License: Apache License 2.0
+
 
 # Testing
 
