@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.List;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -55,41 +56,40 @@ public class JavaSkylarkCommon {
   }
 
   @SkylarkCallable(
-      name = "create_provider",
-      documented = false,
-      parameters = {
-          @Param(
-              name = "compile_time_jars",
-              positional = false,
-              named = true,
-              type = SkylarkList.class,
-              generic1 = Artifact.class,
-              defaultValue = "[]"
-          ),
-          @Param(
-              name = "runtime_jars",
-              positional = false,
-              named = true,
-              type = SkylarkList.class,
-              generic1 = Artifact.class,
-              defaultValue = "[]"
-          )
-      }
+    name = "create_provider",
+    documented = false,
+    parameters = {
+      @Param(
+        name = "compile_time_jars",
+        positional = false,
+        named = true,
+        type = SkylarkNestedSet.class,
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      ),
+      @Param(
+        name = "runtime_jars",
+        positional = false,
+        named = true,
+        type = SkylarkNestedSet.class,
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      )
+    }
   )
-  public JavaProvider create(
-      SkylarkList<Artifact> compileTimeJars,
-      SkylarkList<Artifact> runtimeJars) {
-    JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.builder()
-        .addCompileTimeJars(compileTimeJars)
-        .addRuntimeJars(runtimeJars)
-        .build();
-    JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.builder()
-        .addCompileTimeJars(compileTimeJars)
-        .addRuntimeJars(runtimeJars).build();
-    JavaProvider javaProvider = JavaProvider.Builder.create().addProvider(
-              JavaCompilationArgsProvider.class,
-              JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
-          .build();
+  public JavaProvider create(SkylarkNestedSet compileTimeJars, SkylarkNestedSet runtimeJars) {
+    JavaCompilationArgs javaCompilationArgs =
+        JavaCompilationArgs.builder()
+            .addTransitiveRuntimeJars(runtimeJars.getSet(Artifact.class))
+            .addTransitiveCompileTimeJars(compileTimeJars.getSet(Artifact.class))
+            .build();
+
+    JavaProvider javaProvider =
+        JavaProvider.Builder.create()
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                JavaCompilationArgsProvider.create(javaCompilationArgs, javaCompilationArgs))
+            .build();
     return javaProvider;
   }
 
