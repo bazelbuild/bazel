@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -88,7 +89,20 @@ public class TargetContext {
     return visibility;
   }
 
+  /**
+   * Returns the prerequisite with the given label and configuration. Throws a RuntimeException if
+   * no such prerequisite exists.
+   */
   TransitiveInfoCollection findDirectPrerequisite(Label label, BuildConfiguration config) {
+    return Verify.verifyNotNull(maybeFindDirectPrerequisite(label, config),
+        "Could not find prerequisite %s in the expected configuration", label);
+  }
+
+  /**
+   * Returns the prerequisite with the given label and configuration, or null if no such
+   * prerequisite exists.
+   */
+  TransitiveInfoCollection maybeFindDirectPrerequisite(Label label, BuildConfiguration config) {
     for (ConfiguredTarget prerequisite : directPrerequisites) {
       if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
         return prerequisite;

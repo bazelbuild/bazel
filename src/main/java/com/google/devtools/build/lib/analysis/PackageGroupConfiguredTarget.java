@@ -40,7 +40,7 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     NestedSetBuilder<PackageSpecification> builder =
         NestedSetBuilder.stableOrder();
     for (Label label : packageGroup.getIncludes()) {
-      TransitiveInfoCollection include = targetContext.findDirectPrerequisite(
+      TransitiveInfoCollection include = targetContext.maybeFindDirectPrerequisite(
           label, targetContext.getConfiguration());
       PackageSpecificationProvider provider = include == null ? null :
           include.getProvider(PackageSpecificationProvider.class);

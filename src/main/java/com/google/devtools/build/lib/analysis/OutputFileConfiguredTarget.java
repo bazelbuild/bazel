@@ -35,7 +35,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
       TransitiveInfoCollection generatingRule, Artifact outputArtifact) {
     super(targetContext, outputArtifact);
     Preconditions.checkArgument(targetContext.getTarget() == outputFile);
-    this.generatingRule = generatingRule;
+    this.generatingRule = Preconditions.checkNotNull(generatingRule);
   }
 
   @Override

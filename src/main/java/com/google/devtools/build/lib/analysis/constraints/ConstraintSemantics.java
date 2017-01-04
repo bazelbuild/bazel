@@ -763,12 +763,6 @@ public class ConstraintSemantics {
           // Note this reassignment means constraint violation errors reference the generating
           // rule, not the file. This makes the source of the environmental mismatch more clear.
           dep = ((OutputFileConfiguredTarget) dep).getGeneratingRule();
-          if (dep == null) {
-            // This shouldn't happen, but this is causing spurious Bazel test failures because the
-            // getProvider call below throws a NullPointerException. See b/33385302 for details.
-            // TODO(gregce): fix the underlying bug, then remove this condition.
-            continue;
-          }
         }
         // Input files don't support environments. We may subsequently opt them into constraint
         // checking, but for now just pass them by.
