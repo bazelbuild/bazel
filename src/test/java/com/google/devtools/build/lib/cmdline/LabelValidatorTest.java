@@ -14,12 +14,10 @@
 
 package com.google.devtools.build.lib.cmdline;
 
-import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import org.junit.Test;
@@ -124,13 +122,6 @@ public class LabelValidatorTest {
         LabelValidator.validateAbsoluteLabel("@repo//foo:bar"));
     assertEquals(new PackageAndTarget("foo", "bar"),
         LabelValidator.validateAbsoluteLabel("@//foo:bar"));
-
-    try {
-      LabelValidator.validateAbsoluteLabel("@foo");
-      fail("Should not have been able to validate @foo");
-    } catch (LabelValidator.BadLabelException expected) {
-      assertThat(expected.getMessage()).contains("invalid fully-qualified label");
-    }
   }
 
   @Test
@@ -158,5 +149,10 @@ public class LabelValidatorTest {
   public void testPackageAndTargetToString() {
     assertEquals("//foo:foo", newFooTarget().toString());
     assertEquals("//bar:bar", newBarTarget().toString());
+  }
+
+  @Test
+  public void testSlashlessLabel_infersTargetNameFromRepoName() throws Exception {
+    assertEquals("//:foo", LabelValidator.parseAbsoluteLabel("@foo").toString());
   }
 }
