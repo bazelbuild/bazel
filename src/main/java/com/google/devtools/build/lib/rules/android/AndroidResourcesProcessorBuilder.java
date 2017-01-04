@@ -22,8 +22,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -323,25 +321,21 @@ public class AndroidResourcesProcessorBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    return ResourceContainer.create(primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        // If there is no apk to be generated, use the apk from the primary resources.
-        // All android_binary ResourceContainers have to have an apk, but if a new one is not
-        // requested to be built for this resource processing action (in case of just creating an
-        // R.txt or proguard merging), reuse the primary resource from the dependencies.
-        apkOut != null ? apkOut : primary.getApk(),
-        manifestOut != null ? manifestOut : primary.getManifest(),
-        sourceJarOut,
-        primary.getJavaClassJar(),
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        rTxtOut,
-        symbolsTxt);
+    ResourceContainer.Builder result = primary.toBuilder()
+        .setJavaSourceJar(sourceJarOut)
+        .setRTxt(rTxtOut)
+        .setSymbolsTxt(symbolsTxt);
+    // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
+    // All android_binary ResourceContainers have to have an apk, but if a new one is not
+    // requested to be built for this resource processing action (in case of just creating an
+    // R.txt or proguard merging), reuse the primary resource from the dependencies.
+    if (apkOut != null) {
+      result.setApk(apkOut);
+    }
+    if (manifestOut != null) {
+      result.setManifest(manifestOut);
+    }
+    return result.build();
   }
 
   public AndroidResourcesProcessorBuilder setJavaPackage(String customJavaPackage) {

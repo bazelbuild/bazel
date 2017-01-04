@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -152,21 +150,9 @@ class AndroidResourceValidatorActionBuilder {
             .build(context));
 
     // Return the full set of validated transitive dependencies.
-    return ResourceContainer.create(
-        primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        primary.getApk(),
-        primary.getManifest(),
-        sourceJarOut,
-        primary.getJavaClassJar(),
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        rTxtOut,
-        primary.getSymbolsTxt());
+    return primary.toBuilder()
+        .setJavaSourceJar(sourceJarOut)
+        .setRTxt(rTxtOut)
+        .build();
   }
 }

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 
 /**
  * Represents a container for the {@link ResourceContainer}s for a given library. This is

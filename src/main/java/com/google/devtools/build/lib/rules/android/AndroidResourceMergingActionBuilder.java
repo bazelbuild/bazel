@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.android.ResourceContainerConverter.Builder.SeparatorType;
 import java.util.ArrayList;
 import java.util.List;
@@ -168,21 +166,11 @@ class AndroidResourceMergingActionBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    return ResourceContainer.create(
-        primary.getLabel(),
-        primary.getJavaPackage(),
-        primary.getRenameManifestPackage(),
-        primary.getConstantsInlined(),
-        primary.getApk(),
-        manifestOut != null ? manifestOut : primary.getManifest(),
-        primary.getJavaSourceJar(),
-        classJarOut,
-        primary.getArtifacts(ResourceType.ASSETS),
-        primary.getArtifacts(ResourceType.RESOURCES),
-        primary.getRoots(ResourceType.ASSETS),
-        primary.getRoots(ResourceType.RESOURCES),
-        primary.isManifestExported(),
-        primary.getRTxt(),
-        primary.getSymbolsTxt());
+    ResourceContainer.Builder result = primary.toBuilder()
+        .setJavaClassJar(classJarOut);
+    if (manifestOut != null) {
+      result.setManifest(manifestOut);
+    }
+    return result.build();
   }
 }

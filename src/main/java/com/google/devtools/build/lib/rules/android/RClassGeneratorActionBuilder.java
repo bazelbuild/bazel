@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;

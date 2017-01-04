@@ -25,16 +25,13 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
+import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
@@ -70,7 +67,7 @@ public final class AndroidAaptActionHelper {
       inputs.add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
       inputs.add(manifest);
       Iterables.addAll(inputs, Iterables.concat(Iterables.transform(resourceContainers,
-          new Function<AndroidResourcesProvider.ResourceContainer, Iterable<Artifact>>() {
+          new Function<ResourceContainer, Iterable<Artifact>>() {
         @Override
         public Iterable<Artifact> apply(ResourceContainer container) {
           return container.getArtifacts();
@@ -207,7 +204,7 @@ public final class AndroidAaptActionHelper {
     args.add(outputPath.getPathString());
     // First make sure path elements are unique
     Collection<String> paths = new LinkedHashSet<>();
-    for (AndroidResourcesProvider.ResourceContainer container : resourceContainers) {
+    for (ResourceContainer container : resourceContainers) {
       for (Artifact artifact : container.getArtifacts(resourceType)) {
         paths.add(artifact.getExecPathString());
       }
@@ -238,7 +235,7 @@ public final class AndroidAaptActionHelper {
     List<String> dirArgs = new ArrayList<>();
     Collection<String> paths = new LinkedHashSet<>();
     // First make sure roots are unique
-    for (AndroidResourcesProvider.ResourceContainer container : resourceContainers) {
+    for (ResourceContainer container : resourceContainers) {
       for (PathFragment root : container.getRoots(resourceType)) {
         paths.add(outputPath.getRelative(root).getPathString());
       }
