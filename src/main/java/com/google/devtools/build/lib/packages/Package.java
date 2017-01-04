@@ -1509,12 +1509,14 @@ public class Package {
     private static String conflictsWith(Target target) {
       String message = "conflicts with existing ";
       if (target instanceof OutputFile) {
-        return message + "generated file from rule '"
-          + ((OutputFile) target).getGeneratingRule().getName()
-          + "'";
+        message +=
+            "generated file from rule '"
+                + ((OutputFile) target).getGeneratingRule().getName()
+                + "'";
       } else {
-        return message + target.getTargetKind();
+        message += target.getTargetKind();
       }
+      return message + ", defined at " + target.getLocation();
     }
   }
 }

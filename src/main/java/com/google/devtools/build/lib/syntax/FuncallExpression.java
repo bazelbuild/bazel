@@ -580,12 +580,13 @@ public final class FuncallExpression extends Expression {
     if (!(items instanceof Map<?, ?>)) {
       throw new EvalException(
           location,
-          "argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
+          "argument after ** must be a dictionary, not '" + EvalUtils.getDataTypeName(items) + "'");
     }
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
         throw new EvalException(
-            location, "keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
+            location,
+            "keywords must be strings, not '" + EvalUtils.getDataTypeName(entry.getKey()) + "'");
       }
       addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
     }
