@@ -64,6 +64,10 @@ If you'd like your project listed here, please
 A Java code generator that allows you to create a builder by writing one
 function.
 
+## [Deepmind Lab](https://github.com/deepmind/lab)
+
+A customisable 3D platform for agent-based AI research.
+
 ## [Error Prone](https://github.com/google/error-prone)
 
 Catches common Java mistakes as compile-time errors. (Migration to Bazel is
@@ -106,6 +110,10 @@ supported build system.)
 
 An ecosystem for building tools that work with code.
 
+## [Nomulus](https://github.com/google/nomulus)
+
+Top-level domain name registry service on Google App Engine.
+
 ## [PetitParser for Java](https://github.com/petitparser/java-petitparser)
 
 Grammars for programming languages are traditionally specified statically. They
@@ -127,6 +135,10 @@ grpc (maybe thrift).
 ## [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common)
 
 A platform-independent GameBoy emulator.
+
+## [Wycheproof](https://github.com/google/wycheproof)
+
+Project Wycheproof tests crypto libraries against known attacks.
 
 ## [XIOSim](https://github.com/s-kanev/XIOSim)
 
