@@ -399,12 +399,13 @@ bool OutputJar::AddJar(int jar_path_index) {
           lh->data() + jar_entry->compressed_file_size());
       num_bytes +=
           jar_entry->compressed_file_size() +
-          ddr->size(0xFFFFFFFF == jar_entry->compressed_file_size32(),
-                    0xFFFFFFFF == jar_entry->uncompressed_file_size32());
+          ddr->size(
+              ziph::zfield_has_ext64(jar_entry->compressed_file_size32()),
+              ziph::zfield_has_ext64(jar_entry->uncompressed_file_size32()));
     } else {
       num_bytes += lh->compressed_file_size();
     }
-    off_t output_position = Position();
+    off_t local_header_offset = Position();
 
     // When normalize_timestamps is set, entry's timestamp is to be set to
     // 01/01/1980 00:00:00 (or to 01/01/1980 00:00:02, if an entry is a .class
@@ -431,9 +432,10 @@ bool OutputJar::AddJar(int jar_path_index) {
                        : reinterpret_cast<LH *>(lh_buffer);
       // Remove Unix timestamp field.
       if (lh_field_to_remove != nullptr) {
-        auto from_end = byte_ptr(lh) + lh->size();
+        auto from_end = ziph::byte_ptr(lh) + lh->size();
         size_t removed_size = lh_field_to_remove->size();
-        size_t chunk1_size = byte_ptr(lh_field_to_remove) - byte_ptr(lh);
+        size_t chunk1_size =
+            ziph::byte_ptr(lh_field_to_remove) - ziph::byte_ptr(lh);
         size_t chunk2_size = lh->size() - (chunk1_size + removed_size);
         memcpy(lh_new, lh, chunk1_size);
         if (chunk2_size) {
@@ -466,37 +468,8 @@ bool OutputJar::AddJar(int jar_path_index) {
                input_jar_path.c_str());
     }
 
-    // Append central directory header for this file to the output central
-    // directory we are building.
-    TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
-
-    CDH *out_cdh;
-    auto field_to_remove =
-        fix_timestamp ? jar_entry->unix_time_extra_field() : nullptr;
-    if (field_to_remove != nullptr) {
-      // Remove extra fields.
-      auto from_start = byte_ptr(jar_entry);
-      auto from_end = from_start + jar_entry->size();
-      size_t removed_size = field_to_remove->size();
-      size_t chunk1_size = byte_ptr(field_to_remove) - from_start;
-      size_t chunk2_size = jar_entry->size() - (chunk1_size + removed_size);
-      out_cdh =
-          reinterpret_cast<CDH *>(ReserveCdr(jar_entry->size() - removed_size));
-      memcpy(out_cdh, jar_entry, chunk1_size);
-      if (chunk2_size) {
-        memcpy(reinterpret_cast<uint8_t *>(out_cdh) + chunk1_size,
-               from_end - chunk2_size, chunk2_size);
-      }
-      out_cdh->extra_fields(out_cdh->extra_fields(),
-                            jar_entry->extra_fields_length() - removed_size);
-    } else {
-      out_cdh = AppendToDirectoryBuffer(jar_entry);
-    }
-    out_cdh->local_header_offset32(output_position);
-    if (fix_timestamp) {
-      out_cdh->last_mod_file_time(normalized_time);
-      out_cdh->last_mod_file_date(33);
-    }
+    AppendToDirectoryBuffer(jar_entry, local_header_offset, normalized_time,
+                            fix_timestamp);
     ++entries_;
   }
   return input_jar.Close();
@@ -509,7 +482,6 @@ off_t OutputJar::Position() {
   // You'd think this could be "return ftell(file_);", but that
   // generates a needless call to lseek.  So instead we cache our
   // current position in the output.
-  TODO(outpos_ < 0xFFFFFFFF, "Handle Zip64");
   return outpos_;
 }
 
@@ -560,8 +532,15 @@ void OutputJar::WriteEntry(void *buffer) {
     diag_err(1, "%s:%d: write", __FILE__, __LINE__);
   }
   // Data written, allocate CDH space and populate CDH.
-  CDH *cdh = reinterpret_cast<CDH *>(ReserveCdh(
-      sizeof(CDH) + entry->file_name_length() + entry->extra_fields_length()));
+  // Space needed for the CDH varies depending on whether output position field
+  // fits into 32 bits (we do not handle compressed/uncompressed entry sizes
+  // exceeding 32 bits at the moment).
+  uint16_t zip64_size = ziph::zfield_needs_ext64(output_position)
+                            ? Zip64ExtraField::space_needed(1)
+                            : 0;
+  CDH *cdh = reinterpret_cast<CDH *>(
+      ReserveCdh(sizeof(CDH) + entry->file_name_length() +
+                 entry->extra_fields_length() + zip64_size));
   cdh->signature();
   // Note: do not set the version to Unix 3.0 spec, otherwise
   // unzip will think that 'external_attributes' field contains access mode
@@ -578,11 +557,24 @@ void OutputJar::WriteEntry(void *buffer) {
   cdh->uncompressed_file_size32(entry->uncompressed_file_size32());
   cdh->file_name(entry->file_name(), entry->file_name_length());
   cdh->extra_fields(entry->extra_fields(), entry->extra_fields_length());
+  if (zip64_size > 0) {
+    Zip64ExtraField *zip64_ef = reinterpret_cast<Zip64ExtraField *>(
+        cdh->extra_fields() + cdh->extra_fields_length());
+    zip64_ef->signature();
+    zip64_ef->attr_count(1);
+    zip64_ef->attr64(0, output_position);
+    cdh->local_header_offset32(0xFFFFFFFF);
+    // Field address argument points to the already existing field,
+    // so the call just updates the length.
+    cdh->extra_fields(cdh->extra_fields(),
+                      cdh->extra_fields_length() + zip64_size);
+  } else {
+    cdh->local_header_offset32(output_position);
+  }
   cdh->comment_length(0);
   cdh->start_disk_nr(0);
   cdh->internal_attributes(0);
   cdh->external_attributes(0);
-  cdh->local_header_offset32(output_position);
   ++entries_;
   free(reinterpret_cast<void *>(entry));
 }
@@ -613,11 +605,112 @@ void OutputJar::WriteMetaInf() {
   WriteEntry(lh);
 }
 
-// Appends a Central Directory Entry to the directory buffer.
-CDH *OutputJar::AppendToDirectoryBuffer(const CDH *cdh) {
-  size_t cdh_size = cdh->size();
-  return reinterpret_cast<CDH *>(
-      memcpy(reinterpret_cast<CDH *>(ReserveCdr(cdh_size)), cdh, cdh_size));
+// Create output Central Directory entry for the input jar entry.
+void OutputJar::AppendToDirectoryBuffer(const CDH *cdh, off_t lh_pos,
+                                        uint16_t normalized_time,
+                                        bool fix_timestamp) {
+  // While copying from the input CDH pointed to by 'cdh', we may need to drop
+  // Unix timestamp extra field, and we might need to change the number of
+  // attributes of the Zip64 extra field, or create it, or destroy it if entry's
+  // position relative to 4G boundary changes.
+  // The rest of the input CDH is copied.
+
+  // 1. Decide if we need to drop UnixTime.
+  size_t removed_unix_time_field_size = 0;
+  if (fix_timestamp) {
+    auto unix_time_field = cdh->unix_time_extra_field();
+    if (unix_time_field != nullptr) {
+      removed_unix_time_field_size = unix_time_field->size();
+    }
+  }
+
+  // 2. Figure out how many attributes input entry has and how many
+  // the output entry is going to have.
+  const Zip64ExtraField *zip64_ef = cdh->zip64_extra_field();
+  const int zip64_attr_count = zip64_ef == nullptr ? 0 : zip64_ef->attr_count();
+  const bool lh_pos_needs64 = ziph::zfield_needs_ext64(lh_pos);
+  size_t out_zip64_attr_count;
+  if (zip64_attr_count > 0) {
+    out_zip64_attr_count = zip64_attr_count;
+    // The number of attributes may remain the same, or it may increase or
+    // decrease by 1, depending on local_header_offset value.
+    if (ziph::zfield_has_ext64(cdh->local_header_offset32()) !=
+        lh_pos_needs64) {
+      if (lh_pos_needs64) {
+        out_zip64_attr_count += 1;
+      } else {
+        out_zip64_attr_count -= 1;
+      }
+    }
+  } else {
+    out_zip64_attr_count = lh_pos_needs64 ? 1 : 0;
+  }
+  const uint16_t zip64_size = Zip64ExtraField::space_needed(zip64_attr_count);
+  const uint16_t out_zip64_size =
+      Zip64ExtraField::space_needed(out_zip64_attr_count);
+
+  // Allocate output CDH and copy everything but extra fields.
+  const uint16_t ef_size = cdh->extra_fields_length();
+  const uint16_t out_ef_size =
+      (ef_size + out_zip64_size) - (removed_unix_time_field_size + zip64_size);
+
+  const size_t out_cdh_size = cdh->size() + out_ef_size - ef_size;
+  CDH *out_cdh = reinterpret_cast<CDH *>(ReserveCdr(out_cdh_size));
+
+  // Calculate ExtraFields boundaries in the input and output entries.
+  auto ef_begin = reinterpret_cast<const ExtraField *>(cdh->extra_fields());
+  auto ef_end =
+      reinterpret_cast<const ExtraField *>(ziph::byte_ptr(ef_begin) + ef_size);
+  // Copy [cdh..ef_begin) -> [out_cdh..out_ef_begin)
+  memcpy(out_cdh, cdh, ziph::byte_ptr(ef_begin) - ziph::byte_ptr(cdh));
+
+  auto out_ef_begin = reinterpret_cast<ExtraField *>(
+      const_cast<uint8_t *>(out_cdh->extra_fields()));
+  auto out_ef_end = reinterpret_cast<ExtraField *>(
+      reinterpret_cast<uint8_t *>(out_ef_begin) + out_ef_size);
+
+  // Copy [ef_end..cdh_end) -> [out_ef_end..out_cdh_end)
+  memcpy(out_ef_end, ef_end,
+         ziph::byte_ptr(cdh) + cdh->size() - ziph::byte_ptr(ef_end));
+
+  // Copy extra fields, dropping Zip64 and possibly UnixTime fields.
+  ExtraField *out_ef = out_ef_begin;
+  for (const ExtraField *ef = ef_begin; ef < ef_end; ef = ef->next()) {
+    if ((fix_timestamp && ef->is_unix_time()) || ef->is_zip64()) {
+      // Skip this one.
+    } else {
+      memcpy(out_ef, ef, ef->size());
+      out_ef = reinterpret_cast<ExtraField *>(
+          reinterpret_cast<uint8_t *>(out_ef) + ef->size());
+    }
+  }
+
+  // Set up Zip64 extra field if necessary.
+  if (out_zip64_size > 0) {
+    Zip64ExtraField *out_zip64_ef = reinterpret_cast<Zip64ExtraField *>(out_ef);
+    out_zip64_ef->signature();
+    out_zip64_ef->attr_count(out_zip64_attr_count);
+    int copy_count = out_zip64_attr_count < zip64_attr_count
+                         ? out_zip64_attr_count
+                         : zip64_attr_count;
+    if (copy_count > 0) {
+      out_zip64_ef->attr64(0, zip64_ef->attr64(0));
+      if (copy_count > 1) {
+        out_zip64_ef->attr64(1, zip64_ef->attr64(1));
+      }
+    }
+    // Set 64-bit local_header_offset if necessary. It's always the last
+    // attribute.
+    if (lh_pos_needs64) {
+      out_zip64_ef->attr64(out_zip64_attr_count - 1, lh_pos);
+    }
+  }
+  out_cdh->extra_fields(ziph::byte_ptr(out_ef_begin), out_ef_size);
+  out_cdh->local_header_offset32(lh_pos_needs64 ? 0xFFFFFFFF : lh_pos);
+  if (fix_timestamp) {
+    out_cdh->last_mod_file_time(normalized_time);
+    out_cdh->last_mod_file_date(33);
+  }
 }
 
 uint8_t *OutputJar::ReserveCdr(size_t chunk_size) {
@@ -657,8 +750,6 @@ bool OutputJar::Close() {
   off_t output_position = Position();
   bool write_zip64_ecd = output_position >= 0xFFFFFFFF || entries_ >= 0xFFFF ||
                          cen_size_ >= 0xFFFFFFFF;
-
-  TODO(output_position < 0xFFFFFFFF, "Handle Zip64");
 
   size_t cen_size = cen_size_;  // Save it before ReserveCdh updates it.
   if (write_zip64_ecd) {

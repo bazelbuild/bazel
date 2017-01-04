@@ -53,7 +53,7 @@ void *Concatenator::OutputEntry(bool compress) {
   // and compressed size values.
   uint8_t
       zip64_extension_buffer[sizeof(Zip64ExtraField) + 2 * sizeof(uint64_t)];
-  bool huge_buffer = (buffer_->data_size() >= 0xFFFFFFFF);
+  bool huge_buffer = ziph::zfield_needs_ext64(buffer_->data_size());
   if (huge_buffer) {
     deflated_buffer_size += sizeof(zip64_extension_buffer);
   }
@@ -97,8 +97,9 @@ void *Concatenator::OutputEntry(bool compress) {
   lh->crc32(checksum);
   lh->compression_method(method);
   if (huge_buffer) {
-    lh->compressed_file_size32(compressed_size < 0xFFFFFFFF ? compressed_size
-                                                            : 0xFFFFFFFF);
+    lh->compressed_file_size32(ziph::zfield_needs_ext64(compressed_size)
+                                   ? 0xFFFFFFFF
+                                   : compressed_size);
     // Not sure if this has to be written in the small case, but it shouldn't
     // hurt.
     const_cast<Zip64ExtraField *>(lh->zip64_extra_field())

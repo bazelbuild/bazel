@@ -75,7 +75,7 @@ bool InputJar::Open(const std::string &path) {
 
   // First, sanity checks.
   uint64_t cen_position = ecd->cen_offset32();
-  if (cen_position != 0xFFFFFFFF) {
+  if (!ziph::zfield_has_ext64(cen_position)) {
     if (!mapped_file_.mapped(mapped_file_.address(cen_position))) {
       diag_warnx("%s:%d: %s is corrupt: Central Directory location 0x%" PRIx64
                  " is invalid",
@@ -93,7 +93,7 @@ bool InputJar::Open(const std::string &path) {
     }
   }
   uint64_t cen_size = ecd->cen_size32();
-  if (cen_size != 0xFFFFFFFF) {
+  if (!ziph::zfield_has_ext64(cen_size)) {
     if (cen_size > mapped_file_.offset(ecd)) {
       diag_warnx("%s:%d: %s is corrupt: Central Directory size 0x%" PRIx64
                  " is too large",
@@ -108,10 +108,10 @@ bool InputJar::Open(const std::string &path) {
     preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
   } else {
     auto ecd64loc = reinterpret_cast<const ECD64Locator *>(
-        byte_ptr(ecd) - sizeof(ECD64Locator));
+        ziph::byte_ptr(ecd) - sizeof(ECD64Locator));
     if (ecd64loc->is()) {
-      auto ecd64 =
-          reinterpret_cast<const ECD64 *>(byte_ptr(ecd64loc) - sizeof(ECD64));
+      auto ecd64 = reinterpret_cast<const ECD64 *>(ziph::byte_ptr(ecd64loc) -
+                                                   sizeof(ECD64));
       if (!ecd64->is()) {
         diag_warnx(
             "%s:%d: %s is corrupt, expected ECD64 record at offset 0x%" PRIx64
@@ -120,18 +120,20 @@ bool InputJar::Open(const std::string &path) {
         mapped_file_.Close();
         return false;
       }
-      cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd64) - ecd64->cen_size());
+      cdh_ = reinterpret_cast<const CDH *>(ziph::byte_ptr(ecd64) -
+                                           ecd64->cen_size());
       preamble_size_ = mapped_file_.offset(cdh_) - ecd64->cen_offset();
       // Find CEN and preamble size.
     } else {
-      if (cen_size == 0xFFFFFFFF || cen_position == 0xFFFFFFFF) {
+      if (ziph::zfield_has_ext64(cen_size) ||
+          ziph::zfield_has_ext64(cen_position)) {
         diag_warnx(
             "%s:%d: %s is corrupt, expected ECD64 locator record at "
             "offset 0x%" PRIx64 " is missing",
             __FILE__, __LINE__, path.c_str(), mapped_file_.offset(ecd64loc));
         return false;
       }
-      cdh_ = reinterpret_cast<const CDH *>(byte_ptr(ecd) - cen_size);
+      cdh_ = reinterpret_cast<const CDH *>(ziph::byte_ptr(ecd) - cen_size);
       preamble_size_ = mapped_file_.offset(cdh_) - cen_position;
     }
     if (!cdh_->is()) {

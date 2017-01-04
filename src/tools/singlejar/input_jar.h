@@ -55,7 +55,7 @@ class InputJar {
       return nullptr;
     }
     const CDH *current_cdh = cdh_;
-    const uint8_t *new_cdr = byte_ptr(cdh_) + cdh_->size();
+    const uint8_t *new_cdr = ziph::byte_ptr(cdh_) + cdh_->size();
     if (!mapped_file_.mapped(new_cdr)) {
       diag_errx(
           1,

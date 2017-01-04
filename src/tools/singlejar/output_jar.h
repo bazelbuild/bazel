@@ -73,8 +73,10 @@ class OutputJar {
   void WriteEntry(void *local_header_and_payload);
   // Write META_INF/ entry (the first entry on output).
   void WriteMetaInf();
-  // Append given Central Directory Header to CEN (Central Directory) buffer.
-  CDH *AppendToDirectoryBuffer(const CDH *cdh);
+  // Create output Central Directory Header for the given input entry and
+  // append it to CEN (Central Directory) buffer.
+  void AppendToDirectoryBuffer(const CDH *cdh, off_t local_header_offset,
+                               uint16_t normalized_time, bool fix_timestamp);
   // Reserve space in CEN buffer.
   uint8_t *ReserveCdr(size_t chunk_size);
   // Reserve space for the Central Directory Header in CEN buffer.

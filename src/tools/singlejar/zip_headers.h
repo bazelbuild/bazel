@@ -41,9 +41,23 @@
 #include <string>
 #include <type_traits>
 
-static const uint8_t *byte_ptr(const void *ptr) {
-  return reinterpret_cast<const uint8_t *>(ptr);
-}
+class ziph {
+ public:
+  static const uint8_t *byte_ptr(const void *ptr) {
+    return reinterpret_cast<const uint8_t *>(ptr);
+  }
+
+  /* Utility functions to handle Zip64 extensions. Size and position fields in
+   * the Zip headers are 32-bit wide. If field's value does not fit into 32
+   * bits (more precisely, it is >= 0xFFFFFFFF), the field contains 0xFFFFFFFF
+   * and the actual value is saved in the corresponding 64-bit extension field.
+   * The first function returns true if there is an extension for the given
+   * field value, and the second returns true if given field value needs
+   * extension.
+   */
+  static bool zfield_has_ext64(uint32_t v) { return v == 0xFFFFFFFF; }
+  static bool zfield_needs_ext64(uint64_t v) { return v >= 0xFFFFFFFF; }
+};
 
 /* Overall .ZIP file format (section 4.3.6), and the corresponding classes
  *    [local file header 1]                          class LH
@@ -78,17 +92,23 @@ class ExtraField {
       if (extra_field->is(tag)) {
         return extra_field;
       }
-      start = byte_ptr(start) + extra_field->size();
+      start = ziph::byte_ptr(start) + extra_field->size();
     }
     return nullptr;
   }
   bool is(uint16_t tag) const { return htole16(tag_) == tag; }
+  bool is_zip64() const { return is(1); }
+  bool is_unix_time() const { return is(0x5455); }
   void signature(uint16_t tag) { tag_ = le16toh(tag); }
 
   uint16_t payload_size() const { return le16toh(payload_size_); }
   void payload_size(uint16_t v) { payload_size_ = htole16(v); }
 
   uint16_t size() const { return sizeof(ExtraField) + payload_size(); }
+
+  const ExtraField *next() const {
+    return reinterpret_cast<const ExtraField *>(ziph::byte_ptr(this) + size());
+  }
 
  protected:
   uint16_t tag_;
@@ -115,12 +135,22 @@ class Zip64ExtraField : public ExtraField {
         ExtraField::find(1, start, end));
   }
 
-  bool is() const { return ExtraField::is(1); }
+  bool is() const { return is_zip64(); }
   void signature() { ExtraField::signature(1); }
 
   // The value of i-th attribute
   uint64_t attr64(int index) const { return le64toh(attr_[index]); }
   void attr64(int index, uint64_t v) { attr_[index] = htole64(v); }
+
+  // Attribute count
+  int attr_count() const { return payload_size() / sizeof(attr_[0]); }
+  void attr_count(int n) { payload_size(n * sizeof(attr_[0])); }
+
+  // Space needed for this field to accomodate n_attr attributes
+  static uint16_t space_needed(int n_attrs) {
+    return n_attrs > 0 ? sizeof(Zip64ExtraField) + n_attrs * sizeof(uint64_t)
+                       : 0;
+  }
 
  private:
   uint64_t attr_[];
@@ -143,7 +173,7 @@ class UnixTimeExtraField : public ExtraField {
     return reinterpret_cast<const UnixTimeExtraField *>(
         ExtraField::find(0x5455, start, end));
   }
-  bool is() const { return ExtraField::is(0x5455); }
+  bool is() const { return is_unix_time(); }
   void signature() { ExtraField::signature(0x5455); }
 
   void flags(uint8_t v) { flags_ = v; }
@@ -191,11 +221,11 @@ class LH {
 
   size_t compressed_file_size() const {
     size_t size32 = compressed_file_size32();
-    if (size32 != 0xFFFFFFFF) {
-      return size32;
+    if (ziph::zfield_has_ext64(size32)) {
+      const Zip64ExtraField *z64 = zip64_extra_field();
+      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(1);
     }
-    const Zip64ExtraField *z64 = zip64_extra_field();
-    return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(1);
+    return size32;
   }
   size_t compressed_file_size32() const {
     return le32toh(compressed_file_size32_);
@@ -206,11 +236,11 @@ class LH {
 
   size_t uncompressed_file_size() const {
     size_t size32 = uncompressed_file_size32();
-    if (size32 != 0xFFFFFFFF) {
-      return size32;
+    if (ziph::zfield_has_ext64(size32)) {
+      const Zip64ExtraField *z64 = zip64_extra_field();
+      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
     }
-    const Zip64ExtraField *z64 = zip64_extra_field();
-    return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
+    return size32;
   }
   size_t uncompressed_file_size32() const {
     return le32toh(uncompressed_file_size32_);
@@ -238,7 +268,7 @@ class LH {
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
   const uint8_t *extra_fields() const {
-    return byte_ptr(file_name_ + file_name_length());
+    return ziph::byte_ptr(file_name_ + file_name_length());
   }
   uint8_t *extra_fields() {
     return reinterpret_cast<uint8_t *>(file_name_) + file_name_length();
@@ -357,13 +387,13 @@ class CDH {
 
   size_t compressed_file_size() const {
     size_t size32 = compressed_file_size32();
-    if (size32 != 0xFFFFFFFF) {
-      return size32;
+    if (ziph::zfield_has_ext64(size32)) {
+      const Zip64ExtraField *z64 = zip64_extra_field();
+      return z64 == nullptr ? 0xFFFFFFFF
+                            : z64->attr64(ziph::zfield_has_ext64(
+                                  uncompressed_file_size32()));
     }
-    const Zip64ExtraField *z64 = zip64_extra_field();
-    return z64 == nullptr
-               ? 0xFFFFFFFF
-               : z64->attr64(uncompressed_file_size32() == 0xFFFFFFFF ? 1 : 0);
+    return size32;
   }
   size_t compressed_file_size32() const {
     return le32toh(compressed_file_size32_);
@@ -374,11 +404,11 @@ class CDH {
 
   size_t uncompressed_file_size() const {
     uint32_t size32 = uncompressed_file_size32();
-    if (size32 != 0xFFFFFFFF) {
-      return size32;
+    if (ziph::zfield_has_ext64(size32)) {
+      const Zip64ExtraField *z64 = zip64_extra_field();
+      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
     }
-    const Zip64ExtraField *z64 = zip64_extra_field();
-    return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(0);
+    return size32;
   }
   size_t uncompressed_file_size32() const {
     return le32toh(uncompressed_file_size32_);
@@ -407,7 +437,7 @@ class CDH {
 
   uint16_t extra_fields_length() const { return le16toh(extra_fields_length_); }
   const uint8_t *extra_fields() const {
-    return byte_ptr(file_name_ + file_name_length());
+    return ziph::byte_ptr(file_name_ + file_name_length());
   }
   uint8_t *extra_fields() {
     return reinterpret_cast<uint8_t *>(file_name_) + file_name_length();
@@ -433,15 +463,15 @@ class CDH {
 
   uint64_t local_header_offset() const {
     uint32_t size32 = local_header_offset32();
-    if (size32 != 0xFFFFFFFF) {
-      return size32;
+    if (ziph::zfield_has_ext64(size32)) {
+      const Zip64ExtraField *z64 = zip64_extra_field();
+      int attr_no = ziph::zfield_has_ext64(uncompressed_file_size32());
+      if (ziph::zfield_has_ext64(compressed_file_size32())) {
+        ++attr_no;
+      }
+      return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(attr_no);
     }
-    const Zip64ExtraField *z64 = zip64_extra_field();
-    int attr_no = uncompressed_file_size32() == 0xFFFFFFFF ? 1 : 0;
-    if (compressed_file_size32() == 0xFFFFFFFF) {
-      ++attr_no;
-    }
-    return z64 == nullptr ? 0xFFFFFFFF : z64->attr64(attr_no);
+    return size32;
   }
 
   uint32_t local_header_offset32() const {
@@ -548,7 +578,7 @@ class ECD {
 
   uint64_t ecd64_offset() const {
     const ECD64Locator *locator = reinterpret_cast<const ECD64Locator *>(
-        byte_ptr(this) - sizeof(ECD64Locator));
+        ziph::byte_ptr(this) - sizeof(ECD64Locator));
     return locator->is() ? locator->ecd64_offset() : 0xFFFFFFFFFFFFFFFF;
   }
 
