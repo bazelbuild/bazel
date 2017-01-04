@@ -368,6 +368,15 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean strictDepsJavaProtos;
 
+  @Option(
+    name = "experimental_java_header_compilation_direct_classpath",
+    defaultValue = "true",
+    category = "undocumented",
+    help = "Experimental option to limit the header compilation classpath to direct deps."
+  )
+  public boolean headerCompilationDirectClasspath;
+
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();
@@ -384,6 +393,7 @@ public class JavaOptions extends FragmentOptions {
     // incremental build performance is important.
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
+    host.headerCompilationDirectClasspath = headerCompilationDirectClasspath;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
