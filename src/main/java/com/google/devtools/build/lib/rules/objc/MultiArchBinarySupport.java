@@ -24,11 +24,13 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -131,8 +133,10 @@ public class MultiArchBinarySupport {
    *     current rule have propagated in that configuration
    * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
    *     "non_propagated_deps" of the current rule have propagated in that configuration
-   * @param dylibProviders providers that dynamic library dependencies of the current rule have
-   *     propagated
+   * @param dylibObjcProviders {@link ObjcProvider}s that dynamic library dependencies of the
+   *     current rule have propagated
+   * @param dylibProtoProviders {@link ObjcProtoProvider} providers that dynamic library
+   *     dependencies of the current rule have propagated
    * @param bundleLoaderObjcProvider Optional ObjcProvider containing artifacts and paths to be
    *     included in this binary's compilation actions
    * @throws RuleErrorException if there are attribute errors in the current rule context
@@ -141,16 +145,19 @@ public class MultiArchBinarySupport {
       Set<BuildConfiguration> childConfigurations,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
-      Iterable<ObjcProvider> dylibProviders,
+      Iterable<ObjcProvider> dylibObjcProviders,
+      Iterable<ObjcProtoProvider> dylibProtoProviders,
       Optional<ObjcProvider> bundleLoaderObjcProvider)
       throws RuleErrorException, InterruptedException {
     ImmutableMap.Builder<BuildConfiguration, ObjcProvider> configurationToObjcProviderBuilder =
         ImmutableMap.builder();
+
     for (BuildConfiguration childConfig : childConfigurations) {
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
-            new ProtobufSupport(ruleContext, childConfig)
+            new ProtobufSupport(ruleContext, childConfig,
+                    protoArtifactsToAvoid(dylibProtoProviders))
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();
@@ -163,7 +170,7 @@ public class MultiArchBinarySupport {
 
       Iterable<ObjcProvider> additionalDepProviders =
           Iterables.concat(
-              dylibProviders,
+              dylibObjcProviders,
               ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
               protosObjcProvider.asSet(),
               bundleLoaderObjcProvider.asSet());
@@ -176,7 +183,7 @@ public class MultiArchBinarySupport {
               nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
               nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
               additionalDepProviders);
-      ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibProviders);
+      ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibObjcProviders);
 
       configurationToObjcProviderBuilder.put(childConfig, objcProvider);
     }
@@ -217,5 +224,16 @@ public class MultiArchBinarySupport {
 
   private <T> List<T> nullToEmptyList(List<T> inputList) {
     return inputList != null ? inputList : ImmutableList.<T>of();
+  }
+
+  private static NestedSet<Artifact> protoArtifactsToAvoid(
+      Iterable<ObjcProtoProvider> avoidedProviders) {
+    NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
+    for (ObjcProtoProvider avoidProvider : avoidedProviders) {
+      for (NestedSet<Artifact> avoidProviderOutputGroup : avoidProvider.getProtoGroups()) {
+        avoidArtifacts.addTransitive(avoidProviderOutputGroup);
+      }
+    }
+    return avoidArtifacts.build();
   }
 }

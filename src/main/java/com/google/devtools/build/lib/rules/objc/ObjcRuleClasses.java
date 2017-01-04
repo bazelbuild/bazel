@@ -957,6 +957,12 @@ public class ObjcRuleClasses {
    */
   public static class DylibDependingRule implements RuleDefinition {
 
+    private final ObjcProtoAspect objcProtoAspect;
+
+    public DylibDependingRule(ObjcProtoAspect objcProtoAspect) {
+      this.objcProtoAspect = objcProtoAspect;
+    }
+
     /**
      * Attribute name for dylib dependencies.
      */
@@ -981,7 +987,8 @@ public class ObjcRuleClasses {
               .direct_compile_time_input()
               .mandatoryNativeProviders(
                   ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
-              .allowedFileTypes())
+              .allowedFileTypes()
+              .aspect(objcProtoAspect))
           .build();
     }
 

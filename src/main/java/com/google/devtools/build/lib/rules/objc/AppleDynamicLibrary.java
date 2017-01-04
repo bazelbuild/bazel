@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
+
 import java.util.Map;
 import java.util.Set;
 
@@ -56,17 +57,21 @@ public class AppleDynamicLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
     Iterable<ObjcProvider> dylibProviders =
         ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
+    Iterable<ObjcProtoProvider> dylibProtoProviders =
+        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
     Artifact outputArtifact =
         ObjcRuleClasses.intermediateArtifacts(ruleContext).combinedArchitectureDylib();
 
     MultiArchBinarySupport multiArchBinarySupport = new MultiArchBinarySupport(ruleContext);
+
     Map<BuildConfiguration, ObjcProvider> objcProviderByDepConfiguration =
         multiArchBinarySupport.objcProviderByDepConfiguration(
             childConfigurations,
             configToDepsCollectionMap,
             configurationToNonPropagatedObjcMap,
             dylibProviders,
+            dylibProtoProviders,
             Optional.<ObjcProvider>absent());
 
     multiArchBinarySupport.registerActions(

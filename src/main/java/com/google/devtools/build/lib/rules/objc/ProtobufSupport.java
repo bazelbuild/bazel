@@ -17,9 +17,11 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -37,6 +39,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.util.HashMap;
 import java.util.Set;
 
@@ -57,6 +60,9 @@ import java.util.Set;
  */
 final class ProtobufSupport {
 
+  private static final String HEADER_SUFFIX = ".pbobjc.h";
+  private static final String SOURCE_SUFFIX = ".pbobjc.m";
+
   private static final String BUNDLED_PROTOS_IDENTIFIER = "BundledProtos";
 
   private static final String UNIQUE_DIRECTORY_NAME = "_generated_protos";
@@ -65,6 +71,7 @@ final class ProtobufSupport {
   private final BuildConfiguration buildConfiguration;
   private final ProtoAttributes attributes;
   private final IntermediateArtifacts intermediateArtifacts;
+  private final Set<Artifact> dylibHandledProtos;
 
   // Each entry of this map represents a generation action and a compilation action. The input set
   // are dependencies of the output set. The output set is always a subset of, or the same set as,
@@ -90,7 +97,7 @@ final class ProtobufSupport {
    *
    * @param ruleContext context this proto library is constructed in
    */
-  public ProtobufSupport(RuleContext ruleContext) throws RuleErrorException {
+  public ProtobufSupport(RuleContext ruleContext) {
     this(ruleContext, ruleContext.getConfiguration());
   }
 
@@ -104,12 +111,30 @@ final class ProtobufSupport {
    * @param buildConfiguration the configuration from which to get prerequisites when building proto
    *     targets in a split configuration
    */
-  public ProtobufSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration)
-      throws RuleErrorException {
+  public ProtobufSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration) {
+    this(ruleContext, buildConfiguration, NestedSetBuilder.<Artifact>stableOrder().build());
+  }
+
+  /**
+   * Creates a new proto support for the protobuf library. This support code bundles up all the
+   * transitive protos within the groups in which they were defined. We use that information to
+   * minimize the number of inputs per generation/compilation actions by only providing what is
+   * really needed to the actions.
+   *
+   * @param ruleContext context this proto library is constructed in
+   * @param buildConfiguration the configuration from which to get prerequisites when building proto
+   *     targets in a split configuration
+   * @param dylibHandledProtos a set of protos linked into dynamic libraries that the current
+   *     rule depends on; these protos will not be output by this support, thus avoiding duplicate
+   *     symbols
+   */
+  public ProtobufSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration,
+      NestedSet<Artifact> dylibHandledProtos) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.attributes = new ProtoAttributes(ruleContext);
     this.inputsToOutputsMap = getInputsToOutputsMap();
+    this.dylibHandledProtos = dylibHandledProtos.toSet();
     this.intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration);
   }
@@ -141,7 +166,7 @@ final class ProtobufSupport {
             .setPchFile(Optional.<Artifact>absent())
             .addAdditionalHdrs(getProtobufHeaders())
             .addAdditionalHdrs(
-                getGeneratedProtoOutputs(inputsToOutputsMap.values(), ".pbobjc.h"));
+                getGeneratedProtoOutputs(inputsToOutputsMap.values(), HEADER_SUFFIX));
 
     new LegacyCompilationSupport(
             ruleContext,
@@ -184,8 +209,9 @@ final class ProtobufSupport {
   public ProtobufSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild) {
     for (ImmutableSet<Artifact> inputProtoFiles : inputsToOutputsMap.keySet()) {
       ImmutableSet<Artifact> outputProtoFiles = inputsToOutputsMap.get(inputProtoFiles);
-      Iterable<Artifact> generatedSources = getGeneratedProtoOutputs(outputProtoFiles, ".pbobjc.m");
-      Iterable<Artifact> generatedHeaders = getGeneratedProtoOutputs(outputProtoFiles, ".pbobjc.h");
+      Iterable<Artifact> generatedSources = getProtoSourceFilesForCompilation(outputProtoFiles);
+      Iterable<Artifact> generatedHeaders = getGeneratedProtoOutputs(outputProtoFiles,
+          HEADER_SUFFIX);
 
       filesToBuild.addAll(generatedSources).addAll(generatedHeaders);
     }
@@ -314,8 +340,7 @@ final class ProtobufSupport {
     return protobufHeaderSearchPaths.build();
   }
 
-  private ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap()
-      throws RuleErrorException {
+  private ImmutableSetMultimap<ImmutableSet<Artifact>, Artifact> getInputsToOutputsMap() {
     Iterable<ObjcProtoProvider> objcProtoProviders = getObjcProtoProviders();
     Iterable<ProtoSourcesProvider> protoProviders = getProtoSourcesProviders();
 
@@ -452,14 +477,21 @@ final class ProtobufSupport {
         new CompilationArtifacts.Builder()
             .setIntermediateArtifacts(intermediateArtifacts)
             .setPchFile(Optional.<Artifact>absent())
-            .addAdditionalHdrs(getGeneratedProtoOutputs(filteredInputProtos, ".pbobjc.h"))
+            .addAdditionalHdrs(getGeneratedProtoOutputs(filteredInputProtos, HEADER_SUFFIX))
             .addAdditionalHdrs(getProtobufHeaders());
 
     if (isLinkingTarget()) {
-      compilationArtifacts.addNonArcSrcs(getGeneratedProtoOutputs(outputProtoFiles, ".pbobjc.m"));
+      compilationArtifacts.addNonArcSrcs(getProtoSourceFilesForCompilation(outputProtoFiles));
     }
 
     return compilationArtifacts.build();
+  }
+
+  private Iterable<Artifact> getProtoSourceFilesForCompilation(
+      Iterable<Artifact> outputProtoFiles) {
+    Iterable<Artifact> filteredOutputs =
+        Iterables.filter(outputProtoFiles, Predicates.not(Predicates.in(dylibHandledProtos)));
+    return getGeneratedProtoOutputs(filteredOutputs, SOURCE_SUFFIX);
   }
 
   private void registerGenerationAction(
@@ -478,8 +510,8 @@ final class ProtobufSupport {
             .addTransitiveInputs(getPortableProtoFilters())
             .addInput(protoInputsFile)
             .addInputs(inputProtos)
-            .addOutputs(getGeneratedProtoOutputs(outputProtos, ".pbobjc.h"))
-            .addOutputs(getGeneratedProtoOutputs(outputProtos, ".pbobjc.m"))
+            .addOutputs(getGeneratedProtoOutputs(outputProtos, HEADER_SUFFIX))
+            .addOutputs(getProtoSourceFilesForCompilation(outputProtos))
             .setExecutable(attributes.getProtoCompiler().getExecPath())
             .setCommandLine(getGenerationCommandLine(protoInputsFile))
             .build(ruleContext));
