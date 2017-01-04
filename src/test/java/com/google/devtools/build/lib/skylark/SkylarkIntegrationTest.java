@@ -1141,9 +1141,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     }
     assertContainsEvent(
         "test/skylark/BUILD: cycle in referenced extension files: \n"
-            + "  * //test/skylark:ext1.bzl\n"
-            + "    //test/skylark:ext2.bzl\n"
-            + "  * //test/skylark:ext1.bzl");
+            + ".-> //test/skylark:ext1.bzl\n"
+            + "|   //test/skylark:ext2.bzl\n"
+            + "`-- //test/skylark:ext1.bzl");
   }
 
   @Test

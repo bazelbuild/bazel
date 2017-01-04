@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.concurrent.Callable;
 
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
@@ -105,19 +104,22 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
         ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
     SkyKey cycleValue = null;
     for (SkyKey value : valuesToPrint) {
-      if (cycleValue == null) {
+      if (cycleValue == null) { // first item
         cycleValue = value;
-      }
-      if (value == cycleValue) {
-        cycleMessage.append("\n  * ");
+        cycleMessage.append("\n.-> ");
       } else {
-        cycleMessage.append("\n    ");
+        if (value == cycleValue) { // last item of the cycle
+          cycleMessage.append("\n`-- ");
+        } else {
+          cycleMessage.append("\n|   ");
+        }
       }
       cycleMessage.append(printFunction.apply(value));
     }
 
     if (cycle.size() == 1) {
       cycleMessage.append(" [self-edge]");
+      cycleMessage.append("\n`--");
     }
 
     return cycleValue;
