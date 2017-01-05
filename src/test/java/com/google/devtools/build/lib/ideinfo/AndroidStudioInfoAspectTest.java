@@ -95,11 +95,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     ArtifactLocation packageManifest = targetIdeInfo.getJavaIdeInfo().getPackageManifest();
     assertNotNull(packageManifest);
 
-    if (isNativeTest()) {
-      assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.manifest");
-    } else {
-      assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.java-manifest");
-    }
+    assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.manifest");
   }
 
   @Test
@@ -1865,24 +1861,5 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(jar.getIsSource()).isTrue();
     assertThat(jar.getIsExternal()).isTrue();
     assertThat(jar.getRelativePath()).isEqualTo("external/r/junit.jar");
-  }
-
-  /**
-   * Returns true if we are testing the native aspect, not the Skylark one. Eventually Skylark
-   * aspect will be equivalent to a native one, and this method will be removed.
-   */
-  @Override
-  protected boolean isNativeTest() {
-    return true;
-  }
-
-  /** Test for Skylark version of the aspect. */
-  @RunWith(JUnit4.class)
-  public static class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTest {
-
-    @Override
-    public boolean isNativeTest() {
-      return false;
-    }
   }
 }
