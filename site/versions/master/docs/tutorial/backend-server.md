@@ -63,7 +63,7 @@ backend server, however, you'll give Bazel instructions for downloading the
 required App Engine SDK package from a remote server. This is optional. You
 can also download and install the SDK manually on your filesystem and reference
 it from that location as described in the
-[App Engine rule documentation](/docs/be/appengine.html).
+[App Engine rule documentation](https://github.com/bazelbuild/rules_appengine).
 
 Add the following to your `WORKSPACE` file:
 
