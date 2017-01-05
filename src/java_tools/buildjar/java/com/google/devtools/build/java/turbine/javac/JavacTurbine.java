@@ -18,16 +18,19 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.buildjar.JarOwner;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.devtools.build.java.turbine.TurbineOptions;
-import com.google.devtools.build.java.turbine.TurbineOptionsParser;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
+import com.google.turbine.options.TurbineOptions;
+import com.google.turbine.options.TurbineOptionsParser;
 import com.sun.tools.javac.util.Context;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
@@ -67,6 +70,8 @@ import org.objectweb.asm.Opcodes;
  * real header compilation implementation.
  */
 public class JavacTurbine implements AutoCloseable {
+
+  private static final Splitter SPACE_SPLITTER = Splitter.on(' ');
 
   public static void main(String[] args) throws IOException {
     System.exit(compile(TurbineOptionsParser.parse(Arrays.asList(args))).exitCode());
@@ -236,14 +241,35 @@ public class JavacTurbine implements AutoCloseable {
             .setTargetLabel(turbineOptions.targetLabel().orNull())
             .addDepsArtifacts(turbineOptions.depsArtifacts())
             .setStrictJavaDeps(strictDepsMode.toString())
-            .addDirectMappings(turbineOptions.directJarsToTargets())
-            .addIndirectMappings(turbineOptions.indirectJarsToTargets());
+            .addDirectMappings(parseJarsToTargets(turbineOptions.directJarsToTargets()))
+            .addIndirectMappings(parseJarsToTargets(turbineOptions.indirectJarsToTargets()));
 
     if (turbineOptions.outputDeps().isPresent()) {
       dependencyModuleBuilder.setOutputDepsProtoFile(turbineOptions.outputDeps().get());
     }
 
     return dependencyModuleBuilder.build();
+  }
+
+  private static ImmutableMap<String, JarOwner> parseJarsToTargets(
+      ImmutableMap<String, String> input) {
+    ImmutableMap.Builder<String, JarOwner> result = ImmutableMap.builder();
+    for (Map.Entry<String, String> entry : input.entrySet()) {
+      result.put(entry.getKey(), parseJarOwner(entry.getKey()));
+    }
+    return result.build();
+  }
+
+  private static JarOwner parseJarOwner(String line) {
+    List<String> ownerStringParts = SPACE_SPLITTER.splitToList(line);
+    JarOwner owner;
+    Preconditions.checkState(ownerStringParts.size() == 1 || ownerStringParts.size() == 2);
+    if (ownerStringParts.size() == 1) {
+      owner = JarOwner.create(ownerStringParts.get(0));
+    } else {
+      owner = JarOwner.create(ownerStringParts.get(0), ownerStringParts.get(1));
+    }
+    return owner;
   }
 
   /** Write the class output from a successful compilation to the output jar. */

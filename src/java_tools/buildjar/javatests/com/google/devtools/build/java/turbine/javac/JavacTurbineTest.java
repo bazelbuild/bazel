@@ -24,11 +24,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.buildjar.JarOwner;
-import com.google.devtools.build.java.turbine.TurbineOptions;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency;
+import com.google.turbine.options.TurbineOptions;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TaskEvent;
@@ -388,9 +387,9 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
-    optionsBuilder.addDirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
+    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
+    optionsBuilder.addDirectJarToTarget(libB.toString(), "//lib:b");
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -529,10 +528,10 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString(), libD.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
-    optionsBuilder.addIndirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
-    optionsBuilder.addIndirectJarToTarget(libD.toString(), JarOwner.create("//lib:d"));
+    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
+    optionsBuilder.addIndirectJarToTarget(libB.toString(), "//lib:b");
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
+    optionsBuilder.addIndirectJarToTarget(libD.toString(), "//lib:d");
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -623,10 +622,10 @@ public class JavacTurbineTest {
     optionsBuilder.addClassPathEntries(
         ImmutableList.of(libA.toString(), libB.toString(), libC.toString(), libD.toString()));
     optionsBuilder.addAllDepsArtifacts(ImmutableList.of(depsA.toString()));
-    optionsBuilder.addDirectJarToTarget(libA.toString(), JarOwner.create("//lib:a"));
-    optionsBuilder.addIndirectJarToTarget(libB.toString(), JarOwner.create("//lib:b"));
-    optionsBuilder.addIndirectJarToTarget(libC.toString(), JarOwner.create("//lib:c"));
-    optionsBuilder.addIndirectJarToTarget(libD.toString(), JarOwner.create("//lib:d"));
+    optionsBuilder.addDirectJarToTarget(libA.toString(), "//lib:a");
+    optionsBuilder.addIndirectJarToTarget(libB.toString(), "//lib:b");
+    optionsBuilder.addIndirectJarToTarget(libC.toString(), "//lib:c");
+    optionsBuilder.addIndirectJarToTarget(libD.toString(), "//lib:d");
     optionsBuilder.setTargetLabel("//my:target");
 
     addSourceLines(
@@ -1213,7 +1212,7 @@ public class JavacTurbineTest {
         "}");
 
     optionsBuilder.addClassPathEntries(Collections.singleton(deps.toString()));
-    optionsBuilder.addDirectJarToTarget(deps.toString(), JarOwner.create("//deps"));
+    optionsBuilder.addDirectJarToTarget(deps.toString(), "//deps");
 
     compile();
     Map<String, byte[]> outputs = collectOutputs();
@@ -1230,7 +1229,7 @@ public class JavacTurbineTest {
     addSourceLines(
         "Hello.java", "import " + Lib.class.getCanonicalName() + ";", "class Hello extends Lib {}");
 
-    optionsBuilder.addIndirectJarToTarget(lib.toString(), JarOwner.create("//lib"));
+    optionsBuilder.addIndirectJarToTarget(lib.toString(), "//lib");
     optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
 
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));

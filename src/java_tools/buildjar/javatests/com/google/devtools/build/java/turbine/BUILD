@@ -10,17 +10,3 @@ package_group(
 )
 
 package(default_visibility = [":packages"])
-
-java_test(
-    name = "TurbineOptionsTest",
-    srcs = ["TurbineOptionsTest.java"],
-    tags = ["jdk8"],
-    deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options",
-        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options_parser",
-        "//third_party:guava",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
