@@ -49,10 +49,12 @@ def _swift_compilation_mode_flags(ctx):
   mode = ctx.var["COMPILATION_MODE"]
 
   flags = []
-  if mode == "dbg":
-    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
-  elif mode == "fastbuild":
-    flags += ["-Onone", "-DDEBUG", "-enable-testing"]
+  if mode == "dbg" or mode == "fastbuild":
+    # TODO(dmishe): Find a way to test -serialize-debugging-options
+    flags += [
+        "-Onone", "-DDEBUG", "-enable-testing", "-Xfrontend",
+        "-serialize-debugging-options"
+    ]
   elif mode == "opt":
     flags += ["-O", "-DNDEBUG"]
 
