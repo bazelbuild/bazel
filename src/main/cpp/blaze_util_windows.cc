@@ -563,12 +563,6 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     return;
   }
 
-  wstring wdaemon_output;
-  if (!blaze_util::AsWindowsPath(daemon_output, &wdaemon_output)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "AsWindowsPath");
-  }
-  wdaemon_output = wstring(L"\\\\?\\") + wdaemon_output;
-
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
   // We redirect stdout and stderr by telling CreateProcess to use a file handle
@@ -576,12 +570,10 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = CreateFileW(
-      /* lpFileName */ wdaemon_output.c_str(),
+  HANDLE output_file = CreateFileA(
+      /* lpFileName */ ConvertPath(daemon_output).c_str(),
       /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
       // So that the file can be read while the server is running
-      // TODO(laszlocsomor): add FILE_SHARE_DELETE, maybe that allows deleting
-      // jvm.out and fixes https://github.com/bazelbuild/bazel/issues/2326 ?
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ &sa,
       /* dwCreationDisposition */ CREATE_ALWAYS,
@@ -848,19 +840,30 @@ typedef struct {
   WCHAR PathBuffer[ANYSIZE_ARRAY];
 } REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
-// Defined by file_windows.cc
-HANDLE OpenDirectory(const WCHAR* path, bool read_write);
+// TODO(laszlocsomor): get rid of this method in favor of OpenDirectory in
+// file_windows, as part of fixing
+// https://github.com/bazelbuild/bazel/issues/2181.
+HANDLE OpenDirectory(const string& path, bool readWrite) {
+  HANDLE result = ::CreateFileA(
+      /* lpFileName */ path.c_str(),
+      /* dwDesiredAccess */ readWrite ? (GENERIC_READ | GENERIC_WRITE)
+                                      : GENERIC_READ,
+      /* dwShareMode */ 0,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
+          FILE_FLAG_BACKUP_SEMANTICS,
+      /* hTemplateFile */ NULL);
+  if (result == INVALID_HANDLE_VALUE) {
+    PrintError("CreateFile(" + path + ")");
+  }
+
+  return result;
+}
 
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   string target = ConvertPath(posix_target);
   string name = ConvertPath(posix_name);
-  wstring wname;
-
-  if (!blaze_util::AsWindowsPath(name, &wname)) {
-    PrintError("SymlinkDirectories: AsWindowsPath(" + name + ")");
-    return false;
-  }
-  wname = wstring(L"\\\\?\\") + wname;
 
   // Junctions are directories, so create one
   if (!::CreateDirectoryA(name.c_str(), NULL)) {
@@ -868,7 +871,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
     return false;
   }
 
-  HANDLE directory = OpenDirectory(wname.c_str(), true);
+  HANDLE directory = OpenDirectory(name, true);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -940,15 +943,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
 // TODO(laszlocsomor): use JunctionResolver in file_windows.cc
 bool ReadDirectorySymlink(const string &posix_name, string* result) {
   string name = ConvertPath(posix_name);
-  wstring wname;
-
-  if (!blaze_util::AsWindowsPath(name, &wname)) {
-    PrintError("ReadDirectorySymlink: AsWindowsPath(" + name + ")");
-    return false;
-  }
-  wname = wstring(L"\\\\?\\") + wname;
-
-  HANDLE directory = OpenDirectory(wname.c_str(), false);
+  HANDLE directory = OpenDirectory(name, false);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }
