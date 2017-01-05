@@ -22,7 +22,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "JacocoCoverage_jarjar_deploy.jar",
+        "JacocoCoverage_deploy.jar",
     ],
 )
 
@@ -67,15 +67,4 @@ java_library(
     deps = [
         "//third_party:apache_commons_lang",
     ],
-)
-
-genrule(
-    name = "Jacoco_jarjar",
-    srcs = [
-        ":JacocoCoverage_deploy.jar",
-        ":JacocoCoverage.jarjar",
-    ],
-    outs = ["JacocoCoverage_jarjar_deploy.jar"],
-    cmd = "$(location //third_party/java/jarjar:jarjar_bin) process $(location :JacocoCoverage.jarjar) $(location :JacocoCoverage_deploy.jar) $@",
-    tools = ["//third_party/java/jarjar:jarjar_bin"],
 )
