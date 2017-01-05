@@ -1056,7 +1056,7 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
 
   static const char* alphabet
       // Exactly 64 characters.
-      = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789$-";
+      = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789_-";
 
   // The length of the resulting filename (8 characters).
   static const int filename_length = blaze_util::Md5Digest::kDigestLength / 2;
