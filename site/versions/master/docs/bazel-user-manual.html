@@ -2015,6 +2015,15 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   setting is high enough.
 </p>
 
+<h4 id='flag--build_tag_filters'><code class='flag'>--build_tag_filters <var>tag[,tag]*</var></code></h4>
+<p>
+  If specified, Bazel will build only targets that have at least one required tag
+  (if any of them are specified) and does not have any excluded tags. Build tag
+  filter is specified as comma delimited list of tag keywords, optionally
+  preceded with '-' sign used to denote excluded tags. Required tags may also
+  have a preceding '+' sign.
+</p>
+
 <h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
 <p>
   If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
