@@ -24,9 +24,6 @@ public class ApiLevelR12 extends ApiLevel {
 
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
-          .putAll("3", "arm")
-          .putAll("4", "arm")
-          .putAll("5", "arm")
           .putAll("8", "arm")
           .putAll("9", "arm", "mips", "x86")
           .putAll("12", "arm", "mips", "x86")
@@ -59,11 +56,7 @@ public class ApiLevelR12 extends ApiLevel {
    */
   private static final ImmutableMap<String, String> API_EQUIVALENCIES =
       ImmutableMap.<String, String>builder()
-          .put("3", "3")
-          .put("4", "4")
-
           // Case 1
-          .put("5", "5")
           .put("6", "5")
           .put("7", "5")
           .put("8", "8")
