@@ -18,6 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.jacoco.core.analysis.Analyzer;
+import org.jacoco.core.analysis.IClassCoverage;
+import org.jacoco.core.analysis.ICoverageVisitor;
 import org.jacoco.core.data.ExecutionData;
 import org.jacoco.core.data.ExecutionDataStore;
 import org.jacoco.core.internal.data.CRC64;
@@ -36,7 +38,12 @@ public class BranchDetailAnalyzer extends Analyzer {
   private final Map<String, BranchCoverageDetail> branchDetails;
 
   public BranchDetailAnalyzer(final ExecutionDataStore executionData) {
-    super(executionData, null);
+    super(executionData, new ICoverageVisitor() {
+      @Override
+      public void visitCoverage(IClassCoverage coverage) {
+      }
+    });
+
     this.executionData = executionData;
     this.branchDetails = new TreeMap<String, BranchCoverageDetail>();
   }
