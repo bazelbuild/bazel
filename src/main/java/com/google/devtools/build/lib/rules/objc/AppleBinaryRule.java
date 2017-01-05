@@ -69,8 +69,7 @@ public class AppleBinaryRule implements RuleDefinition {
    * binary along with required resources. The test bundle is then loaded and run during test
    * execution.
    *
-   * <p>apple_binary for now supports both the executable and the bundle types, and this is
-   * configurable by the "binary_type" attribute described below.
+   * <p>The binary type is configurable via the "binary_type" attribute described below.
    */
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -148,11 +147,9 @@ public class AppleBinaryRule implements RuleDefinition {
 <p>This rule produces single- or multi-architecture ("fat") Objective-C libraries and/or binaries,
 typically used in creating apple bundles, such as frameworks, extensions, or applications.</p>
 
-<p>The <code>lipo</code> tool is used to combine files of multiple architectures. The
-<code>--ios_multi_cpus</code> flag controls which architectures are included in the output.</p>
-
-<p>This rule currently only supports building for ios architectures, though more platforms
-will be supported in the future.</p>
+<p>The <code>lipo</code> tool is used to combine files of multiple architectures. One of several
+flags may control which architectures are included in the output, depending on the value of
+the "platform_type" attribute.</p>
 
 ${IMPLICIT_OUTPUTS}
 
