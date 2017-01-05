@@ -19,6 +19,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -63,23 +64,32 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
     if (alreadyReported) {
       return true;
     } else if (Iterables.all(cycle, IS_SKYLARK_MODULE_SKY_KEY)
-        // The last element of the path to the cycle has to be a PackageFunction.
-        && IS_PACKAGE_SKY_KEY.apply(lastPathElement)) {
-      StringBuilder cycleMessage =
-          new StringBuilder()
-              .append(lastPathElement.argument()).append("/BUILD: ")
-              .append("cycle in referenced extension files: ");
+        // The last element before the cycle has to be a PackageFunction or SkylarkModule.
+        && (IS_PACKAGE_SKY_KEY.apply(lastPathElement)
+            || IS_SKYLARK_MODULE_SKY_KEY.apply(lastPathElement))) {
 
-      AbstractLabelCycleReporter.printCycle(
-          cycleInfo.getCycle(),
-          cycleMessage,
+      Function printer =
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {
-              return ((SkylarkImportLookupValue.SkylarkImportLookupKey) input.argument())
-                  .importLabel.toString();
+              if (input.argument() instanceof SkylarkImportLookupValue.SkylarkImportLookupKey) {
+                return ((SkylarkImportLookupValue.SkylarkImportLookupKey) input.argument())
+                    .importLabel.toString();
+              } else if (input.argument() instanceof PackageIdentifier) {
+                return ((PackageIdentifier) input.argument()) + "/BUILD";
+              } else {
+                throw new UnsupportedOperationException();
+              }
             }
-          });
+          };
+
+      StringBuilder cycleMessage =
+          new StringBuilder()
+              .append("cycle detected in extension files: ")
+              .append("\n    ")
+              .append(printer.apply(lastPathElement));
+
+      AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage, printer);
       // TODO(bazel-team): it would be nice to pass the Location of the load Statement in the
       // BUILD file.
       eventHandler.handle(Event.error(null, cycleMessage.toString()));

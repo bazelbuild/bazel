@@ -1120,7 +1120,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test/skylark:cr4");
   }
 
-
   @Test
   public void testRecursiveImport() throws Exception {
     scratch.file("test/skylark/ext2.bzl", "load('/test/skylark/ext1', 'symbol2')");
@@ -1140,10 +1139,39 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       // This is expected
     }
     assertContainsEvent(
-        "test/skylark/BUILD: cycle in referenced extension files: \n"
+        "cycle detected in extension files: \n"
+            + "    test/skylark/BUILD\n"
             + ".-> //test/skylark:ext1.bzl\n"
             + "|   //test/skylark:ext2.bzl\n"
             + "`-- //test/skylark:ext1.bzl");
+  }
+
+  @Test
+  public void testRecursiveImport2() throws Exception {
+    scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
+    scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
+    scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
+    scratch.file("test/skylark/ext4.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('//test/skylark:ext1.bzl', 'custom_rule')",
+        "genrule(name = 'rule')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      getTarget("//test/skylark:rule");
+      fail();
+    } catch (BuildFileContainsErrorsException e) {
+      // This is expected
+    }
+    assertContainsEvent(
+        "cycle detected in extension files: \n"
+            + "    //test/skylark:ext1.bzl\n"
+            + ".-> //test/skylark:ext2.bzl\n"
+            + "|   //test/skylark:ext3.bzl\n"
+            + "|   //test/skylark:ext4.bzl\n"
+            + "`-- //test/skylark:ext2.bzl");
   }
 
   @Test
@@ -1226,5 +1254,35 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       assertContainsEvent("Loading of target '//test/skylark:rule' failed; build aborted");
       assertThat(eventCollector).hasSize(1);
     }
+
+    @Override
+    @Test
+    public void testRecursiveImport2() throws Exception {
+      scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
+      scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
+      scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
+      scratch.file("test/skylark/ext4.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
+
+      scratch.file(
+          "test/skylark/BUILD",
+          "load('//test/skylark:ext1.bzl', 'custom_rule')",
+          "genrule(name = 'rule')");
+
+      reporter.removeHandler(failFastHandler);
+      try {
+        ensureTargetsVisited("//test/skylark:rule");
+        getTarget("//test/skylark:rule");
+        fail();
+      } catch (BuildFileContainsErrorsException e) {
+        // This is expected
+      }
+      assertContainsEvent("//test/skylark:ext2.bzl");
+      assertContainsEvent("//test/skylark:ext3.bzl");
+      assertContainsEvent("//test/skylark:ext4.bzl");
+      assertContainsEvent("Skylark import cycle");
+      assertContainsEvent("Loading of target '//test/skylark:rule' failed; build aborted");
+      assertThat(eventCollector).hasSize(1);
+    }
+
   }
 }
