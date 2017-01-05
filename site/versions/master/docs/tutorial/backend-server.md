@@ -210,7 +210,13 @@ Platform Console.
 Follow [this link](https://console.cloud.google.com/projectselector/appengine/create?lang=java&st=true)
 to perform these actions.
 
-To deploy the application, enter the following:
+Build the target that allows to deploy to App Engine:
+
+```bash
+$ bazel build --java_toolchain=@io_bazel_rules_appengine//appengine:jdk7 //backend:backend.deploy
+```
+
+Then, to deploy the application, enter the following:
 
 ```bash
 $ $WORKSPACE/bazel-bin/backend/backend.deploy <project-id>
