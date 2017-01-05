@@ -581,32 +581,6 @@ public class PackageFunction implements SkyFunction {
     return buildFileValue;
   }
 
-  @Nullable
-  private SkylarkImportResult discoverSkylarkImports(
-      Path buildFilePath,
-      PackageIdentifier packageId,
-      AstAfterPreprocessing astAfterPreprocessing,
-      Environment env)
-      throws PackageFunctionException, InterruptedException {
-    SkylarkImportResult importResult;
-    if (astAfterPreprocessing.containsAstParsingErrors) {
-      importResult =
-          new SkylarkImportResult(
-              ImmutableMap.<String, Extension>of(),
-              ImmutableList.<Label>of());
-    } else {
-      importResult =
-          fetchImportsFromBuildFile(
-              buildFilePath,
-              packageId,
-              astAfterPreprocessing.ast,
-              env,
-              skylarkImportLookupFunctionForInlining);
-    }
-
-    return importResult;
-  }
-
   /**
    * Fetch the skylark loads for this BUILD file. If any of them haven't been computed yet,
    * returns null.
@@ -1210,11 +1184,13 @@ public class PackageFunction implements SkyFunction {
         Set<SkyKey> globDepsRequestedDuringPreprocessing = astCacheEntry.globDepKeys;
         SkylarkImportResult importResult;
         try {
-          importResult = discoverSkylarkImports(
-              buildFilePath,
-              packageId,
-              astAfterPreprocessing,
-              env);
+          importResult =
+              fetchImportsFromBuildFile(
+                  buildFilePath,
+                  packageId,
+                  astAfterPreprocessing.ast,
+                  env,
+                  skylarkImportLookupFunctionForInlining);
         } catch (PackageFunctionException | InterruptedException e) {
           astCache.invalidate(packageId);
           throw e;
