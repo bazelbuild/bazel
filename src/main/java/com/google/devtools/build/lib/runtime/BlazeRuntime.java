@@ -698,7 +698,7 @@ public final class BlazeRuntime {
 
     new InterruptSignalHandler() {
       @Override
-      protected void onSignal() {
+      public void run() {
         LOG.info("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
         mainThread.interrupt();
@@ -764,13 +764,14 @@ public final class BlazeRuntime {
       final RPCServer blazeServer = createBlazeRPCServer(modules, Arrays.asList(args));
 
       // Register the signal handler.
-       sigintHandler = new InterruptSignalHandler() {
-        @Override
-        protected void onSignal() {
-          LOG.severe("User interrupt");
-          blazeServer.interrupt();
-        }
-      };
+      sigintHandler =
+          new InterruptSignalHandler() {
+            @Override
+            public void run() {
+              LOG.severe("User interrupt");
+              blazeServer.interrupt();
+            }
+          };
 
       blazeServer.serve();
       return ExitCode.SUCCESS.getNumericExitCode();
@@ -901,9 +902,6 @@ public final class BlazeRuntime {
 
     if (startupOptions.oomMoreEagerlyThreshold != 100) {
       new RetainedHeapLimiter(startupOptions.oomMoreEagerlyThreshold).install();
-    }
-    if (startupOptions.oomMoreEagerly) {
-      new OomSignalHandler();
     }
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;

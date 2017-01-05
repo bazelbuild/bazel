@@ -13,11 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.server.signal;
 
+import com.google.devtools.build.lib.util.Preconditions;
 import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
-/** Class that can be extended to handle SIGINT in a custom way. */
-public abstract class InterruptSignalHandler extends AbstractSignalHandler {
+/**
+ * A facade around sun.misc.Signal providing special-purpose SIGINT handling.
+ *
+ * <p>We use this code in preference to using sun.misc directly since the latter is deprecated, and
+ * depending on it causes the jdk1.6 javac to emit an unsuppressable warning that sun.misc is
+ * "Sun proprietary API and may be removed in a future release".
+ */
+public abstract class InterruptSignalHandler implements Runnable {
+
   private static final Signal SIGINT = new Signal("INT");
+
+  private SignalHandler oldHandler;
 
   /**
    * Constructs an InterruptSignalHandler instance.  Until the uninstall()
@@ -25,6 +36,21 @@ public abstract class InterruptSignalHandler extends AbstractSignalHandler {
    * cause the run() method to be invoked in another thread.
    */
   protected InterruptSignalHandler() {
-    super(SIGINT);
+    this.oldHandler =
+        Signal.handle(
+            SIGINT,
+            new SignalHandler() {
+              @Override
+              public void handle(Signal signal) {
+                run();
+              }
+            });
+  }
+
+  /** Disables SIGINT handling. */
+  public final synchronized void uninstall() {
+    Preconditions.checkNotNull(oldHandler, "uninstall() already called");
+    Signal.handle(SIGINT, oldHandler);
+    oldHandler = null;
   }
 }
