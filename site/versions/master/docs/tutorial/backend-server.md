@@ -12,7 +12,6 @@ Here, you'll do the following:
 
 *   Review the source files for the app
 *   Update the `WORKSPACE` file
-*   Create the `appengine.BUILD` file
 *   Create a `BUILD` file
 *   Run the build
 *   Find the build outputs
@@ -56,7 +55,7 @@ file. For the backend server, these are references to the App Engine SDK,
 the Java Servlet SDK and other libraries needed to build the App Engine
 applications.
 
-### Add a git\_repository rule
+### Add the App Engine rule
 
 When you built the Android app, you added a reference to the location on your
 filesystem where you downloaded and installed the Android SDK. For the
@@ -79,10 +78,13 @@ load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_repositori
 appengine_repositories()
 ```
 
-[`git_repository`](/docs/be/workspace.html#git_repository) downloads the
-AppEngine rules from GitHub, then the next two lines use the
-`appengine_repositories` function defined in these rules to download the
-libraries and SDK needed to build AppEngine applications.
+[`http_archive`](/docs/be/workspace.html#http_archive) downloads the
+AppEngine rules from a GitHub archive. We could also have used 
+[`git_repository`](/docs/be/workspace.html#git_repository) to fetch the rules
+directly from the Git repository.
+Then the next two lines use the `appengine_repositories` function defined in
+these rules to download the libraries and SDK needed to build AppEngine
+applications.
 
 Now, save and close the file. You can compare your `WORKSPACE` file to the
 [completed example](https://github.com/bazelbuild/examples//blob/master/tutorial/WORKSPACE)
