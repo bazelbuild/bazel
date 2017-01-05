@@ -312,6 +312,62 @@ EOF
   assert_contains "build_tools_version = \"25.0.1\"" output
 }
 
+function test_android_sdk_repository_path_from_environment() {
+  create_new_workspace
+  setup_android_support
+  # Overwrite WORKSPACE that was created by setup_android_support with one that
+  # does not set the path attribute of android_sdk_repository.
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    api_level = 25,
+)
+EOF
+  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail \
+    "android_sdk_repository failed to build with \$ANDROID_HOME instead of " \
+    "path"
+}
+
+function test_android_ndk_repository_path_from_environment() {
+  create_new_workspace
+  setup_android_support
+  cat > WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 25,
+)
+EOF
+  ANDROID_NDK_HOME=$ANDROID_NDK bazel build @androidndk//:files || fail \
+    "android_ndk_repository failed to build with \$ANDROID_NDK_HOME instead " \
+    "of path"
+}
+
+function test_android_sdk_repository_no_path_or_android_home() {
+  create_new_workspace
+  setup_android_support
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    api_level = 25,
+)
+EOF
+  bazel build @androidsdk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Either the path attribute of android_sdk_repository"
+}
+
+function test_android_ndk_repository_no_path_or_android_ndk_home() {
+  create_new_workspace
+  setup_android_support
+  cat > WORKSPACE <<EOF
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 25,
+)
+EOF
+  bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
+  expect_log "Either the path attribute of android_ndk_repository"
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later

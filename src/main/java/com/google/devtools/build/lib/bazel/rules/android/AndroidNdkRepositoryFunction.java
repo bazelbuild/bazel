@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkReleas
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -57,7 +57,8 @@ import java.util.Map;
  */
 public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
-  private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-"; 
+  private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
+  private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
   
   private static final class CrosstoolStlPair {
 
@@ -80,7 +81,21 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
+    WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
+    PathFragment pathFragment;
+    if (attributes.isAttributeValueExplicitlySpecified("path")) {
+      pathFragment = getTargetPath(rule, directories.getWorkspace());
+    } else if (clientEnvironment.containsKey(PATH_ENV_VAR)) {
+      pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), clientEnvironment);
+    } else {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              "Either the path attribute of android_ndk_repository or the ANDROID_NDK_HOME "
+                  + " environment variable must be set."),
+          Transience.PERSISTENT);
+    }
+
     Path ndkSymlinkTreeDirectory = outputDirectory.getRelative("ndk");
     try {
       ndkSymlinkTreeDirectory.createDirectory();
@@ -93,16 +108,20 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
     String ruleName = rule.getName();
-    String apiLevelAttr = attributes.get("api_level", Type.INTEGER).toString();
 
     NdkRelease ndkRelease = getNdkRelease(outputDirectory, env);
     if (env.valuesMissing()) {
       return null;
     }
-    
-    ApiLevel apiLevel = ApiLevel.getApiLevel(ndkRelease, env.getListener(), ruleName, apiLevelAttr);
+
+    ApiLevel apiLevel;
+    try {
+      String apiLevelAttr = attributes.get("api_level", Type.INTEGER).toString();
+      apiLevel = ApiLevel.getApiLevel(ndkRelease, env.getListener(), ruleName, apiLevelAttr);
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
 
     if (!ndkRelease.isValid) {
       env.getListener().handle(Event.warn(String.format(
@@ -148,6 +167,11 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return AndroidNdkRepositoryRule.class;
+  }
+
+  private static PathFragment getAndroidNdkHomeEnvironmentVar(
+      Path workspace, Map<String, String> env) {
+    return workspace.getRelative(new PathFragment(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String createBuildFile(String ruleName, List<CrosstoolStlPair> crosstools) {

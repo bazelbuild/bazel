@@ -19,11 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.packages.AttributeMap;
-import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.Dirents;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -43,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Properties;
 import javax.annotation.Nullable;
 
@@ -52,6 +52,7 @@ import javax.annotation.Nullable;
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   private static final String BUILD_TOOLS_DIR_NAME = "build-tools";
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
+  private static final String PATH_ENV_VAR = "ANDROID_HOME";
 
   @Override
   public boolean isLocal(Rule rule) {
@@ -64,18 +65,40 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       throws SkyFunctionException, InterruptedException {
 
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
+    WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
+    PathFragment pathFragment;
+    if (attributes.isAttributeValueExplicitlySpecified("path")) {
+      pathFragment = getTargetPath(rule, directories.getWorkspace());
+    } else if (clientEnvironment.containsKey(PATH_ENV_VAR)){
+      pathFragment = getAndroidHomeEnvironmentVar(directories.getWorkspace(), clientEnvironment);
+    } else {
+      throw new RepositoryFunctionException(
+          new EvalException(
+              rule.getLocation(),
+              "Either the path attribute of android_sdk_repository or the ANDROID_HOME environment "
+                  + " variable must be set."),
+          Transience.PERSISTENT);
+    }
 
     if (!symlinkLocalRepositoryContents(
         outputDirectory, directories.getOutputBase().getFileSystem().getPath(pathFragment))) {
       return null;
     }
 
-    AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-    Integer apiLevel = attributes.get("api_level", Type.INTEGER);
+    String apiLevel;
+    try {
+      apiLevel = attributes.get("api_level", Type.INTEGER).toString();
+    } catch (EvalException e) {
+      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    }
+
     String buildToolsDirectory;
     if (attributes.isAttributeValueExplicitlySpecified("build_tools_version")) {
-      buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
+      try {
+        buildToolsDirectory = attributes.get("build_tools_version", Type.STRING);
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
     } else {
       // If the build_tools_version attribute is not explicitly set, we select the highest version
       // installed in the SDK.
@@ -117,10 +140,10 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     String template = getStringResource("android_sdk_repository_template.txt");
 
     String buildFile = template
-        .replaceAll("%repository_name%", rule.getName())
-        .replaceAll("%build_tools_version%", buildToolsVersion)
-        .replaceAll("%build_tools_directory%", buildToolsDirectory)
-        .replaceAll("%api_level%", apiLevel.toString());
+        .replace("%repository_name%", rule.getName())
+        .replace("%build_tools_version%", buildToolsVersion)
+        .replace("%build_tools_directory%", buildToolsDirectory)
+        .replace("%api_level%", apiLevel);
 
     // All local maven repositories that are shipped in the Android SDK.
     // TODO(ajmichael): Create SkyKeys so that if the SDK changes, this function will get rerun.
@@ -136,7 +159,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
             }
           }));
       sdkExtrasRepository.writeBuildFiles(outputDirectory);
-      buildFile = buildFile.replaceAll(
+      buildFile = buildFile.replace(
           "%exported_files%", sdkExtrasRepository.getExportsFiles(outputDirectory));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -149,6 +172,11 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return AndroidSdkRepositoryRule.class;
+  }
+
+  private static PathFragment getAndroidHomeEnvironmentVar(
+      Path workspace, Map<String, String> env) {
+    return workspace.getRelative(new PathFragment(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String getStringResource(String name) {

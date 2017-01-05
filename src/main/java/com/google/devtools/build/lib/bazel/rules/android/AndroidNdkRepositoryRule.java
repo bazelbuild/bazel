@@ -61,7 +61,7 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
         .setUndocumented()
         .setWorkspaceOnly()
         .setExternalBindingsFunction(BINDINGS_FUNCTION)
-        .add(attr("path", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
+        .add(attr("path", STRING).nonconfigurable("WORKSPACE rule"))
         .add(attr("api_level", INTEGER).mandatory().nonconfigurable("WORKSPACE rule"))
         .build();
   }

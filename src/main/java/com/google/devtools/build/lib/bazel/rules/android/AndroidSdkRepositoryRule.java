@@ -57,7 +57,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         .setUndocumented()
         .setWorkspaceOnly()
         .setExternalBindingsFunction(BINDINGS_FUNCTION)
-        .add(attr("path", STRING).mandatory().nonconfigurable("WORKSPACE rule"))
+        .add(attr("path", STRING).nonconfigurable("WORKSPACE rule"))
         // This is technically the directory for the build tools in $sdk/build-tools. In particular,
         // preview SDKs are in "$sdk/build-tools/x.y.z-preview", but the version is typically
         // actually "x.y.z-rcN". E.g., for 24, the directory is "$sdk/build-tools/24.0.0-preview",
