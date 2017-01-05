@@ -44,7 +44,7 @@ bool WriteFile(const std::string &content, const std::string &filename);
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);
 
-// Returns true if this path exists.
+// Returns true if this path exists, following symlinks.
 bool PathExists(const std::string& path);
 
 // Returns the real, absolute path corresponding to `path`.

@@ -213,9 +213,15 @@ bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
 }
 
+// TODO(bazel-team): implement all functions in file_windows.cc, use them from
+// MSYS, remove file_posix.cc from the `srcs` of
+// //src/main/cpp/util:file when building for MSYS, and remove all
+// #ifndef __CYGWIN__ directives.
+#ifndef __CYGWIN__
 bool PathExists(const string& path) {
   return access(path.c_str(), F_OK) == 0;
 }
+#endif  // not __CYGWIN__
 
 string MakeCanonical(const char *path) {
   char *resolved_path = realpath(path, NULL);

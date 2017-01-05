@@ -17,6 +17,7 @@
 #include <windows.h>
 
 #include <memory>  // unique_ptr
+#include <vector>
 
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
@@ -28,6 +29,7 @@ namespace blaze_util {
 using std::pair;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 using std::wstring;
 
 class WindowsPipe : public IPipe {
@@ -139,23 +141,37 @@ pair<string, string> SplitPath(const string& path) {
 
 class MsysRoot {
  public:
-  static bool IsValid() { return instance_.data_.first; }
-  static const string& GetPath() { return instance_.data_.second; }
-  static void ReInitForTesting() { instance_.data_ = Get(); }
+  static bool IsValid();
+  static const string& GetPath();
+  static void ResetForTesting() { instance_.initialized_ = false; }
 
  private:
-  std::pair<bool, string> data_;
+  bool initialized_;
+  bool valid_;
+  string path_;
   static MsysRoot instance_;
 
-  static std::pair<bool, string> Get();
-  MsysRoot() : data_(Get()) {}
+  static bool Get(string* path);
+
+  MsysRoot() : initialized_(false) {}
+  void InitIfNecessary();
 };
 
 MsysRoot MsysRoot::instance_;
 
-void ReinitMsysRootForTesting() { MsysRoot::ReInitForTesting(); }
+void ResetMsysRootForTesting() { MsysRoot::ResetForTesting(); }
 
-std::pair<bool, string> MsysRoot::Get() {
+bool MsysRoot::IsValid() {
+  instance_.InitIfNecessary();
+  return instance_.valid_;
+}
+
+const string& MsysRoot::GetPath() {
+  instance_.InitIfNecessary();
+  return instance_.path_;
+}
+
+bool MsysRoot::Get(string* path) {
   string result;
   char value[MAX_PATH];
   DWORD len = GetEnvironmentVariableA("BAZEL_SH", value, MAX_PATH);
@@ -167,7 +183,7 @@ std::pair<bool, string> MsysRoot::Get() {
       PrintError(
           "BAZEL_SH environment variable is not defined, cannot convert MSYS "
           "paths to Windows paths");
-      return std::make_pair(false, "");
+      return false;
     }
     result = value2;
   }
@@ -181,9 +197,17 @@ std::pair<bool, string> MsysRoot::Get() {
     result = Dirname(result);
   }
   if (IsRootDirectory(result)) {
-    return std::make_pair(false, "");
+    return false;
   }
-  return std::make_pair(true, std::move(result));
+  *path = result;
+  return true;
+}
+
+void MsysRoot::InitIfNecessary() {
+  if (!initialized_) {
+    valid_ = Get(&path_);
+    initialized_ = true;
+  }
 }
 
 bool AsWindowsPath(const string& path, wstring* result) {
@@ -285,23 +309,165 @@ bool UnlinkPath(const string& file_path) {
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-bool PathExists(const string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::PathExists is not implemented on Windows");
-  return false;
+HANDLE OpenDirectory(const WCHAR* path, bool read_write) {
+  return ::CreateFileW(
+      /* lpFileName */ path,
+      /* dwDesiredAccess */ read_write ? (GENERIC_READ | GENERIC_WRITE)
+                                       : GENERIC_READ,
+      /* dwShareMode */ 0,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
+          FILE_FLAG_BACKUP_SEMANTICS,
+      /* hTemplateFile */ NULL);
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-string MakeCanonical(const char *path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::MakeCanonical is not implemented on Windows");
-  return "";
+class JunctionResolver {
+ public:
+  JunctionResolver();
+
+  // Resolves junctions, or simply checks file existence (if not a junction).
+  //
+  // Returns true if `path` is not a junction and it exists.
+  // Returns true if `path` is a junction and can be successfully resolved and
+  // its target exists.
+  // Returns false otherwise.
+  //
+  // If `result` is not nullptr and the method returned false, then this will be
+  // reset to point to a new WCHAR buffer containing the final resolved path.
+  // If `path` was a junction, this will be the fully resolved path, otherwise
+  // it will be a copy of `path`.
+  bool Resolve(const WCHAR* path, std::unique_ptr<WCHAR[]>* result);
+
+ private:
+  static const int kMaximumJunctionDepth;
+
+  // This struct is a simplified version of REPARSE_DATA_BUFFER, defined by
+  // the <Ntifs.h> header file, which is not available on some systems.
+  // This struct removes the original one's union keeping only
+  // MountPointReparseBuffer, while also renames some fields to reflect how
+  // ::DeviceIoControl actually uses them when reading junction data.
+  typedef struct _ReparseMountPointData {
+    static const int kSize = MAXIMUM_REPARSE_DATA_BUFFER_SIZE;
+
+    ULONG ReparseTag;
+    USHORT Dummy1;
+    USHORT Dummy2;
+    USHORT Dummy3;
+    USHORT Dummy4;
+    // Length of string in PathBuffer, in WCHARs, including the "\??\" prefix
+    // and the null-terminator.
+    //
+    // Reparse points use the "\??\" prefix instead of "\\?\", presumably
+    // because the junction is resolved by the kernel and it points to a Device
+    // Object path (which is what the kernel understands), and "\??" is a device
+    // path. ("\??" is shorthand for "\DosDevices" under which disk drives
+    // reside, e.g. "C:" is a symlink to "\DosDevices\C:" aka "\??\C:").
+    // See (on 2017-01-04):
+    // https://msdn.microsoft.com/en-us/library/windows/hardware/ff565384(v=vs.85).aspx
+    // https://msdn.microsoft.com/en-us/library/windows/hardware/ff557762(v=vs.85).aspx
+    USHORT Size;
+    USHORT Dummy5;
+    // First character of the string returned by ::DeviceIoControl. The rest of
+    // the string follows this in memory, that's why the caller must allocate
+    // kSize bytes and cast that data to ReparseMountPointData.
+    WCHAR PathBuffer[1];
+  } ReparseMountPointData;
+
+  uint8_t reparse_buffer_bytes_[ReparseMountPointData::kSize];
+  ReparseMountPointData* reparse_buffer_;
+
+  bool Resolve(const WCHAR* path, std::unique_ptr<WCHAR[]>* result,
+               int max_junction_depth);
+};
+
+// Maximum reparse point depth on Windows 8 and above is 63.
+// Source (on 2016-12-20):
+// https://msdn.microsoft.com/en-us/library/windows/desktop/aa365503(v=vs.85).aspx
+const int JunctionResolver::kMaximumJunctionDepth = 63;
+
+JunctionResolver::JunctionResolver()
+    : reparse_buffer_(
+          reinterpret_cast<ReparseMountPointData*>(reparse_buffer_bytes_)) {
+  reparse_buffer_->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
+
+bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
+                               int max_junction_depth) {
+  DWORD attributes = ::GetFileAttributesW(path);
+  if (attributes == INVALID_FILE_ATTRIBUTES) {
+    // `path` does not exist.
+    return false;
+  } else {
+    if ((attributes & FILE_ATTRIBUTE_DIRECTORY) != 0 &&
+        (attributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+      // `path` is a junction. GetFileAttributesW succeeds for these even if
+      // their target does not exist. We need to resolve the target and check if
+      // that exists. (There seems to be no API function for this.)
+      if (max_junction_depth <= 0) {
+        // Too many levels of junctions. Simply say this file doesn't exist.
+        return false;
+      }
+      // Get a handle to the directory.
+      HANDLE handle = OpenDirectory(path, /* read_write */ false);
+      if (handle == INVALID_HANDLE_VALUE) {
+        // Opening the junction failed for whatever reason. For all intents and
+        // purposes we can treat this file as if it didn't exist.
+        return false;
+      }
+      // Read out the junction data.
+      DWORD bytes_returned;
+      BOOL ok = ::DeviceIoControl(
+          handle, FSCTL_GET_REPARSE_POINT, NULL, 0, reparse_buffer_,
+          MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned, NULL);
+      CloseHandle(handle);
+      if (!ok) {
+        // Reading the junction data failed. For all intents and purposes we can
+        // treat this file as if it didn't exist.
+        return false;
+      }
+      reparse_buffer_->PathBuffer[reparse_buffer_->Size - 1] = UNICODE_NULL;
+      // Check if the junction target exists.
+      return Resolve(reparse_buffer_->PathBuffer, result,
+                     max_junction_depth - 1);
+    }
+  }
+  // `path` is a normal file or directory.
+  if (result) {
+    size_t len = wcslen(path) + 1;
+    result->reset(new WCHAR[len]);
+    memcpy(result->get(), path, len * sizeof(WCHAR));
+  }
+  return true;
+}
+
+bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
+  return Resolve(path, result, kMaximumJunctionDepth);
+}
+
+bool PathExists(const string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  wstring wpath;
+  if (!AsWindowsPath(NormalizePath(path), &wpath)) {
+    PrintError("could not convert path to widechar, path=(%s), err=%d\n",
+               path.c_str(), GetLastError());
+    return false;
+  }
+  if (!IsAbsolute(path)) {
+    DWORD len = ::GetCurrentDirectoryW(0, nullptr);
+    unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
+    if (!GetCurrentDirectoryW(len, cwd.get())) {
+      PrintError("could not make the path absolute, path=(%s), err=%d\n",
+                 path.c_str(), GetLastError());
+      return false;
+    }
+    wpath = wstring(cwd.get()) + L"\\" + wpath;
+  }
+  wpath = wstring(L"\\\\?\\") + wpath;
+  return JunctionResolver().Resolve(wpath.c_str(), nullptr);
+}
 
 #ifdef COMPILER_MSVC
 bool CanAccess(const string& path, bool read, bool write, bool exec) {

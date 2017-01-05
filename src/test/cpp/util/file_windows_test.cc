@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <stdio.h>
 #include <string.h>
-#include <windows.h>  // SetEnvironmentVariableA
+#include <windows.h>
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -24,7 +25,9 @@
 
 namespace blaze_util {
 
-void ReinitMsysRootForTesting();  // defined in file_windows.cc
+using std::string;
+
+void ResetMsysRootForTesting();  // defined in file_windows.cc
 
 TEST(FileTest, TestDirname) {
   ASSERT_EQ("", Dirname(""));
@@ -98,7 +101,7 @@ TEST(FileTest, IsRootDirectory) {
 
 TEST(FileTest, TestAsWindowsPath) {
   SetEnvironmentVariableA("BAZEL_SH", "c:\\msys\\some\\long\\path\\bash.exe");
-  ReinitMsysRootForTesting();
+  ResetMsysRootForTesting();
   std::wstring actual;
 
   ASSERT_TRUE(AsWindowsPath("", &actual));
@@ -141,21 +144,95 @@ TEST(FileTest, TestMsysRootRetrieval) {
   std::wstring actual;
 
   SetEnvironmentVariableA("BAZEL_SH", "c:/foo/msys/bar/qux.exe");
-  ReinitMsysRootForTesting();
+  ResetMsysRootForTesting();
   ASSERT_TRUE(AsWindowsPath("/blah", &actual));
   ASSERT_EQ(std::wstring(L"c:\\foo\\msys\\blah"), actual);
 
   SetEnvironmentVariableA("BAZEL_SH", "c:/foo/MSYS64/bar/qux.exe");
-  ReinitMsysRootForTesting();
+  ResetMsysRootForTesting();
   ASSERT_TRUE(AsWindowsPath("/blah", &actual));
   ASSERT_EQ(std::wstring(L"c:\\foo\\msys64\\blah"), actual);
 
   SetEnvironmentVariableA("BAZEL_SH", "c:/qux.exe");
-  ReinitMsysRootForTesting();
+  ResetMsysRootForTesting();
   ASSERT_FALSE(AsWindowsPath("/blah", &actual));
 
   SetEnvironmentVariableA("BAZEL_SH", nullptr);
-  ReinitMsysRootForTesting();
+  ResetMsysRootForTesting();
+}
+
+static void RunCommand(const string& cmdline) {
+  STARTUPINFOA startupInfo = {sizeof(STARTUPINFO)};
+  PROCESS_INFORMATION processInfo;
+  // command line maximum size is 32K
+  // Source (on 2017-01-04):
+  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
+  char mutable_cmdline[0x8000];
+  strncpy(mutable_cmdline, cmdline.c_str(), 0x8000);
+  BOOL ok = CreateProcessA(
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ mutable_cmdline,
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */ 0,
+      /* lpEnvironment */ NULL,
+      /* lpCurrentDirectory */ NULL,
+      /* lpStartupInfo */ &startupInfo,
+      /* lpProcessInformation */ &processInfo);
+  ASSERT_TRUE(ok);
+
+  // Wait 1 second for the process to finish.
+  ASSERT_EQ(WAIT_OBJECT_0, WaitForSingleObject(processInfo.hProcess, 1000));
+
+  DWORD exit_code = 1;
+  ASSERT_TRUE(GetExitCodeProcess(processInfo.hProcess, &exit_code));
+  ASSERT_EQ(0, exit_code);
+}
+
+TEST(FileTest, TestPathExistsWindows) {
+  ASSERT_FALSE(PathExists(""));
+  ASSERT_TRUE(PathExists("."));
+  ASSERT_FALSE(PathExists("non.existent"));
+
+  char buf[MAX_PATH] = {0};
+  DWORD len = GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
+  ASSERT_GT(len, 0);
+  string tmpdir(buf);
+  ASSERT_TRUE(PathExists(tmpdir));
+
+  // Create a fake msys root. We'll also use it as a junction target.
+  string fake_msys_root(tmpdir + "/fake_msys");
+  ASSERT_EQ(0, mkdir(fake_msys_root.c_str()));
+  ASSERT_TRUE(PathExists(fake_msys_root));
+
+  // Set the BAZEL_SH root so we can resolve MSYS paths.
+  SetEnvironmentVariableA("BAZEL_SH",
+                          (fake_msys_root + "/fake_bash.exe").c_str());
+  ResetMsysRootForTesting();
+
+  // Assert existence check for MSYS paths.
+  ASSERT_FALSE(PathExists("/this/should/not/exist/mkay"));
+  ASSERT_TRUE(PathExists("/"));
+
+  // Create a junction pointing to an existing directory.
+  RunCommand(string("cmd.exe /C mklink /J \"") + tmpdir + "/junc1\" \"" +
+             fake_msys_root + "\" >NUL 2>NUL");
+  ASSERT_TRUE(PathExists(fake_msys_root));
+  ASSERT_TRUE(PathExists(JoinPath(tmpdir, "junc1")));
+
+  // Create a junction pointing to a non-existent directory.
+  RunCommand(string("cmd.exe /C mklink /J \"") + tmpdir + "/junc2\" \"" +
+             fake_msys_root + "/i.dont.exist\" >NUL 2>NUL");
+  ASSERT_FALSE(PathExists(JoinPath(fake_msys_root, "i.dont.exist")));
+  ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
+
+  // Clean up.
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "junc1").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "junc2").c_str()));
+  ASSERT_EQ(0, rmdir(fake_msys_root.c_str()));
+  ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc1")));
+  ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
 
 }  // namespace blaze_util

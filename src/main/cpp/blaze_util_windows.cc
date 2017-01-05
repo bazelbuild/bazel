@@ -845,6 +845,9 @@ typedef struct {
   WCHAR PathBuffer[ANYSIZE_ARRAY];
 } REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
+// TODO(laszlocsomor): get rid of this method in favor of OpenDirectory in
+// file_windows, as part of fixing
+// https://github.com/bazelbuild/bazel/issues/2181.
 HANDLE OpenDirectory(const string& path, bool readWrite) {
   HANDLE result = ::CreateFileA(
       /* lpFileName */ path.c_str(),
@@ -942,6 +945,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   return result;
 }
 
+// TODO(laszlocsomor): use JunctionResolver in file_windows.cc
 bool ReadDirectorySymlink(const string &posix_name, string* result) {
   string name = ConvertPath(posix_name);
   HANDLE directory = OpenDirectory(name, false);
@@ -995,6 +999,7 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
   }
 }
 
+// TODO(laszlocsomor): use IsAbsolute from file_windows.cc
 static bool IsAbsoluteWindowsPath(const string& p) {
   if (p.size() < 3) {
     return false;
