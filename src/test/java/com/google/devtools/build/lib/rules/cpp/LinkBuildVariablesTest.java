@@ -225,4 +225,24 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     assertThat(interfaceLibraryOutput).endsWith("ignored");
     assertThat(interfaceLibraryBuilder).endsWith("ignored");
   }
+
+  @Test
+  public void testIsCcTestLinkActionBuildVariable() throws Exception {
+    scratch.file("x/BUILD",
+        "cc_test(name = 'foo_test', srcs = ['a.cc'])",
+        "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    ConfiguredTarget testTarget = getConfiguredTarget("//x:foo_test");
+    Variables testVariables = getLinkBuildVariables(testTarget, LinkTargetType.EXECUTABLE);
+
+    assertThat(testVariables.isAvailable(CppLinkActionBuilder.IS_CC_TEST_LINK_ACTION_VARIABLE))
+        .isTrue();
+
+    ConfiguredTarget binaryTarget = getConfiguredTarget("//x:foo");
+    Variables binaryVariables = getLinkBuildVariables(binaryTarget, LinkTargetType.EXECUTABLE);
+
+    assertThat(binaryVariables.isAvailable(CppLinkActionBuilder.IS_CC_TEST_LINK_ACTION_VARIABLE))
+        .isFalse();
+  }
 }
