@@ -310,6 +310,9 @@ Bazel also comes with a zsh completion script. To install it:
     mkdir -p ~/.zsh/completion/
     cp scripts/zsh_completion/_bazel ~/.zsh/completion
     ```
+    
+    You may have to call `rm -f ~/.zcompdump; compinit`
+    the first time to make it work.
 
 2. Optionally, add the following to your .zshrc.
 
