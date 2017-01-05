@@ -40,16 +40,17 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
  * An Artifact represents a file used by the build system, whether it's a source
  * file or a derived (output) file. Not all Artifacts have a corresponding
- * FileTarget object in the <code>build.packages</code> API: for example,
+ * FileTarget object in the <code>build.lib.packages</code> API: for example,
  * low-level intermediaries internal to a given rule, such as a Java class files
  * or C++ object files. However all FileTargets have a corresponding Artifact.
  *
- * <p>In any given call to Builder#buildArtifacts(), no two Artifacts in the
+ * <p>In any given call to SkyframeExecutor#buildArtifacts(), no two Artifacts in the
  * action graph may refer to the same path.
  *
  * <p>Artifacts generally fall into two classifications, source and derived, but
@@ -191,10 +192,10 @@ public class Artifact
    * </pre>
    *
    * <p>In a derived Artifact, the execPath will overlap with part of the root, which in turn will
-   * be below of the execRoot.
+   * be below the execRoot.
    * <pre>
    *  [path] == [/root][pathTail] == [/execRoot][execPath] == [/execRoot][rootPrefix][pathTail]
-   * <pre>
+   * </pre>
    */
   @VisibleForTesting
   public Artifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner) {
@@ -407,7 +408,7 @@ public class Artifact
    * @see SpecialArtifact
    */
   @VisibleForTesting
-  public static enum SpecialArtifactType {
+  public enum SpecialArtifactType {
     FILESET,
     TREE,
     CONSTANT_METADATA,
@@ -604,7 +605,7 @@ public class Artifact
     // We don't bother to check root in the equivalence relation, because we
     // assume that no root is an ancestor of another one.
     Artifact that = (Artifact) other;
-    return this.path.equals(that.path);
+    return Objects.equals(this.path, that.path);
   }
 
   @Override
