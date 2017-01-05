@@ -18,7 +18,7 @@ Here, you'll do the following:
 *   Run the application on a local development server
 *   Deploy to Google App Engine
 
-Bazel provides a set of [App Engine build rules](/docs/be/appengine.html)
+Bazel provides a set of [App Engine build rules](https://github.com/bazelbuild/rules_appengine)
 written using the [Skylark](/docs/skylark/index.html) framework. You'll use
 these in the steps below to build the application.
 
