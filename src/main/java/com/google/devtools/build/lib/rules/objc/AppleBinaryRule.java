@@ -91,11 +91,15 @@ public class AppleBinaryRule implements RuleDefinition {
           <li>
             <code>executable</code> (default): the output binary is an executable and must implement
             the main() function.
-          </li>
-          <li>
+          </li><li>
             <code>bundle</code>: the output binary is a loadable bundle that may be loaded at
             runtime. When building a bundle, you may also pass a bundle_loader binary that contains
             symbols referenced but not implemented in the bundle.
+          </li><li>
+            <code>dylib</code>: the output binary is meant to be loaded at load time (when the
+            operating system is loading the binary into memory) and cannot be unloaded. Dylibs
+            are usually consumed in frameworks, which are .framework bundles that contain the
+            dylib as well as well as required resources to run.
           </li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/

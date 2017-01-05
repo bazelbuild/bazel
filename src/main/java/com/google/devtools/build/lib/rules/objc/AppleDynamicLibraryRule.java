@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 /**
  * Rule definition for apple_dynamic_library.
  */
-// TODO(b/33077308): Deprecate this rule for apple_binary with attribute changes.
+// TODO(b/33077308): Remove this rule.
 public class AppleDynamicLibraryRule implements RuleDefinition {
 
   /**
@@ -69,13 +69,7 @@ public class AppleDynamicLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = apple_dynamic_library, TYPE = BINARY, FAMILY = Objective-C) -->
 
-<p>This rule produces single- or multi-architecture ("fat") Apple dynamic libraries,
-typically used in creating dynamic Apple Frameworks for distribution and re-use in multiple
-extensions or applications.</p>
-
-<p>The <code>lipo</code> tool is used to combine files of multiple architectures; a build flag
-controls which architectures are targeted. The build flag examined depends on the
-<code>platform_type</code> attribute for this rule (and is described in its documentation).</p
+<p> This rule is deprecated. Please use apple_binary with binary_type = "dylib" instead. </p>
 
 ${IMPLICIT_OUTPUTS}
 
