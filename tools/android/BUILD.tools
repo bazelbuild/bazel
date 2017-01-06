@@ -92,38 +92,14 @@ alias(
     actual = "//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass",
 )
 
-filegroup(
-    name = "jar_filter",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:JarFilter_deploy.jar"],
-)
-
-java_binary(
+alias(
     name = "JarFilter",
-    main_class = "com.google.devtools.build.android.ideinfo.JarFilter",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":jar_filter_import"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:JarFilter",
 )
 
-java_import(
-    name = "jar_filter_import",
-    jars = [":jar_filter"],
-)
-
-filegroup(
-    name = "package_parser",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser_deploy.jar"],
-)
-
-java_binary(
+alias(
     name = "PackageParser",
-    main_class = "com.google.devtools.build.android.ideinfo.PackageParser",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":package_parser_import"],
-)
-
-java_import(
-    name = "package_parser_import",
-    jars = [":package_parser"],
+    actual = "//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser",
 )
 
 py_binary(
