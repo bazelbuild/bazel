@@ -265,11 +265,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(name = "fat_apk_cpu",
             converter = Converters.CommaSeparatedOptionListConverter.class,
             defaultValue = "armeabi-v7a",
-            category = "undocumented",
+            category = "semantics",
             help = "Setting this option enables fat APKs, which contain native binaries for all "
-                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. Note that "
-                + "you will also at least need to select an Android-compatible crosstool. "
-                + "If this flag is specified, then --android_cpu is ignored for dependencies of "
+                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
+                + "flag is specified, then --android_cpu is ignored for dependencies of "
                 + "android_binary rules.")
     public List<String> fatApkCpus;
 

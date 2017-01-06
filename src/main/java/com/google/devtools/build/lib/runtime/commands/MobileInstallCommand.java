@@ -54,7 +54,10 @@ public class MobileInstallCommand implements BlazeCommand {
   public static final class Options extends OptionsBase {
     @Option(name = "split_apks",
         defaultValue = "false",
-        category = "undocumented")
+        category = "mobile-install",
+        help = "Whether to use split apks to install and update the "
+            + "application on the device. Works only with devices with "
+            + "Marshmallow or later")
     public boolean splitApks;
 
     @Option(name = "incremental",
