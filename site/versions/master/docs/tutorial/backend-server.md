@@ -12,14 +12,13 @@ Here, you'll do the following:
 
 *   Review the source files for the app
 *   Update the `WORKSPACE` file
-*   Create the `appengine.BUILD` file
 *   Create a `BUILD` file
 *   Run the build
 *   Find the build outputs
 *   Run the application on a local development server
 *   Deploy to Google App Engine
 
-Bazel provides a set of [App Engine build rules](/docs/be/appengine.html)
+Bazel provides a set of [App Engine build rules](https://github.com/bazelbuild/rules_appengine)
 written using the [Skylark](/docs/skylark/index.html) framework. You'll use
 these in the steps below to build the application.
 
@@ -56,7 +55,7 @@ file. For the backend server, these are references to the App Engine SDK,
 the Java Servlet SDK and other libraries needed to build the App Engine
 applications.
 
-### Add a git\_repository rule
+### Add the App Engine rule
 
 When you built the Android app, you added a reference to the location on your
 filesystem where you downloaded and installed the Android SDK. For the
@@ -64,7 +63,7 @@ backend server, however, you'll give Bazel instructions for downloading the
 required App Engine SDK package from a remote server. This is optional. You
 can also download and install the SDK manually on your filesystem and reference
 it from that location as described in the
-[App Engine rule documentation](/docs/be/appengine.html).
+[App Engine rule documentation](https://github.com/bazelbuild/rules_appengine).
 
 Add the following to your `WORKSPACE` file:
 
@@ -79,10 +78,13 @@ load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_repositori
 appengine_repositories()
 ```
 
-[`git_repository`](/docs/be/workspace.html#git_repository) downloads the
-AppEngine rules from GitHub, then the next two lines use the
-`appengine_repositories` function defined in these rules to download the
-libraries and SDK needed to build AppEngine applications.
+[`http_archive`](/docs/be/workspace.html#http_archive) downloads the
+AppEngine rules from a GitHub archive. We could also have used
+[`git_repository`](/docs/be/workspace.html#git_repository) to fetch the rules
+directly from the Git repository.
+Then the next two lines use the `appengine_repositories` function defined in
+these rules to download the libraries and SDK needed to build AppEngine
+applications.
 
 Now, save and close the file. You can compare your `WORKSPACE` file to the
 [completed example](https://github.com/bazelbuild/examples//blob/master/tutorial/WORKSPACE)
@@ -208,7 +210,13 @@ Platform Console.
 Follow [this link](https://console.cloud.google.com/projectselector/appengine/create?lang=java&st=true)
 to perform these actions.
 
-To deploy the application, enter the following:
+Build the target that allows to deploy to App Engine:
+
+```bash
+$ bazel build --java_toolchain=@io_bazel_rules_appengine//appengine:jdk7 //backend:backend.deploy
+```
+
+Then, to deploy the application, enter the following:
 
 ```bash
 $ $WORKSPACE/bazel-bin/backend/backend.deploy <project-id>
