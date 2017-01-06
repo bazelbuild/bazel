@@ -24,14 +24,15 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
+import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.syntax.Type;
+
 import java.util.List;
 
 /**
@@ -56,7 +57,12 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    new BundleSupport(ruleContext, bundling)
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+    new BundleSupport(ruleContext,
+            appleConfiguration,
+            appleConfiguration.getMultiArchPlatform(PlatformType.IOS),
+            bundling,
+            new ExtraActoolArgs())
         .registerActions(common.getObjcProvider())
         .validate(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder);

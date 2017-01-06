@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 
 /**
@@ -40,7 +41,8 @@ public class LipoSupport {
   public LipoSupport registerCombineArchitecturesAction(NestedSet<Artifact> inputBinaries,
       Artifact outputBinary, Platform platform) {
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
+            ruleContext.getFragment(AppleConfiguration.class), platform)
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(inputBinaries)
         .addOutput(outputBinary)

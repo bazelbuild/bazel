@@ -68,31 +68,29 @@ final class BundleSupport {
     }
   }
 
+  // TODO(cparsons): Take restricted interfaces of RuleContext instead of RuleContext (such as
+  // RuleErrorConsumer).
   private final RuleContext ruleContext;
+  private final AppleConfiguration appleConfiguration;
+  private final Platform platform;
   private final ExtraActoolArgs extraActoolArgs;
   private final Bundling bundling;
   private final Attributes attributes;
 
   /**
-   * Creates a new bundle support with no special {@code actool} arguments.
-   *
-   * @param ruleContext context this bundle is constructed in
-   * @param bundling bundle information as configured for this rule
-   */
-  public BundleSupport(RuleContext ruleContext, Bundling bundling) {
-    this(ruleContext, bundling, new ExtraActoolArgs());
-  }
-
-  /**
    * Creates a new bundle support.
    *
    * @param ruleContext context this bundle is constructed in
+   * @param appleConfiguration the configuration this bundle is constructed in
+   * @param platform the platform this bundle is built for
    * @param bundling bundle information as configured for this rule
    * @param extraActoolArgs any additional parameters to be used for invoking {@code actool}
    */
-  public BundleSupport(RuleContext ruleContext,
-      Bundling bundling, ExtraActoolArgs extraActoolArgs) {
+  public BundleSupport(RuleContext ruleContext, AppleConfiguration appleConfiguration,
+      Platform platform, Bundling bundling, ExtraActoolArgs extraActoolArgs) {
     this.ruleContext = ruleContext;
+    this.appleConfiguration = appleConfiguration;
+    this.platform = platform;
     this.extraActoolArgs = extraActoolArgs;
     this.bundling = bundling;
     this.attributes = new Attributes(ruleContext);
@@ -134,7 +132,6 @@ final class BundleSupport {
   }
 
   private void validatePlatform() {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = null;
     for (String architecture : appleConfiguration.getIosMultiCpus()) {
       if (platform == null) {
@@ -254,7 +251,7 @@ final class BundleSupport {
           .compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("StoryboardCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
@@ -302,13 +299,12 @@ final class BundleSupport {
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(
         bundling.getIntermediateArtifacts(), objcProvider.get(ObjcProvider.XCDATAMODEL));
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("MomCompile")
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
@@ -335,7 +331,7 @@ final class BundleSupport {
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("XibCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
@@ -350,19 +346,20 @@ final class BundleSupport {
   private void registerConvertStringsActions(ObjcProvider objcProvider) {
     for (Artifact strings : objcProvider.get(ObjcProvider.STRINGS)) {
       Artifact bundled = bundling.getIntermediateArtifacts().convertedStringsFile(strings);
-      ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
-          .setMnemonic("ConvertStringsPlist")
-          .setExecutable(new PathFragment("/usr/bin/plutil"))
-          .setCommandLine(CustomCommandLine.builder()
-              .add("-convert").add("binary1")
-              .addExecPath("-o", bundled)
-              .add("--")
-              .addPath(strings.getExecPath())
-              .build())
-          .addInput(strings)
-          .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-          .addOutput(bundled)
-          .build(ruleContext));
+      ruleContext.registerAction(
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
+              .setMnemonic("ConvertStringsPlist")
+              .setExecutable(new PathFragment("/usr/bin/plutil"))
+              .setCommandLine(CustomCommandLine.builder()
+                  .add("-convert").add("binary1")
+                  .addExecPath("-o", bundled)
+                  .add("--")
+                  .addPath(strings.getExecPath())
+                  .build())
+              .addInput(strings)
+              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+              .addOutput(bundled)
+              .build(ruleContext));
     }
   }
 
@@ -427,7 +424,7 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setMnemonic("AssetCatalogCompile")
             .setExecutable(attributes.actoolWrapper())
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
@@ -443,7 +440,6 @@ final class BundleSupport {
 
   private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
       Artifact partialInfoPlist) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     PlatformType platformType = PlatformType.IOS;
     // watchOS 1 and 2 use different platform arguments. It is likely that versions 2 and later will
     // use the watchos platform whereas watchOS 1 uses the iphone platform.

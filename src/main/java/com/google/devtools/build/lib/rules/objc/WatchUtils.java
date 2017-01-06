@@ -163,12 +163,11 @@ final class WatchUtils {
             watchSupportZip.getFilename(),
             watchKitSupportDirName));
 
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
-                ruleContext,
-                ruleContext
-                    .getFragment(AppleConfiguration.class)
-                    .getMultiArchPlatform(PlatformType.WATCHOS))
+                appleConfiguration,
+                appleConfiguration.getMultiArchPlatform(PlatformType.WATCHOS))
             .setProgressMessage("Copying Watchkit support to app bundle")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c", Joiner.on(" ").join(command)))
             .addOutput(watchSupportZip)

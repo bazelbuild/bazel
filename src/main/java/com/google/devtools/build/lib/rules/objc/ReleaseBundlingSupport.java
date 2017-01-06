@@ -177,7 +177,10 @@ public final class ReleaseBundlingSupport {
     this.intermediateArtifacts = releaseBundling.getIntermediateArtifacts();
     this.bundling = bundling(ruleContext, objcProvider, bundleDirFormat, bundleName,
         bundleMinimumOsVersion);
-    bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
+    // TODO(cparsons): Take the rule configuration as a param instead of inferring.
+    bundleSupport = new BundleSupport(ruleContext,
+        ruleContext.getFragment(AppleConfiguration.class), platform,
+        bundling, extraActoolArgs());
   }
 
   /**
@@ -377,7 +380,7 @@ public final class ReleaseBundlingSupport {
             platform.getLowerCaseNameInPlist(),
             configuration.getSdkVersionForPlatform(platform));
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
@@ -1082,7 +1085,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())
@@ -1114,7 +1117,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", combinedArchBinary);
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext, platform)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(configuration, platform)
             .setMnemonic("SwiftCopySwiftSupport")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())

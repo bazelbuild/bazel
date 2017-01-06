@@ -171,42 +171,7 @@ public class ObjcRuleClasses {
           return null;
         }
       };
-      
-      
-  /**
-   * Creates a new spawn action builder with apple environment variables set that are typically
-   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
-   * order to run, require both a darwin architecture and a collection of environment variables
-   * which contain information about the target and host architectures. This implicitly
-   * assumes that this action is targeting ios platforms, and that
-   * {@link AppleConfiguration#getIosCpu()} is the source of truth for their target architecture.
-   * 
-   * @deprecated use {@link #spawnAppleEnvActionBuilder(RuleContext, Platform)} instead
-   */
-  // TODO(cparsons): Refactor callers to use the alternate method. Callers should be aware
-  // of their effective Platform.
-  @Deprecated
-  static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext) {
-    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    return spawnAppleEnvActionBuilder(ruleContext,
-        Platform.forTarget(PlatformType.IOS, appleConfiguration.getIosCpu()));
-  }
-
-  /**
-   * Creates a new spawn action builder with apple environment variables set that are typically
-   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
-   * order to run, require both a darwin architecture and a collection of environment variables
-   * which contain information about the target and host architectures.
-   */
-  // TODO(cparsons): Refactor this method to take the configuration fragment instead of
-  // retrieving it from the rule context.
-  static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext,
-      Platform targetPlatform) {
-    return spawnAppleEnvActionBuilder(
-        ruleContext.getFragment(AppleConfiguration.class), targetPlatform);
-  }
-  
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
