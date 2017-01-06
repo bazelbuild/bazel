@@ -126,7 +126,7 @@ public class InMemoryNodeEntry implements NodeEntry {
    * The transient state of this entry, after it has been created but before it is done. It allows
    * us to keep the current state of the entry across invalidation and successive evaluations.
    */
-  @VisibleForTesting @Nullable protected BuildingState buildingState = new BuildingState();
+  @VisibleForTesting @Nullable protected volatile BuildingState buildingState = new BuildingState();
 
   /**
    * Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations.
@@ -140,7 +140,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean isDone() {
+  public boolean isDone() {
     return buildingState == null;
   }
 

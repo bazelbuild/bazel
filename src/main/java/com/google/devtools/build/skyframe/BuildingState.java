@@ -86,9 +86,10 @@ class BuildingState {
   /**
    * The set of reverse dependencies that are registered before the node has finished building. Upon
    * building, these reverse deps will be signaled and then stored in the permanent {@link
-   * InMemoryNodeEntry#reverseDeps}.
+   * InMemoryNodeEntry#reverseDeps}. This field is marked volatile for subclasses that may change
+   * its value and require volatile reads.
    */
-  protected Object reverseDepsToSignal = ImmutableList.of();
+  protected volatile Object reverseDepsToSignal = ImmutableList.of();
   private List<Object> reverseDepsDataToConsolidate = null;
 
   private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
