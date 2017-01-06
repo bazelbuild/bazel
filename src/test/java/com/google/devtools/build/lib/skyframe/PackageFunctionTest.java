@@ -470,6 +470,42 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testOneNewElementInMultipleGlob() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "sh_library(name = 'foo', srcs = glob(['*.sh']))",
+        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt']))");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    PackageValue value = validPackage(skyKey);
+    scratch.file("foo/irrelevent");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(new PathFragment("foo/irrelevant")).build(),
+            rootDirectory);
+    assertThat(validPackage(skyKey)).isSameAs(value);
+  }
+
+  @Test
+  public void testNoNewElementInMultipleGlob() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "sh_library(name = 'foo', srcs = glob(['*.sh', '*.txt']))",
+        "sh_library(name = 'bar', srcs = glob(['*.sh', '*.txt']))");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    PackageValue value = validPackage(skyKey);
+    scratch.file("foo/irrelevent");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(new PathFragment("foo/irrelevant")).build(),
+            rootDirectory);
+    assertThat(validPackage(skyKey)).isSameAs(value);
+  }
+
+  @Test
   public void testIncludeInMainAndDefaultRepository() throws Exception {
     scratch.file("foo/BUILD",
         "subinclude('//baz:a')");
@@ -655,7 +691,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     getSkyframeExecutor()
         .invalidate(
             Predicates.equalTo(
-                FileStateValue.key(
+                com.google.devtools.build.lib.skyframe.FileStateValue.key(
                     RootedPath.toRootedPath(
                         workspacePath.getParentDirectory(),
                         new PathFragment(workspacePath.getBaseName())))));
