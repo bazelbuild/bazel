@@ -241,7 +241,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(
       name = "android_dynamic_mode",
-      defaultValue = "default",
+      defaultValue = "off",
       converter = DynamicModeConverter.class,
       category = "undocumented",
       help =
