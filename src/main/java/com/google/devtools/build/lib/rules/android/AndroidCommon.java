@@ -850,7 +850,6 @@ public class AndroidCommon {
             builder.add(input);
           }
         }
-        continue;
       }
     }
 

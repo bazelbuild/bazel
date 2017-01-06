@@ -86,11 +86,6 @@ public interface AndroidSemantics {
   ImmutableList<String> getJavacArguments(RuleContext ruleContext);
 
   /**
-   * JVM arguments to be passed to the command line of dx.
-   */
-  ImmutableList<String> getDxJvmArguments();
-
-  /**
    * Configures the builder for generating the output jar used to configure the main dex file.
    * @throws InterruptedException
    */

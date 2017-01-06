@@ -88,8 +88,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_resources.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_APK =
       fromTemplates("%{name}.ap_");
-  public static final SafeImplicitOutputsFunction ANDROID_BINARY_SHRUNK_JAR =
-      fromTemplates("%{name}_shrunk.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SHRUNK_APK =
       fromTemplates("%{name}_shrunk.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_ZIP =
@@ -106,8 +104,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_incremental.apk");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_UNSIGNED_APK =
       fromTemplates("%{name}_unsigned.apk");
-  public static final SafeImplicitOutputsFunction ANDROID_BINARY_SIGNED_APK =
-      fromTemplates("%{name}_signed.apk");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =

@@ -126,8 +126,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       };
 
   private final Path destination;
-  private final Map<String, Map<FullyQualifiedName, Iterable<String>>> valueFragments =
-      new HashMap<>();
 
   private final Map<String, ResourceValuesDefinitions> valueTags = new HashMap<>();
   private final Path resourceDirectory;
@@ -246,7 +244,6 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
         .aggregateAndMaybeThrow(writeTasks);
 
     writeTasks.clear();
-    valueFragments.clear();
   }
 
   @Override
