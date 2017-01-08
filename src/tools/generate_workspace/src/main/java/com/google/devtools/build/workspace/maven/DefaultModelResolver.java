@@ -46,6 +46,7 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -134,7 +135,12 @@ public class DefaultModelResolver implements ModelResolver {
 
   private boolean pomFileExists(URL url) {
     try {
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      URLConnection urlConnection = url.openConnection();
+      if (!(urlConnection instanceof HttpURLConnection)) {
+        return false;
+      }
+
+      HttpURLConnection connection = (HttpURLConnection) urlConnection;
       connection.setRequestMethod("HEAD");
       connection.setInstanceFollowRedirects(true);
       connection.connect();
