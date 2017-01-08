@@ -14,4 +14,19 @@
 
 """Bazel-specific intellij aspect."""
 
-load("@bazel_tools//tools/ide:intellij_info_impl.bzl", "intellij_info_aspect")
+load("@bazel_tools//tools/ide:intellij_info_impl.bzl",
+     "make_intellij_info_aspect",
+     "intellij_info_aspect_impl")
+
+def tool_label(label_str):
+  """Returns a label that points to a bazel tool."""
+  return Label("@bazel_tools" + label_str)
+
+semantics = struct(
+    tool_label = tool_label,
+)
+
+def _aspect_impl(target, ctx):
+  return intellij_info_aspect_impl(target, ctx, semantics)
+
+intellij_info_aspect = make_intellij_info_aspect(_aspect_impl, semantics)

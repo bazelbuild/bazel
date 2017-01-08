@@ -12,27 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Implementation of AndroidStudio-specific information collecting aspect.
-
-# A map to convert JavaApiFlavor to ProtoLibraryLegacyJavaIdeInfo.ApiFlavor
-_api_flavor_to_id = {
-    "FLAVOR_NONE": 0,
-    "FLAVOR_IMMUTABLE": 1,
-    "FLAVOR_MUTABLE": 2,
-    "FLAVOR_BOTH": 3,
-}
+# Implementation of IntelliJ-specific information collecting aspect.
 
 # Compile-time dependency attributes, grouped by type.
 DEPS = struct(
     label = [
-        "binary_under_test",  #  From android_test
-        "java_lib",  # From proto_library
-        "_proto1_java_lib",  # From proto_library
-        "_junit",  # From android_robolectric_test
         "_cc_toolchain",  # From C rules
-        "module_target",
         "_java_toolchain",  # From java rules
-        "test",
     ],
     label_list = [
         "deps",
@@ -49,13 +35,10 @@ RUNTIME_DEPS = struct(
     ],
 )
 
-# All dependency attributes along which the aspect propagates, grouped by type.
-ALL_DEPS = struct(
-    label = DEPS.label + RUNTIME_DEPS.label,
-    label_list = DEPS.label_list + RUNTIME_DEPS.label_list,
+PREREQUISITE_DEPS = struct(
+    label = [],
+    label_list = [],
 )
-
-LEGACY_RESOURCE_ATTR = "resources"
 
 ##### Helpers
 
@@ -186,16 +169,6 @@ def collect_transitive_exports(targets):
     result = result | dep.export_deps
   return result
 
-def get_legacy_resource_dep(rule_attrs):
-  """Gets the legacy 'resources' attribute."""
-  legacy_resource_target = None
-  if hasattr(rule_attrs, LEGACY_RESOURCE_ATTR):
-    dep = getattr(rule_attrs, LEGACY_RESOURCE_ATTR)
-    # resources can sometimes be a list attribute, in which case we don't want it
-    if dep and is_valid_aspect_target(dep):
-      legacy_resource_target = dep
-  return legacy_resource_target
-
 def targets_to_labels(targets):
   """Returns a set of label strings for the given targets."""
   return set([str(target.label) for target in targets])
@@ -207,15 +180,6 @@ def list_omit_none(value):
 def is_valid_aspect_target(target):
   """Returns whether the target has had the aspect run on it."""
   return hasattr(target, "intellij_aspect")
-
-super_secret_rule_name = "".join(["gen", "m", "p", "m"])  # Take that, leak test
-is_bazel = not hasattr(native, super_secret_rule_name)
-def tool_label(label_str):
-  """Returns a label that points to a blaze/bazel tool.
-
-  Will be removed once the aspect is migrated out of core.
-  """
-  return Label("@bazel_tools" + label_str if is_bazel else label_str)
 
 ##### Builders for individual parts of the aspect output
 
@@ -300,7 +264,7 @@ def build_c_toolchain_ide_info(target, ctx):
   )
   return (c_toolchain_ide_info, set())
 
-def build_java_ide_info(target, ctx):
+def build_java_ide_info(target, ctx, semantics):
   """
   Build JavaIdeInfo.
 
@@ -308,7 +272,11 @@ def build_java_ide_info(target, ctx):
   (JavaIdeInfo proto, a set of ide-info-files, a set of intellij-resolve-files).
   (or (None, empty set, empty set) if the target is not Java rule).
   """
-  if not hasattr(target, "java") or ctx.rule.kind == "proto_library":
+  if not hasattr(target, "java"):
+    return (None, set(), set())
+
+  java_semantics = semantics.java if hasattr(semantics, "java") else None
+  if java_semantics and java_semantics.skip_target(target, ctx):
     return (None, set(), set())
 
   ide_info_files = set()
@@ -330,11 +298,8 @@ def build_java_ide_info(target, ctx):
 
   java_sources, gen_java_sources, srcjars = divide_java_sources(ctx)
 
-  # HACK -- android_library rules with the resources attribute do not support srcjar inputs
-  # to the filtered gen jar generation, because we don't want all resource classes in this jar.
-  # This can be removed once android_resources is deleted
-  if hasattr(ctx.rule.attr, LEGACY_RESOURCE_ATTR) and ctx.rule.kind.startswith("android_"):
-    srcjars = []
+  if java_semantics:
+    srcjars = java_semantics.filter_source_jars(target, ctx, srcjars)
 
   package_manifest = None
   if java_sources:
@@ -445,7 +410,7 @@ def divide_java_sources(ctx):
 
   return java_sources, gen_java_sources, srcjars
 
-def build_android_ide_info(target, ctx, legacy_resource_label):
+def build_android_ide_info(target, ctx, semantics):
   """Build AndroidIdeInfo.
 
   Returns a pair of (AndroidIdeInfo proto, a set of intellij-resolve-files).
@@ -453,6 +418,9 @@ def build_android_ide_info(target, ctx, legacy_resource_label):
   """
   if not hasattr(target, "android"):
     return (None, set())
+
+  android_semantics = semantics.android if hasattr(semantics, "android") else None
+  extra_ide_info = android_semantics.extra_ide_info(target, ctx) if android_semantics else {}
 
   android = target.android
   android_ide_info = struct_omit_none(
@@ -466,7 +434,7 @@ def build_android_ide_info(target, ctx, legacy_resource_label):
       generate_resource_class = android.defines_resources,
       resources = all_unique_source_directories(android.resources),
       resource_jar = library_artifact(android.resource_jar),
-      legacy_resources = legacy_resource_label,
+      **extra_ide_info
   )
   intellij_resolve_files = set(jars_from_output(android.idl.output))
 
@@ -487,19 +455,6 @@ def is_test_rule(ctx):
   kind_string = ctx.rule.kind
   return kind_string.endswith("_test")
 
-def build_proto_library_legacy_java_ide_info(target, ctx):
-  """Build ProtoLibraryLegacyJavaIdeInfo."""
-  if not hasattr(target, "proto_legacy_java"):
-    return None
-  proto_info = target.proto_legacy_java.legacy_info
-  return struct_omit_none(
-    api_version = proto_info.api_version,
-    api_flavor = _api_flavor_to_id[proto_info.api_flavor],
-    jars1 = [library_artifact(output) for output in proto_info.jars1],
-    jars_mutable = [library_artifact(output) for output in proto_info.jars_mutable],
-    jars_immutable = [library_artifact(output) for output in proto_info.jars_immutable],
-  )
-
 def build_java_toolchain_ide_info(target):
   """Build JavaToolchainIdeInfo."""
   if not hasattr(target, "java_toolchain"):
@@ -512,12 +467,13 @@ def build_java_toolchain_ide_info(target):
 
 ##### Main aspect function
 
-def _aspect_impl(target, ctx):
+def intellij_info_aspect_impl(target, ctx, semantics):
   """Aspect implementation function."""
   rule_attrs = ctx.rule.attr
 
   # Collect direct dependencies
-  direct_dep_targets = collect_targets_from_attrs(rule_attrs, DEPS)
+  direct_dep_targets = collect_targets_from_attrs(
+      rule_attrs, semantics_extra_deps(DEPS, semantics, "extra_deps"))
 
   # Add exports from direct dependencies
   exported_deps_from_deps = collect_transitive_exports(direct_dep_targets)
@@ -533,15 +489,16 @@ def _aspect_impl(target, ctx):
         export_deps = export_deps | compiletime_deps
 
   # runtime_deps
-  runtime_dep_targets = collect_targets_from_attrs(rule_attrs, RUNTIME_DEPS)
+  runtime_dep_targets = collect_targets_from_attrs(
+      rule_attrs, semantics_extra_deps(RUNTIME_DEPS, semantics, "extra_runtime_deps"))
   runtime_deps = targets_to_labels(runtime_dep_targets)
 
-  # resources
-  legacy_resource_target = get_legacy_resource_dep(rule_attrs)
-  legacy_resource_label = str(legacy_resource_target.label) if legacy_resource_target else None
+  # extra prerequisites
+  extra_prerequisite_targets = collect_targets_from_attrs(
+      rule_attrs, semantics_extra_deps(PREREQUISITE_DEPS, semantics, "extra_prerequisites"))
 
   # Roll up files from my prerequisites
-  prerequisites = direct_dep_targets + runtime_dep_targets + list_omit_none(legacy_resource_target)
+  prerequisites = direct_dep_targets + runtime_dep_targets + extra_prerequisite_targets
   intellij_info_text = set()
   intellij_resolve_files = set()
   intellij_compile_files = target.output_group("files_to_compile_INTERNAL_")
@@ -562,23 +519,25 @@ def _aspect_impl(target, ctx):
 
   # Collect Java-specific information
   (java_ide_info, java_ide_info_files, java_resolve_files) = build_java_ide_info(
-      target, ctx)
+      target, ctx, semantics)
   intellij_info_text = intellij_info_text | java_ide_info_files
   intellij_resolve_files = intellij_resolve_files | java_resolve_files
 
   # Collect Android-specific information
   (android_ide_info, android_resolve_files) = build_android_ide_info(
-      target, ctx, legacy_resource_label)
+      target, ctx, semantics)
   intellij_resolve_files = intellij_resolve_files | android_resolve_files
-
-  # legacy proto_library support
-  proto_library_legacy_java_ide_info = build_proto_library_legacy_java_ide_info(target, ctx)
 
   # java_toolchain
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
   # Collect test info
   test_info = build_test_info(target, ctx)
+
+  # Any extra ide info
+  extra_ide_info = {}
+  if hasattr(semantics, "extra_ide_info"):
+    extra_ide_info = semantics.extra_ide_info(target, ctx)
 
   # Build TargetIdeInfo proto
   info = struct_omit_none(
@@ -593,9 +552,9 @@ def _aspect_impl(target, ctx):
       android_ide_info = android_ide_info,
       tags = ctx.rule.attr.tags,
       test_info = test_info,
-      proto_library_legacy_java_ide_info = proto_library_legacy_java_ide_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
       py_ide_info = py_ide_info,
+      **extra_ide_info
   )
 
   # Output the ide information file.
@@ -618,20 +577,40 @@ def _aspect_impl(target, ctx):
       export_deps = export_deps,
     )
 
-intellij_info_aspect = aspect(
-    attrs = {
-        "_package_parser": attr.label(
-            default = tool_label("//tools/android:PackageParser"),
-            cfg = "host",
-            executable = True,
-            allow_files = True),
-        "_jar_filter": attr.label(
-            default = tool_label("//tools/android:JarFilter"),
-            cfg = "host",
-            executable = True,
-            allow_files = True),
-    },
-    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list + [LEGACY_RESOURCE_ATTR],
-    fragments = ["cpp"],
-    implementation = _aspect_impl,
-)
+def semantics_extra_deps(base, semantics, name):
+  if not hasattr(semantics, name):
+    return base
+  extra_deps = getattr(semantics, name)
+  return struct(
+      label = base.label + extra_deps.label,
+      label_list = base.label_list + extra_deps.label_list,
+  )
+
+def make_intellij_info_aspect(aspect_impl, semantics):
+  """Creates the aspect given the semantics."""
+  tool_label = semantics.tool_label
+  deps = semantics_extra_deps(DEPS, semantics, "extra_deps")
+  runtime_deps = semantics_extra_deps(RUNTIME_DEPS, semantics, "extra_runtime_deps")
+  prerequisite_deps = semantics_extra_deps(PREREQUISITE_DEPS, semantics, "extra_prerequisites")
+
+  attr_aspects = deps.label + deps.label_list
+  attr_aspects += runtime_deps.label + runtime_deps.label_list
+  attr_aspects += prerequisite_deps.label + prerequisite_deps.label_list
+
+  return aspect(
+      attrs = {
+          "_package_parser": attr.label(
+              default = tool_label("//tools/android:PackageParser"),
+              cfg = "host",
+              executable = True,
+              allow_files = True),
+          "_jar_filter": attr.label(
+              default = tool_label("//tools/android:JarFilter"),
+              cfg = "host",
+              executable = True,
+              allow_files = True),
+      },
+      attr_aspects = attr_aspects,
+      fragments = ["cpp"],
+      implementation = aspect_impl,
+  )
