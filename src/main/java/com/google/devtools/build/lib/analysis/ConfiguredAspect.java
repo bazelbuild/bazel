@@ -178,6 +178,12 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       return this;
     }
 
+    public Builder addSkylarkTransitiveInfo(String name, Object value) {
+      SkylarkProviderValidationUtil.checkSkylarkObjectSafe(value);
+      skylarkProviderBuilder.put(name, value);
+      return this;
+    }
+
     public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
         throws EvalException {
       SkylarkProviderValidationUtil.validateAndThrowEvalException(name, value, loc);

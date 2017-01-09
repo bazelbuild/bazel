@@ -42,6 +42,8 @@ import javax.annotation.Nullable;
 public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java";
+  /** The name of the field in Skylark proto aspects used to access this class. */
+  public static final String PROTO_NAME = "proto_java";
 
   private final JavaRuleOutputJarsProvider ruleOutputJarsProvider;
   @Nullable private final JavaSourceJarsProvider sourceJarsProvider;
