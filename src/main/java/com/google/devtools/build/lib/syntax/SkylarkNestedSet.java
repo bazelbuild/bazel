@@ -24,12 +24,9 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.util.Preconditions;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /** A generic type safe NestedSet wrapper for Skylark. */
 @SkylarkModule(
@@ -85,47 +82,41 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
 
   private final SkylarkType contentType;
   private final NestedSet<?> set;
-  @Nullable
-  private final List<Object> items;
-  @Nullable
-  private final List<NestedSet> transitiveItems;
 
   public SkylarkNestedSet(Order order, Object item, Location loc) throws EvalException {
-    this(order, SkylarkType.TOP, item, loc, null);
+    this(SkylarkType.TOP, item, loc, new NestedSetBuilder<Object>(order));
   }
 
   public SkylarkNestedSet(SkylarkNestedSet left, Object right, Location loc) throws EvalException {
-    this(left.set.getOrder(), left.contentType, right, loc, left);
+    this(
+        left.contentType,
+        right,
+        loc,
+        new NestedSetBuilder<Object>(left.getOrder()).addTransitive(left.set));
   }
 
   // This is safe because of the type checking
   @SuppressWarnings("unchecked")
-  private SkylarkNestedSet(Order order, SkylarkType contentType, Object item, Location loc,
-      @Nullable SkylarkNestedSet left) throws EvalException {
-
-    ArrayList<Object> items = new ArrayList<>();
-    ArrayList<NestedSet> transitiveItems = new ArrayList<>();
-    if (left != null) {
-      if (left.items == null) { // SkylarkSet created from native NestedSet
-        transitiveItems.add(left.set);
-      } else { // Preserving the left-to-right addition order.
-        items.addAll(left.items);
-        transitiveItems.addAll(left.transitiveItems);
-      }
-    }
+  private SkylarkNestedSet(
+      SkylarkType contentType, Object item, Location loc, NestedSetBuilder setBuilder)
+      throws EvalException {
     // Adding the item
     if (item instanceof SkylarkNestedSet) {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
         contentType = checkType(contentType, nestedSet.contentType, loc);
-        transitiveItems.add(nestedSet.set);
+        try {
+          setBuilder.addTransitive((NestedSet<Object>) nestedSet.set);
+        } catch (IllegalStateException e) {
+          // Order mismatch between item and setBuilder.
+          throw new EvalException(loc, e.getMessage());
+        }
       }
     } else if (item instanceof SkylarkList) {
-      // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
         contentType = checkType(contentType, SkylarkType.of(object.getClass()), loc);
         checkImmutable(object, loc);
-        items.add(object);
+        setBuilder.add(object);
       }
     } else {
       throw new EvalException(
@@ -134,20 +125,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
               "cannot add value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
     }
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
-
-    // Initializing the real nested set
-    NestedSetBuilder<Object> builder = new NestedSetBuilder<>(order);
-    builder.addAll(items);
-    try {
-      for (NestedSet<?> nestedSet : transitiveItems) {
-        builder.addTransitive(nestedSet);
-      }
-    } catch (IllegalStateException e) {
-      throw new EvalException(loc, e.getMessage());
-    }
-    this.set = builder.build();
-    this.items = ImmutableList.copyOf(items);
-    this.transitiveItems = ImmutableList.copyOf(transitiveItems);
+    this.set = setBuilder.build();
   }
 
   /**
@@ -172,8 +150,6 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     // This is here for the sake of FuncallExpression.
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
     this.set = Preconditions.checkNotNull(set, "set cannot be null");
-    this.items = null;
-    this.transitiveItems = null;
   }
 
   /**
