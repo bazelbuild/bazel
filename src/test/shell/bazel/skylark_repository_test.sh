@@ -41,7 +41,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
@@ -126,7 +126,7 @@ function test_load_from_symlink_to_outside_of_workspace() {
   OTHER=$TEST_TMPDIR/other
 
   cat > WORKSPACE<<EOF
-load("/a/b/c", "c")
+load("//a/b:c.bzl", "c")
 EOF
 
   mkdir -p $OTHER/a/b
@@ -266,7 +266,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'repo')
+load('//:test.bzl', 'repo')
 repo(name='foo', path='$repo2')
 EOF
 
@@ -299,7 +299,7 @@ function setup_skylark_repository() {
 
   cd "${WORKSPACE_DIR}"
   cat > WORKSPACE <<EOF
-load('/test', 'repo')
+load('//:test.bzl', 'repo')
 repo(name = 'foo')
 EOF
   # Need to be in a package
@@ -605,7 +605,7 @@ EOF
 
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro('$repo2')
 EOF
@@ -643,7 +643,7 @@ function test_existing_rule() {
   cd ${WORKSPACE_DIR}
   cat > WORKSPACE <<EOF
 local_repository(name = 'existing', path='$repo2')
-load('/test', 'macro')
+load('//:test.bzl', 'macro')
 
 macro()
 EOF
