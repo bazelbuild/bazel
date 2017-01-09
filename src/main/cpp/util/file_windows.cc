@@ -14,9 +14,11 @@
 #include "src/main/cpp/util/file_platform.h"
 
 #include <ctype.h>  // isalpha
+#include <wctype.h>  // iswalpha
 #include <windows.h>
 
 #include <memory>  // unique_ptr
+#include <sstream>
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"
@@ -33,9 +35,40 @@ using std::vector;
 using std::wstring;
 
 template <typename char_type>
+struct CharTraits {
+  static bool IsAlpha(char_type ch);
+};
+
+template <>
+struct CharTraits<char> {
+  static bool IsAlpha(char ch) { return isalpha(ch); }
+};
+
+template <>
+struct CharTraits<wchar_t> {
+  static bool IsAlpha(wchar_t ch) { return iswalpha(ch); }
+};
+
+template <typename char_type>
+static bool IsPathSeparator(char_type ch) {
+  return ch == '/' || ch == '\\';
+}
+
+template <typename char_type>
+static bool HasDriveSpecifierPrefix(const char_type* ch) {
+  return CharTraits<char_type>::IsAlpha(ch[0]) && ch[1] == ':';
+}
+
+template <typename char_type>
 static bool HasUncPrefix(const char_type* path) {
   return path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
          (path[2] == '.' || path[2] == '?') && path[3] == '\\';
+}
+
+static void AddUncPrefixMaybe(wstring* path) {
+  if (path->size() > MAX_PATH && !HasUncPrefix(path->c_str())) {
+    *path = wstring(L"\\\\?\\") + *path;
+  }
 }
 
 static unique_ptr<WCHAR[]> GetCwdW();
@@ -95,22 +128,21 @@ IPipe* CreatePipe() {
 // and root, but "c:\foo" is just absolute.
 static bool IsRootOrAbsolute(const string& path, bool must_be_root) {
   // An absolute path is one that starts with "/", "\", "c:/", "c:\",
-  // "\\?\c:\", or "\??\c:\".
+  // "\\?\c:\", or rarely "\??\c:\" or "\\.\c:\".
   //
   // It is unclear whether the UNC prefix is just "\\?\" or is "\??\" also
   // valid (in some cases it seems to be, though MSDN doesn't mention it).
   return
       // path is (or starts with) "/" or "\"
       ((must_be_root ? path.size() == 1 : !path.empty()) &&
-       (path[0] == '/' || path[0] == '\\')) ||
+       IsPathSeparator(path[0])) ||
       // path is (or starts with) "c:/" or "c:\" or similar
       ((must_be_root ? path.size() == 3 : path.size() >= 3) &&
-       isalpha(path[0]) && path[1] == ':' &&
-       (path[2] == '/' || path[2] == '\\')) ||
+       HasDriveSpecifierPrefix(path.c_str()) && IsPathSeparator(path[2])) ||
       // path is (or starts with) "\\?\c:\" or "\??\c:\" or similar
       ((must_be_root ? path.size() == 7 : path.size() >= 7) &&
-       HasUncPrefix(path.c_str()) && isalpha(path[4]) && path[5] == ':' &&
-       path[6] == '\\');
+       HasUncPrefix(path.c_str()) &&
+       HasDriveSpecifierPrefix(path.c_str() + 4) && IsPathSeparator(path[6]));
 }
 
 pair<string, string> SplitPath(const string& path) {
@@ -120,7 +152,7 @@ pair<string, string> SplitPath(const string& path) {
 
   size_t pos = path.size() - 1;
   for (auto it = path.crbegin(); it != path.crend(); ++it, --pos) {
-    if (*it == '/' || *it == '\\') {
+    if (IsPathSeparator(*it)) {
       if ((pos == 2 || pos == 6) && IsRootDirectory(path.substr(0, pos + 1))) {
         // Windows path, top-level directory, e.g. "c:\foo",
         // result is ("c:\", "foo").
@@ -267,14 +299,7 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     // could not retrieve the BAZEL_SH envvar.
     return false;
   }
-
-  if (wfilename.size() > MAX_PATH) {
-    // CreateFileW requires that paths longer than MAX_PATH be prefixed with
-    // "\\?\", so add that here.
-    // TODO(laszlocsomor): add a test for this code path.
-    wfilename = wstring(L"\\\\?\\") + wfilename;
-  }
-
+  AddUncPrefixMaybe(&wfilename);
   HANDLE handle = CreateFileW(
       /* lpFileName */ wfilename.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
@@ -472,7 +497,7 @@ bool PathExists(const string& path) {
     }
     wpath = wstring(cwd.get()) + L"\\" + wpath;
   }
-  wpath = wstring(L"\\\\?\\") + wpath;
+  AddUncPrefixMaybe(&wpath);
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
