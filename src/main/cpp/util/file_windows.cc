@@ -32,6 +32,14 @@ using std::unique_ptr;
 using std::vector;
 using std::wstring;
 
+template <typename char_type>
+static bool HasUncPrefix(const char_type* path) {
+  return path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
+         (path[2] == '.' || path[2] == '?') && path[3] == '\\';
+}
+
+static unique_ptr<WCHAR[]> GetCwdW();
+
 class WindowsPipe : public IPipe {
  public:
   WindowsPipe(const HANDLE& read_handle, const HANDLE& write_handle)
@@ -101,9 +109,8 @@ static bool IsRootOrAbsolute(const string& path, bool must_be_root) {
        (path[2] == '/' || path[2] == '\\')) ||
       // path is (or starts with) "\\?\c:\" or "\??\c:\" or similar
       ((must_be_root ? path.size() == 7 : path.size() >= 7) &&
-       path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
-       path[2] == '?' && path[3] == '\\' && isalpha(path[4]) &&
-       path[5] == ':' && path[6] == '\\');
+       HasUncPrefix(path.c_str()) && isalpha(path[4]) && path[5] == ':' &&
+       path[6] == '\\');
 }
 
 pair<string, string> SplitPath(const string& path) {
@@ -525,14 +532,20 @@ bool MakeDirectories(const string& path, unsigned int mode) {
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-string GetCwd() {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::GetCwd is not implemented on Windows");
-  return "";
+static unique_ptr<WCHAR[]> GetCwdW() {
+  DWORD len = ::GetCurrentDirectoryW(0, nullptr);
+  unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
+  if (!::GetCurrentDirectoryW(len, cwd.get())) {
+    die(255, "GetCurrentDirectoryW failed, err=%d\n", GetLastError());
+  }
+  return std::move(cwd);
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
+
+string GetCwd() {
+  unique_ptr<WCHAR[]> cwd(GetCwdW());
+  return string(
+      WstringToCstring(cwd.get() + (HasUncPrefix(cwd.get()) ? 4 : 0)).get());
+}
 
 #ifdef COMPILER_MSVC
 bool ChangeDirectory(const string& path) {
