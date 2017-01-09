@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
@@ -70,15 +69,13 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       throws ExecException, InterruptedException {
     EventHandler eventHandler = actionExecutionContext.getExecutor().getEventHandler();
     ExecException execException = null;
-    OutErr outErr = actionExecutionContext.getFileOutErr();
     try {
       runner.run(
           spawn.getArguments(),
           spawnEnvironment,
-          outErr,
+          actionExecutionContext.getFileOutErr(),
           Spawns.getTimeoutSeconds(spawn),
-          SandboxHelpers.shouldAllowNetwork(buildRequest, spawn),
-          sandboxOptions.sandboxDebug);
+          SandboxHelpers.shouldAllowNetwork(buildRequest, spawn));
     } catch (ExecException e) {
       execException = e;
     }
@@ -105,10 +102,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     }
 
     if (execException != null) {
-      outErr.printErr(
-          "Use --strategy="
-          + spawn.getMnemonic()
-          + "=standalone to disable sandboxing for the failing actions.\n");
       throw execException;
     }
   }
