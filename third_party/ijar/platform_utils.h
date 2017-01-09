@@ -17,6 +17,8 @@
 
 #include <stdlib.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <string>
 
 #include "third_party/ijar/common.h"
