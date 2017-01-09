@@ -235,7 +235,7 @@ public class BazelRuleClassProvider {
         RuleContext.Builder context, ConfiguredTarget prerequisite) {
       Rule rule = context.getRule();
 
-      if (rule.getRuleClassObject().canHaveAnyProvider()) {
+      if (rule.getRuleClassObject().getAdvertisedProviders().canHaveAnyProvider()) {
         // testonly-ness will be checked directly between the depender and the target of the alias;
         // getTarget() called by the depender will not return the alias rule, but its actual target
         return;

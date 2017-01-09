@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -542,13 +543,14 @@ public abstract class DependencyResolver {
     ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
 
     for (Aspect aspectCandidate : aspectCandidates) {
-      boolean requireAspect = ruleClass.canHaveAnyProvider();
+      AdvertisedProviderSet advertisedProviders = ruleClass.getAdvertisedProviders();
+      boolean requireAspect = advertisedProviders.canHaveAnyProvider();
 
       if (!requireAspect) {
         ImmutableList<ImmutableSet<Class<?>>> providersList =
             aspectCandidate.getDefinition().getRequiredProviders();
         for (ImmutableSet<Class<?>> providers : providersList) {
-          if (Sets.difference(providers, ruleClass.getAdvertisedProviders()).isEmpty()) {
+          if (Sets.difference(providers, advertisedProviders.getNativeProviders()).isEmpty()) {
             requireAspect = true;
             break;
           }

@@ -94,7 +94,7 @@ public class TransitiveTraversalFunction
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
       return AspectDefinition.visitAspectsIfRequired(fromRule, attr,
-          traversalVal.canHaveAnyProvider(), traversalVal.getProviders(),
+          traversalVal.getProviders(),
           DependencyFilter.ALL_DEPS).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
