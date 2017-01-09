@@ -31,6 +31,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 #include <thread>  // NOLINT (to slience Google-internal linter)
 #include <type_traits>  // static_assert
 
@@ -371,26 +372,23 @@ struct CmdLine {
 };
 static void CreateCommandLine(CmdLine* result, const string& exe,
                               const vector<string>& args_vector) {
-  string cmdline;
+  std::ostringstream cmdline;
   bool first = true;
   for (const auto& s : args_vector) {
     if (first) {
       first = false;
       // Skip first argument, instead use quoted executable name with ".exe"
       // suffix.
-      cmdline.append("\"");
-      cmdline.append(exe);
-      cmdline.append(".exe");
-      cmdline.append("\"");
+      cmdline << '\"' << exe << '\"';
       continue;
     } else {
-      cmdline.append(" ");
+      cmdline << ' ';
     }
 
     bool has_space = s.find(" ") != string::npos;
 
     if (has_space) {
-      cmdline.append("\"");
+      cmdline << '\"';
     }
 
     // TODO(bazel-team): get rid of the code to append character by character,
@@ -404,38 +402,39 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
       switch (ch) {
         case '"':
           // Escape double quotes
-          cmdline.append("\\\"");
+          cmdline << "\\\"";
           break;
 
         case '\\':
           if (it == s.end()) {
             // Backslashes at the end of the string are quoted if we add quotes
-            cmdline.append(has_space ? "\\\\" : "\\");
+            cmdline << (has_space ? "\\\\" : "\\");
           } else {
             // Backslashes everywhere else are quoted if they are followed by a
             // quote or a backslash
-            cmdline.append(*it == '"' || *it == '\\' ? "\\\\" : "\\");
+            cmdline << (*it == '"' || *it == '\\' ? "\\\\" : "\\");
           }
           break;
 
         default:
-          cmdline.append(1, ch);
+          cmdline << ch;
       }
     }
 
     if (has_space) {
-      cmdline.append("\"");
+      cmdline << '\"';
     }
   }
 
-  if (cmdline.size() >= MAX_CMDLINE_LENGTH) {
-    pdie(blaze_exit_code::INTERNAL_ERROR,
-         "Command line too long: %s", cmdline.c_str());
+  string cmdline_str = cmdline.str();
+  if (cmdline_str.size() >= MAX_CMDLINE_LENGTH) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "Command line too long: %s",
+         cmdline_str.c_str());
   }
 
   // Copy command line into a mutable buffer.
   // CreateProcess is allowed to mutate its command line argument.
-  strncpy(result->cmdline, cmdline.c_str(), MAX_CMDLINE_LENGTH - 1);
+  strncpy(result->cmdline, cmdline_str.c_str(), MAX_CMDLINE_LENGTH - 1);
   result->cmdline[MAX_CMDLINE_LENGTH - 1] = 0;
 }
 
