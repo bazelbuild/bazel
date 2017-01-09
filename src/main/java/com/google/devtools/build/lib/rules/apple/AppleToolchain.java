@@ -49,8 +49,8 @@ public class AppleToolchain {
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
   // until compile time on any given build machine.
-  @VisibleForTesting public static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
-  @VisibleForTesting public static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
+  private static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
+  private static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
 
   // These two paths are framework paths relative to SDKROOT.
   @VisibleForTesting
@@ -82,7 +82,7 @@ public class AppleToolchain {
 
   /** Returns the platform directory inside of Xcode for a platform name. */
   public static String platformDir(String platformName) {
-    return DEVELOPER_DIR + "/Platforms/" + platformName + ".platform";
+    return developerDir() + "/Platforms/" + platformName + ".platform";
   }
 
   /**
@@ -94,6 +94,17 @@ public class AppleToolchain {
   )
   public static String sdkDir() {
     return SDKROOT_DIR;
+  }
+
+  /**
+   * Returns the Developer directory inside of Xcode for a given configuration.
+   */
+  @SkylarkCallable(
+    name = "developer_dir",
+    doc = "Returns the Developer directory inside of Xcode for a given configuration."
+  )
+  public static String developerDir() {
+    return DEVELOPER_DIR;
   }
 
   /**
