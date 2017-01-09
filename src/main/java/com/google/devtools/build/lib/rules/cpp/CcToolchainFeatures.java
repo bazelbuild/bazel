@@ -352,6 +352,7 @@ public class CcToolchainFeatures implements Serializable {
     private final ImmutableSet<String> usedVariables;
     private String iterateOverVariable;
     private final ImmutableSet<String> expandIfAllAvailable;
+    private final ImmutableSet<String> expandIfNoneAvailable;
     private final String expandIfTrue;
     private final String expandIfFalse;
     private final VariableWithValue expandIfEqual;
@@ -390,6 +391,7 @@ public class CcToolchainFeatures implements Serializable {
       this.usedVariables = usedVariables.build();
       this.expandables = expandables.build();
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfAllAvailableList());
+      this.expandIfNoneAvailable = ImmutableSet.copyOf(flagGroup.getExpandIfNoneAvailableList());
       this.expandIfTrue = Strings.emptyToNull(flagGroup.getExpandIfTrue());
       this.expandIfFalse = Strings.emptyToNull(flagGroup.getExpandIfFalse());
       if (flagGroup.hasExpandIfEqual()) {
@@ -427,6 +429,11 @@ public class CcToolchainFeatures implements Serializable {
     private boolean canBeExpanded(Variables variables) {
       for (String variable : expandIfAllAvailable) {
         if (!variables.isAvailable(variable)) {
+          return false;
+        }
+      }
+      for (String variable : expandIfNoneAvailable) {
+        if (variables.isAvailable(variable)) {
           return false;
         }
       }

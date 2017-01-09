@@ -101,11 +101,13 @@ message CToolchain {
 
     repeated string expand_if_all_available = 4;
 
-    optional string expand_if_true = 5;
+    repeated string expand_if_none_available = 5;
 
-    optional string expand_if_false = 6;
+    optional string expand_if_true = 6;
 
-    optional VariableWithValue expand_if_equal = 7;
+    optional string expand_if_false = 7;
+
+    optional VariableWithValue expand_if_equal = 8;
   }
 
   message VariableWithValue {

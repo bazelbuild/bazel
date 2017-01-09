@@ -526,6 +526,39 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
+  public void testExpandIfNoneAvailableExpandsIfNotAvailable() throws Exception {
+    assertThat(
+        getCommandLineForFlagGroups(
+            "flag_group {"
+                + "  flag_group {"
+                + "    expand_if_none_available: 'not_available'"
+                + "    flag: '-foo'"
+                + "  }"
+                + "  flag_group { "
+                + "    expand_if_none_available: 'available'"
+                + "    flag: '-bar'"
+                + "  }"
+                + "}",
+            createVariables("available", "available")))
+        .containsExactly("-foo");
+  }
+
+  @Test
+  public void testExpandIfNoneAvailableDoesntExpandIfThereIsOneOfManyAvailable() throws Exception {
+    assertThat(
+        getCommandLineForFlagGroups(
+            "flag_group {"
+                + "  flag_group {"
+                + "    expand_if_none_available: 'not_available'"
+                + "    expand_if_none_available: 'available'"
+                + "    flag: '-foo'"
+                + "  }"
+                + "}",
+            createVariables("available", "available")))
+        .isEmpty();
+  }
+
+  @Test
   public void testExpandIfTrueDoesntExpandIfMissing() throws Exception {
     assertThat(
         getCommandLineForFlagGroups(
