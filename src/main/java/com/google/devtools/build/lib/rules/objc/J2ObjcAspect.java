@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.actions.Artifact.IS_TREE_ARTIFACT;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -23,7 +22,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -292,24 +290,32 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         base.getProvider(JavaCompilationArgsProvider.class);
     JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
     JavaGenJarsProvider genJarProvider = base.getProvider(JavaGenJarsProvider.class);
-    ImmutableSet<Artifact> javaInputFiles;
-    if (sourceInfoProvider == null) {
-      javaInputFiles = ImmutableSet.<Artifact>of();
-    } else {
-      javaInputFiles = ImmutableSet.<Artifact>builder()
-          .addAll(sourceInfoProvider.getSourceFiles())
-          .addAll(sourceInfoProvider.getSourceJars())
-          .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
-          .build();
-    }
-    Optional<Artifact> genSrcJar;
-    if (genJarProvider != null) {
-      genSrcJar = Optional.fromNullable(genJarProvider.getGenSourceJar());
-    } else {
-      genSrcJar = Optional.<Artifact>absent();
+    ImmutableSet.Builder<Artifact> javaSourceFilesBuilder = ImmutableSet.builder();
+    ImmutableSet.Builder<Artifact> javaSourceJarsBuilder = ImmutableSet.builder();
+    if (sourceInfoProvider != null) {
+      javaSourceFilesBuilder.addAll(sourceInfoProvider.getSourceFiles());
+
+      if (ruleContext.getFragment(J2ObjcConfiguration.class).experimentalSrcJarProcessing()) {
+        javaSourceJarsBuilder
+            .addAll(sourceInfoProvider.getSourceJars())
+            .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
+      } else {
+        // The old source jar support treates source jars as source files, in the sense that
+        // we generate a single concatenated ObjC header and source files for all sources inside
+        // a given Java source jar.
+        javaSourceFilesBuilder
+            .addAll(sourceInfoProvider.getSourceJars())
+            .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
+      }
     }
 
-    J2ObjcSource j2ObjcSource = javaJ2ObjcSource(ruleContext, javaInputFiles, genSrcJar);
+    if (genJarProvider != null && genJarProvider.getGenSourceJar() != null) {
+      javaSourceJarsBuilder.add(genJarProvider.getGenSourceJar());
+    }
+
+    ImmutableSet<Artifact> javaSourceFiles = javaSourceFilesBuilder.build();
+    ImmutableSet<Artifact> javaSourceJars = javaSourceJarsBuilder.build();
+    J2ObjcSource j2ObjcSource = javaJ2ObjcSource(ruleContext, javaSourceFiles, javaSourceJars);
     J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
         depJ2ObjcMappingFileProvider(ruleContext);
 
@@ -320,11 +326,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       directJ2ObjcMappingFileProvider =
           createJ2ObjcTranspilationAction(
               ruleContext,
-              javaInputFiles,
+              javaSourceFiles,
+              javaSourceJars,
               depJ2ObjcMappingFileProvider,
               compilationArgsProvider,
-              j2ObjcSource,
-              genSrcJar);
+              j2ObjcSource);
     }
     return buildAspect(
         base,
@@ -430,27 +436,27 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         depsArchiveSourceMappingsBuilder.build());
   }
 
-  private List<Artifact> genJarOutputs(RuleContext ruleContext) {
+  private static List<Artifact> sourceJarOutputs(RuleContext ruleContext) {
     return ImmutableList.of(
-        j2ObjcGenJarTranslatedSourceFiles(ruleContext),
-        j2objcGenJarTranslatedHeaderFiles(ruleContext));
+        j2ObjcSourceJarTranslatedSourceFiles(ruleContext),
+        j2objcSourceJarTranslatedHeaderFiles(ruleContext));
   }
 
-  private List<String> genJarFlags(RuleContext ruleContext) {
+  private static List<String> sourceJarFlags(RuleContext ruleContext) {
     return ImmutableList.of(
         "--output_gen_source_dir",
-        j2ObjcGenJarTranslatedSourceFiles(ruleContext).getExecPathString(),
+        j2ObjcSourceJarTranslatedSourceFiles(ruleContext).getExecPathString(),
         "--output_gen_header_dir",
-        j2objcGenJarTranslatedHeaderFiles(ruleContext).getExecPathString());
+        j2objcSourceJarTranslatedHeaderFiles(ruleContext).getExecPathString());
   }
 
-  private J2ObjcMappingFileProvider createJ2ObjcTranspilationAction(
+  private static J2ObjcMappingFileProvider createJ2ObjcTranspilationAction(
       RuleContext ruleContext,
       Iterable<Artifact> sources,
+      Iterable<Artifact> sourceJars,
       J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider,
       JavaCompilationArgsProvider compArgsProvider,
-      J2ObjcSource j2ObjcSource,
-      Optional<Artifact> genSrcJar) {
+      J2ObjcSource j2ObjcSource) {
     CustomCommandLine.Builder argBuilder = CustomCommandLine.builder();
     PathFragment javaExecutable = ruleContext.getFragment(Jvm.class, HOST).getJavaExecutable();
     argBuilder.add("--java").add(javaExecutable.getPathString());
@@ -459,20 +465,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     argBuilder.addExecPath("--j2objc", j2ObjcDeployJar);
 
     argBuilder.add("--main_class").add("com.google.devtools.j2objc.J2ObjC");
-    argBuilder.addJoinExecPaths(
-        "--translated_source_files",
-        ",",
-        Iterables.filter(j2ObjcSource.getObjcSrcs(), Predicates.not(IS_TREE_ARTIFACT)));
     argBuilder.add("--objc_file_path").addPath(j2ObjcSource.getObjcFilePath());
 
     Artifact outputDependencyMappingFile = j2ObjcOutputDependencyMappingFile(ruleContext);
     argBuilder.addExecPath("--output_dependency_mapping_file", outputDependencyMappingFile);
 
-    ImmutableList.Builder<Artifact> genSrcOutputFiles = ImmutableList.builder();
-    if (genSrcJar.isPresent()) {
-      genSrcOutputFiles.addAll(genJarOutputs(ruleContext));
-      argBuilder.addExecPath("--gen_src_jar", genSrcJar.get());
-      argBuilder.add(genJarFlags(ruleContext));
+    ImmutableList.Builder<Artifact> sourceJarOutputFiles = ImmutableList.builder();
+    if (!Iterables.isEmpty(sourceJars)) {
+      sourceJarOutputFiles.addAll(sourceJarOutputs(ruleContext));
+      argBuilder.addJoinExecPaths("--src_jars", ",", sourceJars);
+      argBuilder.add(sourceJarFlags(ruleContext));
     }
 
     Iterable<String> translationFlags = ruleContext
@@ -530,7 +532,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .addInput(j2ObjcDeployJar)
         .addInput(bootclasspathJar)
         .addInputs(sources)
-        .addInputs(genSrcJar.asSet())
+        .addInputs(sourceJars)
         .addTransitiveInputs(compileTimeJars)
         .addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
         .addTransitiveInputs(depsHeaderMappingFiles)
@@ -539,9 +541,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .setCommandLine(CustomCommandLine.builder()
             .addPaths("@%s", paramFile.getExecPath())
             .build())
-        .addOutputs(Iterables.filter(j2ObjcSource.getObjcSrcs(), Predicates.not(IS_TREE_ARTIFACT)))
-        .addOutputs(Iterables.filter(j2ObjcSource.getObjcHdrs(), Predicates.not(IS_TREE_ARTIFACT)))
-        .addOutputs(genSrcOutputFiles.build())
+        .addOutputs(j2ObjcSource.getObjcSrcs())
+        .addOutputs(j2ObjcSource.getObjcHdrs())
         .addOutput(outputHeaderMappingFile)
         .addOutput(outputDependencyMappingFile)
         .addOutput(archiveSourceMappingFile);
@@ -637,16 +638,16 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         ruleContext, ".archive_source_mapping.j2objc");
   }
 
-  private static Artifact j2ObjcGenJarTranslatedSourceFiles(RuleContext ruleContext) {
+  private static Artifact j2ObjcSourceJarTranslatedSourceFiles(RuleContext ruleContext) {
     PathFragment rootRelativePath = ruleContext
-        .getUniqueDirectory("_j2objc/gen_jar_files")
+        .getUniqueDirectory("_j2objc/src_jar_files")
         .getRelative("source_files");
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
 
-  private static Artifact j2objcGenJarTranslatedHeaderFiles(RuleContext ruleContext) {
+  private static Artifact j2objcSourceJarTranslatedHeaderFiles(RuleContext ruleContext) {
     PathFragment rootRelativePath = ruleContext
-        .getUniqueDirectory("_j2objc/gen_jar_files")
+        .getUniqueDirectory("_j2objc/src_jar_files")
         .getRelative("header_files");
     return ruleContext.getTreeArtifact(rootRelativePath, ruleContext.getBinOrGenfilesDirectory());
   }
@@ -654,7 +655,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private static J2ObjcSource javaJ2ObjcSource(
       RuleContext ruleContext,
       Iterable<Artifact> javaInputSourceFiles,
-      Optional<Artifact> genSrcJar) {
+      Iterable<Artifact> javaSourceJarFiles) {
     PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
     PathFragment objcFileRootExecPath = ruleContext
         .getConfiguration()
@@ -667,23 +668,23 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Iterable<PathFragment> headerSearchPaths = J2ObjcLibrary.j2objcSourceHeaderSearchPaths(
         ruleContext, objcFileRootExecPath, javaInputSourceFiles);
 
-    Optional<Artifact> genJarTranslatedSrcs = Optional.absent();
-    Optional<Artifact> genJarTranslatedHdrs = Optional.absent();
-    Optional<PathFragment> genJarFileHeaderSearchPaths = Optional.absent();
+    Optional<Artifact> sourceJarTranslatedSrcs = Optional.absent();
+    Optional<Artifact> sourceJarTranslatedHdrs = Optional.absent();
+    Optional<PathFragment> sourceJarFileHeaderSearchPaths = Optional.absent();
 
-    if (genSrcJar.isPresent()) {
-      genJarTranslatedSrcs = Optional.of(j2ObjcGenJarTranslatedSourceFiles(ruleContext));
-      genJarTranslatedHdrs = Optional.of(j2objcGenJarTranslatedHeaderFiles(ruleContext));
-      genJarFileHeaderSearchPaths = Optional.of(genJarTranslatedHdrs.get().getExecPath());
+    if (!Iterables.isEmpty(javaSourceJarFiles)) {
+      sourceJarTranslatedSrcs = Optional.of(j2ObjcSourceJarTranslatedSourceFiles(ruleContext));
+      sourceJarTranslatedHdrs = Optional.of(j2objcSourceJarTranslatedHeaderFiles(ruleContext));
+      sourceJarFileHeaderSearchPaths = Optional.of(sourceJarTranslatedHdrs.get().getExecPath());
     }
 
     return new J2ObjcSource(
         ruleContext.getRule().getLabel(),
-        Iterables.concat(objcSrcs, genJarTranslatedSrcs.asSet()),
-        Iterables.concat(objcHdrs, genJarTranslatedHdrs.asSet()),
+        Iterables.concat(objcSrcs, sourceJarTranslatedSrcs.asSet()),
+        Iterables.concat(objcHdrs, sourceJarTranslatedHdrs.asSet()),
         objcFileRootExecPath,
         SourceType.JAVA,
-        Iterables.concat(headerSearchPaths, genJarFileHeaderSearchPaths.asSet()));
+        Iterables.concat(headerSearchPaths, sourceJarFileHeaderSearchPaths.asSet()));
   }
 
   private static J2ObjcSource protoJ2ObjcSource(

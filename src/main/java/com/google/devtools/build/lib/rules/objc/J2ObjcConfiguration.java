@@ -86,6 +86,7 @@ public class J2ObjcConfiguration extends Fragment {
   private final List<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean explicitJreDeps;
+  private final boolean experimentalSrcJarProcessing;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
@@ -95,6 +96,7 @@ public class J2ObjcConfiguration extends Fragment {
         .addAll(j2ObjcOptions.translationFlags)
         .addAll(J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS)
         .build();
+    this.experimentalSrcJarProcessing = j2ObjcOptions.experimentalSrcJarProcessing;
   }
 
   /**
@@ -124,6 +126,15 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public boolean explicitJreDeps() {
     return explicitJreDeps;
+  }
+
+  /**
+   * Returns whether to use experimental source jar processing support. The new support produces
+   * one header for each Java source file inside a given source jar, instead of one big concatenated
+   * header for all source files from the source jar.
+   */
+  public boolean experimentalSrcJarProcessing() {
+    return experimentalSrcJarProcessing;
   }
 
   @Override
