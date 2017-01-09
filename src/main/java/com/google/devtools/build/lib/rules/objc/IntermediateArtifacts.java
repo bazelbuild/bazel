@@ -414,6 +414,7 @@ public final class IntermediateArtifacts {
             .getLabel()
             .toString()
             .replace("//", "")
+            .replace("@", "")
             .replace("/", "_")
             .replace(":", "_");
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
