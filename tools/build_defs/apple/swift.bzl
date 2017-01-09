@@ -58,8 +58,7 @@ def _swift_compilation_mode_flags(ctx):
   elif mode == "opt":
     flags += ["-O", "-DNDEBUG"]
 
-  if mode == "dbg" or (hasattr(ctx.fragments.objc, "generate_dsym") and
-                       getattr(ctx.fragments.objc, "generate_dsym")):
+  if mode == "dbg" or ctx.fragments.objc.generate_dsym:
     flags.append("-g")
 
   return flags
