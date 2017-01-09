@@ -72,7 +72,7 @@ a minimal set of extra dependencies.
 
 ## [asm](https://asm.ow2.org)
 
-* Version: 5.0.4
+* Version: 5.1
 * License: 3-clause revised BSD
 
 

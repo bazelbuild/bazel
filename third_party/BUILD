@@ -147,30 +147,30 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-5.0.4.jar"],
+    jars = ["asm/asm-5.1.jar"],
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-5.0.4.jar"],
+    jars = ["asm/asm-analysis-5.1.jar"],
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-5.0.4.jar"],
+    jars = ["asm/asm-commons-5.1.jar"],
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-5.0.4.jar"],
+    jars = ["asm/asm-tree-5.1.jar"],
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-5.0.4.jar"],
+    jars = ["asm/asm-util-5.1.jar"],
     runtime_deps = [":asm-tree"],
 )
 
