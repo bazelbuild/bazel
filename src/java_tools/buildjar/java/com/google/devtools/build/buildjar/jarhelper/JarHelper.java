@@ -63,8 +63,7 @@ public class JarHelper {
   /**
    * Enables or disables the Jar entry normalization.
    *
-   * @param normalize If true the timestamps of Jar entries will be set to the
-   *        DOS epoch.
+   * @param normalize If true the timestamps of Jar entries will be set to the DOS epoch.
    */
   public void setNormalize(boolean normalize) {
     this.normalize = normalize;
@@ -89,13 +88,12 @@ public class JarHelper {
   }
 
   /**
-   * Returns the normalized timestamp for a jar entry based on its name.
-   * This is necessary since javac will, when loading a class X, prefer a
-   * source file to a class file, if both files have the same timestamp.
-   * Therefore, we need to adjust the timestamp for class files to slightly
+   * Returns the normalized timestamp for a jar entry based on its name. This is necessary since
+   * javac will, when loading a class X, prefer a source file to a class file, if both files have
+   * the same timestamp. Therefore, we need to adjust the timestamp for class files to slightly
    * after the normalized time.
-   * @param name The name of the file for which we should return the
-   *     normalized timestamp.
+   *
+   * @param name The name of the file for which we should return the normalized timestamp.
    * @return the time for a new Jar file entry in milliseconds since the epoch.
    */
   private long normalizedTimestamp(String name) {
@@ -107,9 +105,9 @@ public class JarHelper {
   }
 
   /**
-   * Returns the time for a new Jar file entry in milliseconds since the epoch.
-   * Uses {@link JarCreator#DOS_EPOCH_IN_JAVA_TIME} for normalized entries,
-   * {@link System#currentTimeMillis()} otherwise.
+   * Returns the time for a new Jar file entry in milliseconds since the epoch. Uses {@link
+   * JarCreator#DOS_EPOCH_IN_JAVA_TIME} for normalized entries, {@link System#currentTimeMillis()}
+   * otherwise.
    *
    * @param filename The name of the file for which we are entering the time
    * @return the time for a new Jar file entry in milliseconds since the epoch.
@@ -119,8 +117,8 @@ public class JarHelper {
   }
 
   /**
-   * Writes an entry with specific contents to the jar. Directory entries must
-   * include the trailing '/'.
+   * Writes an entry with specific contents to the jar. Directory entries must include the trailing
+   * '/'.
    */
   protected void writeEntry(JarOutputStream out, String name, byte[] content) throws IOException {
     if (names.add(name)) {
@@ -148,8 +146,8 @@ public class JarHelper {
   }
 
   /**
-   * Writes a standard Java manifest entry into the JarOutputStream. This
-   * includes the directory entry for the "META-INF" directory
+   * Writes a standard Java manifest entry into the JarOutputStream. This includes the directory
+   * entry for the "META-INF" directory
    *
    * @param content the Manifest content to write to the manifest entry.
    * @throws IOException
@@ -162,7 +160,7 @@ public class JarHelper {
       storageMethod = JarEntry.STORED;
     }
     try {
-      writeEntry(out, MANIFEST_DIR, new byte[]{});
+      writeEntry(out, MANIFEST_DIR, new byte[] {});
       writeEntry(out, MANIFEST_NAME, content);
     } finally {
       storageMethod = oldStorageMethod;
@@ -170,9 +168,8 @@ public class JarHelper {
   }
 
   /**
-   * Copies file or directory entries from the file system into the jar.
-   * Directory entries will be detected and their names automatically '/'
-   * suffixed.
+   * Copies file or directory entries from the file system into the jar. Directory entries will be
+   * detected and their names automatically '/' suffixed.
    */
   protected void copyEntry(String name, File file) throws IOException {
     if (!names.contains(name)) {
@@ -181,7 +178,7 @@ public class JarHelper {
       }
       boolean isDirectory = file.isDirectory();
       if (isDirectory && !name.endsWith("/")) {
-        name = name + '/';  // always normalize directory names before checking set
+        name = name + '/'; // always normalize directory names before checking set
       }
       if (names.add(name)) {
         if (verbose) {

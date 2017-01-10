@@ -32,8 +32,7 @@ import java.util.zip.ZipFile;
 /**
  * Base class for java_library builders.
  *
- * <p>Implements common functionality like source files preparation and
- * output jar creation.
+ * <p>Implements common functionality like source files preparation and output jar creation.
  */
 public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor {
 
@@ -64,8 +63,8 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
     // The easiest way to handle resource jars is to unpack them into the class directory, just
     // before we start zipping it up.
     for (String resourceJar : build.getResourceJars()) {
-      setUpSourceJar(new File(resourceJar), build.getClassDir(),
-          new ArrayList<SourceJarEntryListener>());
+      setUpSourceJar(
+          new File(resourceJar), build.getClassDir(), new ArrayList<SourceJarEntryListener>());
     }
 
     jar.addDirectory(build.getClassDir());
@@ -78,10 +77,10 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Adds a collection of resource entries. Each entry is a string composed of a
-   * pair of parts separated by a colon ':'. The name of the resource comes from
-   * the second part, and the path to the resource comes from the whole string
-   * with the colon replaced by a slash '/'.
+   * Adds a collection of resource entries. Each entry is a string composed of a pair of parts
+   * separated by a colon ':'. The name of the resource comes from the second part, and the path to
+   * the resource comes from the whole string with the colon replaced by a slash '/'.
+   *
    * <pre>
    * prefix:name => (name, prefix/name)
    * </pre>
@@ -100,8 +99,7 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
     }
   }
 
-  private static void addMessageEntries(JarCreator jar, List<String> messages)
-      throws IOException {
+  private static void addMessageEntries(JarCreator jar, List<String> messages) throws IOException {
     for (String message : messages) {
       int colon = message.indexOf(':');
       if (colon < 0) {
@@ -120,8 +118,8 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Adds an entry to the jar, making sure that all the parent dirs up to the
-   * base of {@code entry} are also added.
+   * Adds an entry to the jar, making sure that all the parent dirs up to the base of {@code entry}
+   * are also added.
    *
    * @param entry the PathFragment of the entry going into the Jar file
    * @param file the PathFragment of the input file for the entry
@@ -135,11 +133,12 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Internal interface which will listen on each entry of the source jar
-   * files during the source jar setup process.
+   * Internal interface which will listen on each entry of the source jar files during the source
+   * jar setup process.
    */
   protected interface SourceJarEntryListener {
     void onEntry(ZipEntry entry) throws IOException;
+
     void finish() throws IOException;
   }
 
@@ -150,8 +149,7 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * A SourceJarEntryListener that collects a lists of source Java files from
-   * the source jar files.
+   * A SourceJarEntryListener that collects a lists of source Java files from the source jar files.
    */
   private static class SourceJavaFileCollector implements SourceJarEntryListener {
     private final List<String> sources;
@@ -177,9 +175,8 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Extracts the all source jars from the build request into the temporary
-   * directory specified in the build request. Empties the temporary directory,
-   * if it exists.
+   * Extracts the all source jars from the build request into the temporary directory specified in
+   * the build request. Empties the temporary directory, if it exists.
    */
   private void setUpSourceJars(JavaLibraryBuildRequest build) throws IOException {
     String sourcesDir = build.getTempDir();
@@ -203,12 +200,11 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Extracts the source jar into the directory sourceDir. Calls each of the
-   * SourceJarEntryListeners for each non-directory entry to do additional work.
+   * Extracts the source jar into the directory sourceDir. Calls each of the SourceJarEntryListeners
+   * for each non-directory entry to do additional work.
    */
-  private void setUpSourceJar(File sourceJar, String sourceDir,
-      List<SourceJarEntryListener> listeners)
-      throws IOException {
+  private void setUpSourceJar(
+      File sourceJar, String sourceDir, List<SourceJarEntryListener> listeners) throws IOException {
     try (ZipFile zipFile = new ZipFile(sourceJar)) {
       Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
       while (zipEntries.hasMoreElements()) {
@@ -223,7 +219,7 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
         } else {
           // Copy the data from the zip file to the output file.
           try (InputStream in = zipFile.getInputStream(currentEntry);
-               OutputStream out = new FileOutputStream(outputFile)) {
+              OutputStream out = new FileOutputStream(outputFile)) {
             ByteStreams.copy(in, out);
           }
 
@@ -236,10 +232,10 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Recursively cleans up the files beneath the specified output directory.
-   * Does not follow symbolic links. Throws IOException if any deletion fails.
+   * Recursively cleans up the files beneath the specified output directory. Does not follow
+   * symbolic links. Throws IOException if any deletion fails.
    *
-   * Will delete all empty directories.
+   * <p>Will delete all empty directories.
    *
    * @param dir the directory to clean up.
    * @return true if the directory itself was removed as well.
@@ -249,11 +245,10 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Recursively cleans up the files beneath the specified output directory.
-   * Does not follow symbolic links. Throws IOException if any deletion fails.
-   * If removeEverything is false, keeps .class files if keepClassFilesDuringCleanup()
-   * returns true. If removeEverything is true, removes everything. Will delete all
-   * empty directories.
+   * Recursively cleans up the files beneath the specified output directory. Does not follow
+   * symbolic links. Throws IOException if any deletion fails. If removeEverything is false, keeps
+   * .class files if keepClassFilesDuringCleanup() returns true. If removeEverything is true,
+   * removes everything. Will delete all empty directories.
    *
    * @param dir the directory to clean up.
    * @param removeEverything whether to remove all files, or keep flags.xml/.class files.
@@ -262,12 +257,15 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   private boolean cleanupDirectory(File dir, boolean removeEverything) throws IOException {
     boolean isEmpty = true;
     File[] files = dir.listFiles();
-    if (files == null) { return false; } // avoid race condition
+    if (files == null) {
+      return false;
+    } // avoid race condition
     for (File file : files) {
       if (file.isDirectory()) {
         isEmpty &= cleanupDirectory(file, removeEverything);
-      } else if (!removeEverything && keepClassFilesDuringCleanup() &&
-          file.getName().endsWith(".class")) {
+      } else if (!removeEverything
+          && keepClassFilesDuringCleanup()
+          && file.getName().endsWith(".class")) {
         isEmpty = false;
       } else {
         file.delete();
@@ -280,11 +278,10 @@ public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor 
   }
 
   /**
-   * Returns true if cleaning the output directory should remove all
-   * .class files in the output directory.
+   * Returns true if cleaning the output directory should remove all .class files in the output
+   * directory.
    */
   protected boolean keepClassFilesDuringCleanup() {
     return false;
   }
-
 }

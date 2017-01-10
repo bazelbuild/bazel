@@ -83,8 +83,8 @@ public final class OptionsParser {
   private String targetLabel;
 
   /**
-   * Constructs an {@code OptionsParser} from a list of command args. Sets the same
-   * JavacRunner for both compilation and annotation processing.
+   * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
+   * both compilation and annotation processing.
    *
    * @param args the list of command line args.
    * @throws InvalidCommandLineException on any command line error.
@@ -220,8 +220,8 @@ public final class OptionsParser {
   }
 
   /**
-   * Pre-processes an argument list, expanding options @filename to read in
-   * the content of the file and add it to the list of arguments.
+   * Pre-processes an argument list, expanding options @filename to read in the content of the file
+   * and add it to the list of arguments.
    *
    * @param args the List of arguments to pre-process.
    * @return the List of pre-processed arguments.
@@ -236,8 +236,8 @@ public final class OptionsParser {
   }
 
   /**
-   * Expands a single argument, expanding options @filename to read in the content of the file
-   * and add it to the list of processed arguments. The @ itself can be escaped with @@.
+   * Expands a single argument, expanding options @filename to read in the content of the file and
+   * add it to the list of processed arguments. The @ itself can be escaped with @@.
    *
    * @param expanded the list of processed arguments.
    * @param arg the argument to pre-process.
@@ -275,15 +275,16 @@ public final class OptionsParser {
   }
 
   /**
-   * Collects the arguments for the --processors command line flag until it finds a flag that
-   * starts with the terminatorPrefix.
+   * Collects the arguments for the --processors command line flag until it finds a flag that starts
+   * with the terminatorPrefix.
    *
    * @param output where to put the collected flag arguments.
    * @param args
    * @param terminatorPrefix the terminator prefix to stop collecting of argument flags.
    */
-  private static void collectProcessorArguments(List<String> output, Deque<String> args,
-      String terminatorPrefix) throws InvalidCommandLineException {
+  private static void collectProcessorArguments(
+      List<String> output, Deque<String> args, String terminatorPrefix)
+      throws InvalidCommandLineException {
     for (String arg = args.pollFirst(); arg != null; arg = args.pollFirst()) {
       if (arg.startsWith(terminatorPrefix)) {
         args.addFirst(arg);

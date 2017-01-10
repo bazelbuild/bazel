@@ -18,23 +18,21 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.rules.java.JavaToolchainData;
 import com.google.devtools.build.lib.rules.java.JavaToolchainDataParser;
-
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-/**
- * Utility class to generate {@link JavaBuilderConfig}.
- */
+/** Utility class to generate {@link JavaBuilderConfig}. */
 public class JavaBuilderConfigGenerator {
-  
+
   private static void die(String message) {
     System.err.println(message);
     System.err.println("\nThis program is expecting the protocol buffer output of a bazel query");
     System.err.println("containing exactly one java_toolchain target. An example of such output");
     System.err.println("can be obtained by:");
-    System.err.println("\bazel query --output=proto "
-        + "'kind(java_toolchain, deps(//tools/defaults:java_toolchain))'");
+    System.err.println(
+        "\bazel query --output=proto "
+            + "'kind(java_toolchain, deps(//tools/defaults:java_toolchain))'");
     System.exit(-1);
   }
 
@@ -52,8 +50,8 @@ public class JavaBuilderConfigGenerator {
       String optsString = Joiner.on("\", \"").join(first.getJavacOptions());
       System.out.println("package com.google.devtools.build.java.bazel;");
       System.out.println("public class JavaBuilderJavacOpts {");
-      System.out.println("public static final String[] DEFAULT_JAVACOPTS = {\""
-          + optsString + "\"};");
+      System.out.println(
+          "public static final String[] DEFAULT_JAVACOPTS = {\"" + optsString + "\"};");
       System.out.println("}");
     } catch (IOException e) {
       die("Cannot load input file: " + e.getMessage());

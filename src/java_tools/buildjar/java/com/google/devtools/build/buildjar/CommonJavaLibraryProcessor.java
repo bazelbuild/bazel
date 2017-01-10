@@ -19,21 +19,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Superclass for all JavaBuilder processor classes
- * involved in compiling and processing java code.
+ * Superclass for all JavaBuilder processor classes involved in compiling and processing java code.
  */
 public abstract class CommonJavaLibraryProcessor {
 
   /**
-   * Creates the initial set of arguments to javac from the Build
-   * configuration supplied. This set of arguments should be extended
-   * by the code invoking it.
+   * Creates the initial set of arguments to javac from the Build configuration supplied. This set
+   * of arguments should be extended by the code invoking it.
    *
    * @param build The build request for the initial set of arguments is needed
    * @return The list of initial arguments
    */
-  protected List<String> createInitialJavacArgs(JavaLibraryBuildRequest build,
-      String classPath) {
+  protected List<String> createInitialJavacArgs(JavaLibraryBuildRequest build, String classPath) {
     List<String> args = new ArrayList<>();
     if (!classPath.isEmpty()) {
       args.add("-cp");

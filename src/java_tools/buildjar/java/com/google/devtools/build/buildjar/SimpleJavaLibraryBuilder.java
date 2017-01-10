@@ -18,18 +18,14 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-
 import com.sun.tools.javac.main.Main.Result;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * An implementation of the JavaBuilder that uses in-process javac to compile java files.
- */
+/** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
 public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
 
   @Override
@@ -58,16 +54,16 @@ public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
   }
 
   /**
-   * For the build configuration 'build', construct a command line that
-   * can be used for a javac invocation.
+   * For the build configuration 'build', construct a command line that can be used for a javac
+   * invocation.
    */
   protected String[] makeJavacArguments(JavaLibraryBuildRequest build) {
     return makeJavacArguments(build, build.getClassPath());
   }
 
   /**
-   * For the build configuration 'build', construct a command line that
-   * can be used for a javac invocation.
+   * For the build configuration 'build', construct a command line that can be used for a javac
+   * invocation.
    */
   protected String[] makeJavacArguments(JavaLibraryBuildRequest build, String classPath) {
     List<String> javacArguments = createInitialJavacArgs(build, classPath);
@@ -80,8 +76,10 @@ public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
       }
       if (option.equals("-processor") || option.equals("-processorpath")) {
         throw new IllegalStateException(
-            "Using " + option + " in javacopts is no longer supported."
-            + " Use a java_plugin() rule instead.");
+            "Using "
+                + option
+                + " in javacopts is no longer supported."
+                + " Use a java_plugin() rule instead.");
       }
       javacArguments.add(option);
     }
@@ -101,8 +99,7 @@ public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
     // whereas omitting the option is treated as not having a processor path (which causes
     // processor path searches to fallback to the class path).
     args.add("-processorpath");
-    args.add(
-        build.getProcessorPath().isEmpty() ? "" : build.getProcessorPath());
+    args.add(build.getProcessorPath().isEmpty() ? "" : build.getProcessorPath());
 
     if (!build.getProcessors().isEmpty() && !build.getSourceFiles().isEmpty()) {
       // ImmutableSet.copyOf maintains order

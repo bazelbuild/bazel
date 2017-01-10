@@ -13,15 +13,12 @@
 // limitations under the License.
 
 package com.google.devtools.build.buildjar.javac.plugins.classloader;
- 
-import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 
+import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.util.Context;
-
 import java.net.URL;
 import java.net.URLClassLoader;
-
 import javax.tools.JavaFileManager;
 
 /** A plugin that customizes the Java compiler for the Error Prone plugin. */
@@ -29,25 +26,27 @@ public final class ClassLoaderMaskingPlugin extends BlazeJavaCompilerPlugin {
 
   @Override
   public void initializeContext(Context context) {
-    context.put(JavaFileManager.class, new Context.Factory<JavaFileManager>() {
-      @Override
-      public JavaFileManager make(Context c) {
-        return new JavacFileManager(c, true, null) {
+    context.put(
+        JavaFileManager.class,
+        new Context.Factory<JavaFileManager>() {
           @Override
-          protected ClassLoader getClassLoader(URL[] urls) {
-            return new URLClassLoader(urls, makeMaskedClassLoader());
+          public JavaFileManager make(Context c) {
+            return new JavacFileManager(c, true, null) {
+              @Override
+              protected ClassLoader getClassLoader(URL[] urls) {
+                return new URLClassLoader(urls, makeMaskedClassLoader());
+              }
+            };
           }
-        };
-      }
-    });
+        });
     super.initializeContext(context);
   }
 
   /**
    * When Bazel invokes JavaBuilder, it puts javac.jar on the bootstrap class path and
-   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be
-   * available on the annotation processor path, but we want to mask out any other
-   * classes to minimize class version skew.
+   * JavaBuilder_deploy.jar on the user class path. We need Error Prone to be available on the
+   * annotation processor path, but we want to mask out any other classes to minimize class version
+   * skew.
    */
   private ClassLoader makeMaskedClassLoader() {
     return new ClassLoader(JavacFileManager.class.getClassLoader()) {

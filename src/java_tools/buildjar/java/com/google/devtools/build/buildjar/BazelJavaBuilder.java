@@ -33,16 +33,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
 
-/**
- * The JavaBuilder main called by bazel.
- */
+/** The JavaBuilder main called by bazel. */
 public abstract class BazelJavaBuilder {
 
   private static final String CMDNAME = "BazelJavaBuilder";
 
-  /**
-   * The main method of the BazelJavaBuilder.
-   */
+  /** The main method of the BazelJavaBuilder. */
   public static void main(String[] args) {
     AbstractPostProcessor.addPostProcessor("jacoco", new JacocoInstrumentationProcessor());
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
@@ -88,9 +84,10 @@ public abstract class BazelJavaBuilder {
   public static int processRequest(List<String> args, PrintWriter err) {
     try {
       JavaLibraryBuildRequest build = parse(args);
-      AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
-          ? new ReducedClasspathJavaLibraryBuilder()
-          : new SimpleJavaLibraryBuilder();
+      AbstractJavaBuilder builder =
+          build.getDependencyModule().reduceClasspath()
+              ? new ReducedClasspathJavaLibraryBuilder()
+              : new SimpleJavaLibraryBuilder();
       return builder.run(build, err).exitCode;
     } catch (InvalidCommandLineException e) {
       System.err.println(CMDNAME + " threw exception: " + e.getMessage());
@@ -124,16 +121,16 @@ public abstract class BazelJavaBuilder {
   }
 
   /**
-   * Parses the list of arguments into a {@link JavaLibraryBuildRequest}. The returned
-   * {@link JavaLibraryBuildRequest} object can be then used to configure the compilation itself.
+   * Parses the list of arguments into a {@link JavaLibraryBuildRequest}. The returned {@link
+   * JavaLibraryBuildRequest} object can be then used to configure the compilation itself.
    *
    * @throws IOException if the argument list contains a file (with the @ prefix) and reading that
-   *         file failed
+   *     file failed
    * @throws InvalidCommandLineException on any command line error
    */
   @VisibleForTesting
-  public static JavaLibraryBuildRequest parse(List<String> args) throws IOException,
-      InvalidCommandLineException {
+  public static JavaLibraryBuildRequest parse(List<String> args)
+      throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser = new OptionsParser(args);
     ImmutableList.Builder<BlazeJavaCompilerPlugin> plugins = ImmutableList.builder();
     plugins.add(new ClassLoaderMaskingPlugin());

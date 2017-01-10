@@ -21,12 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Utility class to provide java-level access to the blessed javac boot class path:
- * {@code //tools/defaults:javac_bootclasspath}, as defined by bazel's --javac_bootclasspath flag.
+ * Utility class to provide java-level access to the blessed javac boot class path: {@code
+ * //tools/defaults:javac_bootclasspath}, as defined by bazel's --javac_bootclasspath flag.
  *
- * <p>This class is typically used only from a host build tool or in
- * tests.  When using this in production, the bootclasspath is
- * deployed as separate jar files within the runfiles directory.
+ * <p>This class is typically used only from a host build tool or in tests. When using this in
+ * production, the bootclasspath is deployed as separate jar files within the runfiles directory.
  */
 public class JavacBootclasspath {
 
@@ -54,8 +53,7 @@ public class JavacBootclasspath {
       File file = new File(runfilesRoot, location);
       if (!file.isFile()) {
         throw new IOError(
-            new FileNotFoundException(
-                "Can't find boot class path element: " + file.getPath()));
+            new FileNotFoundException("Can't find boot class path element: " + file.getPath()));
       }
       files.add(file);
       if (str.length() > 0) {
@@ -70,8 +68,8 @@ public class JavacBootclasspath {
   /**
    * Returns the blessed boot class path as a colon-separated string.
    *
-   * Suitable for passing as the value of a {@code -bootclasspath} flag.
-   * Valid while the current build action or test is executing.
+   * <p>Suitable for passing as the value of a {@code -bootclasspath} flag. Valid while the current
+   * build action or test is executing.
    */
   public static String asString() {
     return AS_STRING;
@@ -80,8 +78,8 @@ public class JavacBootclasspath {
   /**
    * Returns the blessed boot class path as a list of {@code File} objects.
    *
-   * Each {@code File} will represent a jar file that will exist while the
-   * current build action or test is executing.
+   * <p>Each {@code File} will represent a jar file that will exist while the current build action
+   * or test is executing.
    */
   public static List<File> asFiles() {
     return new ArrayList<>(AS_FILES);

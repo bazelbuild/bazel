@@ -23,7 +23,6 @@ import com.google.common.base.Verify;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin.PluginException;
-
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.JavacTaskImpl;
@@ -34,11 +33,9 @@ import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Options;
 import com.sun.tools.javac.util.PropagatedException;
-
 import java.io.PrintWriter;
 import java.util.Arrays;
 import java.util.List;
-
 import javax.annotation.processing.Processor;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileManager;
@@ -47,21 +44,22 @@ import javax.tools.JavaFileObject;
 /**
  * Main class for our custom patched javac.
  *
- * <p> This main class tweaks the standard javac log class by changing the
- * compiler's context to use our custom log class. This custom log class
- * modifies javac's output to list all errors after all warnings.
+ * <p>This main class tweaks the standard javac log class by changing the compiler's context to use
+ * our custom log class. This custom log class modifies javac's output to list all errors after all
+ * warnings.
  */
 public class BlazeJavacMain {
 
   /**
-   * Compose {@link com.sun.tools.javac.main.Main} and perform custom setup before deferring to
-   * its compile() method.
+   * Compose {@link com.sun.tools.javac.main.Main} and perform custom setup before deferring to its
+   * compile() method.
    *
    * <p>Historically BlazeJavacMain extended javac's Main and overrode methods to get the desired
    * custom behaviour. That approach created incompatibilities when upgrading to newer versions of
    * javac, so composition is preferred.
    */
   private List<BlazeJavaCompilerPlugin> plugins;
+
   private final PrintWriter errOutput;
   private final String compilerName;
   private BlazeJavaCompiler compiler = null;
@@ -73,8 +71,8 @@ public class BlazeJavacMain {
   }
 
   /**
-   * Installs the BlazeJavaCompiler within the provided context. Enables
-   * plugins based on field values.
+   * Installs the BlazeJavaCompiler within the provided context. Enables plugins based on field
+   * values.
    *
    * @param context JavaCompiler's associated Context
    */
@@ -182,14 +180,16 @@ public class BlazeJavacMain {
       Iterable<? extends Processor> processors) {
 
     JavacTool tool = JavacTool.create();
-    JavacTaskImpl task = (JavacTaskImpl) tool.getTask(
-        errOutput,
-        fileManager,
-        diagnosticListener,
-        Arrays.asList(argv),
-        null,
-        javaFileObjects,
-        context);
+    JavacTaskImpl task =
+        (JavacTaskImpl)
+            tool.getTask(
+                errOutput,
+                fileManager,
+                diagnosticListener,
+                Arrays.asList(argv),
+                null,
+                javaFileObjects,
+                context);
     if (processors != null) {
       task.setProcessors(processors);
     }
@@ -202,10 +202,14 @@ public class BlazeJavacMain {
     }
   }
 
-  private static final TaskListener EMPTY_LISTENER = new TaskListener() {
-    @Override public void started(TaskEvent e) {}
-    @Override public void finished(TaskEvent e) {}
-  };
+  private static final TaskListener EMPTY_LISTENER =
+      new TaskListener() {
+        @Override
+        public void started(TaskEvent e) {}
+
+        @Override
+        public void finished(TaskEvent e) {}
+      };
 
   /**
    * Convinces javac to run in 'API mode', and collect end position information needed by
@@ -215,9 +219,7 @@ public class BlazeJavacMain {
     MultiTaskListener.instance(context).add(EMPTY_LISTENER);
   }
 
-  /**
-   * Processes Plugin-specific arguments and removes them from the args array.
-   */
+  /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
   String[] processPluginArgs(String[] args) throws InvalidCommandLineException {
     List<String> processedArgs = Arrays.asList(args);

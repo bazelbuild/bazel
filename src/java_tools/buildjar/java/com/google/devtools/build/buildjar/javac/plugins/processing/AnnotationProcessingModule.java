@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -32,14 +31,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * A module for information about the compilation's annotation processing.
- */
+/** A module for information about the compilation's annotation processing. */
 public class AnnotationProcessingModule {
 
-  /**
-   * A builder for {@link AnnotationProcessingModule}s.
-   */
+  /** A builder for {@link AnnotationProcessingModule}s. */
   public static class Builder {
     private Path sourceGenDir;
     private Path manifestProto;
@@ -55,8 +50,8 @@ public class AnnotationProcessingModule {
     /**
      * Verify that source roots do not contain other source roots.
      *
-     * <p>If one source root is an ancestor of another, the source path to
-     * use in the manifest will be ambiguous.
+     * <p>If one source root is an ancestor of another, the source path to use in the manifest will
+     * be ambiguous.
      */
     private ImmutableSet<Path> validateSourceRoots(ImmutableSet<Path> roots) {
       // It's sad that this is quadratic, but the number of source roots

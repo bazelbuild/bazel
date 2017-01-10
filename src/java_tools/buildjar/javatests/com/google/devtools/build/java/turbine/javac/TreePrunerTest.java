@@ -293,18 +293,12 @@ public class TreePrunerTest {
   @Test
   public void interfaceDeclaration() {
     String[] lines = {
-      "interface Intf {",
-      "  int CONST = 42;",
-      "  int NONCONST = new Integer(42);",
-      "}",
+      "interface Intf {", "  int CONST = 42;", "  int NONCONST = new Integer(42);", "}",
     };
     JCCompilationUnit tree = parseLines(lines);
     TreePruner.prune(context, tree);
     String[] expected = {
-      "interface Intf {",
-      "    int CONST = 42;",
-      "    int NONCONST;",
-      "}",
+      "interface Intf {", "    int CONST = 42;", "    int NONCONST;", "}",
     };
     assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
   }
@@ -327,15 +321,15 @@ public class TreePrunerTest {
     JCCompilationUnit tree = parseLines(lines);
     TreePruner.prune(context, tree);
     String[] expected = {
-        "class Test {",
-        "    ",
-        "    class Inner {",
-        "        ",
-        "        Inner(OuterInstance outer) {",
-        "            outer.super();",
-        "        }",
-        "    }",
-        "}",
+      "class Test {",
+      "    ",
+      "    class Inner {",
+      "        ",
+      "        Inner(OuterInstance outer) {",
+      "            outer.super();",
+      "        }",
+      "    }",
+      "}",
     };
     assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
   }

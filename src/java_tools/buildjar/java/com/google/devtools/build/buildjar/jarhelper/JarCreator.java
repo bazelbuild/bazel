@@ -60,9 +60,8 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds the contents of a directory to the Jar file. All files below this
-   * directory will be added to the Jar file using the name relative to the
-   * directory as the name for the Jar entry.
+   * Adds the contents of a directory to the Jar file. All files below this directory will be added
+   * to the Jar file using the name relative to the directory as the name for the Jar entry.
    *
    * @param directory the directory to add to the jar
    */
@@ -71,13 +70,11 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds the contents of a directory to the Jar file. All files below this
-   * directory will be added to the Jar file using the prefix and the name
-   * relative to the directory as the name for the Jar entry. Always uses '/' as
-   * the separator char for the Jar entries.
+   * Adds the contents of a directory to the Jar file. All files below this directory will be added
+   * to the Jar file using the prefix and the name relative to the directory as the name for the Jar
+   * entry. Always uses '/' as the separator char for the Jar entries.
    *
-   * @param prefix the prefix to prepend to every Jar entry name found below the
-   *        directory
+   * @param prefix the prefix to prepend to every Jar entry name found below the directory
    * @param directory the directory to add to the Jar
    */
   private void addDirectory(String prefix, File directory) {
@@ -94,8 +91,9 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Adds a collection of entries to the jar, each with a given source path, and with
-   * the resulting file in the root of the jar.
+   * Adds a collection of entries to the jar, each with a given source path, and with the resulting
+   * file in the root of the jar.
+   *
    * <pre>
    * some/long/path.foo => (path.foo, some/long/path.foo)
    * </pre>
@@ -107,8 +105,8 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Sets the main.class entry for the manifest. A value of <code>null</code>
-   * (the default) will omit the entry.
+   * Sets the main.class entry for the manifest. A value of <code>null</code> (the default) will
+   * omit the entry.
    *
    * @param mainClass the fully qualified name of the main class
    */
@@ -117,9 +115,8 @@ public class JarCreator extends JarHelper {
   }
 
   /**
-   * Sets filename for the manifest content. If this is set the manifest will be
-   * read from this file otherwise the manifest content will get generated on
-   * the fly.
+   * Sets filename for the manifest content. If this is set the manifest will be read from this file
+   * otherwise the manifest content will get generated on the fly.
    *
    * @param manifestFile the filename of the manifest file.
    */
@@ -152,8 +149,7 @@ public class JarCreator extends JarHelper {
   /**
    * Executes the creation of the Jar file.
    *
-   * @throws IOException if the Jar cannot be written or any of the entries
-   *         cannot be read.
+   * @throws IOException if the Jar cannot be written or any of the entries cannot be read.
    */
   public void execute() throws IOException {
     out = new JarOutputStream(new BufferedOutputStream(new FileOutputStream(jarFile)));
@@ -170,9 +166,7 @@ public class JarCreator extends JarHelper {
     }
   }
 
-  /**
-   * A simple way to create Jar file using the JarCreator class.
-   */
+  /** A simple way to create Jar file using the JarCreator class. */
   public static void main(String[] args) {
     if (args.length < 1) {
       System.err.println("usage: CreateJar output [root directories]");
