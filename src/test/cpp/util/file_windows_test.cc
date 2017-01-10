@@ -290,6 +290,37 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
 
+TEST(FileTest, TestUnlinkPath) {
+  string tmpdir(GetTestTmpDir());
+  ASSERT_LT(0, tmpdir.size());
+  ASSERT_TRUE(PathExists(tmpdir));
+
+  // Create a directory under `tempdir`, a file inside it, and a junction
+  // pointing to it.
+  string dir1(JoinPath(tmpdir, "dir1"));
+  ASSERT_EQ(0, mkdir(dir1.c_str()));
+  FILE* fh = fopen(JoinPath(dir1, "foo.txt").c_str(), "wt");
+  ASSERT_NE(nullptr, fh);
+  ASSERT_LT(0, fprintf(fh, "hello\n"));
+  fclose(fh);
+  string junc1(JoinPath(tmpdir, "junc1"));
+  RunCommand(string("cmd.exe /C mklink /J \"") + junc1 + "\" \"" + dir1 +
+             "\" >NUL 2>NUL");
+  ASSERT_TRUE(PathExists(junc1));
+  ASSERT_TRUE(PathExists(JoinPath(junc1, "foo.txt")));
+
+  // Non-existent files cannot be unlinked.
+  ASSERT_FALSE(UnlinkPath("does.not.exist"));
+  // Directories cannot be unlinked.
+  ASSERT_FALSE(UnlinkPath(dir1));
+  // Junctions can be unlinked, even if the pointed directory is not empty.
+  ASSERT_TRUE(UnlinkPath(JoinPath(junc1, "foo.txt")));
+  // Files can be unlinked.
+  ASSERT_TRUE(UnlinkPath(junc1));
+  // Clean up the now empty directory.
+  ASSERT_EQ(0, rmdir(dir1.c_str()));
+}
+
 TEST(FileTest, TestIsDirectory) {
   ASSERT_FALSE(IsDirectory(""));
 
