@@ -43,12 +43,6 @@ static unique_ptr<WCHAR[]> GetCwdW();
 // necessary.
 static bool IsDirectoryW(const wstring& path);
 
-// Returns true the file or junction at `path` is successfully deleted.
-// Returns false otherwise, or if `path` doesn't exist or is a directory.
-// `path` must be a normalized Windows path, with UNC prefix (and absolute) if
-// necessary.
-static bool UnlinkPathW(const wstring& path);
-
 // Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
 
