@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -60,8 +61,10 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
         new JavacRunner() {
           @Override
           public Result invokeJavac(
-              ImmutableList<BlazeJavaCompilerPlugin> plugins, String[] args, PrintWriter output) {
-            return new BlazeJavacMain(output, plugins).compile(args);
+              ImmutableList<BlazeJavaCompilerPlugin> plugins,
+              BlazeJavacArguments arguments,
+              PrintWriter output) {
+            return new BlazeJavacMain(output, plugins).compile(arguments);
           }
         };
     Result result = compileSources(build, javacRunner, err);

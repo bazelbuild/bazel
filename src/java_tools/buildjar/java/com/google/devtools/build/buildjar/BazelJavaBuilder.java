@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-import com.google.devtools.build.buildjar.javac.plugins.classloader.ClassLoaderMaskingPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
@@ -133,7 +132,6 @@ public abstract class BazelJavaBuilder {
       throws IOException, InvalidCommandLineException {
     OptionsParser optionsParser = new OptionsParser(args);
     ImmutableList.Builder<BlazeJavaCompilerPlugin> plugins = ImmutableList.builder();
-    plugins.add(new ClassLoaderMaskingPlugin());
 
     // Support for -extra_checks:off was removed from ErrorPronePlugin, but Bazel still needs it,
     // so we'll emulate support for this here by handling the flag ourselves and not loading the

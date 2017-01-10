@@ -34,7 +34,7 @@ import java.util.zip.ZipFile;
  *
  * <p>Implements common functionality like source files preparation and output jar creation.
  */
-public abstract class AbstractLibraryBuilder extends CommonJavaLibraryProcessor {
+public abstract class AbstractLibraryBuilder {
 
   /**
    * Prepares a compilation run. This involves cleaning up temporary directories and writing the

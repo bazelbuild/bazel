@@ -56,12 +56,15 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       // class output directory to prevent that from happening.
       compressedClasspath = build.getClassDir();
     }
-    String[] javacArguments = makeJavacArguments(build, compressedClasspath);
 
     // Compile!
     StringWriter javacOutput = new StringWriter();
     PrintWriter javacOutputWriter = new PrintWriter(javacOutput);
-    Result result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, javacOutputWriter);
+    Result result =
+        javacRunner.invokeJavac(
+            build.getPlugins(),
+            build.toBlazeJavacArguments(compressedClasspath),
+            javacOutputWriter);
     javacOutputWriter.close();
 
     // If javac errored out because of missing entries on the classpath, give it another try.
@@ -75,8 +78,9 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       prepareSourceCompilation(build);
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
-      javacArguments = makeJavacArguments(build);
-      result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, err);
+      result =
+          javacRunner.invokeJavac(
+              build.getPlugins(), build.toBlazeJavacArguments(build.getClassPath()), err);
     } else {
       err.print(javacOutput.getBuffer());
     }

@@ -55,16 +55,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "classloader",
-    srcs = glob(["classloader/*.java"]),
-    deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins",
-        "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
-    ],
-)
-
 #
 ## Bootstrapping using Skylark rules
 #

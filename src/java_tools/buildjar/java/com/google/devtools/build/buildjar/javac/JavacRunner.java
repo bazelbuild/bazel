@@ -26,5 +26,7 @@ import java.io.PrintWriter;
 public interface JavacRunner {
 
   Result invokeJavac(
-      ImmutableList<BlazeJavaCompilerPlugin> plugins, String[] args, PrintWriter output);
+      ImmutableList<BlazeJavaCompilerPlugin> plugins,
+      BlazeJavacArguments arguments,
+      PrintWriter err);
 }

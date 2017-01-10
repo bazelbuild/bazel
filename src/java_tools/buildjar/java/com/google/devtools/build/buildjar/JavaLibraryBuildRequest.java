@@ -14,11 +14,20 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
+import java.io.File;
+import java.io.IOError;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map.Entry;
@@ -45,7 +54,7 @@ public final class JavaLibraryBuildRequest {
   private final ImmutableList<String> rootResourceFiles;
 
   private final String classPath;
-
+  private final String bootClassPath;
   private final String extdir;
 
   private final String processorPath;
@@ -142,6 +151,7 @@ public final class JavaLibraryBuildRequest {
     this.resourceJars = ImmutableList.copyOf(optionsParser.getResourceJars());
     this.rootResourceFiles = ImmutableList.copyOf(optionsParser.getRootResourceFiles());
     this.classPath = optionsParser.getClassPath();
+    this.bootClassPath = optionsParser.getBootClassPath();
     this.extdir = optionsParser.getExtdir();
     this.processorPath = optionsParser.getProcessorPath();
     this.processorNames = optionsParser.getProcessorNames();
@@ -218,6 +228,10 @@ public final class JavaLibraryBuildRequest {
     return classPath;
   }
 
+  public String getBootClassPath() {
+    return bootClassPath;
+  }
+
   public String getExtdir() {
     return extdir;
   }
@@ -262,5 +276,96 @@ public final class JavaLibraryBuildRequest {
 
   public ImmutableList<BlazeJavaCompilerPlugin> getPlugins() {
     return plugins;
+  }
+
+  public BlazeJavacArguments toBlazeJavacArguments(final String classPath) {
+    return BlazeJavacArguments.builder()
+        .classPath(toPaths(classPath))
+        .classOutput(Paths.get(getClassDir()))
+        .bootClassPath(
+            ImmutableList.copyOf(Iterables.concat(toPaths(getBootClassPath()), getExtJars())))
+        .javacOptions(makeJavacArguments())
+        .sourceFiles(toPaths(getSourceFiles()))
+        .processors(null)
+        .sourceOutput(getSourceGenDir() != null ? Paths.get(getSourceGenDir()) : null)
+        .processorPath(toPaths(getProcessorPath()))
+        .build();
+  }
+
+  // TODO(cushon): make Bazel pass the individual files instead of inferring a directory and
+  // listing it here
+  List<Path> getExtJars() {
+    if (getExtdir() == null) {
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<Path> jars = ImmutableList.builder();
+    for (String file : Splitter.on(File.pathSeparatorChar).split(getExtdir())) {
+      try {
+        Path path = Paths.get(file);
+        if (Files.isDirectory(path)) {
+          Files.list(path).forEach(jars::add);
+        } else {
+          jars.add(path);
+        }
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+    }
+    return jars.build();
+  }
+
+  static ImmutableList<Path> toPaths(List<String> files) {
+    if (files == null) {
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<Path> result = ImmutableList.builder();
+    for (String e : files) {
+      result.add(Paths.get(e));
+    }
+    return result.build();
+  }
+
+  static ImmutableList<Path> toPaths(String classPath) {
+    if (classPath == null) {
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<Path> result = ImmutableList.builder();
+    for (String e : Splitter.on(File.pathSeparatorChar).split(classPath)) {
+      result.add(Paths.get(e));
+    }
+    return result.build();
+  }
+
+  /** Constructs a command line that can be used for a javac invocation. */
+  ImmutableList<String> makeJavacArguments() {
+    ImmutableList.Builder<String> javacArguments = ImmutableList.builder();
+    javacArguments.addAll(getJavacOpts());
+
+    if (!getProcessors().isEmpty() && !getSourceFiles().isEmpty()) {
+      // ImmutableSet.copyOf maintains order
+      ImmutableSet<String> deduplicatedProcessorNames = ImmutableSet.copyOf(getProcessors());
+      javacArguments.add("-processor");
+      javacArguments.add(Joiner.on(',').join(deduplicatedProcessorNames));
+    } else {
+      // This is necessary because some jars contain discoverable annotation processors that
+      // previously didn't run, and they break builds if the "-proc:none" option is not passed to
+      // javac.
+      javacArguments.add("-proc:none");
+    }
+
+    for (String option : getJavacOpts()) {
+      if (option.startsWith("-J")) { // ignore the VM options.
+        continue;
+      }
+      if (option.equals("-processor") || option.equals("-processorpath")) {
+        throw new IllegalStateException(
+            "Using "
+                + option
+                + " in javacopts is no longer supported."
+                + " Use a java_plugin() rule instead.");
+      }
+    }
+
+    return javacArguments.build();
   }
 }

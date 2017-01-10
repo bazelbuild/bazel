@@ -286,6 +286,7 @@ public final class DependencyModule {
   }
 
   @VisibleForTesting
+  // TODO(cushon): use Paths instead of strings, or inject a FileSystem
   void setStrictClasspath(Set<String> strictClasspath) {
     this.requiredClasspath = strictClasspath;
   }
