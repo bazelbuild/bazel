@@ -196,19 +196,30 @@ function get_release_title() {
 
 # Generate the release message to be added to the changelog
 # from the release notes for release $1
+# Args:
+#   $1: release name
+#   $2: release ref (default HEAD)
+#   $3: delimiter around the revision information (default none)
 function generate_release_message() {
   local release_name="$1"
   local branch="${2:-HEAD}"
+  local delimiter="${3-}"
   local baseline="$(get_release_baseline "${branch}")"
   local cherrypicks="$(get_cherrypicks "${branch}" "${baseline}")"
 
-cat <<EOF
-$(get_release_title "$release_name")
+  get_release_title "$release_name"
+  echo
 
-$(create_revision_information $baseline $cherrypicks)
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
+  create_revision_information $baseline $cherrypicks
+  if [ -n "${delimiter}" ]; then
+    echo "${delimiter}"
+  fi
 
-$(get_release_notes "${branch}")
-EOF
+  echo
+  get_release_notes "${branch}"
 }
 
 # Returns the release notes for the CHANGELOG.md taken from either from

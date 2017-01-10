@@ -89,8 +89,13 @@ function release_note_editor() {
 
 # Create the release commit by changing the CHANGELOG file
 function create_release_commit() {
-  local infos=$(generate_release_message "${1}")
+  local infos=$(generate_release_message "${1}" HEAD '```')
   local changelog_path="$PWD/CHANGELOG.md"
+  local master=$(get_master_ref)
+
+  # Get the changelog from master to avoid missing release notes
+  # from release that were in-between
+  git checkout -q ${master} CHANGELOG.md || true
 
   # CHANGELOG.md
   local tmpfile="$(mktemp ${TMPDIR:-/tmp}/relnotes-XXXXXXXX)"
@@ -98,7 +103,9 @@ function create_release_commit() {
   echo -n "## ${infos}" >${tmpfile}
   if [ -f "${changelog_path}" ]; then
     echo >>${tmpfile}
+    echo >>${tmpfile}
     cat "${changelog_path}" >>${tmpfile}
+    echo >>${tmpfile}
   fi
   cat "${tmpfile}" > ${changelog_path}
   git add ${changelog_path}
@@ -106,6 +113,7 @@ function create_release_commit() {
   trap - EXIT
 
   # Commit
+  infos="$(echo "${infos}" | grep -Ev '^```$')"
   git commit --no-verify -m "${infos}" --no-edit --author "${RELEASE_AUTHOR}"
 }
 

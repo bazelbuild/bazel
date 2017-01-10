@@ -199,6 +199,15 @@ function test_release_workflow() {
   # Do the initial release
   release v0
 
+  CHANGELOG='## Release v0 ('$(date +%Y-%m-%d)')
+
+```
+Baseline: 965c392
+```
+
+Initial release.'
+  assert_equals "${CHANGELOG}" "$(<CHANGELOG.md)"
+
   # Second release.
 
   # First we need to edit the logs
@@ -280,17 +289,19 @@ EOF
   echo "${RELNOTES}" >${TEST_TMPDIR}/replacement.log
 
   create v1 1170dc6 0540fde cef25c4
-  header='Release v1rc2 ('$(date +%Y-%m-%d)')
-
-Baseline: 1170dc6
+  title='Release v1rc2 ('$(date +%Y-%m-%d)')'
+  revision_info='Baseline: 1170dc6
 
 Cherry picks:
    + 0540fde: Extract version numbers that look like "..._1.2.3_..."
               from BUILD_EMBED_LABEL into Info.plist.
    + cef25c4: RELNOTES: Attribute error messages related to Android
-              resources are easier to understand now.
+              resources are easier to understand now.'
+  header="${title}
 
-'
+${revision_info}
+
+"
   assert_equals "${header}${RELNOTES}" "$(cat ${TEST_log})"
   assert_equals "${RELNOTES}" "$(get_release_notes release-v1)"
   assert_equals 2 "$(get_release_candidate release-v1)"
@@ -298,6 +309,17 @@ Cherry picks:
   # Push the release
   push v1
   release v1
+  title='Release v1 ('$(date +%Y-%m-%d)')'
+  CHANGELOG='## '"${title}"'
+
+```
+'"${revision_info}"'
+```
+
+'"${RELNOTES}"'
+
+'"${CHANGELOG}"
+  assert_equals "${CHANGELOG}" "$(<CHANGELOG.md)"
 
   # Third release to test abandon
   cat >${EDITOR} <<EOF
