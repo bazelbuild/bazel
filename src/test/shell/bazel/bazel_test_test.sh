@@ -429,9 +429,9 @@ EOF
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
-  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test_attempts/attempt_1.log)"
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
-  assert_equals "fail" "$(tail -1 bazel-testlogs/fail/test.log)"
+  assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 
 run_suite "test tests"

@@ -32,8 +32,8 @@ final class ProcessWrapperRunner extends SandboxRunner {
   private final Path sandboxExecRoot;
 
   ProcessWrapperRunner(
-      Path execRoot, Path sandboxPath, Path sandboxExecRoot, boolean verboseFailures) {
-    super(sandboxExecRoot, verboseFailures);
+      Path execRoot, Path sandboxExecRoot, boolean verboseFailures) {
+    super(verboseFailures);
     this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
   }

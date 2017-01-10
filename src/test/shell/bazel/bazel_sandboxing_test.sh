@@ -442,7 +442,7 @@ EOF
   expect_log "ERROR: I/O exception while extracting output artifacts from sandboxed execution.*(Permission denied)"
 
   # This is the UserExecException telling us that the build failed.
-  expect_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
+  expect_log "Executing genrule //:test failed:"
 }
 
 function test_sandbox_mount_customized_path () {
