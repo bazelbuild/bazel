@@ -22,7 +22,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function test_simple_scenario() {
+function DISABLED_test_simple_scenario() {
   mkdir -p java/testrunners || fail "mkdir failed"
 
   cat > java/testrunners/TestsPass.java <<EOF
