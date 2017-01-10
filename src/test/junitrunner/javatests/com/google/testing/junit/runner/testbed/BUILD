@@ -21,5 +21,5 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
-    visibility = ["//src/test/junitrunner/javatests/com/google/testing/junit/runner:__pkg__"],
+    visibility = ["//src:__pkg__"],
 )

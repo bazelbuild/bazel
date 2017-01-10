@@ -51,5 +51,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/java_tools/junitrunner:__pkg__"],
+    visibility = ["//src:__pkg__"],
 )
