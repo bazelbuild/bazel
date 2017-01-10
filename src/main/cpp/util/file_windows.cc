@@ -613,14 +613,19 @@ string GetCwd() {
       WstringToCstring(cwd.get() + (HasUncPrefix(cwd.get()) ? 4 : 0)).get());
 }
 
-#ifdef COMPILER_MSVC
 bool ChangeDirectory(const string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::ChangeDirectory is not implemented on Windows");
-  return false;
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  if (!::SetCurrentDirectoryW(wpath.c_str())) {
+    PrintError(
+        "ChangeDirectory(%s): SetCurrentDirectoryW(%S), failed, err=%d\n",
+        path.c_str(), wpath.c_str(), GetLastError());
+    return false;
+  }
+  return true;
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 #ifdef COMPILER_MSVC
 void ForEachDirectoryEntry(const string &path,

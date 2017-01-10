@@ -307,11 +307,11 @@ string GetCwd() {
   }
   return string(cwdbuf);
 }
-#endif  // not __CYGWIN__
 
 bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
 }
+#endif  // not __CYGWIN__
 
 void ForEachDirectoryEntry(const string &path,
                            DirectoryEntryConsumer *consume) {
