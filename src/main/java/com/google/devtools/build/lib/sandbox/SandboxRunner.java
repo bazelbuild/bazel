@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -31,12 +32,11 @@ import java.util.Map;
 /** A common interface of all sandbox runners, no matter which platform they're working on. */
 abstract class SandboxRunner {
 
-  private static final String SANDBOX_DEBUG_SUGGESTION =
-      "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
-
   private final boolean verboseFailures;
+  private final Path sandboxExecRoot;
 
-  SandboxRunner(boolean verboseFailures) {
+  SandboxRunner(Path sandboxExecRoot, boolean verboseFailures) {
+    this.sandboxExecRoot = sandboxExecRoot;
     this.verboseFailures = verboseFailures;
   }
 
@@ -48,15 +48,13 @@ abstract class SandboxRunner {
    * @param outErr - error output to capture sandbox's and command's stderr
    * @param timeout - after how many seconds should the process be killed
    * @param allowNetwork - whether networking should be allowed for the process
-   * @param sandboxDebug - whether debugging message should be printed
    */
   void run(
       List<String> arguments,
       Map<String, String> environment,
       OutErr outErr,
       int timeout,
-      boolean allowNetwork,
-      boolean sandboxDebug)
+      boolean allowNetwork)
       throws ExecException {
     Command cmd;
     try {
@@ -65,7 +63,6 @@ abstract class SandboxRunner {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    TerminationStatus status = null;
     try {
       cmd.execute(
           /* stdin */ new byte[] {},
@@ -76,28 +73,17 @@ abstract class SandboxRunner {
     } catch (CommandException e) {
       boolean timedOut = false;
       if (e instanceof AbnormalTerminationException) {
-        status = ((AbnormalTerminationException) e).getResult().getTerminationStatus();
+        TerminationStatus status =
+            ((AbnormalTerminationException) e).getResult().getTerminationStatus();
         timedOut = !status.exited() && (status.getTerminatingSignal() == getSignalOnTimeout());
       }
-      String statusMessage = status + " [sandboxed]";
-      if (!verboseFailures) {
-        // simplest error message
-        throw new UserExecException(statusMessage);
-      }
-      List<String> commandList;
-      if (!sandboxDebug) {
-        commandList = arguments;
-      } else {
-        commandList = Arrays.asList(cmd.getCommandLineElements());
-      }
-      String commandFailureMessage =
+      String message =
           CommandFailureUtils.describeCommandFailure(
-              true,
-              commandList,
+              verboseFailures,
+              Arrays.asList(cmd.getCommandLineElements()),
               environment,
-              null)
-          + (sandboxDebug ? "" : SANDBOX_DEBUG_SUGGESTION);
-      throw new UserExecException(commandFailureMessage, e, timedOut);
+              sandboxExecRoot.getPathString());
+      throw new UserExecException(message, e, timedOut);
     }
   }
 

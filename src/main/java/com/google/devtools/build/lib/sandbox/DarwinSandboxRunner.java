@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Command;
@@ -24,10 +22,8 @@ import com.google.devtools.build.lib.shell.KillableObserver;
 import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +50,7 @@ final class DarwinSandboxRunner extends SandboxRunner {
       Set<Path> inaccessiblePaths,
       Path runUnderPath,
       boolean verboseFailures) {
-    super(verboseFailures);
+    super(sandboxExecRoot, verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
     this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
     this.writableDirs = writableDirs;
@@ -121,10 +117,7 @@ final class DarwinSandboxRunner extends SandboxRunner {
   }
 
   private void writeConfig(boolean allowNetwork) throws IOException {
-    try (PrintWriter out =
-        new PrintWriter(
-            new BufferedWriter(
-                new OutputStreamWriter(argumentsFilePath.getOutputStream(), UTF_8)))) {
+    try (PrintWriter out = new PrintWriter(argumentsFilePath.getOutputStream())) {
       // Note: In Apple's sandbox configuration language, the *last* matching rule wins.
       out.println("(version 1)");
       out.println("(debug deny)");
