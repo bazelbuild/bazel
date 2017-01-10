@@ -7,10 +7,10 @@ licenses(["notice"])
 filegroup(
     name = "bazel-srcs",
     testonly = 0,
-    srcs = glob([
-        "**/*.java",
-        "BUILD.tools",
-    ]),
+    srcs = glob(
+        ["**"],
+        exclude = ["BUILD"],
+    ),
     visibility = ["//third_party/bazel:__subpackages__"],
 )
 
