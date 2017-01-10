@@ -218,19 +218,16 @@ public final class LinkCommandLine extends CommandLine {
    * Splits the link command-line into a part to be written to a parameter file, and the remaining
    * actual command line to be executed (which references the parameter file). Should only be used
    * if getParamFile() is not null.
-   *
-   * @throws IllegalStateException if the command-line cannot be split
    */
   @VisibleForTesting
   final Pair<List<String>, List<String>> splitCommandline() {
     List<String> args = getRawLinkArgv();
     if (linkTargetType.staticness() == Staticness.STATIC) {
       // Ar link commands can also generate huge command lines.
-      List<String> paramFileArgs = args.subList(1, args.size());
+      List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
-      commandlineArgs.add(args.get(0));
+      extractArgumentsForStaticLinkParamsFile(args, commandlineArgs, paramFileArgs);
 
-      commandlineArgs.add("@" + paramFile.getExecPath().getPathString());
       return Pair.of(commandlineArgs, paramFileArgs);
     } else {
       // Gcc link commands tend to generate humongous commandlines for some targets, which may
@@ -238,17 +235,14 @@ public final class LinkCommandLine extends CommandLine {
       // a parameter file and pass any linker options through it.
       List<String> paramFileArgs = new ArrayList<>();
       List<String> commandlineArgs = new ArrayList<>();
-      extractArgumentsForParamFile(args, commandlineArgs, paramFileArgs);
+      extractArgumentsForDynamicLinkParamsFile(args, commandlineArgs, paramFileArgs);
 
-      commandlineArgs.add("-Wl,@" + paramFile.getExecPath().getPathString());
       return Pair.of(commandlineArgs, paramFileArgs);
     }
   }
 
   /**
    * Returns just the .params file portion of the command-line as a {@link CommandLine}.
-   *
-   * @throws IllegalStateException if the command-line cannot be split
    */
   CommandLine paramCmdLine() {
     Preconditions.checkNotNull(paramFile);
@@ -261,8 +255,22 @@ public final class LinkCommandLine extends CommandLine {
   }
 
 
-  public static void extractArgumentsForParamFile(List<String> args, List<String> commandlineArgs,
-      List<String> paramFileArgs) {
+  public static void extractArgumentsForStaticLinkParamsFile(
+      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
+    commandlineArgs.add(args.get(0)); // ar command, must not be moved!
+    int argsSize = args.size();
+    for (int i = 1; i < argsSize; i++) {
+      String arg = args.get(i);
+      if (arg.startsWith("@")) {
+        commandlineArgs.add(arg); // params file, keep it in the command line
+      } else {
+        paramFileArgs.add(arg); // the rest goes to the params file
+      }
+    }
+  }
+
+  public static void extractArgumentsForDynamicLinkParamsFile(
+      List<String> args, List<String> commandlineArgs, List<String> paramFileArgs) {
     // Note, that it is not important that all linker arguments are extracted so that
     // they can be moved into a parameter file, but the vast majority should.
     commandlineArgs.add(args.get(0));   // gcc command, must not be moved!
