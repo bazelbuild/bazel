@@ -76,13 +76,17 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
 
+      RepositoryDelegatorFunction function =
+          new RepositoryDelegatorFunction(
+              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true));
+      function.setClientEnvironment(ImmutableMap.<String, String>of());
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
-          new RepositoryDelegatorFunction(
-              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true)),
+          function,
           SkyFunctions.REPOSITORY,
           new RepositoryLoaderFunction(),
-          FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
+          FdoSupportValue.SKYFUNCTION,
+          new FdoSupportFunction());
     }
   }
 

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -82,6 +83,7 @@ public final class CommandEnvironment {
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
   private final Map<String, String> clientEnv = new TreeMap<>();
   private final Set<String> visibleClientEnv = new TreeSet<>();
+  private final Map<String, String> actionClientEnv = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
 
@@ -592,6 +594,11 @@ public final class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, options, execStartTimeNanos);
 
+    // actionClientEnv contains the environment where values from actionEnvironment are
+    // overridden.
+    actionClientEnv.clear();
+    actionClientEnv.putAll(clientEnv);
+
     if (command.builds()) {
       Map<String, String> testEnv = new TreeMap<>();
       for (Map.Entry<String, String> entry :
@@ -607,6 +614,7 @@ public final class CommandEnvironment {
           visibleClientEnv.add(entry.getKey());
         } else {
           visibleClientEnv.remove(entry.getKey());
+          actionClientEnv.put(entry.getKey(), entry.getValue());
         }
       }
 
@@ -643,5 +651,13 @@ public final class CommandEnvironment {
       }
     }
     return workspace.getOutputBaseFilesystemTypeName();
+  }
+
+  /**
+   * Returns the client environment for which value specified in the command line with the flag
+   * --action_env have been enforced.
+   */
+  public Map<String, String> getActionClientEnv() {
+    return Collections.unmodifiableMap(actionClientEnv);
   }
 }

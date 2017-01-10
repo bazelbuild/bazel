@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -34,10 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
-import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -71,18 +67,6 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     return new SkylarkRepositoryMissingDependencyException();
   }
 
-  private CommandEnvironment commandEnvironment = null;
-
-  public void setCommandEnvironment(CommandEnvironment commandEnvironment) {
-    this.commandEnvironment = commandEnvironment;
-  }
-
-  private Map<String, String> getClientEnvironment() {
-    return commandEnvironment != null
-        ? commandEnvironment.getClientEnv()
-        : ImmutableMap.<String, String>of();
-  }
-
   @Nullable
   @Override
   public SkyValue fetch(
@@ -95,8 +79,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .setGlobals(rule.getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
               .setEventHandler(env.getListener())
               .build();
-      SkylarkRepositoryContext skylarkRepositoryContext = new SkylarkRepositoryContext(
-          rule, outputDirectory, env, getClientEnvironment(), httpDownloader);
+      SkylarkRepositoryContext skylarkRepositoryContext =
+          new SkylarkRepositoryContext(
+              rule, outputDirectory, env, clientEnvironment, httpDownloader);
 
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make

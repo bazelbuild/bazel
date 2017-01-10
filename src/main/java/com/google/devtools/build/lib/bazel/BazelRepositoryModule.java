@@ -71,7 +71,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -190,8 +189,7 @@ public class BazelRepositoryModule extends BlazeModule {
 
   @Override
   public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
-    delegator.setClientEnvironment(env.getClientEnv());
-    skylarkRepositoryFunction.setCommandEnvironment(env);
+    delegator.setClientEnvironment(env.getActionClientEnv());
   }
 
   @Override

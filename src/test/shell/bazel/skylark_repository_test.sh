@@ -411,6 +411,22 @@ EOF
   FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_not_log "BEZ"
 
+  # Test that --action_env value is taken
+  # TODO(dmarting): The current implemnentation cannot invalidate on environment
+  # but the incoming change can declare environment dependency, once this is
+  # done, maybe we should update this test to remove clean --expunge and use the
+  # invalidation mechanism instead?
+  bazel clean --expunge
+  FOO=BAZ bazel build --action_env=FOO=BAZINGA @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "BAZINGA"
+
+  bazel clean --expunge
+  FOO=BAZ bazel build --action_env=FOO @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "BAZ"
+  expect_not_log "BAZINGA"
+
   # Test modifying test.bzl invalidate the repository
   cat >test.bzl <<EOF
 def _impl(repository_ctx):

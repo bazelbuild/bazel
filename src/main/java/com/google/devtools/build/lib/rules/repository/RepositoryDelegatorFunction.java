@@ -33,12 +33,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-
 import javax.annotation.Nullable;
 
 /**
@@ -111,6 +109,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           "Could not find handler for " + rule), Transience.PERSISTENT);
     }
 
+    handler.setClientEnvironment(clientEnvironment);
+
     Path repoRoot =
         RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
@@ -120,7 +120,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     byte[] ruleKey = computeRuleKey(rule, ruleSpecificData);
     Path markerPath = getMarkerPath(directories, rule);
 
-    handler.setClientEnvironment(clientEnvironment);
     if (handler.isLocal(rule)) {
       // Local repositories are always fetched because the operation is generally fast and they do
       // not depend on non-local data, so it does not make much sense to try to cache from across
