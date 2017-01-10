@@ -140,6 +140,25 @@ function get_release_baseline() {
   git merge-base $(get_master_ref) "${1:-HEAD}"
 }
 
+# Returns the list of (commit hash, patch-id) from $1..$2
+# Args:
+#   $1: the first commit in the list (excluded)
+#   $2: the last commit in the list
+function get_patch_ids() {
+  git_log_hash "$1" "$2" | xargs git show | git patch-id
+}
+
+# Returns the original commit a commit was cherry-picked from master
+# Args:
+#   $1: the commit to find
+#   $2: the baseline from which to look for (up to master)
+#   $3: master ref (optional, default master)
+#   $4: The list of master changes as returned by get_patch_ids (optional)
+function get_cherrypick_origin() {
+  local master=${3:-$(get_master_ref)}
+  local master_changes="${4-$(get_patch_ids "${2}" "${master}")}"
+}
+
 # Get the list of cherry-picks since master
 # Args:
 #   $1: branch, default to HEAD
@@ -154,10 +173,19 @@ function get_cherrypicks() {
   local master_changes="$(git_log_hash "${baseline}" "${master}" | xargs git show | git patch-id)"
   # Now for each changes on the release branch
   for i in ${changes}; do
-    # Find the change with the same patch-id on the master branch
-    echo "${master_changes}" \
-      | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
-      | cut -d " " -f 2
+    local hash=$(git notes --ref=cherrypick show "$i" 2>/dev/null || true)
+    if [ -z "${hash}" ]; then
+      # Find the change with the same patch-id on the master branch if the note is not present
+      hash=$(echo "${master_changes}" \
+          | grep "^$(git show "$i" | git patch-id | cut -d " " -f 1)" \
+          | cut -d " " -f 2)
+    fi
+    if [ -z "${hash}" ]; then
+     # We don't know which cherry-pick it is coming from, fall back to the new commit hash.
+     echo "$i"
+    else
+     echo "${hash}"
+    fi
   done
 }
 

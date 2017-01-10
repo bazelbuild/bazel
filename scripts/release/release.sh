@@ -125,6 +125,9 @@ function apply_cherry_picks() {
         return 1
       fi
     }
+    # Add the origin of the cherry-pick in case the patch-id diverge and we cannot
+    # find the original commit.
+    git notes --ref=cherrypick add -f -m "$i"
   done
   return 0
 }
@@ -233,8 +236,6 @@ function setup_git_notes() {
   if [ -n "${last_release}" ]; then
     # Compute the previous release notes
     local last_baseline="$(get_release_baseline "${last_release}")"
-    local last_cherrypicks="$(get_cherrypicks "${last_release}" \
-      "${last_baseline}")"
     git checkout -q "${last_release}"
     local last_relnotes="$(create_release_notes "${tmpfile}")"
     git checkout -q "${branch_name}"
@@ -258,15 +259,23 @@ function setup_git_notes() {
   trap - EXIT
 }
 
+# Force push a ref $2 to repo $1 if exists
+function push_if_exists() {
+  if git show-ref -q "${2}"; then
+    git push -f "${1}" "+${2}"
+  fi
+}
+
 # Push the release branch to the release repositories so a release
 # candidate can be created.
 function push_release_candidate() {
   local branch="$(get_release_branch)"
   for repo in ${RELEASE_REPOSITORIES}; do
-    git push -f ${repo} +${branch}
-    git push -f ${repo} +refs/notes/release
-    git push -f ${repo} +refs/notes/release-candidate
-    git push -f ${repo} +refs/notes/release-notes
+    push_if_exists "${repo}" "${branch}"
+    push_if_exists "${repo}" "refs/notes/release"
+    push_if_exists "${repo}" "refs/notes/release-candidates"
+    push_if_exists "${repo}" "refs/notes/release-notes"
+    push_if_exists "${repo}" "refs/notes/cherrypick"
   done
 }
 
