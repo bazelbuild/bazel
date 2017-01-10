@@ -273,13 +273,7 @@ public final class SkylarkAttr {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
-      if (trans instanceof ConfigurationTransition) {
-        // TODO(laurentlb): Deprecated, to be removed in August 2016.
-        String message = "Variables HOST_CFG and DATA_CFG are deprecated in favor of strings "
-            + "\"host\" and \"data\" correspondingly";
-        env.handleEvent(Event.warn(loc, message));
-        builder.cfg((ConfigurationTransition) trans);
-      } else if (trans.equals("data")) {
+      if (trans.equals("data")) {
         builder.cfg(ConfigurationTransition.DATA);
       } else if (trans.equals("host")) {
         builder.cfg(ConfigurationTransition.HOST);
@@ -1343,3 +1337,4 @@ public final class SkylarkAttr {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkAttr.class);
   }
 }
+

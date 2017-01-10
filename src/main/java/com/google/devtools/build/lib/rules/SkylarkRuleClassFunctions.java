@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
@@ -102,24 +101,6 @@ import java.util.concurrent.ExecutionException;
  * A helper class to provide an easier API for Skylark rule definitions.
  */
 public class SkylarkRuleClassFunctions {
-
-  @SkylarkSignature(
-      name = "DATA_CFG",
-      returnType = ConfigurationTransition.class,
-      doc =
-          "Deprecated. Use string \"data\" instead. "
-              + "Specifies a transition to the data configuration."
-  )
-  private static final Object dataTransition = ConfigurationTransition.DATA;
-
-  @SkylarkSignature(
-      name = "HOST_CFG",
-      returnType = ConfigurationTransition.class,
-      doc =
-          "Deprecated. Use string \"host\" instead. "
-              + "Specifies a transition to the host configuration."
-  )
-  private static final Object hostTransition = ConfigurationTransition.HOST;
 
   // TODO(bazel-team): Copied from ConfiguredRuleClassProvider for the transition from built-in
   // rules to skylark extensions. Using the same instance would require a large refactoring.

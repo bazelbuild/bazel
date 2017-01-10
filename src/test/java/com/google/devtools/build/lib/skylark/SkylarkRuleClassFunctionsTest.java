@@ -683,8 +683,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testTextMessageInvalidStructure() throws Exception {
     checkErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int "
-            + "but got a ConfigurationTransition for struct field 'a'",
-        "struct(a=DATA_CFG).to_proto()");
+            + "but got a function for struct field 'a'",
+        "struct(a=rule).to_proto()");
   }
 
   private void checkJson(String from, String expected) throws Exception {
@@ -730,8 +730,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testJsonInvalidStructure() throws Exception {
     checkErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-            + "ConfigurationTransition for struct field 'a'",
-        "struct(a=DATA_CFG).to_json()");
+            + "function for struct field 'a'",
+        "struct(a=rule).to_json()");
   }
 
   @Test
