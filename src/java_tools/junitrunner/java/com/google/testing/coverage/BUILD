@@ -22,7 +22,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "JacocoCoverage_jarjar_deploy.jar",
+        "JacocoCoverage_deploy.jar",
     ],
 )
 
@@ -67,24 +67,4 @@ java_library(
     deps = [
         "//third_party:apache_commons_lang",
     ],
-)
-
-genrule(
-    name = "Jacoco_jarjar",
-    srcs = [
-        ":JacocoCoverage_deploy.jar",
-        ":JacocoCoverage.jarjar",
-    ],
-    outs = ["JacocoCoverage_jarjar_deploy.jar"],
-    cmd = "\n".join([
-        # File#createTempFile() apparently tries to create the temp file under
-        # C:\WINDOWS by default on Windows, which is of course wrong. Help Java a bit.
-        # Remove this once https://github.com/bazelbuild/bazel/issues/2349 is fixed.
-        "if [[ $$(uname -a) =~ MSYS ]]; then",
-        "  export TEMP=\"$$(cygpath -m --mydocs)/temp\";",
-        "  mkdir -p \"$$(cygpath -u --mydocs)/temp\";",
-        "fi",
-        "$(location //third_party/java/jarjar:jarjar_bin) process $(location :JacocoCoverage.jarjar) $(location :JacocoCoverage_deploy.jar) $@",
-    ]),
-    tools = ["//third_party/java/jarjar:jarjar_bin"],
 )
