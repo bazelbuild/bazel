@@ -372,16 +372,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
-    // This is now on by default and the flag is a noop and will be removed in a future release.
-    @Option(name = "experimental_use_rclass_generator",
-        defaultValue = "true",
-        category = "undocumented",
-        help = "Use the specialized R class generator to build the final app and lib R classes.")
-    public boolean useRClassGenerator;
-
-    // Do not use on the command line.
-    // The idea is that once this option works, we'll flip the default value in a config file, then
-    // once it is proven that it works, remove it from Bazel and said config file.
     @Option(name = "experimental_use_parallel_android_resource_processing",
       defaultValue = "false",
       category = "undocumented",
