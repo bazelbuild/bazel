@@ -39,12 +39,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public final class Jvm extends BuildConfiguration.Fragment {
   private final PathFragment javaHome;
   private final Label jvmLabel;
-  private final PathFragment javac;
-  private final PathFragment jar;
   private final PathFragment java;
 
-  private static final String BIN_JAVAC = "bin/javac" + OsUtils.executableExtension();
-  private static final String BIN_JAR = "bin/jar" + OsUtils.executableExtension();
   private static final String BIN_JAVA = "bin/java" + OsUtils.executableExtension();
 
   /**
@@ -56,8 +52,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
     Preconditions.checkArgument(javaHome.isAbsolute() ^ (jvmLabel != null));
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
-    this.javac = getJavaHome().getRelative(BIN_JAVAC);
-    this.jar = getJavaHome().getRelative(BIN_JAR);
     this.java = getJavaHome().getRelative(BIN_JAVA);
   }
 
@@ -67,20 +61,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
    */
   public PathFragment getJavaHome() {
     return javaHome;
-  }
-
-  /**
-   * Returns the path to the javac binary.
-   */
-  public PathFragment getJavacExecutable() {
-    return javac;
-  }
-
-  /**
-   * Returns the path to the jar binary.
-   */
-  public PathFragment getJarExecutable() {
-    return jar;
   }
 
   /**
