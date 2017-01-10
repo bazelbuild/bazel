@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
@@ -79,15 +80,18 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
   @Override
   protected TestResultData executeTest(
       TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext,
-      Map<String, String> environment,
-      Path execRoot,
-      Path runfilesDir)
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
     List<String> startupArgs = getStartUpArgs(action);
 
     return execInWorker(
-        action, actionExecutionContext, environment, startupArgs, execRoot, maxRetries);
+        action,
+        actionExecutionContext,
+        spawn.getEnvironment(),
+        startupArgs,
+        actionExecutionContext.getExecutor().getExecRoot(),
+        maxRetries);
   }
 
   private TestResultData execInWorker(

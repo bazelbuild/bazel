@@ -91,6 +91,25 @@ public class StandaloneTestStrategy extends TestStrategy {
     Map<String, String> env = setupEnvironment(action, execRoot, runfilesDir, tmpDir);
     Path workingDirectory = runfilesDir.getRelative(action.getRunfilesPrefix());
 
+    ResolvedPaths resolvedPaths = action.resolve(execRoot);
+
+    Map<String, String> info = new HashMap<>();
+    // This key is only understood by StandaloneSpawnStrategy.
+    info.put("timeout", "" + getTimeout(action));
+    info.putAll(action.getTestProperties().getExecutionInfo());
+
+    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
+    Spawn spawn =
+        new BaseSpawn(
+            getArgs(testSetup.getExecPathString(), COLLECT_COVERAGE, action),
+            env,
+            info,
+            new RunfilesSupplierImpl(
+                runfilesDir.asFragment(), action.getExecutionSettings().getRunfiles()),
+            action,
+            action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs()),
+            ImmutableSet.of(resolvedPaths.getXmlOutputPath().relativeTo(execRoot)));
+
     Executor executor = actionExecutionContext.getExecutor();
 
     TestResultData.Builder dataBuilder = TestResultData.newBuilder();
@@ -100,12 +119,11 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestResultData data =
           executeTestAttempt(
               action,
+              spawn,
               actionExecutionContext,
               execRoot,
               coverageDir,
-              runfilesDir,
               tmpDir,
-              env,
               workingDirectory);
       int attempt;
       for (attempt = 1;
@@ -116,12 +134,11 @@ public class StandaloneTestStrategy extends TestStrategy {
         data =
             executeTestAttempt(
                 action,
+                spawn,
                 actionExecutionContext,
                 execRoot,
                 coverageDir,
-                runfilesDir,
                 tmpDir,
-                env,
                 workingDirectory);
       }
       processLastTestAttempt(attempt, dataBuilder, data);
@@ -188,12 +205,11 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private TestResultData executeTestAttempt(
       TestRunnerAction action,
+      Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       Path execRoot,
       Path coverageDir,
-      Path runfilesDir,
       Path tmpDir,
-      Map<String, String> env,
       Path workingDirectory)
       throws IOException, ExecException, InterruptedException {
     prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
@@ -207,10 +223,8 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestResultData data =
           executeTest(
               action,
-              actionExecutionContext.withFileOutErr(fileOutErr),
-              env,
-              execRoot,
-              runfilesDir);
+              spawn,
+              actionExecutionContext.withFileOutErr(fileOutErr));
       appendStderr(fileOutErr.getOutputPath(), fileOutErr.getErrorPath());
       return data;
     }
@@ -255,33 +269,14 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   protected TestResultData executeTest(
       TestRunnerAction action,
-      ActionExecutionContext actionExecutionContext,
-      Map<String, String> environment,
-      Path execRoot,
-      Path runfilesDir)
-      throws ExecException, InterruptedException, IOException {
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext)
+          throws ExecException, InterruptedException, IOException {
     Executor executor = actionExecutionContext.getExecutor();
     Closeable streamed = null;
     Path testLogPath = action.getTestLog().getPath();
     TestResultData.Builder builder = TestResultData.newBuilder();
 
-    Map<String, String> info = new HashMap<>();
-    // This key is only understood by StandaloneSpawnStrategy.
-    info.put("timeout", "" + getTimeout(action));
-    info.putAll(action.getTestProperties().getExecutionInfo());
-
-    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
-    TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
-    Spawn spawn =
-        new BaseSpawn(
-            getArgs(testSetup.getExecPathString(), COLLECT_COVERAGE, action),
-            environment,
-            info,
-            new RunfilesSupplierImpl(
-                runfilesDir.asFragment(), action.getExecutionSettings().getRunfiles()),
-            action,
-            action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs()),
-            ImmutableSet.of(resolvedPaths.getXmlOutputPath().relativeTo(execRoot)));
     long startTime = executor.getClock().currentTimeMillis();
     SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
     try {
