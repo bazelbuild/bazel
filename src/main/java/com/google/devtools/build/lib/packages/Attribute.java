@@ -297,6 +297,11 @@ public final class Attribute implements Comparable<Attribute> {
      * policy would check it.
      */
     SKIP_CONSTRAINTS_OVERRIDE,
+
+    /**
+     * Whether we should use output_licenses to check the licences on this attribute.
+     */
+    OUTPUT_LICENSES,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -533,6 +538,14 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> orderIndependent() {
       Preconditions.checkNotNull(type.getListElementType(), "attribute '%s' must be a list", name);
       return setPropertyFlag(PropertyFlag.ORDER_INDEPENDENT, "order-independent");
+    }
+
+    /**
+     * Mark the built attribute as to use output_licenses for license checking.
+     */
+    public Builder<TYPE> useOutputLicenses() {
+      Preconditions.checkState(BuildType.isLabelType(type), "must be a label type");
+      return setPropertyFlag(PropertyFlag.OUTPUT_LICENSES, "output_license");
     }
 
     /**
@@ -1862,6 +1875,13 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public boolean isOrderIndependent() {
     return getPropertyFlag(PropertyFlag.ORDER_INDEPENDENT);
+  }
+
+  /**
+   *  Returns true if output_licenses should be used for checking licensing.
+   */
+  public boolean useOutputLicenses() {
+    return getPropertyFlag(PropertyFlag.OUTPUT_LICENSES);
   }
 
   /**

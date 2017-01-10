@@ -35,6 +35,17 @@ public interface LicensesProvider extends TransitiveInfoProvider {
   NestedSet<TargetLicense> getTransitiveLicenses();
 
   /**
+   * A label - license association for output_licenses. If there are no output_licenses it returns
+   * null.
+   */
+  TargetLicense getOutputLicenses();
+
+  /**
+   * Return whether there is an output_licenses.
+   */
+  boolean hasOutputLicenses();
+
+  /**
    * License association for a particular target.
    */
   public static final class TargetLicense {

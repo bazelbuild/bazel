@@ -107,7 +107,7 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":jvm", LABEL).cfg(HOST).value(JavaSemantics.JVM))
+          .add(attr(":jvm", LABEL).value(JavaSemantics.JVM).useOutputLicenses())
           .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
           .add(attr("$jacoco_instrumentation", LABEL).cfg(HOST))
           .build();

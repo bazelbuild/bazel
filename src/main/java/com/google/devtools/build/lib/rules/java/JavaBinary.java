@@ -471,7 +471,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     builder.addArtifacts((Iterable<Artifact>) common.getRuntimeClasspath());
 
     // Add the JDK files if it comes from the source repository (see java_stub_template.txt).
-    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.HOST);
+    TransitiveInfoCollection javabaseTarget = ruleContext.getPrerequisite(":jvm", Mode.TARGET);
     if (javabaseTarget != null) {
       builder.addArtifacts(
           (Iterable<Artifact>) javabaseTarget.getProvider(FileProvider.class).getFilesToBuild());

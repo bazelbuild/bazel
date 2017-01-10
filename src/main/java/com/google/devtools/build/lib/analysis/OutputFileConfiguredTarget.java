@@ -54,6 +54,19 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget
   }
 
   @Override
+  public TargetLicense getOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .getOutputLicenses();
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return getProvider(LicensesProvider.class, LicensesProviderImpl.EMPTY)
+        .hasOutputLicenses();
+  }
+
+
+  @Override
   public NestedSet<Artifact> getInstrumentedFiles() {
     return getProvider(InstrumentedFilesProvider.class, InstrumentedFilesProviderImpl.EMPTY)
         .getInstrumentedFiles();

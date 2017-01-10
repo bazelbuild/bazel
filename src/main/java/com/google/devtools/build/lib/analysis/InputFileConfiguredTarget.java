@@ -65,4 +65,14 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   public final NestedSet<TargetLicense> getTransitiveLicenses() {
     return licenses;
   }
+
+  @Override
+  public TargetLicense getOutputLicenses() {
+    return null;
+  }
+
+  @Override
+  public boolean hasOutputLicenses() {
+    return false;
+  }
 }
