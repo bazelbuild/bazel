@@ -25,22 +25,6 @@ namespace blaze_util {
 
 using std::string;
 
-TEST(FileTest, TestNormalizePath) {
-  ASSERT_EQ(string(""), NormalizePath(""));
-  ASSERT_EQ(string(""), NormalizePath("."));
-  ASSERT_EQ(string("/"), NormalizePath("/"));
-  ASSERT_EQ(string("/"), NormalizePath("//"));
-  ASSERT_EQ(string("foo"), NormalizePath("foo"));
-  ASSERT_EQ(string("foo"), NormalizePath("foo/"));
-  ASSERT_EQ(string("foo/bar"), NormalizePath("foo//bar"));
-  ASSERT_EQ(string("foo/bar"), NormalizePath("../..//foo//bar"));
-  ASSERT_EQ(string("/foo"), NormalizePath("/foo"));
-  ASSERT_EQ(string("/foo"), NormalizePath("/foo/"));
-  ASSERT_EQ(string("/foo/bar"), NormalizePath("/foo/./bar/"));
-  ASSERT_EQ(string("foo/bar"), NormalizePath("../foo/baz/../bar"));
-  ASSERT_EQ(string("foo/bar"), NormalizePath("../foo//./baz/../bar///"));
-}
-
 TEST(FileTest, TestSingleThreadedPipe) {
   std::unique_ptr<IPipe> pipe(CreatePipe());
   char buffer[50] = {0};

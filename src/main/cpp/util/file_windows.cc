@@ -34,6 +34,30 @@ using std::unique_ptr;
 using std::vector;
 using std::wstring;
 
+// Returns the current working directory as a Windows path.
+// The result may have a UNC prefix.
+static unique_ptr<WCHAR[]> GetCwdW();
+
+// Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
+static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
+
+// Returns a normalized form of the input `path`.
+//
+// `path` must be a relative or absolute Windows path, it may use "/" instead of
+// "\" but must not be an absolute MSYS path.
+// The result won't have a UNC prefix, even if `path` did.
+//
+// Normalization means removing "." references, resolving ".." references, and
+// deduplicating "/" characters while converting them to "\".
+// For example if `path` is "foo/../bar/.//qux", the result is "bar\qux".
+//
+// Uplevel references that cannot go any higher in the directory tree are simply
+// ignored, e.g. "c:/.." is normalized to "c:\" and "../../foo" is normalized to
+// "foo".
+//
+// Visible for testing, would be static otherwise.
+string NormalizeWindowsPath(string path);
+
 template <typename char_type>
 struct CharTraits {
   static bool IsAlpha(char_type ch);
@@ -70,8 +94,6 @@ static void AddUncPrefixMaybe(wstring* path) {
     *path = wstring(L"\\\\?\\") + *path;
   }
 }
-
-static unique_ptr<WCHAR[]> GetCwdW();
 
 class WindowsPipe : public IPipe {
  public:
@@ -279,27 +301,30 @@ bool AsWindowsPath(const string& path, wstring* result) {
     }
   }  // otherwise this is a relative path, or absolute Windows path.
 
-  unique_ptr<WCHAR[]> mutable_wpath(CstringToWstring(mutable_path.c_str()));
-  WCHAR* p = mutable_wpath.get();
-  // Replace forward slashes with backslashes.
-  while (*p != L'\0') {
-    if (*p == L'/') {
-      *p = L'\\';
-    }
-    ++p;
+  result->assign(
+      CstringToWstring(NormalizeWindowsPath(mutable_path).c_str()).get());
+  return true;
+}
+
+static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
+  if (!AsWindowsPath(path, wpath)) {
+    return false;
   }
-  result->assign(mutable_wpath.get());
+  if (!IsAbsolute(path)) {
+    wpath->assign(wstring(GetCwdW().get()) + L"\\" + *wpath);
+  }
+  AddUncPrefixMaybe(wpath);
   return true;
 }
 
 bool ReadFile(const string& filename, string* content, int max_size) {
-  wstring wfilename;
-  if (!AsWindowsPath(filename, &wfilename)) {
-    // Failed to convert the path because it was an absolute MSYS path but we
-    // could not retrieve the BAZEL_SH envvar.
+  if (filename.empty()) {
     return false;
   }
-  AddUncPrefixMaybe(&wfilename);
+  wstring wfilename;
+  if (!AsWindowsPathWithUncPrefix(filename, &wfilename)) {
+    return false;
+  }
   HANDLE handle = CreateFileW(
       /* lpFileName */ wfilename.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
@@ -482,22 +507,11 @@ bool PathExists(const string& path) {
     return false;
   }
   wstring wpath;
-  if (!AsWindowsPath(NormalizePath(path), &wpath)) {
-    PrintError("could not convert path to widechar, path=(%s), err=%d\n",
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    PrintError("PathExists(%s): AsWindowsPathWithUncPrefix failed, err=%d\n",
                path.c_str(), GetLastError());
     return false;
   }
-  if (!IsAbsolute(path)) {
-    DWORD len = ::GetCurrentDirectoryW(0, nullptr);
-    unique_ptr<WCHAR[]> cwd(new WCHAR[len]);
-    if (!GetCurrentDirectoryW(len, cwd.get())) {
-      PrintError("could not make the path absolute, path=(%s), err=%d\n",
-                 path.c_str(), GetLastError());
-      return false;
-    }
-    wpath = wstring(cwd.get()) + L"\\" + wpath;
-  }
-  AddUncPrefixMaybe(&wpath);
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
@@ -589,5 +603,70 @@ void ForEachDirectoryEntry(const string &path,
 }
 #else   // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
+
+string NormalizeWindowsPath(string path) {
+  if (path.empty()) {
+    return "";
+  }
+  if (path[0] == '/') {
+    // This is an absolute MSYS path, error out.
+    pdie(255, "NormalizeWindowsPath: expected a Windows path, path=(%s)",
+         path.c_str());
+  }
+  if (path.size() >= 4 && HasUncPrefix(path.c_str())) {
+    path = path.substr(4);
+  }
+
+  static const string dot(".");
+  static const string dotdot("..");
+
+  vector<string> segments;
+  int segment_start = -1;
+  // Find the path segments in `path` (separated by "/").
+  for (int i = 0;; ++i) {
+    if (!IsPathSeparator(path[i]) && path[i] != '\0') {
+      // The current character does not end a segment, so start one unless it's
+      // already started.
+      if (segment_start < 0) {
+        segment_start = i;
+      }
+    } else if (segment_start >= 0 && i > segment_start) {
+      // The current character is "/" or "\0", so this ends a segment.
+      // Add that to `segments` if there's anything to add; handle "." and "..".
+      string segment(path, segment_start, i - segment_start);
+      segment_start = -1;
+      if (segment == dotdot) {
+        if (!segments.empty() &&
+            !HasDriveSpecifierPrefix(segments[0].c_str())) {
+          segments.pop_back();
+        }
+      } else if (segment != dot) {
+        segments.push_back(segment);
+      }
+    }
+    if (path[i] == '\0') {
+      break;
+    }
+  }
+
+  // Handle the case when `path` is just a drive specifier (or some degenerate
+  // form of it, e.g. "c:\..").
+  if (segments.size() == 1 && segments[0].size() == 2 &&
+      HasDriveSpecifierPrefix(segments[0].c_str())) {
+    return segments[0] + '\\';
+  }
+
+  // Join all segments.
+  bool first = true;
+  std::ostringstream result;
+  for (const auto& s : segments) {
+    if (!first) {
+      result << '\\';
+    }
+    first = false;
+    result << s;
+  }
+  return result.str();
+}
 
 }  // namespace blaze_util

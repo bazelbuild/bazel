@@ -117,22 +117,21 @@ void ForEachDirectoryEntry(const std::string &path,
                            DirectoryEntryConsumer *consume);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-// Converts a UTF8-encoded `path` to a widechar Windows path.
+// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
 //
 // Returns true if conversion succeeded and sets the contents of `result` to it.
 //
 // The `path` may be absolute or relative, and may be a Windows or MSYS path.
-// In every case, this method replaces forward slashes with backslashes if
-// necessary.
+// In every case, the output is normalized (see NormalizeWindowsPath).
+// The output won't have a UNC prefix, even if `path` did.
 //
 // Recognizes the drive letter in MSYS paths, so e.g. "/c/windows" becomes
 // "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH envvar) to
 // absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
 //
 // The result may be longer than MAX_PATH. It's the caller's responsibility to
-// prepend the long path prefix ("\\?\") in case they need to pass it to a
-// Windows API function (some require the prefix, some don't), or to quote the
-// path if necessary.
+// prepend the UNC prefix in case they need to pass it to a WinAPI function
+// (some require the prefix, some don't), or to quote the path if necessary.
 bool AsWindowsPath(const std::string &path, std::wstring *result);
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
