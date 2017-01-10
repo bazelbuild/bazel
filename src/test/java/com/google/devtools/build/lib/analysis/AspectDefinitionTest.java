@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -153,12 +154,21 @@ public class AspectDefinitionTest {
     AspectDefinition requiresProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
         .requireProviders(String.class, Integer.class)
         .build();
-    assertThat(requiresProviders.getRequiredProviders()).hasSize(1);
-    assertThat(requiresProviders.getRequiredProviders().get(0))
-        .containsExactly(String.class, Integer.class);
-    assertThat(requiresProviders.getRequiredProviderNames()).hasSize(1);
-    assertThat(requiresProviders.getRequiredProviderNames().get(0))
-        .containsExactly("java.lang.String", "java.lang.Integer");
+    AdvertisedProviderSet expectedOkSet =
+        AdvertisedProviderSet.builder()
+            .addNative(String.class)
+            .addNative(Integer.class)
+            .addNative(Boolean.class)
+            .build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
+        .isTrue();
+
+    AdvertisedProviderSet expectedFailSet =
+        AdvertisedProviderSet.builder()
+            .addNative(String.class)
+            .build();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
+        .isFalse();
   }
 
  @Test
@@ -169,16 +179,26 @@ public class AspectDefinitionTest {
                 ImmutableSet.<Class<?>>of(String.class, Integer.class),
                 ImmutableSet.<Class<?>>of(Boolean.class)))
         .build();
-    assertThat(requiresProviders.getRequiredProviders()).hasSize(2);
-    assertThat(requiresProviders.getRequiredProviders().get(0))
-        .containsExactly(String.class, Integer.class);
-    assertThat(requiresProviders.getRequiredProviders().get(1))
-        .containsExactly(Boolean.class);
-    assertThat(requiresProviders.getRequiredProviderNames()).hasSize(2);
-    assertThat(requiresProviders.getRequiredProviderNames().get(0))
-        .containsExactly("java.lang.String", "java.lang.Integer");
-    assertThat(requiresProviders.getRequiredProviderNames().get(1))
-        .containsExactly("java.lang.Boolean");
+
+    AdvertisedProviderSet expectedOkSet1 =
+       AdvertisedProviderSet.builder()
+           .addNative(String.class)
+           .addNative(Integer.class)
+           .build();
+
+    AdvertisedProviderSet expectedOkSet2 =
+       AdvertisedProviderSet.builder()
+           .addNative(Boolean.class)
+           .build();
+
+    AdvertisedProviderSet expectedFailSet =
+       AdvertisedProviderSet.builder()
+           .addNative(Float.class)
+           .build();
+
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
   }
 
   @Test
