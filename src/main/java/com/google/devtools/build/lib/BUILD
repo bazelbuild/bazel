@@ -330,8 +330,6 @@ java_library(
     exports = [
         ":concurrent",
         ":events",
-        # This should be removed at some point. Production code shouldn't use this.
-        ":inmemoryfs",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/common/options",
