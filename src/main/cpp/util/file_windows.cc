@@ -38,6 +38,11 @@ using std::wstring;
 // The result may have a UNC prefix.
 static unique_ptr<WCHAR[]> GetCwdW();
 
+// Returns true if `path` refers to a directory or (non-dangling) junction.
+// `path` must be a normalized Windows path, with UNC prefix (and absolute) if
+// necessary.
+static bool IsDirectoryW(const wstring& path);
+
 // Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
 
@@ -551,14 +556,23 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-bool IsDirectory(const string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::IsDirectory is not implemented on Windows");
-  return false;
+static bool IsDirectoryW(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  return (attrs != INVALID_FILE_ATTRIBUTES) &&
+         (attrs & FILE_ATTRIBUTE_DIRECTORY) &&
+         JunctionResolver().Resolve(path.c_str(), nullptr);
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
+
+bool IsDirectory(const string& path) {
+  if (path.empty()) {
+    return false;
+  }
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  return IsDirectoryW(wpath);
+}
 
 bool IsRootDirectory(const string& path) {
   return IsRootOrAbsolute(path, true);

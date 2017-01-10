@@ -290,4 +290,40 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
 
+TEST(FileTest, TestIsDirectory) {
+  ASSERT_FALSE(IsDirectory(""));
+
+  string tmpdir(GetTestTmpDir());
+  ASSERT_LT(0, tmpdir.size());
+  ASSERT_TRUE(IsDirectory(tmpdir));
+  ASSERT_TRUE(IsDirectory("C:\\"));
+  ASSERT_TRUE(IsDirectory("C:/"));
+  ASSERT_TRUE(IsDirectory("/c"));
+
+  ASSERT_FALSE(IsDirectory("non.existent"));
+  // Create a directory under `tempdir`, verify that IsDirectory reports true.
+  // Call it msys_dir1 so we can also use it as a mock msys root.
+  string dir1(JoinPath(tmpdir, "msys_dir1"));
+  ASSERT_EQ(0, mkdir(dir1.c_str()));
+  ASSERT_TRUE(IsDirectory(dir1));
+
+  // Use dir1 as the mock msys root, verify that IsDirectory works for a MSYS
+  // path.
+  SetEnvironmentVariableA("BAZEL_SH", JoinPath(dir1, "bash.exe").c_str());
+  ResetMsysRootForTesting();
+  ASSERT_TRUE(IsDirectory("/"));
+
+  // Verify that IsDirectory works for a junction.
+  string junc1(JoinPath(tmpdir, "junc1"));
+  RunCommand(string("cmd.exe /C mklink /J \"") + junc1 + "\" \"" + dir1 +
+             "\" >NUL 2>NUL");
+  ASSERT_TRUE(IsDirectory(junc1));
+
+  ASSERT_EQ(0, rmdir(dir1.c_str()));
+  ASSERT_FALSE(IsDirectory(dir1));
+  ASSERT_FALSE(IsDirectory(junc1));
+
+  ASSERT_EQ(0, rmdir(junc1.c_str()));
+}
+
 }  // namespace blaze_util

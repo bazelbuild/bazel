@@ -248,12 +248,12 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
   return access(path.c_str(), mode) == 0;
 }
 
+#ifndef __CYGWIN__
 bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);
 }
 
-#ifndef __CYGWIN__
 bool IsRootDirectory(const string &path) {
   return path.size() == 1 && path[0] == '/';
 }
