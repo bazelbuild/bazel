@@ -308,12 +308,39 @@ bool AsWindowsPath(const string& path, wstring* result) {
 
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
   if (!AsWindowsPath(path, wpath)) {
+    PrintError("AsWindowsPathWithUncPrefix(%s): AsWindowsPath failed, err=%d\n",
+               path.c_str(), GetLastError());
     return false;
   }
   if (!IsAbsolute(path)) {
     wpath->assign(wstring(GetCwdW().get()) + L"\\" + *wpath);
   }
   AddUncPrefixMaybe(wpath);
+  return true;
+}
+
+bool AsShortWindowsPath(const string& path, string* result) {
+  result->clear();
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  DWORD size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
+  if (size == 0) {
+    return false;
+  }
+
+  unique_ptr<WCHAR[]> wshort(new WCHAR[size]);  // size includes null-terminator
+  if (size - 1 != ::GetShortPathNameW(wpath.c_str(), wshort.get(), size)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "AsShortWindowsPath(%s): GetShortPathNameW(%S) failed, err=%d",
+         path.c_str(), wpath.c_str(), GetLastError());
+  }
+  // GetShortPathNameW may preserve the UNC prefix in the result, so strip it.
+  WCHAR* result_ptr = wshort.get() + (HasUncPrefix(wshort.get()) ? 4 : 0);
+
+  result->assign(WstringToCstring(result_ptr).get());
+  ToLower(result);
   return true;
 }
 

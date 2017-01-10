@@ -373,6 +373,12 @@ struct CmdLine {
 static void CreateCommandLine(CmdLine* result, const string& exe,
                               const vector<string>& args_vector) {
   std::ostringstream cmdline;
+  string short_exe;
+  if (!blaze_util::AsShortWindowsPath(exe + ".exe", &short_exe)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "CreateCommandLine: AsShortWindowsPath(%s.exe) failed, err=%d",
+         exe.c_str(), GetLastError());
+  }
   bool first = true;
   for (const auto& s : args_vector) {
     if (first) {
@@ -456,23 +462,23 @@ string GetJvmVersion(const string& java_exe) {
   }
 
   PROCESS_INFORMATION processInfo = {0};
-  STARTUPINFOW startupInfo = {0};
+  STARTUPINFOA startupInfo = {0};
   startupInfo.hStdError = pipe_write;
   startupInfo.hStdOutput = pipe_write;
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
-  wstring wjava_exe;
-  if (!blaze_util::AsWindowsPath(java_exe, &wjava_exe)) {
+  string win_java_exe;
+  if (!blaze_util::AsShortWindowsPath(java_exe + ".exe", &win_java_exe)) {
     CloseHandle(pipe_read);
     CloseHandle(pipe_write);
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "AsWindowsPath(%s)",
-         java_exe);
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "GetJvmVersion: AsWindowsPath(%s.exe)", java_exe.c_str());
   }
-  wjava_exe = wstring(L"\"") + wjava_exe + L".exe\" -version";
+  win_java_exe = string("\"") + win_java_exe + "\" -version";
 
-  WCHAR cmdline[MAX_CMDLINE_LENGTH];
-  wcscpy(cmdline, wjava_exe.c_str());
-  BOOL ok = CreateProcessW(
+  char cmdline[MAX_CMDLINE_LENGTH];
+  strncpy(cmdline, win_java_exe.c_str(), win_java_exe.size() + 1);
+  BOOL ok = CreateProcessA(
       /* lpApplicationName */ NULL,
       /* lpCommandLine */ cmdline,
       /* lpProcessAttributes */ NULL,

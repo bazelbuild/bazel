@@ -178,6 +178,25 @@ TEST(FileTest, TestAsWindowsPath) {
   ASSERT_EQ(wlongpath, actual);
 }
 
+TEST(FileTest, TestAsShortWindowsPath) {
+  string tmpdir(GetTestTmpDir());
+  ASSERT_LT(0, tmpdir.size());
+
+  string short_tmpdir;
+  ASSERT_TRUE(AsShortWindowsPath(tmpdir, &short_tmpdir));
+  ASSERT_LT(0, short_tmpdir.size());
+  ASSERT_TRUE(PathExists(short_tmpdir));
+
+  string dirname(JoinPath(short_tmpdir, "LONGpathNAME"));
+  ASSERT_EQ(0, mkdir(dirname.c_str()));
+  ASSERT_TRUE(PathExists(dirname));
+
+  string actual;
+  ASSERT_TRUE(AsShortWindowsPath(dirname, &actual));
+  ASSERT_EQ(short_tmpdir + "\\longpa~1", actual);
+  ASSERT_EQ(0, rmdir(dirname.c_str()));
+}
+
 TEST(FileTest, TestMsysRootRetrieval) {
   wstring actual;
 

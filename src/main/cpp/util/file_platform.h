@@ -133,6 +133,10 @@ void ForEachDirectoryEntry(const std::string &path,
 // prepend the UNC prefix in case they need to pass it to a WinAPI function
 // (some require the prefix, some don't), or to quote the path if necessary.
 bool AsWindowsPath(const std::string &path, std::wstring *result);
+
+// Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
+// Result will never have a UNC prefix.
+bool AsShortWindowsPath(const std::string &path, std::string *result);
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 }  // namespace blaze_util
