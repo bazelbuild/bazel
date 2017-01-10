@@ -32,6 +32,9 @@ public class ObjcXcodeproj implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning("This rule is deprecated, and is not supported by Skylark rules. "
+        + "Please use Tulsi (https://tulsi.bazel.build/) to manage Xcode projects.");
+
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
     new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
