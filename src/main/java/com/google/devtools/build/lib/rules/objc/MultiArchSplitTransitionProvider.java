@@ -159,6 +159,11 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
 
         splitOptions.get(AppleCommandLineOptions.class).applePlatformType = platformType;
         splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = cpu;
+        // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
+        // to decide architecture.
+        // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule. Deprecate ios_cpu.
+        splitOptions.get(AppleCommandLineOptions.class).iosCpu = cpu;
+  
         if (splitOptions.get(ObjcCommandLineOptions.class).enableCcDeps) {
           // Only set the (CC-compilation) CPU for dependencies if explicitly required by the user.
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values
@@ -167,12 +172,6 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           String platformCpu = String.format("%s_%s", platformType, cpu);
           AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(buildOptions,
               splitOptions, platformCpu);
-        } else {
-          // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
-          // to decide architecture.
-          // TODO(b/29355778, b/28403953): Use a crosstool for any apple rule, and remove this
-          // "else" clause.  Deprecate ios_cpu.
-          splitOptions.get(AppleCommandLineOptions.class).iosCpu = cpu;
         }
         splitOptions.get(AppleCommandLineOptions.class).configurationDistinguisher =
             configurationDistinguisher;
