@@ -159,19 +159,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Add the test log to the output
     dataBuilder.addFailedLogs(testLog.toString());
     dataBuilder.addTestTimes(data.getTestTimes(0));
-
-    // Publish an event, recreate a TestResultData with the good log file.
-    TestResultData.Builder builder = TestResultData.newBuilder();
-    builder.setStatus(data.getStatus());
-    builder.setFailedStatus(data.getFailedStatus());
-    builder.setCachable(data.getCachable());
-    builder.addFailedLogs(testLog.toString());
-    builder.setTestPassed(false);
-    builder.addTestTimes(data.getTestTimes(0));
-    builder.setRunDurationMillis(data.getRunDurationMillis());
-    if (data.hasTestCase()) {
-      builder.setTestCase(data.getTestCase());
-    }
     processTestOutput(executor, outErr, new TestResult(action, data, false), testLog);
   }
 
