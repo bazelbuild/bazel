@@ -60,14 +60,14 @@ public abstract class BlazeJavacArguments {
 
   public static Builder builder() {
     return new AutoValue_BlazeJavacArguments.Builder()
-        .classPath(ImmutableList.of())
+        .classPath(ImmutableList.<Path>of())
         .classOutput(null)
-        .bootClassPath(ImmutableList.of())
-        .javacOptions(ImmutableList.of())
-        .sourceFiles(ImmutableList.of())
+        .bootClassPath(ImmutableList.<Path>of())
+        .javacOptions(ImmutableList.<String>of())
+        .sourceFiles(ImmutableList.<Path>of())
         .processors(null)
         .sourceOutput(null)
-        .processorPath(ImmutableList.of());
+        .processorPath(ImmutableList.<Path>of());
   }
 
   /** {@link BlazeJavacArguments}Builder. */
