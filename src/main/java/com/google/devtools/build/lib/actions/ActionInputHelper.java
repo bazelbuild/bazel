@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -112,6 +111,16 @@ public final class ActionInputHelper {
    */
   public static ActionInput fromPath(String path) {
     return new BasicActionInput(path);
+  }
+
+  /**
+   * Creates an ActionInput with just the given relative path and no digest.
+   *
+   * @param path the relative path of the input.
+   * @return a ActionInput.
+   */
+  public static ActionInput fromPath(PathFragment path) {
+    return fromPath(path.getPathString());
   }
 
   private static final Function<String, ActionInput> FROM_PATH =
