@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
-
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Deque;
@@ -199,6 +199,7 @@ final class SkylarkDocumentationCollector {
     collectBuiltinModule(modules, ObjcConfiguration.class);
     collectBuiltinModule(modules, CppConfiguration.class);
     collectBuiltinModule(modules, JavaConfiguration.class);
+    collectBuiltinModule(modules, SwiftConfiguration.class);
     collectBuiltinModule(modules, Jvm.class);
     collectBuiltinModule(modules, JavaSkylarkApiProvider.class);
     collectBuiltinModule(modules, JavaRuleOutputJarsProvider.OutputJar.class);

@@ -99,6 +99,8 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
+import com.google.devtools.build.lib.rules.apple.swift.SwiftCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
@@ -601,6 +603,7 @@ public class BazelRuleClassProvider {
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());
           builder.addConfig(AppleCommandLineOptions.class, new AppleConfiguration.Loader());
+          builder.addConfig(SwiftCommandLineOptions.class, new SwiftConfiguration.Loader());
           // j2objc shouldn't be here!
           builder.addConfig(J2ObjcCommandLineOptions.class, new J2ObjcConfiguration.Loader());
 
