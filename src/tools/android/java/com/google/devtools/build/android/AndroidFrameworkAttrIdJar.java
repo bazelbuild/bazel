@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
@@ -51,15 +51,15 @@ public class AndroidFrameworkAttrIdJar implements AndroidFrameworkAttrIdProvider
   }
 
   private Map<String, Integer> getAttrFields() throws AttrLookupException {
-    try {
-      URLClassLoader urlClassLoader = new URLClassLoader(new URL[]{androidJar.toUri().toURL()});
+    try (URLClassLoader urlClassLoader =
+        new URLClassLoader(new URL[] {androidJar.toUri().toURL()})) {
       Class<?> attrClass = urlClassLoader.loadClass(ANDROID_ATTR_CLASS);
       Map<String, Integer> attributeIds = new HashMap<>();
       for (Field field : attrClass.getFields()) {
         attributeIds.put(field.getName(), field.getInt(null));
       }
       return attributeIds;
-    } catch (ClassNotFoundException | IllegalAccessException | MalformedURLException e) {
+    } catch (IOException | ClassNotFoundException | IllegalAccessException e) {
       throw new AttrLookupException(e);
     }
   }
