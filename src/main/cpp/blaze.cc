@@ -245,6 +245,7 @@ class GrpcBlazeServer : public BlazeServer {
   // actions from.
   blaze_util::IPipe *pipe_;
 
+  bool TryConnect(command_server::CommandServer::Stub* client);
   void CancelThread();
   void SendAction(CancelThreadAction action);
   void SendCancelMessage();
@@ -1372,6 +1373,29 @@ GrpcBlazeServer::~GrpcBlazeServer() {
   pipe_ = NULL;
 }
 
+bool GrpcBlazeServer::TryConnect(command_server::CommandServer::Stub* client) {
+  grpc::ClientContext context;
+  context.set_deadline(
+      std::chrono::system_clock::now() +
+      std::chrono::seconds(connect_timeout_secs_));
+
+  command_server::PingRequest request;
+  command_server::PingResponse response;
+  request.set_cookie(request_cookie_);
+
+  debug_log("Trying to connect to server (timeout: %d secs)...",
+      connect_timeout_secs_);
+  grpc::Status status = client->Ping(&context, request, &response);
+
+  if (!status.ok() || response.cookie() != response_cookie_) {
+    debug_log("Connection to server failed: %s",
+        status.error_message().c_str());
+    return false;
+  }
+
+  return true;
+}
+
 bool GrpcBlazeServer::Connect() {
   assert(!connected_);
 
@@ -1409,34 +1433,34 @@ bool GrpcBlazeServer::Connect() {
   std::unique_ptr<command_server::CommandServer::Stub> client(
       command_server::CommandServer::NewStub(channel));
 
-  grpc::ClientContext context;
-  context.set_deadline(
-      std::chrono::system_clock::now() +
-      std::chrono::seconds(connect_timeout_secs_));
-
-  command_server::PingRequest request;
-  command_server::PingResponse response;
-  request.set_cookie(request_cookie_);
-
-  debug_log("Trying to connect to server (timeout: %d secs)...",
-      connect_timeout_secs_);
-  grpc::Status status = client->Ping(&context, request, &response);
-
-  if (!status.ok() || response.cookie() != response_cookie_) {
-    debug_log("Connection to server failed: %s",
-        status.error_message().c_str());
+  if (!TryConnect(client.get())) {
     return false;
-  }
-
-  globals->server_pid = GetServerPid(server_dir);
-  if (globals->server_pid <= 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "can't get PID of existing server (server dir=%s)",
-         server_dir.c_str());
   }
 
   this->client_ = std::move(client);
   connected_ = true;
+
+  globals->server_pid = GetServerPid(server_dir);
+  if (globals->server_pid <= 0) {
+    fprintf(stderr, "Can't get PID of existing server (server dir=%s). "
+            "Shutting it down and starting a new one...\n",
+            server_dir.c_str());
+    // This means that we have a server we could connect to but without a PID
+    // file, which in turn means that something went wrong before. Kill the
+    // server so that we can start with as clean a slate as possible. This may
+    // happen if someone (e.g. a client or server that's very old and uses an
+    // AF_UNIX socket instead of gRPC) deletes the server.pid.txt file.
+    KillRunningServer();
+    // Then wait until it actually dies
+    do {
+      auto next_attempt_time(
+          std::chrono::system_clock::now() + std::chrono::milliseconds(1000));
+      std::this_thread::sleep_until(next_attempt_time);
+    } while (TryConnect(client_.get()));
+
+    return false;
+  }
+
   return true;
 }
 
@@ -1533,7 +1557,6 @@ void GrpcBlazeServer::SendCancelMessage() {
 // This will wait indefinitely until the server shuts down
 void GrpcBlazeServer::KillRunningServer() {
   assert(connected_);
-  assert(globals->server_pid > 0);
 
   grpc::ClientContext context;
   command_server::RunRequest request;
@@ -1548,8 +1571,9 @@ void GrpcBlazeServer::KillRunningServer() {
 
   while (reader->Read(&response)) {}
 
-  // Kill the server process for good measure.
-  if (VerifyServerProcess(globals->server_pid, globals->options->output_base,
+  // Kill the server process for good measure (if we know the server PID)
+  if (globals->server_pid > 0 &&
+      VerifyServerProcess(globals->server_pid, globals->options->output_base,
                           globals->options->install_base)) {
     KillServerProcess(globals->server_pid);
   }
