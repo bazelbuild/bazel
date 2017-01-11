@@ -19,13 +19,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.File;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -33,6 +26,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link WindowsProcesses}.
@@ -47,12 +45,11 @@ public class WindowsProcessesTest {
 
   @Before
   public void loadJni() throws Exception {
-    String jniDllPath = WindowsTestUtil.getRunfile("io_bazel/src/main/native/windows_jni.dll");
     mockSubprocess = WindowsTestUtil.getRunfile(
         "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
     javaHome = System.getProperty("java.home");
 
-    WindowsJniLoader.loadJniForTesting(jniDllPath);
+    WindowsJniLoader.loadJni();
 
     process = -1;
   }
