@@ -136,5 +136,9 @@ EOF
       || true
 }
 
+# TODO(kush): Remove this fake test once we enable real tests
+function test_placeholder_until_real_tests_are_enabled() {
+  echo "test_placeholder_until_real_tests_are_enabled"
+}
 
 run_suite "Persistent Test Runner tests"
