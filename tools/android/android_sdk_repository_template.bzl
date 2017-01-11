@@ -17,7 +17,8 @@ def create_android_sdk_rules(
     name,
     build_tools_version,
     build_tools_directory,
-    api_level):
+    api_levels,
+    default_api_level):
   """Generate the contents of the android_sdk_repository.
 
   Args:
@@ -25,7 +26,10 @@ def create_android_sdk_rules(
     build_tools_version: string, the version of Android's build tools to use.
     build_tools_directory: string, the directory name of the build tools in
         sdk's build-tools directory.
-    api_level: int, the API level from which to get android.jar et al.
+    api_levels: list of ints, the API levels from which to get android.jar
+        et al. and create android_sdk rules.
+    default_api_level: int, the API level to alias the default sdk to if
+        --android_sdk is not specified on the command line.
   """
 
   # This filegroup is used to pass the contents of the SDK to the Android
@@ -49,34 +53,45 @@ def create_android_sdk_rules(
       ], exclude_directories = 0),
   )
 
-  if api_level >= 23:
-    # Android 23 removed most of org.apache.http from android.jar and moved it
-    # to a separate jar.
-    native.java_import(
-        name = "org_apache_http_legacy",
-        jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level]
+  for api_level in api_levels:
+    if api_level >= 23:
+      # Android 23 removed most of org.apache.http from android.jar and moved it
+      # to a separate jar.
+      native.java_import(
+          name = "org_apache_http_legacy-%d" % api_level,
+          jars = ["platforms/android-%d/optional/org.apache.http.legacy.jar" % api_level]
+      )
+
+    native.android_sdk(
+        name = "sdk-%d" % api_level,
+        build_tools_version = build_tools_version,
+        proguard = ":proguard_binary",
+        aapt = ":aapt_binary",
+        dx = ":dx_binary",
+        main_dex_list_creator = ":main_dex_list_creator",
+        adb = "platform-tools/adb",
+        framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
+        aidl = ":aidl_binary",
+        android_jar = "platforms/android-%d/android.jar" % api_level,
+        shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
+        annotations_jar = "tools/support/annotations.jar",
+        main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
+        apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
+        apksigner = ":apksigner",
+        zipalign = ":zipalign_binary",
+        jack = ":fail",
+        jill = ":fail",
+        resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
-  native.android_sdk(
+  native.alias(
+      name = "org_apache_http_legacy",
+      actual = ":org_apache_http_legacy-%d" % default_api_level,
+  )
+
+  native.alias(
       name = "sdk",
-      build_tools_version = build_tools_version,
-      proguard = ":proguard_binary",
-      aapt = ":aapt_binary",
-      dx = ":dx_binary",
-      main_dex_list_creator = ":main_dex_list_creator",
-      adb = "platform-tools/adb",
-      framework_aidl = "platforms/android-%d/framework.aidl" % api_level,
-      aidl = ":aidl_binary",
-      android_jar = "platforms/android-%d/android.jar" % api_level,
-      shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
-      annotations_jar = "tools/support/annotations.jar",
-      main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-      apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
-      apksigner = ":apksigner",
-      zipalign = ":zipalign_binary",
-      jack = ":fail",
-      jill = ":fail",
-      resource_extractor = "@bazel_tools//tools/android:resource_extractor",
+      actual = ":sdk-%d" % default_api_level,
   )
 
   native.java_import(

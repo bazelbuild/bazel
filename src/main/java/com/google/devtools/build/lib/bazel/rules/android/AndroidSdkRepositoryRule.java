@@ -67,7 +67,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
         // If build_tools_version is not specified explicitly, the highest build tools version
         // installed will be used.
         .add(attr("build_tools_version", STRING).nonconfigurable("WORKSPACE rule"))
-        .add(attr("api_level", INTEGER).mandatory().nonconfigurable("WORKSPACE rule"))
+        .add(attr("api_level", INTEGER).nonconfigurable("WORKSPACE rule"))
         .build();
   }
 

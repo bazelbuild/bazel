@@ -6,7 +6,8 @@ create_android_sdk_rules(
     name = "%repository_name%",
     build_tools_version = "%build_tools_version%",
     build_tools_directory = "%build_tools_directory%",
-    api_level = %api_level%,
+    api_levels = %api_levels%,
+    default_api_level = %default_api_level%,
 )
 
 exports_files([

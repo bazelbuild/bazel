@@ -284,6 +284,7 @@ function test_android_sdk_repository_build_tools_version_detection() {
   # android_sdk_repository ignores directories that are not valid revisions
   # inside sdk/build-tools.
   mkdir -p androidsdk/build-tools/{25.0.1,25.0.2,fish}
+  mkdir -p androidsdk/platforms/android-25
   # android_sdk_repository ignores files inside sdk/build-tools.
   touch androidsdk/build-tools/25.0.4
   cat >> WORKSPACE <<EOF
@@ -366,6 +367,55 @@ android_ndk_repository(
 EOF
   bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Either the path attribute of android_ndk_repository"
+}
+
+function test_multiple_android_sdk_targets() {
+  create_new_workspace
+  create_android_binary
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "a",
+)
+EOF
+  mkdir -p a/platforms/android-99998
+  mkdir -p a/platforms/android-99999
+  mkdir -p a/build-tools/25.0.1
+
+  # Check that if api_level is not explicitly specified, then the highest api
+  # level android_sdk is used by default.
+  ANDROID_HOME=$PWD/a bazel query "kind(android_sdk, deps(//java/bazel:bin))" \
+    >& $TEST_log
+  expect_log "@a//:sdk-99999"
+
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "a",
+    api_level = 99998,
+)
+EOF
+  # Check that if api_level is explicitly specified, then it is used by default.
+  ANDROID_HOME=$PWD/a bazel query "kind(android_sdk, deps(//java/bazel:bin))" \
+    >& $TEST_log
+  expect_log "@a//:sdk-99998"
+}
+
+# Check that the build succeeds if an android_sdk is specified with --android_sdk
+function test_specifying_android_sdk_flag() {
+  create_new_workspace
+  setup_android_support
+  create_android_binary
+  cat > WORKSPACE <<EOF
+android_sdk_repository(
+    name = "a",
+)
+android_ndk_repository(
+    name = "androidndk",
+    api_level = 24,
+)
+EOF
+  ANDROID_HOME=$ANDROID_SDK ANDROID_NDK_HOME=$ANDROID_NDK bazel build \
+    --android_sdk=@a//:sdk-24 //java/bazel:bin || fail \
+    "build with --android_sdk failed"
 }
 
 # ndk r10 and earlier
