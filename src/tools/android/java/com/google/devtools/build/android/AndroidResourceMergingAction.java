@@ -136,6 +136,15 @@ public class AndroidResourceMergingAction {
       help = "Custom java package to generate the R symbols files."
     )
     public String packageForR;
+
+    @Option(
+      name = "symbolsBinOut",
+      defaultValue = "null",
+      converter = PathConverter.class,
+      category = "config",
+      help = "Path to write the merged symbols binary."
+    )
+    public Path symbolsBinOut;
   }
 
   public static void main(String[] args) throws Exception {
@@ -181,6 +190,7 @@ public class AndroidResourceMergingAction {
               mergedAssets,
               new StubPngCruncher(),
               packageType,
+              options.symbolsBinOut,
               resourceClassWriter);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
