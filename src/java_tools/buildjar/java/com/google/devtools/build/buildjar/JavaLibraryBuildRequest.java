@@ -19,6 +19,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
@@ -66,8 +67,7 @@ public final class JavaLibraryBuildRequest {
   private final String classDir;
   private final String tempDir;
 
-  // Post processors
-  private final ImmutableList<AbstractPostProcessor> postProcessors;
+  private JacocoInstrumentationProcessor jacocoInstrumentationProcessor;
 
   private final boolean compressJar;
 
@@ -169,11 +169,16 @@ public final class JavaLibraryBuildRequest {
       this.tempDir = "_tmp";
     }
     this.outputJar = optionsParser.getOutputJar();
-    ImmutableList.Builder<AbstractPostProcessor> postProcessors = ImmutableList.builder();
     for (Entry<String, List<String>> entry : optionsParser.getPostProcessors().entrySet()) {
-      postProcessors.add(AbstractPostProcessor.create(entry.getKey(), entry.getValue()));
+      switch (entry.getKey()) {
+        case "jacoco":
+          this.jacocoInstrumentationProcessor =
+              JacocoInstrumentationProcessor.create(entry.getValue());
+          break;
+        default:
+          throw new AssertionError("unsupported post-processor " + entry.getKey());
+      }
     }
-    this.postProcessors = postProcessors.build();
     this.javacOpts = ImmutableList.copyOf(optionsParser.getJavacOpts());
     this.sourceGenDir = optionsParser.getSourceGenDir();
     this.generatedSourcesOutputJar = optionsParser.getGeneratedSourcesOutputJar();
@@ -259,8 +264,8 @@ public final class JavaLibraryBuildRequest {
     return tempDir;
   }
 
-  public ImmutableList<AbstractPostProcessor> getPostProcessors() {
-    return postProcessors;
+  public JacocoInstrumentationProcessor getJacocoInstrumentationProcessor() {
+    return jacocoInstrumentationProcessor;
   }
 
   public boolean compressJar() {
