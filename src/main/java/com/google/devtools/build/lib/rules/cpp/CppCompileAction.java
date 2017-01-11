@@ -298,9 +298,6 @@ public class CppCompileAction extends AbstractAction
             ruleContext,
             mandatoryInputs,
             context.getTransitiveCompilationPrerequisites(),
-            useHeaderModules && !cppConfiguration.getSkipUnusedModules()
-                ? context.getTransitiveModules(usePic)
-                : null,
             optionalSourceFile,
             lipoScannables),
         CollectionUtils.asListWithoutNulls(
@@ -382,7 +379,6 @@ public class CppCompileAction extends AbstractAction
       RuleContext ruleContext,
       NestedSet<Artifact> mandatoryInputs,
       Set<Artifact> prerequisites,
-      NestedSet<Artifact> transitiveModules,
       Artifact optionalSourceFile,
       Iterable<IncludeScannable> lipoScannables) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
@@ -392,12 +388,6 @@ public class CppCompileAction extends AbstractAction
     builder.addAll(prerequisites);
     builder.addAll(CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles());
     builder.addTransitive(mandatoryInputs);
-    if (transitiveModules != null) {
-      // In theory, it is enough to add the actually used modules after input discovery. In
-      // practice, this interacts badly with orphan detection, which needs to run before input
-      // discovery.
-      builder.addTransitive(transitiveModules);
-    }
     if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
       // We need to add "legal generated scanner files" coming through LIPO scannables here. These
       // usually contain pre-grepped source files, i.e. files just containing the #include lines
@@ -457,8 +447,7 @@ public class CppCompileAction extends AbstractAction
     // discarded as orphans.
     // This is strictly better than marking all transitive modules as inputs, which would also
     // effectively disable orphan detection for .pcm files.
-    if (cppConfiguration.getSkipUnusedModules()
-        && CppFileTypes.CPP_MODULE.matches(outputFile.getFilename())) {
+    if (CppFileTypes.CPP_MODULE.matches(outputFile.getFilename())) {
       return ImmutableSet.of(outputFile);
     }
     return super.getMandatoryOutputs();
@@ -512,18 +501,12 @@ public class CppCompileAction extends AbstractAction
 
     if (shouldPruneModules) {
       Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
-      Set<Artifact> usedModules = Sets.newLinkedHashSet();
+      usedModules = Sets.newLinkedHashSet();
       for (CppCompilationContext.TransitiveModuleHeaders usedModule :
           context.getUsedModules(usePic, initialResultSet)) {
         usedModules.add(usedModule.getModule());
-        if (!cppConfiguration.getPruneMoreModules()) {
-          usedModules.addAll(usedModule.getTransitiveModules());
-        }
       }
       initialResultSet.addAll(usedModules);
-      if (cppConfiguration.getPruneMoreModules()) {
-        this.usedModules = usedModules;
-      }
       initialResult = initialResultSet;
     }
 
@@ -585,7 +568,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
-    if (useHeaderModules && cppConfiguration.getSkipUnusedModules()) {
+    if (useHeaderModules) {
       this.additionalInputs = context.getTransitiveModules(usePic).toCollection();
       return this.additionalInputs;
     }
