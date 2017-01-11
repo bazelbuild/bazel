@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider;
 import com.google.devtools.build.lib.rules.android.NativeLibsZipsProvider;
 import com.google.devtools.build.lib.rules.android.ResourceContainer;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import java.util.Set;
@@ -193,5 +194,24 @@ public class AarImportTest extends BuildViewTestCase {
         ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "_aar/unzipped/resources/foo");
     assertThat(fooResources).isNotNull();
     assertThat(fooResources.getArtifactOwner().getLabel()).isEqualTo(foo.getLabel());
+  }
+
+  @Test
+  public void testJavaCompilationArgsProvider() throws Exception {
+    ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
+
+    JavaCompilationArgsProvider provider = aarImportTarget
+        .getProvider(JavaCompilationArgsProvider.class);
+    assertThat(provider).isNotNull();
+
+    FileConfiguredTarget appTarget = getFileConfiguredTarget("//java:app.apk");
+    Set<Artifact> artifacts = actionsTestUtil().artifactClosureOf(appTarget.getArtifact());
+    assertThat(provider.getJavaCompilationArgs().getRuntimeJars())
+        .containsExactly(
+            ActionsTestUtil.getFirstArtifactEndingWith(artifacts, "baz.jar"),
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                artifacts, "foo/classes_and_libs_merged.jar"),
+            ActionsTestUtil.getFirstArtifactEndingWith(
+                artifacts, "bar/classes_and_libs_merged.jar"));
   }
 }
