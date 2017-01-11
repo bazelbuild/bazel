@@ -43,6 +43,12 @@ static unique_ptr<WCHAR[]> GetCwdW();
 // necessary.
 static bool IsDirectoryW(const wstring& path);
 
+// Returns true the file or junction at `path` is successfully deleted.
+// Returns false otherwise, or if `path` doesn't exist or is a directory.
+// `path` must be a normalized Windows path, with UNC prefix (and absolute) if
+// necessary.
+static bool UnlinkPathW(const wstring& path);
+
 // Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
 
@@ -389,14 +395,32 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-bool UnlinkPath(const string& file_path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::UnlinkPath is not implemented on Windows");
-  return false;
+static bool UnlinkPathW(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    // Path does not exist.
+    return false;
+  }
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    if (!(attrs & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      // Path is a directory; unlink(2) also cannot remove directories.
+      return false;
+    }
+    // Otherwise it's a junction, remove using RemoveDirectoryW.
+    return ::RemoveDirectoryW(path.c_str()) == TRUE;
+  } else {
+    // Otherwise it's a file, remove using DeleteFileW.
+    return ::DeleteFileW(path.c_str()) == TRUE;
+  }
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
+
+bool UnlinkPath(const string& file_path) {
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(file_path, &wpath)) {
+    return false;
+  }
+  return UnlinkPathW(wpath);
+}
 
 HANDLE OpenDirectory(const WCHAR* path, bool read_write) {
   return ::CreateFileW(
