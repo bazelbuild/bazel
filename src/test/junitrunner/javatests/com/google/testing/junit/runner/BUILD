@@ -14,9 +14,6 @@ java_library(
         ["**/*.java"],
         exclude = ["testbed/*.java"],
     ),
-    # Disable sunapi warnings about sun.misc.Signal.
-    # These classes are used by the classes being tested
-    javacopts = ["-Xlint:-sunapi"],
     deps = [
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
