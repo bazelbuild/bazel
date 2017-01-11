@@ -627,6 +627,10 @@ public class SwiftClass {
     #if !FLAG
     let x: String = 1 // Invalid statement, should throw compiler error when FLAG is not set
     #endif
+
+    #if !CMD_FLAG
+    let y: String = 1 // Invalid statement, should throw compiler error when CMD_FLAG is not set
+    #endif
   }
 }
 EOF
@@ -640,6 +644,7 @@ swift_library(name = "swift_lib",
 EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      --swiftcopt=-DCMD_FLAG \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
 }
 

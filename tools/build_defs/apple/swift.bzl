@@ -309,6 +309,11 @@ def swiftc_args(ctx):
   args.extend(framework_args)
   args.extend(clang_args)
   args.extend(define_args)
+
+  # TODO(b/33692249): Remove conditional once bazel is released.
+  if hasattr(ctx.fragments, "swift"):
+    args.extend(ctx.fragments.swift.copts())
+
   args.extend(ctx.attr.copts)
 
   return args
@@ -459,7 +464,7 @@ SWIFT_LIBRARY_ATTRS = {
 swift_library = rule(
     _swift_library_impl,
     attrs = SWIFT_LIBRARY_ATTRS,
-    fragments = ["apple", "objc"],
+    fragments = ["apple", "objc", "swift"],
     output_to_genfiles=True,
 )
 """
