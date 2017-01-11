@@ -229,7 +229,7 @@ public class CppOptions extends FragmentOptions {
   public DynamicModeFlag dynamicMode;
 
   @Option(
-    name = "experimental_link_dynamic_binaries_separately",
+    name = "experimental_link_compile_output_separately",
     defaultValue = "false",
     category = "semantics",
     help =
@@ -237,7 +237,7 @@ public class CppOptions extends FragmentOptions {
             + "If true, dynamically linked binary targets will build and link their own srcs as "
             + "a dynamic library instead of directly linking it in."
   )
-  public boolean linkDynamicBinariesSeparately;
+  public boolean linkCompileOutputSeparately;
 
   @Option(
     name = "force_pic",
@@ -550,9 +550,7 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_skip_unused_modules",
     defaultValue = "false",
     category = "experimental",
-    help =
-        "If enabled, not all transitive modules automatically become an action's inputs. Instead,"
-            + " input discovery adds just the required ones."
+    help = "Deprecated. No effect."
   )
   public boolean skipUnusedModules;
 
@@ -560,9 +558,17 @@ public class CppOptions extends FragmentOptions {
     name = "experimental_prune_more_modules",
     defaultValue = "false",
     category = "experimental",
-    help = "If enabled, modules pruning is used when building modules themselves."
+    help = "Deprecated. No effect."
   )
   public boolean pruneMoreModules;
+
+  @Option(
+    name = "prune_cpp_modules",
+    defaultValue = "true",
+    category = "strategy",
+    help = "If enabled, use the results of input discovery to reduce the number of used modules."
+  )
+  public boolean pruneCppModules;
 
   @Option(
     name = "experimental_omitfp",

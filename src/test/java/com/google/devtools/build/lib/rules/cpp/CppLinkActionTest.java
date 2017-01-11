@@ -165,24 +165,33 @@ public class CppLinkActionTest extends BuildViewTestCase {
       // its own suite with a TestSpec?
       return;
     }
-    scratch.file("x/BUILD", "cc_test(name = 'a', srcs = ['a.cc'])");
+    scratch.file(
+        "x/BUILD",
+        "cc_test(name = 'a', srcs = ['a.cc'])",
+        "cc_binary(name = 'b', srcs = ['a.cc'], linkstatic = 0)");
     scratch.file("x/a.cc", "int main() {}");
-    useConfiguration("--experimental_link_dynamic_binaries_separately");
+    useConfiguration("--experimental_link_compile_output_separately", "--force_pic");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:a");
+    String cpu = CrosstoolConfigurationHelper.defaultCpu();
+    String extension = OsUtils.executableExtension();
     CppLinkAction linkAction =
-        (CppLinkAction)
-            getGeneratingAction(configuredTarget, "x/a" + OsUtils.executableExtension());
+        (CppLinkAction) getGeneratingAction(configuredTarget, "x/a" + extension);
     assertThat(artifactsToStrings(linkAction.getInputs()))
-        .contains("bin _solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.ifso");
+        .contains("bin _solib_" + cpu + "/libx_Sliba.ifso");
     assertThat(linkAction.getArguments())
         .contains(
-            getBinArtifactWithNoOwner(
-                    "_solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.ifso")
-                .getExecPathString());
+            getBinArtifactWithNoOwner("_solib_" + cpu + "/libx_Sliba.ifso").getExecPathString());
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
-        .contains("bin _solib_" + CrosstoolConfigurationHelper.defaultCpu() + "/libx_Sliba.so");
+        .contains("bin _solib_" + cpu + "/libx_Sliba.so");
+    
+    configuredTarget = getConfiguredTarget("//x:b");
+    linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b" + extension);
+    assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/x/a.pic.o");
+    runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
+    assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
+        .containsExactly("bin x/b");
   }
 
   @Test
