@@ -125,7 +125,7 @@ public final class SkylarkRuleContext {
   public static final String SPLIT_ATTR_DOC =
       "A struct to access the values of attributes with split configurations. If the attribute is "
           + "a label list, the value of split_attr is a dict of the keys of the split (as strings) "
-          + "to lists of the ConfiguredTargets in that branch of the splitt. If the attribute is a "
+          + "to lists of the ConfiguredTargets in that branch of the split. If the attribute is a "
           + "label, then the value of split_attr is a dict of the keys of the split (as strings) "
           + "to single ConfiguredTargets. Attributes with split configurations still appear in the "
           + "attr struct, but their values will be single lists with all the branches of the split "
