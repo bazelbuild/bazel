@@ -1622,12 +1622,14 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     bool pipe_broken_now = false;
+    const char* broken_pipe_name;
 
     if (!response.standard_output().empty()) {
       size_t size = response.standard_output().size();
       size_t r = fwrite(response.standard_output().c_str(), 1, size, stdout);
       if (r < size && errno == EPIPE) {
         pipe_broken_now = true;
+        broken_pipe_name = "standard output";
       }
     }
 
@@ -1636,11 +1638,13 @@ unsigned int GrpcBlazeServer::Communicate() {
       size_t r = fwrite(response.standard_error().c_str(), 1, size, stderr);
       if (r < size && errno == EPIPE) {
         pipe_broken_now = true;
+        broken_pipe_name = "standard error";
       }
     }
 
     if (pipe_broken_now && !pipe_broken) {
       pipe_broken = true;
+      fprintf(stderr, "\nCannot write to %s; exiting...\n\n", broken_pipe_name);
       Cancel();
     }
 
@@ -1660,7 +1664,10 @@ unsigned int GrpcBlazeServer::Communicate() {
     return GetExitCodeForAbruptExit(*globals);
   }
 
-  return response.exit_code();
+  // We'll exit with exit code SIGPIPE on Unixes due to PropagateSignalOnExit()
+  return pipe_broken
+      ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR
+      : response.exit_code();
 }
 
 void GrpcBlazeServer::Disconnect() {
