@@ -260,8 +260,10 @@ public class CppCompileActionBuilder {
     // Configuration can be null in tests.
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    if (!fake && !shouldScanIncludes) {
-      realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
+
+    NestedSetBuilder<Artifact> realIncludeInputsBuilder = NestedSetBuilder.compileOrder();
+    if (!fake) {
+      realIncludeInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
     boolean shouldPruneModules = shouldScanIncludes && useHeaderModules;
     if (useHeaderModules && !shouldPruneModules) {
@@ -320,6 +322,7 @@ public class CppCompileActionBuilder {
           useHeaderModules,
           sourceLabel,
           realMandatoryInputs,
+          realIncludeInputsBuilder.build(),
           outputFile,
           dotdFile,
           gcnoFile,

@@ -42,12 +42,16 @@ public class BazelCppSemantics implements CppSemantics {
   @Override
   public void finalizeCompileActionBuilder(
       RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
-    actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    actionBuilder.setCppConfiguration(cppConfiguration);
     actionBuilder.setActionContext(CppCompileActionContext.class);
-    // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
-    // including header files, as opposed to just the "compile" filegroup.
-    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCrosstool());
-    actionBuilder.setShouldScanIncludes(false);
+    boolean shouldScanIncludes = cppConfiguration.shouldScanIncludes();
+    if (!shouldScanIncludes) {
+      // When not performing include scanning, we need the entire crosstool filegroup,
+      // including header files, as opposed to just the "compile" filegroup.
+      actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCrosstool());
+    }
+    actionBuilder.setShouldScanIncludes(shouldScanIncludes);
   }
 
   @Override
