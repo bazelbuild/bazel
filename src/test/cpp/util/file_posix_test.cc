@@ -226,41 +226,48 @@ TEST(FilePosixTest, PathExists) {
 }
 
 TEST(FilePosixTest, CanAccess) {
-  for (int i = 0; i < 8; ++i) {
-    ASSERT_FALSE(CanAccess("/this/should/not/exist/mkay", i & 1, i & 2, i & 4));
-    ASSERT_FALSE(CanAccess("non.existent", i & 1, i & 2, i & 4));
-  }
+  ASSERT_FALSE(CanReadFile("/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanExecuteFile("/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanAccessDirectory("/this/should/not/exist/mkay"));
 
-  for (int i = 0; i < 4; ++i) {
-    // /usr/bin/yes exists on Linux, Darwin, and MSYS
-    ASSERT_TRUE(CanAccess("/", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr/", i & 1, false, i & 2));
-    ASSERT_TRUE(CanAccess("/usr/bin/yes", i & 1, false, i & 2));
-  }
+  ASSERT_FALSE(CanReadFile("non.existent"));
+  ASSERT_FALSE(CanExecuteFile("non.existent"));
+  ASSERT_FALSE(CanAccessDirectory("non.existent"));
 
-  char* tmpdir_cstr = getenv("TEST_TMPDIR");
-  ASSERT_FALSE(tmpdir_cstr == NULL);
+  const char* tmpdir = getenv("TEST_TMPDIR");
+  ASSERT_NE(nullptr, tmpdir);
+  ASSERT_NE(0, *tmpdir);
 
-  string tmpdir(tmpdir_cstr);
-  ASSERT_NE("", tmpdir);
+  string dir(JoinPath(tmpdir, "canaccesstest"));
+  ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
 
-  string mock_file = tmpdir + (tmpdir.back() == '/' ? "" : "/") +
-                     "FilePosixTest.CanAccess.mock_file";
-  int fd = open(mock_file.c_str(), O_CREAT, 0500);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  ASSERT_FALSE(CanReadFile(dir));
+  ASSERT_FALSE(CanExecuteFile(dir));
+  ASSERT_TRUE(CanAccessDirectory(dir));
 
-  // Sanity check: assert that we successfully created the file with the given
-  // permissions.
-  ASSERT_EQ(0, access(mock_file.c_str(), R_OK | X_OK));
-  ASSERT_NE(0, access(mock_file.c_str(), R_OK | W_OK | X_OK));
+  string file(JoinPath(dir, "foo.txt"));
+  FILE* fh = fopen(file.c_str(), "wt");
+  ASSERT_NE(nullptr, fh);
+  ASSERT_LT(0, fprintf(fh, "hello"));
+  fclose(fh);
 
-  // Actual assertion
-  for (int i = 0; i < 4; ++i) {
-    ASSERT_TRUE(CanAccess(mock_file, i & 1, false, i & 2));
-    ASSERT_FALSE(CanAccess(mock_file, i & 1, true, i & 2));
-  }
+  ASSERT_TRUE(CanReadFile(file));
+  ASSERT_FALSE(CanExecuteFile(file));
+  ASSERT_FALSE(CanAccessDirectory(file));
+
+  ASSERT_EQ(0, chmod(file.c_str(), 0100));
+  ASSERT_FALSE(CanReadFile(file));
+  ASSERT_TRUE(CanExecuteFile(file));
+  ASSERT_FALSE(CanAccessDirectory(file));
+
+  ASSERT_EQ(0, chmod(dir.c_str(), 0500));
+  ASSERT_FALSE(CanReadFile(dir));
+  ASSERT_FALSE(CanExecuteFile(dir));
+  ASSERT_FALSE(CanAccessDirectory(dir));
+  ASSERT_EQ(0, chmod(dir.c_str(), 0700));
+
+  ASSERT_EQ(0, unlink(file.c_str()));
+  ASSERT_EQ(0, rmdir(dir.c_str()));
 }
 
 TEST(FilePosixTest, GetCwd) {

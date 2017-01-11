@@ -939,7 +939,10 @@ static void ExtractData(const string &self_path) {
     for (const auto& it : globals->extracted_binaries) {
       string path = blaze_util::JoinPath(real_install_dir, it);
       // Check that the file exists and is readable.
-      if (!blaze_util::CanAccess(path, true, false, false)) {
+      if (blaze_util::IsDirectory(path)) {
+        continue;
+      }
+      if (!blaze_util::CanReadFile(path)) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' missing."
             " Please remove '%s' and try again.",
@@ -948,19 +951,17 @@ static void ExtractData(const string &self_path) {
       // Check that the timestamp is in the future. A past timestamp would
       // indicate that the file has been tampered with.
       // See ActuallyExtractData().
-      if (!blaze_util::IsDirectory(path)) {
-        time_t mtime = blaze_util::GetMtimeMillisec(path);
-        if (mtime == -1) {
-          die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-              "Error: could not retrieve mtime of file '%s'. "
-              "Please remove '%s' and try again.",
-              path.c_str(), globals->options->install_base.c_str());
-        } else if (mtime <= time_now) {
-          die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-              "Error: corrupt installation: file '%s' "
-              "modified.  Please remove '%s' and try again.",
-              path.c_str(), globals->options->install_base.c_str());
-        }
+      time_t mtime = blaze_util::GetMtimeMillisec(path);
+      if (mtime == -1) {
+        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+            "Error: could not retrieve mtime of file '%s'. "
+            "Please remove '%s' and try again.",
+            path.c_str(), globals->options->install_base.c_str());
+      } else if (mtime <= time_now) {
+        die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+            "Error: corrupt installation: file '%s' "
+            "modified.  Please remove '%s' and try again.",
+            path.c_str(), globals->options->install_base.c_str());
       }
     }
   }
@@ -1199,7 +1200,7 @@ static void ComputeBaseDirectories(const WorkspaceLayout* workspace_layout,
           output_base);
     }
   }
-  if (!blaze_util::CanAccess(globals->options->output_base, true, true, true)) {
+  if (!blaze_util::CanAccessDirectory(globals->options->output_base)) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "Error: Output base directory '%s' must be readable and writable.",
         output_base);

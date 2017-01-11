@@ -83,6 +83,9 @@ bool IsSharedLibrary(const std::string& filename);
 // (must be an absolute directory).
 std::string GetDefaultHostJavabase();
 
+// Return the path to the JVM binary relative to a javabase, e.g. "bin/java".
+std::string GetJavaBinaryUnderJavabase();
+
 // Replace the current process with the given program in the current working
 // directory, using the given argument vector.
 // This function does not return on success.

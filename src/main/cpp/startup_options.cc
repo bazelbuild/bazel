@@ -354,8 +354,9 @@ string StartupOptions::GetHostJavabase() {
 }
 
 string StartupOptions::GetJvm() {
-  string java_program = blaze_util::JoinPath(GetHostJavabase(), "bin/java");
-  if (!blaze_util::CanAccess(java_program, false, false, true)) {
+  string java_program =
+      blaze_util::JoinPath(GetHostJavabase(), GetJavaBinaryUnderJavabase());
+  if (!blaze_util::CanExecuteFile(java_program)) {
     if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
@@ -368,8 +369,8 @@ string StartupOptions::GetJvm() {
   string jdk_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "jre/lib/rt.jar");
   // If just the JRE is installed
   string jre_rt_jar = blaze_util::JoinPath(GetHostJavabase(), "lib/rt.jar");
-  if (blaze_util::CanAccess(jdk_rt_jar, true, false, false)
-      || blaze_util::CanAccess(jre_rt_jar, true, false, false)) {
+  if (blaze_util::CanReadFile(jdk_rt_jar) ||
+      blaze_util::CanReadFile(jre_rt_jar)) {
     return java_program;
   }
   fprintf(stderr, "Problem with java installation: "

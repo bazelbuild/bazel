@@ -548,12 +548,23 @@ bool PathExists(const string& path) {
 }
 
 #ifdef COMPILER_MSVC
-bool CanAccess(const string& path, bool read, bool write, bool exec) {
+bool CanReadFile(const std::string& path) {
   // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::CanAccess is not implemented on Windows");
+  pdie(255, "not implemented on Windows");
   return false;
 }
-#else  // not COMPILER_MSVC
+
+bool CanExecuteFile(const std::string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "not implemented on Windows");
+  return false;
+}
+
+bool CanAccessDirectory(const std::string& path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "not implemented on Windows");
+  return false;
+}
 #endif  // COMPILER_MSVC
 
 static bool IsDirectoryW(const wstring& path) {

@@ -234,7 +234,7 @@ string MakeCanonical(const char *path) {
   }
 }
 
-bool CanAccess(const string& path, bool read, bool write, bool exec) {
+static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   int mode = 0;
   if (read) {
     mode |= R_OK;
@@ -246,6 +246,18 @@ bool CanAccess(const string& path, bool read, bool write, bool exec) {
     mode |= X_OK;
   }
   return access(path.c_str(), mode) == 0;
+}
+
+bool CanReadFile(const std::string &path) {
+  return !IsDirectory(path) && CanAccess(path, true, false, false);
+}
+
+bool CanExecuteFile(const std::string &path) {
+  return !IsDirectory(path) && CanAccess(path, false, false, true);
+}
+
+bool CanAccessDirectory(const std::string &path) {
+  return IsDirectory(path) && CanAccess(path, true, true, true);
 }
 
 #ifndef __CYGWIN__

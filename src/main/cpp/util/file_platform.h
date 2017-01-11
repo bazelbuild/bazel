@@ -54,12 +54,18 @@ bool PathExists(const std::string& path);
 // This is a wrapper around realpath(3).
 std::string MakeCanonical(const char *path);
 
-// Returns true if the path exists and can be accessed to read/write as desired.
-//
-// If `exec` is true and the path refers to a file, it means the file must be
-// executable; if the path is a directory, it means the directory must be
-// openable.
-bool CanAccess(const std::string& path, bool read, bool write, bool exec);
+// Returns true if `path` exists, is a file or symlink to one, and is readable.
+// Follows symlinks.
+bool CanReadFile(const std::string &path);
+
+// Returns true if `path` exists, is a file or symlink to one, and is writable.
+// Follows symlinks.
+bool CanExecuteFile(const std::string &path);
+
+// Returns true if `path` exists, is a directory or symlink/junction to one, and
+// is both readable and writable.
+// Follows symlinks/junctions.
+bool CanAccessDirectory(const std::string &path);
 
 // Returns true if `path` refers to a directory or a symlink/junction to one.
 bool IsDirectory(const std::string& path);

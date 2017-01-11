@@ -127,11 +127,13 @@ string GetProcessIdAsString() {
 
 string FindSystemWideBlazerc() {
   string path = "/etc/bazel.bazelrc";
-  if (blaze_util::CanAccess(path, true, false, false)) {
+  if (blaze_util::CanReadFile(path)) {
     return path;
   }
   return "";
 }
+
+string GetJavaBinaryUnderJavabase() { return "bin/java"; }
 
 void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
   if (VerboseLogging()) {

@@ -308,12 +308,14 @@ string FindSystemWideBlazerc() {
   return "";
 #else   // not COMPILER_MSVC
   string path = "/etc/bazel.bazelrc";
-  if (blaze_util::CanAccess(path, true, false, false)) {
+  if (blaze_util::CanReadFile(path)) {
     return path;
   }
   return "";
 #endif  // COMPILER_MSVC
 }
+
+string GetJavaBinaryUnderJavabase() { return "bin/java.exe"; }
 
 uint64_t GetMillisecondsMonotonic() {
   return WindowsClock::INSTANCE.GetMilliseconds();
@@ -374,17 +376,16 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
                               const vector<string>& args_vector) {
   std::ostringstream cmdline;
   string short_exe;
-  if (!blaze_util::AsShortWindowsPath(exe + ".exe", &short_exe)) {
+  if (!blaze_util::AsShortWindowsPath(exe, &short_exe)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CreateCommandLine: AsShortWindowsPath(%s.exe) failed, err=%d",
+         "CreateCommandLine: AsShortWindowsPath(%s) failed, err=%d",
          exe.c_str(), GetLastError());
   }
   bool first = true;
   for (const auto& s : args_vector) {
     if (first) {
       first = false;
-      // Skip first argument, instead use quoted executable name with ".exe"
-      // suffix.
+      // Skip first argument, instead use quoted executable name.
       cmdline << '\"' << exe << '\"';
       continue;
     } else {
@@ -468,11 +469,11 @@ string GetJvmVersion(const string& java_exe) {
   startupInfo.dwFlags |= STARTF_USESTDHANDLES;
 
   string win_java_exe;
-  if (!blaze_util::AsShortWindowsPath(java_exe + ".exe", &win_java_exe)) {
+  if (!blaze_util::AsShortWindowsPath(java_exe, &win_java_exe)) {
     CloseHandle(pipe_read);
     CloseHandle(pipe_write);
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "GetJvmVersion: AsWindowsPath(%s.exe)", java_exe.c_str());
+         "GetJvmVersion: AsWindowsPath(%s)", java_exe.c_str());
   }
   win_java_exe = string("\"") + win_java_exe + "\" -version";
 

@@ -265,7 +265,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     string* error) {
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
-    if (!blaze_util::CanAccess(rcFile, true, false, false)) {
+    if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
           "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
@@ -275,7 +275,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string workspaceRcFile = blaze_util::JoinPath(workspace, rc_basename);
-  if (blaze_util::CanAccess(workspaceRcFile, true, false, false)) {
+  if (blaze_util::CanReadFile(workspaceRcFile)) {
     *blaze_rc_file = workspaceRcFile;
     return blaze_exit_code::SUCCESS;
   }
@@ -287,7 +287,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   }
 
   string userRcFile = blaze_util::JoinPath(home, rc_basename);
-  if (blaze_util::CanAccess(userRcFile, true, false, false)) {
+  if (blaze_util::CanReadFile(userRcFile)) {
     *blaze_rc_file = userRcFile;
     return blaze_exit_code::SUCCESS;
   }
