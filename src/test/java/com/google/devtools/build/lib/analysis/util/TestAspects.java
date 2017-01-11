@@ -41,6 +41,9 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Options;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -51,6 +54,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
+import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -876,4 +880,97 @@ public class TestAspects {
     }
   }
 
+  private static class SetsCpuPatchTransition implements PatchTransition {
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(Options.class).cpu = "SET BY PATCH";
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsCpuSplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(Options.class).cpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsHostCpuSplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      BuildOptions result = buildOptions.clone();
+      result.get(Options.class).hostCpu = "SET BY SPLIT";
+      return ImmutableList.of(result);
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  /**
+   * Rule with a split transition on an attribute.
+   */
+  public static class AttributeTransitionRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("without_transition", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .add(attr("with_cpu_transition", LABEL)
+              .allowedFileTypes(FileTypeSet.ANY_FILE)
+              .cfg(new SetsCpuSplitTransition()))
+          .add(attr("with_host_cpu_transition", LABEL)
+              .allowedFileTypes(FileTypeSet.ANY_FILE)
+              .cfg(new SetsHostCpuSplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("attribute_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Rule with rule class configuration transition.
+   */
+  public static class RuleClassTransitionRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .cfg(new SetsCpuPatchTransition())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_class_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
 }

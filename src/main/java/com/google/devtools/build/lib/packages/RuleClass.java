@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
@@ -473,6 +474,7 @@ public final class RuleClass {
     private boolean outputsDefaultExecutable = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
+    private Transition transition;
     private ConfiguredTargetFactory<?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
@@ -586,6 +588,7 @@ public final class RuleClass {
           outputsDefaultExecutable,
           implicitOutputsFunction,
           configurator,
+          transition,
           configuredTargetFactory,
           validityPredicate,
           preferredDependencyPredicate,
@@ -719,7 +722,25 @@ public final class RuleClass {
     public Builder cfg(Configurator<?, ?> configurator) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
+      Preconditions.checkState(transition == null,
+          "Property cfg cannot be set to both a configurator and a transition");
       this.configurator = configurator;
+      return this;
+    }
+
+    /**
+     * Applies the given transition to all incoming edges for this rule class.  Does not work with
+     * static configurations.
+     *
+     * <p>Note that the given transition must be a PatchTransition instance.  We use the more
+     * general Transtion here because PatchTransition is not available in this package.
+     */
+    public Builder cfg(Transition transition) {
+      Preconditions.checkState(type != RuleClassType.ABSTRACT,
+          "Setting not inherited property (cfg) of abstract rule class '%s'", name);
+      Preconditions.checkState(configurator == NO_CHANGE,
+          "Property cfg cannot be set to both a configurator and a transition");
+      this.transition = transition;
       return this;
     }
 
@@ -983,6 +1004,14 @@ public final class RuleClass {
   private final Configurator<?, ?> configurator;
 
   /**
+   * A configuration transition that should be applied on any edge of the configured target graph
+   * that leads into a target of this rule class.
+   *
+   * <p>This transition must be a PatchTransition, but that class is not accessible in this package.
+   */
+  private final Transition transition;
+
+  /**
    * The factory that creates configured targets from this rule.
    */
   private final ConfiguredTargetFactory<?, ?> configuredTargetFactory;
@@ -1065,6 +1094,7 @@ public final class RuleClass {
       boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
+      Transition transition,
       ConfiguredTargetFactory<?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1086,6 +1116,7 @@ public final class RuleClass {
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
+    this.transition = transition;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
     this.preferredDependencyPredicate = preferredDependencyPredicate;
@@ -1153,6 +1184,10 @@ public final class RuleClass {
   @SuppressWarnings("unchecked")
   public <C, R> Configurator<C, R> getConfigurator() {
     return (Configurator<C, R>) configurator;
+  }
+
+  public Transition getTransition() {
+    return transition;
   }
 
   @SuppressWarnings("unchecked")
