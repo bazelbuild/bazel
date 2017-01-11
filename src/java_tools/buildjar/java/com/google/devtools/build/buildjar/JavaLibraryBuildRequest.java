@@ -26,6 +26,7 @@ import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationPro
 import java.io.File;
 import java.io.IOError;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -303,7 +304,9 @@ public final class JavaLibraryBuildRequest {
       try {
         Path path = Paths.get(file);
         if (Files.isDirectory(path)) {
-          Files.list(path).forEach(jars::add);
+          try (DirectoryStream<Path> directoryContents = Files.newDirectoryStream(path)) {
+            jars.addAll(directoryContents);
+          }
         } else {
           jars.add(path);
         }
