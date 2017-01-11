@@ -406,14 +406,38 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   return result;
 }
 
-#ifdef COMPILER_MSVC
 bool WriteFile(const void* data, size_t size, const string& filename) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::WriteFile is not implemented on Windows");
-  return false;
+  if (IsDevNull(filename)) {
+    return true;  // mimic write(2) behavior with /dev/null
+  }
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(filename, &wpath)) {
+    return false;
+  }
+
+  UnlinkPathW(wpath);  // We don't care about the success of this.
+  HANDLE handle = CreateFileW(
+      /* lpFileName */ wpath.c_str(),
+      /* dwDesiredAccess */ GENERIC_WRITE,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ CREATE_ALWAYS,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+
+  bool result = WriteTo(
+      [handle](const void* buf, size_t bufsize) {
+        DWORD actually_written = 0;
+        ::WriteFile(handle, buf, bufsize, &actually_written, NULL);
+        return actually_written;
+      },
+      data, size);
+  CloseHandle(handle);
+  return result;
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 static bool UnlinkPathW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());

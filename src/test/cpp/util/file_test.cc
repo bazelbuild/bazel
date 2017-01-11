@@ -75,4 +75,33 @@ TEST(FileTest, TestReadFile) {
   ASSERT_EQ(std::string(""), actual);
 }
 
+TEST(FileTest, TestWriteFile) {
+  const char* tempdir = getenv("TEST_TMPDIR");
+  ASSERT_NE(nullptr, tempdir);
+  ASSERT_NE(0, tempdir[0]);
+
+  std::string filename(JoinPath(tempdir, "test.writefile"));
+
+  ASSERT_TRUE(WriteFile("hello", 3, filename));
+
+  char buf[6] = {0};
+  FILE* fh = fopen(filename.c_str(), "rt");
+  fflush(fh);
+  ASSERT_NE(nullptr, fh);
+  ASSERT_EQ(3, fread(buf, 1, 5, fh));
+  fclose(fh);
+  ASSERT_EQ(std::string(buf), std::string("hel"));
+
+  ASSERT_TRUE(WriteFile("hello", 5, filename));
+  fh = fopen(filename.c_str(), "rt");
+  ASSERT_NE(nullptr, fh);
+  memset(buf, 0, 6);
+  ASSERT_EQ(5, fread(buf, 1, 5, fh));
+  fclose(fh);
+  ASSERT_EQ(std::string(buf), std::string("hello"));
+
+  ASSERT_TRUE(WriteFile("hello", 5, "/dev/null"));
+  ASSERT_EQ(0, remove(filename.c_str()));
+}
+
 }  // namespace blaze_util
