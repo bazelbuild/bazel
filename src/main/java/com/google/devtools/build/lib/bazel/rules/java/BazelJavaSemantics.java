@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -54,7 +52,6 @@ import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -478,19 +475,6 @@ public class BazelJavaSemantics implements JavaSemantics {
               "this rule depends on "
                   + helper.getRuleContext().attributes().get("$jacocorunner", BuildType.LABEL)
                   + " which is not a java_library rule, or contains errors");
-    }
-    // In offline instrumentation mode, add the Jacoco runtime to the classpath as well (this
-    // jar is not included by the coverage runner). Note that $jacoco is provided via a
-    // filegroup because the same jar can be used for online instrumentation, by simply adding
-    // it to -javaagent and -Xbootclasspath/p (similar to the Reverifier setup). The $jacoco jar
-    // has a "Premain-Class:" entry in its manifest, which would get erased by ijar filtering,
-    // hence the filegroup.
-    TransitiveInfoCollection agentTarget =
-        helper.getRuleContext().getPrerequisite("$jacoco_runtime", Mode.TARGET);
-    NestedSet<Artifact> filesToBuild =
-        agentTarget.getProvider(FileProvider.class).getFilesToBuild();
-    for (Artifact jar : FileType.filter(filesToBuild, JavaSemantics.JAR)) {
-      attributes.addRuntimeClassPathEntry(jar);
     }
 
     // We do not add the instrumented jar to the runtime classpath, but provide it in the shell

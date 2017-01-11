@@ -86,9 +86,6 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
               }
             }))
         .add(
-            attr("$jacoco_runtime", LABEL)
-                .value(env.getToolsLabel("//tools/jdk:jacoco-blaze-agent")))
-        .add(
             attr("$jacocorunner", LABEL).value(env.getToolsLabel(
                 "//tools/jdk:JacocoCoverage")))
         .build();
