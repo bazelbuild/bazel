@@ -38,6 +38,8 @@ using std::wstring;
 // The result may have a UNC prefix.
 static unique_ptr<WCHAR[]> GetCwdW();
 
+static bool IsDevNull(const string& path);
+
 // Returns true if `path` refers to a directory or (non-dangling) junction.
 // `path` must be a normalized Windows path, with UNC prefix (and absolute) if
 // necessary.
@@ -287,6 +289,10 @@ bool AsWindowsPath(const string& path, wstring* result) {
     result->clear();
     return true;
   }
+  if (IsDevNull(path)) {
+    result->assign(L"NUL");
+    return true;
+  }
 
   string mutable_path = path;
   if (path[0] == '/') {
@@ -318,6 +324,11 @@ bool AsWindowsPath(const string& path, wstring* result) {
 }
 
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
+  if (IsDevNull(path)) {
+    wpath->assign(L"NUL");
+    return true;
+  }
+
   if (!AsWindowsPath(path, wpath)) {
     PrintError("AsWindowsPathWithUncPrefix(%s): AsWindowsPath failed, err=%d\n",
                path.c_str(), GetLastError());
@@ -331,6 +342,11 @@ static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
 }
 
 bool AsShortWindowsPath(const string& path, string* result) {
+  if (IsDevNull(path)) {
+    result->assign("NUL");
+    return true;
+  }
+
   result->clear();
   wstring wpath;
   if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
@@ -358,6 +374,10 @@ bool AsShortWindowsPath(const string& path, string* result) {
 bool ReadFile(const string& filename, string* content, int max_size) {
   if (filename.empty()) {
     return false;
+  }
+  if (IsDevNull(filename)) {
+    content->clear();
+    return true;
   }
   wstring wfilename;
   if (!AsWindowsPathWithUncPrefix(filename, &wfilename)) {
@@ -415,6 +435,10 @@ static bool UnlinkPathW(const wstring& path) {
 }
 
 bool UnlinkPath(const string& file_path) {
+  if (IsDevNull(file_path)) {
+    return false;
+  }
+
   wstring wpath;
   if (!AsWindowsPathWithUncPrefix(file_path, &wpath)) {
     return false;
@@ -562,6 +586,9 @@ bool PathExists(const string& path) {
   if (path.empty()) {
     return false;
   }
+  if (IsDevNull(path)) {
+    return true;
+  }
   wstring wpath;
   if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
     PrintError("PathExists(%s): AsWindowsPathWithUncPrefix failed, err=%d\n",
@@ -591,6 +618,10 @@ bool CanAccessDirectory(const std::string& path) {
 }
 #endif  // COMPILER_MSVC
 
+static bool IsDevNull(const string& path) {
+  return path == "/dev/null" || AsLower(path) == "nul";
+}
+
 static bool IsDirectoryW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   return (attrs != INVALID_FILE_ATTRIBUTES) &&
@@ -599,7 +630,7 @@ static bool IsDirectoryW(const wstring& path) {
 }
 
 bool IsDirectory(const string& path) {
-  if (path.empty()) {
+  if (path.empty() || IsDevNull(path)) {
     return false;
   }
   wstring wpath;

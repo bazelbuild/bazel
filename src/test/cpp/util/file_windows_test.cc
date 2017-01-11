@@ -151,6 +151,12 @@ TEST(FileTest, TestAsWindowsPath) {
   ASSERT_TRUE(AsWindowsPath("\\\\?\\c://../foo", &actual));
   ASSERT_EQ(wstring(L"c:\\foo"), actual);
 
+  ASSERT_TRUE(AsWindowsPath("/dev/null", &actual));
+  ASSERT_EQ(wstring(L"NUL"), actual);
+
+  ASSERT_TRUE(AsWindowsPath("Nul", &actual));
+  ASSERT_EQ(wstring(L"NUL"), actual);
+
   ASSERT_TRUE(AsWindowsPath("/c", &actual));
   ASSERT_EQ(wstring(L"c:\\"), actual);
 
@@ -179,6 +185,13 @@ TEST(FileTest, TestAsWindowsPath) {
 }
 
 TEST(FileTest, TestAsShortWindowsPath) {
+  string actual;
+  ASSERT_TRUE(AsShortWindowsPath("/dev/null", &actual));
+  ASSERT_EQ(string("NUL"), actual);
+
+  ASSERT_TRUE(AsShortWindowsPath("nul", &actual));
+  ASSERT_EQ(string("NUL"), actual);
+
   string tmpdir(GetTestTmpDir());
   ASSERT_LT(0, tmpdir.size());
 
@@ -191,7 +204,6 @@ TEST(FileTest, TestAsShortWindowsPath) {
   ASSERT_EQ(0, mkdir(dirname.c_str()));
   ASSERT_TRUE(PathExists(dirname));
 
-  string actual;
   ASSERT_TRUE(AsShortWindowsPath(dirname, &actual));
   ASSERT_EQ(short_tmpdir + "\\longpa~1", actual);
   ASSERT_EQ(0, rmdir(dirname.c_str()));
@@ -251,6 +263,8 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(""));
   ASSERT_TRUE(PathExists("."));
   ASSERT_FALSE(PathExists("non.existent"));
+  ASSERT_TRUE(PathExists("/dev/null"));
+  ASSERT_TRUE(PathExists("Nul"));
 
   string tmpdir(GetTestTmpDir());
   ASSERT_LT(0, tmpdir.size());
@@ -292,6 +306,8 @@ TEST(FileTest, TestPathExistsWindows) {
 
 TEST(FileTest, TestIsDirectory) {
   ASSERT_FALSE(IsDirectory(""));
+  ASSERT_FALSE(IsDirectory("/dev/null"));
+  ASSERT_FALSE(IsDirectory("Nul"));
 
   string tmpdir(GetTestTmpDir());
   ASSERT_LT(0, tmpdir.size());
@@ -327,6 +343,9 @@ TEST(FileTest, TestIsDirectory) {
 }
 
 TEST(FileTest, TestUnlinkPath) {
+  ASSERT_FALSE(UnlinkPath("/dev/null"));
+  ASSERT_FALSE(UnlinkPath("Nul"));
+
   string tmpdir(GetTestTmpDir());
   ASSERT_LT(0, tmpdir.size());
   ASSERT_TRUE(PathExists(tmpdir));

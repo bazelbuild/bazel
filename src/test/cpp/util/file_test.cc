@@ -70,6 +70,9 @@ TEST(FileTest, TestReadFile) {
 
   ASSERT_TRUE(ReadFile(filename, &actual, 5));
   ASSERT_EQ(std::string("hello"), actual);
+
+  ASSERT_TRUE(ReadFile("/dev/null", &actual, 42));
+  ASSERT_EQ(std::string(""), actual);
 }
 
 }  // namespace blaze_util

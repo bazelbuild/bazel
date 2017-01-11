@@ -299,15 +299,20 @@ void StringPrintf(string *str, const char *format, ...) {
 
 void ToLower(string *str) {
   assert(str);
-  if (str->empty()) {
-    return;
-  }
+  *str = AsLower(*str);
+}
 
-  string temp = "";
-  for (auto ch : *str) {
-    temp += tolower(ch);
+string AsLower(const string &str) {
+  if (str.empty()) {
+    return "";
   }
-  *str = temp;
+  unique_ptr<char[]> result(new char[str.size() + 1]);
+  char *result_ptr = result.get();
+  for (const auto &ch : str) {
+    *result_ptr++ = tolower(ch);
+  }
+  result.get()[str.size()] = 0;
+  return string(result.get());
 }
 
 template <typename U, typename V>

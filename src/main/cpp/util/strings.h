@@ -106,6 +106,8 @@ void StringPrintf(std::string *str, const char *format, ...);
 // Convert str to lower case. No locale handling, this is just for ASCII.
 void ToLower(std::string *str);
 
+std::string AsLower(const std::string &str);
+
 // Convert a wchar_t string to a char string. Useful when consuming results of
 // widechar Windows API functions.
 std::unique_ptr<char[]> WstringToCstring(const wchar_t *input);
