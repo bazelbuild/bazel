@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
+import static com.google.devtools.build.lib.rules.java.JavaHelper.getHostJavabaseInputs;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -98,18 +99,26 @@ public final class JavaCompilationHelper {
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes) {
-    this(ruleContext, semantics, javacOpts, attributes,
+    this(
+        ruleContext,
+        semantics,
+        javacOpts,
+        attributes,
         getJavaToolchainProvider(ruleContext),
-        getHostJavabaseInputsNonStatic(ruleContext),
+        getHostJavabaseInputs(ruleContext),
         getInstrumentationJars(ruleContext));
   }
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
       ImmutableList<Artifact> additionalJavaBaseInputs) {
-    this(ruleContext, semantics, javacOpts, attributes,
+    this(
+        ruleContext,
+        semantics,
+        javacOpts,
+        attributes,
         getJavaToolchainProvider(ruleContext),
-        getHostJavabaseInputsNonStatic(ruleContext),
+        getHostJavabaseInputs(ruleContext),
         getInstrumentationJars(ruleContext),
         additionalJavaBaseInputs);
   }
@@ -409,7 +418,7 @@ public final class JavaCompilationHelper {
                 .addInput(manifestProto)
                 .addInput(classJar)
                 .addOutput(genClassJar)
-                .addTransitiveInputs(getHostJavabaseInputsNonStatic(getRuleContext()))
+                .addTransitiveInputs(getHostJavabaseInputs(getRuleContext()))
                 .setJarExecutable(
                     getRuleContext()
                         .getHostConfiguration()
@@ -702,21 +711,6 @@ public final class JavaCompilationHelper {
 
   public static JavaToolchainProvider getJavaToolchainProvider(RuleContext ruleContext) {
     return getJavaToolchainProvider(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
-  }
-
-  /**
-   * Returns the artifacts required to invoke {@code javahome} relative binary
-   * in the action.
-   */
-  public static NestedSet<Artifact> getHostJavabaseInputsNonStatic(
-      RuleContext ruleContext, String implicitAttributesSuffix) {
-    // This must have a different name than above, because the middleman creation uses the rule's
-    // configuration, although it should use the host configuration.
-    return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk" + implicitAttributesSuffix);
-  }
-
-  public static NestedSet<Artifact> getHostJavabaseInputsNonStatic(RuleContext ruleContext) {
-    return getHostJavabaseInputsNonStatic(ruleContext, DEFAULT_ATTRIBUTES_SUFFIX);
   }
 
   /**
