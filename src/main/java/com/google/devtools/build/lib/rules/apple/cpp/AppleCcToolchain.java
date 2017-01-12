@@ -40,6 +40,7 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
   public static final String PLATFORM_DEVELOPER_FRAMEWORK_DIR = "platform_developer_framework_dir";
+  public static final String VERSION_MIN_KEY = "version_min";
   
   @VisibleForTesting
   public static final String XCODE_VERISON_OVERRIDE_VALUE_KEY = "xcode_version_override_value";
@@ -98,6 +99,8 @@ public class AppleCcToolchain extends CcToolchain {
         .put(
             APPLE_SDK_PLATFORM_VALUE_KEY,
             appleEnv.getOrDefault(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, ""))
+        .put(VERSION_MIN_KEY,
+            appleConfiguration.getMinimumOsForPlatformType(platform.getType()).toString())
         .build();
   }
 
