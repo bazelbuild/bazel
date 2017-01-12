@@ -24,13 +24,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link AndroidNdkRepositoryFunction}. */
+/** Tests for {@link AndroidSdkRepositoryFunction}. */
 @RunWith(JUnit4.class)
 public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
   @Before
   public void setup() throws Exception {
     scratch.setWorkingDir("/sdk");
+    scratch.dir("platforms/android-25");
     scratch.file("extras/google/m2repository/com/google/android/foo/1.0.0/foo.pom",
         "<project>",
         "  <groupId>com.google.android</groupId>",

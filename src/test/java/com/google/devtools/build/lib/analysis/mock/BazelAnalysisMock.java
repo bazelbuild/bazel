@@ -119,7 +119,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/android_sdk_repository_template.bzl",
         "def create_android_sdk_rules("
-            + "name, build_tools_version, build_tools_directory, api_level):",
+            + "name, build_tools_version, build_tools_directory, api_levels, default_api_level):",
         "    pass");
 
     config.create(
