@@ -31,7 +31,17 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
-/** A generic type safe NestedSet wrapper for Skylark. */
+/**
+ * A generic, type-safe {@link NestedSet} wrapper for Skylark.
+ *
+ * <p>The content type of a {@code SkylarkNestedSet} is the intersection of the {@link SkylarkType}
+ * of each of its elements. It is an error if this intersection is {@link SkylarkType#BOTTOM}. An
+ * empty set has a content type of {@link SkylarkType#TOP}.
+ *
+ * <p>It is also an error if this type has a non-bottom intersection with {@link SkylarkType#DICT}
+ * or {@link SkylarkType#LIST}, unless the set is empty.
+ * TODO(bazel-team): Decide whether this restriction is still useful.
+ */
 @SkylarkModule(
     name = "depset",
     category = SkylarkModuleCategory.BUILTIN,
@@ -117,13 +127,13 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     if (item instanceof SkylarkNestedSet) {
       SkylarkNestedSet nestedSet = (SkylarkNestedSet) item;
       if (!nestedSet.isEmpty()) {
-        contentType = checkType(contentType, nestedSet.contentType, loc);
+        contentType = getTypeAfterInsert(contentType, nestedSet.contentType, loc);
         transitiveItems.add(nestedSet.set);
       }
     } else if (item instanceof SkylarkList) {
       // TODO(bazel-team): we should check ImmutableList here but it screws up genrule at line 43
       for (Object object : (SkylarkList) item) {
-        contentType = checkType(contentType, SkylarkType.of(object.getClass()), loc);
+        contentType = getTypeAfterInsert(contentType, SkylarkType.of(object.getClass()), loc);
         checkImmutable(object, loc);
         items.add(object);
       }
@@ -184,24 +194,48 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     this(SkylarkType.of(contentType), set);
   }
 
-  private static SkylarkType checkType(SkylarkType builderType, SkylarkType itemType, Location loc)
+  private static final SkylarkType DICT_LIST_UNION =
+      SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST);
+
+  /**
+   * Throws EvalException if a type overlaps with DICT or LIST.
+   */
+  private static void checkTypeNotDictOrList(SkylarkType type, Location loc)
       throws EvalException {
-    if (SkylarkType.intersection(
-        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST),
-        itemType) != SkylarkType.BOTTOM) {
+    if (SkylarkType.intersection(DICT_LIST_UNION, type) != SkylarkType.BOTTOM) {
       throw new EvalException(
-          loc, String.format("depsets cannot contain items of type '%s'", itemType));
+          loc, String.format("depsets cannot contain items of type '%s'", type));
     }
-    SkylarkType newType = SkylarkType.intersection(builderType, itemType);
-    if (newType == SkylarkType.BOTTOM) {
+  }
+
+  /**
+   * Returns the intersection of two types, and throws EvalException if the intersection is bottom.
+   */
+  private static SkylarkType commonNonemptyType(
+      SkylarkType depsetType, SkylarkType itemType, Location loc) throws EvalException {
+    SkylarkType resultType = SkylarkType.intersection(depsetType, itemType);
+    if (resultType == SkylarkType.BOTTOM) {
       throw new EvalException(
           loc,
           String.format(
-              "cannot add an item of type '%s' to a depset of '%s'", itemType, builderType));
+              "cannot add an item of type '%s' to a depset of '%s'", itemType, depsetType));
     }
-    return newType;
+    return resultType;
   }
 
+  /**
+   * Checks that an item type is allowed in a given set type, and returns the type of a new depset
+   * with that item inserted.
+   */
+  private static SkylarkType getTypeAfterInsert(
+      SkylarkType depsetType, SkylarkType itemType, Location loc) throws EvalException {
+    checkTypeNotDictOrList(itemType, loc);
+    return commonNonemptyType(depsetType, itemType, loc);
+  }
+
+  /**
+   * Throws EvalException if a given value is mutable.
+   */
   private static void checkImmutable(Object o, Location loc) throws EvalException {
     if (!EvalUtils.isImmutable(o)) {
       throw new EvalException(loc, "depsets cannot contain mutable items");

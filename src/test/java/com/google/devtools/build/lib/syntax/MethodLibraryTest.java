@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -1410,56 +1408,6 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testSetUnionWithList() throws Exception {
-    evaluateSet("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
-    evaluateSet("depset(['a']).union(['b', 'c'])", "a", "b", "c");
-    evaluateSet("depset(['a', 'b']).union(['c'])", "a", "b", "c");
-    evaluateSet("depset(['a', 'b', 'c']).union([])", "a", "b", "c");
-  }
-
-  @Test
-  public void testSetUnionWithSet() throws Exception {
-    evaluateSet("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
-    evaluateSet("depset(['a']).union(depset(['b', 'c']))", "a", "b", "c");
-    evaluateSet("depset(['a', 'b']).union(depset(['c']))", "a", "b", "c");
-    evaluateSet("depset(['a', 'b', 'c']).union(depset([]))", "a", "b", "c");
-  }
-
-  @Test
-  public void testSetUnionDuplicates() throws Exception {
-    evaluateSet("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
-    evaluateSet("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
-
-    evaluateSet("depset(['a', 'b', 'c']).union(depset(['a', 'b', 'c']))", "a", "b", "c");
-    evaluateSet("depset(['a', 'a', 'a']).union(depset(['a', 'a']))", "a");
-  }
-
-  @Test
-  public void testSetUnionError() throws Exception {
-    new BothModesTest()
-        .testIfErrorContains("insufficient arguments received by union", "depset(['a']).union()")
-        .testIfErrorContains(
-            "method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
-                + "'new_elements' is 'string', but should be 'Iterable'",
-            "depset(['a']).union('b')");
-  }
-
-  @Test
-  public void testSetUnionSideEffects() throws Exception {
-    eval(
-        "def func():",
-        "  n1 = depset(['a'])",
-        "  n2 = n1.union(['b'])",
-        "  return n1",
-        "n = func()");
-    assertEquals(ImmutableList.of("a"), ((SkylarkNestedSet) lookup("n")).toCollection());
-  }
-
-  private void evaluateSet(String statement, Object... expectedElements) throws Exception {
-    new BothModesTest().testCollection(statement, expectedElements);
-  }
-
-  @Test
   public void testListIndexMethod() throws Exception {
     new BothModesTest()
         .testStatement("['a', 'b', 'c'].index('a')", 0)
@@ -1753,6 +1701,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testStatement("type(str)", "function");
   }
 
+  // TODO(bazel-team): Move this into a new BazelLibraryTest.java file, or at least out of
+  // MethodLibraryTest.java.
   @Test
   public void testSelectFunction() throws Exception {
     enableSkylarkMode();

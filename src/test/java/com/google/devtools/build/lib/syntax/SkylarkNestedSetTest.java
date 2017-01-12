@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -52,19 +51,87 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testNsetOrder() throws Exception {
     eval("n = depset(['a', 'b'], order='compile')");
-    assertEquals(Order.COMPILE_ORDER, get("n").getSet(String.class).getOrder());
+    assertThat(get("n").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
   }
 
   @Test
   public void testEmptyNsetGenericType() throws Exception {
     eval("n = depset()");
-    assertEquals(SkylarkType.TOP, get("n").getContentType());
+    assertThat(get("n").getContentType()).isEqualTo(SkylarkType.TOP);
+  }
+
+  @Test
+  public void testDepsetBadOrder() throws Exception {
+    new BothModesTest().testIfExactError("Invalid order: bad", "depset(['a'], order='bad')");
+  }
+
+  @Test
+  public void testSetUnionWithList() throws Exception {
+    assertContainsInOrder("depset([]).union(['a', 'b', 'c'])", "a", "b", "c");
+    assertContainsInOrder("depset(['a']).union(['b', 'c'])", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'b']).union(['c'])", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'b', 'c']).union([])", "a", "b", "c");
+  }
+
+  @Test
+  public void testSetUnionWithSet() throws Exception {
+    assertContainsInOrder("depset([]).union(depset(['a', 'b', 'c']))", "a", "b", "c");
+    assertContainsInOrder("depset(['a']).union(depset(['b', 'c']))", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'b']).union(depset(['c']))", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'b', 'c']).union(depset([]))", "a", "b", "c");
+  }
+
+  @Test
+  public void testDepsetUnionWithBadType() throws Exception {
+    new BothModesTest()
+        .testIfErrorContains("is not applicable for arguments (int)", "depset([]).union(5)");
+  }
+
+  @Test
+  public void testSetUnionDuplicates() throws Exception {
+    assertContainsInOrder("depset(['a', 'b', 'c']).union(['a', 'b', 'c'])", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'a', 'a']).union(['a', 'a'])", "a");
+
+    assertContainsInOrder("depset(['a', 'b', 'c']).union(depset(['a', 'b', 'c']))", "a", "b", "c");
+    assertContainsInOrder("depset(['a', 'a', 'a']).union(depset(['a', 'a']))", "a");
+  }
+
+  @Test
+  public void testSetUnionError() throws Exception {
+    new BothModesTest()
+        .testIfErrorContains("insufficient arguments received by union", "depset(['a']).union()")
+        .testIfErrorContains(
+            "method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is 'string', but should be 'Iterable'",
+            "depset(['a']).union('b')");
+  }
+
+  @Test
+  public void testSetUnionSideEffects() throws Exception {
+    eval(
+        "def func():",
+        "  n1 = depset(['a'])",
+        "  n2 = n1.union(['b'])",
+        "  return n1",
+        "n = func()");
+    assertThat(((SkylarkNestedSet) lookup("n")).toCollection()).isEqualTo(ImmutableList.of("a"));
+  }
+
+  private void assertContainsInOrder(String statement, Object... expectedElements)
+      throws Exception {
+    new BothModesTest().testCollection(statement, expectedElements);
   }
 
   @Test
   public void testFunctionReturnsNset() throws Exception {
-    eval("def func():", "  n = depset()", "  n += ['a']", "  return n", "s = func()");
-    assertEquals(ImmutableList.of("a"), get("s").toCollection());
+    eval(
+        "def func():",
+        "  n = depset()",
+        "  n += ['a']",
+        "  return n",
+        "s = func()");
+    assertThat(get("s")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(get("s").toCollection()).containsExactly("a");
   }
 
   @Test
@@ -77,11 +144,11 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "  n2 += ['b']",
         "  return n1",
         "n = func()");
-    assertEquals(ImmutableList.of("a"), get("n").toCollection());
+    assertThat(get("n").toCollection()).containsExactly("a");
   }
 
   @Test
-  public void testNsetNestedItem() throws Exception {
+  public void testNsetUnionOrder() throws Exception {
     eval(
         "def func():",
         "  n1 = depset()",
@@ -91,7 +158,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "  n1 += n2",
         "  return n1",
         "n = func()");
-    assertEquals(ImmutableList.of("b", "a"), get("n").toCollection());
+    assertThat(get("n").toCollection()).containsExactly("b", "a").inOrder();
   }
 
   @Test
@@ -103,8 +170,13 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetItemList() throws Exception {
-    eval("def func():", "  n = depset()", "  n += ['a', 'b']", "  return n", "n = func()");
-    assertEquals(ImmutableList.of("a", "b"), get("n").toCollection());
+    eval(
+        "def func():",
+        "  n = depset()",
+        "  n += ['a', 'b']",
+        "  return n",
+        "n = func()");
+    assertThat(get("n").toCollection()).containsExactly("a", "b").inOrder();
   }
 
   @Test
@@ -118,7 +190,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "  func1(n)",
         "  return n",
         "n = func2()");
-    assertEquals(ImmutableList.of("a"), get("n").toCollection());
+    assertThat(get("n").toCollection()).containsExactly("a");
   }
 
   @Test
@@ -131,7 +203,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "  return depset() + nb + nc",
         "n = func()");
     // The iterator lists the Transitive sets first
-    assertEquals(ImmutableList.of("b", "a", "c"), get("n").toCollection());
+    assertThat(get("n").toCollection()).containsExactly("b", "a", "c").inOrder();
   }
 
   @Test
@@ -145,7 +217,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
         "  return na",
         "n = func()");
     // The iterator lists the Transitive sets first
-    assertEquals(ImmutableList.of(4, 2, 3, 5), get("n").toCollection());
+    assertThat(get("n").toCollection()).containsExactly(4, 2, 3, 5).inOrder();
   }
 
   @Test
@@ -160,14 +232,18 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testNsetToString() throws Exception {
-    eval("s = depset() + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
-    assertEquals("set([2, 4, 6, 3, 5])", lookup("x"));
+    eval(
+        "s = depset() + [2, 4, 6] + [3, 4, 5]",
+        "x = str(s)");
+    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5])");
   }
 
   @Test
   public void testNsetToStringWithOrder() throws Exception {
-    eval("s = depset(order = 'link') + [2, 4, 6] + [3, 4, 5]", "x = str(s)");
-    assertEquals("set([2, 4, 6, 3, 5], order = \"link\")", lookup("x"));
+    eval(
+        "s = depset(order = 'link') + [2, 4, 6] + [3, 4, 5]",
+        "x = str(s)");
+    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5], order = \"link\")");
   }
 
   @SuppressWarnings("unchecked")

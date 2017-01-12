@@ -156,7 +156,6 @@ public abstract class SkylarkType implements Serializable {
   // TODO(bazel-team): resolve this inconsistency, one way or the other.
   public static final Simple NONE = Simple.of(Runtime.NoneType.class);
 
-  private static final class Global {}
   /** The STRING type, for strings */
   public static final Simple STRING = Simple.of(String.class);
 
