@@ -475,16 +475,46 @@ public class ParsedAndroidData {
   public boolean containsCombineable(DataKey key) {
     return combiningResources.containsKey(key);
   }
-  
+
   public DataResource getOverwritable(DataKey name) {
     return overwritingResources.get(name);
+  }
+
+  void writeResourcesTo(AndroidResourceClassWriter writer) {
+    for (Entry<DataKey, DataResource> resource : iterateDataResourceEntries()) {
+      resource.getValue().writeResourceToClass((FullyQualifiedName) resource.getKey(), writer);
+    }
+  }
+
+  void writeResourcesTo(AndroidDataWriter writer) throws MergingException {
+    for (Entry<DataKey, DataResource> resource : iterateDataResourceEntries()) {
+      resource.getValue().writeResource((FullyQualifiedName) resource.getKey(), writer);
+    }
+  }
+  
+  void serializeResourcesTo(AndroidDataSerializer serializer) {
+    for (Entry<DataKey, DataResource> resource : iterateDataResourceEntries()) {
+      serializer.queueForSerialization(resource.getKey(), resource.getValue());
+    }
+  }
+
+  void writeAssetsTo(AndroidDataWriter writer) throws IOException {
+    for (Entry<DataKey, DataAsset> resource : iterateAssetEntries()) {
+      resource.getValue().writeAsset((RelativeAssetPath) resource.getKey(), writer);
+    }
+  }
+ 
+  void serializeAssetsTo(AndroidDataSerializer serializer) {
+    for (Entry<DataKey, DataAsset> resource : iterateAssetEntries()) {
+      serializer.queueForSerialization(resource.getKey(), resource.getValue());
+    }
   }
 
   Iterable<Entry<DataKey, DataResource>> iterateOverwritableEntries() {
     return overwritingResources.entrySet();
   }
 
-  Iterable<Entry<DataKey, DataResource>> iterateDataResourceEntries() {
+  private Iterable<Entry<DataKey, DataResource>> iterateDataResourceEntries() {
     return Iterables.concat(overwritingResources.entrySet(), combiningResources.entrySet());
   }
 
