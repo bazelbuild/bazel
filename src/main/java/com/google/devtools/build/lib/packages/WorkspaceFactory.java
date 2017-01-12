@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -73,13 +73,14 @@ public class WorkspaceFactory {
           "DEFAULT_SERVER_JAVABASE", // serializable so optional
           PackageFactory.PKG_CONTEXT);
 
-  private final Builder builder;
+  private final Package.Builder builder;
 
   private final Path installDir;
   private final Path workspaceDir;
   private final Mutability mutability;
 
   private final boolean allowOverride;
+  private final RuleFactory ruleFactory;
 
   private final ImmutableMap<String, BaseFunction> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
@@ -102,7 +103,7 @@ public class WorkspaceFactory {
    * @param mutability the Mutability for the current evaluation context
    */
   public WorkspaceFactory(
-      Builder builder,
+      Package.Builder builder,
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability) {
@@ -119,7 +120,7 @@ public class WorkspaceFactory {
    * @param workspaceDir the workspace directory
    */
   public WorkspaceFactory(
-      Builder builder,
+      Package.Builder builder,
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
@@ -132,7 +133,10 @@ public class WorkspaceFactory {
     this.workspaceDir = workspaceDir;
     this.allowOverride = allowOverride;
     this.environmentExtensions = environmentExtensions;
-    this.workspaceFunctions = createWorkspaceFunctions(ruleClassProvider, allowOverride);
+    this.ruleFactory = new RuleFactory(
+        ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+    this.workspaceFunctions = WorkspaceFactory.createWorkspaceFunctions(
+        allowOverride, ruleFactory);
   }
 
   /**
@@ -289,18 +293,17 @@ public class WorkspaceFactory {
     parameters = {
       @Param(name = "name", type = String.class, doc = "the name of the workspace.")
     },
-    documented = true,
     useAst = true,
     useEnvironment = true
   )
   private static final BuiltinFunction.Factory newWorkspaceFunction =
       new BuiltinFunction.Factory("workspace") {
-        public BuiltinFunction create(boolean allowOverride) {
+        public BuiltinFunction create(boolean allowOverride, final RuleFactory ruleFactory) {
           if (allowOverride) {
             return new BuiltinFunction(
                 "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
               public Object invoke(String name, FuncallExpression ast, Environment env)
-                  throws EvalException {
+                  throws EvalException, InterruptedException {
                 if (!isLegalWorkspaceName(name)) {
                   throw new EvalException(
                       ast.getLocation(), name + " is not a legal workspace name");
@@ -310,6 +313,25 @@ public class WorkspaceFactory {
                   throw new EvalException(ast.getLocation(), errorMessage);
                 }
                 PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
+                Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+                RuleClass localRepositoryRuleClass = ruleFactory.getRuleClass("local_repository");
+                RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
+                Map<String, Object> kwargs = ImmutableMap.<String, Object>of(
+                    "name", name, "path", ".");
+                try {
+                  // This effectively adds a "local_repository(name = "<ws>", path = ".")"
+                  // definition to the WORKSPACE file.
+                  builder
+                      .externalPackageData()
+                      .createAndAddRepositoryRule(
+                          builder,
+                          localRepositoryRuleClass,
+                          bindRuleClass,
+                          kwargs,
+                          ast);
+                } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
+                  throw new EvalException(ast.getLocation(), e.getMessage());
+                }
                 return NONE;
               }
             };
@@ -331,11 +353,11 @@ public class WorkspaceFactory {
         "bind", FunctionSignature.namedOnly(1, "name", "actual"), BuiltinFunction.USE_AST_ENV) {
       public Object invoke(String name, String actual, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
-        Label nameLabel = null;
+        Label nameLabel;
         try {
           nameLabel = Label.parseAbsolute("//external:" + name);
           try {
-            Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+            Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
             RuleClass ruleClass = ruleFactory.getRuleClass("bind");
             builder
                 .externalPackageData()
@@ -371,7 +393,7 @@ public class WorkspaceFactory {
       public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         try {
-          Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
           if (!allowOverride
               && kwargs.containsKey("name")
               && builder.targets.containsKey(kwargs.get("name"))) {
@@ -403,10 +425,8 @@ public class WorkspaceFactory {
   }
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
-      RuleClassProvider ruleClassProvider, boolean allowOverride) {
+      boolean allowOverride, RuleFactory ruleFactory) {
     ImmutableMap.Builder<String, BaseFunction> mapBuilder = ImmutableMap.builder();
-    RuleFactory ruleFactory =
-        new RuleFactory(ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
     mapBuilder.put(BIND, newBindFunction(ruleFactory));
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       if (!ruleClass.equals(BIND)) {
@@ -419,7 +439,7 @@ public class WorkspaceFactory {
 
   private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {
     try {
-      workspaceEnv.setup("workspace", newWorkspaceFunction.apply(allowOverride));
+      workspaceEnv.setup("workspace", newWorkspaceFunction.apply(allowOverride, ruleFactory));
       for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
         workspaceEnv.update(function.getKey(), function.getValue());
       }
@@ -459,8 +479,11 @@ public class WorkspaceFactory {
         builder.build(), "no native function or rule '%s'");
   }
 
-  public static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
-    return newNativeModule(createWorkspaceFunctions(ruleClassProvider, false), version);
+  static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
+    RuleFactory ruleFactory = new RuleFactory(
+        ruleClassProvider, AttributeContainer.ATTRIBUTE_CONTAINER_FACTORY);
+    return WorkspaceFactory.newNativeModule(
+        WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory), version);
   }
 
   static {
