@@ -22,8 +22,14 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <type_traits>  // static_assert
 
 #include "src/main/native/windows_util.h"
+
+// Ensure we can safely cast (const) jchar* to (const) WCHAR* and LP(C)WSTR.
+// This is true with MSVC but not always with GCC.
+static_assert(sizeof(jchar) == sizeof(WCHAR),
+              "jchar and WCHAR should be the same size");
 
 extern "C" JNIEXPORT jint JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetpid(
@@ -91,6 +97,22 @@ static std::string GetJavaUTFString(JNIEnv* env, jstring str) {
   return result;
 }
 
+static std::wstring GetJavaWstring(JNIEnv* env, jstring str) {
+  std::wstring result;
+  if (str != nullptr) {
+    const jchar* jstr = env->GetStringChars(str, nullptr);
+    // We can safely reinterpret_cast because of the static_assert checking that
+    // sizeof(jchar) = sizeof(WCHAR).
+    result.assign(reinterpret_cast<const WCHAR*>(jstr));
+    env->ReleaseStringChars(str, jstr);
+  }
+  return result;
+}
+
+static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
+  return (path.size() > MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
@@ -99,8 +121,10 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   // TODO(laszlocsomor): compute the 8dot3 path for java_argv0.
   std::string commandline = GetJavaUTFString(env, java_argv0) + " " +
                             GetJavaUTFString(env, java_argv_rest);
-  std::string stdout_redirect = GetJavaUTFString(env, java_stdout_redirect);
-  std::string stderr_redirect = GetJavaUTFString(env, java_stderr_redirect);
+  std::wstring stdout_redirect =
+      AddUncPrefixMaybe(GetJavaWstring(env, java_stdout_redirect));
+  std::wstring stderr_redirect =
+      AddUncPrefixMaybe(GetJavaWstring(env, java_stderr_redirect));
   std::string cwd = GetJavaUTFString(env, java_cwd);
 
   jsize env_size = -1;
@@ -146,7 +170,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   if (!stdout_redirect.empty()) {
     result->stdout_.close();
 
-    stdout_process = CreateFileA(
+    stdout_process = CreateFileW(
         /* lpFileName */ stdout_redirect.c_str(),
         /* dwDesiredAccess */ FILE_APPEND_DATA,
         /* dwShareMode */ 0,
@@ -171,7 +195,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     if (stdout_redirect == stderr_redirect) {
       stderr_process = stdout_process;
     } else {
-      stderr_process = CreateFileA(
+      stderr_process = CreateFileW(
           /* lpFileName */ stderr_redirect.c_str(),
           /* dwDesiredAccess */ FILE_APPEND_DATA,
           /* dwShareMode */ 0,
