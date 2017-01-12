@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,6 +29,12 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link AndroidSdkRepositoryFunction}. */
 @RunWith(JUnit4.class)
 public class AndroidSdkRepositoryTest extends BuildViewTestCase {
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    return builder.addRuleDefinition(new AndroidSdkRepositoryRule()).build();
+  }
 
   @Before
   public void setup() throws Exception {
@@ -40,8 +48,22 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "  <packaging>aar</packaging>",
         "</project>");
 
+    scratch.setWorkingDir("/bazel_tools_workspace");
+    if (!scratch.resolve("WORKSPACE").exists()) {
+      scratch.file("WORKSPACE");
+    }
+    if (!scratch.resolve("tools/android/BUILD").exists()) {
+      scratch.file("tools/android/BUILD");
+    }
+    scratch.file(
+        "tools/android/android_sdk_repository_template.bzl",
+        "def create_android_sdk_rules(name, build_tools_version, build_tools_directory, ",
+        "        api_levels, default_api_level):",
+        "    pass");
+
     scratch.setWorkingDir("/workspace");
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_sdk_repository(",
         "    name = 'mysdk',",
         "    path = '/sdk',",
@@ -54,6 +76,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
   public void testGeneratedAarImport() throws Exception {
     invalidatePackages();
     ConfiguredTarget aarImportTarget = getConfiguredTarget("@mysdk//com.google.android:foo-1.0.0");
+    assertThat(aarImportTarget).isNotNull();
     assertThat(aarImportTarget.getTarget().getAssociatedRule().getRuleClass())
         .isEqualTo("aar_import");
   }
