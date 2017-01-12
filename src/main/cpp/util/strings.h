@@ -33,6 +33,8 @@ bool starts_with(const std::string &haystack, const std::string &needle);
 
 bool ends_with(const std::string &haystack, const std::string &needle);
 
+bool ends_with(const std::wstring &haystack, const std::wstring &needle);
+
 // Matches a prefix (which must be a char* literal!) against the beginning of
 // str. Returns a pointer past the prefix, or NULL if the prefix wasn't matched.
 // (Like the standard strcasecmp(), but for efficiency doesn't call strlen() on

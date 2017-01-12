@@ -313,4 +313,31 @@ TEST(BlazeUtil, WstringToCstringTest) {
   EXPECT_EQ(0, strcmp(actual.get(), "hello world"));
 }
 
+TEST(BlazeUtil, EndsWithTest) {
+  ASSERT_TRUE(ends_with("", ""));
+  ASSERT_TRUE(ends_with(L"", L""));
+
+  ASSERT_TRUE(ends_with("abc", "bc"));
+  ASSERT_TRUE(ends_with(L"abc", L"bc"));
+
+  // prefix matches but suffix doesn't
+  ASSERT_FALSE(ends_with("abc", "bd"));
+  ASSERT_FALSE(ends_with(L"abc", L"bd"));
+
+  // suffix matches but prefix doesn't
+  ASSERT_FALSE(ends_with("abc", "dc"));
+  ASSERT_FALSE(ends_with(L"abc", L"dc"));
+
+  // full match
+  ASSERT_TRUE(ends_with("abc", "abc"));
+  ASSERT_TRUE(ends_with(L"abc", L"abc"));
+
+  // bigger "needle" than "haystack"
+  ASSERT_FALSE(ends_with("bc", "abc"));
+  ASSERT_FALSE(ends_with(L"bc", L"abc"));
+
+  ASSERT_FALSE(ends_with("bc", "def"));
+  ASSERT_FALSE(ends_with(L"bc", L"def"));
+}
+
 }  // namespace blaze_util

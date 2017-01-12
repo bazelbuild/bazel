@@ -228,6 +228,7 @@ string MakeCanonical(const char *path) {
   }
 }
 
+#ifndef __CYGWIN__
 static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   int mode = 0;
   if (read) {
@@ -254,7 +255,6 @@ bool CanAccessDirectory(const std::string &path) {
   return IsDirectory(path) && CanAccess(path, true, true, true);
 }
 
-#ifndef __CYGWIN__
 bool IsDirectory(const string& path) {
   struct stat buf;
   return stat(path.c_str(), &buf) == 0 && S_ISDIR(buf.st_mode);

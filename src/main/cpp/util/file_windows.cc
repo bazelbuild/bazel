@@ -59,6 +59,8 @@ static bool IsRootDirectoryW(const wstring& path);
 
 static bool MakeDirectoriesW(const wstring& path);
 
+static bool CanReadFileW(const wstring& path);
+
 // Returns a normalized form of the input `path`.
 //
 // `path` must be a relative or absolute Windows path, it may use "/" instead of
@@ -390,7 +392,7 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   if (!AsWindowsPathWithUncPrefix(filename, &wfilename)) {
     return false;
   }
-  HANDLE handle = CreateFileW(
+  HANDLE handle = ::CreateFileW(
       /* lpFileName */ wfilename.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
@@ -423,7 +425,7 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
   }
 
   UnlinkPathW(wpath);  // We don't care about the success of this.
-  HANDLE handle = CreateFileW(
+  HANDLE handle = ::CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
@@ -629,25 +631,96 @@ bool PathExists(const string& path) {
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
-#ifdef COMPILER_MSVC
+static bool CanReadFileW(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  if ((attrs == INVALID_FILE_ATTRIBUTES) ||
+      (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+    // The path doesn't exist or is a directory/junction.
+    return false;
+  }
+  // The only easy way to find out if a file is readable is to attempt to open
+  // it for reading.
+  HANDLE handle = ::CreateFileW(
+      /* lpFileName */ path.c_str(),
+      /* dwDesiredAccess */ GENERIC_READ,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return false;
+  } else {
+    CloseHandle(handle);
+    return true;
+  }
+}
+
 bool CanReadFile(const std::string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "not implemented on Windows");
-  return false;
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  return CanReadFileW(wpath);
 }
 
 bool CanExecuteFile(const std::string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "not implemented on Windows");
-  return false;
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  return CanReadFileW(wpath) && (ends_with(wpath, wstring(L".exe")) ||
+                                 ends_with(wpath, wstring(L".com")) ||
+                                 ends_with(wpath, wstring(L".cmd")) ||
+                                 ends_with(wpath, wstring(L".bat")));
 }
 
 bool CanAccessDirectory(const std::string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "not implemented on Windows");
-  return false;
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  DWORD attr = ::GetFileAttributesW(wpath.c_str());
+  if ((attr == INVALID_FILE_ATTRIBUTES) || !(attr & FILE_ATTRIBUTE_DIRECTORY)) {
+    // The path doesn't exist or is not a directory.
+    return false;
+  }
+
+  // The only easy way to know if a directory is writable is by attempting to
+  // open a file for writing in it.
+  wstring dummy_path = wpath + L"\\bazel_directory_access_test";
+
+  // The path may have just became too long for MAX_PATH, so add the UNC prefix
+  // if necessary.
+  AddUncPrefixMaybe(&dummy_path);
+
+  // Attempt to open the dummy file for read/write access.
+  // If the file happens to exist, no big deal, we won't overwrite it thanks to
+  // OPEN_ALWAYS.
+  HANDLE handle = ::CreateFileW(
+      /* lpFileName */ dummy_path.c_str(),
+      /* dwDesiredAccess */ GENERIC_WRITE | GENERIC_READ,
+      /* dwShareMode */ FILE_SHARE_READ | FILE_SHARE_WRITE,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_ALWAYS,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
+  DWORD err = GetLastError();
+  if (handle == INVALID_HANDLE_VALUE && err != ERROR_ALREADY_EXISTS) {
+    // We couldn't open the file, and not because the dummy file already exists.
+    // Consequently it is because `wpath` doesn't exist.
+    return false;
+  }
+  // The fact that we could open the file, regardless of it existing beforehand
+  // or not, means the directory also exists and we can read/write in it.
+  CloseHandle(handle);
+  if (err != ERROR_ALREADY_EXISTS) {
+    // The file didn't exist before, but due to OPEN_ALWAYS we created it just
+    // now, so do delete it.
+    ::DeleteFileW(dummy_path.c_str());
+  }  // Otherwise the file existed before, leave it alone.
+  return true;
 }
-#endif  // COMPILER_MSVC
 
 static bool IsDevNull(const string& path) {
   return path == "/dev/null" || AsLower(path) == "nul";

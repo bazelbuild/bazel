@@ -32,10 +32,11 @@ using std::wstring;
 void ResetMsysRootForTesting();
 string NormalizeWindowsPath(string path);
 
-static string GetTestTmpDir() {
+static void GetTestTmpDir(string* result) {
   char buf[MAX_PATH] = {0};
   DWORD len = GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
-  return string(buf);
+  result->assign(buf);
+  ASSERT_LT(0, result->size());
 }
 
 TEST(FileTest, TestNormalizeWindowsPath) {
@@ -192,9 +193,8 @@ TEST(FileTest, TestAsShortWindowsPath) {
   ASSERT_TRUE(AsShortWindowsPath("nul", &actual));
   ASSERT_EQ(string("NUL"), actual);
 
-  string tmpdir(GetTestTmpDir());
-  ASSERT_LT(0, tmpdir.size());
-
+  string tmpdir;
+  GetTestTmpDir(&tmpdir);
   string short_tmpdir;
   ASSERT_TRUE(AsShortWindowsPath(tmpdir, &short_tmpdir));
   ASSERT_LT(0, short_tmpdir.size());
@@ -266,8 +266,8 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_TRUE(PathExists("/dev/null"));
   ASSERT_TRUE(PathExists("Nul"));
 
-  string tmpdir(GetTestTmpDir());
-  ASSERT_LT(0, tmpdir.size());
+  string tmpdir;
+  GetTestTmpDir(&tmpdir);
   ASSERT_TRUE(PathExists(tmpdir));
 
   // Create a fake msys root. We'll also use it as a junction target.
@@ -309,8 +309,8 @@ TEST(FileTest, TestIsDirectory) {
   ASSERT_FALSE(IsDirectory("/dev/null"));
   ASSERT_FALSE(IsDirectory("Nul"));
 
-  string tmpdir(GetTestTmpDir());
-  ASSERT_LT(0, tmpdir.size());
+  string tmpdir;
+  GetTestTmpDir(&tmpdir);
   ASSERT_TRUE(IsDirectory(tmpdir));
   ASSERT_TRUE(IsDirectory("C:\\"));
   ASSERT_TRUE(IsDirectory("C:/"));
@@ -346,9 +346,8 @@ TEST(FileTest, TestUnlinkPath) {
   ASSERT_FALSE(UnlinkPath("/dev/null"));
   ASSERT_FALSE(UnlinkPath("Nul"));
 
-  string tmpdir(GetTestTmpDir());
-  ASSERT_LT(0, tmpdir.size());
-  ASSERT_TRUE(PathExists(tmpdir));
+  string tmpdir;
+  GetTestTmpDir(&tmpdir);
 
   // Create a directory under `tempdir`, a file inside it, and a junction
   // pointing to it.
@@ -406,6 +405,56 @@ TEST(FileTest, TestMakeDirectories) {
   ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1").c_str()));
   ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4/dir5").c_str()));
   ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4").c_str()));
+}
+
+TEST(FileTest, CanAccess) {
+  ASSERT_FALSE(CanReadFile("C:/windows/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanExecuteFile("C:/this/should/not/exist/mkay"));
+  ASSERT_FALSE(CanAccessDirectory("C:/this/should/not/exist/mkay"));
+
+  ASSERT_FALSE(CanReadFile("non.existent"));
+  ASSERT_FALSE(CanExecuteFile("non.existent"));
+  ASSERT_FALSE(CanAccessDirectory("non.existent"));
+
+  string tmpdir;
+  GetTestTmpDir(&tmpdir);
+  string dir(JoinPath(tmpdir, "canaccesstest"));
+  ASSERT_EQ(0, mkdir(dir.c_str()));
+
+  ASSERT_FALSE(CanReadFile(dir));
+  ASSERT_FALSE(CanExecuteFile(dir));
+  ASSERT_TRUE(CanAccessDirectory(dir));
+
+  string junc(JoinPath(tmpdir, "junc1"));
+  RunCommand(string("cmd.exe /C mklink /J \"") + junc + "\" \"" + dir +
+             "\" >NUL 2>NUL");
+  ASSERT_FALSE(CanReadFile(junc));
+  ASSERT_FALSE(CanExecuteFile(junc));
+  ASSERT_TRUE(CanAccessDirectory(junc));
+
+  string file(JoinPath(dir, "foo.txt"));
+  FILE* fh = fopen(file.c_str(), "wt");
+  ASSERT_NE(nullptr, fh);
+  ASSERT_LT(0, fprintf(fh, "hello"));
+  fclose(fh);
+
+  ASSERT_TRUE(CanReadFile(file));
+  ASSERT_FALSE(CanExecuteFile(file));
+  ASSERT_FALSE(CanAccessDirectory(file));
+
+  ASSERT_TRUE(CanReadFile(JoinPath(junc, "foo.txt")));
+  ASSERT_FALSE(CanExecuteFile(JoinPath(junc, "foo.txt")));
+  ASSERT_FALSE(CanAccessDirectory(JoinPath(junc, "foo.txt")));
+
+  string file2(JoinPath(dir, "foo.exe"));
+  ASSERT_EQ(0, rename(file.c_str(), file2.c_str()));
+  ASSERT_TRUE(CanReadFile(file2));
+  ASSERT_TRUE(CanExecuteFile(file2));
+  ASSERT_FALSE(CanAccessDirectory(file2));
+
+  ASSERT_EQ(0, unlink(file2.c_str()));
+  ASSERT_EQ(0, rmdir(junc.c_str()));
+  ASSERT_EQ(0, rmdir(dir.c_str()));
 }
 
 }  // namespace blaze_util

@@ -28,6 +28,7 @@ namespace blaze_util {
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using std::wstring;
 
 static const char kSeparator[] = " \n\t\r";
 
@@ -82,14 +83,24 @@ bool starts_with(const string &haystack, const string &needle) {
       (memcmp(haystack.c_str(), needle.c_str(), needle.length()) == 0);
 }
 
-bool ends_with(const string &haystack, const string &needle) {
-  return ((haystack.length() >= needle.length()) &&
-          (memcmp(haystack.c_str() + (haystack.length()-needle.length()),
-                  needle.c_str(), needle.length()) == 0));
+template <typename char_type>
+static bool ends_with_impl(const std::basic_string<char_type> &haystack,
+                           const std::basic_string<char_type> &needle) {
+  return (haystack.length() >= needle.length()) &&
+         std::equal(haystack.cend() - needle.length(), haystack.cend(),
+                    needle.cbegin());
 }
 
-void JoinStrings(
-    const vector<string> &pieces, const char delimeter, string *output) {
+bool ends_with(const string &haystack, const string &needle) {
+  return ends_with_impl(haystack, needle);
+}
+
+bool ends_with(const wstring &haystack, const wstring &needle) {
+  return ends_with_impl(haystack, needle);
+}
+
+void JoinStrings(const vector<string> &pieces, const char delimeter,
+                 string *output) {
   bool first = true;
   for (const auto &piece : pieces) {
     if (first) {
