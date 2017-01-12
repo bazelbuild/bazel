@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.SdkConstants;
 import com.android.resources.ResourceType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -55,6 +56,19 @@ import java.util.logging.Logger;
  * files.
  */
 public class AndroidResourceClassWriter implements Flushable {
+  
+  /** Create a new class writer. */
+  public static AndroidResourceClassWriter createWith(
+      Path androidJar, Path out, String javaPackage) {
+    return new AndroidResourceClassWriter(
+        new AndroidFrameworkAttrIdJar(androidJar), out, javaPackage);
+  }
+
+  @VisibleForTesting
+  public static AndroidResourceClassWriter of(
+      AndroidFrameworkAttrIdProvider androidIdProvider, Path outputBasePath, String packageName) {
+    return new AndroidResourceClassWriter(androidIdProvider, outputBasePath, packageName);
+  }
 
   private static final Logger logger =
       Logger.getLogger(AndroidResourceClassWriter.class.getName());
@@ -73,10 +87,8 @@ public class AndroidResourceClassWriter implements Flushable {
 
   private static final String NORMALIZED_ANDROID_PREFIX = "android_";
 
-  public AndroidResourceClassWriter(
-      AndroidFrameworkAttrIdProvider androidIdProvider,
-      Path outputBasePath,
-      String packageName) {
+  private AndroidResourceClassWriter(
+      AndroidFrameworkAttrIdProvider androidIdProvider, Path outputBasePath, String packageName) {
     this.androidIdProvider = androidIdProvider;
     this.outputBasePath = outputBasePath;
     this.packageName = packageName;

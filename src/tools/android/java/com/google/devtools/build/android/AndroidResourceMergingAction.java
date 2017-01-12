@@ -173,8 +173,7 @@ public class AndroidResourceMergingAction {
 
       VariantType packageType = VariantType.LIBRARY;
       AndroidResourceClassWriter resourceClassWriter =
-          new AndroidResourceClassWriter(
-              new AndroidFrameworkAttrIdJar(aaptConfigOptions.androidJar),
+          AndroidResourceClassWriter.createWith(aaptConfigOptions.androidJar,
               generatedSources,
               Strings.nullToEmpty(options.packageForR));
       resourceClassWriter.setIncludeClassFile(true);
