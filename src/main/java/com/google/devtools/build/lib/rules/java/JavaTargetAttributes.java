@@ -79,6 +79,7 @@ public class JavaTargetAttributes {
     private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
 
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
+    private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
     private final List<Artifact> messages = new ArrayList<>();
     private final List<Artifact> instrumentationMetadata = new ArrayList<>();
     private final List<Artifact> sourceJars = new ArrayList<>();
@@ -295,6 +296,12 @@ public class JavaTargetAttributes {
       return this;
     }
 
+    public Builder addResourceJars(NestedSet<Artifact> resourceJars) {
+      Preconditions.checkArgument(!built);
+      this.resourceJars.addTransitive(resourceJars);
+      return this;
+    }
+
     public Builder addProcessorName(String processor) {
       Preconditions.checkArgument(!built);
       processorNames.add(processor);
@@ -361,6 +368,7 @@ public class JavaTargetAttributes {
           apiGeneratingProcessorPath,
           apiGeneratingProcessorNames,
           resources,
+          resourceJars.build(),
           messages,
           sourceJars,
           classPathResources,
@@ -416,6 +424,8 @@ public class JavaTargetAttributes {
   private final ImmutableSet<String> apiGeneratingProcessorNames;
 
   private final ImmutableMap<PathFragment, Artifact> resources;
+  private final NestedSet<Artifact> resourceJars;
+
   private final ImmutableList<Artifact> messages;
   private final ImmutableList<Artifact> sourceJars;
 
@@ -445,6 +455,7 @@ public class JavaTargetAttributes {
       Set<Artifact> apiGeneratingProcessorPath,
       Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       List<Artifact> messages,
       List<Artifact> sourceJars,
       List<Artifact> classPathResources,
@@ -472,6 +483,7 @@ public class JavaTargetAttributes {
     this.apiGeneratingProcessorPath = ImmutableSet.copyOf(apiGeneratingProcessorPath);
     this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
+    this.resourceJars = resourceJars;
     this.messages = ImmutableList.copyOf(messages);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.classPathResources = ImmutableList.copyOf(classPathResources);
@@ -497,6 +509,10 @@ public class JavaTargetAttributes {
 
   public Map<PathFragment, Artifact> getResources() {
     return resources;
+  }
+
+  public NestedSet<Artifact> getResourceJars() {
+    return resourceJars;
   }
 
   public List<Artifact> getMessages() {

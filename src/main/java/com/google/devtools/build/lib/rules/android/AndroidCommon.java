@@ -635,6 +635,7 @@ public class AndroidCommon {
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
         .addResources(attributes.getResources())
+        .addResourceJars(attributes.getResourceJars())
         .addProcessorNames(attributes.getProcessorNames())
         .addProcessorClasspathJars(attributes.getProcessorPath())
         .addExports(JavaCommon.getExports(ruleContext))

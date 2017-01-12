@@ -139,6 +139,9 @@ public final class JackCompilationHelper {
   /** Java resources for the rule's Jack library. */
   private final ImmutableMap<PathFragment, Artifact> resources;
 
+  /** Jars that contain resources to be added to the Jack library. */
+  private final NestedSet<Artifact> resourceJars;
+
   /** Jack libraries to be provided to depending rules on the classpath, from srcs and exports. */
   private final NestedSet<Artifact> exportedJacks;
   /**
@@ -187,6 +190,7 @@ public final class JackCompilationHelper {
       ImmutableSet<Artifact> javaSources,
       ImmutableSet<Artifact> sourceJars,
       ImmutableMap<PathFragment, Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       NestedSet<Artifact> processorClasspathJars,
       ImmutableSet<String> processorNames,
       NestedSet<Artifact> exportedJacks,
@@ -206,6 +210,7 @@ public final class JackCompilationHelper {
     this.javaSources = javaSources;
     this.sourceJars = sourceJars;
     this.resources = resources;
+    this.resourceJars = resourceJars;
     this.processorClasspathJars = processorClasspathJars;
     this.processorNames = processorNames;
     this.exportedJacks = exportedJacks;
@@ -349,11 +354,12 @@ public final class JackCompilationHelper {
     NestedSetBuilder<Artifact> dexContents = new NestedSetBuilder<>(Order.NAIVE_LINK_ORDER);
 
     if (outputArtifact != null) {
-      if (javaSources.isEmpty() && sourceJars.isEmpty() && resources.isEmpty()) {
+      if (javaSources.isEmpty() && sourceJars.isEmpty() && resources.isEmpty()
+          && resourceJars.isEmpty()) {
         // We still have to create SOMETHING to fulfill the artifact, but man, screw it
         buildEmptyJackAction();
       } else {
-        buildJackAction(javaSources, sourceJars, resources, classpath);
+        buildJackAction(javaSources, sourceJars, resources, resourceJars, classpath);
         exports.add(outputArtifact);
         dexContents.add(outputArtifact);
       }
@@ -485,6 +491,7 @@ public final class JackCompilationHelper {
       Iterable<Artifact> javaSources,
       Iterable<Artifact> sourceJars,
       Map<PathFragment, Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       NestedSet<Artifact> classpathJackLibraries) {
     CustomCommandLine.Builder builder =
         CustomCommandLine.builder()
@@ -517,6 +524,9 @@ public final class JackCompilationHelper {
         builder.addPaths("%s:%s", rootPrefix, resourcePath);
       }
     }
+    if (!resourceJars.isEmpty()) {
+      builder.addJoinExecPaths(IMPORT_RESOURCE_ZIP, ":", resourceJars);
+    }
     builder.addBeforeEachExecPath(IMPORT_SOURCE_ZIP, sourceJars).addExecPaths(javaSources);
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -525,6 +535,7 @@ public final class JackCompilationHelper {
             .addOutput(outputArtifact)
             .addTransitiveInputs(processorClasspathJars)
             .addInputs(resources.values())
+            .addTransitiveInputs(resourceJars)
             .addInputs(sourceJars)
             .addInputs(javaSources)
             .setCommandLine(builder.build())
@@ -566,6 +577,9 @@ public final class JackCompilationHelper {
     private final LinkedHashSet<Artifact> sourceJars = new LinkedHashSet<>();
     /** Map from paths within the Jack library to Java resources for the rule's Jack library. */
     private final LinkedHashMap<PathFragment, Artifact> resources = new LinkedHashMap<>();
+
+    /** Set of resource jars that contain Java resources. */
+    private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
 
     /** Jack libraries to be provided to depending rules on the classpath, from srcs and exports. */
     private final NestedSetBuilder<Artifact> exportedJackLibraries =
@@ -709,6 +723,11 @@ public final class JackCompilationHelper {
      */
     public JackCompilationHelper.Builder addResources(Map<PathFragment, Artifact> resources) {
       this.resources.putAll(Preconditions.checkNotNull(resources));
+      return this;
+    }
+
+    public JackCompilationHelper.Builder addResourceJars(NestedSet<Artifact> resourceJars) {
+      this.resourceJars.addTransitive(resourceJars);
       return this;
     }
 
@@ -867,6 +886,7 @@ public final class JackCompilationHelper {
           ImmutableSet.copyOf(javaSources),
           ImmutableSet.copyOf(sourceJars),
           ImmutableMap.copyOf(resources),
+          resourceJars.build(),
           processorClasspathJars.build(),
           ImmutableSet.copyOf(processorNames),
           exportedJackLibraries.build(),

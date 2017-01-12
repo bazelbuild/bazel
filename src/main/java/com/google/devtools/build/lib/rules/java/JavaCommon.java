@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -587,6 +588,11 @@ public class JavaCommon {
     for (Artifact resource : semantics.collectResources(ruleContext)) {
       javaTargetAttributes.addResource(
           JavaHelper.getJavaResourcePath(semantics, ruleContext, resource), resource);
+    }
+
+    if (ruleContext.attributes().has("resource_jars", BuildType.LABEL_LIST)) {
+      javaTargetAttributes.addResourceJars(PrerequisiteArtifacts.nestedSet(
+          ruleContext, "resource_jars", Mode.TARGET));
     }
 
     addPlugins(javaTargetAttributes);

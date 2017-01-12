@@ -246,6 +246,16 @@ public class BazelJavaRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_strip_prefix", STRING))
+          /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resource_jars) -->
+          Set of archives containing Java resources.
+          <p>
+            If specified, the contents of these jars are merged into the output jar.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("resource_jars", LABEL_LIST)
+                  .orderIndependent()
+                  .allowedFileTypes(JavaSemantics.JAR))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule

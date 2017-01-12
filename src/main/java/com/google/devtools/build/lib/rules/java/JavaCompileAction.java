@@ -144,6 +144,11 @@ public final class JavaCompileAction extends AbstractAction {
    */
   private final ImmutableList<Artifact> resources;
 
+  /**
+   * The set of resource jars to merge into the jar.
+   */
+  private final NestedSet<Artifact> resourceJars;
+
   /** The number of resources that will be put into the jar. */
   private final int resourceCount;
 
@@ -221,6 +226,7 @@ public final class JavaCompileAction extends AbstractAction {
       List<Artifact> processorPath,
       List<String> processorNames,
       Map<PathFragment, Artifact> resources,
+      NestedSet<Artifact> resourceJars,
       Collection<Artifact> sourceJars,
       Collection<Artifact> sourceFiles,
       List<String> javacOpts,
@@ -253,6 +259,7 @@ public final class JavaCompileAction extends AbstractAction {
     this.processorPath = ImmutableList.copyOf(processorPath);
     this.processorNames = ImmutableList.copyOf(processorNames);
     this.resources = ImmutableList.copyOf(resources.values());
+    this.resourceJars = resourceJars;
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.sourceFiles = ImmutableList.copyOf(sourceFiles);
     this.javacOpts = ImmutableList.copyOf(javacOpts);
@@ -281,6 +288,11 @@ public final class JavaCompileAction extends AbstractAction {
   @VisibleForTesting
   public Collection<Artifact> getResources() {
     return resources;
+  }
+
+  @VisibleForTesting
+  public NestedSet<Artifact> getResourceJars() {
+    return resourceJars;
   }
 
   /**
@@ -620,6 +632,7 @@ public final class JavaCompileAction extends AbstractAction {
       final List<String> processorNames,
       final Collection<Artifact> messages,
       final Map<PathFragment, Artifact> resources,
+      final NestedSet<Artifact> resourceJars,
       final Collection<Artifact> classpathResources,
       final Collection<Artifact> sourceJars,
       final Collection<Artifact> sourceFiles,
@@ -687,6 +700,9 @@ public final class JavaCompileAction extends AbstractAction {
           for (Map.Entry<PathFragment, Artifact> resource : resources.entrySet()) {
             addAsResourcePrefixedExecPath(resource.getKey(), resource.getValue(), result);
           }
+        }
+        if (!resourceJars.isEmpty()) {
+          result.addExecPaths("--resource_jars", resourceJars);
         }
         if (!classpathResources.isEmpty()) {
           result.addExecPaths("--classpath_resources", classpathResources);
@@ -941,6 +957,7 @@ public final class JavaCompileAction extends AbstractAction {
     private final Collection<Artifact> sourceFiles = new ArrayList<>();
     private final Collection<Artifact> sourceJars = new ArrayList<>();
     private final Map<PathFragment, Artifact> resources = new LinkedHashMap<>();
+    private final NestedSetBuilder<Artifact> resourceJars = NestedSetBuilder.stableOrder();
     private final Collection<Artifact> classpathResources = new ArrayList<>();
     private final Collection<Artifact> translations = new LinkedHashSet<>();
     private BuildConfiguration.StrictDepsMode strictJavaDeps =
@@ -1061,6 +1078,8 @@ public final class JavaCompileAction extends AbstractAction {
             configuration.getBinDirectory(targetLabel.getPackageIdentifier().getRepository()));
       }
 
+      NestedSet<Artifact> resourceJars = this.resourceJars.build();
+
       // ImmutableIterable is safe to use here because we know that none of the components of
       // the Iterable.concat() will change. Without ImmutableIterable, AbstractAction will
       // waste memory by making a preventive copy of the iterable.
@@ -1068,6 +1087,7 @@ public final class JavaCompileAction extends AbstractAction {
           processorPath,
           translations,
           resources.values(),
+          resourceJars,
           sourceJars,
           sourceFiles,
           classpathResources,
@@ -1107,6 +1127,7 @@ public final class JavaCompileAction extends AbstractAction {
           processorNames,
           translations,
           resources,
+          resourceJars,
           classpathResources,
           sourceJars,
           sourceFiles,
@@ -1180,6 +1201,7 @@ public final class JavaCompileAction extends AbstractAction {
           processorPath,
           processorNames,
           resources,
+          resourceJars,
           sourceJars,
           sourceFiles,
           internedJcopts,
@@ -1254,6 +1276,11 @@ public final class JavaCompileAction extends AbstractAction {
 
     public Builder addResources(Map<PathFragment, Artifact> resources) {
       this.resources.putAll(resources);
+      return this;
+    }
+
+    public Builder addResourceJars(NestedSet<Artifact> resourceJars) {
+      this.resourceJars.addTransitive(resourceJars);
       return this;
     }
 
