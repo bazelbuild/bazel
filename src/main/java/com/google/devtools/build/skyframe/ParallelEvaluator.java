@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
+import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -79,6 +80,8 @@ import javax.annotation.Nullable;
  * evaluation implementations outside of this package.
  */
 public final class ParallelEvaluator implements Evaluator {
+  private static final Logger logger = Logger.getLogger(ParallelEvaluator.class.getName());
+
   private final ProcessableGraph graph;
 
   /** An general interface for {@link ParallelEvaluator} to receive objects of type {@code T}. */
@@ -389,6 +392,12 @@ public final class ParallelEvaluator implements Evaluator {
                 // This is not the first error encountered, so we ignore it so that we can terminate
                 // with the first error.
                 return;
+              } else {
+                logger.warning(
+                    "Aborting evaluation due to "
+                        + builderException
+                        + " while evaluating "
+                        + skyKey);
               }
             }
 
