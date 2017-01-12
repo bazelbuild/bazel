@@ -18,9 +18,9 @@ import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
-
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -38,22 +38,30 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
   public Subprocess create(SubprocessBuilder builder) throws IOException {
     WindowsJniLoader.loadJni();
 
-    String commandLine = WindowsProcesses.quoteCommandLine(builder.getArgv());
+    List<String> argv = builder.getArgv();
+    String argv0 = WindowsProcesses.quoteCommandLine(argv.subList(0, 1));
+    String argvRest =
+        argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
 
     String stdoutPath = getRedirectPath(builder.getStdout(), builder.getStdoutFile());
     String stderrPath = getRedirectPath(builder.getStderr(), builder.getStderrFile());
 
-    long nativeProcess = WindowsProcesses.nativeCreateProcess(
-        commandLine, env, builder.getWorkingDirectory().getPath(), stdoutPath, stderrPath);
+    long nativeProcess =
+        WindowsProcesses.nativeCreateProcess(
+            argv0, argvRest, env, builder.getWorkingDirectory().getPath(), stdoutPath, stderrPath);
     String error = WindowsProcesses.nativeProcessGetLastError(nativeProcess);
     if (!error.isEmpty()) {
       WindowsProcesses.nativeDeleteProcess(nativeProcess);
       throw new IOException(error);
     }
 
-    return new WindowsSubprocess(nativeProcess, commandLine, stdoutPath != null,
-        stderrPath != null, builder.getTimeoutMillis());
+    return new WindowsSubprocess(
+        nativeProcess,
+        argv0 + " " + argvRest,
+        stdoutPath != null,
+        stderrPath != null,
+        builder.getTimeoutMillis());
   }
 
   private String getRedirectPath(StreamAction action, File file) {

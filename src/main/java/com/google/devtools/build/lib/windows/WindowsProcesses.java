@@ -36,6 +36,10 @@ public class WindowsProcesses {
    *
    * <p>Appropriately quoting arguments is the responsibility of the caller.
    *
+   * @param argv0 the binary to run; must be a Windows style path (with backslashes) but needs not
+   *     be quoted; may be something on the PATH (e.g. "cmd.exe") or an absolute path, in which case
+   *     it must be normalized
+   * @param argvRest the rest of the command line, i.e. argv[1:] (needs to be quoted Windows style)
    * @param commandLine the command line (needs to be quoted Windows style)
    * @param env the environment of the new process. null means inherit that of the Bazel server
    * @param cwd the working directory of the new process. if null, the same as that of the current
@@ -46,8 +50,8 @@ public class WindowsProcesses {
    *     work.
    * @return the opaque identifier of the created process
    */
-  static native long nativeCreateProcess(String commandLine, byte[] env,
-      String cwd, String stdoutFile, String stderrFile);
+  static native long nativeCreateProcess(
+      String argv0, String argvRest, byte[] env, String cwd, String stdoutFile, String stderrFile);
 
   /**
    * Writes data from the given array to the stdin of the specified process.

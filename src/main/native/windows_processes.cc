@@ -20,6 +20,7 @@
 #include <windows.h>
 
 #include <atomic>
+#include <memory>
 #include <string>
 
 #include "src/main/native/windows_util.h"
@@ -80,34 +81,34 @@ static bool NestedJobsSupported() {
     version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
 }
 
+static std::string GetJavaUTFString(JNIEnv* env, jstring str) {
+  std::string result;
+  if (str != nullptr) {
+    const char* jstr = env->GetStringUTFChars(str, nullptr);
+    result.assign(jstr);
+    env->ReleaseStringUTFChars(str, jstr);
+  }
+  return result;
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
-  JNIEnv *env, jclass clazz, jstring java_commandline, jbyteArray java_env,
-  jstring java_cwd, jstring java_stdout_redirect,
-  jstring java_stderr_redirect) {
-  const char* commandline = env->GetStringUTFChars(java_commandline, NULL);
-  const char* stdout_redirect = NULL;
-  const char* stderr_redirect = NULL;
-  const char* cwd = NULL;
-
-  if (java_stdout_redirect != NULL) {
-    stdout_redirect = env->GetStringUTFChars(java_stdout_redirect, NULL);
-  }
-
-  if (java_stderr_redirect != NULL) {
-    stderr_redirect = env->GetStringUTFChars(java_stderr_redirect, NULL);
-  }
-
-  if (java_cwd != NULL) {
-    cwd = env->GetStringUTFChars(java_cwd, NULL);
-  }
+    JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
+    jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
+    jstring java_stderr_redirect) {
+  // TODO(laszlocsomor): compute the 8dot3 path for java_argv0.
+  std::string commandline = GetJavaUTFString(env, java_argv0) + " " +
+                            GetJavaUTFString(env, java_argv_rest);
+  std::string stdout_redirect = GetJavaUTFString(env, java_stdout_redirect);
+  std::string stderr_redirect = GetJavaUTFString(env, java_stderr_redirect);
+  std::string cwd = GetJavaUTFString(env, java_cwd);
 
   jsize env_size = -1;
   jbyte* env_bytes = NULL;
 
-
-  char* mutable_commandline = new char[strlen(commandline) + 1];
-  strncpy(mutable_commandline, commandline, strlen(commandline) + 1);
+  std::unique_ptr<char[]> mutable_commandline(new char[commandline.size() + 1]);
+  strncpy(mutable_commandline.get(), commandline.c_str(),
+          commandline.size() + 1);
 
   NativeProcess* result = new NativeProcess();
 
@@ -142,17 +143,17 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     goto cleanup;
   }
 
-  if (stdout_redirect != NULL) {
+  if (!stdout_redirect.empty()) {
     result->stdout_.close();
 
     stdout_process = CreateFileA(
-        stdout_redirect,
-        FILE_APPEND_DATA,
-        0,
-        &sa,
-        OPEN_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL);
+        /* lpFileName */ stdout_redirect.c_str(),
+        /* dwDesiredAccess */ FILE_APPEND_DATA,
+        /* dwShareMode */ 0,
+        /* lpSecurityAttributes */ &sa,
+        /* dwCreationDisposition */ OPEN_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
 
     if (stdout_process == INVALID_HANDLE_VALUE) {
       result->error_ = windows_util::GetLastErrorString("CreateFile(stdout)");
@@ -165,19 +166,19 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     }
   }
 
-  if (stderr_redirect != NULL) {
+  if (!stderr_redirect.empty()) {
     result->stderr_.close();
-    if (!strcmp(stdout_redirect, stderr_redirect)) {
+    if (stdout_redirect == stderr_redirect) {
       stderr_process = stdout_process;
     } else {
       stderr_process = CreateFileA(
-          stderr_redirect,
-          FILE_APPEND_DATA,
-          0,
-          &sa,
-          OPEN_ALWAYS,
-          FILE_ATTRIBUTE_NORMAL,
-          NULL);
+          /* lpFileName */ stderr_redirect.c_str(),
+          /* dwDesiredAccess */ FILE_APPEND_DATA,
+          /* dwShareMode */ 0,
+          /* lpSecurityAttributes */ &sa,
+          /* dwCreationDisposition */ OPEN_ALWAYS,
+          /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+          /* hTemplateFile */ NULL);
 
       if (stderr_process == INVALID_HANDLE_VALUE) {
         result->error_ = windows_util::GetLastErrorString("CreateFile(stderr)");
@@ -190,7 +191,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       goto cleanup;
     }
   }
-
 
   // MDSN says that the default for job objects is that breakaway is not
   // allowed. Thus, we don't need to do any more setup here.
@@ -220,18 +220,18 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   startup_info.dwFlags |= STARTF_USESTDHANDLES;
 
   BOOL ok = CreateProcessA(
-      NULL,
-      mutable_commandline,
-      NULL,
-      NULL,
-      TRUE,
-      CREATE_NO_WINDOW  // Don't create a console window
-          | CREATE_NEW_PROCESS_GROUP   // So that Ctrl-Break is not propagated
+      /* lpApplicationName */ NULL,
+      /* lpCommandLine */ mutable_commandline.get(),
+      /* lpProcessAttributes */ NULL,
+      /* lpThreadAttributes */ NULL,
+      /* bInheritHandles */ TRUE,
+      /* dwCreationFlags */ CREATE_NO_WINDOW  // Don't create a console window
+          | CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break is not propagated
           | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
-      env_bytes,
-      cwd,
-      &startup_info,
-      &process_info);
+      /* lpEnvironment */ env_bytes,
+      /* lpCurrentDirectory */ cwd.empty() ? nullptr : cwd.c_str(),
+      /* lpStartupInfo */ &startup_info,
+      /* lpProcessInformation */ &process_info);
 
   if (!ok) {
     result->error_ = windows_util::GetLastErrorString("CreateProcess()");
@@ -289,22 +289,8 @@ cleanup:
     CloseHandle(thread);
   }
 
-  delete[] mutable_commandline;
   if (env_bytes != NULL) {
     env->ReleaseByteArrayElements(java_env, env_bytes, 0);
-  }
-  env->ReleaseStringUTFChars(java_commandline, commandline);
-
-  if (stdout_redirect != NULL) {
-    env->ReleaseStringUTFChars(java_stdout_redirect, stdout_redirect);
-  }
-
-  if (stderr_redirect != NULL) {
-    env->ReleaseStringUTFChars(java_stderr_redirect, stderr_redirect);
-  }
-
-  if (cwd != NULL) {
-    env->ReleaseStringUTFChars(java_cwd, cwd);
   }
 
   return reinterpret_cast<jlong>(result);
