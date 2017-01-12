@@ -99,7 +99,7 @@ public class NestedSetImplTest {
     try {
       NestedSetBuilder.compileOrder().addTransitive(NestedSetBuilder.linkOrder().build()).build();
       fail("Shouldn't be able to include a non-stable order inside a different non-stable order!");
-    } catch (IllegalStateException e) {
+    } catch (IllegalArgumentException e) {
       // Expected.
     }
   }

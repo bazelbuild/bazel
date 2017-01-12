@@ -97,7 +97,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testNsetNestedItemBadOrder() throws Exception {
     checkEvalError(
-        "LINK_ORDER != COMPILE_ORDER",
+        "Order mismatch: LINK_ORDER != COMPILE_ORDER",
         "depset(['a', 'b'], order='compile') + depset(['c', 'd'], order='link')");
   }
 

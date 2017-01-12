@@ -146,6 +146,16 @@ public enum Order {
   }
 
   /**
+   * Determines whether two orders are considered compatible.
+   *
+   * <p>An order is compatible with itself (reflexivity) and all orders are compatible with
+   * {@link #STABLE_ORDER}; the rest of the combinations are incompatible.
+   */
+  public boolean isCompatible(Order other) {
+    return this == other || this == STABLE_ORDER || other == STABLE_ORDER;
+  }
+
+  /**
    * Indexes all possible values by name and stores the results in a {@code ImmutableMap}
    */
   static {

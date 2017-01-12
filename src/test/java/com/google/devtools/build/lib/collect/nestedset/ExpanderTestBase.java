@@ -213,7 +213,7 @@ public abstract class ExpanderTestBase  {
         if (ordering != expanderOrder() && ordering != Order.STABLE_ORDER) {
           fail();  // An exception was expected.
         }
-      } catch (IllegalStateException e) {
+      } catch (IllegalArgumentException e) {
         if (ordering == expanderOrder() || ordering == Order.STABLE_ORDER) {
           fail();  // No exception was expected.
         }
