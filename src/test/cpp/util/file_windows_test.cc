@@ -376,4 +376,36 @@ TEST(FileTest, TestUnlinkPath) {
   ASSERT_EQ(0, rmdir(dir1.c_str()));
 }
 
+TEST(FileTest, TestMakeDirectories) {
+  string tmpdir(GetTestTmpDir());
+  ASSERT_LT(0, tmpdir.size());
+
+  SetEnvironmentVariableA(
+      "BAZEL_SH", (JoinPath(tmpdir, "fake_msys/fake_bash.exe")).c_str());
+  ResetMsysRootForTesting();
+  ASSERT_EQ(0, mkdir(JoinPath(tmpdir, "fake_msys").c_str()));
+  ASSERT_TRUE(IsDirectory(JoinPath(tmpdir, "fake_msys")));
+
+  // Test that we can create come directories, can't create others.
+  ASSERT_FALSE(MakeDirectories("", 0777));
+  ASSERT_FALSE(MakeDirectories("/dev/null", 0777));
+  ASSERT_FALSE(MakeDirectories("c:/", 0777));
+  ASSERT_FALSE(MakeDirectories("c:\\", 0777));
+  ASSERT_FALSE(MakeDirectories("/", 0777));
+  ASSERT_TRUE(MakeDirectories("/foo", 0777));
+  ASSERT_TRUE(MakeDirectories(".", 0777));
+  ASSERT_TRUE(MakeDirectories(tmpdir, 0777));
+  ASSERT_TRUE(MakeDirectories(JoinPath(tmpdir, "dir1/dir2/dir3"), 0777));
+  ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + tmpdir + "/dir4/dir5", 0777));
+
+  // Clean up.
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "fake_msys/foo").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "fake_msys").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1/dir2/dir3").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1/dir2").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4/dir5").c_str()));
+  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4").c_str()));
+}
+
 }  // namespace blaze_util

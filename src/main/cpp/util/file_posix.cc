@@ -34,6 +34,11 @@ namespace blaze_util {
 using std::pair;
 using std::string;
 
+// TODO(bazel-team): implement all functions in file_windows.cc, use them from
+// MSYS, remove file_posix.cc from the `srcs` of
+// //src/main/cpp/util:file when building for MSYS, and remove all
+// #ifndef __CYGWIN__ directives.
+#ifndef __CYGWIN__
 // Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
 // `path` isn't a directory. If check_perms is true, this will also
 // make sure that `path` is owned by the current user and has `mode`
@@ -119,11 +124,6 @@ static bool MakeDirectories(const string &path, mode_t mode, bool childmost) {
   return stat_succeeded;
 }
 
-// TODO(bazel-team): implement all functions in file_windows.cc, use them from
-// MSYS, remove file_posix.cc from the `srcs` of
-// //src/main/cpp/util:file when building for MSYS, and remove all
-// #ifndef __CYGWIN__ directives.
-#ifndef __CYGWIN__
 class PosixPipe : public IPipe {
  public:
   PosixPipe(int recv_socket, int send_socket)
@@ -295,6 +295,7 @@ bool SetMtimeMillisec(const string& path, time_t mtime) {
   return utime(path.c_str(), &times) == 0;
 }
 
+#ifndef __CYGWIN__
 // mkdir -p path. Returns true if the path was created or already exists and
 // could
 // be chmod-ed to exactly the given permissions. If final part of the path is a
@@ -305,7 +306,6 @@ bool MakeDirectories(const string &path, unsigned int mode) {
   return MakeDirectories(path, mode, true);
 }
 
-#ifndef __CYGWIN__
 string GetCwd() {
   char cwdbuf[PATH_MAX];
   if (getcwd(cwdbuf, sizeof cwdbuf) == NULL) {

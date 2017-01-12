@@ -28,6 +28,7 @@
 
 namespace blaze_util {
 
+using std::basic_string;
 using std::pair;
 using std::string;
 using std::unique_ptr;
@@ -53,6 +54,10 @@ static bool UnlinkPathW(const wstring& path);
 
 // Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
 static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
+
+static bool IsRootDirectoryW(const wstring& path);
+
+static bool MakeDirectoriesW(const wstring& path);
 
 // Returns a normalized form of the input `path`.
 //
@@ -161,7 +166,9 @@ IPipe* CreatePipe() {
 // If `must_be_root` is true, then in addition to being absolute, the path must
 // also be just the root part, no other components, e.g. "c:\" is both absolute
 // and root, but "c:\foo" is just absolute.
-static bool IsRootOrAbsolute(const string& path, bool must_be_root) {
+template <typename char_type>
+static bool IsRootOrAbsolute(const basic_string<char_type>& path,
+                             bool must_be_root) {
   // An absolute path is one that starts with "/", "\", "c:/", "c:\",
   // "\\?\c:\", or rarely "\??\c:\" or "\\.\c:\".
   //
@@ -693,14 +700,47 @@ bool SetMtimeMillisec(const string& path, time_t mtime) {
 #else  // not COMPILER_MSVC
 #endif  // COMPILER_MSVC
 
-#ifdef COMPILER_MSVC
-bool MakeDirectories(const string& path, unsigned int mode) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::MakeDirectories is not implemented on Windows");
-  return false;
+static bool IsRootDirectoryW(const wstring& path) {
+  return IsRootOrAbsolute(path, true);
 }
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
+
+static bool MakeDirectoriesW(const wstring& path) {
+  if (path.empty()) {
+    return false;
+  }
+  if (IsRootDirectoryW(path) || IsDirectoryW(path)) {
+    return true;
+  }
+  int last_separator = path.rfind(L"\\");
+  if (last_separator < 0) {
+    // Since `path` is not a root directory, there must be at least one
+    // directory above it.
+    pdie(255, "MakeDirectoriesW(%S), could not find dirname", path.c_str());
+  }
+  wstring parent = path.substr(0, last_separator);
+  if (!MakeDirectoriesW(parent)) {
+    return false;
+  }
+  if (!::CreateDirectoryW(path.c_str(), nullptr)) {
+    PrintError("MakeDirectoriesW(%S), CreateDirectoryW failed, err=%d",
+               path.c_str(), GetLastError());
+    return false;
+  }
+  return true;
+}
+
+bool MakeDirectories(const string& path, unsigned int mode) {
+  // TODO(laszlocsomor): respect `mode` to the extent that it's possible on
+  // Windows; it's currently ignored.
+  if (path.empty() || IsDevNull(path) || IsRootDirectory(path)) {
+    return false;
+  }
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+  return MakeDirectoriesW(wpath);
+}
 
 static unique_ptr<WCHAR[]> GetCwdW() {
   DWORD len = ::GetCurrentDirectoryW(0, nullptr);
