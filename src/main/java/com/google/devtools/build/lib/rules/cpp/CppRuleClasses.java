@@ -198,6 +198,11 @@ public class CppRuleClasses {
   public static final String HEADER_MODULES = "header_modules";
 
   /**
+   * A string constant for the compile_all_modules feature.
+   */
+  public static final String COMPILE_ALL_MODULES = "compile_all_modules";
+
+  /**
    * A string constant for the use_header_modules feature.
    *
    * <p>This feature is only used during rollout; we expect to default enable this once we

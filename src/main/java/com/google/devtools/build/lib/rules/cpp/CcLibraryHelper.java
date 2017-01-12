@@ -1300,7 +1300,8 @@ public final class CcLibraryHelper {
                 publicHeaders.getHeaders(),
                 collectModuleMaps(),
                 additionalExportedHeaders,
-                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES),
+                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+                    || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES),
                 featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
                 featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
                 !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
