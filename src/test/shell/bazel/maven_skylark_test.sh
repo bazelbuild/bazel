@@ -126,6 +126,10 @@ EOF
 
 function test_maven_aar_skylark() {
   setup_android_support
+  if [ -z "$ANDROID_NDK_API_LEVEL" ] || [ -z "$ANDROID_SDK_API_LEVEL" ]; then
+    fail "This test cannot run without Android repositories set up," \
+      "see the WORKSPACE file for instructions"
+  fi
   setup_android_binary
   serve_artifact com.example.carnivore herbivore 1.21 aar
   setup_local_maven_settings_xml "http://localhost:$fileserver_port"
