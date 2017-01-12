@@ -45,11 +45,9 @@ public interface AndroidDataWritingVisitor extends Flushable {
    *
    * @param source The source file to copy.
    * @param relativeDestinationPath The relative destination path to write the resource to.
-   * @throws IOException if there are errors during copying.
-   * @throws MergingException for errors during png crunching.
+   * @throws MergingException for errors during copying.
    */
-  void copyResource(Path source, String relativeDestinationPath)
-      throws IOException, MergingException;
+  void copyResource(Path source, String relativeDestinationPath) throws MergingException;
 
   /**
    * Adds the namespaces associated with a {@link FullyQualifiedName}.

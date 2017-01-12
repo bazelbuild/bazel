@@ -14,17 +14,14 @@
 package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
-import java.io.IOException;
 
 /**
  * Represents an Android Resource parsed from an xml or binary file.
  */
 public interface DataResource extends DataValue {
-  /**
-   * Write as a resource using the supplied {@link AndroidDataWritingVisitor}.
-   */
+  /** Write as a resource using the supplied {@link AndroidDataWritingVisitor}. */
   void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException, MergingException;
+      throws MergingException;
 
   /**
    * Combines these resource together and returns a single resource.

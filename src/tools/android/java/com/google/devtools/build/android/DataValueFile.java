@@ -43,9 +43,7 @@ public class DataValueFile implements DataResource, DataAsset {
     return new DataValueFile(source);
   }
 
-  /**
-   * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
-   */
+  /** Creates a {@link DataValueFile} from a {@link SerializeFormat#DataValue}. */
   public static DataValueFile from(Path source) {
     return of(source);
   }
@@ -82,7 +80,7 @@ public class DataValueFile implements DataResource, DataAsset {
 
   @Override
   public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
-      throws IOException, MergingException {
+      throws MergingException {
     mergedDataWriter.copyResource(source.getPath(), key.toPathString(source.getPath()));
   }
 

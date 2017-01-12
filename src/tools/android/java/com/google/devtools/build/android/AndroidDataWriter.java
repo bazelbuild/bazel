@@ -215,7 +215,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
   @Override
   public void copyResource(final Path source, final String relativeDestinationPath)
-      throws IOException, MergingException {
+      throws MergingException {
     final Path destinationPath = resourceDirectory.resolve(relativeDestinationPath);
     if (!source.getParent().getFileName().toString().startsWith(SdkConstants.FD_RES_RAW)
         && source.getFileName().toString().endsWith(SdkConstants.DOT_PNG)) {
