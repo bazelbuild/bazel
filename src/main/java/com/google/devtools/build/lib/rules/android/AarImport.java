@@ -28,13 +28,10 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -51,12 +48,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class AarImport implements RuleConfiguredTargetFactory {
   private static final String ANDROID_MANIFEST = "AndroidManifest.xml";
   private static final String MERGED_JAR = "classes_and_libs_merged.jar";
-
-  private final JavaSemantics javaSemantics;
-
-  protected AarImport(JavaSemantics javaSemantics) {
-    this.javaSemantics = javaSemantics;
-  }
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
@@ -125,23 +116,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
       }
     }
 
-    ImmutableList<TransitiveInfoCollection> targets =
-        ImmutableList.<TransitiveInfoCollection>copyOf(
-            ruleContext.getPrerequisites("exports", Mode.TARGET));
-    JavaCommon common =
-        new JavaCommon(
-            ruleContext,
-            javaSemantics,
-            /* sources = */ ImmutableList.<Artifact>of(),
-            /* compileDeps = */ targets,
-            /* runtimeDeps = */ targets,
-            /* bothDeps = */ targets);
-    common.setJavaCompilationArtifacts(
-        new JavaCompilationArtifacts.Builder()
-            .addRuntimeJar(mergedJar)
-            .addCompileTimeJar(mergedJar)
-            .build());
-
     return ruleBuilder
         .setFilesToBuild(filesToBuildBuilder.build())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
@@ -153,17 +127,6 @@ public class AarImport implements RuleConfiguredTargetFactory {
                 AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).add(nativeLibs).build()))
         .addProvider(
             JavaRuntimeJarProvider.class, new JavaRuntimeJarProvider(ImmutableList.of(mergedJar)))
-        .addProvider(
-            JavaCompilationArgsProvider.class,
-            JavaCompilationArgsProvider.create(
-                common.collectJavaCompilationArgs(
-                    /* recursive = */ false,
-                    JavaCommon.isNeverLink(ruleContext),
-                    /* srcLessDepsExport = */ false),
-                common.collectJavaCompilationArgs(
-                    /* recursive = */ true,
-                    JavaCommon.isNeverLink(ruleContext),
-                    /* srcLessDepsExport = */ false)))
         .addProvider(JavaRuleOutputJarsProvider.class, jarProviderBuilder.build())
         .build();
   }
