@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
@@ -39,6 +40,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
   }
 
   public static JavaToolchainProvider create(
+      Label label,
       JavaToolchainData data,
       NestedSet<Artifact> bootclasspath,
       NestedSet<Artifact> extclasspath,
@@ -51,6 +53,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions) {
     return new AutoValue_JavaToolchainProvider(
+        label,
         data.getSourceVersion(),
         data.getTargetVersion(),
         bootclasspath,
@@ -72,6 +75,9 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         data.getJvmOptions(),
         data.getJavacSupportsWorkers());
   }
+
+  /** Returns the label for this {@code java_toolchain}. */
+  public abstract Label getToolchainLabel();
 
   /** @return the input Java language level */
   public abstract String getSourceVersion();

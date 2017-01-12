@@ -72,18 +72,20 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             jvmOpts,
             javacSupportsWorkers ? SupportsWorkers.YES : SupportsWorkers.NO);
     final JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
-    JavaToolchainProvider provider = JavaToolchainProvider.create(
-        toolchainData,
-        bootclasspath,
-        extclasspath,
-        configuration.getDefaultJavacFlags(),
-        javac,
-        javabuilder,
-        headerCompiler,
-        singleJar,
-        genClass,
-        ijar,
-        compatibleJavacOptions);
+    JavaToolchainProvider provider =
+        JavaToolchainProvider.create(
+            ruleContext.getLabel(),
+            toolchainData,
+            bootclasspath,
+            extclasspath,
+            configuration.getDefaultJavacFlags(),
+            javac,
+            javabuilder,
+            headerCompiler,
+            singleJar,
+            genClass,
+            ijar,
+            compatibleJavacOptions);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
         .addSkylarkTransitiveInfo(JavaToolchainSkylarkApiProvider.NAME,
             new JavaToolchainSkylarkApiProvider())
