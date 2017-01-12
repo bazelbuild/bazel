@@ -229,7 +229,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "objc_use_dotd_pruning",
-    defaultValue = "false",
+    defaultValue = "true",
     category = "flags",
     help =
         "If set, .d files emited by clang will be used to prune the set of inputs passed into objc "
