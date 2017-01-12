@@ -167,7 +167,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
           verboseFailures,
           sandboxOptions.sandboxDebug);
     } else {
-      return new ProcessWrapperRunner(execRoot, sandboxPath, sandboxExecRoot, verboseFailures);
+      return new ProcessWrapperRunner(execRoot, sandboxExecRoot, verboseFailures);
     }
   }
 
