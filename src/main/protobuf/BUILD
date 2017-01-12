@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "java_proto_library", "cc_grpc_library")
-load("//third_party/protobuf/3.0.0:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf/3.0.0:protobuf.bzl", "cc_proto_library", "py_proto_library")
 
 FILES = [
     "build",
@@ -26,6 +26,14 @@ FILES = [
     name = s + "_java_proto",
     src = s + ".proto",
 ) for s in FILES]
+
+cc_proto_library(
+    name = "worker_protocol_cc_proto",
+    srcs = ["worker_protocol.proto"],
+    include = ".",
+    default_runtime = "//third_party/protobuf:protobuf_clib",
+    protoc = "//third_party/protobuf:protoc",
+)
 
 java_proto_library(
     name = "command_server_java_proto",
