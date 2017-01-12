@@ -56,7 +56,9 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -65,6 +67,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
+  @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Before
   public final void createBuildFile() throws Exception  {
@@ -1083,6 +1086,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+
   public void structsAsDeclaredProvidersTest() throws Exception {
     evalAndExport(
         "data = struct(x = 1)"
@@ -1115,4 +1119,30 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "   pass",
         "aspect(_impl, attr_aspects=['*', 'foo'])");
   }
+
+  @Test
+  public void testMandatoryConfigParameterForExecutableLabels() throws Exception {
+    scratch.file("third_party/foo/extension.bzl",
+      "def _main_rule_impl(ctx):",
+      "    pass",
+      "my_rule = rule(_main_rule_impl,",
+      "    attrs = { ",
+      "        'exe' : attr.label(executable = True, allow_files = True),",
+      "    },",
+      ")"
+    );
+    scratch.file("third_party/foo/BUILD",
+      "load('extension',  'my_rule')",
+      "my_rule(name = 'main', exe = ':tool.sh')"
+    );
+
+    try {
+      createRuleContext("//third_party/foo:main");
+      Assert.fail();
+    } catch (AssertionError e) {
+      assertThat(e.getMessage()).contains("cfg parameter is mandatory when executable=True is "
+          + "provided.");
+    }
+  }
 }
+

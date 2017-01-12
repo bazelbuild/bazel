@@ -1052,7 +1052,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void multipleExecutablesInTarget() throws Exception {
+  public void testMultipleExecutablesInTarget() throws Exception {
     scratch.file("foo/extension.bzl",
         "def _aspect_impl(target, ctx):",
         "   return struct()",
@@ -1061,8 +1061,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "   pass",
         "my_rule = rule(_main_rule_impl,",
         "   attrs = { ",
-        "      'exe1' : attr.label(executable = True, allow_files = True),",
-        "      'exe2' : attr.label(executable = True, allow_files = True),",
+        "      'exe1' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
+        "      'exe2' : attr.label(executable = True, allow_files = True, cfg = 'host'),",
         "   },",
         ")"
     );
@@ -1080,7 +1080,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         update(ImmutableList.<String>of("/foo/extension.bzl%my_aspect"), "//foo:main");
     assertThat(analysisResultOfAspect.hasError()).isFalse();
   }
-
 
   @Test
   public void aspectFragmentAccessSuccess() throws Exception {
@@ -1250,7 +1249,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       ")"
     };
   }
-
 
   @Test
   public void aspectOutputsToBinDirectory() throws Exception {

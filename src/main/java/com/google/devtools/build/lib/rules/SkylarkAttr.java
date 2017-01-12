@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
@@ -159,8 +158,8 @@ public final class SkylarkAttr {
   }
 
   private static Attribute.Builder<?> createAttribute(
-      Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env,
-      Location loc) throws EvalException, ConversionException {
+      Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env)
+      throws EvalException, ConversionException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
     Attribute.Builder<?> builder = Attribute.attr("", type);
@@ -205,11 +204,11 @@ public final class SkylarkAttr {
     if (containsNonNoneKey(arguments, EXECUTABLE_ARG) && (Boolean) arguments.get(EXECUTABLE_ARG)) {
       builder.setPropertyFlag("EXECUTABLE");
       if (!containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
-        String message = "Argument `cfg = \"host\"`, `cfg = \"data\"`, or `cfg = \"target\"` "
-            + "is required if `executable = True` is provided for a label. Please see "
+        throw new EvalException(
+            ast.getLocation(),
+            "cfg parameter is mandatory when executable=True is provided. Please see "
             + "https://www.bazel.build/versions/master/docs/skylark/rules.html#configurations "
-            + "for more details.";
-        env.handleEvent(Event.warn(loc, message));
+            + "for more details.");
       }
     }
 
@@ -325,7 +324,7 @@ public final class SkylarkAttr {
       SkylarkDict<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
       throws EvalException {
     try {
-      return new Descriptor(createAttribute(type, kwargs, ast, env, ast.getLocation()));
+      return new Descriptor(createAttribute(type, kwargs, ast, env));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -356,7 +355,7 @@ public final class SkylarkAttr {
         Preconditions.checkNotNull(maybeGetNonConfigurableReason(type), type);
     try {
       return new Descriptor(
-          createAttribute(type, kwargs, ast, env, ast.getLocation())
+          createAttribute(type, kwargs, ast, env)
               .nonconfigurable(whyNotConfigurableReason));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
@@ -622,8 +621,7 @@ public final class SkylarkAttr {
                     CONFIGURATION_ARG,
                     cfg),
                 ast,
-                env,
-                ast.getLocation());
+                env);
             ImmutableList<SkylarkAspect> skylarkAspects =
                 ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
             return new Descriptor(attribute, skylarkAspects);
@@ -902,7 +900,7 @@ public final class SkylarkAttr {
                   cfg);
           try {
             Attribute.Builder<?> attribute =
-                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env, ast.getLocation());
+                createAttribute(BuildType.LABEL_LIST, kwargs, ast, env);
             ImmutableList<SkylarkAspect> skylarkAspects =
                 ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
             return new Descriptor(attribute, skylarkAspects);
