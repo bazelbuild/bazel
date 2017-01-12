@@ -15,14 +15,26 @@
  */
 package com.android.build.gradle.tasks;
 
+import static com.android.SdkConstants.ANDROID_STYLE_RESOURCE_PREFIX;
+import static com.android.SdkConstants.ANDROID_URI;
+import static com.android.SdkConstants.ATTR_DISCARD;
+import static com.android.SdkConstants.ATTR_KEEP;
 import static com.android.SdkConstants.ATTR_NAME;
+import static com.android.SdkConstants.ATTR_PARENT;
+import static com.android.SdkConstants.ATTR_SHRINK_MODE;
 import static com.android.SdkConstants.ATTR_TYPE;
 import static com.android.SdkConstants.DOT_CLASS;
 import static com.android.SdkConstants.DOT_JAR;
 import static com.android.SdkConstants.DOT_XML;
 import static com.android.SdkConstants.FD_RES_VALUES;
+import static com.android.SdkConstants.PREFIX_ANDROID;
+import static com.android.SdkConstants.PREFIX_RESOURCE_REF;
+import static com.android.SdkConstants.PREFIX_THEME_REF;
+import static com.android.SdkConstants.STYLE_RESOURCE_PREFIX;
 import static com.android.SdkConstants.TAG_ITEM;
 import static com.android.SdkConstants.TAG_RESOURCES;
+import static com.android.SdkConstants.TAG_STYLE;
+import static com.android.SdkConstants.TOOLS_URI;
 import static com.android.utils.SdkUtils.endsWithIgnoreCase;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.objectweb.asm.ClassReader.SKIP_DEBUG;
@@ -39,6 +51,7 @@ import com.android.resources.ResourceType;
 import com.android.tools.lint.checks.ResourceUsageModel;
 import com.android.tools.lint.checks.ResourceUsageModel.Resource;
 import com.android.tools.lint.checks.StringFormatDetector;
+import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.AsmUtils;
 import com.android.utils.Pair;
 import com.android.utils.XmlUtils;
@@ -1173,27 +1186,227 @@ public class ResourceUsageAnalyzer {
       return null;
     }
 
+    @Nullable
+    Resource getResourceFromUrl(@NonNull String possibleUrlReference) {
+      ResourceUrl url = ResourceUrl.parse(possibleUrlReference);
+      if (url != null && !url.framework) {
+        return addResource(url.type, LintUtils.getFieldName(url.name), null);
+      }
+      return null;
+    }
+
+    /**
+     * Records resource declarations and usages within an XML resource file
+     *
+     * @param folderType the type of resource file
+     * @param node the root node to start the recursive search from
+     * @param from a referencing context, if any.
+     */
+    // Override from parent ResourceUsageModel to fix <style> analysis bugs.
+    // TODO(apell): remove this override once the packaged version of ResourceUsageModel includes
+    // these fixes. See inline comments for location of fixes.
     @Override
-    public void recordResourceReferences(ResourceFolderType folderType, Node node, Resource from) {
-      super.recordResourceReferences(folderType, node, from);
-      // The parent class does not consider id declarations in xml files to also be uses, which is
-      // wrong. Fix that behavior here by adding a reference to any id declarations.
-      if (from != null && node.getNodeType() == Node.ELEMENT_NODE) {
-        NamedNodeMap attributes = ((Element) node).getAttributes();
-        for (int i = 0; i < attributes.getLength(); i++) {
-          Attr attr = (Attr) attributes.item(i);
-          if (attr.getValue().startsWith(SdkConstants.PREFIX_RESOURCE_REF)
-              && SdkConstants.ATTR_ID.equals(attr.getLocalName())
-              && SdkConstants.ANDROID_URI.equals(attr.getNamespaceURI())) {
-            ResourceUrl url = ResourceUrl.parse(attr.getValue());
-            if (url != null) {
-              Resource resource = getResource(url.type, url.name);
-              if (resource != null) {
+    public void recordResourceReferences(
+        @NonNull ResourceFolderType folderType, @NonNull Node node, @Nullable Resource from) {
+      short nodeType = node.getNodeType();
+      if (nodeType == Node.ELEMENT_NODE) {
+        Element element = (Element) node;
+        if (from != null) {
+          NamedNodeMap attributes = element.getAttributes();
+          for (int i = 0, n = attributes.getLength(); i < n; i++) {
+            Attr attr = (Attr) attributes.item(i);
+
+            // Ignore tools: namespace attributes, unless it's
+            // a keep attribute
+            if (TOOLS_URI.equals(attr.getNamespaceURI())) {
+              recordToolsAttributes(attr);
+              // Skip all other tools: attributes
+              continue;
+            }
+
+            String value = attr.getValue();
+            if (!(value.startsWith(PREFIX_RESOURCE_REF) || value.startsWith(PREFIX_THEME_REF))) {
+              continue;
+            }
+            ResourceUrl url = ResourceUrl.parse(value);
+            if (url != null && !url.framework) {
+              Resource resource;
+              if (url.create) {
+                resource = declareResource(url.type, url.name, attr);
+                // The parent class does not consider id declarations in xml files to also be uses,
+                // which causes problems with the public.xml file. Modify that behavior here by
+                // adding a reference to any id declarations.
+                // Fix (see method comment): retain this modification when removing override.
                 from.addReference(resource);
+              } else {
+                resource = addResource(url.type, url.name, null);
+                from.addReference(resource);
+              }
+            } else if (value.startsWith("@{")) {
+              // Data binding expression: there could be multiple references here
+              int length = value.length();
+              int index = 2; // skip @{
+              while (true) {
+                index = value.indexOf('@', index);
+                if (index == -1) {
+                  break;
+                }
+                // Find end of (potential) resource URL: first non resource URL character
+                int end = index + 1;
+                while (end < length) {
+                  char c = value.charAt(end);
+                  if (!(Character.isJavaIdentifierPart(c)
+                      || c == '_'
+                      || c == '.'
+                      || c == '/'
+                      || c == '+')) {
+                    break;
+                  }
+                  end++;
+                }
+                url = ResourceUrl.parse(value.substring(index, end));
+                if (url != null && !url.framework) {
+                  Resource resource;
+                  if (url.create) {
+                    resource = declareResource(url.type, url.name, attr);
+                  } else {
+                    resource = addResource(url.type, url.name, null);
+                  }
+                  from.addReference(resource);
+                }
+
+                index = end;
+              }
+            }
+          }
+
+          // Android Wear. We *could* limit ourselves to only doing this in files
+          // referenced from a manifest meta-data element, e.g.
+          // <meta-data android:name="com.google.android.wearable.beta.app"
+          //    android:resource="@xml/wearable_app_desc"/>
+          // but given that that property has "beta" in the name, it seems likely
+          // to change and therefore hardcoding it for that key risks breakage
+          // in the future.
+          if ("rawPathResId".equals(element.getTagName())) {
+            StringBuilder sb = new StringBuilder();
+            NodeList children = node.getChildNodes();
+            for (int i = 0, n = children.getLength(); i < n; i++) {
+              Node child = children.item(i);
+              if (child.getNodeType() == Element.TEXT_NODE
+                  || child.getNodeType() == Element.CDATA_SECTION_NODE) {
+                sb.append(child.getNodeValue());
+              }
+            }
+            if (sb.length() > 0) {
+              Resource resource = getResource(ResourceType.RAW, sb.toString().trim());
+              from.addReference(resource);
+            }
+          }
+        } else {
+          // Look for keep attributes everywhere else since they don't require a source
+          recordToolsAttributes(element.getAttributeNodeNS(TOOLS_URI, ATTR_KEEP));
+          recordToolsAttributes(element.getAttributeNodeNS(TOOLS_URI, ATTR_DISCARD));
+          recordToolsAttributes(element.getAttributeNodeNS(TOOLS_URI, ATTR_SHRINK_MODE));
+        }
+
+        if (folderType == ResourceFolderType.VALUES) {
+
+          Resource definition = null;
+          ResourceType type = getResourceType(element);
+          if (type != null) {
+            String name = getFieldName(element);
+            if (type == ResourceType.PUBLIC) {
+              String typeName = element.getAttribute(ATTR_TYPE);
+              if (!typeName.isEmpty()) {
+                type = ResourceType.getEnum(typeName);
+                if (type != null) {
+                  definition = declareResource(type, name, element);
+                  definition.setPublic(true);
+                }
+              }
+            } else {
+              definition = declareResource(type, name, element);
+            }
+          }
+          if (definition != null) {
+            from = definition;
+          }
+
+          String tagName = element.getTagName();
+          if (TAG_STYLE.equals(tagName)) {
+            if (element.hasAttribute(ATTR_PARENT)) {
+              String parent = element.getAttribute(ATTR_PARENT);
+              // Fix (see method comment): don't treat empty parent tag the same as extending
+              // builtin theme.
+              if (parent.startsWith(ANDROID_STYLE_RESOURCE_PREFIX)
+                  || parent.startsWith(PREFIX_ANDROID)) {
+                // Extending a builtin theme: treat these as used
+                if (definition != null) {
+                  markReachable(definition);
+                }
+              } else if (!parent.isEmpty()) {
+                String parentStyle = parent;
+                if (!parentStyle.startsWith(STYLE_RESOURCE_PREFIX)) {
+                  parentStyle = STYLE_RESOURCE_PREFIX + parentStyle;
+                }
+                Resource ps = getResourceFromUrl(LintUtils.getFieldName(parentStyle));
+                if (ps != null && definition != null) {
+                  // Fix (see method comment): don't create parent to child reference.
+                  definition.addReference(ps);
+                }
+              }
+            } else {
+              // Implicit parent styles by name
+              String name = getFieldName(element);
+              while (true) {
+                int index = name.lastIndexOf('_');
+                if (index != -1) {
+                  name = name.substring(0, index);
+                  Resource ps =
+                      getResourceFromUrl(STYLE_RESOURCE_PREFIX + LintUtils.getFieldName(name));
+                  if (ps != null && definition != null) {
+                    // Fix (see method comment): don't create parent to child reference.
+                    definition.addReference(ps);
+                  }
+                } else {
+                  break;
+                }
+              }
+            }
+          }
+
+          if (TAG_ITEM.equals(tagName)) {
+            // In style? If so the name: attribute can be a reference
+            if (element.getParentNode() != null
+                && element.getParentNode().getNodeName().equals(TAG_STYLE)) {
+              String name = element.getAttributeNS(ANDROID_URI, ATTR_NAME);
+              if (!name.isEmpty() && !name.startsWith("android:")) {
+                Resource resource = getResource(ResourceType.ATTR, name);
+                if (definition == null) {
+                  Element style = (Element) element.getParentNode();
+                  definition = getResource(style);
+                  if (definition != null) {
+                    from = definition;
+                    definition.addReference(resource);
+                  }
+                }
               }
             }
           }
         }
+      } else if (nodeType == Node.TEXT_NODE || nodeType == Node.CDATA_SECTION_NODE) {
+        String text = node.getNodeValue().trim();
+        // Why are we calling getFieldName here? That doesn't make sense! for styles I guess
+        Resource textResource = getResourceFromUrl(LintUtils.getFieldName(text));
+        if (textResource != null && from != null) {
+          from.addReference(textResource);
+        }
+      }
+
+      NodeList children = node.getChildNodes();
+      for (int i = 0, n = children.getLength(); i < n; i++) {
+        Node child = children.item(i);
+        recordResourceReferences(folderType, child, from);
       }
     }
   }
