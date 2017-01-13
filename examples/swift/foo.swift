@@ -4,6 +4,6 @@ public class Foo {
   public init() {}
 
   public func multiply() -> Int {
-    return Multiplier().multiply(Constants.x, Constants.y)
+    return Multiplier().multiply(a: Constants.x, b: Constants.y)
   }
 }
