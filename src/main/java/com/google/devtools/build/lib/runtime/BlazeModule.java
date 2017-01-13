@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -153,16 +152,6 @@ public abstract class BlazeModule {
    */
   @SuppressWarnings("unused")
   public OutputService getOutputService() throws AbruptExitException {
-    return null;
-  }
-
-  /**
-   * Returns an implementation of {@link ActionInputPrefetcher}.
-   *
-   * <p>This method will be called at the beginning of each command (after #beforeCommand).
-   */
-  @SuppressWarnings("unused")
-  public ActionInputPrefetcher getPrefetcher() throws AbruptExitException {
     return null;
   }
 

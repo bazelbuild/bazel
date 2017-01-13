@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.exec.ActionContextProvider;
+import com.google.devtools.build.lib.exec.ActionInputPrefetcher;
 import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.CheckUpToDateFilter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -170,6 +171,7 @@ public class ExecutionTool {
   private final BuildRequest request;
   private BlazeExecutor executor;
   private final ActionInputFileCache fileCache;
+  private final ActionInputPrefetcher prefetcher;
   private final ImmutableList<ActionContextProvider> actionContextProviders;
 
   private Map<String, SpawnActionContext> spawnStrategyMap =
@@ -223,8 +225,13 @@ public class ExecutionTool {
               env.getExecRoot().getPathString(), env.getDirectories().getFileSystem());
     }
     this.fileCache = cache;
+    this.prefetcher = builder.getActionInputPrefetcher();
         
     this.actionContextProviders = builder.getActionContextProviders();
+    for (ActionContextProvider provider : actionContextProviders) {
+      provider.init(fileCache, prefetcher);
+    }
+
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
     for (ActionContextConsumer consumer : builder.getActionContextConsumers()) {
@@ -398,10 +405,7 @@ public class ExecutionTool {
     boolean buildCompleted = false;
     try {
       for (ActionContextProvider actionContextProvider : actionContextProviders) {
-        actionContextProvider.executionPhaseStarting(
-            fileCache,
-            actionGraph,
-            allArtifactsForProviders);
+        actionContextProvider.executionPhaseStarting(actionGraph, allArtifactsForProviders);
       }
       executor.executionPhaseStarting();
       skyframeExecutor.drainChangedFiles();

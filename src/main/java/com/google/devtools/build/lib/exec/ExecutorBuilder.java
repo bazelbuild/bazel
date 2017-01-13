@@ -30,6 +30,7 @@ public class ExecutorBuilder {
   private final List<ActionContextProvider> actionContextProviders = new ArrayList<>();
   private final List<ActionContextConsumer> actionContextConsumers = new ArrayList<>();
   private ActionInputFileCache cache;
+  private ActionInputPrefetcher prefetcher;
 
   // These methods shouldn't be public, but they have to be right now as ExecutionTool is in another
   // package.
@@ -44,6 +45,10 @@ public class ExecutorBuilder {
   @Nullable
   public ActionInputFileCache getActionInputFileCache() {
     return cache;
+  }
+
+  public ActionInputPrefetcher getActionInputPrefetcher() {
+    return prefetcher == null ? ActionInputPrefetcher.NONE : prefetcher;
   }
 
   /**
@@ -79,5 +84,14 @@ public class ExecutorBuilder {
     this.cache = Preconditions.checkNotNull(cache);
     return this;
   }
-}
 
+  /**
+   * Sets the action input prefetcher. Only one module may set the prefetcher. If multiple modules
+   * set it, this method will throw an {@link IllegalStateException}.
+   */
+  public ExecutorBuilder setActionInputPrefetcher(ActionInputPrefetcher prefetcher) {
+    Preconditions.checkState(this.prefetcher == null);
+    this.prefetcher = Preconditions.checkNotNull(prefetcher);
+    return this;
+  }
+}
