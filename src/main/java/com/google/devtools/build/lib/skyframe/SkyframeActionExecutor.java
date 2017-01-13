@@ -908,12 +908,18 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   private static void reportMissingOutputFile(
-      Action action, Artifact output, Reporter reporter, boolean isSymlink) {
+      Action action, Artifact output, Reporter reporter, boolean isSymlink, IOException exception) {
     boolean genrule = action.getMnemonic().equals("Genrule");
     String prefix = (genrule ? "declared output '" : "output '") + output.prettyPrint() + "' ";
+    logger.warning(
+        String.format(
+            "Error creating %s%s%s: %s",
+            isSymlink ? "symlink " : "",
+            prefix,
+            genrule ? " by genrule" : "",
+            exception.getMessage()));
     if (isSymlink) {
       String msg = prefix + "is a dangling symbolic link";
-      logger.warning(msg);
       reporter.handle(Event.error(action.getOwner().getLocation(), msg));
     } else {
       String suffix = genrule ? " by genrule. This is probably "
@@ -958,7 +964,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             reportOutputTreeArtifactErrors(action, output, reporter, e);
           } else {
             // Are all exceptions caught due to missing files?
-            reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink());
+            reportMissingOutputFile(action, output, reporter, output.getPath().isSymbolicLink(), e);
           }
         }
       }
