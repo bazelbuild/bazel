@@ -165,7 +165,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "java_header_compilation",
-    defaultValue = "true",
+    defaultValue = "false",
     category = "semantics",
     help = "Compile ijars directly from source.",
     oldName = "experimental_java_header_compilation"

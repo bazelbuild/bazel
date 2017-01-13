@@ -117,9 +117,6 @@ java_toolchain(
         "-XX:+TieredCompilation",
         "-XX:TieredStopAtLevel=1",
     ],
-    misc = [
-        "-XDskipDuplicateBridges=true",
-    ],
     singlejar = ["//tools/jdk:SingleJar_deploy.jar"],
     source_version = "8",
     target_version = "8",
