@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.Map;
 import java.util.TreeMap;
@@ -35,7 +37,7 @@ public class JarCreator extends JarHelper {
 
   // Map from Jar entry names to files. Use TreeMap so we can establish a canonical order for the
   // entries regardless in what order they get added.
-  private final Map<String, String> jarEntries = new TreeMap<>();
+  private final TreeMap<String, Path> jarEntries = new TreeMap<>();
   private String manifestFile;
   private String mainClass;
 
@@ -47,16 +49,27 @@ public class JarCreator extends JarHelper {
    * Adds an entry to the Jar file, normalizing the name.
    *
    * @param entryName the name of the entry in the Jar file
-   * @param fileName the name of the input file for the entry
+   * @param path the path of the input for the entry
    * @return true iff a new entry was added
    */
-  public boolean addEntry(String entryName, String fileName) {
+  public boolean addEntry(String entryName, Path path) {
     if (entryName.startsWith("/")) {
       entryName = entryName.substring(1);
     } else if (entryName.startsWith("./")) {
       entryName = entryName.substring(2);
     }
-    return jarEntries.put(entryName, fileName) == null;
+    return jarEntries.put(entryName, path) == null;
+  }
+
+  /**
+   * Adds an entry to the Jar file, normalizing the name.
+   *
+   * @param entryName the name of the entry in the Jar file
+   * @param fileName the name of the input file for the entry
+   * @return true iff a new entry was added
+   */
+  public boolean addEntry(String entryName, String fileName) {
+    return addEntry(entryName, Paths.get(fileName));
   }
 
   /**
@@ -82,7 +95,7 @@ public class JarCreator extends JarHelper {
     if (files != null) {
       for (File file : files) {
         String entryName = prefix != null ? prefix + "/" + file.getName() : file.getName();
-        jarEntries.put(entryName, file.getAbsolutePath());
+        jarEntries.put(entryName, file.toPath());
         if (file.isDirectory()) {
           addDirectory(entryName, file);
         }
@@ -100,7 +113,8 @@ public class JarCreator extends JarHelper {
    */
   public void addRootEntries(Collection<String> entries) {
     for (String entry : entries) {
-      jarEntries.put(new File(entry).getName(), entry);
+      Path path = Paths.get(entry);
+      jarEntries.put(path.getFileName().toString(), path);
     }
   }
 
@@ -157,8 +171,8 @@ public class JarCreator extends JarHelper {
     // Create the manifest entry in the Jar file
     writeManifestEntry(manifestContent());
     try {
-      for (Map.Entry<String, String> entry : jarEntries.entrySet()) {
-        copyEntry(entry.getKey(), new File(entry.getValue()));
+      for (Map.Entry<String, Path> entry : jarEntries.entrySet()) {
+        copyEntry(entry.getKey(), entry.getValue());
       }
     } finally {
       out.closeEntry();
