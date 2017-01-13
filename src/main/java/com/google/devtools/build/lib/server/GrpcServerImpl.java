@@ -437,6 +437,54 @@ public class GrpcServerImpl implements RPCServer {
     }
   }
 
+  /**
+   * A thread that watches if the PID file changes and shuts down the server immediately if so.
+   */
+  private class PidFileWatcherThread extends Thread {
+    private boolean shuttingDown = false;
+
+    private PidFileWatcherThread() {
+      super("pid-file-watcher");
+      setDaemon(true);
+    }
+
+    // The synchronized block is here so that if the "PID file deleted" timer kicks in during a
+    // regular shutdown, they don't race.
+    private synchronized void signalShutdown() {
+      shuttingDown = true;
+    }
+
+    @Override
+    public void run() {
+      while (true) {
+        Uninterruptibles.sleepUninterruptibly(5, TimeUnit.SECONDS);
+        boolean ok = false;
+        try {
+          String pidFileContents = new String(FileSystemUtils.readContentAsLatin1(pidFile));
+          ok = pidFileContents.equals(pidInFile);
+        } catch (IOException e) {
+          log.info("Cannot read PID file: " + e.getMessage());
+          // Handled by virtue of ok not being set to true
+        }
+
+        if (!ok) {
+          synchronized (PidFileWatcherThread.this) {
+            if (shuttingDown) {
+              log.warning("PID file deleted or overwritten but shutdown is already in progress");
+              break;
+            }
+
+            shuttingDown = true;
+            // Someone overwrote the PID file. Maybe it's another server, so shut down as quickly
+            // as possible without even running the shutdown hooks (that would delete it)
+            log.severe("PID file deleted or overwritten, exiting as quickly as possible");
+            Runtime.getRuntime().halt(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
+          }
+        }
+      }
+    }
+  }
+
   // These paths are all relative to the server directory
   private static final String PORT_FILE = "command_port";
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
@@ -455,6 +503,9 @@ public class GrpcServerImpl implements RPCServer {
   private final String responseCookie;
   private final AtomicLong interruptCounter = new AtomicLong(0);
   private final int maxIdleSeconds;
+  private final PidFileWatcherThread pidFileWatcherThread;
+  private final Path pidFile;
+  private final String pidInFile;
 
   private Server server;
   private final int port;
@@ -465,7 +516,8 @@ public class GrpcServerImpl implements RPCServer {
     // server.pid was written in the C++ launcher after fork() but before exec() .
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
-    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    pidFile = serverDirectory.getRelative("server.pid.txt");
+    pidInFile = new String(FileSystemUtils.readContentAsLatin1(pidFile));
     deleteAtExit(pidFile, /*deleteParent=*/ false);
 
     this.commandExecutor = commandExecutor;
@@ -486,6 +538,9 @@ public class GrpcServerImpl implements RPCServer {
     SecureRandom random = new SecureRandom();
     requestCookie = generateCookie(random, 16);
     responseCookie = generateCookie(random, 16);
+
+    pidFileWatcherThread = new PidFileWatcherThread();
+    pidFileWatcherThread.start();
   }
 
   private static String generateCookie(SecureRandom random, int byteCount) {
@@ -564,6 +619,32 @@ public class GrpcServerImpl implements RPCServer {
     }
 
     server.shutdown();
+  }
+
+  /**
+   * This is called when the server is shut down as a result of a "clean --expunge".
+   *
+   * <p>In this case, no files should be deleted on shutdown hooks, since clean also deletes the
+   * lock file, and there is a small possibility of the following sequence of events:
+   *
+   * <ol>
+   *   <li> Client 1 runs "blaze clean --expunge"
+   *   <li> Client 2 runs a command and waits for client 1 to finish
+   *   <li> The clean command deletes everything including the lock file
+   *   <li> Client 2 starts running and since the output base is empty, starts up a new server,
+   *     which creates its own socket and PID files
+   *   <li> The server used by client runs its shutdown hooks, deleting the PID files created by
+   *     the new server
+   * </ol>
+   *
+   * It also disables the "die when the PID file changes" handler so that it doesn't kill the server
+   * while the "clean --expunge" commmand is running.
+   */
+
+  @Override
+  public void prepareForAbruptShutdown() {
+    disableShutdownHooks();
+    pidFileWatcherThread.signalShutdown();
   }
 
   @Override
@@ -770,18 +851,9 @@ public class GrpcServerImpl implements RPCServer {
           commandId, e.getMessage()));
     }
 
-    switch (commandExecutor.shutdown()) {
-      case NONE:
-        break;
-
-      case CLEAN:
-        server.shutdown();
-        break;
-
-      case EXPUNGE:
-        disableShutdownHooks();
-        server.shutdown();
-        break;
+    if (commandExecutor.shutdown()) {
+      pidFileWatcherThread.signalShutdown();
+      server.shutdown();
     }
   }
 

@@ -41,4 +41,12 @@ public interface RPCServer {
    * Called when the server receives a SIGINT.
    */
   void interrupt();
+
+  /**
+   * Prepares for the server shutting down prematurely.
+   *
+   * <p>Used in <code>clean --expunge</code> where the server state is deleted from the disk and
+   * we need to make sure that everything works during such an drastic measure.
+   */
+  void prepareForAbruptShutdown();
 }

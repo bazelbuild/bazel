@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
-import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -208,6 +207,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     if (cleanOptions.expunge) {
       LOG.info("Expunging...");
+      env.getRuntime().prepareForAbruptShutdown();
       // Delete the big subdirectories with the important content first--this
       // will take the most time. Then quickly delete the little locks, logs
       // and links right before we exit. Once the lock file is gone there will
@@ -217,6 +217,7 @@ public final class CleanCommand implements BlazeCommand {
       FileSystemUtils.deleteTree(outputBase);
     } else if (cleanOptions.expunge_async) {
       LOG.info("Expunging asynchronously...");
+      env.getRuntime().prepareForAbruptShutdown();
       asyncClean(env, outputBase, "Output base");
     } else {
       LOG.info("Output cleaning...");
@@ -242,7 +243,7 @@ public final class CleanCommand implements BlazeCommand {
         env.getRuntime().getProductName());
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
-      throw new ShutdownBlazeServerException(0, ShutdownMethod.EXPUNGE);
+      throw new ShutdownBlazeServerException(0);
     }
     System.gc();
   }
