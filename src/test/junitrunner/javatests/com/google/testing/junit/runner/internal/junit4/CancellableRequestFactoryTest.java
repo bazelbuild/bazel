@@ -214,11 +214,13 @@ public class CancellableRequestFactoryTest {
     }
   }
 
+  public static class FakeSuite {
+  }
 
-  private static class RunnerSuite extends Suite {
+  public static class RunnerSuite extends Suite {
 
     public RunnerSuite(Runner... runners) throws InitializationError {
-      super(RunnerSuite.class, Arrays.asList(runners));
+      super(FakeSuite.class, Arrays.asList(runners));
     }
   }
 }
