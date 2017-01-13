@@ -90,9 +90,6 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
         return null;
       }
       Target javaHomeTarget = lookup.getTarget(label);
-      if (javaHomeTarget == null) {
-        return null;
-      }
       if ((javaHomeTarget instanceof Rule) &&
           "filegroup".equals(((Rule) javaHomeTarget).getRuleClass())) {
         RawAttributeMapper javaHomeAttributes = RawAttributeMapper.of((Rule) javaHomeTarget);
