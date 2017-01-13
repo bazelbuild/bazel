@@ -17,7 +17,6 @@ package com.google.devtools.build.buildjar;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
-import com.google.common.io.Files;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
@@ -32,6 +31,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -117,30 +122,30 @@ public class SimpleJavaLibraryBuilder {
   }
 
   protected void prepareSourceCompilation(JavaLibraryBuildRequest build) throws IOException {
-    File classDirectory = new File(build.getClassDir());
-    if (classDirectory.exists()) {
+    Path classDirectory = Paths.get(build.getClassDir());
+    if (Files.exists(classDirectory)) {
       try {
         // Necessary for local builds in order to discard previous outputs
-        cleanupOutputDirectory(classDirectory);
+        cleanupDirectory(classDirectory);
       } catch (IOException e) {
         throw new IOException("Cannot clean output directory '" + classDirectory + "'", e);
       }
     }
-    classDirectory.mkdirs();
+    Files.createDirectories(classDirectory);
 
     setUpSourceJars(build);
 
     // Create sourceGenDir if necessary.
     if (build.getSourceGenDir() != null) {
-      File sourceGenDir = new File(build.getSourceGenDir());
-      if (sourceGenDir.exists()) {
+      Path sourceGenDir = Paths.get(build.getSourceGenDir());
+      if (Files.exists(sourceGenDir)) {
         try {
-          cleanupOutputDirectory(sourceGenDir);
+          cleanupDirectory(sourceGenDir);
         } catch (IOException e) {
           throw new IOException("Cannot clean output directory '" + sourceGenDir + "'", e);
         }
       }
-      sourceGenDir.mkdirs();
+      Files.createDirectories(sourceGenDir);
     }
   }
 
@@ -231,9 +236,9 @@ public class SimpleJavaLibraryBuilder {
   private void setUpSourceJars(JavaLibraryBuildRequest build) throws IOException {
     String sourcesDir = build.getTempDir();
 
-    File sourceDirFile = new File(sourcesDir);
-    if (sourceDirFile.exists()) {
-      cleanupDirectory(sourceDirFile, true);
+    Path sourceDirFile = Paths.get(sourcesDir);
+    if (Files.exists(sourceDirFile)) {
+      cleanupDirectory(sourceDirFile);
     }
 
     if (build.getSourceJars().isEmpty()) {
@@ -281,58 +286,24 @@ public class SimpleJavaLibraryBuilder {
     }
   }
 
-  /**
-   * Recursively cleans up the files beneath the specified output directory. Does not follow
-   * symbolic links. Throws IOException if any deletion fails.
-   *
-   * <p>Will delete all empty directories.
-   *
-   * @param dir the directory to clean up.
-   * @return true if the directory itself was removed as well.
-   */
-  boolean cleanupOutputDirectory(File dir) throws IOException {
-    return cleanupDirectory(dir, false);
-  }
+  // TODO(b/27069912): handle symlinks
+  private static void cleanupDirectory(Path dir) throws IOException {
+    Files.walkFileTree(
+        dir,
+        new SimpleFileVisitor<Path>() {
+          @Override
+          public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+              throws IOException {
+            Files.delete(file);
+            return FileVisitResult.CONTINUE;
+          }
 
-  /**
-   * Recursively cleans up the files beneath the specified output directory. Does not follow
-   * symbolic links. Throws IOException if any deletion fails. If removeEverything is false, keeps
-   * .class files if keepClassFilesDuringCleanup() returns true. If removeEverything is true,
-   * removes everything. Will delete all empty directories.
-   *
-   * @param dir the directory to clean up.
-   * @param removeEverything whether to remove all files, or keep flags.xml/.class files.
-   * @return true if the directory itself was removed as well.
-   */
-  private boolean cleanupDirectory(File dir, boolean removeEverything) throws IOException {
-    boolean isEmpty = true;
-    File[] files = dir.listFiles();
-    if (files == null) {
-      return false;
-    } // avoid race condition
-    for (File file : files) {
-      if (file.isDirectory()) {
-        isEmpty &= cleanupDirectory(file, removeEverything);
-      } else if (!removeEverything
-          && keepClassFilesDuringCleanup()
-          && file.getName().endsWith(".class")) {
-        isEmpty = false;
-      } else {
-        file.delete();
-      }
-    }
-    if (isEmpty) {
-      dir.delete();
-    }
-    return isEmpty;
-  }
-
-  /**
-   * Returns true if cleaning the output directory should remove all .class files in the output
-   * directory.
-   */
-  protected boolean keepClassFilesDuringCleanup() {
-    return false;
+          @Override
+          public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+            Files.delete(dir);
+            return FileVisitResult.CONTINUE;
+          }
+        });
   }
 
   /**
@@ -364,7 +335,7 @@ public class SimpleJavaLibraryBuilder {
       if (!entryName.equals(PROTOBUF_META_NAME)) {
         return;
       }
-      Files.copy(new File(sourceDir, PROTOBUF_META_NAME), buffer);
+      Files.copy(Paths.get(sourceDir, PROTOBUF_META_NAME), buffer);
     }
 
     /**
