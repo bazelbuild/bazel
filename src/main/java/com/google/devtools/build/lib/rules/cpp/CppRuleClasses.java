@@ -221,14 +221,6 @@ public class CppRuleClasses {
   public static final String GENERATE_SUBMODULES = "generate_submodules";
 
   /**
-   * A string constant for the transitive_module_maps feature.
-   *
-   * <p>This feature is used temporarily to switch between adding transitive module maps to a
-   * modules enabled build or only adding module maps from direct dependencies.
-   */
-  public static final String TRANSITIVE_MODULE_MAPS = "transitive_module_maps";
-
-  /**
    * A string constant for the no_legacy_features feature.
    *
    * <p>If this feature is enabled, Bazel will not extend the crosstool configuration with the

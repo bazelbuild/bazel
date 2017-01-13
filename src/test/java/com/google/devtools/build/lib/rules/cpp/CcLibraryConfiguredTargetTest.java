@@ -693,54 +693,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCompileUsingHeaderModulesTransitivelyWithTranstiveModuleMaps() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(
-            mockToolsConfig,
-            MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION
-                + "feature { name: 'transitive_module_maps' }");
-    useConfiguration("--cpu=k8", "--features=transitive_module_maps");
-    setupPackagesForModuleTests(/*useHeaderModules=*/true);
-
-    getConfiguredTarget("//nomodule:f");
-    Artifact fObjectArtifact = getBinArtifact("_objs/f/nomodule/f.pic.o", "//nomodule:f");
-    CppCompileAction fObjectAction = (CppCompileAction) getGeneratingAction(fObjectArtifact);
-    // Only the module map of f itself itself and the direct dependencies are needed.
-    assertThat(getNonSystemModuleMaps(fObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("f.cppmap", "//nomodule:f"),
-        getGenfilesArtifact("e.cppmap", "//nomodule:e"));
-
-    getConfiguredTarget("//nomodule:c");
-    Artifact cObjectArtifact = getBinArtifact("_objs/c/nomodule/c.pic.o", "//nomodule:c");
-    CppCompileAction cObjectAction = (CppCompileAction) getGeneratingAction(cObjectArtifact);
-    assertThat(getNonSystemModuleMaps(cObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("b.cppmap", "//module:b"),
-        getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModules(cObjectAction.getContext().getTransitiveModules(true)))
-        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-
-    getConfiguredTarget("//nomodule:d");
-    Artifact dObjectArtifact = getBinArtifact("_objs/d/nomodule/d.pic.o", "//nomodule:d");
-    CppCompileAction dObjectAction = (CppCompileAction) getGeneratingAction(dObjectArtifact);
-    assertThat(getNonSystemModuleMaps(dObjectAction.getInputs())).containsExactly(
-        getGenfilesArtifact("y.cppmap", "//nomodule:y"),
-        getGenfilesArtifact("z.cppmap", "//nomodule:z"),
-        getGenfilesArtifact("a.cppmap", "//nomodule:a"),
-        getGenfilesArtifact("b.cppmap", "//module:b"),
-        getGenfilesArtifact("c.cppmap", "//nomodule:c"),
-        getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModules(dObjectAction.getContext().getTransitiveModules(true)))
-        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
-  }
-
-  @Test
   public void testCompileUsingHeaderModulesTransitively() throws Exception {
     AnalysisMock.get()
         .ccSupport()

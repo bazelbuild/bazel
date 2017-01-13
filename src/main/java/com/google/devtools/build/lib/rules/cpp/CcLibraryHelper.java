@@ -1280,10 +1280,6 @@ public final class CcLibraryHelper {
               ? CppHelper.createDefaultCppModuleMap(ruleContext)
               : injectedCppModuleMap;
       contextBuilder.setCppModuleMap(cppModuleMap);
-      if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
-          && featureConfiguration.isEnabled(CppRuleClasses.TRANSITIVE_MODULE_MAPS)) {
-        contextBuilder.setProvideTransitiveModuleMaps(true);
-      }
       if (createModuleMapActions) {
         // TODO(djasper): The separation of interface and implementation dependencies doesn't work
         // in conjunction with layering_check yet (and never has). In the long run to properly
