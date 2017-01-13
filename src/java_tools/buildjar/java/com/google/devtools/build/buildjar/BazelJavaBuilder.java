@@ -81,11 +81,12 @@ public abstract class BazelJavaBuilder {
   public static int processRequest(List<String> args, PrintWriter err) {
     try {
       JavaLibraryBuildRequest build = parse(args);
-      SimpleJavaLibraryBuilder builder =
+      try (SimpleJavaLibraryBuilder builder =
           build.getDependencyModule().reduceClasspath()
               ? new ReducedClasspathJavaLibraryBuilder()
-              : new SimpleJavaLibraryBuilder();
-      return builder.run(build, err).exitCode;
+              : new SimpleJavaLibraryBuilder()) {
+        return builder.run(build, err).exitCode;
+      }
     } catch (InvalidCommandLineException e) {
       System.err.println(CMDNAME + " threw exception: " + e.getMessage());
       return 1;

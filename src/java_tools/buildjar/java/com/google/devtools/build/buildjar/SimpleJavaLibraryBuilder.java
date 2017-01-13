@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
@@ -25,32 +24,35 @@ import com.google.devtools.build.buildjar.javac.JavacRunner;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.sun.tools.javac.main.Main.Result;
 import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.util.Map;
 
 /** An implementation of the JavaBuilder that uses in-process javac to compile java files. */
-public class SimpleJavaLibraryBuilder {
+public class SimpleJavaLibraryBuilder implements Closeable {
 
   /** The name of the protobuf meta file. */
   private static final String PROTOBUF_META_NAME = "protobuf.meta";
+
   /** Enables more verbose output from the compiler. */
   protected boolean debug = false;
+
+  /** Cache of opened zip filesystems for srcjars. */
+  private static final Map<Path, FileSystem> filesystems = new HashMap<>();
 
   /**
    * Adds a collection of resource entries. Each entry is a string composed of a pair of parts
@@ -106,13 +108,6 @@ public class SimpleJavaLibraryBuilder {
       entry = new File(entry).getParent();
       file = new File(file).getParent();
     }
-  }
-
-  private static List<SourceJarEntryListener> getSourceJarEntryListeners(
-      JavaLibraryBuildRequest build) {
-    return ImmutableList.of(
-        new SourceJavaFileCollector(build),
-        new ProtoMetaFileCollector(build.getTempDir(), build.getClassDir()));
   }
 
   Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
@@ -213,18 +208,36 @@ public class SimpleJavaLibraryBuilder {
     jar.setNormalize(true);
     jar.setCompression(build.compressJar());
 
-    // The easiest way to handle resource jars is to unpack them into the class directory, just
-    // before we start zipping it up.
     for (String resourceJar : build.getResourceJars()) {
-      setUpSourceJar(
-          new File(resourceJar), build.getClassDir(), new ArrayList<SourceJarEntryListener>());
+      for (Path root : getJarFileSystem(Paths.get(resourceJar)).getRootDirectories()) {
+        Files.walkFileTree(
+            root,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                  throws IOException {
+                // TODO(b/28452451): omit directories entries from jar files
+                if (dir.getNameCount() > 0) {
+                  jar.addEntry(root.relativize(dir).toString(), dir);
+                }
+                return FileVisitResult.CONTINUE;
+              }
+
+              @Override
+              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                  throws IOException {
+                jar.addEntry(root.relativize(path).toString(), path);
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      }
     }
 
     jar.addDirectory(build.getClassDir());
 
     jar.addRootEntries(build.getRootResourceFiles());
-    SimpleJavaLibraryBuilder.addResourceEntries(jar, build.getResourceFiles());
-    SimpleJavaLibraryBuilder.addMessageEntries(jar, build.getMessageFiles());
+    addResourceEntries(jar, build.getResourceFiles());
+    addMessageEntries(jar, build.getMessageFiles());
 
     jar.execute();
   }
@@ -245,45 +258,43 @@ public class SimpleJavaLibraryBuilder {
       return;
     }
 
-    List<SourceJarEntryListener> listeners = getSourceJarEntryListeners(build);
+    final ByteArrayOutputStream protobufMetadataBuffer = new ByteArrayOutputStream();
     for (String sourceJar : build.getSourceJars()) {
-      setUpSourceJar(new File(sourceJar), sourcesDir, listeners);
+      for (Path root : getJarFileSystem(Paths.get(sourceJar)).getRootDirectories()) {
+        Files.walkFileTree(
+            root,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                  throws IOException {
+                String fileName = path.getFileName().toString();
+                if (fileName.endsWith(".java")) {
+                  build.getSourceFiles().add(path);
+                } else if (fileName.equals(PROTOBUF_META_NAME)) {
+                  Files.copy(path, protobufMetadataBuffer);
+                }
+                return FileVisitResult.CONTINUE;
+              }
+            });
+      }
     }
-    for (SourceJarEntryListener listener : listeners) {
-      listener.finish();
+    Path output = Paths.get(build.getClassDir(), PROTOBUF_META_NAME);
+    if (protobufMetadataBuffer.size() > 0) {
+      try (OutputStream outputStream = Files.newOutputStream(output)) {
+        protobufMetadataBuffer.writeTo(outputStream);
+      }
+    } else if (Files.exists(output)) {
+      // Delete stalled meta file.
+      Files.delete(output);
     }
   }
 
-  /**
-   * Extracts the source jar into the directory sourceDir. Calls each of the SourceJarEntryListeners
-   * for each non-directory entry to do additional work.
-   */
-  private void setUpSourceJar(
-      File sourceJar, String sourceDir, List<SourceJarEntryListener> listeners) throws IOException {
-    try (ZipFile zipFile = new ZipFile(sourceJar)) {
-      Enumeration<? extends ZipEntry> zipEntries = zipFile.entries();
-      while (zipEntries.hasMoreElements()) {
-        ZipEntry currentEntry = zipEntries.nextElement();
-        String entryName = currentEntry.getName();
-        File outputFile = new File(sourceDir, entryName);
-
-        outputFile.getParentFile().mkdirs();
-
-        if (currentEntry.isDirectory()) {
-          outputFile.mkdir();
-        } else {
-          // Copy the data from the zip file to the output file.
-          try (InputStream in = zipFile.getInputStream(currentEntry);
-              OutputStream out = new FileOutputStream(outputFile)) {
-            ByteStreams.copy(in, out);
-          }
-
-          for (SourceJarEntryListener listener : listeners) {
-            listener.onEntry(currentEntry);
-          }
-        }
-      }
+  private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
+    FileSystem fs = filesystems.get(sourceJar);
+    if (fs == null) {
+      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
     }
+    return fs;
   }
 
   // TODO(b/27069912): handle symlinks
@@ -306,79 +317,10 @@ public class SimpleJavaLibraryBuilder {
         });
   }
 
-  /**
-   * Internal interface which will listen on each entry of the source jar files during the source
-   * jar setup process.
-   */
-  protected interface SourceJarEntryListener {
-    void onEntry(ZipEntry entry) throws IOException;
-
-    void finish() throws IOException;
-  }
-
-  /** A SourceJarEntryListener that collects protobuf meta data files from the source jar files. */
-  private static class ProtoMetaFileCollector implements SourceJarEntryListener {
-
-    private final String sourceDir;
-    private final String outputDir;
-    private final ByteArrayOutputStream buffer;
-
-    public ProtoMetaFileCollector(String sourceDir, String outputDir) {
-      this.sourceDir = sourceDir;
-      this.outputDir = outputDir;
-      this.buffer = new ByteArrayOutputStream();
-    }
-
-    @Override
-    public void onEntry(ZipEntry entry) throws IOException {
-      String entryName = entry.getName();
-      if (!entryName.equals(PROTOBUF_META_NAME)) {
-        return;
-      }
-      Files.copy(Paths.get(sourceDir, PROTOBUF_META_NAME), buffer);
-    }
-
-    /**
-     * Writes the combined the meta files into the output directory. Delete the stalling meta file
-     * if no meta file is collected.
-     */
-    @Override
-    public void finish() throws IOException {
-      File outputFile = new File(outputDir, PROTOBUF_META_NAME);
-      if (buffer.size() > 0) {
-        try (OutputStream outputStream = new FileOutputStream(outputFile)) {
-          buffer.writeTo(outputStream);
-        }
-      } else if (outputFile.exists()) {
-        // Delete stalled meta file.
-        outputFile.delete();
-      }
-    }
-  }
-
-  /**
-   * A SourceJarEntryListener that collects a lists of source Java files from the source jar files.
-   */
-  private static class SourceJavaFileCollector implements SourceJarEntryListener {
-    private final List<String> sources;
-    private final JavaLibraryBuildRequest build;
-
-    public SourceJavaFileCollector(JavaLibraryBuildRequest build) {
-      this.sources = new ArrayList<>();
-      this.build = build;
-    }
-
-    @Override
-    public void onEntry(ZipEntry entry) {
-      String entryName = entry.getName();
-      if (entryName.endsWith(".java")) {
-        sources.add(build.getTempDir() + File.separator + entryName);
-      }
-    }
-
-    @Override
-    public void finish() {
-      build.getSourceFiles().addAll(sources);
+  @Override
+  public void close() throws IOException {
+    for (FileSystem fs : filesystems.values()) {
+      fs.close();
     }
   }
 }
