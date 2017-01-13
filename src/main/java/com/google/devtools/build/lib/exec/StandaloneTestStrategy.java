@@ -176,6 +176,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     // Add the test log to the output
     dataBuilder.addFailedLogs(testLog.toString());
     dataBuilder.addTestTimes(data.getTestTimes(0));
+    dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
     processTestOutput(executor, outErr, new TestResult(action, data, false), testLog);
   }
 
@@ -195,6 +196,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       dataBuilder.setPassedLog(data.getPassedLog());
     }
     dataBuilder.addTestTimes(data.getTestTimes(0));
+    dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
     dataBuilder.setRunDurationMillis(data.getRunDurationMillis());
     if (data.hasTestCase()) {
       dataBuilder.setTestCase(data.getTestCase());
@@ -308,6 +310,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       } finally {
         long duration = executor.getClock().currentTimeMillis() - startTime;
         builder.addTestTimes(duration);
+        builder.addTestProcessTimes(duration);
         builder.setRunDurationMillis(duration);
         if (streamed != null) {
           streamed.close();
