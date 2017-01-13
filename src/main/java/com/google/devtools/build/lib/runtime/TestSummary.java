@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -60,7 +61,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
     private void mergeFrom(TestSummary existingSummary) {
       // Yuck, manually fill in fields.
-      summary.shardRunStatuses = ArrayListMultimap.create(existingSummary.shardRunStatuses);
+      summary.shardRunStatuses =
+          MultimapBuilder.hashKeys().arrayListValues().build(existingSummary.shardRunStatuses);
       setTarget(existingSummary.target);
       setStatus(existingSummary.status);
       addCoverageFiles(existingSummary.coverageFiles);
