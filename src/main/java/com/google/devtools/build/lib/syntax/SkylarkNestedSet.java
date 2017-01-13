@@ -13,22 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -243,9 +243,14 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
   }
 
   /**
-   * Returns the NestedSet embedded in this SkylarkNestedSet if it is of the parameter type.
+   * Returns the embedded {@link NestedSet}, while asserting that its elements all have the given
+   * type.
+   *
+   * @param type a {@link Class} representing the expected type of the contents
+   * @return the {@code NestedSet}, with the appropriate generic type
+   * @throws IllegalArgumentException if the type does not accurately describe all elements
    */
-  // The precondition ensures generic type safety
+  // The precondition ensures generic type safety.
   @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) {
     // Empty sets don't need have to have a type since they don't have items
@@ -254,14 +259,17 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     }
     Preconditions.checkArgument(
         contentType.canBeCastTo(type),
-        String.format(
-            "Expected a depset of '%s' but got a depset of '%s'",
-            EvalUtils.getDataTypeNameFromClass(type), contentType));
+        "Expected a depset of '%s' but got a depset of '%s'",
+        EvalUtils.getDataTypeNameFromClass(type), contentType);
     return (NestedSet<T>) set;
   }
 
-  public Set<?> expandedSet() {
-    return set.toSet();
+  @SkylarkCallable(
+      name = "to_list",
+      doc = "Returns a frozen list of the elements, without duplicates, in the depset's traversal "
+          + "order.")
+  public MutableList<Object> skylarkToList() {
+    return new MutableList<Object>(set, null);
   }
 
   // For some reason this cast is unsafe in Java
@@ -280,7 +288,6 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     return set.isEmpty();
   }
 
-  @VisibleForTesting
   public SkylarkType getContentType() {
     return contentType;
   }
@@ -312,6 +319,6 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
 
   @Override
   public final boolean containsKey(Object key, Location loc) throws EvalException {
-    return (this.expandedSet().contains(key));
+    return (set.toSet().contains(key));
   }
 }

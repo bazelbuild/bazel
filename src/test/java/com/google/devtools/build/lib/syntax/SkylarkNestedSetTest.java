@@ -16,14 +16,15 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,13 +40,25 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval("ds = set([1, 2, 3], order='compile')");
     SkylarkNestedSet ds = get("ds");
     assertThat(ds.getOrder().getName()).isEqualTo("compile");
-    assertThat(ds.expandedSet()).isEqualTo(ImmutableSet.of(1, 2, 3));
+    assertThat(ds.getSet(Object.class)).containsExactly(1, 2, 3);
   }
 
   @Test
   public void testNsetBuilder() throws Exception {
     eval("n = depset(order='stable')");
     assertThat(lookup("n")).isInstanceOf(SkylarkNestedSet.class);
+  }
+
+  @Test
+  public void testGetSet() throws Exception {
+    eval("s = depset(['a', 'b'])");
+    assertThat(get("s").getSet(String.class)).containsExactly("a", "b").inOrder();
+    assertThat(get("s").getSet(Object.class)).containsExactly("a", "b").inOrder();
+    try {
+      get("s").getSet(Integer.class);
+      Assert.fail("getSet() with wrong type should have raised IllegalArgumentException");
+    } catch (IllegalArgumentException expected) {
+    }
   }
 
   @Test
@@ -58,6 +71,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testEmptyNsetGenericType() throws Exception {
     eval("n = depset()");
     assertThat(get("n").getContentType()).isEqualTo(SkylarkType.TOP);
+  }
+
+  @Test
+  public void testNsetHomogeneousGenericType() throws Exception {
+    eval("n = depset(['a', 'b', 'c'])");
+    assertThat(get("n").getContentType()).isEqualTo(SkylarkType.of(String.class));
   }
 
   @Test
@@ -249,6 +268,16 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   private SkylarkNestedSet get(String varname) throws Exception {
     return (SkylarkNestedSet) lookup(varname);
+  }
+
+  @Test
+  public void testToList() throws Exception {
+    eval(
+        "s = depset() + [2, 4, 6] + [3, 4, 5]",
+        "x = s.to_list()");
+    Object value = lookup("x");
+    assertThat(value).isInstanceOf(MutableList.class);
+    assertThat((Iterable<?>) value).containsExactly(2, 4, 6, 3, 5).inOrder();
   }
 
   @Test
