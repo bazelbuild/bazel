@@ -120,33 +120,34 @@ public class BlazeJavacMain {
     setupBlazeJavaCompiler(context);
 
     Result result = Result.ABNORMAL;
+    JavacTool tool = JavacTool.create();
+    JavacTaskImpl task =
+        (JavacTaskImpl)
+            tool.getTask(
+                errOutput,
+                fileManager,
+                diagnosticListener,
+                javacArguments,
+                ImmutableList.<String>of() /*classes*/,
+                fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
+                context);
+    if (arguments.processors() != null) {
+      task.setProcessors(arguments.processors());
+    }
+    fileManager.setContext(context);
+    setLocations(fileManager, arguments);
     try {
-      JavacTool tool = JavacTool.create();
-      JavacTaskImpl task =
-          (JavacTaskImpl)
-              tool.getTask(
-                  errOutput,
-                  fileManager,
-                  diagnosticListener,
-                  javacArguments,
-                  ImmutableList.<String>of() /*classes*/,
-                  fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
-                  context);
-      if (arguments.processors() != null) {
-        task.setProcessors(arguments.processors());
+      try {
+        result = task.doCall();
+      } catch (PropagatedException e) {
+        throw e.getCause();
       }
-      fileManager.setContext(context);
-      setLocations(fileManager, arguments);
-      result = task.doCall();
-    } catch (PropagatedException e) {
-      if (e.getCause() instanceof PluginException) {
-        PluginException pluginException = (PluginException) e.getCause();
-        errOutput.println(pluginException.getMessage());
-        result = pluginException.getResult();
-      } else {
-        e.printStackTrace(errOutput);
-        result = Result.ABNORMAL;
-      }
+    } catch (PluginException e) {
+      errOutput.println(e.getMessage());
+      result = e.getResult();
+    } catch (Throwable t) {
+      t.printStackTrace(errOutput);
+      result = Result.ABNORMAL;
     } finally {
       if (result.isOK()) {
         verifyNotNull(compiler);
