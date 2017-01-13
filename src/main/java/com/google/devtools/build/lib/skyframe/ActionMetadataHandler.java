@@ -380,11 +380,11 @@ public class ActionMetadataHandler implements MetadataHandler {
                 treeFileArtifact.getParent().getExecPathString());
             throw new IOException(errorMessage, e);
           }
-
-          // A minor hack: maybeStoreAdditionalData will force the data to be stored
-          // in additionalOutputData.
-          maybeStoreAdditionalData(treeFileArtifact, fileValue, null);
         }
+
+        // A minor hack: maybeStoreAdditionalData will force the data to be stored
+        // in additionalOutputData.
+        maybeStoreAdditionalData(treeFileArtifact, fileValue, null);
         cachedValue = Preconditions.checkNotNull(
             additionalOutputData.get(treeFileArtifact), treeFileArtifact);
       }
