@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -38,7 +39,7 @@ import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
-import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
+import com.google.devtools.build.lib.rules.objc.AppleCrosstoolSplitTransition;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -111,12 +112,16 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     @Override
     public BuildConfiguration toplevelConfigurationHook(Target toTarget) {
-      return (AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES
-          .contains(toTarget.getAssociatedRule().getRuleClass()))
+      ImmutableList<String> appleCrosstoolRuleClasses = configuration.useDynamicConfigurations()
+          ? AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_DYNAMIC_CONFIGS
+          : AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS;
+
+      return (appleCrosstoolRuleClasses.contains(toTarget.getAssociatedRule().getRuleClass()))
           ? Iterables.getOnlyElement(
               configuration
                   .getTransitions()
-                  .getSplitConfigurations(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION))
+                  .getSplitConfigurations(
+                      AppleCrosstoolSplitTransition.APPLE_CROSSTOOL_SPLIT_TRANSITION))
           : configuration;
     } 
   }

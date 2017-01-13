@@ -43,6 +43,7 @@ public class ObjcLibraryRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(ImplicitOutputsFunction.fromFunctions(
             CompilationSupport.FULLY_LINKED_LIB, XcodeSupport.PBXPROJ))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 

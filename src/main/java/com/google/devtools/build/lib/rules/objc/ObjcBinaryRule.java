@@ -61,6 +61,7 @@ public class ObjcBinaryRule implements RuleDefinition {
             attr("$is_executable", BOOLEAN)
                 .value(true)
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
