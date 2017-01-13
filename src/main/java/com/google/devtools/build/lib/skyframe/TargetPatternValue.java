@@ -221,9 +221,10 @@ public final class TargetPatternValue implements SkyValue {
       if (parsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
         for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
           PackageIdentifier pkgIdForBlacklistedDirectorPrefix = PackageIdentifier.create(
-              parsedPattern.getDirectory().getRepository(),
+              parsedPattern.getDirectoryForTargetsUnderDirectory().getRepository(),
               blacklistedPackagePrefix);
-          if (parsedPattern.containsBelowDirectory(pkgIdForBlacklistedDirectorPrefix)) {
+          if (parsedPattern.containsAllTransitiveSubdirectoriesForTBD(
+              pkgIdForBlacklistedDirectorPrefix)) {
             excludedPathsBuilder.add(blacklistedPackagePrefix);
           }
         }

@@ -144,8 +144,11 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         TargetPatternKey laterTargetPatternKey = (TargetPatternKey) laterSkyKey.argument();
         TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
         if (laterTargetPatternKey.isNegative()
-            && targetPatternKey.getParsedPattern().containsBelowDirectory(laterParsedPattern)) {
-          excludedDirectoriesBuilder.add(laterParsedPattern.getDirectory().getPackageFragment());
+            && laterParsedPattern.getType() == Type.TARGETS_BELOW_DIRECTORY
+            && targetPatternKey.getParsedPattern().containsDirectoryOfTBDForTBD(
+                laterParsedPattern)) {
+          excludedDirectoriesBuilder.add(
+              laterParsedPattern.getDirectoryForTargetsUnderDirectory().getPackageFragment());
         }
       }
     }

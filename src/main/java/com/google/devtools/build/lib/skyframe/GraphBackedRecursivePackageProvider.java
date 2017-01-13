@@ -177,7 +177,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(
           repository, directory);
-      if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
+      if (isTBD
+          && pattern.containsAllTransitiveSubdirectoriesForTBD(
+              packageIdentifier)) {
         inUniverse = true;
         break;
       }

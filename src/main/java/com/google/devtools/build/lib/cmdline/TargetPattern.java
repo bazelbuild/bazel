@@ -172,32 +172,62 @@ public abstract class TargetPattern implements Serializable {
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} and
-   * {@code directory} is contained by or equals this pattern's directory. For example,
-   * returns {@code true} for {@code this = TargetPattern ("//...")} and {@code directory
-   * = "foo")}.
+   * {@code directory} is contained by or equals this pattern's directory.
+   *
+   * <p>For example, returns {@code true} for {@code this = TargetPattern ("//...")} and
+   * {@code directory = "foo")}.
    */
-  public abstract boolean containsBelowDirectory(PackageIdentifier directory);
+  public abstract boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory);
 
   /**
-   * Shorthand for {@code containsBelowDirectory(containedPattern.getDirectory())}.
+   * Returns {@code true} iff both this pattern and {@code containedPattern} have type
+   * {@code Type.TARGETS_BELOW_DIRECTORY} and the directory in question for {@code containedPattern}
+   * is underneath the directory in question for this pattern.
+   *
+   * <p>That is, when this method returns {@code true} it means every target matched by
+   * {@code containedPattern} is also matched by this pattern.
    */
-  public boolean containsBelowDirectory(TargetPattern containedPattern) {
-    return containsBelowDirectory(containedPattern.getDirectory());
+  public boolean containsDirectoryOfTBDForTBD(TargetPattern containedPattern) {
+    return containedPattern.getType() != Type.TARGETS_BELOW_DIRECTORY
+      ? false
+      : containsAllTransitiveSubdirectoriesForTBD(
+          containedPattern.getDirectoryForTargetsUnderDirectory());
   }
 
   /**
-   * Returns a {@link PackageIdentifier} identifying the most specific containing directory of the
-   * patterns that could be matched by this pattern.
+   * For patterns of type {@link Type#TARGETS_BELOW_DIRECTORY}, returns a {@link PackageIdentifier}
+   * identifying the most specific containing directory of the patterns that could be matched by
+   * this pattern.
    *
    * <p>Note that we are using the {@link PackageIdentifier} type as a convenience; there may not
    * actually be a package corresponding to this directory!
    *
-   * <p>For patterns of type {@code Type.TARGETS_BELOW_DIRECTORY}, this returns a
-   * {@link PackageIdentifier} that identifies the referred-to directory. For example, for a
-   * {@code Type.TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this method returns a
-   * {@link PackageIdentifier} for "foo/bar".
+   * <p>This returns a {@link PackageIdentifier} that identifies the referred-to directory. For
+   * example, for a {@link Type#TARGETS_BELOW_DIRECTORY} corresponding to "//foo/bar/...", this
+   * method returns a {@link PackageIdentifier} for "foo/bar".
    */
-  public abstract PackageIdentifier getDirectory();
+  public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
+    throw new IllegalStateException();
+  }
+
+  /**
+   * For patterns of type {@link Type#PATH_AS_TARGET}, returns the path in question.
+   *
+   * <p>The interpretation of this path, of course, depends on the existence of packages.
+   * See {@link InterpretPathAsTarget#eval}.
+   */
+  public String getPathForPathAsTarget() {
+    throw new IllegalStateException();
+  }
+
+  /**
+   * For patterns of type {@link Type#SINGLE_TARGET} and {@link Type#TARGETS_IN_PACKAGE}, returns
+   * the {@link PackageIdentifier} corresponding to the package that would contain the target(s)
+   * matched by this {@link TargetPattern}.
+   */
+  public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
+    throw new IllegalStateException();
+  }
 
   /**
    * Returns {@code true} iff this pattern has type {@code Type.TARGETS_BELOW_DIRECTORY} or
@@ -231,12 +261,12 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return directory;
     }
 
@@ -307,16 +337,13 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
-      int lastSlashIndex = path.lastIndexOf('/');
-      // The package name cannot be illegal because we verified it during target parsing
-      return PackageIdentifier.createInMainRepo(
-          lastSlashIndex < 0 ? "" : path.substring(0, lastSlashIndex));
+    public String getPathForPathAsTarget() {
+      return path;
     }
 
     @Override
@@ -386,12 +413,12 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier directory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier directory) {
       return false;
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetOrTargetsInPackage() {
       return packageIdentifier;
     }
 
@@ -510,7 +537,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public boolean containsBelowDirectory(PackageIdentifier containedDirectory) {
+    public boolean containsAllTransitiveSubdirectoriesForTBD(PackageIdentifier containedDirectory) {
       // Note that merely checking to see if the directory startsWith the TargetsBelowDirectory's
       // directory is insufficient. "food" begins with "foo", but "//foo/..." does not contain
       // "//food/...".
@@ -519,7 +546,7 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public PackageIdentifier getDirectory() {
+    public PackageIdentifier getDirectoryForTargetsUnderDirectory() {
       return directory;
     }
 
