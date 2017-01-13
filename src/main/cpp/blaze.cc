@@ -1660,7 +1660,8 @@ unsigned int GrpcBlazeServer::Communicate() {
   cancel_thread.join();
 
   if (!response.finished()) {
-    fprintf(stderr, "\nServer finished RPC without an explicit exit code\n\n");
+    fprintf(stderr, "\nServer finished RPC without an explicit exit code "
+            "(log file: '%s')\n\n", globals->jvm_log_file.c_str());
     return GetExitCodeForAbruptExit(*globals);
   }
 
