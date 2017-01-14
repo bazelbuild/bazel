@@ -153,7 +153,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     BuildRuleWithDefaultsBuilder ruleBuilder =
         new BuildRuleWithDefaultsBuilder("android_sdk", "sdk")
-            .popuplateAttributes("", false);
+            .populateAttributes("", false);
     androidBuildContents.add(ruleBuilder.build());
     for (BuildRuleBuilder generatedRuleBuilder : ruleBuilder.getRulesToGenerate()) {
       androidBuildContents.add(generatedRuleBuilder.build());
