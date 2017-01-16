@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -23,8 +21,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 
@@ -33,7 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
   name = "cmd_helper",
   namespace = true,
   category = SkylarkModuleCategory.BUILTIN,
-  doc = "Module for creating memory efficient command lines."
+  doc = "Deprecated. Module for creating memory efficient command lines."
 )
 public class SkylarkCommandLine {
 
@@ -42,7 +38,7 @@ public class SkylarkCommandLine {
     objectType = SkylarkCommandLine.class,
     returnType = String.class,
     doc =
-        "Creates a single command line argument joining the paths of a set "
+        "Deprecated. Creates a single command line argument joining the paths of a set "
             + "of files on the separator string.",
     parameters = {
       @Param(name = "separator", type = String.class, doc = "the separator string to join on."),
@@ -62,34 +58,6 @@ public class SkylarkCommandLine {
           return Artifact.joinExecPaths(separator, artifacts);
         }
       };
-
-  // TODO(bazel-team): this method should support sets of objects and substitute all struct fields.
-  @SkylarkSignature(name = "template",
-      doc = "Transforms a set of files to a list of strings using the template string.",
-      objectType = SkylarkCommandLine.class,
-      returnType = MutableList.class,
-      parameters = {
-      @Param(name = "items", type = SkylarkNestedSet.class, generic1 = Artifact.class,
-          doc = "The set of structs to transform."),
-      @Param(name = "template", type = String.class,
-          doc = "The template to use for the transformation, <code>%{path}</code> and "
-              + "<code>%{short_path}</code> being substituted with the corresponding fields of each"
-              + " file.")},
-      useEnvironment = true)
-  private static BuiltinFunction template = new BuiltinFunction("template") {
-    public MutableList invoke(final SkylarkNestedSet items, final String template,
-        Environment env) {
-      return new MutableList(Iterables.transform(items, new Function<Object, String>() {
-        @Override
-        public String apply(Object input) {
-          Artifact artifact = (Artifact) input;
-          return template
-              .replace("%{path}", artifact.getExecPathString())
-              .replace("%{short_path}", artifact.getRootRelativePathString());
-        }
-      }), env);
-    }
-  };
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkCommandLine.class);
