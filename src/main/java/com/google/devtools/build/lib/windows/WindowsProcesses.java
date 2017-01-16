@@ -36,9 +36,9 @@ public class WindowsProcesses {
    *
    * <p>Appropriately quoting arguments is the responsibility of the caller.
    *
-   * @param argv0 the binary to run; must be a Windows style path (with backslashes) but needs not
-   *     be quoted; may be something on the PATH (e.g. "cmd.exe") or an absolute path, in which case
-   *     it must be normalized
+   * @param argv0 the binary to run; must be unquoted; must be either an absolute, normalized
+   *     Windows path with a drive letter (e.g. "c:\foo\bar app.exe") or a single file name (e.g.
+   *     "foo app.exe")
    * @param argvRest the rest of the command line, i.e. argv[1:] (needs to be quoted Windows style)
    * @param commandLine the command line (needs to be quoted Windows style)
    * @param env the environment of the new process. null means inherit that of the Bazel server

@@ -15,7 +15,9 @@
 #define WINVER 0x0601
 #define _WIN32_WINNT 0x0601
 
+#include <ctype.h>
 #include <jni.h>
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -153,14 +155,127 @@ static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
 
 static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }
 
+static void QuotePath(const std::string& path, std::string* result) {
+  *result = std::string("\"") + path + "\"";
+}
+
+// Computes a path suitable as the executable part in CreateProcessA's cmdline.
+//
+// The null-terminated executable path for CreateProcessA has to fit into
+// MAX_PATH, therefore the limit for the executable's path is MAX_PATH - 1
+// (not including null terminator).
+//
+// `path` must be either an absolute, normalized, Windows-style path with drive
+// letter (e.g. "c:\foo\bar.exe", but no "\foo\bar.exe"), or must be just a file
+// name (e.g. "cmd.exe") that's shorter than MAX_PATH (without null-terminator).
+// In both cases, `path` must be unquoted.
+//
+// If this function succeeds, it returns an empty string (indicating no error),
+// and sets `result` to the resulting path, which is always quoted, and is
+// always at most MAX_PATH + 1 long (MAX_PATH - 1 without null terminator, plus
+// two quotes). If there's any error, this function returns the error message.
+//
+// If `path` is at most MAX_PATH - 1 long (not including null terminator), the
+// result will be that (plus quotes).
+// Otherwise this method attempts to compute an 8dot3 style short name for
+// `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
+// including null terminator), then that will be the result (plus quotes).
+// Otherwise this function fails and returns an error message.
+static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
+                                                std::string* result) {
+  std::string spath = GetJavaUTFString(env, path);
+  if (spath.empty()) {
+    return std::string("argv[0] should not be empty");
+  }
+  if (spath[0] == '"') {
+    return std::string("argv[0] should not be quoted");
+  }
+  if (spath[0] == '\\' ||  // absolute, but without drive letter
+      spath.find("/") != std::string::npos ||       // has "/"
+      spath.find("\\.\\") != std::string::npos ||   // not normalized
+      spath.find("\\..\\") != std::string::npos ||  // not normalized
+      // at least MAX_PATH long, but just a file name
+      (spath.size() >= MAX_PATH && spath.find_first_of('\\') == string::npos) ||
+      // not just a file name, but also not absolute
+      (spath.find_first_of('\\') != string::npos &&
+       !(isalpha(spath[0]) && spath[1] == ':' && spath[2] == '\\'))) {
+    return std::string("argv[0]='" + spath +
+                       "'; should have been either an absolute, "
+                       "normalized, Windows-style path with drive letter (e.g. "
+                       "'c:\\foo\\bar.exe'), or just a file name (e.g. "
+                       "'cmd.exe') shorter than MAX_PATH.");
+  }
+  // At this point we know the path is either just a file name (shorter than
+  // MAX_PATH), or an absolute, normalized, Windows-style path (of any length).
+
+  // Fast-track: the path is already short.
+  if (spath.size() < MAX_PATH) {
+    // Quote the path in case it's something like "c:\foo\app name.exe".
+    // Do this unconditionally, there's no harm in quoting. Quotes are not
+    // allowed inside paths so we don't need to escape quotes.
+    QuotePath(spath, result);
+    return "";
+  }
+  // At this point we know that the path is at least MAX_PATH long and that it's
+  // absolute, normalized, and Windows-style.
+
+  // Retrieve string as UTF-16 path, add "\\?\" prefix.
+  std::wstring wlong = std::wstring(L"\\\\?\\") + GetJavaWstring(env, path);
+
+  // Experience shows that:
+  // - GetShortPathNameW's result has a "\\?\" prefix if and only if the input
+  //   did too (though this behavior is not documented on MSDN)
+  // - CreateProcess{A,W} only accept an executable of MAX_PATH - 1 length
+  // Therefore for our purposes the acceptable shortened length is
+  // MAX_PATH + 4 (null-terminated). That is, MAX_PATH - 1 for the shortened
+  // path, plus a potential "\\?\" prefix that's only there if `wlong` also had
+  // it and which we'll omit from `result`, plus a null terminator.
+  static const size_t kMaxShortPath = MAX_PATH + 4;
+
+  WCHAR wshort[kMaxShortPath];
+  DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
+  if (wshort_size == 0) {
+    return windows_util::GetLastErrorString(
+        std::string("GetShortPathName failed (path=") + spath + ")");
+  }
+
+  if (wshort_size >= kMaxShortPath) {
+    return windows_util::GetLastErrorString(
+        std::string(
+            "GetShortPathName would not shorten the path enough (path=") +
+        spath + ")");
+  }
+
+  // Convert the result to UTF-8.
+  char mbs_short[MAX_PATH];
+  size_t mbs_size = wcstombs(
+      mbs_short,
+      wshort + 4,  // we know it has a "\\?\" prefix, because `wlong` also did
+      MAX_PATH);
+  if (mbs_size < 0 || mbs_size >= MAX_PATH) {
+    return std::string("wcstombs failed (path=") + spath + ")";
+  }
+  mbs_short[mbs_size - 1] = 0;
+
+  QuotePath(mbs_short, result);
+  return "";
+}
+
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
     JNIEnv* env, jclass clazz, jstring java_argv0, jstring java_argv_rest,
     jbyteArray java_env, jstring java_cwd, jstring java_stdout_redirect,
     jstring java_stderr_redirect) {
-  // TODO(laszlocsomor): compute the 8dot3 path for java_argv0.
-  std::string commandline = GetJavaUTFString(env, java_argv0) + " " +
-                            GetJavaUTFString(env, java_argv_rest);
+  NativeProcess* result = new NativeProcess();
+
+  std::string argv0;
+  std::string error_msg(AsExecutableForCreateProcess(env, java_argv0, &argv0));
+  if (!error_msg.empty()) {
+    result->error_ = error_msg;
+    return PtrAsJlong(result);
+  }
+
+  std::string commandline = argv0 + " " + GetJavaUTFString(env, java_argv_rest);
   std::wstring stdout_redirect =
       AddUncPrefixMaybe(GetJavaWstring(env, java_stdout_redirect));
   std::wstring stderr_redirect =
@@ -170,8 +285,6 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   std::unique_ptr<char[]> mutable_commandline(new char[commandline.size() + 1]);
   strncpy(mutable_commandline.get(), commandline.c_str(),
           commandline.size() + 1);
-
-  NativeProcess* result = new NativeProcess();
 
   SECURITY_ATTRIBUTES sa = {0};
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);

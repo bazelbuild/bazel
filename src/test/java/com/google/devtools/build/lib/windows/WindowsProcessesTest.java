@@ -47,7 +47,7 @@ public class WindowsProcessesTest {
   public void loadJni() throws Exception {
     mockSubprocess = WindowsTestUtil.getRunfile(
         "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
-    mockBinary = System.getProperty("java.home") + "/bin/java";
+    mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     WindowsJniLoader.loadJni();
 

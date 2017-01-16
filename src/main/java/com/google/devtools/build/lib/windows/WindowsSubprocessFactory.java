@@ -18,6 +18,7 @@ import com.google.common.base.Charsets;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -39,7 +40,9 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
     WindowsJniLoader.loadJni();
 
     List<String> argv = builder.getArgv();
-    String argv0 = WindowsProcesses.quoteCommandLine(argv.subList(0, 1));
+
+    // DO NOT quote argv0, nativeCreateProcess will do it for us.
+    String argv0 = processArgv0(argv.get(0));
     String argvRest =
         argv.size() > 1 ? WindowsProcesses.quoteCommandLine(argv.subList(1, argv.size())) : "";
     byte[] env = builder.getEnv() == null ? null : convertEnvToNative(builder.getEnv());
@@ -62,6 +65,21 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
         stdoutPath != null,
         stderrPath != null,
         builder.getTimeoutMillis());
+  }
+
+  public String processArgv0(String argv0) {
+    // Normalize the path and make it Windows-style.
+    // If argv0 is longer than MAX_PATH (260 chars), createNativeProcess calls GetShortPathNameW to
+    // obtain a 8dot3 name for it (thereby support long paths in CreateProcessA), but then argv0
+    // must be prefixed with "\\?\" for GetShortPathNameW to work, so it also must be an absolute,
+    // normalized, Windows-style path.
+    // Therefore if it's absolute, then normalize it also.
+    // If it's not absolute, then it cannot be longer than MAX_PATH, since MAX_PATH also limits the
+    // length of file names.
+    PathFragment argv0fragment = new PathFragment(argv0);
+    return (argv0fragment.isAbsolute())
+        ? argv0fragment.normalize().getPathString().replace('/', '\\')
+        : argv0;
   }
 
   private String getRedirectPath(StreamAction action, File file) {

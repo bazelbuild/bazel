@@ -78,15 +78,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "windows",
-    srcs = glob(["windows/*.java"]),
-    deps = [
-        ":shell",
-        "//third_party:guava",
-    ],
-)
-
 # Library of concurrency utilities.
 java_library(
     name = "concurrent",
@@ -134,6 +125,7 @@ java_library(
     srcs = glob([
         "profiler/*.java",
         "vfs/*.java",
+        "windows/*.java",
     ]),
     visibility = ["//visibility:public"],
     deps = [
@@ -142,8 +134,8 @@ java_library(
         ":concurrent",
         ":os_util",
         ":preconditions",
+        ":shell",
         ":unix",
-        ":windows",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -272,7 +264,6 @@ java_library(
         ":shell",
         ":unix",
         ":vfs",
-        ":windows",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -1012,7 +1003,6 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
-        ":windows",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
