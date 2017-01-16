@@ -28,4 +28,7 @@
 @rem sh_path=$($cygpath_path -m $launcher)
 @for /f %%i in ('%cygpath_path% -m %launcher%') do @set sh_path=%%i
 
-@call %bash_path% -c "%sh_path% %*"
+@rem replaces $ with \$ in $*, then puts it on the command line
+@rem Cribbed from here: http://ss64.com/nt/syntax-replace.html
+@set all_args=%*
+@call %bash_path% -c "'%sh_path%' %all_args:$=\$%"
