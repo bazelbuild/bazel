@@ -22,6 +22,7 @@
 #include <windows.h>
 
 #include <atomic>
+#include <functional>
 #include <memory>
 #include <string>
 #include <type_traits>  // static_assert
@@ -163,12 +164,16 @@ static void QuotePath(const std::string& path, std::string* result) {
 //
 // The null-terminated executable path for CreateProcessA has to fit into
 // MAX_PATH, therefore the limit for the executable's path is MAX_PATH - 1
-// (not including null terminator).
+// (not including null terminator). This method attempts to convert the input
+// `path` to a short format to fit it into the MAX_PATH - 1 limit.
 //
 // `path` must be either an absolute, normalized, Windows-style path with drive
 // letter (e.g. "c:\foo\bar.exe", but no "\foo\bar.exe"), or must be just a file
 // name (e.g. "cmd.exe") that's shorter than MAX_PATH (without null-terminator).
 // In both cases, `path` must be unquoted.
+//
+// `path_as_wstring` must be a function that retrieves `path` as (or converts it
+// to) a wstring, without performing any transformations on the path.
 //
 // If this function succeeds, it returns an empty string (indicating no error),
 // and sets `result` to the resulting path, which is always quoted, and is
@@ -181,25 +186,26 @@ static void QuotePath(const std::string& path, std::string* result) {
 // `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
 // including null terminator), then that will be the result (plus quotes).
 // Otherwise this function fails and returns an error message.
-static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
-                                                std::string* result) {
-  std::string spath = GetJavaUTFString(env, path);
-  if (spath.empty()) {
+static std::string AsExecutablePathForCreateProcess(
+    const std::string& path, std::function<std::wstring()> path_as_wstring,
+    std::string* result) {
+  if (path.empty()) {
     return std::string("argv[0] should not be empty");
   }
-  if (spath[0] == '"') {
+  if (path[0] == '"') {
     return std::string("argv[0] should not be quoted");
   }
-  if (spath[0] == '\\' ||  // absolute, but without drive letter
-      spath.find("/") != std::string::npos ||       // has "/"
-      spath.find("\\.\\") != std::string::npos ||   // not normalized
-      spath.find("\\..\\") != std::string::npos ||  // not normalized
+  if (path[0] == '\\' ||  // absolute, but without drive letter
+      path.find("/") != std::string::npos ||       // has "/"
+      path.find("\\.\\") != std::string::npos ||   // not normalized
+      path.find("\\..\\") != std::string::npos ||  // not normalized
       // at least MAX_PATH long, but just a file name
-      (spath.size() >= MAX_PATH && spath.find_first_of('\\') == string::npos) ||
+      (path.size() >= MAX_PATH &&
+       path.find_first_of('\\') == std::string::npos) ||
       // not just a file name, but also not absolute
-      (spath.find_first_of('\\') != string::npos &&
-       !(isalpha(spath[0]) && spath[1] == ':' && spath[2] == '\\'))) {
-    return std::string("argv[0]='" + spath +
+      (path.find_first_of('\\') != std::string::npos &&
+       !(isalpha(path[0]) && path[1] == ':' && path[2] == '\\'))) {
+    return std::string("argv[0]='" + path +
                        "'; should have been either an absolute, "
                        "normalized, Windows-style path with drive letter (e.g. "
                        "'c:\\foo\\bar.exe'), or just a file name (e.g. "
@@ -209,18 +215,18 @@ static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
   // MAX_PATH), or an absolute, normalized, Windows-style path (of any length).
 
   // Fast-track: the path is already short.
-  if (spath.size() < MAX_PATH) {
+  if (path.size() < MAX_PATH) {
     // Quote the path in case it's something like "c:\foo\app name.exe".
     // Do this unconditionally, there's no harm in quoting. Quotes are not
     // allowed inside paths so we don't need to escape quotes.
-    QuotePath(spath, result);
+    QuotePath(path, result);
     return "";
   }
   // At this point we know that the path is at least MAX_PATH long and that it's
   // absolute, normalized, and Windows-style.
 
   // Retrieve string as UTF-16 path, add "\\?\" prefix.
-  std::wstring wlong = std::wstring(L"\\\\?\\") + GetJavaWstring(env, path);
+  std::wstring wlong = std::wstring(L"\\\\?\\") + path_as_wstring();
 
   // Experience shows that:
   // - GetShortPathNameW's result has a "\\?\" prefix if and only if the input
@@ -236,14 +242,14 @@ static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
   DWORD wshort_size = ::GetShortPathNameW(wlong.c_str(), NULL, 0);
   if (wshort_size == 0) {
     return windows_util::GetLastErrorString(
-        std::string("GetShortPathName failed (path=") + spath + ")");
+        std::string("GetShortPathName failed (path=") + path + ")");
   }
 
   if (wshort_size >= kMaxShortPath) {
     return windows_util::GetLastErrorString(
         std::string(
             "GetShortPathName would not shorten the path enough (path=") +
-        spath + ")");
+        path + ")");
   }
 
   // Convert the result to UTF-8.
@@ -253,12 +259,19 @@ static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
       wshort + 4,  // we know it has a "\\?\" prefix, because `wlong` also did
       MAX_PATH);
   if (mbs_size < 0 || mbs_size >= MAX_PATH) {
-    return std::string("wcstombs failed (path=") + spath + ")";
+    return std::string("wcstombs failed (path=") + path + ")";
   }
   mbs_short[mbs_size - 1] = 0;
 
   QuotePath(mbs_short, result);
   return "";
+}
+
+static std::string AsExecutableForCreateProcess(JNIEnv* env, jstring path,
+                                                std::string* result) {
+  return AsExecutablePathForCreateProcess(
+      GetJavaUTFString(env, path),
+      [env, path]() { return GetJavaWstring(env, path); }, result);
 }
 
 extern "C" JNIEXPORT jlong JNICALL
