@@ -695,6 +695,7 @@ def _impl(repository_ctx):
 
 my_repo = repository_rule(_impl)
 EOF
+  touch BUILD
 
   bazel build //external:reg &> $TEST_log || fail "Couldn't build repo"
 }
