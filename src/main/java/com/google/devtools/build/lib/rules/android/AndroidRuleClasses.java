@@ -399,6 +399,7 @@ public final class AndroidRuleClasses {
                   .mandatory())
           .add(
               attr(":java_toolchain", LABEL)
+                  .useOutputLicenses()
                   .allowedRuleClasses("java_toolchain")
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
           .build();

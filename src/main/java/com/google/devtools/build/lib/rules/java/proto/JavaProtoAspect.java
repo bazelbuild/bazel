@@ -134,6 +134,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
             .add(
                 attr(":java_toolchain", LABEL)
+                    .useOutputLicenses()
                     .allowedRuleClasses("java_toolchain")
                     .value(JavaSemantics.JAVA_TOOLCHAIN));
 

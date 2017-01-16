@@ -618,6 +618,37 @@ public class LicensingTests extends BuildViewTestCase {
   }
 
   @Test
+  public void testJavaToolchainOutputLicense() throws Exception {
+    scratch.file("java/a/BUILD",
+        "java_toolchain(",
+        "  name = 'toolchain',",
+        "  licenses = ['restricted'],",
+        "  output_licenses = ['unencumbered'],",
+        "  encoding = 'UTF-8',",
+        "  source_version = '8',",
+        "  target_version = '8',",
+        "  bootclasspath = [':bcp'],",
+        "  extclasspath = [':ecp'],",
+        "  javac = [':langtools'],",
+        "  javabuilder = ['javabuilder'],",
+        "  header_compiler = ['header_compiler'],",
+        "  singlejar = ['singlejar'],",
+        "  genclass = ['genclass'],",
+        "  ijar = ['ijar'])",
+        "java_binary(",
+        "  name = 'a',",
+        "  srcs = ['a.java'])");
+
+    useConfiguration("--java_toolchain=//java/a:toolchain", "--check_licenses");
+
+    ConfiguredTarget bin = getConfiguredTarget("//java/a:a");
+    Map<Label, License> licenses = getTransitiveLicenses(bin);
+    License toolchainLicense = licenses.get(Label.parseAbsoluteUnchecked("//java/a:toolchain"));
+    assertThat(toolchainLicense).isNotEqualTo(License.parseLicense(ImmutableList.of("restricted")));
+    assertThat(toolchainLicense).isEqualTo(License.parseLicense(ImmutableList.of("unencumbered")));
+  }
+
+  @Test
   public void testTargetLicenseEquality() throws Exception {
     Label label1 = Label.parseAbsolute("//foo");
     Label label2 = Label.parseAbsolute("//bar");

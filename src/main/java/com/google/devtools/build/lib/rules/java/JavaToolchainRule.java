@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -39,6 +40,11 @@ public final class JavaToolchainRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class)
+        /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
+        See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
+        </code></a>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("output_licenses", LICENSE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(source_version) -->
         The Java source version (e.g., '6' or '7'). It specifies which set of code structures
         are allowed in the Java source code.
