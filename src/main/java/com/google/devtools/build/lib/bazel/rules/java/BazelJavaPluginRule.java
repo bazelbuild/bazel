@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.java;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
@@ -51,6 +52,11 @@ public final class BazelJavaPluginRule implements RuleDefinition {
         java.util.ServiceLoader</a>.)
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("processor_class", STRING))
+        /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(output_licenses) -->
+        See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
+        </code></a>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("output_licenses", LICENSE))
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(generates_api) -->
         This attribute marks annotation processors that generate API code.
         <p>If a rule uses an API-generating annotation processor, other rules

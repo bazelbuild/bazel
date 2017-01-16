@@ -306,6 +306,7 @@ java_test(
 java_library(
     name = "analysis_testutil",
     srcs = glob([
+        "analysis/LicensingTests.java",
         "analysis/mock/BazelAnalysisMock.java",
         "analysis/util/*.java",
         "exec/util/*.java",
