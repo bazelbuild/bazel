@@ -1047,10 +1047,6 @@ public final class JavaCompileAction extends AbstractAction {
       // aggregation code below should go away.
       final String pathSeparator = configuration.getHostPathSeparator();
       List<String> jcopts = new ArrayList<>(javacOpts);
-      JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
-      if (!javaConfiguration.getJavaWarns().isEmpty()) {
-        jcopts.add("-Xlint:" + Joiner.on(',').join(javaConfiguration.getJavaWarns()));
-      }
       if (!bootclasspathEntries.isEmpty()) {
         jcopts.add("-bootclasspath");
         jcopts.add(Artifact.joinExecPaths(pathSeparator, bootclasspathEntries));
@@ -1068,6 +1064,7 @@ public final class JavaCompileAction extends AbstractAction {
       }
 
       // Invariant: if java_classpath is set to 'off', dependencyArtifacts are ignored
+      JavaConfiguration javaConfiguration = configuration.getFragment(JavaConfiguration.class);
       if (javaConfiguration.getReduceJavaClasspath() == JavaClasspathMode.OFF) {
         compileTimeDependencyArtifacts.clear();
       }

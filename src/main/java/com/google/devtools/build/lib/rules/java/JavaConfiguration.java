@@ -131,7 +131,6 @@ public final class JavaConfiguration extends Fragment {
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final JavaClasspathMode javaClasspath;
-  private final ImmutableList<String> javaWarns;
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
@@ -160,7 +159,6 @@ public final class JavaConfiguration extends Fragment {
     this.headerCompilationDirectClasspath = javaOptions.headerCompilationDirectClasspath;
     this.generateJavaDeps = generateJavaDeps;
     this.javaClasspath = javaOptions.javaClasspath;
-    this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
@@ -233,13 +231,6 @@ public final class JavaConfiguration extends Fragment {
 
   public JavaClasspathMode getReduceJavaClasspath() {
     return javaClasspath;
-  }
-
-  /**
-   * Returns the extra warnings enabled for Java compilation.
-   */
-  public ImmutableList<String> getJavaWarns() {
-    return javaWarns;
   }
 
   public ImmutableList<String> getDefaultJvmFlags() {

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
-import com.google.devtools.common.options.Converters.StringSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.TriState;
@@ -40,43 +39,6 @@ import java.util.Set;
  * Command-line options for building Java targets
  */
 public class JavaOptions extends FragmentOptions {
-
-  /**
-   * Converter for the --javawarn option.
-   */
-  public static class JavacWarnConverter extends StringSetConverter {
-    public JavacWarnConverter() {
-      super("all",
-            "cast",
-            "-cast",
-            "deprecation",
-            "-deprecation",
-            "divzero",
-            "-divzero",
-            "empty",
-            "-empty",
-            "fallthrough",
-            "-fallthrough",
-            "finally",
-            "-finally",
-            "none",
-            "options",
-            "-options",
-            "overrides",
-            "-overrides",
-            "path",
-            "-path",
-            "processing",
-            "-processing",
-            "rawtypes",
-            "-rawtypes",
-            "serial",
-            "-serial",
-            "unchecked",
-            "-unchecked"
-            );
-    }
-  }
 
   /** Converter for the --java_classpath option. */
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
@@ -139,14 +101,6 @@ public class JavaOptions extends FragmentOptions {
       help = "Additional options to pass to the Java VM. These options will get added to the "
           + "VM startup options of each java_binary target.")
   public List<String> jvmOpts;
-
-  @Option(name = "javawarn",
-      converter = JavacWarnConverter.class,
-      defaultValue = "",
-      category = "flags",
-      allowMultiple = true,
-      help = "Additional javac warnings to enable when compiling Java source files.")
-  public List<String> javaWarns;
 
   @Option(name = "use_ijars",
       defaultValue = "true",

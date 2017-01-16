@@ -1450,25 +1450,6 @@ $ bazel fetch //...
   </li>
 </ul>
 
-<h4 id='flag--javawarn'><code class='flag'>--javawarn (all|cast|deprecation|empty|unchecked|fallthrough|path|rawtypes|serial|finally|overrides)</code></h4>
-<p>
-  This option is used to enable Java warnings across an entire build. It takes
-  an argument which is a javac warning to be enabled, overriding any other Java
-  options that disable the given warning. The arguments to this option are
-  appended to the "-Xlint:" flag to javac, and must be exactly one of
-  the listed warnings.
-</p>
-<p>
-  For example:
-</p>
-<pre>
-  % bazel build --javawarn="deprecation" --javawarn="unchecked" //java/...
-</pre>
-<p>
-  Note that changing <code class='flag'>--javawarn</code> settings will force a recompilation
-  of all affected classes.
-</p>
-
 <h3 id='semantics-options'>Semantics options</h3>
 <p>
   These options affect the build commands and/or the output file contents.
