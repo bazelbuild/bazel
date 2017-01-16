@@ -68,7 +68,6 @@ public final class CppModel {
 
   // compile model
   private CppCompilationContext context;
-  private CppCompilationContext interfaceContext;
   private final Set<CppSource> sourceFiles = new LinkedHashSet<>();
   private final List<Artifact> mandatoryInputs = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
@@ -133,15 +132,6 @@ public final class CppModel {
    */
   public CppModel setContext(CppCompilationContext context) {
     this.context = context;
-    return this;
-  }
-  
-  /**
-   * Sets the compilation context, i.e. include directories and allowed header files inclusions, for
-   * the compilation of this model's interface, e.g. header module.
-   */
-  public CppModel setInterfaceContext(CppCompilationContext context) {
-    this.interfaceContext = context;
     return this;
   }
 
@@ -329,9 +319,8 @@ public final class CppModel {
    * initialized.
    */
   private CppCompileActionBuilder initializeCompileAction(
-      Artifact sourceArtifact, Label sourceLabel, boolean forInterface) {
-    CppCompileActionBuilder builder =
-        createCompileActionBuilder(sourceArtifact, sourceLabel, forInterface);
+      Artifact sourceArtifact, Label sourceLabel) {
+    CppCompileActionBuilder builder = createCompileActionBuilder(sourceArtifact, sourceLabel);
     if (nocopts != null) {
       builder.addNocopts(nocopts);
     }
@@ -482,8 +471,7 @@ public final class CppModel {
     if (shouldProvideHeaderModules()) {
       Artifact moduleMapArtifact = context.getCppModuleMap().getArtifact();
       Label moduleMapLabel = Label.parseAbsoluteUnchecked(context.getCppModuleMap().getName());
-      CppCompileActionBuilder builder =
-          initializeCompileAction(moduleMapArtifact, moduleMapLabel, /*forInterface=*/ true);
+      CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact, moduleMapLabel);
 
       builder.setSemantics(semantics);
       
@@ -510,8 +498,7 @@ public final class CppModel {
       Label sourceLabel = source.getLabel();
       String outputName = FileSystemUtils.removeExtension(
           semantics.getEffectiveSourcePath(sourceArtifact)).getPathString();
-      CppCompileActionBuilder builder =
-          initializeCompileAction(sourceArtifact, sourceLabel, /*forInterface=*/ false);
+      CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact, sourceLabel);
 
       builder.setSemantics(semantics);
       
@@ -1026,15 +1013,14 @@ public final class CppModel {
   }
 
   /**
-   * Creates a basic cpp compile action builder for source file. Configures options,
-   * crosstool inputs, output and dotd file names, compilation context and copts.
+   * Creates a basic cpp compile action builder for source file. Configures options, crosstool
+   * inputs, output and dotd file names, compilation context and copts.
    */
-  private CppCompileActionBuilder createCompileActionBuilder(
-      Artifact source, Label label, boolean forInterface) {
+  private CppCompileActionBuilder createCompileActionBuilder(Artifact source, Label label) {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(
         ruleContext, source, label);
 
-    builder.setContext(forInterface ? interfaceContext : context).addCopts(copts);
+    builder.setContext(context).addCopts(copts);
     builder.addEnvironment(CppHelper.getToolchain(ruleContext).getEnvironment());
     return builder;
   }

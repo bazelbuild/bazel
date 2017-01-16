@@ -381,17 +381,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * Creates a new builder for a {@link CppCompilationContext} instance.
      */
     public Builder(RuleContext ruleContext) {
-      this(ruleContext, /*forInterface=*/ false);
-    }
-
-    /**
-     * Creates a new builder for a {@link CppCompilationContext} instance.
-     *
-     * @param forInterface if true, this context is designated for the compilation of an interface.
-     */
-    public Builder(RuleContext ruleContext, boolean forInterface) {
       this.ruleContext = ruleContext;
-      this.purpose = forInterface ? "cpp_interface_prerequisites" : "cpp_compilation_prerequisites";
     }
 
     /**

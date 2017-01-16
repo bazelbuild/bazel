@@ -263,8 +263,7 @@ public final class CcLibraryHelper {
   private final List<String> linkopts = new ArrayList<>();
   @Nullable private Pattern nocopts;
   private final Set<String> defines = new LinkedHashSet<>();
-  private final List<TransitiveInfoCollection> implementationDeps = new ArrayList<>();
-  private final List<TransitiveInfoCollection> interfaceDeps = new ArrayList<>();
+  private final List<TransitiveInfoCollection> deps = new ArrayList<>();
   private final List<CppCompilationContext> depContexts = new ArrayList<>();
   private final NestedSetBuilder<Artifact> linkstamps = NestedSetBuilder.stableOrder();
   private final List<PathFragment> looseIncludeDirs = new ArrayList<>();
@@ -611,48 +610,13 @@ public final class CcLibraryHelper {
       Preconditions.checkArgument(dep.getConfiguration() == null
           || configuration.equalsOrIsSupersetOf(dep.getConfiguration()),
           "dep " + dep.getLabel() + " has a different config than " + ruleContext.getLabel());
-      this.implementationDeps.add(dep);
-      this.interfaceDeps.add(dep);
+      this.deps.add(dep);
     }
     return this;
   }
 
   public CcLibraryHelper addDepContext(CppCompilationContext dep) {
     this.depContexts.add(Preconditions.checkNotNull(dep));
-    return this;
-  }
-
-  /**
-   * Similar to @{link addDeps}, but adds the given targets as implementation dependencies.
-   * Implementation dependencies are required to actually build a target, but are not required to
-   * build the target's interface, e.g. header module. Thus, implementation dependencies are always
-   * a superset of interface dependencies. Whatever is required to build the interface is also
-   * required to build the implementation.
-   */
-  public CcLibraryHelper addImplementationDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      Preconditions.checkArgument(
-          dep.getConfiguration() == null
-              || configuration.equalsOrIsSupersetOf(dep.getConfiguration()),
-          "dep " + dep.getLabel() + " has a different config than " + ruleContext.getLabel());
-      this.implementationDeps.add(dep);
-    }
-    return this;
-  }
-
-  /**
-   * Similar to @{link addDeps}, but adds the given targets as interface dependencies. Interface
-   * dependencies are required to actually build a target's interface, but are not required to build
-   * the target itself.
-   */
-  public CcLibraryHelper addInterfaceDeps(Iterable<? extends TransitiveInfoCollection> deps) {
-    for (TransitiveInfoCollection dep : deps) {
-      Preconditions.checkArgument(
-          dep.getConfiguration() == null
-              || configuration.equalsOrIsSupersetOf(dep.getConfiguration()),
-          "dep " + dep.getLabel() + " has a different config than " + ruleContext.getLabel());
-      this.interfaceDeps.add(dep);
-    }
     return this;
   }
 
@@ -876,33 +840,15 @@ public final class CcLibraryHelper {
 
     if (checkDepsGenerateCpp) {
       for (LanguageDependentFragment dep :
-          AnalysisUtils.getProviders(implementationDeps, LanguageDependentFragment.class)) {
+          AnalysisUtils.getProviders(deps, LanguageDependentFragment.class)) {
         LanguageDependentFragment.Checker.depSupportsLanguage(
             ruleContext, dep, CppRuleClasses.LANGUAGE);
       }
     }
 
     CppModel model = initializeCppModel();
-    CppCompilationContext cppCompilationContext = null;
-    CppCompilationContext interfaceCompilationContext = null;
-    // If we actually have different interface deps, we need a separate compilation context
-    // for the interface. Otherwise, we can just re-use the normal cppCompilationContext.
-    // As implemenationDeps is a superset of interfaceDeps, comparing the size proves equality.
-    if (implementationDeps.size() != interfaceDeps.size()) {
-      interfaceCompilationContext =
-          initializeCppCompilationContext(
-              model, /*forInterface=*/ true, /*createModuleMapActions=*/ true);
-      cppCompilationContext =
-          initializeCppCompilationContext(
-              model, /*forInterface=*/ false, /*createModuleMapActions=*/ false);
-    } else {
-      cppCompilationContext =
-          initializeCppCompilationContext(
-              model, /*forInterface=*/ false, /*createModuleMapActions=*/ true);
-      interfaceCompilationContext = cppCompilationContext;
-    }
+    CppCompilationContext cppCompilationContext = initializeCppCompilationContext(model);
     model.setContext(cppCompilationContext);
-    model.setInterfaceContext(interfaceCompilationContext);
 
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
@@ -983,7 +929,7 @@ public final class CcLibraryHelper {
     }
 
     DwoArtifactsCollector dwoArtifacts =
-        DwoArtifactsCollector.transitiveCollector(ccOutputs, implementationDeps);
+        DwoArtifactsCollector.transitiveCollector(ccOutputs, deps);
     Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true);
     Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
 
@@ -993,7 +939,7 @@ public final class CcLibraryHelper {
         TransitiveInfoProviderMap.builder()
             .add(
                 new CppRunfilesProvider(cppStaticRunfiles, cppSharedRunfiles),
-                interfaceCompilationContext,
+                cppCompilationContext,
                 new CppDebugFileProvider(
                     dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()),
                 collectTransitiveLipoInfo(ccOutputs));
@@ -1202,15 +1148,11 @@ public final class CcLibraryHelper {
             ruleContext.getUniqueDirectory("_virtual_includes")));
   }
 
-  /**
-   * Create context for cc compile action from generated inputs.
-   */
-  private CppCompilationContext initializeCppCompilationContext(
-      CppModel model, boolean forInterface, boolean createModuleMapActions) {
+  /** Create context for cc compile action from generated inputs. */
+  private CppCompilationContext initializeCppCompilationContext(CppModel model) {
     PublicHeaders publicHeaders = computePublicHeaders();
 
-    CppCompilationContext.Builder contextBuilder =
-        new CppCompilationContext.Builder(ruleContext, forInterface);
+    CppCompilationContext.Builder contextBuilder = new CppCompilationContext.Builder(ruleContext);
 
     // Setup the include path; local include directories come before those inherited from deps or
     // from the toolchain; in case of aliasing (same include file found on different entries),
@@ -1238,8 +1180,7 @@ public final class CcLibraryHelper {
     }
 
     contextBuilder.mergeDependentContexts(
-        AnalysisUtils.getProviders(
-            forInterface ? interfaceDeps : implementationDeps, CppCompilationContext.class));
+        AnalysisUtils.getProviders(deps, CppCompilationContext.class));
     contextBuilder.mergeDependentContexts(depContexts);
     CppHelper.mergeToolchainDependentContext(ruleContext, contextBuilder);
 
@@ -1280,36 +1221,26 @@ public final class CcLibraryHelper {
               ? CppHelper.createDefaultCppModuleMap(ruleContext)
               : injectedCppModuleMap;
       contextBuilder.setCppModuleMap(cppModuleMap);
-      if (createModuleMapActions) {
-        // TODO(djasper): The separation of interface and implementation dependencies doesn't work
-        // in conjunction with layering_check yet (and never has). In the long run to properly
-        // support layering_check together with interface/implementation dependencies, we need to
-        // write two modules to the module map, one with the headers and interface dependencies, the
-        // other with no headers, the implementation dependencies and an extra dependency on the
-        // first module. This division of two modules then needs to be properly used by the CppModel
-        // creating the CppCompileActions.
-        CppModuleMapAction action =
-            new CppModuleMapAction(
-                ruleContext.getActionOwner(),
-                cppModuleMap,
-                privateHeaders,
-                publicHeaders.getHeaders(),
-                collectModuleMaps(),
-                additionalExportedHeaders,
-                featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
-                    || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES),
-                featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-                featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
-                !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-        ruleContext.registerAction(action);
-        if (model.getGeneratesPicHeaderModule()) {
-          contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
-        }
-        if (model.getGeneratesNoPicHeaderModule()) {
-          contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
-        }
+      CppModuleMapAction action =
+          new CppModuleMapAction(
+              ruleContext.getActionOwner(),
+              cppModuleMap,
+              privateHeaders,
+              publicHeaders.getHeaders(),
+              collectModuleMaps(),
+              additionalExportedHeaders,
+              featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+                  || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES),
+              featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
+              featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
+              !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
+      ruleContext.registerAction(action);
+      if (model.getGeneratesPicHeaderModule()) {
+        contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
       }
-
+      if (model.getGeneratesNoPicHeaderModule()) {
+        contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
+      }
     }
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
@@ -1320,14 +1251,13 @@ public final class CcLibraryHelper {
    * Creates context for cc compile action from generated inputs.
    */
   public CppCompilationContext initializeCppCompilationContext() {
-    return initializeCppCompilationContext(
-        initializeCppModel(), /*forInterface=*/ false, /*createModuleMapActions=*/ true);
+    return initializeCppCompilationContext(initializeCppModel());
   }
 
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result = new ArrayList<>();
-    Iterables.addAll(result, Iterables.transform(interfaceDeps, CPP_DEPS_TO_MODULES));
+    Iterables.addAll(result, Iterables.transform(deps, CPP_DEPS_TO_MODULES));
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       CppCompilationContext stl =
           ruleContext.getPrerequisite(":stl", Mode.TARGET, CppCompilationContext.class);
@@ -1375,7 +1305,7 @@ public final class CcLibraryHelper {
     }
 
     for (TransitiveLipoInfoProvider dep :
-        AnalysisUtils.getProviders(implementationDeps, TransitiveLipoInfoProvider.class)) {
+        AnalysisUtils.getProviders(deps, TransitiveLipoInfoProvider.class)) {
       scannableBuilder.addTransitive(dep.getTransitiveIncludeScannables());
     }
 
@@ -1390,8 +1320,8 @@ public final class CcLibraryHelper {
       CcLinkingOutputs ccLinkingOutputs, boolean linkingStatically) {
     Runfiles.Builder builder = new Runfiles.Builder(
         ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
-    builder.addTargets(implementationDeps, RunfilesProvider.DEFAULT_RUNFILES);
-    builder.addTargets(implementationDeps, CppRunfilesProvider.runfilesFunction(linkingStatically));
+    builder.addTargets(deps, RunfilesProvider.DEFAULT_RUNFILES);
+    builder.addTargets(deps, CppRunfilesProvider.runfilesFunction(linkingStatically));
     // Add the shared libraries to the runfiles.
     builder.addArtifacts(ccLinkingOutputs.getLibrariesForRunfiles(linkingStatically));
     return builder.build();
@@ -1406,7 +1336,7 @@ public final class CcLibraryHelper {
           CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
         builder.addLinkstamps(linkstamps.build(), cppCompilationContext);
         builder.addTransitiveTargets(
-            implementationDeps,
+            deps,
             CcLinkParamsProvider.TO_LINK_PARAMS,
             CcSpecificLinkParamsProvider.TO_LINK_PARAMS);
         if (!neverlink) {
@@ -1423,7 +1353,7 @@ public final class CcLibraryHelper {
     NestedSetBuilder<LinkerInput> result = NestedSetBuilder.linkOrder();
     result.addAll(ccLinkingOutputs.getDynamicLibraries());
     for (CcNativeLibraryProvider dep :
-        AnalysisUtils.getProviders(implementationDeps, CcNativeLibraryProvider.class)) {
+        AnalysisUtils.getProviders(deps, CcNativeLibraryProvider.class)) {
       result.addTransitive(dep.getTransitiveCcNativeLibraries());
     }
 
@@ -1440,7 +1370,7 @@ public final class CcLibraryHelper {
 
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (CcExecutionDynamicLibrariesProvider dep :
-        AnalysisUtils.getProviders(implementationDeps, CcExecutionDynamicLibrariesProvider.class)) {
+        AnalysisUtils.getProviders(deps, CcExecutionDynamicLibrariesProvider.class)) {
       builder.addTransitive(dep.getExecutionDynamicLibraryArtifacts());
     }
     return builder.isEmpty()
