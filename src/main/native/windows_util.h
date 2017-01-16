@@ -19,15 +19,48 @@
 
 #include <jni.h>
 
+#include <functional>
 #include <memory>
 #include <string>
 
 namespace windows_util {
 
+using std::function;
 using std::string;
 using std::unique_ptr;
+using std::wstring;
 
 string GetLastErrorString(const string& cause);
+
+// Computes a path suitable as the executable part in CreateProcessA's cmdline.
+//
+// The null-terminated executable path for CreateProcessA has to fit into
+// MAX_PATH, therefore the limit for the executable's path is MAX_PATH - 1
+// (not including null terminator). This method attempts to convert the input
+// `path` to a short format to fit it into the MAX_PATH - 1 limit.
+//
+// `path` must be either an absolute, normalized, Windows-style path with drive
+// letter (e.g. "c:\foo\bar.exe", but no "\foo\bar.exe"), or must be just a file
+// name (e.g. "cmd.exe") that's shorter than MAX_PATH (without null-terminator).
+// In both cases, `path` must be unquoted.
+//
+// `path_as_wstring` must be a function that retrieves `path` as (or converts it
+// to) a wstring, without performing any transformations on the path.
+//
+// If this function succeeds, it returns an empty string (indicating no error),
+// and sets `result` to the resulting path, which is always quoted, and is
+// always at most MAX_PATH + 1 long (MAX_PATH - 1 without null terminator, plus
+// two quotes). If there's any error, this function returns the error message.
+//
+// If `path` is at most MAX_PATH - 1 long (not including null terminator), the
+// result will be that (plus quotes).
+// Otherwise this method attempts to compute an 8dot3 style short name for
+// `path`, and if that succeeds and the result is at most MAX_PATH - 1 long (not
+// including null terminator), then that will be the result (plus quotes).
+// Otherwise this function fails and returns an error message.
+string AsExecutablePathForCreateProcess(const string& path,
+                                        function<wstring()> path_as_wstring,
+                                        string* result);
 
 }  // namespace windows_util
 
