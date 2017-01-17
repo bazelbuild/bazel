@@ -25,7 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -40,9 +40,9 @@ public class MavenServerRepositoryFunction extends RepositoryFunction {
 
   @Nullable
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException, InterruptedException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
+      throws SkyFunctionException, InterruptedException {
     throw new RepositoryFunctionException(new EvalException(
         rule.getLocation(),
         "maven_server rule '" + rule.getName() + "' does not represent an actual repository"),

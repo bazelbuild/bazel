@@ -31,6 +31,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Create a repository from a directory on the local filesystem.
@@ -43,8 +44,8 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
 
     NewRepositoryBuildFileHandler buildFileHandler =

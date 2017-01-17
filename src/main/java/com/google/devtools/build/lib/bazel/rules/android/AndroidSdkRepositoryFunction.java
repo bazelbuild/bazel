@@ -65,8 +65,8 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
 
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);

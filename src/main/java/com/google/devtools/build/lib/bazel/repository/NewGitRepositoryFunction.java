@@ -21,14 +21,15 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Map;
 
 /**
  * Clones a Git repository, creates a WORKSPACE file, and adds a BUILD file for it.
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     NewRepositoryBuildFileHandler buildFileHandler =
         new NewRepositoryBuildFileHandler(directories.getWorkspace());

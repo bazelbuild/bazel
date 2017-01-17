@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -43,9 +43,9 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
   @Nullable
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws RepositoryFunctionException, InterruptedException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
     NewRepositoryBuildFileHandler buildFileHandler =
         new NewRepositoryBuildFileHandler(directories.getWorkspace());
     if (!buildFileHandler.prepareBuildFile(rule, env)) {

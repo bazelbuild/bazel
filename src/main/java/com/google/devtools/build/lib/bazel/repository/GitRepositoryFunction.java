@@ -26,6 +26,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Clones a Git repository.
@@ -38,8 +39,8 @@ public class GitRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment);

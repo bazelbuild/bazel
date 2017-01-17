@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Implementation of maven_jar.
@@ -91,9 +91,9 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws RepositoryFunctionException, InterruptedException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
       return null;

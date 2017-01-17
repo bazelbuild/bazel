@@ -28,12 +28,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for @{link RepositoryFunction}
@@ -48,9 +47,9 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
   static class TestingRepositoryFunction extends RepositoryFunction {
     @Nullable
     @Override
-    public SkyValue fetch(
-        Rule rule, Path outputDirectory, BlazeDirectories directories, SkyFunction.Environment env)
-            throws SkyFunctionException, InterruptedException {
+    public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+        SkyFunction.Environment env, Map<String, String> markerData)
+        throws SkyFunctionException, InterruptedException {
       return null;
     }
 
@@ -95,5 +94,24 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     String workspaceContent = new String(
         FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
     assertThat(workspaceContent).contains("workspace(name = \"abc\")");
+  }
+
+  private static void assertMarkerFileEscaping(String testCase) {
+    String escaped = RepositoryDelegatorFunction.escape(testCase);
+    assertThat(RepositoryDelegatorFunction.unescape(escaped)).isEqualTo(testCase);
+  }
+
+  @Test
+  public void testMarkerFileEscaping() throws Exception {
+    assertMarkerFileEscaping(null);
+    assertMarkerFileEscaping("\\0");
+    assertMarkerFileEscaping("a\\0");
+    assertMarkerFileEscaping("a b");
+    assertMarkerFileEscaping("a b c");
+    assertMarkerFileEscaping("a \\b");
+    assertMarkerFileEscaping("a \\nb");
+    assertMarkerFileEscaping("a \\\\nb");
+    assertMarkerFileEscaping("a \\\nb");
+    assertMarkerFileEscaping("a \nb");
   }
 }

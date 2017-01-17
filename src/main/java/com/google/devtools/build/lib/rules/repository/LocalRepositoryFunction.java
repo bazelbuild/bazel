@@ -24,6 +24,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Access a repository on the local filesystem.
@@ -36,8 +37,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
     try {

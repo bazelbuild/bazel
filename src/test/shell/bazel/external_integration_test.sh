@@ -295,9 +295,16 @@ EOF
 
 function test_cached_across_server_restart() {
   http_archive_helper zip_up
+  local marker_file=$(bazel info output_base)/external/\@endangered.marker
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   bazel shutdown >& $TEST_log || fail "Couldn't shut down"
   bazel run //zoo:breeding-program >& $TEST_log --show_progress_rate_limit=0 \
     || echo "Expected build/run to succeed"
+  echo "<MARKER>"
+  cat "${marker_file}"
+  echo "</MARKER>"
   expect_log $what_does_the_fox_say
   expect_not_log "Downloading from"
 }

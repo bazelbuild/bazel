@@ -77,8 +77,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);

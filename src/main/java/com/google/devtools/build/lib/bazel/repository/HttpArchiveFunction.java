@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Downloads a file over HTTP.
@@ -58,9 +58,9 @@ public class HttpArchiveFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(
-      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws RepositoryFunctionException, InterruptedException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
+      Environment env, Map<String, String> markerData)
+      throws RepositoryFunctionException, InterruptedException {
     // The output directory is always under output_base/external (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
     // remote repository rules. For example, suppose you had the following WORKSPACE file:
