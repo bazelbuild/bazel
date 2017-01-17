@@ -987,6 +987,7 @@ java_library(
             "runtime/*.java",
             "server/**/*.java",
             "runtime/commands/*.java",
+            "runtime/mobileinstall/*.java",
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
@@ -1032,7 +1033,10 @@ java_library(
 
 java_library(
     name = "bazel",
-    resources = glob(["runtime/commands/*.txt"]),
+    resources = glob([
+        "runtime/commands/*.txt",
+        "runtime/mobileinstall/*.txt",
+    ]),
     exports = [":runtime"],
 )
 
