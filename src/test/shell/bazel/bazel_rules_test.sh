@@ -382,29 +382,6 @@ EOF
  expect_log "The number is 42"
 }
 
-function test_python_runfiles() {
-  create_new_workspace
-  cd "${new_workspace_dir}"
-  mkdir py
-  cat > py/BUILD <<EOF
-py_binary(name="a", srcs=["a.py"], data=["foobar"])
-EOF
-
-  cat > py/a.py <<EOF
-import os
-
-for l in file(os.environ["RUNFILES_DIR"] + "/__main__/py/foobar").readlines():
-  print l
-EOF
-
-  echo KITTEN > py/foobar
-
-  bazel build //py:a || fail "build failed"
-  bazel-bin/py/a >&$TEST_log || fail "run failed"
-  expect_log KITTEN
-
-}
-
 function test_build_with_aliased_input_file() {
   mkdir -p a
   cat > a/BUILD <<EOF

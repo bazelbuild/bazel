@@ -65,7 +65,6 @@ public class BaseSpawnTest {
         .putAll(baseEnviron)
         .put("PYTHON_RUNFILES", runfilesDir)
         .put("JAVA_RUNFILES", runfilesDir)
-        .put("RUNFILES_DIR", runfilesDir)
         .build();
 
     assertThat(underTest.getEnvironment()).isEqualTo(expected);
@@ -83,7 +82,6 @@ public class BaseSpawnTest {
         .putAll(baseEnviron)
         .put("PYTHON_RUNFILES", runfilesDir)
         .put("JAVA_RUNFILES", runfilesDir)
-        .put("RUNFILES_DIR", runfilesDir)
         .build();
 
     assertThat(underTest.getEnvironment()).isEqualTo(expected);

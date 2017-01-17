@@ -248,7 +248,6 @@ public class StandaloneTestStrategy extends TestStrategy {
     String testSrcDir = runfilesDir.relativeTo(execRoot).getPathString();
     env.put("JAVA_RUNFILES", testSrcDir);
     env.put("PYTHON_RUNFILES", testSrcDir);
-    env.put("RUNFILES_DIR", testSrcDir);
     env.put("TEST_SRCDIR", testSrcDir);
     env.put("TEST_TMPDIR", tmpDirString);
     env.put("TEST_WORKSPACE", action.getRunfilesPrefix());

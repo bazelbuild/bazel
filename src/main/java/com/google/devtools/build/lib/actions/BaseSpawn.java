@@ -218,17 +218,15 @@ public class BaseSpawn implements Spawn {
     PathFragment runfilesRoot = getRunfilesRoot();
     if (runfilesRoot == null
         || (environment.containsKey("JAVA_RUNFILES")
-            && environment.containsKey("PYTHON_RUNFILES")
-            && environment.containsKey("RUNFILES_DIR"))) {
+            && environment.containsKey("PYTHON_RUNFILES"))) {
       return environment;
     } else {
       ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
       env.putAll(environment);
-      // TODO(bazel-team): Remove JAVA_RUNFILES and PYTHON_RUNFILES.
+      // TODO(bazel-team): Unify these into a single env variable.
       String runfilesRootString = runfilesRoot.getPathString();
       env.put("JAVA_RUNFILES", runfilesRootString);
       env.put("PYTHON_RUNFILES", runfilesRootString);
-      env.put("RUNFILES_DIR", runfilesRootString);
       return env.build();
     }
   }
