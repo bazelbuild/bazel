@@ -1067,6 +1067,9 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
            "failed to create installation symlink '%s'",
            installation_path.c_str());
     }
+
+    // Update the mtime of the install base so that cleanup tools can
+    // find install bases that haven't been used for a long time
     const time_t time_now = time(NULL);
     if (!blaze_util::SetMtimeMillisec(globals->options->install_base,
                                       time_now)) {
