@@ -48,6 +48,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       Artifact javac,
       Artifact javaBuilder,
       @Nullable Artifact headerCompiler,
+      boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       Artifact genClass,
       FilesToRunProvider ijar,
@@ -62,6 +63,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         javac,
         javaBuilder,
         headerCompiler,
+        forciblyDisableHeaderCompilation,
         singleJar,
         genClass,
         ijar,
@@ -102,6 +104,12 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
 
   /** @return the {@link Artifact} of the Header Compiler deploy jar */
   @Nullable public abstract Artifact getHeaderCompiler();
+
+  /**
+   * Returns true if header compilation should be forcibly disabled, overriding
+   * --java_header_compilation.
+   */
+  public abstract boolean getForciblyDisableHeaderCompilation();
 
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
   public abstract Artifact getSingleJar();

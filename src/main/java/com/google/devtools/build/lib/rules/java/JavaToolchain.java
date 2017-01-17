@@ -54,6 +54,8 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact javac = getArtifact("javac", ruleContext);
     Artifact javabuilder = getArtifact("javabuilder", ruleContext);
     Artifact headerCompiler = getArtifact("header_compiler", ruleContext);
+    boolean forciblyDisableHeaderCompilation =
+        ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = getArtifact("singlejar", ruleContext);
     Artifact genClass = getArtifact("genclass", ruleContext);
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar", Mode.HOST);
@@ -82,6 +84,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             javac,
             javabuilder,
             headerCompiler,
+            forciblyDisableHeaderCompilation,
             singleJar,
             genClass,
             ijar,

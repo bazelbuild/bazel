@@ -300,6 +300,9 @@ public final class JavaCompilationHelper {
     if (!attributes.hasSourceFiles() && !attributes.hasSourceJars()) {
       return false;
     }
+    if (javaToolchain.getForciblyDisableHeaderCompilation()) {
+      return false;
+    }
     if (javaToolchain.getHeaderCompiler() == null) {
       getRuleContext()
           .ruleError(

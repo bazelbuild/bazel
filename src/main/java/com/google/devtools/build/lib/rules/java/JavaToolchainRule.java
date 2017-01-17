@@ -134,11 +134,19 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(header_compiler) -->
+        Label of the header compiler. Required if --java_header_compilation is enabled.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("header_compiler", LABEL_LIST)
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(forcibly_disable_header_compilation) -->
+        Overrides --java_header_compilation to disable header compilation on platforms that do not
+        support it, e.g. JDK 7 Bazel.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("forcibly_disable_header_compilation", BOOLEAN).value(false))
         .add(
             attr("compatible_javacopts", STRING_LIST_DICT)
                 .undocumented("internal")
