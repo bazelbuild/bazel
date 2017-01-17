@@ -324,7 +324,7 @@ public class JavaOptions extends FragmentOptions {
 
   @Option(
     name = "experimental_java_header_compilation_direct_classpath",
-    defaultValue = "true",
+    defaultValue = "false",
     category = "undocumented",
     help = "Experimental option to limit the header compilation classpath to direct deps."
   )
