@@ -169,6 +169,11 @@ public class AspectDefinitionTest {
             .build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
         .isFalse();
+
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+        .isTrue();
+    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
   }
 
  @Test
@@ -196,9 +201,34 @@ public class AspectDefinitionTest {
            .addNative(Float.class)
            .build();
 
+   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
+       .isTrue();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet1)).isTrue();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet2)).isTrue();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet)).isFalse();
+   assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+       .isFalse();
+
+ }
+
+  @Test
+  public void testRequireAspectClass_DefaultAcceptsNothing() {
+    AspectDefinition noAspects = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+        .build();
+
+    AdvertisedProviderSet expectedFailSet =
+        AdvertisedProviderSet.builder()
+            .addNative(Float.class)
+            .build();
+
+    assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
+        .isFalse();
+    assertThat(noAspects.getRequiredProvidersForAspects()
+                        .isSatisfiedBy(AdvertisedProviderSet.EMPTY))
+        .isFalse();
+
+    assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(expectedFailSet))
+        .isFalse();
   }
 
   @Test

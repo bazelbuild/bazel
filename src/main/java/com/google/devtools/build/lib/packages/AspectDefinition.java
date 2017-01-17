@@ -32,7 +32,6 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +56,7 @@ public final class AspectDefinition {
 
   private final AspectClass aspectClass;
   private final RequiredProviders requiredProviders;
+  private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
   private final PropagationFunction attributeAspects;
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
@@ -68,11 +68,13 @@ public final class AspectDefinition {
   private AspectDefinition(
       AspectClass aspectClass,
       RequiredProviders requiredProviders,
+      RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
       PropagationFunction attributeAspects,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
     this.aspectClass = aspectClass;
     this.requiredProviders = requiredProviders;
+    this.requiredProvidersForAspects = requiredAspectProviders;
 
     this.attributes = attributes;
     this.attributeAspects = attributeAspects;
@@ -106,6 +108,15 @@ public final class AspectDefinition {
   public RequiredProviders getRequiredProviders() {
     return requiredProviders;
   }
+
+  /**
+   * Aspects do not depend on other aspects applied to the same target <em>unless</em>
+   * the other aspect satisfies the {@link RequiredProviders} this method returns
+   */
+  public RequiredProviders getRequiredProvidersForAspects() {
+    return requiredProvidersForAspects;
+  }
+
 
   /**
    * Returns the set of required aspects for a given atribute.
@@ -203,6 +214,8 @@ public final class AspectDefinition {
     private final AspectClass aspectClass;
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private RequiredProviders.Builder requiredProviders = RequiredProviders.acceptAnyBuilder();
+    private RequiredProviders.Builder requiredAspectProviders =
+        RequiredProviders.acceptNoneBuilder();
     private final Multimap<String, AspectClass> attributeAspects = LinkedHashMultimap.create();
     private ImmutableCollection<AspectClass> allAttributesAspects = null;
     private final ConfigurationFragmentPolicy.Builder configurationFragmentPolicy =
@@ -216,9 +229,9 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the providers
      * from at least one set of required providers.
      */
-    public Builder requireProviderSets(Iterable<? extends Set<Class<?>>> providerSets) {
-      for (Set<Class<?>> providerSet : providerSets) {
-        requiredProviders.addNativeSet(ImmutableSet.copyOf(providerSet));
+    public Builder requireProviderSets(Iterable<ImmutableSet<Class<?>>> providerSets) {
+      for (ImmutableSet<Class<?>> providerSet : providerSets) {
+        requiredProviders.addNativeSet(providerSet);
       }
       return this;
     }
@@ -232,6 +245,25 @@ public final class AspectDefinition {
       return this;
     }
 
+    public Builder requireAspectsWithProviders(
+        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
+        if (!providerSet.isEmpty()) {
+          requiredAspectProviders.addSkylarkSet(providerSet);
+        }
+      }
+      return this;
+    }
+
+    public Builder requireAspectsWithNativeProviders(
+        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
+        requiredAspectProviders.addSkylarkSet(providerSet);
+      }
+      return this;
+    }
+
+
     /**
      * Declares that this aspect depends on the given aspects in {@code aspectFactories} provided
      * by direct dependencies through attribute {@code attribute} on the target associated with this
@@ -240,7 +272,6 @@ public final class AspectDefinition {
      * <p>Note that {@code ConfiguredAspectFactory} instances are expected in the second argument,
      * but we cannot reference that interface here.
      */
-    @SafeVarargs
     public final Builder attributeAspect(String attribute, NativeAspectClass... aspectClasses) {
       Preconditions.checkNotNull(attribute);
       for (NativeAspectClass aspectClass : aspectClasses) {
@@ -398,7 +429,9 @@ public final class AspectDefinition {
      * <p>The builder object is reusable afterwards.
      */
     public AspectDefinition build() {
-      return new AspectDefinition(aspectClass, requiredProviders.build(),
+      return new AspectDefinition(aspectClass,
+          requiredProviders.build(),
+          requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
           allAttributesAspects != null
               ? new AllAttributesPropagationFunction(allAttributesAspects)

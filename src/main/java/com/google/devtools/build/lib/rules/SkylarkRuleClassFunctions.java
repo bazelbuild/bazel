@@ -474,6 +474,12 @@ public class SkylarkRuleClassFunctions {
                   + "aspect can only be used with rules that have attributes of the same name and "
                   + "type, with valid values."
           ),
+          @Param(name = "required_aspect_providers",
+              type = SkylarkList.class,
+              defaultValue = "[]",
+              // todo(dslomov): document once it works.
+              doc = "<not available>"
+          ),
           @Param(
               name = "fragments",
               type = SkylarkList.class,
@@ -502,6 +508,7 @@ public class SkylarkRuleClassFunctions {
             BaseFunction implementation,
             SkylarkList attributeAspects,
             Object attrs,
+            SkylarkList requiredAspectProvidersArg,
             SkylarkList fragments,
             SkylarkList hostFragments,
             FuncallExpression ast,
@@ -533,7 +540,7 @@ public class SkylarkRuleClassFunctions {
           ImmutableList<Pair<String, SkylarkAttr.Descriptor>> descriptors =
               attrObjectToAttributesList(attrs, ast);
           ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
-          ImmutableSet.Builder<String> requiredParams = ImmutableSet.<String>builder();
+          ImmutableSet.Builder<String> requiredParams = ImmutableSet.builder();
           for (Pair<String, Descriptor> nameDescriptorPair : descriptors) {
             String nativeName = nameDescriptorPair.first;
             boolean hasDefault = nameDescriptorPair.second.hasDefault();
@@ -578,6 +585,7 @@ public class SkylarkRuleClassFunctions {
               implementation,
               attrAspects.build(),
               attributes.build(),
+              SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),

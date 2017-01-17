@@ -26,12 +26,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
+import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
@@ -1110,6 +1112,89 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         Attribute.attr("foo", BuildType.LABEL).allowedFileTypes().build()
     )).containsExactly(myAspect.getAspectClass());
   }
+
+  @Test
+  public void aspectRequiredAspectProvidersSingle() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_aspect_providers=['java', 'cc'])"
+    );
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
+        .getRequiredProvidersForAspects();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(requiredProviders.isSatisfiedBy(
+        AdvertisedProviderSet.builder()
+            .addSkylark("cc")
+            .addSkylark("java")
+            .build()))
+        .isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(
+        AdvertisedProviderSet.builder()
+            .addSkylark("cc")
+            .build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredAspectProvidersAlternatives() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_aspect_providers=[['java'], ['cc']])"
+    );
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
+        .getRequiredProvidersForAspects();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+    assertThat(requiredProviders.isSatisfiedBy(
+        AdvertisedProviderSet.builder()
+            .addSkylark("java")
+            .build()))
+        .isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(
+        AdvertisedProviderSet.builder()
+            .addSkylark("cc")
+            .build()))
+        .isTrue();
+    assertThat(requiredProviders.isSatisfiedBy(
+        AdvertisedProviderSet.builder()
+            .addSkylark("prolog")
+            .build()))
+        .isFalse();
+  }
+
+  @Test
+  public void aspectRequiredAspectProvidersEmpty() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl, required_aspect_providers=[])"
+    );
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
+        .getRequiredProvidersForAspects();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+  }
+
+  @Test
+  public void aspectRequiredAspectProvidersDefault() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl)"
+    );
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
+        .getRequiredProvidersForAspects();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
+    assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
+  }
+
 
 
   @Test

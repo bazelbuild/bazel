@@ -43,6 +43,7 @@ public class SkylarkAspect implements SkylarkExportable {
   private final BaseFunction implementation;
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
+  private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<String> hostFragments;
@@ -53,6 +54,7 @@ public class SkylarkAspect implements SkylarkExportable {
       BaseFunction implementation,
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
+      ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       ImmutableSet<String> hostFragments,
@@ -60,6 +62,7 @@ public class SkylarkAspect implements SkylarkExportable {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
+    this.requiredAspectProviders = requiredAspectProviders;
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
     this.hostFragments = hostFragments;
@@ -140,6 +143,7 @@ public class SkylarkAspect implements SkylarkExportable {
       }
       builder.add(attr);
     }
+    builder.requireAspectsWithProviders(requiredAspectProviders);
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
     return builder.build();
