@@ -1683,6 +1683,13 @@ The default is <code>armeabi-v7a</code>.
   is to enable cross-compilation.
 </p>
 
+<h4 id='flag--apple_crosstool_top'><code class='flag'>--apple_crosstool_top <var>label</var></code></h4>
+<p>
+  The crosstool to use for compiling C/C++ rules in the transitive <code>deps</code> of
+  objc_*, ios__*, and apple_* rules.  For those targets, this flag overwrites
+  <code class='flag'>--crosstool_top</code>.
+</p>
+
 <h4 id='flag--android_crosstool_top'><code class='flag'>--android_crosstool_top <var>label</var></code></h4>
 <p>
   The crosstool to use for compiling C/C++ rules in the transitive <code>deps</code> of
