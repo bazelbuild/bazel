@@ -22,7 +22,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "JacocoCoverage_jarjar_deploy.jar",
+        "JacocoCoverage_deploy.jar",
     ],
 )
 
@@ -67,35 +67,4 @@ java_library(
     deps = [
         "//third_party:apache_commons_lang",
     ],
-)
-
-genrule(
-    name = "Jacoco_jarjar",
-    srcs = [
-        ":JacocoCoverage_deploy.jar",
-        ":JacocoCoverage.jarjar",
-    ],
-    outs = ["JacocoCoverage_jarjar_deploy.jar"],
-    cmd = "\n".join([
-        # File#createTempFile() apparently tries to create the temp file under
-        # C:\WINDOWS by default on Windows, which is not writable. Help Java a bit.
-        # https://github.com/bazelbuild/bazel/issues/2349 will be a general
-        # solution for creating temp files in Java binaries in actions. Once
-        # that's fixed, we won't need to set TEMP here anymore.
-        "set +e",
-        "if [[ $$(uname -a) =~ MSYS ]]; then",
-        "  DOS_TEMP=\"$$(cygpath -m --mydocs)/temp\";",
-        "  PATH_DOS=$$?;",
-        "  UNIX_TEMP=\"$$(cygpath -u --mydocs)/temp\";",
-        "  if [[ $$? != 0 || $$PATH_DOS != 0 ]]; then",
-        "    echo Cannot find temp directory, defaulting to /c/temp;",
-        "    export DOS_TEMP=C:\\\\TEMP;",
-        "    UNIX_TEMP=/c/temp;",
-        "  fi",
-        "  export TEMP=\"$$DOS_TEMP\";",
-        "  mkdir -p \"$$UNIX_TEMP\";",
-        "fi",
-        "\"$(location //third_party/java/jarjar:jarjar_bin)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
-    ]),
-    tools = ["//third_party/java/jarjar:jarjar_bin"],
 )
