@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -104,7 +105,8 @@ public class TargetContext {
    */
   TransitiveInfoCollection maybeFindDirectPrerequisite(Label label, BuildConfiguration config) {
     for (ConfiguredTarget prerequisite : directPrerequisites) {
-      if (prerequisite.getLabel().equals(label) && (prerequisite.getConfiguration() == config)) {
+      if (prerequisite.getLabel().equals(label)
+          && (Objects.equal(prerequisite.getConfiguration(), config))) {
         return prerequisite;
       }
     }

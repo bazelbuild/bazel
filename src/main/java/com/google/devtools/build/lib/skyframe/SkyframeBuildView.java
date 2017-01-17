@@ -528,6 +528,16 @@ public final class SkyframeBuildView {
     if (hostConfig != null) {
       return hostConfig;
     }
+    // TODO(bazel-team): investigate getting the trimmed config from Skyframe instead of cloning.
+    // This is the only place we instantiate BuildConfigurations outside of Skyframe, This can
+    // produce surprising effects, such as requesting a configuration that's in the Skyframe cache
+    // but still produces a unique instance because we don't check that cache. It'd be nice to
+    // guarantee that *all* instantiations happen through Skyframe. That could, for example,
+    // guarantee that config1.equals(config2) implies config1 == config2, which is nice for
+    // verifying we don't accidentally create extra configurations. But unfortunately,
+    // hostConfigurationCache was specifically created because Skyframe is too slow for this use
+    // case. So further optimization is necessary to make that viable (proto_library in particular
+    // contributes to much of the difference).
     BuildConfiguration trimmedConfig =
         topLevelHostConfiguration.clone(fragmentClasses, ruleClassProvider);
     hostConfigurationCache.put(fragmentClasses, trimmedConfig);

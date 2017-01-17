@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -123,5 +125,73 @@ public class OutputFileConfiguredTargetTest extends BuildViewTestBase {
     OutputFileConfiguredTarget hostSrc2 = (OutputFileConfiguredTarget)
         getConfiguredTarget("//foo:host_src2.cc", getHostConfiguration());
     assertThat(hostSrc2.getGeneratingRule()).isNotNull();
+  }
+
+  /**
+   * Dynamic configurations maintain a host configuration cache that stores configurations
+   * instantiated outside of Skyframe. We shouldn't, in general, instantiate configurations
+   * outside of {@link BuildConfigurationValue}. But in this specific case Bazel performance
+   * suffers through the Skyframe interface and maintaining a local cache is much faster.
+   * See {@link SkyframeBuildView} for details.
+   *
+   * <p>One consequence of this is that requesting a config that would be a Skyframe cache hit
+   * can still produce a distinct instance. Meaning you can get cases where {@code
+   * config1.equals(config2) && config1 != config2}.
+   *
+   * <p>This test checks for such a case: perform three consecutive Bazel builds. The first builds
+   * with default options, producing top-level host config H1 and configured target
+   * <host_generated_file_producer, H1>. The second builds with {@code --host_copt=a=b},
+   * producing host config H2 (and clearing the top-level host config cache since the host config
+   * changed). The third builds back with default options. This once again clears the host config
+   * cache, since the host config changed again. So that cache creates a new config H3 where
+   * H3.equals(H1) and instantiates new configured target <host_src3.cc, H3>. It then requests
+   * dependency <host_generated_file_producer, H3> from Skyframe, but the Skyframe SkyKey interner
+   * reduces this to the previously seen <host_generated_file_producer, H1> and returns that
+   * instead.
+   *
+   * <p>This produces the expected scenario where the output file's config is value-equal but not
+   * reference-equal to its generating rule's config.
+   */
+  @Test
+  public void dynamicConfigsWithHostConfigSwitch() throws Exception {
+    scratch.file("foo/BUILD",
+        "genrule(",
+        "    name = 'host_generated_file_producer',",
+        "    srcs = [],",
+        "    outs = [",
+        "        'host_src1.cc',",
+        "        'host_src2.cc',",
+        "        'host_src3.cc',",
+        "    ],",
+        "    cmd = 'echo hi > $(location host_src1.cc); echo hi > $(location host_src2.cc); "
+            + "echo hi > $(location host_src3.cc)')",
+        "",
+        "cc_binary(name = 'host_generated_file_consumer1', srcs = ['host_src1.cc'])",
+        "cc_binary(name = 'host_generated_file_consumer2', srcs = ['host_src2.cc'])",
+        "cc_binary(name = 'host_generated_file_consumer3', srcs = ['host_src3.cc'])",
+        "",
+        "genrule(name = 'gen1', srcs = [], outs = ['gen1.out'], cmd = 'echo hi > $@',",
+        "    tools = [':host_generated_file_consumer1'])",
+        "genrule(name = 'gen2', srcs = [], outs = ['gen2.out'], cmd = 'echo hi > $@',",
+        "    tools = [':host_generated_file_consumer2'])",
+        "genrule(name = 'gen3', srcs = [], outs = ['gen3.out'], cmd = 'echo hi > $@',",
+        "    tools = [':host_generated_file_consumer3'])");
+
+    String dynamicConfigsMode = "--experimental_dynamic_configs=notrim";
+    useConfiguration(dynamicConfigsMode);
+    update("//foo:gen1");
+    useConfiguration(dynamicConfigsMode, "--host_copt", "a=b");
+    update("//foo:gen2");
+    useConfiguration(dynamicConfigsMode);
+    update("//foo:gen3");
+
+    OutputFileConfiguredTarget hostSrc3 = (OutputFileConfiguredTarget)
+        getConfiguredTarget("//foo:host_src3.cc", getHostConfiguration());
+    TransitiveInfoCollection hostGeneratedFileConsumer3 = hostSrc3.getGeneratingRule();
+    assertThat(hostSrc3.getConfiguration())
+        .isEqualTo(hostGeneratedFileConsumer3.getConfiguration());
+    // TODO(gregce): enable below for Bazel tests, which for some reason realize the same instance
+//    assertThat(hostSrc3.getConfiguration())
+//        .isNotSameAs(hostGeneratedFileConsumer3.getConfiguration());
   }
 }
