@@ -85,11 +85,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
 
   @Test
   public void testParsesFineWithNewlines() throws Exception {
-    BuildFileAST buildFileAST = parseBuildFile(
-        "foo()",
-        "bar(),",
-        "something = baz()",
-        "bar()");
+    BuildFileAST buildFileAST = parseBuildFile("foo()", "bar()", "something = baz()", "bar()");
     assertThat(buildFileAST.getStatements()).hasSize(4);
   }
 

@@ -1577,7 +1577,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "    name = name,",
         "    srcs = ['simple/Simple.java'],",
         "    manifest = 'AndroidManifest.xml',",
-        "),");
+        ")");
     scratch.file(
         "java/com/google/example/BUILD",
         "load('//java/com/google/example:build_defs.bzl', 'my_macro')",

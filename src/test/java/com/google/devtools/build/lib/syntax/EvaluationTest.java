@@ -451,7 +451,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSingleTuple() throws Exception {
-    newTest().setUp("a, = [1]").testLookup("a", 1);
+    newTest().setUp("(a,) = [1]").testLookup("a", 1);
   }
 
   @Test

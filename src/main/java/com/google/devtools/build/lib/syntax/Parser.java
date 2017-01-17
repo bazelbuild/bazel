@@ -558,12 +558,17 @@ public class Parser {
   // first expression was already parsed, so it starts with a comma.
   // It is used to parse tuples and list elements.
   // expr_list ::= ( ',' expr )* ','?
-  private List<Expression> parseExprList() {
+  private List<Expression> parseExprList(boolean trailingColonAllowed) {
     List<Expression> list = new ArrayList<>();
     //  terminating tokens for an expression list
     while (token.kind == TokenKind.COMMA) {
       expect(TokenKind.COMMA);
       if (EXPR_LIST_TERMINATOR_SET.contains(token.kind)) {
+        if (!trailingColonAllowed) {
+          reportError(
+              lexer.createLocation(token.left, token.right),
+              "Trailing comma is allowed only in parenthesized tuples.");
+        }
         break;
       }
       list.add(parseNonTupleExpression());
@@ -627,64 +632,63 @@ public class Parser {
   private Expression parsePrimary() {
     int start = token.left;
     switch (token.kind) {
-      case INT: {
-        IntegerLiteral literal = new IntegerLiteral((Integer) token.value);
-        setLocation(literal, start, token.right);
-        nextToken();
-        return literal;
-      }
-      case STRING: {
-        return parseStringLiteral();
-      }
-      case IDENTIFIER: {
-        Identifier ident = parseIdent();
-        if (token.kind == TokenKind.LPAREN) { // it's a function application
-          return parseFuncallSuffix(start, null, ident);
-        } else {
-          return ident;
-        }
-      }
-      case LBRACKET: { // it's a list
-        return parseListMaker();
-      }
-      case LBRACE: { // it's a dictionary
-        return parseDictExpression();
-      }
-      case LPAREN: {
-        nextToken();
-        // check for the empty tuple literal
-        if (token.kind == TokenKind.RPAREN) {
-          ListLiteral literal =
-              ListLiteral.makeTuple(Collections.<Expression>emptyList());
+      case INT:
+        {
+          IntegerLiteral literal = new IntegerLiteral((Integer) token.value);
           setLocation(literal, start, token.right);
           nextToken();
           return literal;
         }
-        // parse the first expression
-        Expression expression = parseExpression();
-        setLocation(expression, start, token.right);
-        if (token.kind == TokenKind.RPAREN) {
-          nextToken();
-          return expression;
+      case STRING:
+        return parseStringLiteral();
+      case IDENTIFIER:
+        {
+          Identifier ident = parseIdent();
+          if (token.kind == TokenKind.LPAREN) { // it's a function application
+            return parseFuncallSuffix(start, null, ident);
+          } else {
+            return ident;
+          }
         }
-        expect(TokenKind.RPAREN);
-        int end = syncTo(EXPR_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
-      case MINUS: {
-        nextToken();
-
-        List<Argument.Passed> args = new ArrayList<>();
-        Expression expr = parsePrimaryWithSuffix();
-        args.add(setLocation(new Argument.Positional(expr), start, expr));
-        return makeFuncallExpression(null, new Identifier("-"), args,
-                                     start, token.right);
-      }
-      default: {
-        syntaxError(token, "expected expression");
-        int end = syncTo(EXPR_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
+      case LBRACKET: // it's a list
+        return parseListMaker();
+      case LBRACE: // it's a dictionary
+        return parseDictExpression();
+      case LPAREN:
+        {
+          nextToken();
+          // check for the empty tuple literal
+          if (token.kind == TokenKind.RPAREN) {
+            ListLiteral literal = ListLiteral.makeTuple(Collections.<Expression>emptyList());
+            setLocation(literal, start, token.right);
+            nextToken();
+            return literal;
+          }
+          // parse the first expression
+          Expression expression = parseExpression(true);
+          setLocation(expression, start, token.right);
+          if (token.kind == TokenKind.RPAREN) {
+            nextToken();
+            return expression;
+          }
+          expect(TokenKind.RPAREN);
+          int end = syncTo(EXPR_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
+      case MINUS:
+        {
+          nextToken();
+          List<Argument.Passed> args = new ArrayList<>();
+          Expression expr = parsePrimaryWithSuffix();
+          args.add(setLocation(new Argument.Positional(expr), start, expr));
+          return makeFuncallExpression(null, new Identifier("-"), args, start, token.right);
+        }
+      default:
+        {
+          syntaxError(token, "expected expression");
+          int end = syncTo(EXPR_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
     }
   }
 
@@ -823,38 +827,44 @@ public class Parser {
     Preconditions.checkNotNull(expression,
         "null element in list in AST at %s:%s", token.left, token.right);
     switch (token.kind) {
-      case RBRACKET: { // singleton List
-        ListLiteral literal = ListLiteral.makeList(Collections.singletonList(expression));
-        setLocation(literal, start, token.right);
-        nextToken();
-        return literal;
-      }
+      case RBRACKET: // singleton List
+        {
+          ListLiteral literal = ListLiteral.makeList(Collections.singletonList(expression));
+          setLocation(literal, start, token.right);
+          nextToken();
+          return literal;
+        }
       case FOR:
         { // list comprehension
           Expression result =
               parseComprehensionSuffix(new ListComprehension(expression), TokenKind.RBRACKET);
           return setLocation(result, start, token.right);
         }
-      case COMMA: {
-        List<Expression> list = parseExprList();
-        Preconditions.checkState(!list.contains(null),
-            "null element in list in AST at %s:%s", token.left, token.right);
-        list.add(0, expression);
-        if (token.kind == TokenKind.RBRACKET) {
-          ListLiteral literal = ListLiteral.makeList(list);
-          setLocation(literal, start, token.right);
-          nextToken();
-          return literal;
+      case COMMA:
+        {
+          List<Expression> list = parseExprList(true);
+          Preconditions.checkState(
+              !list.contains(null),
+              "null element in list in AST at %s:%s",
+              token.left,
+              token.right);
+          list.add(0, expression);
+          if (token.kind == TokenKind.RBRACKET) {
+            ListLiteral literal = ListLiteral.makeList(list);
+            setLocation(literal, start, token.right);
+            nextToken();
+            return literal;
+          }
+          expect(TokenKind.RBRACKET);
+          int end = syncPast(LIST_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
         }
-        expect(TokenKind.RBRACKET);
-        int end = syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
-      default: {
-        syntaxError(token, "expected ',', 'for' or ']'");
-        int end = syncPast(LIST_TERMINATOR_SET);
-        return makeErrorExpression(start, end);
-      }
+      default:
+        {
+          syntaxError(token, "expected ',', 'for' or ']'");
+          int end = syncPast(LIST_TERMINATOR_SET);
+          return makeErrorExpression(start, end);
+        }
     }
   }
 
@@ -955,11 +965,18 @@ public class Parser {
     return new BinaryOperatorExpression(operator, expr, secondary);
   }
 
-  // Equivalent to 'testlist' rule in Python grammar. It can parse every
-  // kind of expression.
-  // In many cases, we need to use parseNonTupleExpression to avoid ambiguity
-  // e.g.  fct(x, y)  vs  fct((x, y))
   private Expression parseExpression() {
+    return parseExpression(false);
+  }
+
+  // Equivalent to 'testlist' rule in Python grammar. It can parse every kind of
+  // expression. In many cases, we need to use parseNonTupleExpression to avoid ambiguity:
+  //   e.g. fct(x, y)  vs  fct((x, y))
+  //
+  // Tuples can have a trailing comma only when insideParens is true. This prevents bugs
+  // where a one-element tuple is surprisingly created:
+  //   e.g.  foo = f(x),
+  private Expression parseExpression(boolean insideParens) {
     int start = token.left;
     Expression expression = parseNonTupleExpression();
     if (token.kind != TokenKind.COMMA) {
@@ -967,7 +984,7 @@ public class Parser {
     }
 
     // It's a tuple
-    List<Expression> tuple = parseExprList();
+    List<Expression> tuple = parseExprList(insideParens);
     tuple.add(0, expression);  // add the first expression to the front of the tuple
     return setLocation(ListLiteral.makeTuple(tuple), start, token.right);
   }

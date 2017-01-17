@@ -726,7 +726,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     }
 
     scratch.overwriteFile("foo/BUILD",
-        "exports_files(glob(['*.txt'])),",
+        "exports_files(glob(['*.txt']))",
         "#some-irrelevant-comment");
 
     getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
