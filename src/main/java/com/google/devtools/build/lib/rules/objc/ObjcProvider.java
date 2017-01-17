@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.collect.nestedset.Order.LINK_ORDER;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -617,13 +619,60 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
   public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidProviders) {
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
     for (Key<?> key : getValuedKeys()) {
-      if (NON_SUBTRACTABLE_KEYS.contains(key)) {
+      if (key == CC_LIBRARY) {
+        // This needs to be special-cased since there are potentially duplicates
+        // between LIBRARY and CC_LIBRARY in cases where a cc_library depends on an objc_library,
+        // and if one is to be avoided so must its counterpart.
+        // TODO(cpeyser): Clean up objc-cc interop.
+        HashSet<Artifact> avoidLibrariesSet = new HashSet<>();
+        HashSet<LibraryToLink> avoidCcLibrariesSet = new HashSet<>();
+        for (ObjcProvider avoidProvider : avoidProviders) {
+          avoidCcLibrariesSet.addAll(avoidProvider.getPropagable(CC_LIBRARY).toList());
+          avoidLibrariesSet.addAll(avoidProvider.getPropagable(LIBRARY).toList());
+        }
+        addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
+            libraryNotYetLinked(avoidCcLibrariesSet, avoidLibrariesSet));
+      } else if (NON_SUBTRACTABLE_KEYS.contains(key)) {
         addTransitiveAndAvoid(objcProviderBuilder, key, ImmutableList.<ObjcProvider>of());
       } else {
         addTransitiveAndAvoid(objcProviderBuilder, key, avoidProviders);
       }
     }
     return objcProviderBuilder.build();
+  }
+
+  private static Predicate<LibraryToLink> libraryNotYetLinked(
+      final HashSet<LibraryToLink> librariesToLink,
+      final HashSet<Artifact> linkedLibraryArtifacts) {
+    return new Predicate<LibraryToLink>() {
+
+      @Override
+      public boolean apply(LibraryToLink libraryToLink) {
+        return (!librariesToLink.contains(libraryToLink))
+            && (!linkedLibraryArtifacts.contains(libraryToLink.getArtifact()));
+      }
+    };
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T> void addTransitiveAndFilter(ObjcProvider.Builder objcProviderBuilder, Key<T> key,
+      Predicate<T> filterPredicate) {
+    NestedSet<T> propagableItems = (NestedSet<T>) items.get(key);
+    NestedSet<T> nonPropagableItems = (NestedSet<T>) nonPropagatedItems.get(key);
+    NestedSet<T> strictItems = (NestedSet<T>) strictDependencyItems.get(key);
+
+    if (propagableItems != null) {
+      objcProviderBuilder.addAll(key,
+          Iterables.filter(propagableItems.toList(), filterPredicate));
+    }
+    if (nonPropagableItems != null) {
+      objcProviderBuilder.addAllNonPropagable(key,
+          Iterables.filter(nonPropagableItems.toList(), filterPredicate));
+    }
+    if (strictItems != null) {
+      objcProviderBuilder.addAllForDirectDependents(key,
+          Iterables.filter(strictItems.toList(), filterPredicate));
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -633,23 +682,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
     for (ObjcProvider avoidProvider : avoidProviders) {
       avoidItemsSet.addAll(avoidProvider.getPropagable(key).toList());
     }
-    NestedSet<T> propagableItems = (NestedSet<T>) items.get(key);
-    NestedSet<T> nonPropagableItems = (NestedSet<T>) nonPropagatedItems.get(key);
-    NestedSet<T> strictItems = (NestedSet<T>) strictDependencyItems.get(key);
-
-    if (propagableItems != null) {
-      objcProviderBuilder.addAll(key,
-          Iterables.filter(propagableItems.toList(), Predicates.not(Predicates.in(avoidItemsSet))));
-    }
-    if (nonPropagableItems != null) {
-      objcProviderBuilder.addAllNonPropagable(key,
-          Iterables.filter(nonPropagableItems.toList(),
-              Predicates.not(Predicates.in(avoidItemsSet))));
-    }
-    if (strictItems != null) {
-      objcProviderBuilder.addAllForDirectDependents(key,
-          Iterables.filter(strictItems.toList(), Predicates.not(Predicates.in(avoidItemsSet))));
-    }
+    addTransitiveAndFilter(objcProviderBuilder, key, Predicates.not(Predicates.in(avoidItemsSet)));
   }
 
   /**
