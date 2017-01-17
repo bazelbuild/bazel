@@ -1,0 +1,9 @@
+FROM debian:stretch
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends curl ca-certificates \
+      unzip build-essential \
+      git pkg-config zip unzip \
+      g++ gcc openjdk-8-jdk \
+      zlib1g-dev libarchive-dev \
+      ca-certificates-java && \
+    apt-get clean
