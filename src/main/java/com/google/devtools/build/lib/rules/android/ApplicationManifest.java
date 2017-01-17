@@ -325,7 +325,7 @@ public final class ApplicationManifest {
       LocalResourceContainer data,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
-      Artifact symbolsTxt,
+      Artifact symbols,
       Artifact manifestOut,
       Artifact mergedResources,
       boolean alwaysExportManifest) throws InterruptedException {
@@ -337,7 +337,7 @@ public final class ApplicationManifest {
             .setAssetsAndResourcesFrom(data)
             .setManifest(getManifest())
             .setRTxt(rTxt)
-            .setSymbolsTxt(symbolsTxt)
+            .setSymbols(symbols)
             .setJavaPackageFrom(JavaPackageSource.MANIFEST);
     if (alwaysExportManifest) {
       resourceContainer.setManifestExported(true);
@@ -367,7 +367,7 @@ public final class ApplicationManifest {
       boolean isLibrary,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
-      Artifact symbolsTxt,
+      Artifact symbols,
       List<String> configurationFilters,
       List<String> uncompressedExtensions,
       boolean crunchPng,
@@ -407,7 +407,7 @@ public final class ApplicationManifest {
             .setAssetsAndResourcesFrom(data)
             .setManifest(getManifest())
             .setRTxt(rTxt)
-            .setSymbolsTxt(symbolsTxt)
+            .setSymbols(symbols)
             .setApk(resourceApk)
             .build(),
         data,
@@ -451,10 +451,10 @@ public final class ApplicationManifest {
       Artifact rJavaClassJar = ruleContext.getImplicitOutputArtifact(
           AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
-      if (resourceContainer.getSymbolsTxt() != null) {
+      if (resourceContainer.getSymbols() != null) {
         new AndroidResourceParsingActionBuilder(ruleContext)
             .setParse(data)
-            .setOutput(resourceContainer.getSymbolsTxt())
+            .setOutput(resourceContainer.getSymbols())
             .build(ruleContext);
       }
 
@@ -502,7 +502,7 @@ public final class ApplicationManifest {
       if (!incremental) {
         builder
             .setRTxtOut(resourceContainer.getRTxt())
-            .setSymbolsTxt(resourceContainer.getSymbolsTxt())
+            .setSymbols(resourceContainer.getSymbols())
             .setSourceJarOut(resourceContainer.getJavaSourceJar());
       }
       processed = builder.build(ruleContext);
@@ -630,7 +630,7 @@ public final class ApplicationManifest {
         .setManifest(getManifest())
         .setJavaSourceJar(javaSourcesJar)
         .setJavaClassJar(null)
-        .setSymbolsTxt(null)
+        .setSymbols(null)
         .build();
 
     aaptActionHelper.createGenerateProguardAction(proguardCfg, mainDexProguardCfg);

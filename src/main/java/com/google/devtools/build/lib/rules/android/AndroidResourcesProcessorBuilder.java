@@ -80,7 +80,7 @@ public class AndroidResourcesProcessorBuilder {
   private String versionCode;
   private String applicationId;
   private String versionName;
-  private Artifact symbolsTxt;
+  private Artifact symbols;
   private Artifact dataBindingInfoZip;
 
   private Artifact manifestOut;
@@ -162,8 +162,8 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setSymbolsTxt(Artifact symbolsTxt) {
-    this.symbolsTxt = symbolsTxt;
+  public AndroidResourcesProcessorBuilder setSymbols(Artifact symbols) {
+    this.symbols = symbols;
     return this;
   }
 
@@ -233,9 +233,9 @@ public class AndroidResourcesProcessorBuilder {
       outs.add(rTxtOut);
     }
 
-    if (symbolsTxt != null) {
-      builder.addExecPath("--symbolsTxtOut", symbolsTxt);
-      outs.add(symbolsTxt);
+    if (symbols != null) {
+      builder.addExecPath("--symbolsOut", symbols);
+      outs.add(symbols);
     }
     if (sourceJarOut != null) {
       builder.addExecPath("--srcJarOutput", sourceJarOut);
@@ -324,7 +324,7 @@ public class AndroidResourcesProcessorBuilder {
     ResourceContainer.Builder result = primary.toBuilder()
         .setJavaSourceJar(sourceJarOut)
         .setRTxt(rTxtOut)
-        .setSymbolsTxt(symbolsTxt);
+        .setSymbols(symbols);
     // If there is an apk to be generated, use it, else reuse the apk from the primary resources.
     // All android_binary ResourceContainers have to have an apk, but if a new one is not
     // requested to be built for this resource processing action (in case of just creating an

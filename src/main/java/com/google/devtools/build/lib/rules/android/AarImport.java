@@ -101,7 +101,7 @@ public class AarImport implements RuleConfiguredTargetFactory {
             .build(),
         ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS),
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
         resourcesZip,
         /* alwaysExportManifest = */ true);

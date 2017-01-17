@@ -95,7 +95,7 @@ public abstract class ResourceContainer {
   public abstract Artifact getRTxt();
 
   @Nullable
-  public abstract Artifact getSymbolsTxt();
+  public abstract Artifact getSymbols();
 
   // The limited hashCode and equals behavior is necessary to avoid duplication when building with
   // fat_apk_cpu set. Artifacts generated in different configurations will naturally be different
@@ -105,7 +105,7 @@ public abstract class ResourceContainer {
   // breaking "equals means interchangeable"
   @Override
   public int hashCode() {
-    return Objects.hash(getLabel(), getRTxt(), getSymbolsTxt());
+    return Objects.hash(getLabel(), getRTxt(), getSymbols());
   }
 
   @Override
@@ -119,7 +119,7 @@ public abstract class ResourceContainer {
     ResourceContainer other = (ResourceContainer) obj;
     return Objects.equals(getLabel(), other.getLabel())
         && Objects.equals(getRTxt(), other.getRTxt())
-        && Objects.equals(getSymbolsTxt(), other.getSymbolsTxt());
+        && Objects.equals(getSymbols(), other.getSymbols());
   }
 
   /** Converts this container back into a builder to create a modified copy. */
@@ -252,7 +252,7 @@ public abstract class ResourceContainer {
 
     public abstract Builder setRTxt(@Nullable Artifact rTxt);
 
-    public abstract Builder setSymbolsTxt(@Nullable Artifact symbolsTxt);
+    public abstract Builder setSymbols(@Nullable Artifact symbols);
 
     abstract ResourceContainer autoBuild();
 

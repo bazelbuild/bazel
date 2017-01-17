@@ -107,12 +107,13 @@ public class AndroidResourceProcessingAction {
         help = "Path to where the R.txt should be written.")
     public Path rOutput;
 
-    @Option(name = "symbolsTxtOut",
+    @Option(name = "symbolsOut",
+        oldName = "symbolsTxtOut",
         defaultValue = "null",
         converter = PathConverter.class,
         category = "output",
-        help = "Path to where the symbolsTxt should be written.")
-    public Path symbolsTxtOut;
+        help = "Path to where the symbols should be written.")
+    public Path symbolsOut;
 
     @Option(name = "dataBindingInfoOut",
         defaultValue = "null",
@@ -228,7 +229,7 @@ public class AndroidResourceProcessingAction {
       Path generatedSources = null;
       if (options.srcJarOutput != null
           || options.rOutput != null
-          || options.symbolsTxtOut != null) {
+          || options.symbolsOut != null) {
         generatedSources = tmp.resolve("generated_resources");
       }
 
@@ -250,7 +251,7 @@ public class AndroidResourceProcessingAction {
               mergedAssets,
               selectPngCruncher(),
               options.packageType,
-              options.symbolsTxtOut);
+              options.symbolsOut);
 
       logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

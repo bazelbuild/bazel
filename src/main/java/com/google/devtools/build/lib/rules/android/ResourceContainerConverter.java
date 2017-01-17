@@ -144,9 +144,9 @@ public class ResourceContainerConverter {
           }
           if (includeSymbolsBin) {
             cmdPieces.add(
-                container.getSymbolsTxt() == null
+                container.getSymbols() == null
                     ? ""
-                    : container.getSymbolsTxt().getExecPathString());
+                    : container.getSymbols().getExecPathString());
           }
           return argJoiner.join(cmdPieces.build());
         }
@@ -181,7 +181,7 @@ public class ResourceContainerConverter {
             addIfNotNull(container.getRTxt(), artifacts);
           }
           if (includeSymbolsBin) {
-            addIfNotNull(container.getSymbolsTxt(), artifacts);
+            addIfNotNull(container.getSymbols(), artifacts);
           }
           return artifacts.build();
         }
