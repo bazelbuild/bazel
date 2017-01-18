@@ -158,25 +158,10 @@ public final class EvalUtils {
         || c.equals(Integer.class)
         || c.equals(Boolean.class)
         // there is a registered Skylark ancestor class (useful e.g. when using AutoValue)
-        || hasSkylarkAcceptableAncestor(c)
+        || SkylarkInterfaceUtils.getSkylarkModule(c) != null
         || ImmutableMap.class.isAssignableFrom(c) // will be converted to SkylarkDict
         || NestedSet.class.isAssignableFrom(c) // will be converted to SkylarkNestedSet
         || c.equals(PathFragment.class); // other known class
-  }
-
-  private static boolean hasSkylarkAcceptableAncestor(Class<?> c) {
-    if (c == null) {
-      return false;
-    }
-    if (c.isAnnotationPresent(SkylarkModule.class)) {
-      return true;
-    }
-    for (Class<?> inter : c.getInterfaces()) {
-      if (hasSkylarkAcceptableAncestor(inter)) {
-        return true;
-      }
-    }
-    return hasSkylarkAcceptableAncestor(c.getSuperclass());
   }
 
   // TODO(bazel-team): move the following few type-related functions to SkylarkType
