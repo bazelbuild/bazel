@@ -123,10 +123,10 @@ string AsExecutablePathForCreateProcess(const string& path,
   }
 
   if (wshort_size >= kMaxShortPath) {
-    return windows_util::GetLastErrorString(
-        string("GetShortPathName would not shorten the path enough (path=") +
-        path + ")");
+    return string("GetShortPathName would not shorten the path enough (path=") +
+           path + ")";
   }
+  GetShortPathNameW(wlong.c_str(), wshort, kMaxShortPath);
 
   // Convert the result to UTF-8.
   char mbs_short[MAX_PATH];
@@ -137,7 +137,7 @@ string AsExecutablePathForCreateProcess(const string& path,
   if (mbs_size < 0 || mbs_size >= MAX_PATH) {
     return string("wcstombs failed (path=") + path + ")";
   }
-  mbs_short[mbs_size - 1] = 0;
+  mbs_short[mbs_size] = 0;
 
   QuotePath(mbs_short, result);
   return "";

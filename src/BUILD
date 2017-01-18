@@ -313,6 +313,7 @@ filegroup(
         "//src/objc_tools/plmerge:srcs",
         "//src/objc_tools/xcodegen:srcs",
         "//src/test/cpp:srcs",
+        "//src/test/native:srcs",
         "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",

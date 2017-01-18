@@ -17,8 +17,6 @@
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 
-#include <jni.h>
-
 #include <functional>
 #include <memory>
 #include <string>
