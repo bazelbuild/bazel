@@ -10,11 +10,22 @@ filegroup(
 
 cc_test(
     name = "windows_util_test",
-    srcs = ["windows_util_test.cc"],
-    deps = [
-        "//src/main/native:windows_jni_utils",
-        "//third_party:gtest",
-    ],
+    srcs = select({
+        "//src:windows": ["windows_util_test.cc"],
+        "//src:windows_msvc": ["windows_util_test.cc"],
+        "//conditions:default": ["dummy_test.cc"],
+    }),
+    deps = select({
+        "//src:windows": [
+            "//src/main/native:windows_jni_utils",
+            "//third_party:gtest",
+        ],
+        "//src:windows_msvc": [
+            "//src/main/native:windows_jni_utils",
+            "//third_party:gtest",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 test_suite(name = "all_tests")
