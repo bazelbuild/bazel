@@ -284,14 +284,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public Map<String, String> appleTargetPlatformEnv(Platform platform) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
 
-    // TODO(cparsons): Avoid setting SDK version for macosx. Until SDK version is
-    // evaluated for the current configuration xcode version, this would break users who build
-    // cc_* rules without specifying both xcode_version and macosx_sdk_version build options.
-    if (platform != Platform.MACOS_X) {
-        String sdkVersion = getSdkVersionForPlatform(platform).toStringWithMinimumComponents(2);
-        builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, sdkVersion)
-            .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
-    }
+    String sdkVersion = getSdkVersionForPlatform(platform).toStringWithMinimumComponents(2);
+    builder
+        .put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, sdkVersion)
+        .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
+
     return builder.build();
   }
 
