@@ -52,7 +52,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   protected boolean debug = false;
 
   /** Cache of opened zip filesystems for srcjars. */
-  private static final Map<Path, FileSystem> filesystems = new HashMap<>();
+  private final Map<Path, FileSystem> filesystems = new HashMap<>();
 
   /**
    * Adds a collection of resource entries. Each entry is a string composed of a pair of parts
