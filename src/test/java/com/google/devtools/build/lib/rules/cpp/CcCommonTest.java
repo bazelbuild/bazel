@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.ToolchainLookup;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
@@ -558,12 +557,9 @@ public class CcCommonTest extends BuildViewTestCase {
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['./'])");
-    Target target = getTarget("@pkg//bar:lib");
-    ensureTargetsVisited(target.getLabel());
-    assertThat(
-            view.hasErrors(
-                view.getConfiguredTargetForTesting(reporter, target.getLabel(), targetConfig)))
-        .isFalse();
+    Label label = Label.parseAbsolute("@pkg//bar:lib");
+    ConfiguredTarget target = view.getConfiguredTargetForTesting(reporter, label, targetConfig);
+    assertThat(view.hasErrors(target)).isFalse();
     assertNoEvents();
   }
 

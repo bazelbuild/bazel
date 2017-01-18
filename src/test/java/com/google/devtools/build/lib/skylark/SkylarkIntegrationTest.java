@@ -1245,7 +1245,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setSkylarkImportLookupFunctionForInliningForTesting(skylarkImportLookupFunction);
     }
-    
+
     @Override
     @Test
     public void testRecursiveImport() throws Exception {
@@ -1260,19 +1260,15 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
       reporter.removeHandler(failFastHandler);
       try {
-        // ensureTargetsVisited() produces a different event than getTarget, and it doesn't fail
-        // even though there is an error in the rule. What's going on here?
-        ensureTargetsVisited("//test/skylark:rule");
         getTarget("//test/skylark:rule");
         fail();
       } catch (BuildFileContainsErrorsException e) {
-        // This is expected
+        // The reason that this is an exception and not reported to the event handler is that the
+        // error is reported by the parent sky function, which we don't have here.
+        assertThat(e.getMessage()).contains("Skylark import cycle");
+        assertThat(e.getMessage()).contains("test/skylark:ext1.bzl");
+        assertThat(e.getMessage()).contains("test/skylark:ext2.bzl");
       }
-      assertContainsEvent("test/skylark:ext1.bzl");
-      assertContainsEvent("test/skylark:ext2.bzl");
-      assertContainsEvent("Skylark import cycle");
-      assertContainsEvent("Loading of target '//test/skylark:rule' failed; build aborted");
-      assertThat(eventCollector).hasSize(1);
     }
 
     @Override
@@ -1290,18 +1286,16 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
       reporter.removeHandler(failFastHandler);
       try {
-        ensureTargetsVisited("//test/skylark:rule");
         getTarget("//test/skylark:rule");
         fail();
       } catch (BuildFileContainsErrorsException e) {
-        // This is expected
+        // The reason that this is an exception and not reported to the event handler is that the
+        // error is reported by the parent sky function, which we don't have here.
+        assertThat(e.getMessage()).contains("Skylark import cycle");
+        assertThat(e.getMessage()).contains("//test/skylark:ext2.bzl");
+        assertThat(e.getMessage()).contains("//test/skylark:ext3.bzl");
+        assertThat(e.getMessage()).contains("//test/skylark:ext4.bzl");
       }
-      assertContainsEvent("//test/skylark:ext2.bzl");
-      assertContainsEvent("//test/skylark:ext3.bzl");
-      assertContainsEvent("//test/skylark:ext4.bzl");
-      assertContainsEvent("Skylark import cycle");
-      assertContainsEvent("Loading of target '//test/skylark:rule' failed; build aborted");
-      assertThat(eventCollector).hasSize(1);
     }
 
   }

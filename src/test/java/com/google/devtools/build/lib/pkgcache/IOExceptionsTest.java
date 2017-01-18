@@ -13,16 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -30,15 +28,15 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
+import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
+import java.io.IOException;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-
-import javax.annotation.Nullable;
 
 /**
  * Tests for recovering from IOExceptions thrown by the filesystem when reading BUILD files. Needs
@@ -65,6 +63,16 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   public final void initializeVisitor() throws Exception {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
     this.visitor = skyframeExecutor.pkgLoader();
+  }
+
+  private boolean visitTransitively(Label label) throws InterruptedException {
+    SkyKey key = TransitiveTargetValue.key(label);
+    EvaluationResult<SkyValue> result =
+        skyframeExecutor.prepareAndGet(key, /*numThreads=*/5, reporter);
+    TransitiveTargetValue value = (TransitiveTargetValue) result.get(key);
+    System.out.println(value);
+    boolean hasTransitiveError = (value == null) || value.getTransitiveRootCauses() != null;
+    return !result.hasError() && !hasTransitiveError;
   }
 
   protected void syncPackages() throws Exception {
@@ -100,11 +108,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitor.sync(reporter, ImmutableSet.<Target>of(),
-        ImmutableSet.of(Label.parseAbsolute("//pkg:x")), /*keepGoing=*/false,
-        /*parallelThreads=*/5, Integer.MAX_VALUE));
-    assertContainsEvent("no such package 'pkg'");
-    assertEquals(1, eventCollector.count());
+    assertFalse(visitTransitively(Label.parseAbsolute("//pkg:x")));
     scratch.overwriteFile("pkg/BUILD",
         "# another comment to force reload",
         "sh_library(name = 'x')");
@@ -112,9 +116,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertTrue(visitor.sync(reporter, ImmutableSet.<Target>of(),
-        ImmutableSet.of(Label.parseAbsolute("//pkg:x")), /*keepGoing=*/false,
-        /*parallelThreads=*/5, Integer.MAX_VALUE));
+    assertTrue(visitTransitively(Label.parseAbsolute("//pkg:x")));
     assertNoEvents();
   }
 
@@ -135,9 +137,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitor.sync(reporter, ImmutableSet.<Target>of(),
-        ImmutableSet.of(Label.parseAbsolute("//top:top")), /*keepGoing=*/false,
-        /*parallelThreads=*/5, Integer.MAX_VALUE));
+    assertFalse(visitTransitively(Label.parseAbsolute("//top:top")));
     assertContainsEvent("no such package 'pkg'");
     // The traditional label visitor does not propagate the original IOException message.
     // assertContainsEvent("custom crash");
@@ -151,9 +151,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
     syncPackages();
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
-    assertTrue(visitor.sync(reporter, ImmutableSet.<Target>of(),
-        ImmutableSet.of(Label.parseAbsolute("//top:top")), /*keepGoing=*/false,
-        /*parallelThreads=*/5, Integer.MAX_VALUE));
+    assertTrue(visitTransitively(Label.parseAbsolute("//top:top")));
     assertNoEvents();
   }
 
@@ -172,10 +170,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
         return null;
       }
     };
-    assertFalse(visitor.sync(reporter, ImmutableSet.<Target>of(),
-        ImmutableSet.of(Label.parseAbsolute("//top/pkg:x")), /*keepGoing=*/false,
-        /*parallelThreads=*/5, Integer.MAX_VALUE));
-    assertContainsEvent("no such package 'top/pkg'");
-    assertEquals(1, eventCollector.count());
+    assertFalse(visitTransitively(Label.parseAbsolute("//top/pkg:x")));
   }
 }

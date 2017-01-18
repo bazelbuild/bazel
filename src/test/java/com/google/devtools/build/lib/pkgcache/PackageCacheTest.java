@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
@@ -59,9 +58,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -580,41 +577,6 @@ public class PackageCacheTest extends FoundationTestCase {
         "cc_library(name = 'cc', srcs = ['cc.cc'])");
     Rule cc = (Rule) getTarget("//peach:cc");
     assertThat(cc.getFeatures()).hasSize(1);
-  }
-
-  /** Visit label and its dependencies and load all of them. */
-  private void visitLabel(String label) throws Exception {
-    TransitivePackageLoader visitor = getPackageManager().newTransitiveLoader();
-    Set<Target> targets = new HashSet<>();
-    targets.add(getPackageManager().getTarget(reporter, Label.parseAbsolute(label)));
-    visitor.sync(reporter, targets, ImmutableSet.<Label>of(),
-        false, 1, Integer.MAX_VALUE);
-  }
-
-  @Test
-  public void testSyntaxErrorInDepPackage() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    AnalysisMock.get().setupMockClient(new MockToolsConfig(rootDirectory));
-
-    scratch.file("a/BUILD",
-        "genrule(name='x',",
-        "        srcs = ['file.txt'],",
-        "        outs = ['foo'],",
-        "        cmd = 'echo')",
-        "@");  // syntax error
-
-    scratch.file("b/BUILD",
-        "genrule(name= 'cc',",
-        "        tools = ['//a:x'],",
-        "        outs = ['bar'],",
-        "        cmd = 'echo')");
-
-    Package pkgB = getPackage("b");
-
-    // We should get error message from package a, but package is properly loaded.
-    visitLabel("//b:cc");
-    assertContainsEvent("invalid character: '@'");
-    assertFalse(pkgB.containsErrors());
   }
 
   @Test

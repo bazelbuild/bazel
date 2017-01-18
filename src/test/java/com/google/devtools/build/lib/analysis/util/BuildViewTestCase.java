@@ -304,7 +304,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsPolicyEnforcer.enforce(optionsParser);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
-    ensureTargetsVisited(buildOptions.getAllLabels().values());
     skyframeExecutor.invalidateConfigurationCollection();
     return skyframeExecutor.createConfigurations(reporter, configurationFactory, buildOptions,
         ImmutableSet.<String>of(), false);
@@ -441,7 +440,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     view.setArtifactRoots(
         ImmutableMap.of(PackageIdentifier.createInMainRepo(""), rootDirectory));
-    simulateLoadingPhase();
   }
 
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
@@ -646,25 +644,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
   }
 
-  protected void simulateLoadingPhase() {
-    try {
-      ensureTargetsVisited(targetConfig.getAllLabels().values());
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
   protected ActionsTestUtil actionsTestUtil() {
     return new ActionsTestUtil(getActionGraph());
-  }
-
-  private Set<Target> getTargets(Iterable<Label> labels) throws InterruptedException,
-      NoSuchTargetException, NoSuchPackageException{
-    Set<Target> targets = Sets.newHashSet();
-    for (Label label : labels) {
-      targets.add(skyframeExecutor.getPackageManager().getTarget(reporter, label));
-    }
-    return targets;
   }
 
   // Get a MutableActionGraph for testing purposes.
@@ -678,50 +659,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Construct the containing package of the specified labels, and all of its transitive
-   * dependencies.  This must be done prior to configuration, as the latter is intolerant of
-   * NoSuchTargetExceptions.
-   */
-  protected boolean ensureTargetsVisited(TransitivePackageLoader visitor,
-      Collection<Label> targets, Collection<Label> labels, boolean keepGoing)
-          throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    boolean success = visitor.sync(reporter,
-        getTargets(BlazeTestUtils.convertLabels(targets)),
-        ImmutableSet.copyOf(BlazeTestUtils.convertLabels(labels)),
-        keepGoing,
-        /*parallelThreads=*/4,
-        /*maxDepth=*/Integer.MAX_VALUE);
-    return success;
-  }
-
-  protected boolean ensureTargetsVisited(Collection<Label> labels)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    return ensureTargetsVisited(makeVisitor(), ImmutableSet.<Label>of(), labels,
-        /*keepGoing=*/false);
-  }
-
-  protected boolean ensureTargetsVisited(Label label)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
-    return ensureTargetsVisited(ImmutableList.of(label));
-  }
-
-  protected boolean ensureTargetsVisited(String... labels)
-      throws InterruptedException, NoSuchTargetException, NoSuchPackageException,
-          LabelSyntaxException {
-    List<Label> actualLabels = new ArrayList<>();
-    for (String label : labels) {
-      actualLabels.add(Label.parseAbsolute(label));
-    }
-    return ensureTargetsVisited(actualLabels);
-  }
-
-  /**
    * Returns the ConfiguredTarget for the specified label, configured for the "build" (aka "target")
    * configuration.
    */
   public ConfiguredTarget getConfiguredTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException, LabelSyntaxException,
-          InterruptedException {
+      throws LabelSyntaxException {
     return getConfiguredTarget(label, targetConfig);
   }
 
@@ -730,8 +672,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * given build configuration.
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws LabelSyntaxException {
     return getConfiguredTarget(Label.parseAbsolute(label), config);
   }
 
@@ -745,8 +686,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * {@link MemoizingEvaluator#getExistingValueForTesting} call in
    * {@link SkyframeExecutor#getConfiguredTargetForTesting}.  See also b/26382502.
    */
-  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
-      throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
+  protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     return view.getConfiguredTargetForTesting(
         reporter, BlazeTestUtils.convertLabel(label), config);
   }
@@ -756,8 +696,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the "build" (aka "target") configuration.
    */
   protected FileConfiguredTarget getFileConfiguredTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws LabelSyntaxException {
     return (FileConfiguredTarget) getConfiguredTarget(label, targetConfig);
   }
 
@@ -766,8 +705,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the "host" configuration.
    */
   protected ConfiguredTarget getHostConfiguredTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws LabelSyntaxException {
     return getConfiguredTarget(label, getHostConfiguration());
   }
 
@@ -776,8 +714,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the "host" configuration.
    */
   protected FileConfiguredTarget getHostFileConfiguredTarget(String label)
-      throws NoSuchPackageException, NoSuchTargetException,
-      LabelSyntaxException, InterruptedException {
+      throws LabelSyntaxException {
     return (FileConfiguredTarget) getHostConfiguredTarget(label);
   }
 
@@ -839,11 +776,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                                                      String... lines)
       throws IOException, Exception {
     Target rule = scratchRule(packageName, ruleName, lines);
-    if (ensureTargetsVisited(rule.getLabel())) {
-      return view.getConfiguredTargetForTesting(reporter, rule.getLabel(), config);
-    } else {
-      return null;
-    }
+    return view.getConfiguredTargetForTesting(reporter, rule.getLabel(), config);
   }
 
   /**
@@ -1000,7 +933,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory()}. This
+   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getBinDirectory}. This
    * method should only be used for tests that do no analysis, and so there is no ConfiguredTarget
    * to own this artifact. If the test runs the analysis phase, {@link
    * #getBinArtifact(String, ArtifactOwner)} or its convenience methods should be
@@ -1014,7 +947,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}. So
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
    * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
    * be "foo.o".
    */
@@ -1024,7 +957,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}. So
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
    * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
    * be "foo.o".
    */
@@ -1036,7 +969,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}, where the
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}, where the
    * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
    * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
    * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
@@ -1051,7 +984,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}, where the
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}, where the
    * given artifact belongs to the given ConfiguredTarget together with the given Aspect. So to
    * specify a file foo/foo.o owned by target //foo:foo with an aspect from FooAspect, {@code
    * packageRelativePath} should just be "foo.o", and aspectOfOwner should be FooAspect.class. This
@@ -1076,7 +1009,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory()} corresponding to the package of {@code owner}. So
+   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
    * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
    * be "foo.o".
    */
@@ -1087,7 +1020,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory()}.
+   * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory}.
    * This method should only be used for tests that do no analysis, and so there is no
    * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
    * #getGenfilesArtifact(String, ArtifactOwner)} or its convenience methods should be used instead.
@@ -1100,7 +1033,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner}.
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.o".
    */
@@ -1110,7 +1043,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner}.
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.o".
    */
@@ -1120,7 +1053,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner},
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner},
    * where the given artifact belongs to the given ConfiguredTarget together with the given Aspect.
    * So to specify a file foo/foo.o owned by target //foo:foo with an apsect from FooAspect,
    * {@code packageRelativePath} should just be "foo.o", and aspectOfOwner should be
@@ -1164,7 +1097,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory()} corresponding to the package of {@code owner}.
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.o".
    */
@@ -1176,7 +1109,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory()} corresponding to the package of {@code owner}.
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.h".
    */
@@ -1186,7 +1119,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getIncludeDirectory()} corresponding to the package of {@code owner}.
+   * BuildConfiguration#getIncludeDirectory} corresponding to the package of {@code owner}.
    * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
    * just be "foo.h".
    */
