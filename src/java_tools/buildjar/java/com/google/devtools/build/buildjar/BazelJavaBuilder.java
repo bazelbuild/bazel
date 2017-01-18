@@ -88,10 +88,10 @@ public abstract class BazelJavaBuilder {
         return builder.run(build, err).exitCode;
       }
     } catch (InvalidCommandLineException e) {
-      System.err.println(CMDNAME + " threw exception: " + e.getMessage());
+      err.println(CMDNAME + " threw exception: " + e.getMessage());
       return 1;
     } catch (Exception e) {
-      e.printStackTrace();
+      e.printStackTrace(err);
       return 1;
     }
   }
