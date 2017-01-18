@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
  */
 public class IosExtensionBinary extends BinaryLinkingTargetFactory {
   public IosExtensionBinary() {
-    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC, UsesCrosstool.NO);
+    super(HasReleaseBundlingSupport.NO, XcodeProductType.LIBRARY_STATIC);
   }
 
   @Override

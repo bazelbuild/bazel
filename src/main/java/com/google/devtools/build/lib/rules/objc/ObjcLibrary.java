@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -58,7 +59,10 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
     // Support treating objc_library as experimental_objc_library
-    if (ruleContext.getFragment(ObjcConfiguration.class).useExperimentalObjcLibrary()) {
+    // TODO(b/34260565): Deprecate ExperimentalObjcLibrary in favor of ObjcLibrary with
+    // CrosstoolCompilationSupport.
+    if (ruleContext.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
+        != ObjcCrosstoolMode.OFF) {
       return ExperimentalObjcLibrary.configureExperimentalObjcLibrary(ruleContext);
     }
     
@@ -69,7 +73,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addAll(common.getCompiledArchive().asSet());
 
     CompilationSupport compilationSupport =
-        new LegacyCompilationSupport(ruleContext)
+        CompilationSupport.create(ruleContext)
             .registerCompileAndArchiveActions(common)
             .registerFullyLinkAction(common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))

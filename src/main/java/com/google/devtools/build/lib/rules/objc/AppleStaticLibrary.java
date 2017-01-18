@@ -112,7 +112,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
       
       librariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureLibrary());
 
-      new LegacyCompilationSupport(ruleContext, childConfig)
+      CompilationSupport.createForConfig(ruleContext, childConfig)
           .registerCompileAndArchiveActions(common)
           .registerFullyLinkAction(
               objcProvider,

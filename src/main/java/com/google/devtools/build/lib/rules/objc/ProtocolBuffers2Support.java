@@ -97,7 +97,7 @@ final class ProtocolBuffers2Support {
    */
   public ProtocolBuffers2Support registerCompilationActions()
       throws RuleErrorException, InterruptedException {
-    new LegacyCompilationSupport(ruleContext)
+    CompilationSupport.create(ruleContext)
         .registerCompileAndArchiveActions(getCommon())
         .registerGenerateModuleMapAction(getCompilationArtifacts());
     return this;

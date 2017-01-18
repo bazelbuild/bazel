@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
@@ -332,8 +333,72 @@ public abstract class CompilationSupport {
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
   }
-  
+
   /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   */
+  public static CompilationSupport create(RuleContext ruleContext) {
+    return createForConfig(ruleContext, ruleContext.getConfiguration());
+  }
+
+   /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.  The result can be either {@link LegacyCompilationSupport}
+   * or {@link CrosstoolCompilationSupport}.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   * @param buildConfiguration the configuration for the calling target
+   */
+   public static CompilationSupport createForConfig(RuleContext ruleContext,
+       BuildConfiguration buildConfiguration) {
+     return createWithSelectedImplementation(ruleContext,
+         buildConfiguration,
+         ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration),
+         CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
+   }
+
+  /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   * @param compilationAttributes attributes of the calling target
+   */
+  public static CompilationSupport createForAttributes(RuleContext ruleContext,
+      CompilationAttributes compilationAttributes) {
+    BuildConfiguration config = ruleContext.getConfiguration();
+    return createWithSelectedImplementation(ruleContext,
+        config,
+        ObjcRuleClasses.intermediateArtifacts(ruleContext, config),
+        compilationAttributes);
+  }
+
+  /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   * @param buildConfiguration the configuration for the calling target
+   * @param intermediateArtifacts IntermediateArtifacts for deriving artifact paths
+   * @param compilationAttributes attributes of the calling target
+   */
+  private static CompilationSupport createWithSelectedImplementation(
+      RuleContext ruleContext,
+      BuildConfiguration buildConfiguration,
+      IntermediateArtifacts intermediateArtifacts,
+      CompilationAttributes compilationAttributes) {
+    return buildConfiguration.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
+        == ObjcCrosstoolMode.ALL
+        ? new CrosstoolCompilationSupport(ruleContext, buildConfiguration, intermediateArtifacts,
+            compilationAttributes)
+        : new LegacyCompilationSupport(ruleContext, buildConfiguration, intermediateArtifacts,
+            compilationAttributes);
+  }
+
+ /**
    * Registers all actions necessary to compile this rule's sources and archive them.
    *
    * @param compilationArtifacts collection of artifacts required for the compilation

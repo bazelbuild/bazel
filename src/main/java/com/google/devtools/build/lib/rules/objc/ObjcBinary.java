@@ -24,9 +24,6 @@ public class ObjcBinary extends BinaryLinkingTargetFactory {
 
         // TODO(bazel-team): Use LIBRARY_STATIC as parameter instead of APPLICATION once objc_binary
         // no longer creates an application bundle
-        XcodeProductType.APPLICATION,
-
-        // If --experimental_objc_binary is set
-        UsesCrosstool.EXPERIMENTAL);
+        XcodeProductType.APPLICATION);
   }
 }

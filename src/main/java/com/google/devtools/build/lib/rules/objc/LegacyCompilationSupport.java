@@ -116,42 +116,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .build();
   }
 
-  /** Creates a new legacy compilation support for the given rule. */
-  public LegacyCompilationSupport(RuleContext ruleContext) {
-    this(ruleContext, ruleContext.getConfiguration());
-  }
-
-  /**
-   * Creates a new legacy compilation support for the given rule.
-   *
-   * <p>All actions will be created under the given build configuration, which may be different than
-   * the current rule context configuration.
-   */
-  public LegacyCompilationSupport(RuleContext ruleContext, BuildConfiguration buildConfiguration) {
-    this(
-        ruleContext,
-        buildConfiguration,
-        ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration),
-        CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
-  }
-
-  /**
-   * Creates a new legacy compilation support for the given rule.
-   *
-   * <p>The compilation and linking flags will be retrieved from the given compilation attributes.
-   * The names of the generated artifacts will be retrieved from the given intermediate artifacts.
-   *
-   * <p>By instantiating multiple compilation supports for the same rule but with intermediate
-   * artifacts with different output prefixes, multiple archives can be compiled for the same rule
-   * context.
-   */
-  public LegacyCompilationSupport(
-      RuleContext ruleContext,
-      IntermediateArtifacts intermediateArtifacts,
-      CompilationAttributes compilationAttributes) {
-    this(ruleContext, ruleContext.getConfiguration(), intermediateArtifacts, compilationAttributes);
-  }
-
   /**
    * Creates a new legacy compilation support for the given rule and build configuration.
    *
@@ -165,7 +129,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
    * artifacts with different output prefixes, multiple archives can be compiled for the same rule
    * context.
    */
-  public LegacyCompilationSupport(
+  LegacyCompilationSupport(
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,

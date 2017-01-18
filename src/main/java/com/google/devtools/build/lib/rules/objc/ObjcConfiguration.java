@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
@@ -75,8 +76,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean debugWithGlibcxx;
   @Nullable private final Label extraEntitlements;
   private final boolean deviceDebugEntitlements;
+  private final ObjcCrosstoolMode objcCrosstoolMode;
   private final boolean experimentalObjcLibrary;
-  private final boolean experimentalUseCrosstoolForBinary;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
 
@@ -110,8 +111,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
+    this.objcCrosstoolMode = objcOptions.objcCrosstoolMode;
     this.experimentalObjcLibrary = objcOptions.experimentalObjcLibrary;
-    this.experimentalUseCrosstoolForBinary = objcOptions.experimentalUseCrosstoolForBinary;
     this.enableAppleBinaryNativeProtos = objcOptions.enableAppleBinaryNativeProtos;
     this.dotdPruningPlan =
         objcOptions.useDotdPruning
@@ -322,16 +323,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns true if all objc_library targets should be configured as if they were
-   * experimental_objc_library targets.
+   * Returns an {@link ObjcCrosstoolMode} that specifies the circumstances under which a
+   * CROSSTOOL is used for objc in this configuration.
    */
-  public boolean useExperimentalObjcLibrary() {
-    return experimentalObjcLibrary;
-  }
-
-  /** Returns true if objc_binary targets should use the crosstool for compiling and archiving. */
-  public boolean useCrosstoolForBinary() {
-    return experimentalUseCrosstoolForBinary;
+  public ObjcCrosstoolMode getObjcCrosstoolMode() {
+    return experimentalObjcLibrary ? ObjcCrosstoolMode.LIBRARY : objcCrosstoolMode;
   }
 
   /** Returns true if apple_binary targets should generate and link Objc protos. */

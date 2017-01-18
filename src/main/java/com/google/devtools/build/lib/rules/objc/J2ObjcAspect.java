@@ -251,7 +251,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
               depAttributes);
 
       try {
-        new LegacyCompilationSupport(ruleContext)
+        CompilationSupport.create(ruleContext)
             .registerCompileAndArchiveActions(common, EXTRA_COMPILE_ARGS)
             .registerFullyLinkAction(common.getObjcProvider(),
                 ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB));

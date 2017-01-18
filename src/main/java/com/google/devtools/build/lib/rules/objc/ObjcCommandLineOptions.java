@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import java.util.List;
 
@@ -213,19 +214,47 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean deviceDebugEntitlements;
 
-  @Option(
-    name = "experimental_objc_library",
-    defaultValue = "false",
-    category = "undocumented"
-  )
-  public boolean experimentalObjcLibrary;
+  /**
+   * Specifies the circumstances under which a CROSSTOOL is used for objc in this configuration.
+   */
+  enum ObjcCrosstoolMode {
+    /** The CROSSTOOL is used for all objc compile, archive, and link actions. */
+    ALL,
+
+    /**
+     * The CROSSTOOL is used for all objc compile and archive actions originating from an
+     * objc_library target.
+     */
+    LIBRARY,
+
+    /** The CROSSTOOL is not used for any objc action. */
+    OFF
+  }
+
+  /**
+   * Converter for {@link ObjcCrosstoolMode}.
+   */
+  public static class ObjcCrosstoolUsageConverter extends EnumConverter<ObjcCrosstoolMode> {
+    public ObjcCrosstoolUsageConverter() {
+      super(ObjcCrosstoolMode.class, "objc crosstool mode");
+    }
+  }
 
   @Option(
-    name = "experimental_objc_use_crosstool_for_binary",
-    defaultValue = "false",
-    category = "undocumented"
+      name = "experimental_objc_crosstool",
+      defaultValue = "off",
+      category = "undocumented",
+      converter = ObjcCrosstoolUsageConverter.class
   )
-  public boolean experimentalUseCrosstoolForBinary;
+  public ObjcCrosstoolMode objcCrosstoolMode;
+
+  // TODO(b/34260565): Remove in favor of --experimental_objc_crosstool
+  @Option(
+      name = "experimental_objc_library",
+      defaultValue = "false",
+      category = "undocumented"
+  )
+  public boolean experimentalObjcLibrary;
 
   @Option(
     name = "objc_use_dotd_pruning",
