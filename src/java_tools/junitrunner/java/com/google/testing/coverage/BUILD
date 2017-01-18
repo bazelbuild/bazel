@@ -22,7 +22,7 @@ filegroup(
 filegroup(
     name = "embedded_tools",
     srcs = [
-        "JacocoCoverage_deploy.jar",
+        "JacocoCoverage_jarjar_deploy.jar",
     ],
 )
 
@@ -67,4 +67,35 @@ java_library(
     deps = [
         "//third_party:apache_commons_lang",
     ],
+)
+
+genrule(
+    name = "Jacoco_jarjar",
+    srcs = [
+        ":JacocoCoverage_deploy.jar",
+        ":JacocoCoverage.jarjar",
+    ],
+    outs = ["JacocoCoverage_jarjar_deploy.jar"],
+    cmd = "\n".join([
+        # Bazel 0.4.3 contains two bugs: a quoting bug in the Java cmd.exe
+        # wrapper script that makes it unable to handle $ signs in paths (#2306)
+        # and one that makes it occasionally put $ signs in the output base
+        # (#2342).
+        #
+        # These two collude to make it impossible to run built Java binaries on
+        # Windows if the output base happens to contain a $ sign.
+        #
+        # Thus, don't call jarjar when on Windows. This makes Java coverage not
+        # work if the code under test uses libraries the test runner also does
+        # (e.g. ASM).
+        #
+        # TODO(lberki): Remove this once a Bazel version with a fix to either of
+        # these bugs is out.
+        "if [[ $$(uname -a) =~ MSYS ]]; then",
+        "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
+        "else",
+        "  \"$(location //third_party/java/jarjar:jarjar_bin)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
+        "fi",
+    ]),
+    tools = ["//third_party/java/jarjar:jarjar_bin"],
 )
