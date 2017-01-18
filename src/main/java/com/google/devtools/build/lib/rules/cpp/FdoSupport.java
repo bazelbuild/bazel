@@ -702,6 +702,25 @@ public class FdoSupport {
   }
 
   /**
+   * Adds the AutoFDO profile path to the variable builder and returns the profile artifact.
+   * If AutoFDO is disabled, no build variable is added and returns null.
+   */
+  @ThreadSafe
+  public Artifact buildProfileForLtoBackend(FeatureConfiguration featureConfiguration,
+      CcToolchainFeatures.Variables.Builder buildVariables, RuleContext ruleContext) {
+    if (!featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
+      return null;
+    }
+    buildVariables.addStringVariable("fdo_profile_path", getAutoProfilePath(
+        fdoProfile, fdoRootExecPath).getPathString());
+    Artifact artifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        fdoPath.getRelative(getAutoProfileRootRelativePath(fdoProfile)), fdoRoot);
+    ruleContext.getAnalysisEnvironment().registerAction(
+        new FdoStubAction(ruleContext.getActionOwner(), artifact));
+    return artifact;
+  }
+
+  /**
    * Returns the path of the FDO output tree (relative to the execution root)
    * containing the .gcda profile files, or null if FDO is not enabled.
    */

@@ -134,6 +134,11 @@ public final class LTOBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
+    Artifact autoFdoProfile = CppHelper.getFdoSupport(ruleContext).buildProfileForLtoBackend(
+        featureConfiguration, buildVariablesBuilder, ruleContext);
+    if (autoFdoProfile != null) {
+      builder.addInput(autoFdoProfile);
+    }
     Variables buildVariables = buildVariablesBuilder.build();
     List<String> execArgs = new ArrayList<>();
     execArgs.addAll(featureConfiguration.getCommandLine("lto-backend", buildVariables));
