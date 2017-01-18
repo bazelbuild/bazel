@@ -284,15 +284,15 @@ string GetOutputRoot() {
   // for TEMP under MSYS, though it can retrieve WINDIR.
 
   WCHAR buffer[kWindowsPathBufferSize] = {0};
-  if (!GetTempPathW(kWindowsPathBufferSize, buffer)) {
+  if (!::GetTempPathW(kWindowsPathBufferSize, buffer)) {
     PrintErrorW(L"GetTempPathW");
     pdie(255, "Could not retrieve the temp directory path");
   }
   return string(blaze_util::WstringToCstring(buffer).get());
 #else  // not COMPILER_MSVC
   for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
-    char* tmpdir = getenv(i);
-    if (tmpdir != NULL && strlen(tmpdir) > 0) {
+    string tmpdir(GetEnv(i));
+    if (!tmpdir.empty()) {
       return tmpdir;
     }
   }
@@ -351,8 +351,8 @@ bool IsSharedLibrary(const string &filename) {
 }
 
 string GetDefaultHostJavabase() {
-  const char *javahome = getenv("JAVA_HOME");
-  if (javahome == NULL) {
+  string javahome(GetEnv("JAVA_HOME"));
+  if (javahome.empty()) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
         "Error: JAVA_HOME not set.");
   }
@@ -1123,33 +1123,36 @@ void CreateSecureOutputRoot(const string& path) {
 }
 
 string GetEnv(const string& name) {
+  DWORD size = ::GetEnvironmentVariableA(name.c_str(), NULL, 0);
+  if (size == 0) {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::GetEnv is not implemented on Windows");
-  return "";
+    return string();  // unset or empty envvar
 #else  // not COMPILER_MSVC
-  char* result = getenv(name.c_str());
-  return result != NULL ? string(result) : "";
+    char* result = getenv(name.c_str());
+    return result != NULL ? string(result) : string();
 #endif  // COMPILER_MSVC
+  }
+
+  unique_ptr<char[]> value(new char[size]);
+  ::GetEnvironmentVariableA(name.c_str(), value.get(), size);
+  return string(value.get());
 }
 
 void SetEnv(const string& name, const string& value) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::SetEnv is not implemented on Windows");
-#else  // not COMPILER_MSVC
-  setenv(name.c_str(), value.c_str(), 1);
-#endif  // COMPILER_MSVC
+  if (value.empty()) {
+    ::SetEnvironmentVariableA(name.c_str(), NULL);
+#ifndef COMPILER_MSVC
+    unsetenv(name.c_str());
+#endif  // not COMPILER_MSVC
+  } else {
+    ::SetEnvironmentVariableA(name.c_str(), value.c_str());
+#ifndef COMPILER_MSVC
+    setenv(name.c_str(), value.c_str(), 1);
+#endif  // not COMPILER_MSVC
+  }
 }
 
-void UnsetEnv(const string& name) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::UnsetEnv is not implemented on Windows");
-#else  // not COMPILER_MSVC
-  unsetenv(name.c_str());
-#endif  // COMPILER_MSVC
-}
+void UnsetEnv(const string& name) { SetEnv(name, ""); }
 
 void SetupStdStreams() {
 #ifdef COMPILER_MSVC
