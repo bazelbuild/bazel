@@ -259,8 +259,8 @@ public class ProtoCompileActionBuilder {
   }
 
   /** Commandline generator for protoc invocations. */
-  private CustomCommandLine.Builder createProtoCompilerCommandLine()
-      throws MissingPrerequisiteException {
+  @VisibleForTesting
+  CustomCommandLine.Builder createProtoCompilerCommandLine() throws MissingPrerequisiteException {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     if (langPluginName == null) {
@@ -290,7 +290,17 @@ public class ProtoCompileActionBuilder {
     // Add include maps
     result.add(
         new ProtoCommandLineArgv(
-            null /* protosInDirectDependencies */, supportData.getTransitiveImports()));
+            supportData.getProtosInDirectDeps(), supportData.getTransitiveImports()));
+
+    if (supportData.getProtosInDirectDeps() != null) {
+      // Note: the %s in the line below is used by proto-compiler. That is, the string we create
+      // here should have a literal %s in it.
+      result.add(
+          "--direct_dependencies_violation_msg=%s is imported, "
+              + "but "
+              + ruleContext.getLabel().getCanonicalForm()
+              + " doesn't directly depend on a proto_library that 'srcs' it.");
+    }
 
     for (Artifact src : supportData.getDirectProtoSources()) {
       result.addPath(src.getRootRelativePath());
