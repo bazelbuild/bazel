@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -85,7 +86,7 @@ public final class BuildStartingEvent implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.BuildStarted.Builder started =
         BuildEventStreamProtos.BuildStarted.newBuilder()
             .setUuid(request.getId().toString())

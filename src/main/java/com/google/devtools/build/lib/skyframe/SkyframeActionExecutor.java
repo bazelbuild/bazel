@@ -1080,14 +1080,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
   private void reportActionExecution(Action action,
       ActionExecutionException exception, FileOutErr outErr) {
-    String stdout = null;
-    String stderr = null;
+    Path stdout = null;
+    Path stderr = null;
 
     if (outErr.hasRecordedStdout()) {
-      stdout = outErr.getOutputPath().toString();
+      stdout = outErr.getOutputPath();
     }
     if (outErr.hasRecordedStderr()) {
-      stderr = outErr.getErrorPath().toString();
+      stderr = outErr.getErrorPath();
     }
     postEvent(new ActionExecutedEvent(action, exception, stdout, stderr));
   }

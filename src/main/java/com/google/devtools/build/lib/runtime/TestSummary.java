@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.vfs.Path;
@@ -463,16 +464,16 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder().setTotalRunCount(totalRuns());
     for (Path path : getFailedLogs()) {
       summaryBuilder.addFailed(
-          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
     }
     for (Path path : getPassedLogs()) {
       summaryBuilder.addPassed(
-          BuildEventStreamProtos.File.newBuilder().setUri(path.toString()).build());
+          BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
     }
     return GenericBuildEvent.protoChaining(this).setTestSummary(summaryBuilder.build()).build();
   }

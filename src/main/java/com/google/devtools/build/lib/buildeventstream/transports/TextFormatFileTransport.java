@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -28,15 +29,18 @@ import java.nio.charset.StandardCharsets;
  */
 public final class TextFormatFileTransport implements BuildEventTransport {
   private FileOutputStream out;
+  private final PathConverter pathConverter;
 
-  public TextFormatFileTransport(String path) throws IOException {
+  public TextFormatFileTransport(String path, PathConverter pathConverter)
+      throws IOException {
     this.out = new FileOutputStream(new File(path));
+    this.pathConverter = pathConverter;
   }
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event) throws IOException {
     if (out != null) {
-      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto());
+      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(pathConverter));
       out.write(("event {\n" + protoTextRepresentation + "}\n\n").getBytes(StandardCharsets.UTF_8));
       out.flush();
     }

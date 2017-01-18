@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -106,7 +107,7 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.TargetComplete complete =
         BuildEventStreamProtos.TargetComplete.newBuilder().setSuccess(!failed()).build();
     return GenericBuildEvent.protoChaining(this).setCompleted(complete).build();

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Progress;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TargetComplete;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
 import java.io.File;
 import java.io.IOException;
@@ -47,6 +48,8 @@ public class TextFormatFileTransportTest {
 
   @Mock public BuildEvent buildEvent;
 
+  @Mock public PathConverter pathConverter;
+
   @Before
   public void initMocks() {
     MockitoAnnotations.initMocks(this);
@@ -65,20 +68,21 @@ public class TextFormatFileTransportTest {
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setStarted(BuildStarted.newBuilder().setCommand("build"))
             .build();
-    when(buildEvent.asStreamProto()).thenReturn(started);
-    TextFormatFileTransport transport = new TextFormatFileTransport(output.getAbsolutePath());
+    when(buildEvent.asStreamProto(pathConverter)).thenReturn(started);
+    TextFormatFileTransport transport =
+        new TextFormatFileTransport(output.getAbsolutePath(), pathConverter);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
-    when(buildEvent.asStreamProto()).thenReturn(progress);
+    when(buildEvent.asStreamProto(pathConverter)).thenReturn(progress);
     transport.sendBuildEvent(buildEvent);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
-    when(buildEvent.asStreamProto()).thenReturn(completed);
+    when(buildEvent.asStreamProto(pathConverter)).thenReturn(completed);
     transport.sendBuildEvent(buildEvent);
 
     transport.close();

@@ -23,9 +23,11 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.transports.BuildEventStreamOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
@@ -62,11 +64,23 @@ public class BuildEventStreamerModule extends BlazeModule {
   Optional<BuildEventStreamer> tryCreateStreamer(
       OptionsProvider optionsProvider, ModuleEnvironment moduleEnvironment) {
     try {
+      PathConverter pathConverter;
+      if (commandEnvironment == null) {
+        pathConverter = new PathConverter() {
+            @Override
+            public String apply(Path path) {
+              return path.getPathString();
+            }
+          };
+      } else {
+        pathConverter = commandEnvironment.getRuntime().getPathToUriConverter();
+      }
       BuildEventStreamOptions besOptions =
           checkNotNull(
               optionsProvider.getOptions(BuildEventStreamOptions.class),
               "Could not get BuildEventStreamOptions");
-      ImmutableSet<BuildEventTransport> buildEventTransports = createFromOptions(besOptions);
+      ImmutableSet<BuildEventTransport> buildEventTransports
+          = createFromOptions(besOptions, pathConverter);
       if (!buildEventTransports.isEmpty()) {
         BuildEventStreamer streamer = new BuildEventStreamer(buildEventTransports);
         return Optional.of(streamer);

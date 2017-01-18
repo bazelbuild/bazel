@@ -33,7 +33,7 @@ public class AbortedEvent extends GenericBuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     return GenericBuildEvent.protoChaining(this)
         .setAborted(
             BuildEventStreamProtos.Aborted.newBuilder()

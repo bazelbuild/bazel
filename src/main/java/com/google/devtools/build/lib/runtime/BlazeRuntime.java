@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.flags.CommandNameCache;
@@ -143,6 +144,7 @@ public final class BlazeRuntime {
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
+  private final PathConverter pathToUriConverter;
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
@@ -163,7 +165,8 @@ public final class BlazeRuntime {
       ProjectFile.Provider projectFileProvider,
       InvocationPolicy invocationPolicy,
       Iterable<BlazeCommand> commands,
-      String productName) {
+      String productName,
+      PathConverter pathToUriConverter) {
     // Server state
     this.blazeModules = blazeModules;
     overrideCommands(commands);
@@ -188,6 +191,7 @@ public final class BlazeRuntime {
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
+    this.pathToUriConverter = pathToUriConverter;
   }
 
   public void initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -1067,6 +1071,10 @@ public final class BlazeRuntime {
     return productName;
   }
 
+  public PathConverter getPathToUriConverter() {
+    return pathToUriConverter;
+  }
+
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link RuleClassProvider} (except for testing). All other fields
@@ -1167,7 +1175,8 @@ public final class BlazeRuntime {
           projectFileProvider,
           serverBuilder.getInvocationPolicy(),
           serverBuilder.getCommands(),
-          productName);
+          productName,
+          serverBuilder.getPathToUriConverter());
     }
 
     public Builder setProductName(String productName) {

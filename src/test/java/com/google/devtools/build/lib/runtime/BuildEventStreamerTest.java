@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import java.util.ArrayList;
@@ -84,7 +85,7 @@ public class BuildEventStreamerTest {
     }
 
     @Override
-    public BuildEventStreamProtos.BuildEvent asStreamProto() {
+    public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter converter) {
       return GenericBuildEvent.protoChaining(this).build();
     }
 

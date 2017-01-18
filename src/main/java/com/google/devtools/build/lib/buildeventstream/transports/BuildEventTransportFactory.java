@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.IOException;
 
 /** Factory used to create a Set of BuildEventTransports from BuildEventStreamOptions. */
@@ -30,8 +31,9 @@ public enum BuildEventTransportFactory {
     }
 
     @Override
-    protected BuildEventTransport create(BuildEventStreamOptions options) throws IOException {
-      return new TextFormatFileTransport(options.getBuildEventTextFile());
+    protected BuildEventTransport create(BuildEventStreamOptions options,
+        PathConverter pathConverter) throws IOException {
+      return new TextFormatFileTransport(options.getBuildEventTextFile(), pathConverter);
     }
   },
 
@@ -42,8 +44,9 @@ public enum BuildEventTransportFactory {
     }
 
     @Override
-    protected BuildEventTransport create(BuildEventStreamOptions options) throws IOException {
-      return new BinaryFormatFileTransport(options.getBuildEventBinaryFile());
+    protected BuildEventTransport create(BuildEventStreamOptions options,
+        PathConverter pathConverter) throws IOException {
+      return new BinaryFormatFileTransport(options.getBuildEventBinaryFile(), pathConverter);
     }
   };
 
@@ -55,12 +58,12 @@ public enum BuildEventTransportFactory {
    * @return A {@link ImmutableSet} of BuildEventTransports. This set may be empty.
    * @throws IOException Exception propagated from a {@link BuildEventTransport} creation failure.
    */
-  public static ImmutableSet<BuildEventTransport> createFromOptions(BuildEventStreamOptions options)
-      throws IOException {
+  public static ImmutableSet<BuildEventTransport> createFromOptions(BuildEventStreamOptions options,
+      PathConverter pathConverter) throws IOException {
     Builder<BuildEventTransport> buildEventTransportsBuilder = ImmutableSet.builder();
     for (BuildEventTransportFactory transportFactory : BuildEventTransportFactory.values()) {
       if (transportFactory.enabled(options)) {
-        buildEventTransportsBuilder.add(transportFactory.create(options));
+        buildEventTransportsBuilder.add(transportFactory.create(options, pathConverter));
       }
     }
     return buildEventTransportsBuilder.build();
@@ -70,5 +73,6 @@ public enum BuildEventTransportFactory {
   protected abstract boolean enabled(BuildEventStreamOptions options);
 
   /** Creates a BuildEventTransport from the specified options. */
-  protected abstract BuildEventTransport create(BuildEventStreamOptions options) throws IOException;
+  protected abstract BuildEventTransport create(BuildEventStreamOptions options,
+      PathConverter pathConverter) throws IOException;
 }

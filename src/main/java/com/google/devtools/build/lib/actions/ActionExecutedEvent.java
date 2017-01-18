@@ -19,8 +19,10 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.ActionFailed;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
 /**
@@ -30,11 +32,11 @@ import java.util.Collection;
 public class ActionExecutedEvent implements BuildEvent {
   private final Action action;
   private final ActionExecutionException exception;
-  private final String stdout;
-  private final String stderr;
+  private final Path stdout;
+  private final Path stderr;
 
   public ActionExecutedEvent(Action action,
-      ActionExecutionException exception, String stdout, String stderr) {
+      ActionExecutionException exception, Path stdout, Path stderr) {
     this.action = action;
     this.exception = exception;
     this.stdout = stdout;
@@ -51,11 +53,17 @@ public class ActionExecutedEvent implements BuildEvent {
   }
 
   public String getStdout() {
-    return stdout;
+    if (stdout == null) {
+      return null;
+    }
+    return stdout.toString();
   }
 
   public String getStderr() {
-    return stderr;
+    if (stderr == null) {
+      return null;
+    }
+    return stderr.toString();
   }
 
   @Override
@@ -71,7 +79,7 @@ public class ActionExecutedEvent implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto() {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
         BuildEventStreamProtos.ActionExecuted.newBuilder().setSuccess(getException() == null);
     if (exception.getExitCode() != null) {
@@ -79,11 +87,17 @@ public class ActionExecutedEvent implements BuildEvent {
     }
     if (stdout != null) {
       actionBuilder.setStdout(
-          BuildEventStreamProtos.File.newBuilder().setName("stdout").setUri(stdout).build());
+          BuildEventStreamProtos.File.newBuilder()
+          .setName("stdout")
+          .setUri(pathConverter.apply(stdout))
+          .build());
     }
     if (stderr != null) {
       actionBuilder.setStdout(
-          BuildEventStreamProtos.File.newBuilder().setName("stderr").setUri(stderr).build());
+          BuildEventStreamProtos.File.newBuilder()
+          .setName("stderr")
+          .setUri(pathConverter.apply(stderr))
+          .build());
     }
     if (action.getOwner() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
