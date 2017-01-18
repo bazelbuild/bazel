@@ -47,6 +47,11 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/numbers.h"
 
+// Defined by file_windows.cc
+namespace blaze_util {
+HANDLE OpenDirectory(const WCHAR* path, bool read_write);
+}
+
 namespace blaze {
 
 // Ensure we can safely cast (const) wchar_t* to LP(C)WSTR.
@@ -473,7 +478,7 @@ string GetJvmVersion(const string& java_exe) {
     CloseHandle(pipe_read);
     CloseHandle(pipe_write);
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "GetJvmVersion: AsWindowsPath(%s)", java_exe.c_str());
+         "GetJvmVersion: AsShortWindowsPath(%s)", java_exe.c_str());
   }
   win_java_exe = string("\"") + win_java_exe + "\" -version";
 
@@ -569,6 +574,12 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
     return;
   }
 
+  wstring wdaemon_output;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(daemon_output, &wdaemon_output)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "AsWindowsPathWithUncPrefix");
+  }
+
   SECURITY_ATTRIBUTES sa;
   sa.nLength = sizeof(SECURITY_ATTRIBUTES);
   // We redirect stdout and stderr by telling CreateProcess to use a file handle
@@ -576,10 +587,18 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = CreateFileA(
-      /* lpFileName */ ConvertPath(daemon_output).c_str(),
+  HANDLE output_file = ::CreateFileW(
+      /* lpFileName */ wdaemon_output.c_str(),
       /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-      // So that the file can be read while the server is running
+      // TODO(laszlocsomor): add FILE_SHARE_DELETE, that allows deleting jvm.out
+      // and maybe fixes https://github.com/bazelbuild/bazel/issues/2326 .
+      // Unfortunately however if a file that we opened with FILE_SHARE_DELETE
+      // is deleted while its still open, write operations will still succeed
+      // but have no effect, the file won't be recreated. (I haven't tried what
+      // happens with read operations.)
+      //
+      // FILE_SHARE_READ: So that the file can be read while the server is
+      // running
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ &sa,
       /* dwCreationDisposition */ CREATE_ALWAYS,
@@ -846,30 +865,15 @@ typedef struct {
   WCHAR PathBuffer[ANYSIZE_ARRAY];
 } REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
-// TODO(laszlocsomor): get rid of this method in favor of OpenDirectory in
-// file_windows, as part of fixing
-// https://github.com/bazelbuild/bazel/issues/2181.
-HANDLE OpenDirectory(const string& path, bool readWrite) {
-  HANDLE result = ::CreateFileA(
-      /* lpFileName */ path.c_str(),
-      /* dwDesiredAccess */ readWrite ? (GENERIC_READ | GENERIC_WRITE)
-                                      : GENERIC_READ,
-      /* dwShareMode */ 0,
-      /* lpSecurityAttributes */ NULL,
-      /* dwCreationDisposition */ OPEN_EXISTING,
-      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
-          FILE_FLAG_BACKUP_SEMANTICS,
-      /* hTemplateFile */ NULL);
-  if (result == INVALID_HANDLE_VALUE) {
-    PrintError("CreateFile(" + path + ")");
-  }
-
-  return result;
-}
-
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   string target = ConvertPath(posix_target);
   string name = ConvertPath(posix_name);
+  wstring wname;
+
+  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
+    PrintError("SymlinkDirectories: AsWindowsPathWithUncPrefix(" + name + ")");
+    return false;
+  }
 
   // Junctions are directories, so create one
   if (!::CreateDirectoryA(name.c_str(), NULL)) {
@@ -877,7 +881,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
     return false;
   }
 
-  HANDLE directory = OpenDirectory(name, true);
+  HANDLE directory = blaze_util::OpenDirectory(wname.c_str(), true);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -949,7 +953,15 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
 // TODO(laszlocsomor): use JunctionResolver in file_windows.cc
 bool ReadDirectorySymlink(const string &posix_name, string* result) {
   string name = ConvertPath(posix_name);
-  HANDLE directory = OpenDirectory(name, false);
+  wstring wname;
+
+  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
+    PrintError("ReadDirectorySymlink: AsWindowsPathWithUncPrefix(" + name +
+               ")");
+    return false;
+  }
+
+  HANDLE directory = blaze_util::OpenDirectory(wname.c_str(), false);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }

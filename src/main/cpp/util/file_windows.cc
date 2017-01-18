@@ -52,9 +52,6 @@ static bool IsDirectoryW(const wstring& path);
 // necessary.
 static bool UnlinkPathW(const wstring& path);
 
-// Like `AsWindowsPath` but the result is absolute and has UNC prefix if needed.
-static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
-
 static bool IsRootDirectoryW(const wstring& path);
 
 static bool MakeDirectoriesW(const wstring& path);
@@ -293,6 +290,21 @@ void MsysRoot::InitIfNecessary() {
   }
 }
 
+// Converts a UTF8-encoded `path` to a normalized, widechar Windows path.
+//
+// Returns true if conversion succeeded and sets the contents of `result` to it.
+//
+// The `path` may be absolute or relative, and may be a Windows or MSYS path.
+// In every case, the output is normalized (see NormalizeWindowsPath).
+// The output won't have a UNC prefix, even if `path` did.
+//
+// Recognizes the drive letter in MSYS paths, so e.g. "/c/windows" becomes
+// "c:\windows". Prepends the MSYS root (computed from the BAZEL_SH envvar) to
+// absolute MSYS paths, so e.g. "/usr" becomes "c:\tools\msys64\usr".
+//
+// The result may be longer than MAX_PATH. It's the caller's responsibility to
+// prepend the UNC prefix in case they need to pass it to a WinAPI function
+// (some require the prefix, some don't), or to quote the path if necessary.
 bool AsWindowsPath(const string& path, wstring* result) {
   if (path.empty()) {
     result->clear();
@@ -332,7 +344,7 @@ bool AsWindowsPath(const string& path, wstring* result) {
   return true;
 }
 
-static bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
+bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
   if (IsDevNull(path)) {
     wpath->assign(L"NUL");
     return true;

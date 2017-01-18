@@ -29,15 +29,18 @@ using std::string;
 using std::wstring;
 
 // Methods defined in file_windows.cc that are only visible for testing.
+bool AsWindowsPath(const string& path, wstring* result);
 void ResetMsysRootForTesting();
 string NormalizeWindowsPath(string path);
 
-static void GetTestTmpDir(string* result) {
-  char buf[MAX_PATH] = {0};
-  DWORD len = GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH);
-  result->assign(buf);
-  ASSERT_LT(0, result->size());
-}
+// This is a macro so the assertions will have the correct line number.
+#define GET_TEST_TMPDIR(/* string& */ result)                            \
+  {                                                                      \
+    char buf[MAX_PATH] = {0};                                            \
+    DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH); \
+    result = buf;                                                        \
+    ASSERT_GT(result.size(), 0);                                         \
+  }
 
 TEST(FileTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string(""), NormalizeWindowsPath(""));
@@ -194,7 +197,7 @@ TEST(FileTest, TestAsShortWindowsPath) {
   ASSERT_EQ(string("NUL"), actual);
 
   string tmpdir;
-  GetTestTmpDir(&tmpdir);
+  GET_TEST_TMPDIR(tmpdir);
   string short_tmpdir;
   ASSERT_TRUE(AsShortWindowsPath(tmpdir, &short_tmpdir));
   ASSERT_LT(0, short_tmpdir.size());
@@ -267,7 +270,7 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_TRUE(PathExists("Nul"));
 
   string tmpdir;
-  GetTestTmpDir(&tmpdir);
+  GET_TEST_TMPDIR(tmpdir);
   ASSERT_TRUE(PathExists(tmpdir));
 
   // Create a fake msys root. We'll also use it as a junction target.
@@ -310,7 +313,7 @@ TEST(FileTest, TestIsDirectory) {
   ASSERT_FALSE(IsDirectory("Nul"));
 
   string tmpdir;
-  GetTestTmpDir(&tmpdir);
+  GET_TEST_TMPDIR(tmpdir);
   ASSERT_TRUE(IsDirectory(tmpdir));
   ASSERT_TRUE(IsDirectory("C:\\"));
   ASSERT_TRUE(IsDirectory("C:/"));
@@ -347,7 +350,7 @@ TEST(FileTest, TestUnlinkPath) {
   ASSERT_FALSE(UnlinkPath("Nul"));
 
   string tmpdir;
-  GetTestTmpDir(&tmpdir);
+  GET_TEST_TMPDIR(tmpdir);
 
   // Create a directory under `tempdir`, a file inside it, and a junction
   // pointing to it.
@@ -376,7 +379,8 @@ TEST(FileTest, TestUnlinkPath) {
 }
 
 TEST(FileTest, TestMakeDirectories) {
-  string tmpdir(GetTestTmpDir());
+  string tmpdir;
+  GET_TEST_TMPDIR(tmpdir);
   ASSERT_LT(0, tmpdir.size());
 
   SetEnvironmentVariableA(
@@ -417,7 +421,7 @@ TEST(FileTest, CanAccess) {
   ASSERT_FALSE(CanAccessDirectory("non.existent"));
 
   string tmpdir;
-  GetTestTmpDir(&tmpdir);
+  GET_TEST_TMPDIR(tmpdir);
   string dir(JoinPath(tmpdir, "canaccesstest"));
   ASSERT_EQ(0, mkdir(dir.c_str()));
 
