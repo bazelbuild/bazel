@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -170,36 +171,13 @@ public class ConfigRuleClasses {
           ImmutableList.builder();
       AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
       for (String optionName : attributes.get(SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet()) {
-        if (optionName.equals("cpu")) {
-          // The "cpu" flag is special: it's defined in BuildConfiguration.Options but its value
-          // is set in CppConfiguration (which reads a CROSSTOOL to determine that value).
-          // So this requires a special mapping.
-          builder.add(getCppConfiguration(optionsToFragmentMap.values()));
-        } else {
-          Class<? extends BuildConfiguration.Fragment> value = optionsToFragmentMap.get(optionName);
-          // Null values come from BuildConfiguration.Options, which is implicitly included.
-          if (value != null) {
-            builder.add(value);
-          }
+        Class<? extends BuildConfiguration.Fragment> value = optionsToFragmentMap.get(optionName);
+        // Null values come from BuildConfiguration.Options, which is implicitly included.
+        if (value != null) {
+          builder.add(value);
         }
       }
       return builder.build();
-    }
-
-    /**
-     * We can't directly reference CppConfiguration.class because it's in a different Bazel library.
-     * While we could add that library as a dep, that would bring in a bunch of unnecessary C++ and
-     * crosstool code to what's otherwise a language-agnostic library. So we use a bit of
-     * introspection instead.
-     */
-    private static Class<? extends BuildConfiguration.Fragment> getCppConfiguration(
-        Iterable<Class<? extends BuildConfiguration.Fragment>> configs) {
-      for (Class<? extends BuildConfiguration.Fragment> clazz : configs) {
-        if (clazz.getSimpleName().equals("CppConfiguration")) {
-          return clazz;
-        }
-      }
-      throw new IllegalStateException("Couldn't find the C++ fragment");
     }
   }
 

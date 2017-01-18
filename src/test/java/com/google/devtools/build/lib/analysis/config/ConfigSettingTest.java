@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,9 +29,10 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.common.options.Option;
 import java.util.Map;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,6 +42,50 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ConfigSettingTest extends BuildViewTestCase {
+
+  /**
+   * Test option that has its null default overridden by its fragment.
+   */
+  public static class LateBoundTestOptions extends FragmentOptions {
+    public LateBoundTestOptions() {}
+
+    @Option(name = "opt_with_default", defaultValue = "null")
+    public String optwithDefault;
+  }
+
+  private static class LateBoundTestOptionsFragment extends BuildConfiguration.Fragment {
+    @Override
+    public Map<String, Object> lateBoundOptionDefaults() {
+      return ImmutableMap.<String, Object>of("opt_with_default", "overridden");
+    }
+  }
+
+  private static class LateBoundTestOptionsLoader implements ConfigurationFragmentFactory {
+    @Override
+    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
+        BuildOptions buildOptions) throws InvalidConfigurationException {
+      return new LateBoundTestOptionsFragment();
+    }
+
+    @Override
+    public Class<? extends BuildConfiguration.Fragment> creates() {
+      return LateBoundTestOptionsFragment.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(LateBoundTestOptions.class);
+    }
+  }
+
+  @Override
+  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    TestRuleClassProvider.addStandardRules(builder);
+    builder.addConfigurationOptions(LateBoundTestOptions.class);
+    builder.addConfigurationFragment(new LateBoundTestOptionsLoader());
+    return builder.build();
+  }
 
   private void writeSimpleExample() throws Exception {
     scratch.file("pkg/BUILD",
@@ -57,22 +102,11 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Returns the default value of the given flag.
-   */
-  private Object flagDefault(String option) {
-    Class<? extends OptionsBase> optionsClass = getTargetConfiguration().getOptionClass(option);
-    return OptionsParser.newOptionsParser(optionsClass)
-        .getOptions(optionsClass)
-        .asMap()
-        .get(option);
-  }
-
-  /**
    * Tests that a config_setting only matches build configurations where *all* of
    * its flag specifications match.
    */
   @Test
-  public void testMatchingCriteria() throws Exception {
+  public void matchingCriteria() throws Exception {
     writeSimpleExample();
 
     // First flag mismatches:
@@ -96,7 +130,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests that {@link ConfigMatchingProvider#label} is correct.
    */
   @Test
-  public void testLabel() throws Exception {
+  public void labelGetter() throws Exception {
     writeSimpleExample();
     assertEquals(
         Label.parseAbsolute("//pkg:foo"),
@@ -107,7 +141,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests that rule analysis fails on unknown options.
    */
   @Test
-  public void testUnknownOption() throws Exception {
+  public void unknownOption() throws Exception {
     checkError("foo", "badoption",
         "unknown option: 'not_an_option'",
         "config_setting(",
@@ -119,7 +153,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests that rule analysis fails on invalid option values.
    */
   @Test
-  public void testInvalidOptionValue() throws Exception {
+  public void invalidOptionValue() throws Exception {
     checkError("foo", "badvalue",
         "Not a valid compilation mode: 'baz'",
         "config_setting(",
@@ -132,7 +166,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * remaining options are still validity-checked.
    */
   @Test
-  public void testInvalidOptionFartherDown() throws Exception {
+  public void invalidOptionFartherDown() throws Exception {
     checkError("foo", "badoption",
         "unknown option: 'not_an_option'",
         "config_setting(",
@@ -147,7 +181,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests that *some* settings must be specified.
    */
   @Test
-  public void testEmptySettings() throws Exception {
+  public void emptySettings() throws Exception {
     checkError("foo", "empty",
         "//foo:empty: no settings specified",
         "config_setting(",
@@ -161,28 +195,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * com.google.devtools.common.options.Option#defaultValue}).
    */
   @Test
-  public void testLateBoundOptionDefaults() throws Exception {
-    String crosstoolCpuDefault = (String) getTargetConfiguration().getOptionValue("cpu");
-    String crosstoolCompilerDefault = (String) getTargetConfiguration().getOptionValue("compiler");
-
+  public void lateBoundOptionDefaults() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
-        "    values = {",
-        "        'cpu': '" + crosstoolCpuDefault + "',",
-        "        'compiler': '" + crosstoolCompilerDefault + "',", //'gcc-4.4.0',",
-        "    })");
-
+        "    values = { 'opt_with_default': 'overridden' }",
+        ")");
     assertTrue(getConfigMatchingProvider("//test:match").matches());
-    assertNull(flagDefault("compiler"));
-    assertNotNull(crosstoolCompilerDefault);
   }
 
   /**
    * Tests matching on multi-value attributes with key=value entries (e.g. --define).
    */
   @Test
-  public void testMultiValueDict() throws Exception {
+  public void multiValueDict() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
@@ -208,7 +234,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
    * Tests matching on multi-value attributes with primitive values.
    */
   @Test
-  public void testMultiValueList() throws Exception {
+  public void multiValueList() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
@@ -229,7 +255,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSelectForDefaultCrosstoolTop() throws Exception {
+  public void selectForDefaultCrosstoolTop() throws Exception {
     String crosstoolTop = TestConstants.TOOLS_REPOSITORY + "//tools/cpp:toolchain";
     scratchConfiguredTarget("a", "a",
         "config_setting(name='cs', values={'crosstool_top': '" + crosstoolTop + "'})",
@@ -237,14 +263,14 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSelectForDefaultGrteTop() throws Exception {
+  public void selectForDefaultGrteTop() throws Exception {
     scratchConfiguredTarget("a", "a",
         "config_setting(name='cs', values={'grte_top': 'default'})",
         "sh_library(name='a', srcs=['a.sh'], deps=select({':cs': []}))");
   }
 
   @Test
-  public void testRequiredConfigFragmentMatcher() throws Exception {
+  public void requiredConfigFragmentMatcher() throws Exception {
     scratch.file("test/BUILD",
         "config_setting(",
         "    name = 'match',",
