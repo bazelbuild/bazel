@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.io.Serializable;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -99,7 +99,7 @@ public final class Environment implements Freezable {
 
     private final Mutability mutability;
     final Frame parent;
-    final Map<String, Object> bindings = new HashMap<>();
+    final Map<String, Object> bindings = new LinkedHashMap<>();
     // The label for the target this frame is defined in (e.g., //foo:bar.bzl).
     @Nullable
     private Label label;

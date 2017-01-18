@@ -497,6 +497,32 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testExportAliasedName() throws Exception {
+    // When there are multiple names aliasing the same SkylarkExportable, the first one to be
+    // declared should be used. Make sure we're not using lexicographical order, hash order,
+    // non-deterministic order, or anything else.
+    evalAndExport(
+        "def _impl(ctx): pass",
+        "d = rule(implementation = _impl)",
+        "a = d",
+        // Having more names improves the chance that non-determinism will be caught.
+        "b = d",
+        "c = d",
+        "e = d",
+        "f = d",
+        "foo = d",
+        "bar = d",
+        "baz = d",
+        "x = d",
+        "y = d",
+        "z = d");
+    String dName = ((RuleFunction) lookup("d")).getRuleClass().getName();
+    String fooName = ((RuleFunction) lookup("foo")).getRuleClass().getName();
+    assertThat(dName).isEqualTo("d");
+    assertThat(fooName).isEqualTo("d");
+  }
+
+  @Test
   public void testOutputToGenfiles() throws Exception {
     evalAndExport("def impl(ctx): pass", "r1 = rule(impl, output_to_genfiles=True)");
     RuleClass c = ((RuleFunction) lookup("r1")).getRuleClass();
