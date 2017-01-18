@@ -18,6 +18,14 @@ filegroup(
 )
 
 java_import(
+    name = "protobuf-util",
+    jars = ["protobuf-java-util-3.0.0.jar"],
+    exports = [
+        "//third_party:gson",
+    ],
+)
+
+java_import(
     name = "protobuf",
     jars = ["protobuf-java-3.0.0.jar"],
 )

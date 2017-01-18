@@ -20,6 +20,8 @@ proto_alias("protobuf", PROTOBUF_VERSION)
 
 proto_alias("protobuf-jars", PROTOBUF_VERSION)
 
+proto_alias("protobuf-util", PROTOBUF_VERSION)
+
 proto_alias("protobuf_python_srcs", PROTOBUF_VERSION)
 
 proto_alias("protobuf_python", PROTOBUF_VERSION)

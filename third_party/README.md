@@ -140,9 +140,9 @@ a minimal set of extra dependencies.
 * License: MIT license
 
 
-## [protobuf-java](https://code.google.com/p/protobuf/)
+## [protobuf](https://code.google.com/p/protobuf/)
 
-* Version: 2.5.0
+* Version: 3.0.0
 * License: New BSD License
 
 
