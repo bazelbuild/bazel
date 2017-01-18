@@ -26,12 +26,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin.PluginException;
-import com.sun.source.util.TaskEvent;
-import com.sun.source.util.TaskListener;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
@@ -86,7 +83,6 @@ public class BlazeJavacMain {
       plugin.initializeContext(context);
     }
     BlazeJavaCompiler.preRegister(context, plugins, compilerListener);
-    enableEndPositions(context);
   }
 
   private final Function<BlazeJavaCompiler, Void> compilerListener =
@@ -163,23 +159,6 @@ public class BlazeJavacMain {
       }
     }
     return result;
-  }
-
-  private static final TaskListener EMPTY_LISTENER =
-      new TaskListener() {
-        @Override
-        public void started(TaskEvent e) {}
-
-        @Override
-        public void finished(TaskEvent e) {}
-      };
-
-  /**
-   * Convinces javac to run in 'API mode', and collect end position information needed by
-   * error-prone.
-   */
-  private static void enableEndPositions(Context context) {
-    MultiTaskListener.instance(context).add(EMPTY_LISTENER);
   }
 
   /** Processes Plugin-specific arguments and removes them from the args array. */
