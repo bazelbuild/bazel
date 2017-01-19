@@ -607,9 +607,6 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addDeps(Iterable<? extends TransitiveInfoCollection> deps) {
     for (TransitiveInfoCollection dep : deps) {
-      Preconditions.checkArgument(dep.getConfiguration() == null
-          || configuration.equalsOrIsSupersetOf(dep.getConfiguration()),
-          "dep " + dep.getLabel() + " has a different config than " + ruleContext.getLabel());
       this.deps.add(dep);
     }
     return this;
