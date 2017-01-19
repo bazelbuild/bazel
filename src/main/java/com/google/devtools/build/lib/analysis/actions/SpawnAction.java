@@ -85,13 +85,13 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  protected final CommandLine argv;
+  private final CommandLine argv;
 
   private final boolean executeUnconditionally;
   private final String progressMessage;
   private final String mnemonic;
   // entries are (directory for remote execution, Artifact)
-  protected final ImmutableMap<PathFragment, Artifact> inputManifests;
+  private final ImmutableMap<PathFragment, Artifact> inputManifests;
 
   private final ResourceSet resourceSet;
   private final ImmutableMap<String, String> environment;

@@ -199,10 +199,10 @@ public final class LTOBackendAction extends SpawnAction {
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addStrings(argv.arguments());
+    f.addStrings(getArguments());
     f.addString(getMnemonic());
-    f.addInt(inputManifests.size());
-    for (Map.Entry<PathFragment, Artifact> input : inputManifests.entrySet()) {
+    f.addInt(getInputManifests().size());
+    for (Map.Entry<PathFragment, Artifact> input : getInputManifests().entrySet()) {
       f.addString(input.getKey().getPathString() + "/");
       f.addPath(input.getValue().getExecPath());
     }
