@@ -104,4 +104,44 @@ TEST(FileTest, TestWriteFile) {
   ASSERT_EQ(0, remove(filename.c_str()));
 }
 
+TEST(FileTest, TestMtimeHandling) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  ASSERT_NE(tempdir_cstr[0], 0);
+  string tempdir(tempdir_cstr);
+
+  std::unique_ptr<IFileMtime> mtime(CreateFileMtime());
+  bool actual = false;
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(tempdir, &actual));
+  ASSERT_FALSE(actual);
+
+  // Create a new file, assert its mtime is not in the future.
+  string file(JoinPath(tempdir, "foo.txt"));
+  ASSERT_TRUE(WriteFile("hello", 5, file));
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(actual);
+  // Set the file's mtime to the future, assert that it's so.
+  ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(actual);
+  // Overwrite the file, resetting its mtime, assert that GetIfInDistantFuture
+  // notices.
+  ASSERT_TRUE(WriteFile("world", 5, file));
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(actual);
+  // Set it to the future again so we can reset it using SetToNow.
+  ASSERT_TRUE(mtime.get()->SetToDistantFuture(file));
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_TRUE(actual);
+  // Assert that SetToNow resets the timestamp.
+  ASSERT_TRUE(mtime.get()->SetToNow(file));
+  ASSERT_TRUE(mtime.get()->GetIfInDistantFuture(file, &actual));
+  ASSERT_FALSE(actual);
+  // Delete the file and assert that we can no longer set or query its mtime.
+  ASSERT_TRUE(UnlinkPath(file));
+  ASSERT_FALSE(mtime.get()->SetToNow(file));
+  ASSERT_FALSE(mtime.get()->SetToDistantFuture(file));
+  ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
+}
+
 }  // namespace blaze_util

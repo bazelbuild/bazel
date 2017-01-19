@@ -25,6 +25,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows_util.h"
 
 namespace blaze_util {
 
@@ -159,6 +160,142 @@ IPipe* CreatePipe() {
   }
   return new WindowsPipe(read_handle, write_handle);
 }
+
+class WindowsFileMtime : public IFileMtime {
+ public:
+  WindowsFileMtime()
+      : near_future_(GetFuture(9)), distant_future_(GetFuture(10)) {}
+
+  bool GetIfInDistantFuture(const string& path, bool* result) override;
+  bool SetToNow(const string& path) override;
+  bool SetToDistantFuture(const string& path) override;
+
+ private:
+  // 9 years in the future.
+  const FILETIME near_future_;
+  // 10 years in the future.
+  const FILETIME distant_future_;
+
+  static FILETIME GetNow();
+  static FILETIME GetFuture(WORD years);
+  static bool Set(const string& path, const FILETIME& time);
+};
+
+bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
+  if (path.empty()) {
+    return false;
+  }
+  if (IsDevNull(path)) {
+    *result = false;
+    return true;
+  }
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+
+  windows_util::AutoHandle handle(::CreateFileW(
+      /* lpFileName */ wpath.c_str(),
+      /* dwDesiredAccess */ GENERIC_READ,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ IsDirectoryW(wpath)
+          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+          : FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL));
+  if (handle.handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  FILETIME mtime;
+  if (!::GetFileTime(
+          /* hFile */ handle.handle,
+          /* lpCreationTime */ NULL,
+          /* lpLastAccessTime */ NULL,
+          /* lpLastWriteTime */ &mtime)) {
+    return false;
+  }
+
+  // Compare the mtime with `near_future_`, not with `GetNow()` or
+  // `distant_future_`.
+  // This way we don't need to call GetNow() every time we want to compare (and
+  // thus convert a SYSTEMTIME to FILETIME), and we also don't need to worry
+  // about potentially unreliable FILETIME equality check (in case it uses
+  // floats or something crazy).
+  *result = CompareFileTime(&near_future_, &mtime) == -1;
+  return true;
+}
+
+bool WindowsFileMtime::SetToNow(const string& path) {
+  return Set(path, GetNow());
+}
+
+bool WindowsFileMtime::SetToDistantFuture(const string& path) {
+  return Set(path, distant_future_);
+}
+
+bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
+  if (path.empty()) {
+    return false;
+  }
+  wstring wpath;
+  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+    return false;
+  }
+
+  windows_util::AutoHandle handle(::CreateFileW(
+      /* lpFileName */ wpath.c_str(),
+      /* dwDesiredAccess */ FILE_WRITE_ATTRIBUTES,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ IsDirectoryW(wpath)
+          ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
+          : FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL));
+  if (handle.handle == INVALID_HANDLE_VALUE) {
+    return false;
+  }
+  return ::SetFileTime(
+             /* hFile */ handle.handle,
+             /* lpCreationTime */ NULL,
+             /* lpLastAccessTime */ NULL,
+             /* lpLastWriteTime */ &time) == TRUE;
+}
+
+FILETIME WindowsFileMtime::GetNow() {
+  SYSTEMTIME sys_time;
+  ::GetSystemTime(&sys_time);
+  FILETIME file_time;
+  if (!::SystemTimeToFileTime(&sys_time, &file_time)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "WindowsFileMtime::GetNow: SystemTimeToFileTime failed, err=%d",
+         GetLastError());
+  }
+  return file_time;
+}
+
+FILETIME WindowsFileMtime::GetFuture(WORD years) {
+  SYSTEMTIME future_time;
+  GetSystemTime(&future_time);
+  future_time.wYear += years;
+  future_time.wMonth = 1;
+  future_time.wDayOfWeek = 0;
+  future_time.wDay = 1;
+  future_time.wHour = 0;
+  future_time.wMinute = 0;
+  future_time.wSecond = 0;
+  future_time.wMilliseconds = 0;
+  FILETIME file_time;
+  if (!::SystemTimeToFileTime(&future_time, &file_time)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "WindowsFileMtime::GetFuture: SystemTimeToFileTime failed, err=%d",
+         GetLastError());
+  }
+  return file_time;
+}
+
+IFileMtime* CreateFileMtime() { return new WindowsFileMtime(); }
 
 // Checks if the path is absolute and/or is a root path.
 //

@@ -26,6 +26,30 @@ class IPipe;
 
 IPipe* CreatePipe();
 
+// Class to query/manipulate the last modification time (mtime) of files.
+class IFileMtime {
+ public:
+  virtual ~IFileMtime() {}
+
+  // Queries the mtime of `path` to see whether it's in the distant future.
+  // Returns true if querying succeeded and stores the result in `result`.
+  // Returns false if querying failed.
+  virtual bool GetIfInDistantFuture(const std::string &path, bool *result) = 0;
+
+  // Sets the mtime of file under `path` to the current time.
+  // Returns true if the mtime was changed successfully.
+  virtual bool SetToNow(const std::string &path) = 0;
+
+  // Sets the mtime of file under `path` to the distant future.
+  // "Distant future" should be on the order of some years into the future, like
+  // a decade.
+  // Returns true if the mtime was changed successfully.
+  virtual bool SetToDistantFuture(const std::string &path) = 0;
+};
+
+// Creates a platform-specific implementation of `IFileMtime`.
+IFileMtime *CreateFileMtime();
+
 // Split a path to dirname and basename parts.
 std::pair<std::string, std::string> SplitPath(const std::string &path);
 
@@ -79,15 +103,6 @@ bool IsAbsolute(const std::string &path);
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie() if syncing fails.
 void SyncFile(const std::string& path);
-
-// Returns the last modification time of `path` in milliseconds since the Epoch.
-// Returns -1 upon failure.
-time_t GetMtimeMillisec(const std::string& path);
-
-// Sets the last modification time of `path` to the given value.
-// `mtime` must be milliseconds since the Epoch.
-// Returns true upon success.
-bool SetMtimeMillisec(const std::string& path, time_t mtime);
 
 // mkdir -p path. All newly created directories use the given mode.
 // `mode` should be an octal permission mask, e.g. 0755.

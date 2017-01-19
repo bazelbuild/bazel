@@ -52,7 +52,11 @@ cc_library(
         ":blaze_exit_code",
         ":errors",
         ":strings",
-    ],
+    ] + select({
+        "//src:windows": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_library(

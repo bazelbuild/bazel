@@ -279,23 +279,70 @@ void SyncFile(const string& path) {
   }
   close(fd);
 }
-#endif  // not __CYGWIN__
 
-time_t GetMtimeMillisec(const string& path) {
+class PosixFileMtime : public IFileMtime {
+ public:
+  PosixFileMtime()
+      : near_future_(GetFuture(9)),
+        distant_future_({GetFuture(10), GetFuture(10)}) {}
+
+  bool GetIfInDistantFuture(const string &path, bool *result) override;
+  bool SetToNow(const string &path) override;
+  bool SetToDistantFuture(const string &path) override;
+
+ private:
+  // 9 years in the future.
+  const time_t near_future_;
+  // 10 years in the future.
+  const struct utimbuf distant_future_;
+
+  static bool Set(const string &path, const struct utimbuf &mtime);
+  static time_t GetNow();
+  static time_t GetFuture(unsigned int years);
+};
+
+bool PosixFileMtime::GetIfInDistantFuture(const string &path, bool *result) {
   struct stat buf;
   if (stat(path.c_str(), &buf)) {
-    return -1;
-  } else {
-    return buf.st_mtime;
+    return false;
   }
+  // Compare the mtime with `near_future_`, not with `GetNow()` or
+  // `distant_future_`.
+  // This way we don't need to call GetNow() every time we want to compare and
+  // we also don't need to worry about potentially unreliable time equality
+  // check (in case it uses floats or something crazy).
+  *result = (buf.st_mtime > near_future_);
+  return true;
 }
 
-bool SetMtimeMillisec(const string& path, time_t mtime) {
-  struct utimbuf times = {mtime, mtime};
-  return utime(path.c_str(), &times) == 0;
+bool PosixFileMtime::SetToNow(const string &path) {
+  time_t now(GetNow());
+  struct utimbuf times = {now, now};
+  return Set(path, times);
 }
 
-#ifndef __CYGWIN__
+bool PosixFileMtime::SetToDistantFuture(const string &path) {
+  return Set(path, distant_future_);
+}
+
+bool PosixFileMtime::Set(const string &path, const struct utimbuf &mtime) {
+  return utime(path.c_str(), &mtime) == 0;
+}
+
+time_t PosixFileMtime::GetNow() {
+  time_t result = time(NULL);
+  if (result == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "time(NULL) failed");
+  }
+  return result;
+}
+
+time_t PosixFileMtime::GetFuture(unsigned int years) {
+  return GetNow() + 3600 * 24 * 365 * years;
+}
+
+IFileMtime *CreateFileMtime() { return new PosixFileMtime(); }
+
 // mkdir -p path. Returns true if the path was created or already exists and
 // could
 // be chmod-ed to exactly the given permissions. If final part of the path is a

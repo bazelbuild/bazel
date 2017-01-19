@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
 #include <grpc/grpc.h>
 #include <grpc/support/log.h>
@@ -844,9 +843,6 @@ static void ActuallyExtractData(const string &argv0,
         globals->options->product_name.c_str(), extractor->GetError());
   }
 
-  const time_t TEN_YEARS_IN_SEC = 3600 * 24 * 365 * 10;
-  time_t future_time = time(NULL) + TEN_YEARS_IN_SEC;
-
   // Set the timestamps of the extracted files to the future and make sure (or
   // at least as sure as we can...) that the files we have written are actually
   // on the disk.
@@ -856,17 +852,19 @@ static void ActuallyExtractData(const string &argv0,
   // Walks the temporary directory recursively and collects full file paths.
   blaze_util::GetAllFilesUnder(embedded_binaries, &extracted_files);
 
+  std::unique_ptr<blaze_util::IFileMtime> mtime(blaze_util::CreateFileMtime());
   set<string> synced_directories;
   for (const auto &it : extracted_files) {
     const char *extracted_path = it.c_str();
 
     // Set the time to a distantly futuristic value so we can observe tampering.
-    // Note that keeping the default timestamp set by unzip (1970-01-01) and
-    // using that to detect tampering is not enough, because we also need the
-    // timestamp to change between Blaze releases so that the metadata cache
-    // knows that the files may have changed. This is important for actions that
-    // use embedded binaries as artifacts.
-    if (!blaze_util::SetMtimeMillisec(it, future_time)) {
+    // Note that keeping a static, deterministic timestamp, such as the default
+    // timestamp set by unzip (1970-01-01) and using that to detect tampering is
+    // not enough, because we also need the timestamp to change between Bazel
+    // releases so that the metadata cache knows that the files may have
+    // changed. This is essential for the correctness of actions that use
+    // embedded binaries as artifacts.
+    if (!mtime.get()->SetToDistantFuture(it)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to set timestamp on '%s'", extracted_path);
     }
@@ -932,7 +930,8 @@ static void ExtractData(const string &self_path) {
           globals->options->install_base.c_str());
     }
 
-    const time_t time_now = time(NULL);
+    std::unique_ptr<blaze_util::IFileMtime> mtime(
+        blaze_util::CreateFileMtime());
     string real_install_dir = blaze_util::JoinPath(
         globals->options->install_base,
         "_embedded_binaries");
@@ -951,13 +950,14 @@ static void ExtractData(const string &self_path) {
       // Check that the timestamp is in the future. A past timestamp would
       // indicate that the file has been tampered with.
       // See ActuallyExtractData().
-      time_t mtime = blaze_util::GetMtimeMillisec(path);
-      if (mtime == -1) {
+      bool is_in_future = false;
+      if (!mtime.get()->GetIfInDistantFuture(path, &is_in_future)) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: could not retrieve mtime of file '%s'. "
             "Please remove '%s' and try again.",
             path.c_str(), globals->options->install_base.c_str());
-      } else if (mtime <= time_now) {
+      }
+      if (!is_in_future) {
         die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
             "Error: corrupt installation: file '%s' "
             "modified.  Please remove '%s' and try again.",
@@ -1070,9 +1070,9 @@ static void EnsureCorrectRunningVersion(BlazeServer* server) {
 
     // Update the mtime of the install base so that cleanup tools can
     // find install bases that haven't been used for a long time
-    const time_t time_now = time(NULL);
-    if (!blaze_util::SetMtimeMillisec(globals->options->install_base,
-                                      time_now)) {
+    std::unique_ptr<blaze_util::IFileMtime> mtime(
+        blaze_util::CreateFileMtime());
+    if (!mtime.get()->SetToNow(globals->options->install_base)) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "failed to set timestamp on '%s'",
            globals->options->install_base.c_str());
