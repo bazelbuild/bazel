@@ -135,8 +135,6 @@ java_test(
             "vfs/inmemoryfs/*.java",
         ],
         exclude = [
-            # TODO(#2068): Deflake this test or reactivate once #540 is fixed.
-            "concurrent/MultisetSemaphoreTest.java",
             # java_rules_skylark doesn't support resource loading with
             # qualified paths.
             "util/ResourceFileLoaderTest.java",
