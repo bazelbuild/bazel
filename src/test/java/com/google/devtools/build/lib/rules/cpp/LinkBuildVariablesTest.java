@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.util.OsUtils;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -170,7 +171,8 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     Variables variables = getLinkBuildVariables(target, Link.LinkTargetType.EXECUTABLE);
     List<String> variableValue =
         getVariableValue(variables, CppLinkActionBuilder.LINKER_PARAM_FILE_VARIABLE);
-    assertThat(Iterables.getOnlyElement(variableValue)).matches(".*bin/x/bin-2.params$");
+    assertThat(Iterables.getOnlyElement(variableValue)).matches(".*bin/x/bin"
+        + OsUtils.executableExtension() + "-2.params$");
   }
 
   @Test
