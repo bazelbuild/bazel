@@ -94,8 +94,6 @@ def swift_module_name(label):
 
 def _swift_lib_dir(ctx):
   """Returns the location of swift runtime directory to link against."""
-  # TODO(dmishe): Expose this template from native code.
-  developer_dir = "__BAZEL_XCODE_DEVELOPER_DIR__"
   platform_str = ctx.fragments.apple.single_arch_platform.name_in_plist.lower()
 
   toolchain_name = "XcodeDefault"
@@ -109,7 +107,7 @@ def _swift_lib_dir(ctx):
       toolchain_name = "Swift_2.3"
 
   return "{0}/Toolchains/{1}.xctoolchain/usr/lib/swift/{2}".format(
-      developer_dir, toolchain_name, platform_str)
+      apple_common.apple_toolchain().developer_dir(), toolchain_name, platform_str)
 
 
 def _swift_linkopts(ctx):
@@ -309,11 +307,7 @@ def swiftc_args(ctx):
   args.extend(framework_args)
   args.extend(clang_args)
   args.extend(define_args)
-
-  # TODO(b/33692249): Remove conditional once bazel is released.
-  if hasattr(ctx.fragments, "swift"):
-    args.extend(ctx.fragments.swift.copts())
-
+  args.extend(ctx.fragments.swift.copts())
   args.extend(ctx.attr.copts)
 
   return args
