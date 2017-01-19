@@ -42,7 +42,7 @@ source $(dirname ${SCRIPT_DIR})/release/common.sh
 : ${BOOTSTRAP_BAZEL:=bazel}
 
 PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
-if [[ ${PLATFORM} == "darwin" ]]; then
+if [[ ${PLATFORM} == "darwin" ]] || [[ ${PLATFORM} == "freebsd" ]] ; then
   function checksum() {
     (cd "$(dirname "$1")" && shasum -a 256 "$(basename "$1")")
   }
