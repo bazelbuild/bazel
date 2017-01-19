@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -47,8 +46,8 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
   static class TestingRepositoryFunction extends RepositoryFunction {
     @Nullable
     @Override
-    public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-        SkyFunction.Environment env, Map<String, String> markerData)
+    public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+        BlazeDirectories directories, SkyFunction.Environment env, Map<String, String> markerData)
         throws SkyFunctionException, InterruptedException {
       return null;
     }

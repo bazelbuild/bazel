@@ -15,13 +15,14 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
+import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
@@ -31,36 +32,67 @@ public class RepositoryDirectoryValue implements SkyValue {
   private final Path path;
   private final boolean fetchingDelayed;
   @Nullable
+  private final byte[] digest;
+  @Nullable
   private final DirectoryListingValue sourceDir;
 
   private RepositoryDirectoryValue(
-      Path path, boolean fetchingDelayed, DirectoryListingValue sourceDir) {
+      Path path, boolean fetchingDelayed, DirectoryListingValue sourceDir, byte[] digest) {
     this.path = path;
     this.fetchingDelayed = fetchingDelayed;
     this.sourceDir = sourceDir;
+    this.digest = digest;
   }
 
-  /**
-   * Creates an immutable external repository.
-   */
-  public static RepositoryDirectoryValue create(Path repositoryDirectory) {
-    return new RepositoryDirectoryValue(repositoryDirectory, false, null);
+  /** A builder to create a {@link RepositoryDirectoryValue}. */
+  public static class Builder {
+    private Path path = null;
+    private boolean fetchingDelayed = false;
+    private byte[] digest = null;
+    private DirectoryListingValue sourceDir = null;
+
+    private Builder() {}
+
+    public Builder copy(RepositoryDirectoryValue value) {
+      this.digest = value.digest;
+      this.fetchingDelayed = value.fetchingDelayed;
+      this.path = value.path;
+      this.sourceDir = value.sourceDir;
+      return this;
+    }
+
+    public Builder setPath(Path path) {
+      this.path = path;
+      return this;
+    }
+
+    public Builder setFetchingDelayed() {
+      this.fetchingDelayed = true;
+      return this;
+    }
+
+    public Builder setDigest(byte[] digest) {
+      this.digest = digest;
+      return this;
+    }
+
+    public Builder setSourceDir(DirectoryListingValue sourceDir) {
+      this.sourceDir = sourceDir;
+      return this;
+    }
+
+    public RepositoryDirectoryValue build() {
+      Preconditions.checkNotNull(path, "Repository path must be specified!");
+      // Only if fetching is delayed then we are allowed to have a null digest.
+      if (!this.fetchingDelayed) {
+        Preconditions.checkNotNull(digest, "Repository marker digest must be specified!");
+      }
+      return new RepositoryDirectoryValue(path, fetchingDelayed, sourceDir, digest);
+    }
   }
 
-  /**
-   * new_local_repositories
-   */
-  public static RepositoryDirectoryValue createWithSourceDirectory(
-      Path repositoryDirectory, DirectoryListingValue sourceDir) {
-    return new RepositoryDirectoryValue(repositoryDirectory, false, sourceDir);
-  }
-
-  /**
-   * Creates a value that represents a repository whose fetching has been delayed by a
-   * {@code --nofetch} command line option.
-   */
-  public static RepositoryDirectoryValue fetchingDelayed(Path repositoryDirectory) {
-    return new RepositoryDirectoryValue(repositoryDirectory, true, null);
+  public static Builder builder() {
+    return new Builder();
   }
 
   /**
@@ -86,14 +118,15 @@ public class RepositoryDirectoryValue implements SkyValue {
     if (other instanceof RepositoryDirectoryValue) {
       RepositoryDirectoryValue otherValue = (RepositoryDirectoryValue) other;
       return Objects.equal(path, otherValue.path)
-          && Objects.equal(sourceDir, otherValue.sourceDir);
+          && Objects.equal(sourceDir, otherValue.sourceDir)
+          && Arrays.equals(digest, otherValue.digest);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(path, sourceDir);
+    return Objects.hashCode(path, sourceDir, Arrays.hashCode(digest));
   }
 
   @Override

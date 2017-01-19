@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -39,12 +38,12 @@ public class GitRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment);
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   protected static void createDirectory(Path path, Rule rule) throws RepositoryFunctionException {

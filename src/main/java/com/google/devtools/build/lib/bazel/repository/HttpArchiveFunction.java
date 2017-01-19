@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -58,8 +57,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
     // The output directory is always under output_base/external (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
@@ -73,7 +72,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
         env.getListener(), clientEnvironment);
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)

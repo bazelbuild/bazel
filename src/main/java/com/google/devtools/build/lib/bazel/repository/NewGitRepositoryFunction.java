@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHand
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 
 /**
@@ -28,8 +27,8 @@ import java.util.Map;
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     NewRepositoryBuildFileHandler buildFileHandler =
         new NewRepositoryBuildFileHandler(directories.getWorkspace());
@@ -42,6 +41,6 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
     createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
     buildFileHandler.finishBuildFile(outputDirectory);
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 }

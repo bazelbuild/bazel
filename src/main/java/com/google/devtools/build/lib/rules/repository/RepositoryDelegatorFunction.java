@@ -132,22 +132,27 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // not depend on non-local data, so it does not make much sense to try to cache from across
       // server instances.
       setupRepositoryRoot(repoRoot);
-      SkyValue localRepo = handler.fetch(rule, repoRoot, directories, env, markerData);
-      if (localRepo != null) {
-        writeMarkerFile(markerPath, markerData, ruleKey);
+      RepositoryDirectoryValue.Builder localRepo =
+          handler.fetch(rule, repoRoot, directories, env, markerData);
+      if (localRepo == null) {
+        return null;
+      } else {
+        // We write the marker file for local repository essentially for getting the digest and
+        // injecting it in the RepositoryDirectoryValue.
+        byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
+        return localRepo.setDigest(digest).build();
       }
-      return localRepo;
     }
 
     // We check the repository root for existence here, but we can't depend on the FileValue,
     // because it's possible that we eventually create that directory in which case the FileValue
     // and the state of the file system would be inconsistent.
 
-    Boolean markerUpToDate = isFilesystemUpToDate(markerPath, rule, ruleKey, handler, env);
-    if (markerUpToDate == null) {
+    byte[] markerHash = isFilesystemUpToDate(markerPath, rule, ruleKey, handler, env);
+    if (env.valuesMissing()) {
       return null;
     }
-    if (markerUpToDate && repoRoot.exists()) {
+    if (markerHash != null && repoRoot.exists()) {
       // Now that we know that it exists, we can declare a Skyframe dependency on the repository
       // root.
       RepositoryFunction.getRepositoryDirectory(repoRoot, env);
@@ -155,13 +160,14 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      return RepositoryDirectoryValue.create(repoRoot);
+      return RepositoryDirectoryValue.builder().setPath(repoRoot).setDigest(markerHash).build();
     }
 
     if (isFetch.get()) {
       // Fetching enabled, go ahead.
       setupRepositoryRoot(repoRoot);
-      SkyValue result = handler.fetch(rule, repoRoot, directories, env, markerData);
+      RepositoryDirectoryValue.Builder result =
+          handler.fetch(rule, repoRoot, directories, env, markerData);
       if (env.valuesMissing()) {
         return null;
       }
@@ -170,8 +176,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       // and writing the marker file because if they aren't computed, it would cause a Skyframe
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
-      writeMarkerFile(markerPath, markerData, ruleKey);
-      return result;
+      byte[] digest = writeMarkerFile(markerPath, markerData, ruleKey);
+      return result.setDigest(digest).build();
     }
 
     if (!repoRoot.exists()) {
@@ -197,7 +203,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
                     + "run the build without the '--nofetch' command line option.",
                 rule.getName())));
 
-    return RepositoryDirectoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
+    return RepositoryDirectoryValue.builder().setPath(repoRootValue.realRootedPath().asPath())
+        .setFetchingDelayed().build();
   }
 
   private final String computeRuleKey(Rule rule, byte[] ruleSpecificData) {
@@ -215,18 +222,21 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
    * system stays consistent.
    *
    * <p>
-   * Returns null if some Skyframe values need to be computed before giving a full answer.
+   * Returns null if the file system is not up to date and a hash of the marker file if the file
+   * system is up to date.
    */
   @Nullable
-  private final Boolean isFilesystemUpToDate(Path markerPath, Rule rule, String ruleKey,
+  private final byte[] isFilesystemUpToDate(Path markerPath, Rule rule, String ruleKey,
       RepositoryFunction handler, Environment env)
       throws RepositoryFunctionException, InterruptedException {
     try {
       if (!markerPath.exists()) {
-        return false;
+        return null;
       }
 
-      String[] lines = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8).split("\n");
+      String content = FileSystemUtils.readContent(markerPath, StandardCharsets.UTF_8);
+
+      String[] lines = content.split("\n");
       Map<String, String> markerData = new TreeMap<>();
       String markerRuleKey = "";
       boolean firstLine = true;
@@ -252,12 +262,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           return null;
         }
       }
-      if (!result) {
+
+      if (result) {
+        return new Fingerprint().addString(content).digestAndReset();
+      } else {
         // So that we are in a consistent state if something happens while fetching the repository
         markerPath.delete();
+        return null;
       }
 
-      return result;
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -297,7 +310,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     return result.toString();
   }
 
-  private final void writeMarkerFile(
+  private final byte[] writeMarkerFile(
       Path markerPath, Map<String, String> markerData, String ruleKey)
       throws RepositoryFunctionException {
     try {
@@ -308,7 +321,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         String value = data.getValue();
         builder.append(escape(key)).append(" ").append(escape(value)).append("\n");
       }
-      FileSystemUtils.writeContent(markerPath, StandardCharsets.UTF_8, builder.toString());
+      String content = builder.toString();
+      FileSystemUtils.writeContent(markerPath, StandardCharsets.UTF_8, content);
+      return new Fingerprint().addString(content).digestAndReset();
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }

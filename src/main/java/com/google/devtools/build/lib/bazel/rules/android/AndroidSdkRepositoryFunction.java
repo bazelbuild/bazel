@@ -41,7 +41,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
@@ -65,8 +64,8 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
 
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
@@ -195,7 +194,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     writeBuildFile(outputDirectory, buildFile);
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   @Override

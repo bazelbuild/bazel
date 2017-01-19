@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -44,8 +43,8 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
 
     NewRepositoryBuildFileHandler buildFileHandler =
@@ -133,7 +132,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
     createWorkspaceFile(outputDirectory, rule.getTargetKind(), rule.getName());
 
-    return RepositoryDirectoryValue.createWithSourceDirectory(outputDirectory, directoryValue);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory).setSourceDir(directoryValue);
   }
 
   @Override

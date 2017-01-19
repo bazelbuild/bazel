@@ -46,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -151,8 +150,8 @@ public abstract class RepositoryFunction {
    */
   @ThreadSafe
   @Nullable
-  public abstract SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public abstract RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException;
 
   /**
@@ -212,7 +211,7 @@ public abstract class RepositoryFunction {
     }
   }
 
-  protected static RepositoryDirectoryValue writeBuildFile(
+  protected static RepositoryDirectoryValue.Builder writeBuildFile(
       Path repositoryDirectory, String contents) throws RepositoryFunctionException {
     Path buildFilePath = repositoryDirectory.getRelative("BUILD.bazel");
     try {
@@ -227,7 +226,7 @@ public abstract class RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    return RepositoryDirectoryValue.create(repositoryDirectory);
+    return RepositoryDirectoryValue.builder().setPath(repositoryDirectory);
   }
 
   @VisibleForTesting

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -91,8 +91,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
@@ -103,7 +103,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
     return createOutputTree(rule, outputDir, serverValue);
   }
 
-  private SkyValue createOutputTree(Rule rule, Path outputDirectory,
+  private RepositoryDirectoryValue.Builder createOutputTree(Rule rule, Path outputDirectory,
       MavenServerValue serverValue) throws RepositoryFunctionException, InterruptedException {
     Preconditions.checkState(downloader instanceof MavenDownloader);
     MavenDownloader mavenDownloader = (MavenDownloader) downloader;
@@ -127,7 +127,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
         .setTargetName(name)
         .setArchivePath(repositoryJar)
         .setRepositoryPath(outputDirectory).build());
-    return RepositoryDirectoryValue.create(result);
+    return RepositoryDirectoryValue.builder().setPath(result);
   }
 
   /**

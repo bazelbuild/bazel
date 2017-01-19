@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Map;
 
@@ -37,8 +36,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
     try {
@@ -60,7 +59,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must specify an existing directory"), Transience.TRANSIENT);
     }
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   @Override

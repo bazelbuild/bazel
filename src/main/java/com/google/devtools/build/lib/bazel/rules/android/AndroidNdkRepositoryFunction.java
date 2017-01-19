@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolP
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -77,8 +76,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, BlazeDirectories directories,
-      Environment env, Map<String, String> markerData)
+  public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
+      BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
@@ -161,7 +160,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
     writeBuildFile(outputDirectory, buildFile);
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
 
   @Override
