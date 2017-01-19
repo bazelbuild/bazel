@@ -15,13 +15,13 @@ import org.checkerframework.dataflow.analysis.Store;
 public interface SingleSuccessorBlock extends Block {
 
     /**
-     * @return the non-exceptional successor block, or {@code null} if there is
+     * @return The non-exceptional successor block, or {@code null} if there is
      *         no successor.
      */
     /*@Nullable*/ Block getSuccessor();
 
     /**
-     * @return the flow rule for information flowing from this block to its successor
+     * @return The flow rule for information flowing from this block to its successor.
      */
     Store.FlowRule getFlowRule();
 

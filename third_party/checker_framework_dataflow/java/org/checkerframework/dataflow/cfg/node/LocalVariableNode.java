@@ -58,11 +58,11 @@ public class LocalVariableNode extends Node {
         }
         return el;
     }
-
+    
     public Node getReceiver() {
         return receiver;
     }
-
+    
     public String getName() {
         if (tree instanceof IdentifierTree) {
             return ((IdentifierTree) tree).getName().toString();

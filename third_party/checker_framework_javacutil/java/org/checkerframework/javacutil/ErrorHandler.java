@@ -10,7 +10,7 @@ public interface ErrorHandler {
     /**
      * Log an error message and abort processing.
      *
-     * @param msg the error message to log
+     * @param msg The error message to log.
      */
     public void errorAbort(String msg);
 

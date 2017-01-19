@@ -4,6 +4,9 @@ package org.checkerframework.dataflow.cfg;
 import org.checkerframework.checker.nullness.qual.Nullable;
 */
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import org.checkerframework.dataflow.cfg.block.Block;
 import org.checkerframework.dataflow.cfg.block.Block.BlockType;
 import org.checkerframework.dataflow.cfg.block.ConditionalBlock;
@@ -22,10 +25,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 
 /**
  * A control flow graph (CFG for short) of a single method.
@@ -81,7 +80,7 @@ public class ControlFlowGraph {
     }
 
     /**
-     * @return the {@link Node} to which the {@link Tree} {@code t}
+     * @return The {@link Node} to which the {@link Tree} <code>t</code>
      *         corresponds.
      */
     public Node getNodeCorrespondingToTree(Tree t) {
@@ -92,7 +91,7 @@ public class ControlFlowGraph {
         }
     }
 
-    /** @return the entry block of the control flow graph. */
+    /** @return The entry block of the control flow graph. */
     public SpecialBlock getEntryBlock() {
         return entryBlock;
     }
@@ -109,13 +108,13 @@ public class ControlFlowGraph {
         return exceptionalExitBlock;
     }
 
-    /** @return the AST this CFG corresponds to. */
+    /** @return The AST this CFG corresponds to. */
     public UnderlyingAST getUnderlyingAST() {
         return underlyingAST;
     }
 
     /**
-     * @return the set of all basic block in this control flow graph
+     * @return The set of all basic block in this control flow graph.
      */
     public Set<Block> getAllBlocks() {
         Set<Block> visited = new HashSet<>();
@@ -125,9 +124,8 @@ public class ControlFlowGraph {
 
         // traverse the whole control flow graph
         while (true) {
-            if (cur == null) {
+            if (cur == null)
                 break;
-            }
 
             Queue<Block> succs = new LinkedList<>();
             if (cur.getType() == BlockType.CONDITIONAL_BLOCK) {
@@ -163,7 +161,7 @@ public class ControlFlowGraph {
     }
 
     /**
-     * @return the list of all basic block in this control flow graph
+     * @return The list of all basic block in this control flow graph
      * in reversed depth-first postorder sequence.
      *
      * Blocks may appear more than once in the sequence.
@@ -192,7 +190,8 @@ public class ControlFlowGraph {
 
     /**
      * Get a list of all successor Blocks for cur
-     * @return a Deque of successor Blocks
+     * @param cur
+     * @return A Deque of successor Blocks
      */
     private Deque<Block> getSuccessors(Block cur) {
         Deque<Block> succs = new LinkedList<>();
@@ -218,7 +217,7 @@ public class ControlFlowGraph {
     }
 
     /**
-     * @return the tree-lookup map
+     * @return The tree-lookup map.
      */
     public IdentityHashMap<Tree, Node> getTreeLookup() {
         return new IdentityHashMap<>(treeLookup);

@@ -5,7 +5,7 @@ import javax.lang.model.type.TypeMirror;
 import com.sun.source.tree.Tree;
 
 /**
- * A node to model the implicit {@code this}, e.g., in a field access.
+ * A node to model the implicit <code>this</code>, e.g., in a field access.
  *
  * @author Stefan Heule
  *

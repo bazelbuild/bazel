@@ -112,7 +112,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
      * The following invariant holds:
      *
      * <pre>
-     *   !isRunning &rArr; (currentNode == null)
+     *   !isRunning ==&gt; (currentNode == null)
      * </pre>
      */
     protected Node currentNode;
@@ -175,6 +175,8 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     /**
      * Perform the actual analysis. Should only be called once after the object
      * has been created.
+     *
+     * @param cfg
      */
     public void performAnalysis(ControlFlowGraph cfg) {
         assert isRunning == false;
@@ -326,7 +328,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * Updates the value of node {@code node} to the value of the
+     * Updates the value of node {@code node} to the value of the 
      * {@code transferResult}. Returns true if the node's value changed, or a
      * store was updated.
      */
@@ -426,7 +428,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * Add a basic block to the worklist. If {@code b} is already present,
+     * Add a basic block to the worklist. If <code>b</code> is already present,
      * the method does nothing.
      */
     protected void addToWorklist(Block b) {
@@ -437,7 +439,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * Add a store before the basic block {@code b} by merging with the
+     * Add a store before the basic block <code>b</code> by merging with the
      * existing stores for that location.
      */
     protected void addStoreBefore(Block b, Node node, S s, Store.Kind kind,
@@ -575,16 +577,16 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * @return the transfer input corresponding to the location right before the basic
-     *         block {@code b}.
+     * @return The transfer input corresponding to the location right before the basic
+     *         block <code>b</code>.
      */
     protected /*@Nullable*/ TransferInput<A, S> getInputBefore(Block b) {
         return inputs.get(b);
     }
 
     /**
-     * @return the store corresponding to the location right before the basic
-     *         block {@code b}.
+     * @return The store corresponding to the location right before the basic
+     *         block <code>b</code>.
      */
     protected /*@Nullable*/ S getStoreBefore(Block b, Store.Kind kind) {
         switch (kind) {
@@ -613,7 +615,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * @return the abstract value for {@link Node} {@code n}, or {@code null} if
+     * @return The abstract value for {@link Node} {@code n}, or {@code null} if
      *         no information is available. Note that if the analysis has not
      *         finished yet, this value might not represent the final value for
      *         this node.
@@ -639,7 +641,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * @return the abstract value for {@link Tree} {@code t}, or {@code null} if
+     * @return The abstract value for {@link Tree} {@code t}, or {@code null} if
      *         no information is available. Note that if the analysis has not
      *         finished yet, this value might not represent the final value for
      *         this node.
@@ -696,7 +698,7 @@ public class Analysis<A extends AbstractValue<A>, S extends Store<S>, T extends 
     }
 
     /**
-     * @return the regular exit store, or {@code null}, if there is no such
+     * @return The regular exit store, or {@code null}, if there is no such
      *         store (because the method cannot exit through the regular exit
      *         block).
      */
