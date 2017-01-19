@@ -449,7 +449,10 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 55
+  // Unused, for compatibility with things internal to Google.
+  optional string cc_target_os = 55;
+
+  // Next free id: 56
 }
 
 message ToolPath {
