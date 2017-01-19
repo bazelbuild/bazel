@@ -63,10 +63,13 @@ cc_binary(
 )
 
 cc_library(
-    name = "windows_jni_utils",
+    name = "windows_jni_lib",
     srcs = ["windows_util.cc"],
     hdrs = ["windows_util.h"],
-    visibility = ["//src/test/native:__pkg__"],
+    visibility = [
+        "//src/main/cpp:__subpackages__",
+        "//src/test/native:__pkg__",
+    ],
 )
 
 genrule(

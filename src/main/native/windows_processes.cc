@@ -79,16 +79,6 @@ struct NativeProcess {
         error_("") {}
 };
 
-struct AutoHandle {
-  AutoHandle() : handle(INVALID_HANDLE_VALUE) {}
-  ~AutoHandle() {
-    CloseHandle(handle);  // handles INVALID_HANDLE_VALUE
-    handle = INVALID_HANDLE_VALUE;
-  }
-
-  HANDLE handle;
-};
-
 class JavaByteArray {
  public:
   JavaByteArray(JNIEnv* env, jbyteArray java_array)
@@ -196,10 +186,10 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   // created. If this was not so, operations on these file handles would not
   // return immediately if the process is terminated.
   // Therefore we make these handles auto-closing (by using AutoHandle).
-  AutoHandle stdin_process;
-  AutoHandle stdout_process;
-  AutoHandle stderr_process;
-  AutoHandle thread;
+  windows_util::AutoHandle stdin_process;
+  windows_util::AutoHandle stdout_process;
+  windows_util::AutoHandle stderr_process;
+  windows_util::AutoHandle thread;
   PROCESS_INFORMATION process_info = {0};
   STARTUPINFOA startup_info = {0};
   JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};

@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
-// INTERNAL header file for use by C++ code in this package.
 
 #ifndef BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
 #define BAZEL_SRC_MAIN_NATIVE_WINDOWS_UTIL_H__
+
+#include <windows.h>
 
 #include <functional>
 #include <memory>
@@ -27,6 +27,18 @@ using std::function;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
+
+// A wrapper for the `HANDLE` type that calls CloseHandle in its d'tor.
+struct AutoHandle {
+  AutoHandle(HANDLE _handle = INVALID_HANDLE_VALUE) : handle(_handle) {}
+
+  ~AutoHandle() {
+    ::CloseHandle(handle);  // succeeds if handle == INVALID_HANDLE_VALUE
+    handle = INVALID_HANDLE_VALUE;
+  }
+
+  HANDLE handle;
+};
 
 string GetLastErrorString(const string& cause);
 

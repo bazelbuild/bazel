@@ -17,11 +17,11 @@ cc_test(
     }),
     deps = select({
         "//src:windows": [
-            "//src/main/native:windows_jni_utils",
+            "//src/main/native:windows_jni_lib",
             "//third_party:gtest",
         ],
         "//src:windows_msvc": [
-            "//src/main/native:windows_jni_utils",
+            "//src/main/native:windows_jni_lib",
             "//third_party:gtest",
         ],
         "//conditions:default": [],
