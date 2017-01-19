@@ -16,6 +16,8 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
@@ -85,7 +87,12 @@ public abstract class BazelJavaBuilder {
           build.getDependencyModule().reduceClasspath()
               ? new ReducedClasspathJavaLibraryBuilder()
               : new SimpleJavaLibraryBuilder()) {
-        return builder.run(build, err).exitCode;
+        BlazeJavacResult result = builder.run(build);
+        for (FormattedDiagnostic d : result.diagnostics()) {
+          err.write(d.getFormatted());
+        }
+        err.write(result.output());
+        return result.javacResult().exitCode;
       }
     } catch (InvalidCommandLineException e) {
       err.println(CMDNAME + " threw exception: " + e.getMessage());

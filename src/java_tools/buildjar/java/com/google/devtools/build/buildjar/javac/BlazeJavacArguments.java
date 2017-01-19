@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import java.nio.file.Path;
 import javax.annotation.Nullable;
 import javax.annotation.processing.Processor;
@@ -44,6 +45,9 @@ public abstract class BlazeJavacArguments {
   /** The classpath to load processors from. */
   public abstract ImmutableList<Path> processorPath();
 
+  /** The compiler plugins. */
+  public abstract ImmutableList<BlazeJavaCompilerPlugin> plugins();
+
   /**
    * Annotation processor classes. In production builds, processors are specified by string class
    * name in {@link javacOptions}; this is used for tests that instantate processors directly.
@@ -67,7 +71,8 @@ public abstract class BlazeJavacArguments {
         .sourceFiles(ImmutableList.of())
         .processors(null)
         .sourceOutput(null)
-        .processorPath(ImmutableList.of());
+        .processorPath(ImmutableList.of())
+        .plugins(ImmutableList.of());
   }
 
   /** {@link BlazeJavacArguments}Builder. */
@@ -88,6 +93,8 @@ public abstract class BlazeJavacArguments {
     Builder sourceOutput(Path sourceOutput);
 
     Builder processorPath(ImmutableList<Path> processorPath);
+
+    Builder plugins(ImmutableList<BlazeJavaCompilerPlugin> plugins);
 
     BlazeJavacArguments build();
   }

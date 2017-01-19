@@ -15,20 +15,17 @@
 package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.instrumentation.JacocoInstrumentationProcessor;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.javac.BlazeJavacArguments;
 import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
-import com.sun.tools.javac.main.Main.Result;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -47,9 +44,6 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   /** The name of the protobuf meta file. */
   private static final String PROTOBUF_META_NAME = "protobuf.meta";
-
-  /** Enables more verbose output from the compiler. */
-  protected boolean debug = false;
 
   /** Cache of opened zip filesystems for srcjars. */
   private final Map<Path, FileSystem> filesystems = new HashMap<>();
@@ -110,10 +104,9 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     }
   }
 
-  Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
+  BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
-    return javacRunner.invokeJavac(
-        build.getPlugins(), build.toBlazeJavacArguments(build.getClassPath()), err);
+    return javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
   }
 
   protected void prepareSourceCompilation(JavaLibraryBuildRequest build) throws IOException {
@@ -157,25 +150,20 @@ public class SimpleJavaLibraryBuilder implements Closeable {
    * can be compiled. Invokes compileSources to do the actual compilation.
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
-   * @param err PrintWriter for logging any diagnostic output
    */
-  public Result compileJavaLibrary(final JavaLibraryBuildRequest build, final PrintWriter err)
-      throws Exception {
+  public BlazeJavacResult compileJavaLibrary(final JavaLibraryBuildRequest build) throws Exception {
     prepareSourceCompilation(build);
     if (build.getSourceFiles().isEmpty()) {
-      return Result.OK;
+      return BlazeJavacResult.ok();
     }
     JavacRunner javacRunner =
         new JavacRunner() {
           @Override
-          public Result invokeJavac(
-              ImmutableList<BlazeJavaCompilerPlugin> plugins,
-              BlazeJavacArguments arguments,
-              PrintWriter output) {
-            return new BlazeJavacMain(output, plugins).compile(arguments);
+          public BlazeJavacResult invokeJavac(BlazeJavacArguments arguments) {
+            return BlazeJavacMain.compile(arguments);
           }
         };
-    Result result = compileSources(build, javacRunner, err);
+    BlazeJavacResult result = compileSources(build, javacRunner);
     JacocoInstrumentationProcessor processor = build.getJacocoInstrumentationProcessor();
     if (processor != null) {
       processor.processRequest(build);
@@ -184,11 +172,11 @@ public class SimpleJavaLibraryBuilder implements Closeable {
   }
 
   /** Perform the build. */
-  public Result run(JavaLibraryBuildRequest build, PrintWriter err) throws Exception {
-    Result result = Result.ERROR;
+  public BlazeJavacResult run(JavaLibraryBuildRequest build) throws Exception {
+    BlazeJavacResult result = BlazeJavacResult.error("");
     try {
-      result = compileJavaLibrary(build, err);
-      if (result.isOK()) {
+      result = compileJavaLibrary(build);
+      if (result.javacResult().isOK()) {
         buildJar(build);
       }
       if (!build.getProcessors().isEmpty()) {
@@ -197,7 +185,9 @@ public class SimpleJavaLibraryBuilder implements Closeable {
         }
       }
     } finally {
-      build.getDependencyModule().emitDependencyInformation(build.getClassPath(), result.isOK());
+      build
+          .getDependencyModule()
+          .emitDependencyInformation(build.getClassPath(), result.javacResult().isOK());
       build.getProcessingModule().emitManifestProto();
     }
     return result;

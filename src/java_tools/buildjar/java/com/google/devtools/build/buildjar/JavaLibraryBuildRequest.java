@@ -295,6 +295,7 @@ public final class JavaLibraryBuildRequest {
         .processors(null)
         .sourceOutput(getSourceGenDir() != null ? Paths.get(getSourceGenDir()) : null)
         .processorPath(toPaths(getProcessorPath()))
+        .plugins(getPlugins())
         .build();
   }
 

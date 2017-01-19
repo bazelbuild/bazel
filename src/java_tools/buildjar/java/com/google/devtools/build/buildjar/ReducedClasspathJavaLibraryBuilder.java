@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
+import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-import com.sun.tools.javac.main.Main.Result;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.util.regex.Pattern;
 
 /**
@@ -36,11 +36,10 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
    * regular compile.
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
-   * @return result code of the javac compilation
    * @throws IOException clean-up up the output directory fails
    */
   @Override
-  Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
+  BlazeJavacResult compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner)
       throws IOException {
     // Minimize classpath, but only if we're actually compiling some sources (some invocations of
     // JavaBuilder are only building resource jars).
@@ -58,31 +57,19 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     }
 
     // Compile!
-    StringWriter javacOutput = new StringWriter();
-    PrintWriter javacOutputWriter = new PrintWriter(javacOutput);
-    Result result =
-        javacRunner.invokeJavac(
-            build.getPlugins(),
-            build.toBlazeJavacArguments(compressedClasspath),
-            javacOutputWriter);
-    javacOutputWriter.close();
+    BlazeJavacResult result =
+        javacRunner.invokeJavac(build.toBlazeJavacArguments(compressedClasspath));
 
     // If javac errored out because of missing entries on the classpath, give it another try.
     // TODO(bazel-team): check performance impact of additional retries.
-    if (!result.isOK() && hasRecognizedError(javacOutput.toString())) {
-      if (debug) {
-        err.println("warning: [transitive] Target uses transitive classpath to compile.");
-      }
+    if (!result.javacResult().isOK() && hasRecognizedError(result.diagnostics())) {
+      // TODO(cushon): warn for transitive classpath fallback
 
       // Reset output directories
       prepareSourceCompilation(build);
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
-      result =
-          javacRunner.invokeJavac(
-              build.getPlugins(), build.toBlazeJavacArguments(build.getClassPath()), err);
-    } else {
-      err.print(javacOutput.getBuffer());
+      result = javacRunner.invokeJavac(build.toBlazeJavacArguments(build.getClassPath()));
     }
     return result;
   }
@@ -90,12 +77,17 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
   private static final Pattern MISSING_PACKAGE =
       Pattern.compile("error: package ([\\p{javaJavaIdentifierPart}\\.]+) does not exist");
 
-  private boolean hasRecognizedError(String javacOutput) {
-    return javacOutput.contains("error: cannot access")
-        || javacOutput.contains("error: cannot find symbol")
-        || javacOutput.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
-        || MISSING_PACKAGE.matcher(javacOutput).find()
-        // TODO(cushon): -Xdoclint:reference is probably a bad idea
-        || javacOutput.contains("error: reference not found");
+  private boolean hasRecognizedError(ImmutableList<FormattedDiagnostic> diagnostics) {
+    // TODO(cushon): usage diagnostic codes instead
+    for (FormattedDiagnostic diagnostic : diagnostics) {
+      String message = diagnostic.getFormatted();
+      return message.contains("error: cannot access")
+          || message.contains("error: cannot find symbol")
+          || message.contains("com.sun.tools.javac.code.Symbol$CompletionFailure")
+          || MISSING_PACKAGE.matcher(message).find()
+          // TODO(cushon): -Xdoclint:reference is probably a bad idea
+          || message.contains("error: reference not found");
+    }
+    return false;
   }
 }

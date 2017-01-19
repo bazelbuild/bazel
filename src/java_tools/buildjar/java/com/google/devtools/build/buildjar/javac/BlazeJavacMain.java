@@ -14,34 +14,32 @@
 
 package com.google.devtools.build.buildjar.javac;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Verify.verifyNotNull;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
+import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin.PluginException;
+import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
+import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.PropagatedException;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
 import java.util.List;
-import javax.tools.DiagnosticListener;
-import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
 /**
@@ -54,77 +52,48 @@ import javax.tools.StandardLocation;
 public class BlazeJavacMain {
 
   /**
-   * Compose {@link com.sun.tools.javac.main.Main} and perform custom setup before deferring to its
-   * compile() method.
-   *
-   * <p>Historically BlazeJavacMain extended javac's Main and overrode methods to get the desired
-   * custom behaviour. That approach created incompatibilities when upgrading to newer versions of
-   * javac, so composition is preferred.
-   */
-  private List<BlazeJavaCompilerPlugin> plugins;
-
-  private final PrintWriter errOutput;
-  private BlazeJavaCompiler compiler = null;
-
-  public BlazeJavacMain(PrintWriter errOutput, List<BlazeJavaCompilerPlugin> plugins) {
-    this.errOutput = errOutput;
-    this.plugins = plugins;
-  }
-
-  /**
-   * Installs the BlazeJavaCompiler within the provided context. Enables plugins based on field
-   * values.
+   * Sets up a BlazeJavaCompiler with the given plugins within the given context.
    *
    * @param context JavaCompiler's associated Context
    */
   @VisibleForTesting
-  void setupBlazeJavaCompiler(Context context) {
+  static void setupBlazeJavaCompiler(
+      ImmutableList<BlazeJavaCompilerPlugin> plugins, Context context) {
     for (BlazeJavaCompilerPlugin plugin : plugins) {
       plugin.initializeContext(context);
     }
-    BlazeJavaCompiler.preRegister(context, plugins, compilerListener);
+    BlazeJavaCompiler.preRegister(context, plugins);
   }
 
-  private final Function<BlazeJavaCompiler, Void> compilerListener =
-      new Function<BlazeJavaCompiler, Void>() {
-        @Override
-        public Void apply(BlazeJavaCompiler compiler) {
-          Verify.verify(BlazeJavacMain.this.compiler == null);
-          BlazeJavacMain.this.compiler = checkNotNull(compiler);
-          return null;
-        }
-      };
-
-  public Result compile(BlazeJavacArguments arguments) {
-    return compile(null, arguments);
-  }
-
-  public Result compile(
-      DiagnosticListener<JavaFileObject> diagnosticListener, BlazeJavacArguments arguments) {
-
-    JavacFileManager fileManager = new ClassloaderMaskingFileManager();
+  public static BlazeJavacResult compile(BlazeJavacArguments arguments) {
 
     List<String> javacArguments = arguments.javacOptions();
     try {
-      javacArguments = processPluginArgs(javacArguments);
+      javacArguments = processPluginArgs(arguments.plugins(), javacArguments);
     } catch (InvalidCommandLineException e) {
-      errOutput.println(e.getMessage());
-      return Result.CMDERR;
+      return BlazeJavacResult.error(e.getMessage());
     }
 
     Context context = new Context();
-    setupBlazeJavaCompiler(context);
+    setupBlazeJavaCompiler(arguments.plugins(), context);
 
     Result result = Result.ABNORMAL;
-    JavacTool tool = JavacTool.create();
-    JavacTaskImpl task =
-        (JavacTaskImpl)
-            tool.getTask(
-                errOutput,
+    StringWriter errOutput = new StringWriter();
+    // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
+    // it and handling exceptions directly in callers.
+    PrintWriter errWriter = new PrintWriter(errOutput);
+    Listener diagnostics = new Listener(context);
+    BlazeJavaCompiler compiler;
+
+    JavacFileManager fileManager = new ClassloaderMaskingFileManager();
+    JavacTask task =
+        JavacTool.create()
+            .getTask(
+                errWriter,
                 fileManager,
-                diagnosticListener,
+                diagnostics,
                 javacArguments,
-                ImmutableList.<String>of() /*classes*/,
+                ImmutableList.of() /*classes*/,
                 fileManager.getJavaFileObjectsFromPaths(arguments.sourceFiles()),
                 context);
     if (arguments.processors() != null) {
@@ -134,36 +103,39 @@ public class BlazeJavacMain {
     setLocations(fileManager, arguments);
     try {
       try {
-        result = task.doCall();
+        result = ((JavacTaskImpl) task).doCall();
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (PluginException e) {
-      errOutput.println(e.getMessage());
+      errWriter.println(e.getMessage());
       result = e.getResult();
     } catch (Throwable t) {
-      t.printStackTrace(errOutput);
+      t.printStackTrace(errWriter);
       result = Result.ABNORMAL;
     } finally {
+      compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
       if (result.isOK()) {
-        verifyNotNull(compiler);
         // There could be situations where we incorrectly skip Error Prone and the compilation
         // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
         // annotation processing.  This check ensures that if there were any flow events at all,
         // then plugins were run.  There may legitimately not be any flow events, e.g. -proc:only
         // or empty source files.
         if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
-          errOutput.println("Expected at least one FLOW event");
+          errWriter.println("Expected at least one FLOW event");
           result = Result.ABNORMAL;
         }
       }
     }
-    return result;
+    errWriter.flush();
+    return new BlazeJavacResult(result, diagnostics.build(), errOutput.toString(), compiler);
   }
 
   /** Processes Plugin-specific arguments and removes them from the args array. */
   @VisibleForTesting
-  List<String> processPluginArgs(List<String> args) throws InvalidCommandLineException {
+  static List<String> processPluginArgs(
+      ImmutableList<BlazeJavaCompilerPlugin> plugins, List<String> args)
+      throws InvalidCommandLineException {
     List<String> processedArgs = args;
     for (BlazeJavaCompilerPlugin plugin : plugins) {
       processedArgs = plugin.processArgs(processedArgs);
@@ -171,17 +143,13 @@ public class BlazeJavacMain {
     return processedArgs;
   }
 
-  @VisibleForTesting
-  BlazeJavaCompiler getCompiler() {
-    return verifyNotNull(compiler);
-  }
-
-  private void setLocations(JavacFileManager fileManager, BlazeJavacArguments arguments) {
+  private static void setLocations(JavacFileManager fileManager, BlazeJavacArguments arguments) {
     try {
       fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, arguments.classPath());
       fileManager.setLocationFromPaths(
           StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
-      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, ImmutableList.<Path>of());
+      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, ImmutableList.of());
+      // TODO(cushon): require an explicit bootclasspath
       Iterable<Path> bootClassPath = arguments.bootClassPath();
       if (!Iterables.isEmpty(bootClassPath)) {
         fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
@@ -190,7 +158,7 @@ public class BlazeJavacMain {
           StandardLocation.ANNOTATION_PROCESSOR_PATH, arguments.processorPath());
       if (arguments.sourceOutput() != null) {
         fileManager.setLocationFromPaths(
-            StandardLocation.SOURCE_OUTPUT, ImmutableList.<Path>of(arguments.sourceOutput()));
+            StandardLocation.SOURCE_OUTPUT, ImmutableList.of(arguments.sourceOutput()));
       }
     } catch (IOException e) {
       throw new IOError(e);
@@ -228,4 +196,6 @@ public class BlazeJavacMain {
           });
     }
   }
+
+  private BlazeJavacMain() {}
 }
