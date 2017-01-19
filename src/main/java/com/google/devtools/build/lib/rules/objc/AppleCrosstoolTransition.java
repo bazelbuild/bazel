@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
 /**
  * Transition that produces a configuration that causes c++ toolchain selection to use the
@@ -41,6 +42,14 @@ public class AppleCrosstoolTransition implements PatchTransition {
   @Override
   public BuildOptions apply(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
+
+    if (!(buildOptions.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
+        || buildOptions.get(ObjcCommandLineOptions.class).experimentalObjcLibrary
+        || buildOptions.get(ObjcCommandLineOptions.class).objcCrosstoolMode
+            != ObjcCrosstoolMode.OFF)) {
+      return buildOptions;
+    }
+
     result.get(AppleCommandLineOptions.class).configurationDistinguisher =
         ConfigurationDistinguisher.APPLE_CROSSTOOL;
 

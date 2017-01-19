@@ -248,6 +248,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
              + "Values: 'none', 'embedded_markers', 'embedded'.")
   public AppleBitcodeMode appleBitcodeMode;
 
+  @Option(
+    name = "apple_crosstool_transition",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "If true, the apple crosstool is used for all apple rules."
+  )
+  public boolean enableAppleCrosstoolTransition;
+
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
       if (Platform.forTarget(PlatformType.IOS, architecture) == Platform.IOS_DEVICE) {

@@ -112,9 +112,10 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
 
     @Override
     public BuildConfiguration toplevelConfigurationHook(Target toTarget) {
-      ImmutableList<String> appleCrosstoolRuleClasses = configuration.useDynamicConfigurations()
-          ? AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_DYNAMIC_CONFIGS
-          : AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS;
+      ImmutableList<String> appleCrosstoolRuleClasses =
+          configuration.getFragment(AppleConfiguration.class).isAppleCrosstoolEnabled()
+              ? AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES
+              : AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS;
 
       return (appleCrosstoolRuleClasses.contains(toTarget.getAssociatedRule().getRuleClass()))
           ? Iterables.getOnlyElement(
