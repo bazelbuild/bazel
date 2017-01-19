@@ -273,7 +273,7 @@ the signature made by our
 [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
 Unzip the archive and call `bash ./compile.sh`; this will create a
-bazel binary in `bazel-bin/src/bazel`. This binary is self-contained,
+bazel binary in `output/bazel`. This binary is self-contained,
 so it can be copied to a directory on the PATH (e.g.,
 `/usr/local/bin`) or used in-place.
 
