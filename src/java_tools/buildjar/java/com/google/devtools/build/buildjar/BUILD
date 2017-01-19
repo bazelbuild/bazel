@@ -33,7 +33,6 @@ java_library(
             "javac/JavacOptions.java",
         ],
     ),
-    tags = ["jdk8"],
     deps = [
         ":invalid_command_line_exception",
         ":javac_options",

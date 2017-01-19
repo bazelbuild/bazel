@@ -95,7 +95,6 @@ java_library(
 java_library(
     name = "tree_pruner",
     srcs = ["TreePruner.java"],
-    tags = ["jdk8"],
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
