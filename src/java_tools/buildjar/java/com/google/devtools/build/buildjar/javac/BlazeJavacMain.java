@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
@@ -128,7 +129,33 @@ public class BlazeJavacMain {
       }
     }
     errWriter.flush();
-    return new BlazeJavacResult(result, diagnostics.build(), errOutput.toString(), compiler);
+    return new BlazeJavacResult(
+        result, filterDiagnostics(diagnostics.build()), errOutput.toString(), compiler);
+  }
+
+  private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =
+      ImmutableSet.of(
+          "compiler.note.deprecated.filename",
+          "compiler.note.deprecated.plural",
+          "compiler.note.deprecated.recompile",
+          "compiler.note.deprecated.filename.additional",
+          "compiler.note.deprecated.plural.additional",
+          "compiler.note.unchecked.filename",
+          "compiler.note.unchecked.plural",
+          "compiler.note.unchecked.recompile",
+          "compiler.note.unchecked.filename.additional",
+          "compiler.note.unchecked.plural.additional",
+          "compiler.warn.sun.proprietary");
+
+  private static ImmutableList<FormattedDiagnostic> filterDiagnostics(
+      ImmutableList<FormattedDiagnostic> diagnostics) {
+    // TODO(cushon): toImmutableList
+    ImmutableList.Builder<FormattedDiagnostic> result = ImmutableList.builder();
+    diagnostics
+        .stream()
+        .filter(d -> !IGNORED_DIAGNOSTIC_CODES.contains(d.getCode()))
+        .forEach(result::add);
+    return result.build();
   }
 
   /** Processes Plugin-specific arguments and removes them from the args array. */
