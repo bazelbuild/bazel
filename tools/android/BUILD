@@ -127,3 +127,14 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "embedded_tools",
+    srcs = glob(
+        ["*"],
+        exclude = [
+            "*_test.py",
+            "*_test.sh",
+        ],
+    ),
+)
