@@ -65,7 +65,7 @@ public class BazelLibrary {
             + "The depset supports nesting other depsets of the same element type in it. "
             + "A desired <a href=\"depset.html\">iteration order</a> can also be specified.<br>"
             + "Examples:<br><pre class=\"language-python\">depset([\"a\", \"b\"])\n"
-            + "depset([1, 2, 3], order=\"compile\")</pre>",
+            + "depset([1, 2, 3], order=\"postorder\")</pre>",
     parameters = {
       @Param(
         name = "items",
@@ -78,12 +78,14 @@ public class BazelLibrary {
       @Param(
         name = "order",
         type = String.class,
-        defaultValue = "\"stable\"",
+        defaultValue = "\"default\"",
         doc =
-            "The ordering strategy for the depset if it's nested, "
-                + "possible values are: <code>stable</code> (default), <code>compile</code>, "
-                + "<code>link</code> or <code>naive_link</code>. An explanation of the "
-                + "values can be found <a href=\"depset.html\">here</a>."
+            "The ordering strategy for the depset. Possible values are: <code>default</code> "
+                + "(default), <code>postorder</code>, <code>topological</code>, and "
+                + "<code>preorder</code>. These are also known by the deprecated names "
+                + "<code>stable</code>, <code>compile</code>, <code>link</code> and "
+                + "<code>naive_link</code> respectively. An explanation of the values can be found "
+                + "<a href=\"depset.html\">here</a>."
       )
     },
     useLocation = true
@@ -116,7 +118,7 @@ public class BazelLibrary {
       @Param(
         name = "order",
         type = String.class,
-        defaultValue = "\"stable\"",
+        defaultValue = "\"default\"",
         doc = "Same as for <a href=\"#depset\">depset</a>."
       )
     },

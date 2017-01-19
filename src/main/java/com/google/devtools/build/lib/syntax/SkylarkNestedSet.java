@@ -45,6 +45,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(
     name = "depset",
     category = SkylarkModuleCategory.BUILTIN,
+    // TODO(bazel-team): Move this documentation to a dedicated page and link to it from here.
     doc =
         "A language built-in type that supports efficiently accumulating data from transitive "
         + "dependencies. Note that depsets are not hash sets: they don't support fast membership "
@@ -53,38 +54,47 @@ import javax.annotation.Nullable;
         + "Depsets can be created using the <a href=\"globals.html#depset\">depset</a> function, "
         + "and they support the <code>|</code> operator to extend the depset with more elements or "
         + "to nest other depsets inside of it. Examples:<br>"
+
         + "<pre class=language-python>s = depset([1, 2])\n"
         + "s = s | [3]              # s == {1, 2, 3}\n"
         + "s = s | depset([4, 5])   # s == {1, 2, 3, {4, 5}}\n"
-        + "other = depset([\"a\", \"b\", \"c\"], order=\"compile\")</pre>"
+        + "other = depset([\"a\", \"b\", \"c\"], order=\"postorder\")</pre>"
+
         + "Note that in these examples <code>{..}</code> is not a valid literal to create depsets. "
         + "Depsets have a fixed generic type, so <code>depset([1]) + [\"a\"]</code> or "
         + "<code>depset([1]) + depset([\"a\"])</code> results in an error.<br>"
-        + "Elements in a depset can neither be mutable or be of type <code>list</code>, "
+        + "Elements in a depset can neither be mutable nor be of type <code>list</code>, "
         + "<code>struct</code> or <code>dict</code>.<br>"
         + "When aggregating data from providers, depsets can take significantly less memory than "
         + "other types as they support nesting, that is, their subsets are shared in memory.<br>"
         + "Every depset has an <code>order</code> parameter which determines the iteration order. "
         + "There are four possible values:"
-        + "<ul><li><code>compile</code>: Defines a left-to-right post-ordering where child "
-        + "elements come after those of nested depsets (parent-last). For example, "
-        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. Left-to-right order "
-        + "is preserved for both the child elements and the references to nested depsets.</li>"
-        + "<li><code>stable</code>: Same behavior as <code>compile</code>.</li>"
-        + "<li><code>link</code>: Defines a variation of left-to-right pre-ordering, i.e. "
-        + "<code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
-        + "This ordering enforces that elements of the depset always come before elements of "
-        + "nested depsets (parent-first), which may lead to situations where left-to-right "
-        + "order cannot be preserved (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)."
+
+        + "<ul><li><code>postorder</code> (formerly <code>compile</code>): Defines a left-to-right "
+        + "post-ordering where child elements come after those of nested depsets (parent-last). "
+        + "For example, <code>{1, 2, 3, {4, 5}}</code> leads to <code>4 5 1 2 3</code>. "
+        + "Left-to-right order is preserved for both the child elements and the references to "
+        + "nested depsets.</li>"
+
+        + "<li><code>default</code> (formerly <code>stable</code>): Same behavior as "
+        + "<code>postorder</code>.</li>"
+
+        + "<li><code>topological</code> (formerly <code>link</code>): Defines a variation of "
+        + "left-to-right pre-ordering, i.e. <code>{1, 2, 3, {4, 5}}</code> leads to "
+        + "<code>1 2 3 4 5</code>. This ordering enforces that elements of the depset always come "
+        + "before elements of nested depsets (parent-first), which may lead to situations where "
+        + "left-to-right order cannot be preserved (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/LinkOrderExpander.java#L56\">Example</a>)."
         + "</li>"
-        + "<li><code>naive_link</code>: Defines \"naive\" left-to-right pre-ordering "
-        + "(parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to <code>1 2 3 4 5</code>. "
-        + "Unlike <code>link</code> ordering, it will sacrifice the parent-first property in "
-        + "order to uphold left-to-right order in cases where both properties cannot be "
-        + "guaranteed (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)."
+
+        + "<li><code>preorder</code> (formerly <code>naive_link</code>): Defines \"naive\" "
+        + "left-to-right pre-ordering (parent-first), i.e. <code>{1, 2, 3, {4, 5}}</code> leads to "
+        + "<code>1 2 3 4 5</code>. Unlike <code>topological</code> ordering, it will sacrifice the "
+        + "parent-first property in order to uphold left-to-right order in cases where both "
+        + "properties cannot be guaranteed (<a href=\"https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/collect/nestedset/NaiveLinkOrderExpander.java#L26\">Example</a>)."
         + "</li></ul>"
-        + "Except for <code>stable</code>, the above values are incompatible with each other. "
-        + "Consequently, two depsets can only be merged via the <code>|</code> operator or via "
+
+        + "Except for <code>default</code>, the above values are incompatible with each other. "
+        + "Consequently, two depsets can only be merged via the <code>+</code> operator or via "
         + "<code>union()</code> if either both depsets have the same <code>order</code> or one of "
         + "the depsets has <code>stable</code> order. In the latter case the iteration order will "
         + "be determined by the outer depset, thus ignoring the <code>order</code> parameter of "
@@ -312,7 +322,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     Printer.printList(buffer, this, "[", ", ", "]", null, quotationMark);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
-      Printer.append(buffer, ", order = \"" + order.getName() + "\"");
+      Printer.append(buffer, ", order = \"" + order.getSkylarkName() + "\"");
     }
     Printer.append(buffer, ")");
   }

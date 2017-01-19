@@ -37,15 +37,15 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testLegacyConstructor() throws Exception {
-    eval("s = set([1, 2, 3], order='compile')");
+    eval("s = set([1, 2, 3], order='postorder')");
     SkylarkNestedSet s = get("s");
-    assertThat(s.getOrder().getName()).isEqualTo("compile");
+    assertThat(s.getOrder().getSkylarkName()).isEqualTo("postorder");
     assertThat(s.getSet(Object.class)).containsExactly(1, 2, 3);
   }
 
   @Test
   public void testConstructor() throws Exception {
-    eval("s = depset(order='stable')");
+    eval("s = depset(order='default')");
     assertThat(lookup("s")).isInstanceOf(SkylarkNestedSet.class);
   }
 
@@ -63,6 +63,12 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
 
   @Test
   public void testOrder() throws Exception {
+    eval("s = depset(['a', 'b'], order='postorder')");
+    assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
+  }
+
+  @Test
+  public void testDeprecatedOrder() throws Exception {
     eval("s = depset(['a', 'b'], order='compile')");
     assertThat(get("s").getSet(String.class).getOrder()).isEqualTo(Order.COMPILE_ORDER);
   }
@@ -144,8 +150,8 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testUnionIncompatibleOrder() throws Exception {
     checkEvalError(
-        "Order mismatch: LINK_ORDER != COMPILE_ORDER",
-        "depset(['a', 'b'], order='compile') + depset(['c', 'd'], order='link')");
+        "Order mismatch: topological != postorder",
+        "depset(['a', 'b'], order='postorder') + depset(['c', 'd'], order='topological')");
   }
 
   @Test
@@ -266,9 +272,9 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   @Test
   public void testToStringWithOrder() throws Exception {
     eval(
-        "s = depset(order = 'link') + [2, 4, 6] + [3, 4, 5]",
+        "s = depset(order = 'topological') + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
-    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5], order = \"link\")");
+    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5], order = \"topological\")");
   }
 
   @SuppressWarnings("unchecked")
@@ -290,7 +296,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
   public void testOrderCompatibility() throws Exception {
     // Two sets are compatible if
     //  (a) both have the same order or
-    //  (b) at least one order is "stable"
+    //  (b) at least one order is "default"
 
     for (Order first : Order.values()) {
       SkylarkNestedSet s1 = new SkylarkNestedSet(first, Tuple.of("1", "11"), null);

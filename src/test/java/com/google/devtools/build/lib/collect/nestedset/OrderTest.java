@@ -29,7 +29,8 @@ public class OrderTest {
   @Test
   public void testParsing() throws Exception {
     for (Order current : Order.values()) {
-      assertThat(Order.parse(current.getName())).isEqualTo(current);
+      assertThat(Order.parse(current.getSkylarkName())).isEqualTo(current);
+      assertThat(Order.parse(current.getDeprecatedSkylarkName())).isEqualTo(current);
     }
   }
 
