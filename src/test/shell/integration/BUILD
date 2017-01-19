@@ -241,6 +241,8 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:ExampleWorker_deploy.jar",
     ],
+    # TODO(b/34450149): remove when no longer flaky
+    flaky = 1,
     shard_count = 3,
     tags = ["jdk8"],
 )
