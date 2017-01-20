@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-load("//third_party/protobuf/3.0.0:protobuf.bzl", "py_proto_library")
+load(":protobuf.bzl", "py_proto_library")
 
 filegroup(
     name = "srcs",
@@ -95,12 +95,17 @@ COPTS = [
 ]
 
 LINK_OPTS = select({
-    "//src:freebsd": [
+    ":freebsd": [
         "-lpthread",
         "-lm",
     ],
     "//conditions:default": ["-lpthread"],
 })
+
+config_setting(
+    name = "freebsd",
+    values = {"cpu": "freebsd"},
+)
 
 cc_library(
     name = "protobuf_lite",
