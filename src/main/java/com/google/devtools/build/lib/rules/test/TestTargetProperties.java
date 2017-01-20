@@ -78,7 +78,8 @@ public class TestTargetProperties {
     size = TestSize.getTestSize(rule);
     timeout = TestTimeout.getTestTimeout(rule);
     tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
-    isLocal = TargetUtils.isLocalTestRule(rule) || TargetUtils.isExclusiveTestRule(rule);
+    boolean isTaggedLocal = TargetUtils.isLocalTestRule(rule)
+        || TargetUtils.isExclusiveTestRule(rule);
 
     // We need to use method on ruleConfiguredTarget to perform validation.
     isFlaky = ruleContext.attributes().get("flaky", Type.BOOLEAN);
@@ -86,14 +87,21 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
-    if (isLocal) {
+    if (isTaggedLocal) {
       executionInfo.put("local", "");
     }
+
+    boolean isRequestedLocalByProvider = false;
     if (executionRequirements != null) {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
+
+      // We also need to mark it as local if the execution requirements specifies it.
+      isRequestedLocalByProvider = executionRequirements.getExecutionInfo().containsKey("local");
     }
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
+
+    isLocal = isTaggedLocal || isRequestedLocalByProvider;
 
     language = TargetUtils.getRuleLanguage(rule);
   }
