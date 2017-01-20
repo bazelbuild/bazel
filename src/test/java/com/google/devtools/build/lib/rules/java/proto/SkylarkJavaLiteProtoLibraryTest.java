@@ -41,6 +41,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -316,7 +317,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
-        "'java_lite_proto_library')",
+        "    'java_lite_proto_library')",
         "java_lite_proto_library(name = 'foo_lite_pb2', deps = [':foo'], strict_deps = 1)",
         "proto_library(",
         "    name = 'foo',",
@@ -353,6 +354,44 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
       assertThat(directJars).containsExactly("x/libbar-lite-hjar.jar");
     }
+  }
+
+  /**
+   * Tests that a java_proto_library only provides direct jars corresponding on the proto_library
+   * rules it directly depends on, excluding anything that the proto_library rules depends on
+   * themselves. This does not concern strict-deps in the compilation of the generated Java code
+   * itself, only compilation of regular code in java_library/java_binary and similar rules.
+   *
+   * <p>Here, a java_lite_proto_library dependes on an alias proto. We make sure that the system
+   * behaves as if we depend directly on the aliased proto_library.
+   */
+  @Test
+  @Ignore
+  // TODO(bazel-team): Enable once alias protos are supported in the Skylark version of
+  //     java_lite_proto_library.
+  public void jplCorrectlyDefinesDirectJars_strictDepsEnabled_aliasProto() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "load('//tools/build_rules/java_lite_proto_library:java_lite_proto_library.bzl',",
+        "    'java_lite_proto_library')",
+        "java_lite_proto_library(name = 'foo_java_proto_lite', deps = [':foo_proto'], ",
+        "    strict_deps = 1)",
+        "proto_library(",
+        "    name = 'foo_proto',",
+        "    deps = [ ':bar_proto' ],",
+        ")",
+        "proto_library(",
+        "    name = 'bar_proto',",
+        "    srcs = [ 'bar.proto' ],",
+        ")");
+
+    JavaCompilationArgsProvider compilationArgsProvider =
+        getJavaCompilationArgsProvider(getConfiguredTarget("//x:foo_java_proto_lite"));
+
+    Iterable<String> directJars =
+        prettyJarNames(compilationArgsProvider.getJavaCompilationArgs().getCompileTimeJars());
+
+    assertThat(directJars).containsExactly("x/libbar_proto-lite-hjar.jar");
   }
 
   private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(
