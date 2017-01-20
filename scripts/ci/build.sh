@@ -126,14 +126,17 @@ function bazel_build() {
       xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
     ARGS="--define IPHONE_SDK=1"
   fi
+  local OPTIONAL_TARGETS="//site:jekyll-tree //scripts/packages"
+  if [[ $PLATFORM =~ "freebsd" ]] ; then
+      OPTIONAL_TARGETS=
+  fi
   ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
       ${ARGS} \
       //src:bazel \
-      //site:jekyll-tree \
-      //scripts/packages || exit $?
+      ${OPTIONAL_TARGETS} || exit $?
 
   if [ -n "${1-}" ]; then
     # Copy the results to the output directory
