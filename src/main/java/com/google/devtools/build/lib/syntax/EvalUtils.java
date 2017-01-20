@@ -353,6 +353,9 @@ public final class EvalUtils {
       // This is not as efficient as special casing String in for and dict and list comprehension
       // statements. However this is a more unified way.
       return split((String) o);
+    } else if (o instanceof SkylarkNestedSet) {
+      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
+      return ((SkylarkNestedSet) o).toCollection();
     } else if (o instanceof Iterable) {
       return (Iterable<?>) o;
     } else if (o instanceof Map) {
@@ -360,6 +363,35 @@ public final class EvalUtils {
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
+    }
+  }
+
+  /**
+   * Given an {@link Iterable}, returns it as-is. Given a {@link SkylarkNestedSet}, returns its
+   * contents as an iterable. Throws {@link EvalException} for any other value.
+   *
+   * <p>This is a kludge for the change that made {@code SkylarkNestedSet} not implement {@code
+   * Iterable}. It is different from {@link #toIterable} in its behavior for strings and other types
+   * that are not strictly Java-iterable.
+   *
+   * @throws EvalException if {@code o} is not an iterable or set
+   * @deprecated avoid writing APIs that implicitly treat depsets as iterables. It encourages
+   * unnecessary flattening of depsets.
+   *
+   * <p>TODO(bazel-team): Remove this if/when implicit iteration over {@code SkylarkNestedSet} is no
+   * longer supported.
+   */
+  @Deprecated
+  public static Iterable<?> toIterableStrict(Object o, Location loc) throws EvalException {
+    if (o instanceof Iterable) {
+      return (Iterable<?>) o;
+    } else if (o instanceof SkylarkNestedSet) {
+      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
+      return ((SkylarkNestedSet) o).toCollection();
+    } else {
+      throw new EvalException(loc,
+          "expected Iterable or depset, but got '" + getDataTypeName(o) + "' (strings and maps "
+          + "are not allowed here)");
     }
   }
 
@@ -392,7 +424,10 @@ public final class EvalUtils {
     } else if (arg instanceof Map) {
       return ((Map<?, ?>) arg).size();
     } else if (arg instanceof SkylarkList) {
-      return ((SkylarkList) arg).size();
+      return ((SkylarkList<?>) arg).size();
+    } else if (arg instanceof SkylarkNestedSet) {
+      // TODO(bazel-team): Add a deprecation warning: don't implicitly flatten depsets.
+      return ((SkylarkNestedSet) arg).toCollection().size();
     } else if (arg instanceof Iterable) {
       // Iterables.size() checks if arg is a Collection so it's efficient in that sense.
       return Iterables.size((Iterable<?>) arg);

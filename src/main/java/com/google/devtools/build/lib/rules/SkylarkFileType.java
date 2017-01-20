@@ -19,6 +19,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -53,8 +55,16 @@ public class SkylarkFileType {
     + "<a href=\"File.html\"><code>File</code></a>s that match the FileType. The parameter "
     + "must be a <a href=\"set.html\"><code>set</code></a> or a "
     + "<a href=\"list.html\"><code>list</code></a>.")
-  public List<Artifact> filter(Iterable<Artifact> files) {
-    return ImmutableList.copyOf(FileType.filter(files, fileType));
+  // toIterablesStrict() will ensure the parameter is a SkylarkNestedSet or a java Iterable
+  // (including SkylarkList). If it fails, the error location information will be inserted by the
+  // Skylark interface framework. If there's a dynamic type error on a non-Artifact element, the
+  // error will also be handled by the Skylark interface framework.
+  @SuppressWarnings("unchecked")
+  public List<Artifact> filter(Object filesUnchecked) throws EvalException {
+    return ImmutableList.copyOf(
+        FileType.filter(
+            (Iterable<Artifact>) EvalUtils.toIterableStrict(filesUnchecked, null),
+            fileType));
   }
 
   @VisibleForTesting

@@ -42,7 +42,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testMinWithInvalidArgs() throws Exception {
     new SkylarkTest()
         .testIfExactError("type 'int' is not iterable", "min(1)")
-        .testIfExactError("expected at least one argument", "min([])");
+        .testIfExactError("expected at least one item", "min([])");
   }
 
   @Test
@@ -98,7 +98,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testMaxWithInvalidArgs() throws Exception {
     new BothModesTest()
         .testIfExactError("type 'int' is not iterable", "max(1)")
-        .testIfExactError("expected at least one argument", "max([])");
+        .testIfExactError("expected at least one item", "max([])");
   }
 
   @Test
@@ -440,9 +440,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "method depset.union(new_elements: Iterable) is not applicable for arguments (string): "
-                + "'new_elements' is 'string', but should be 'Iterable'",
-            "depset([]).union('a')")
+            "substring \"z\" not found in \"abc\"",
+            "'abc'.index('z')")
         .testIfErrorContains(
             "method string.startswith(sub: string, start: int, end: int or NoneType) is not "
                 + "applicable for arguments (int, int, NoneType): 'sub' is 'int', "

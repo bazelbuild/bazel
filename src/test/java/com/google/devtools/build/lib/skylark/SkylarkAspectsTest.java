@@ -213,7 +213,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);
     assertThat(
             transform(
-                (SkylarkNestedSet) names,
+                ((SkylarkNestedSet) names).toCollection(),
                 new Function<Object, String>() {
                   @Nullable
                   @Override
@@ -225,7 +225,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         .containsExactly("//test:xxx", "//test:yyy");
     Object ruleKinds = skylarkProviders.getValue("rule_kinds");
     assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
-    assertThat((SkylarkNestedSet) ruleKinds).containsExactly("java_library");
+    assertThat(((SkylarkNestedSet) ruleKinds).toCollection()).containsExactly("java_library");
   }
 
   @Test
@@ -274,7 +274,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);
     assertThat(
         transform(
-            (SkylarkNestedSet) names,
+            ((SkylarkNestedSet) names).toCollection(),
             new Function<Object, String>() {
               @Nullable
               @Override
@@ -409,7 +409,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);
     assertThat(
         transform(
-            (SkylarkNestedSet) names,
+            ((SkylarkNestedSet) names).toCollection(),
             new Function<Object, String>() {
               @Nullable
               @Override
@@ -1442,7 +1442,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);
     assertThat(
         transform(
-              (SkylarkNestedSet) names,
+              ((SkylarkNestedSet) names).toCollection(),
               new Function<Object, String>() {
                 @Nullable
                 @Override

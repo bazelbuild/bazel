@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -101,7 +100,7 @@ import javax.annotation.Nullable;
         + "nested depsets."
 )
 @Immutable
-public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, SkylarkQueryable {
+public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   private final SkylarkType contentType;
   private final NestedSet<?> set;
@@ -151,7 +150,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
       throw new EvalException(
           loc,
           String.format(
-              "cannot add value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
+              "cannot union value of type '%s' to a depset", EvalUtils.getDataTypeName(item)));
     }
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
 
@@ -252,9 +251,22 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
     }
   }
 
+  private void checkHasContentType(Class<?> type) {
+    // Empty sets should be SkylarkType.TOP anyway.
+    if (!set.isEmpty()) {
+      Preconditions.checkArgument(
+          contentType.canBeCastTo(type),
+          "Expected a depset of '%s' but got a depset of '%s'",
+          EvalUtils.getDataTypeNameFromClass(type), contentType);
+    }
+  }
+
   /**
    * Returns the embedded {@link NestedSet}, while asserting that its elements all have the given
    * type.
+   *
+   * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
+   * anyway, prefer {@link #toCollection} to make your intent clear.
    *
    * @param type a {@link Class} representing the expected type of the contents
    * @return the {@code NestedSet}, with the appropriate generic type
@@ -263,15 +275,30 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
   // The precondition ensures generic type safety.
   @SuppressWarnings("unchecked")
   public <T> NestedSet<T> getSet(Class<T> type) {
-    // Empty sets don't need have to have a type since they don't have items
-    if (set.isEmpty()) {
-      return (NestedSet<T>) set;
-    }
-    Preconditions.checkArgument(
-        contentType.canBeCastTo(type),
-        "Expected a depset of '%s' but got a depset of '%s'",
-        EvalUtils.getDataTypeNameFromClass(type), contentType);
+    checkHasContentType(type);
     return (NestedSet<T>) set;
+  }
+
+  /**
+   * Returns the contents of the set as a {@link Collection}.
+   */
+  public Collection<Object> toCollection() {
+    // Do not remove <Object>: workaround for Java 7 type inference.
+    return ImmutableList.<Object>copyOf(set.toCollection());
+  }
+
+  /**
+   * Returns the contents of the set as a {@link Collection}, asserting that the set type is
+   * compatible with {@code T}.
+   *
+   * @param type a {@link Class} representing the expected type of the contents
+   * @throws IllegalArgumentException if the type does not accurately describe all elements
+   */
+  // The precondition ensures generic type safety.
+  @SuppressWarnings("unchecked")
+  public <T> Collection<T> toCollection(Class<T> type) {
+    checkHasContentType(type);
+    return (Collection<T>) toCollection();
   }
 
   @SkylarkCallable(
@@ -280,18 +307,6 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
           + "order.")
   public MutableList<Object> skylarkToList() {
     return new MutableList<Object>(set, null);
-  }
-
-  // For some reason this cast is unsafe in Java
-  @SuppressWarnings("unchecked")
-  @Override
-  public Iterator<Object> iterator() {
-    return (Iterator<Object>) set.iterator();
-  }
-
-  public Collection<Object> toCollection() {
-    // Do not remove <Object>: workaround for Java 7 type inference.
-    return ImmutableList.<Object>copyOf(set.toCollection());
   }
 
   public boolean isEmpty() {
@@ -319,7 +334,7 @@ public final class SkylarkNestedSet implements Iterable<Object>, SkylarkValue, S
   @Override
   public void write(Appendable buffer, char quotationMark) {
     Printer.append(buffer, "set(");
-    Printer.printList(buffer, this, "[", ", ", "]", null, quotationMark);
+    Printer.printList(buffer, set, "[", ", ", "]", null, quotationMark);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       Printer.append(buffer, ", order = \"" + order.getSkylarkName() + "\"");

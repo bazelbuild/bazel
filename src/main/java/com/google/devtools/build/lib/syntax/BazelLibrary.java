@@ -145,7 +145,7 @@ public class BazelLibrary {
             + "the input depset as well as all additional elements.",
     parameters = {
       @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
-      @Param(name = "new_elements", type = Iterable.class, doc = "The elements to be added.")
+      @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
     },
     useLocation = true
   )
@@ -153,8 +153,11 @@ public class BazelLibrary {
       new BuiltinFunction("union") {
         @SuppressWarnings("unused")
         public SkylarkNestedSet invoke(
-            SkylarkNestedSet input, Iterable<Object> newElements, Location loc)
+            SkylarkNestedSet input, Object newElements, Location loc)
             throws EvalException {
+          // newElements' type is Object because of the polymorphism on unioning two
+          // SkylarkNestedSets versus a set and another kind of iterable.
+          // Can't use EvalUtils#toIterable since that would discard this information.
           return new SkylarkNestedSet(input, newElements, loc);
         }
       };

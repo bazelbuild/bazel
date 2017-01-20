@@ -151,7 +151,7 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns true if the set is empty.
+   * Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set).
    */
   public boolean isEmpty() {
     return children == EMPTY_CHILDREN;

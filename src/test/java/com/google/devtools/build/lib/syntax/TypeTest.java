@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.TriState;
@@ -323,6 +325,14 @@ public class TypeTest {
       assertThat(e).hasMessage(
           "expected value of type 'string' for element 2 of argument quux, but got 1 (int)");
     }
+  }
+
+  @Test
+  public void testListDepsetConversion() throws Exception {
+    Object input = SkylarkNestedSet.of(
+        String.class,
+        NestedSetBuilder.create(Order.STABLE_ORDER, "a", "b", "c"));
+    Type.STRING_LIST.convert(input, null);
   }
 
   @Test

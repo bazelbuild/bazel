@@ -530,11 +530,13 @@ public abstract class Type<T> {
     @Override
     public List<ElemT> convert(Object x, Object what, Object context)
         throws ConversionException {
-      if (!(x instanceof Iterable<?>)) {
+      Iterable<?> iterable;
+      try {
+        iterable = EvalUtils.toIterableStrict(x, null);
+      } catch (EvalException ex) {
         throw new ConversionException(this, x, what);
       }
       int index = 0;
-      Iterable<?> iterable = (Iterable<?>) x;
       List<ElemT> result = new ArrayList<>(Iterables.size(iterable));
       ListConversionContext conversionContext = new ListConversionContext(what);
       for (Object elem : iterable) {

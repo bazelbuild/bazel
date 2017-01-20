@@ -58,6 +58,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -650,30 +651,43 @@ public class SkylarkRuleImplementationFunctions {
   };
 
 
+  /**
+   * Ensures the given {@link Map} has keys that have {@link Label} type and values that have either
+   * {@link Iterable} or {@link SkylarkNestedSet} type, and raises {@link EvalException} otherwise.
+   * Returns a corresponding map where any sets are replaced by iterables.
+   */
   // TODO(bazel-team): find a better way to typecheck this argument.
   @SuppressWarnings("unchecked")
   private static Map<Label, Iterable<Artifact>> checkLabelDict(
       Map<?, ?> labelDict, Location loc)
       throws EvalException {
+    Map<Label, Iterable<Artifact>> convertedMap = new HashMap<Label, Iterable<Artifact>>();
     for (Map.Entry<?, ?> entry : labelDict.entrySet()) {
       Object key = entry.getKey();
       if (!(key instanceof Label)) {
         throw new EvalException(
             loc, Printer.format("invalid key %r in 'label_dict'", key));
       }
+      ImmutableList.Builder<Artifact> files = ImmutableList.builder();
       Object val = entry.getValue();
-      if (!(val instanceof Iterable)) {
+      Iterable<?> valIter;
+      try {
+        valIter = EvalUtils.toIterableStrict(val, loc);
+      } catch (EvalException ex) {
+        // EvalException is thrown only if the type is wrong.
         throw new EvalException(
-            loc, Printer.format("invalid value %r in 'label_dict'", val));
+            loc, Printer.format("invalid value %r in 'label_dict': " + ex, val));
       }
-      for (Object file : (Iterable) val) {
+      for (Object file : valIter) {
         if (!(file instanceof Artifact)) {
           throw new EvalException(
               loc, Printer.format("invalid value %r in 'label_dict'", val));
         }
+        files.add((Artifact) file);
       }
+      convertedMap.put((Label) key, files.build());
     }
-    return (Map<Label, Iterable<Artifact>>) labelDict;
+    return convertedMap;
   }
 
   /** suffix of script to be used in case the command is too long to fit on a single line */
@@ -682,12 +696,11 @@ public class SkylarkRuleImplementationFunctions {
   @SkylarkSignature(
     name = "resolve_command",
     doc =
-        "Experimental."
-            + "Returns a tuple (inputs, command, input_manifests) of the list of resolved inputs, "
-            + "the argv list for the resolved command, and "
-            + "the dict mapping locations to runfiles required to run the command, "
-            + "all of them suitable for passing as the same-named arguments of the ctx.action "
-            + "method.",
+        "<i>(Experimental)</i> "
+            + "Returns a tuple <code>(inputs, command, input_manifests)</code> of the list of "
+            + "resolved inputs, the argv list for the resolved command, and the dict mapping "
+            + "locations to runfiles required to run the command, all of them suitable for passing "
+            + "as the same-named arguments of the <code>ctx.action</code> method.",
     objectType = SkylarkRuleContext.class,
     returnType = Tuple.class,
     parameters = {
