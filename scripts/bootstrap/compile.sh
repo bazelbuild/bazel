@@ -30,8 +30,8 @@ LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS}"
 LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
 for i in $(seq 0 $((${#LIBRARY_JARS_ARRAY[@]} - 1)))
 do
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ] && ERROR_PRONE_INDEX=$i
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ] && GUAVA_INDEX=$i
+  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
+  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
 done
 [ "${ERROR_PRONE_INDEX:+present}" = "present" ] || { echo "no error prone jar"; echo "${LIBRARY_JARS_ARRAY[@]}"; exit 1; }
 [ "${GUAVA_INDEX:+present}" = "present" ] || { echo "no guava jar"; exit 1; }
