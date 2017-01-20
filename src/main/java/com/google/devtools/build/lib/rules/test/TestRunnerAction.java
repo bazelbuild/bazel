@@ -40,14 +40,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Level;
-
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +55,7 @@ import javax.annotation.Nullable;
  */
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
+  public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
 
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
@@ -475,11 +474,36 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return coverageData;
   }
 
+  /** Returns true if coverage data should be gathered. */
+  public boolean isCoverageMode() {
+    return coverageData != null;
+  }
+
   /**
    * @return microcoverage data artifact or null if code coverage was not requested.
    */
   @Nullable public Artifact getMicroCoverageData() {
     return microCoverageData;
+  }
+
+  /** Returns true if micro-coverage data should be gathered. */
+  public boolean isMicroCoverageMode() {
+    return microCoverageData != null;
+  }
+
+  /**
+   * Returns a directory to temporarily store coverage results for the given action relative to the
+   * execution root. This directory is used to store all coverage results related to the test
+   * execution with exception of the locally generated *.gcda files. Those are stored separately
+   * using relative path within coverage directory.
+   *
+   * <p>The directory name for the given test runner action is constructed as: {@code
+   * _coverage/target_path/test_log_name} where {@code test_log_name} is usually a target name but
+   * potentially can include extra suffix, such as a shard number (if test execution was sharded).
+   */
+  public PathFragment getCoverageDirectory() {
+    return COVERAGE_TMP_ROOT.getRelative(
+        FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
   }
 
   public TestTargetProperties getTestProperties() {
