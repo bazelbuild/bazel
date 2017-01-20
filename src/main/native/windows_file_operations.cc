@@ -18,6 +18,7 @@
 #include <string>
 #include <type_traits>  // static_assert
 
+#include "src/main/native/windows_file_operations.h"
 #include "src/main/native/windows_util.h"
 
 namespace windows_util {
@@ -31,31 +32,8 @@ static_assert(sizeof(jchar) == sizeof(WCHAR),
 // 0x8010 = 32K max path length + UNC prefix + some safety buffer
 static const size_t kWindowsPathBufferSize = 0x8010;
 
-// Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
-enum {
-  IS_JUNCTION_YES = 0,
-  IS_JUNCTION_NO = 1,
-  IS_JUNCTION_ERROR = 2,
-};
-
-// Determines whether `path` is a junction point or directory symlink.
-//
-// Uses the `GetFileAttributesW` WinAPI function.
-// `path` should be a valid Windows-style or UNC path.
-//
-// To read about differences between junction points and directory symlinks,
-// see http://superuser.com/a/343079.
-//
-// Returns:
-// - IS_JUNCTION_YES, if `path` exists and is either a directory junction or a
-//   directory symlink
-// - IS_JUNCTION_NO, if `path` exists but is neither a directory junction nor a
-//   directory symlink; also when `path` is a symlink to a directory but it was
-//   created using "mklink" instead of "mklink /d", as such symlinks don't
-//   behave the same way as directories (e.g. they can't be listed)
-// - IS_JUNCTION_ERROR, if `path` doesn't exist or some error occurred
-static int IsJunctionOrDirectorySymlink(LPCWSTR path) {
-  DWORD attrs = GetFileAttributesW(path);
+int IsJunctionOrDirectorySymlink(const WCHAR* path) {
+  DWORD attrs = ::GetFileAttributesW(path);
   if (attrs == INVALID_FILE_ATTRIBUTES) {
     return IS_JUNCTION_ERROR;
   } else {
