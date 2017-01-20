@@ -19,6 +19,7 @@
 #include <jni.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 #include <windows.h>
 
 #include <atomic>
@@ -27,6 +28,7 @@
 #include <string>
 #include <type_traits>  // static_assert
 
+#include "src/main/native/windows_file_operations.h"
 #include "src/main/native/windows_util.h"
 
 // Ensure we can safely cast (const) jchar* to (const) WCHAR* and LP(C)WSTR.
@@ -116,6 +118,16 @@ static bool NestedJobsSupported() {
 
   return version_info.dwMajorVersion > 6 ||
     version_info.dwMajorVersion == 6 && version_info.dwMinorVersion >= 2;
+}
+
+static void MaybeReportLastError(const std::string& reason, JNIEnv* env,
+                                 jobjectArray error_msg_holder) {
+  if (error_msg_holder != nullptr &&
+      env->GetArrayLength(error_msg_holder) > 0) {
+    std::string error_str = windows_util::GetLastErrorString(reason);
+    jstring error_msg = env->NewStringUTF(error_str.c_str());
+    env->SetObjectArrayElement(error_msg_holder, 0, error_msg);
+  }
 }
 
 static std::string GetJavaUTFString(JNIEnv* env, jstring str) {
@@ -579,4 +591,37 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeStreamGetLastE
   jstring result = env->NewStringUTF(stream->error_.c_str());
   stream->error_ = "";
   return result;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeIsJunction(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray error_msg_holder) {
+  int result = windows_util::IsJunctionOrDirectorySymlink(
+      GetJavaWstring(env, path).c_str());
+  if (result == windows_util::IS_JUNCTION_ERROR) {
+    MaybeReportLastError(
+        std::string("GetFileAttributes(") + GetJavaUTFString(env, path) + ")",
+        env, error_msg_holder);
+  }
+  return result;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPath(
+    JNIEnv* env, jclass clazz, jstring path, jobjectArray result_holder,
+    jobjectArray error_msg_holder) {
+  std::unique_ptr<WCHAR[]> result;
+  bool success =
+      windows_util::GetLongPath(GetJavaWstring(env, path).c_str(), &result);
+  if (!success) {
+    MaybeReportLastError(
+        std::string("GetLongPathName(") + GetJavaUTFString(env, path) + ")",
+        env, error_msg_holder);
+    return JNI_FALSE;
+  }
+  env->SetObjectArrayElement(
+      result_holder, 0,
+      env->NewString(reinterpret_cast<const jchar*>(result.get()),
+                     wcslen(result.get())));
+  return JNI_TRUE;
 }
