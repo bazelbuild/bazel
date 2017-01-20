@@ -47,7 +47,8 @@ public class AppleBinaryRule implements RuleDefinition {
   private static final SafeImplicitOutputsFunction LIPOBIN = fromTemplates("%{name}_lipobin");
 
   /**
-   * There are 3 classes of fully linked binaries in Mach: executable, dynamic library and bundle.
+   * There are 3 classes of fully linked binaries in Mach: executable, dynamic library, and
+   * loadable bundle.
    *
    * <p>The executable is the binary that can be run directly by the operating system. It implements
    * implements the main method that is the entry point to the program. In Apple apps, they are
@@ -61,13 +62,13 @@ public class AppleBinaryRule implements RuleDefinition {
    * distributed in frameworks, which are .framework bundles that contain the dylib as well as well
    * as required resources to run.
    *
-   * <p>Bundles are binaries that can be loaded by other binaries at runtime, and they can't be
-   * directly executed by the operating system. When linking, a bundle_loader binary may be passed
-   * which signals the linker on where to look for unimplemented symbols, basically declaring that
-   * the bundle should be loaded by that binary. Bundle binaries are usually found in Plugins, and
-   * one common use case is tests. Tests are bundled into an .xctest bundle which contains the tests
-   * binary along with required resources. The test bundle is then loaded and run during test
-   * execution.
+   * <p>Loadable bundles are binaries that can be loaded by other binaries at runtime, and they
+   * can't be directly executed by the operating system. When linking, a bundle_loader binary may
+   * be passed which signals the linker on where to look for unimplemented symbols, basically
+   * declaring that the bundle should be loaded by that binary. Bundle binaries are usually found
+   * in Plugins, and one common use case is tests. Tests are bundled into an .xctest bundle which
+   * contains the tests binary along with required resources. The test bundle is then loaded and
+   * run during test execution.
    *
    * <p>The binary type is configurable via the "binary_type" attribute described below.
    */
@@ -91,9 +92,9 @@ public class AppleBinaryRule implements RuleDefinition {
             <code>executable</code> (default): the output binary is an executable and must implement
             the main() function.
           </li><li>
-            <code>bundle</code>: the output binary is a loadable bundle that may be loaded at
-            runtime. When building a bundle, you may also pass a bundle_loader binary that contains
-            symbols referenced but not implemented in the bundle.
+            <code>loadable_bundle</code>: the output binary is a loadable bundle that may be loaded
+            at runtime. When building a bundle, you may also pass a bundle_loader binary that
+            contains symbols referenced but not implemented in the loadable bundle.
           </li><li>
             <code>dylib</code>: the output binary is meant to be loaded at load time (when the
             operating system is loading the binary into memory) and cannot be unloaded. Dylibs

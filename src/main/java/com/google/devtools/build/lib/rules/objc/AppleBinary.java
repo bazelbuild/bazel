@@ -61,7 +61,7 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
      * test binary along with required resources. The test bundle is then loaded and run during
      * test execution.
      */
-    BUNDLE,
+    LOADABLE_BUNDLE,
 
     /**
      * Binaries that can be run directly by the operating system. They implement the main method
@@ -186,12 +186,12 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             .attributes()
             .isAttributeValueExplicitlySpecified(AppleBinaryRule.BUNDLE_LOADER_ATTR);
 
-    if (didProvideBundleLoader && binaryType != BinaryType.BUNDLE) {
+    if (didProvideBundleLoader && binaryType != BinaryType.LOADABLE_BUNDLE) {
       ruleContext.throwWithRuleError(BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR);
     }
 
     switch(binaryType) {
-      case BUNDLE:
+      case LOADABLE_BUNDLE:
         extraLinkArgs.add("-bundle");
         if (didProvideBundleLoader) {
           Artifact bundleLoader =
