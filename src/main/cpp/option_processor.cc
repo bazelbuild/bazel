@@ -259,15 +259,18 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
 // If no readable .blazerc file is found, return the empty string.
 blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     const char* cmdLineRcFile,
-    const string& rc_basename,
     const string& workspace,
     string* blaze_rc_file,
     string* error) {
+  const string rc_basename =
+      "." + parsed_startup_options_->GetLowercaseProductName() + "rc";
+
   if (cmdLineRcFile != NULL) {
     string rcFile = MakeAbsolute(cmdLineRcFile);
     if (!blaze_util::CanReadFile(rcFile)) {
       blaze_util::StringPrintf(error,
-          "Error: Unable to read .blazerc file '%s'.", rcFile.c_str());
+          "Error: Unable to read %s file '%s'.", rc_basename.c_str(),
+          rcFile.c_str());
       return blaze_exit_code::BAD_ARGV;
     }
     *blaze_rc_file = rcFile;
@@ -331,8 +334,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
 
   string user_blazerc_path;
   blaze_exit_code::ExitCode find_blazerc_exit_code = FindUserBlazerc(
-      blazerc, workspace_layout_->RcBasename(), workspace, &user_blazerc_path,
-      error);
+      blazerc, workspace, &user_blazerc_path, error);
   if (find_blazerc_exit_code != blaze_exit_code::SUCCESS) {
     return find_blazerc_exit_code;
   }

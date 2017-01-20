@@ -49,10 +49,6 @@ string WorkspaceLayout::GetWorkspace(const string &cwd) const {
   return "";
 }
 
-string WorkspaceLayout::RcBasename() const {
-  return ".bazelrc";
-}
-
 static string FindDepotBlazerc(const blaze::WorkspaceLayout* workspace_layout,
                                const string& workspace) {
   // Package semantics are ignored here, but that's acceptable because

@@ -102,7 +102,7 @@ class OptionProcessor {
   StartupOptions* GetParsedStartupOptions() const;
 
   virtual blaze_exit_code::ExitCode FindUserBlazerc(
-      const char* cmdLineRcFile, const std::string& rc_basename,
+      const char* cmdLineRcFile,
       const std::string& workspace, std::string* user_blazerc_file,
       std::string* error);
 
