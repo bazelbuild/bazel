@@ -207,7 +207,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private void beforeEvaluateQuery() throws InterruptedException {
-    boolean resolverNeedsRecreation = false;
     if (graph == null || !graphFactory.isUpToDate(universeKey)) {
       // If this environment is uninitialized or the graph factory needs to evaluate, do so. We
       // assume here that this environment cannot be initialized-but-stale if the factory is up
@@ -224,21 +223,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
-      resolverNeedsRecreation = true;
     }
     if (forkJoinPool == null) {
       forkJoinPool =
           NamedForkJoinPool.newNamedPool("QueryEnvironment", queryEvaluationParallelismLevel);
-      resolverNeedsRecreation = true;
     }
-    if (resolverNeedsRecreation) {
-      resolver =
-          new RecursivePackageProviderBackedTargetPatternResolver(
-              graphBackedRecursivePackageProvider,
-              eventHandler,
-              TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
-              packageSemaphore);
-    }
+    resolver =
+        new RecursivePackageProviderBackedTargetPatternResolver(
+            graphBackedRecursivePackageProvider,
+            eventHandler,
+            TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
+            packageSemaphore);
   }
 
   protected MultisetSemaphore<PackageIdentifier> makeFreshPackageMultisetSemaphore() {
