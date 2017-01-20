@@ -40,8 +40,7 @@ import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
- * Provides shared functionality for parameterized command-line launching
- * e.g. {@link com.google.devtools.build.lib.view.genrule.GenRule}
+ * Provides shared functionality for parameterized command-line launching.
  * Also used by {@link com.google.devtools.build.lib.rules.extra.ExtraActionFactory}.
  *
  * Two largely independent separate sets of functionality are provided:

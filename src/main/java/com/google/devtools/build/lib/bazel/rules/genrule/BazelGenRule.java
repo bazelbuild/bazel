@@ -50,7 +50,7 @@ import java.util.Map;
 /**
  * An implementation of genrule.
  */
-public class GenRule implements RuleConfiguredTargetFactory {
+public class BazelGenRule implements RuleConfiguredTargetFactory {
 
   private Artifact getExecutable(RuleContext ruleContext, NestedSet<Artifact> filesToBuild) {
     if (Iterables.size(filesToBuild) == 1) {
@@ -135,7 +135,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
     }
 
     ruleContext.registerAction(
-        new GenRuleAction(
+        new BazelGenRuleAction(
             ruleContext.getActionOwner(),
             ImmutableList.copyOf(commandHelper.getResolvedTools()),
             inputs.build(),

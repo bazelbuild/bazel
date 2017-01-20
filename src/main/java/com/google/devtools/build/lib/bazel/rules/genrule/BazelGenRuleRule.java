@@ -44,8 +44,9 @@ public final class BazelGenRuleRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     /* <!-- #BLAZE_RULE(genrule).NAME -->
-    <br/>You may refer to this rule by name in the <code>srcs</code> or <code>deps</code> section of
-    other <code>BUILD</code> rules. If the rule generates source files, you should use the
+    <br/>You may refer to this rule by name in the
+    <code>srcs</code> or <code>deps</code> section of other <code>BUILD</code>
+    rules. If the rule generates source files, you should use the
     <code>srcs</code> attribute.
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
@@ -72,7 +73,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
             .legacyAllowAnyFileType())
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(tools) -->
-        A list of <i>tool</i> dependencies for this rule.
+        A list of <i>tool</i> dependencies for this rule. See the definition of
+        <a href="../build-ref.html#deps">dependencies</a> for more information. <br/>
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
           they are built using the <a href='../blaze-user-manual.html#configurations'><i>host</i>
@@ -136,14 +138,20 @@ public final class BazelGenRuleRule implements RuleDefinition {
           </li>
         </ol>
         <p>
-          The command may refer to binaries that were declared as
-          <a href="${link genrule.tools}"><code>tools</code></a>; it should use a
-          <a href="../build-ref.html#labels">label</a> and <code>$(location)</code> expansion for
-          this.
-          The <a href="${link make-variables#predefined_variables}">Predefined "Make" Variables</a>
-          and the <a href="${link make-variables#predefined_variables.genrule.cmd}">
-          genrule-specific "Make" variables</a> are also available for <code>cmd</code>.
-        </p>
+          The command may refer to <code>*_binary</code>targets; it should use a <a
+          href="../build-ref.html#labels">label</a> for this. The following
+          variables are available within the <code>cmd</code> sublanguage:</p>
+        <ul>
+          <li>
+            <a href="${link make-variables#predefined_variables.genrule.cmd}">"Make" variables</a>
+          </li>
+          <li>
+            "Make" variables that are predefined by the build tools.
+            Please use these variables instead of hardcoded values.
+            See <a href="${link make-variables#predefined_variables}">Predefined "Make" Variables
+            </a> in this document for a list of supported values.
+          </li>
+        </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("cmd", STRING).mandatory())
 
@@ -162,6 +170,13 @@ public final class BazelGenRuleRule implements RuleDefinition {
           If set to 1, this option force this <code>genrule</code> to run with the
           <code>standalone</code> strategy, without sandboxing.
         </p>
+        <p>
+          This is equivalent to providing 'local' as a tag (<code>tags=["local"]</code>). The
+          local strategy is applied if either one is specified.
+        </p>
+        <p>
+          The <code>--genrule_strategy</code> option value <code>local</code>
+          overrides this attribute.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("local", BOOLEAN).value(false))
 
@@ -176,14 +191,18 @@ public final class BazelGenRuleRule implements RuleDefinition {
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("message", STRING))
+        /*<!-- #BLAZE_RULE(genrule).ATTRIBUTE(output_licenses) -->
+        See <a href="${link common-definitions#binary.output_licenses}"><code>common attributes
+        </code></a>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("output_licenses", LICENSE))
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(executable) -->
         Declare output to be executable.
         <p>
           Setting this flag to 1 means the output is an executable file and can be run using the
-          <code>bazel run</code> command. The genrule must produce exactly one output in this case.
-          If this attribute is set, <code>bazel run</code> will try executing the file regardless of
+          <code>run</code> command. The genrule must produce exactly one output in this case.
+          If this attribute is set, <code>run</code> will try executing the file regardless of
           its content.
         </p>
         <p>Declaring data dependencies for the generated executable is not supported.</p>
@@ -218,7 +237,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("genrule")
         .ancestors(BaseRuleClasses.RuleBase.class)
-        .factoryClass(GenRule.class)
+        .factoryClass(BazelGenRule.class)
         .build();
   }
 }

@@ -31,13 +31,13 @@ import java.util.List;
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
  * checked for directories.
  */
-public final class GenRuleAction extends SpawnAction {
+public final class BazelGenRuleAction extends SpawnAction {
 
   private static final ResourceSet GENRULE_RESOURCES =
       // Not chosen scientifically/carefully.  300MB memory, 100% CPU, no I/O.
       ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
 
-  public GenRuleAction(
+  public BazelGenRuleAction(
       ActionOwner owner,
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
