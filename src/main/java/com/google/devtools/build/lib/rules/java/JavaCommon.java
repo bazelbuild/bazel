@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
@@ -286,6 +287,7 @@ public class JavaCommon {
    */
   public NestedSet<Artifact> collectCompileTimeDependencyArtifacts(@Nullable Artifact outDeps) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    Set<JavaCompilationArgsProvider> addedProviders = new LinkedHashSet<>();
     if (outDeps != null) {
       builder.add(outDeps);
     }
@@ -293,7 +295,25 @@ public class JavaCommon {
     for (JavaCompilationArgsProvider provider : AnalysisUtils.getProviders(
         getExports(ruleContext), JavaCompilationArgsProvider.class)) {
       builder.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
+      addedProviders.add(provider);
     }
+
+    // We also check for artifacts in the JavaProvider of the dependencies (might exist when
+    // information is passed from a custom Skylark Java rule).
+    for (SkylarkProviders skylarkProviders : AnalysisUtils.getProviders(
+        getExports(ruleContext), SkylarkProviders.class)) {
+      JavaProvider javaProvider =
+          (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
+      if (javaProvider != null) {
+        JavaCompilationArgsProvider compilationArgsProvider =
+            javaProvider.getJavaCompilationArgsProvider();
+        if (!addedProviders.contains(compilationArgsProvider)) {
+          builder.addTransitive(javaProvider
+              .getJavaCompilationArgsProvider().getCompileTimeJavaDependencyArtifacts());
+        }
+      }
+    }
+
     return builder.build();
   }
 

@@ -23,11 +23,11 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -661,9 +662,41 @@ public final class JavaCompilationHelper {
 
     JavaClasspathMode classpathMode = getJavaConfiguration().getReduceJavaClasspath();
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      addDependencyArtifactsToAttributes(
-          attributes, AnalysisUtils.getProviders(deps, JavaCompilationArgsProvider.class));
+      List<JavaCompilationArgsProvider> compilationArgsProviders = new LinkedList<>();
+      for (TransitiveInfoCollection dep : deps) {
+        // First check if there is a JavaCompilationArgsProvider.
+        JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
+
+        if (provider == null) {
+          // A target can either have both JavaCompilationArgsProvider and JavaProvider that
+          // encapsulates the same information, or just one of them.
+          provider = getJavaCompilationArgsProviderFromDep(dep);
+        }
+        if (provider != null) {
+          compilationArgsProviders.add(provider);
+        }
+      }
+      addDependencyArtifactsToAttributes(attributes, compilationArgsProviders);
     }
+  }
+
+  /**
+   * Returns a JavaCompilationArgsProvider fetched from the JavaProvider of the given target.
+   * JavaProvider can be found as a declared provider in SkylarkProviders.
+   */
+  @Nullable
+  private static JavaCompilationArgsProvider getJavaCompilationArgsProviderFromDep(
+      TransitiveInfoCollection target) {
+    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
+    if (skylarkProviders == null) {
+      return null;
+    }
+    JavaProvider javaProvider =
+        (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
+    if (javaProvider == null) {
+      return null;
+    }
+    return javaProvider.getJavaCompilationArgsProvider();
   }
 
   /**

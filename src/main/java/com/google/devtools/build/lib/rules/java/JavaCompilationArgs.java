@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -152,6 +153,19 @@ public abstract class JavaCompilationArgs {
     public Builder addTransitiveTarget(TransitiveInfoCollection dep, boolean recursive,
         ClasspathType type) {
       JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
+      if (provider == null) {
+        // Only look for the JavaProvider when there is no JavaCompilationArgsProvider, else
+        // it would encapsulate the same information.
+        SkylarkProviders skylarkProviders = dep.getProvider(SkylarkProviders.class);
+        if (skylarkProviders != null) {
+          JavaProvider javaProvider =
+              (JavaProvider) skylarkProviders.getDeclaredProvider(
+                  JavaProvider.JAVA_PROVIDER.getKey());
+          if (javaProvider != null) {
+            provider = javaProvider.getJavaCompilationArgsProvider();
+          }
+        }
+      }
       if (provider != null) {
         addTransitiveCompilationArgs(provider, recursive, type);
         return this;

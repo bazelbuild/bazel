@@ -43,6 +43,7 @@ public final class JavaLibraryHelper {
 
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
+  private final List<Artifact> sourceFiles = new ArrayList<>();
 
   /**
    * Contains all the dependencies; these are treated as both compile-time and runtime dependencies.
@@ -90,6 +91,14 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  /**
+   * Adds the given source files to be compiled.
+   */
+  public JavaLibraryHelper addSourceFiles(Iterable<Artifact> sourceFiles) {
+    Iterables.addAll(this.sourceFiles, sourceFiles);
+    return this;
+  }
+
   public JavaLibraryHelper addAllDeps(
       Iterable<JavaCompilationArgsProvider> providers) {
     Iterables.addAll(deps, providers);
@@ -131,6 +140,7 @@ public final class JavaLibraryHelper {
     Preconditions.checkState(output != null, "must have an output file; use setOutput()");
     JavaTargetAttributes.Builder attributes = new JavaTargetAttributes.Builder(semantics);
     attributes.addSourceJars(sourceJars);
+    attributes.addSourceFiles(sourceFiles);
     addDepsToAttributes(attributes);
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());

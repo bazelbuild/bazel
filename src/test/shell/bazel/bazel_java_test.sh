@@ -158,5 +158,121 @@ EOF
   expect_log "testTest was run"
 }
 
+function test_basic_java_sandwich() {
+  mkdir -p java/com/google/sandwich
+  cd java/com/google/sandwich
+
+  touch BUILD A.java B.java C.java Main.java java_custom_library.bzl
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_binary(
+  name = "Main",
+  srcs = ["Main.java"],
+  deps = [":top"]
+)
+
+java_library(
+  name = "top",
+  srcs = ["A.java"],
+  deps = [":middle"]
+)
+
+java_custom_library(
+  name = "middle",
+  srcs = ["B.java"],
+  deps = [":bottom"]
+)
+
+java_library(
+  name = "bottom",
+  srcs = ["C.java"]
+)
+EOF
+
+  cat > C.java << EOF
+package com.google.sandwich;
+class C {
+  public void printC() {
+    System.out.println("Message from C");
+  }
+}
+EOF
+
+  cat > B.java << EOF
+package com.google.sandwich;
+class B {
+  C myObject;
+  public void printB() {
+    System.out.println("Message from B");
+    myObject = new C();
+    myObject.printC();
+  }
+}
+EOF
+
+  cat > A.java << EOF
+package com.google.sandwich;
+class A {
+  B myObject;
+  public void printA() {
+    System.out.println("Message from A");
+    myObject = new B();
+    myObject.printB();
+  }
+}
+EOF
+
+  cat > Main.java << EOF
+package com.google.sandwich;
+class Main {
+  public static void main(String[] args) {
+    A myObject = new A();
+    myObject.printA();
+  }
+}
+EOF
+
+  cat > java_custom_library.bzl << EOF
+def _impl(ctx):
+  deps = [dep[java_common.provider] for dep in ctx.attr.deps]
+  deps_provider = java_common.merge(deps)
+
+  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+
+  compilation_provider = java_common.compile(
+    ctx,
+    source_files = ctx.files.srcs,
+    output = output_jar,
+    javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain"),
+    deps = deps,
+    strict_deps = "ERROR",
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
+  )
+  result = java_common.merge([deps_provider, compilation_provider])
+  return struct(
+    files = set([output_jar]),
+    providers = [result]
+  )
+
+java_custom_library = rule(
+  implementation = _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files=True),
+    "deps": attr.label_list(),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+  },
+  fragments = ["java"]
+)
+EOF
+
+  $PRODUCT_NAME run :Main > $TEST_log || fail "Java sandwich build failed"
+  expect_log "Message from A"
+  expect_log "Message from B"
+  expect_log "Message from C"
+}
 
 run_suite "Java integration tests"
