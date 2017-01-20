@@ -96,11 +96,20 @@ genrule(
         # freebsd; so disable there as well until a fixed version is in there as
         # well.
         # TODO(aehlig): fix and remove once a version with the fix is out.
+        #
+        # We don't invoke jarjar_bin directly because this command is invoked
+        # during bootstrapping when we don't have build-runfiles, thus no
+        # runfiles trees. The Java launcher script looks in the runfiles tree
+        # for the jars (and rightfully so), thus, invoking the binary directly
+        # won't work.
         "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ freebsd ]]; then",
         "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
         "else",
-        "  \"$(location //third_party/java/jarjar:jarjar_bin)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
+        "  \"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
         "fi",
     ]),
-    tools = ["//third_party/java/jarjar:jarjar_bin"],
+    tools = [
+        "//third_party/java/jarjar:jarjar_bin_deploy.jar",
+        "//tools/defaults:jdk",
+    ],
 )

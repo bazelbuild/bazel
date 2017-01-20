@@ -33,6 +33,9 @@ fi
 if [ "${JAVA_VERSION}" = "1.7" ]; then
   : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+        --javabase=$JAVA_HOME \
+        --host_javabase=$JAVA_HOME \
+        --spawn_strategy=standalone \
         --nojava_header_compilation \
         --define JAVA_VERSION=1.7 --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
@@ -40,6 +43,9 @@ if [ "${JAVA_VERSION}" = "1.7" ]; then
 else
   : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+        --javabase=$JAVA_HOME \
+        --host_javabase=$JAVA_HOME \
+        --spawn_strategy=standalone \
         --nojava_header_compilation \
         --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
