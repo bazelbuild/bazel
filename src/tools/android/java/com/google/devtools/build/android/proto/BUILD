@@ -10,6 +10,7 @@ java_proto_library(
 proto_library(
     name = "serialize_format_proto",
     srcs = ["serialize_format.proto"],
+    strict_proto_deps = 0,
 )
 
 filegroup(
