@@ -14,6 +14,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <algorithm>
+#include <map>
 #include <memory>  // unique_ptr
 #include <thread>  // NOLINT (to silence Google-internal linter)
 
@@ -23,7 +25,9 @@
 
 namespace blaze_util {
 
+using std::map;
 using std::string;
+using std::vector;
 
 TEST(FileTest, TestSingleThreadedPipe) {
   std::unique_ptr<IPipe> pipe(CreatePipe());
@@ -142,6 +146,56 @@ TEST(FileTest, TestMtimeHandling) {
   ASSERT_FALSE(mtime.get()->SetToNow(file));
   ASSERT_FALSE(mtime.get()->SetToDistantFuture(file));
   ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
+}
+
+class CollectingDirectoryEntryConsumer : public DirectoryEntryConsumer {
+ public:
+  void Consume(const std::string& name, bool is_directory) override {
+    // use just base name for easy comparison and no hassle with path separators
+    // for Windows' sake (test runs on every platform)
+    entries[Basename(name)] = is_directory;
+  }
+
+  map<string, bool> entries;
+};
+
+TEST(FileTest, ForEachDirectoryEntryTest) {
+  string rootdir(JoinPath(getenv("TEST_TMPDIR"), "foo"));
+  string file1(JoinPath(rootdir, "file1.txt"));
+  string file2(JoinPath(rootdir, "file2.txt"));
+  string subdir(JoinPath(rootdir, "dir1"));
+  string file3(JoinPath(subdir, "file3.txt"));
+
+  ASSERT_TRUE(MakeDirectories(subdir, 0700));
+  ASSERT_TRUE(WriteFile("hello", 5, file1));
+  ASSERT_TRUE(WriteFile("hello", 5, file2));
+  ASSERT_TRUE(WriteFile("hello", 5, file3));
+
+  map<string, bool> expected;
+  expected["file1.txt"] = false;
+  expected["file2.txt"] = false;
+  expected["dir1"] = true;
+
+  CollectingDirectoryEntryConsumer consumer;
+  ForEachDirectoryEntry(rootdir, &consumer);
+  ASSERT_EQ(consumer.entries, expected);
+
+  vector<string> actual2;
+  GetAllFilesUnder(rootdir, &actual2);
+  std::sort(actual2.begin(), actual2.end());
+
+  vector<string> expected2;
+  vector<string> unixstyle_actual;
+  // normalize path separators for Windows' sake (test runs on every platform)
+  for (auto i : actual2) {
+    std::replace(i.begin(), i.end(), '\\', '/');
+    unixstyle_actual.push_back(i);
+  }
+  for (auto i : {file3, file1, file2}) {
+    std::replace(i.begin(), i.end(), '\\', '/');
+    expected2.push_back(i);
+  }
+  ASSERT_EQ(unixstyle_actual, expected2);
 }
 
 }  // namespace blaze_util

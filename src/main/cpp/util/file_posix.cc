@@ -364,7 +364,6 @@ string GetCwd() {
 bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
 }
-#endif  // not __CYGWIN__
 
 void ForEachDirectoryEntry(const string &path,
                            DirectoryEntryConsumer *consume) {
@@ -398,5 +397,6 @@ void ForEachDirectoryEntry(const string &path,
 
   closedir(dir);
 }
+#endif  // not __CYGWIN__
 
 }  // namespace blaze_util
