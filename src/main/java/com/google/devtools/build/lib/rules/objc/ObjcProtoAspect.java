@@ -36,7 +36,7 @@ public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspe
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return new AspectDefinition.Builder(this)
-        .attributeAspect("deps", this)
+        .propagateAlongAttribute("deps")
         .build();
   }
 

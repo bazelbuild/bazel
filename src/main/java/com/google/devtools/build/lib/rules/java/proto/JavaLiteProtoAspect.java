@@ -115,7 +115,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            .attributeAspect("deps", this)
+            .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSourcesProvider.class)
             .add(

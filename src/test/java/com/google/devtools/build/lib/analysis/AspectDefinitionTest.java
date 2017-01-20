@@ -120,26 +120,26 @@ public class AspectDefinitionTest {
   @Test
   public void testAttributeAspect_WrapsAndAddsToMap() throws Exception {
     AspectDefinition withAspects = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .attributeAspect("srcs", TEST_ASPECT_CLASS)
-        .attributeAspect("deps", TEST_ASPECT_CLASS)
+        .propagateAlongAttribute("srcs")
+        .propagateAlongAttribute("deps")
         .build();
 
-    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("srcs")))
-        .containsExactly(TEST_ASPECT_CLASS);
-    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("deps")))
-        .containsExactly(TEST_ASPECT_CLASS);
+    assertThat(withAspects.propagateAlong(createLabelListAttribute("srcs")))
+        .isTrue();
+    assertThat(withAspects.propagateAlong(createLabelListAttribute("deps")))
+        .isTrue();
   }
 
   @Test
   public void testAttributeAspect_AllAttributes() throws Exception {
     AspectDefinition withAspects = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .allAttributesAspect(TEST_ASPECT_CLASS)
+        .propagateAlongAllAttributes()
         .build();
 
-    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("srcs")))
-        .containsExactly(TEST_ASPECT_CLASS);
-    assertThat(withAspects.getAttributeAspects(createLabelListAttribute("deps")))
-        .containsExactly(TEST_ASPECT_CLASS);
+    assertThat(withAspects.propagateAlong(createLabelListAttribute("srcs")))
+        .isTrue();
+    assertThat(withAspects.propagateAlong(createLabelListAttribute("deps")))
+        .isTrue();
   }
 
 

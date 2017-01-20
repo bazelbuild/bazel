@@ -65,9 +65,9 @@ public final class JackAspect extends NativeAspectClass implements ConfiguredAsp
         .add(attr(":android_sdk", LABEL)
               .allowedRuleClasses("android_sdk")
               .value(new AndroidSdkLabel(androidSdk)))
-        .attributeAspect("deps", this)
-        .attributeAspect("exports", this)
-        .attributeAspect("runtime_deps", this)
+        .propagateAlongAttribute("deps")
+        .propagateAlongAttribute("exports")
+        .propagateAlongAttribute("runtime_deps")
         .requiresConfigurationFragments(AndroidConfiguration.class)
         .build();
   }

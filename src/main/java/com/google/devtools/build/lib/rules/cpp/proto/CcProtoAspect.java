@@ -108,7 +108,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder result =
         new AspectDefinition.Builder(this)
-            .attributeAspect("deps", this)
+            .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSupportDataProvider.class)
             .add(

@@ -158,8 +158,8 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder =
         new AspectDefinition.Builder(this)
-            .attributeAspect("runtime_deps", this)
-            .attributeAspect("resources", this)
+            .propagateAlongAttribute("runtime_deps")
+            .propagateAlongAttribute("resources")
             .add(
                 attr("$packageParser", LABEL)
                     .cfg(HOST)
@@ -176,7 +176,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
                             toolsRepository + "//tools/android:JarFilter")));
 
     for (PrerequisiteAttr prerequisiteAttr : prerequisiteAttrs) {
-      builder.attributeAspect(prerequisiteAttr.name, this);
+      builder.propagateAlongAttribute(prerequisiteAttr.name);
     }
 
     return builder.build();

@@ -79,7 +79,7 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(this);
     for (String attribute : ATTRIBUTES) {
-      builder.attributeAspect(attribute, this);
+      builder.propagateAlongAttribute(attribute);
     }
 
     return builder

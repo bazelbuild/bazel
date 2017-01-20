@@ -136,9 +136,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return addAdditionalAttributes(new AspectDefinition.Builder(this))
-        .attributeAspect("deps", this)
-        .attributeAspect("exports", this)
-        .attributeAspect("runtime_deps", this)
+        .propagateAlongAttribute("deps")
+        .propagateAlongAttribute("exports")
+        .propagateAlongAttribute("runtime_deps")
         .requireProviderSets(
             ImmutableList.of(
                 ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),

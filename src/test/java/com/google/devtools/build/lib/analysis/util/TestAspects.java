@@ -251,7 +251,7 @@ public class TestAspects {
   public static final AttributeAspect ATTRIBUTE_ASPECT = new AttributeAspect();
   private static final AspectDefinition ATTRIBUTE_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ATTRIBUTE_ASPECT)
-      .attributeAspect("foo", ATTRIBUTE_ASPECT)
+      .propagateAlongAttribute("foo")
       .build();
 
   /**
@@ -267,7 +267,7 @@ public class TestAspects {
   public static final NativeAspectClass ALL_ATTRIBUTES_ASPECT = new AllAttributesAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_ASPECT)
-          .allAttributesAspect(ALL_ATTRIBUTES_ASPECT)
+          .propagateAlongAllAttributes()
           .build();
 
   /** An aspect that propagates along all attributes and has a tool dependency. */
@@ -283,7 +283,7 @@ public class TestAspects {
       new AllAttributesWithToolAspect();
   private static final AspectDefinition ALL_ATTRIBUTES_WITH_TOOL_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
-          .allAttributesAspect(ALL_ATTRIBUTES_WITH_TOOL_ASPECT)
+          .propagateAlongAllAttributes()
           .add(
               attr("$tool", BuildType.LABEL)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -338,7 +338,7 @@ public class TestAspects {
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder(PARAMETRIZED_DEFINITION_ASPECT)
-              .attributeAspect("foo", this);
+              .propagateAlongAttribute("foo");
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
@@ -413,7 +413,7 @@ public class TestAspects {
   public static final WarningAspect WARNING_ASPECT = new WarningAspect();
   private static final AspectDefinition WARNING_ASPECT_DEFINITION =
       new AspectDefinition.Builder(WARNING_ASPECT)
-      .attributeAspect("bar", WARNING_ASPECT)
+      .propagateAlongAttribute("bar")
       .build();
 
   /**
@@ -438,7 +438,7 @@ public class TestAspects {
   public static final ErrorAspect ERROR_ASPECT = new ErrorAspect();
   private static final AspectDefinition ERROR_ASPECT_DEFINITION =
       new AspectDefinition.Builder(ERROR_ASPECT)
-      .attributeAspect("bar", ERROR_ASPECT)
+      .propagateAlongAttribute("bar")
       .build();
 
   /**

@@ -129,7 +129,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
           .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")));
     }
     for (String attr : TRANSITIVE_ATTRIBUTES) {
-      result.attributeAspect(attr, this);
+      result.propagateAlongAttribute(attr);
     }
     return result.build();
   }
