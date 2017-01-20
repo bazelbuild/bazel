@@ -15,6 +15,7 @@
 #include <jni.h>
 #include <windows.h>
 
+#include <memory>
 #include <string>
 #include <type_traits>  // static_assert
 
@@ -23,14 +24,12 @@
 
 namespace windows_util {
 
+using std::unique_ptr;
+
 // Ensure we can safely cast (const) jchar* to LP(C)WSTR.
 // This is true with MSVC but usually not with GCC.
 static_assert(sizeof(jchar) == sizeof(WCHAR),
               "jchar and WCHAR should be the same size");
-
-// Size of widechar path buffers on Windows.
-// 0x8010 = 32K max path length + UNC prefix + some safety buffer
-static const size_t kWindowsPathBufferSize = 0x8010;
 
 int IsJunctionOrDirectorySymlink(const WCHAR* path) {
   DWORD attrs = ::GetFileAttributesW(path);
@@ -44,6 +43,16 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path) {
       return IS_JUNCTION_NO;
     }
   }
+}
+
+bool GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
+  DWORD size = ::GetLongPathNameW(path, NULL, 0);
+  if (size == 0) {
+    return false;
+  }
+  result->reset(new WCHAR[size]);
+  ::GetLongPathNameW(path, result->get(), size);
+  return true;
 }
 
 static void MaybeReportLastError(string reason, JNIEnv* env,
@@ -70,10 +79,9 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeIsJunctio
     // Getting the string's characters again in UTF8 encoding is
     // easier than converting `wpath` using `wcstombs(3)`.
     const char* path_cstr = env->GetStringUTFChars(path, nullptr);
-    windows_util::MaybeReportLastError(std::string("GetFileAttributes(") +
-                                           std::string(path_cstr) +
-                                           std::string(")"),
-                                       env, error_msg_holder);
+    windows_util::MaybeReportLastError(
+        std::string("GetFileAttributes(") + path_cstr + ")", env,
+        error_msg_holder);
     env->ReleaseStringUTFChars(path, path_cstr);
   }
   return result;
@@ -85,21 +93,22 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPa
     jobjectArray error_msg_holder) {
   const jchar* cpath = nullptr;
   cpath = env->GetStringChars(path, nullptr);
-  jchar result[windows_util::kWindowsPathBufferSize] = {0};
-  DWORD len = GetLongPathNameW((LPCWSTR)cpath, (LPWSTR)result,
-                               windows_util::kWindowsPathBufferSize);
+  std::unique_ptr<WCHAR[]> result;
+  bool success =
+      windows_util::GetLongPath(reinterpret_cast<const WCHAR*>(cpath), &result);
   env->ReleaseStringChars(path, cpath);
-  if (len > 0 && len < windows_util::kWindowsPathBufferSize) {
-    env->SetObjectArrayElement(result_holder, 0,
-                               env->NewString((const jchar*)result, len));
-    return JNI_TRUE;
-  } else {
+  if (!success) {
     const char* path_cstr = env->GetStringUTFChars(path, nullptr);
-    windows_util::MaybeReportLastError(std::string("GetLongPathNameW(") +
-                                           std::string(path_cstr) +
-                                           std::string(")"),
-                                       env, error_msg_holder);
+    windows_util::MaybeReportLastError(
+        std::string("GetLongPathName(") + path_cstr + ")", env,
+        error_msg_holder);
     env->ReleaseStringUTFChars(path, path_cstr);
     return JNI_FALSE;
   }
+  std::wstring wresult(result.get());
+  env->SetObjectArrayElement(
+      result_holder, 0,
+      env->NewString(reinterpret_cast<const jchar*>(wresult.c_str()),
+                     wresult.size()));
+  return JNI_TRUE;
 }

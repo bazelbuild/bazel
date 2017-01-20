@@ -16,7 +16,11 @@
 
 #include <windows.h>
 
+#include <memory>
+
 namespace windows_util {
+
+using std::unique_ptr;
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 enum {
@@ -42,6 +46,14 @@ enum {
 //   behave the same way as directories (e.g. they can't be listed)
 // - IS_JUNCTION_ERROR, if `path` doesn't exist or some error occurred
 int IsJunctionOrDirectorySymlink(const WCHAR* path);
+
+// Computes the long version of `path` if it has any 8dot3 style components.
+// Returns true upon success and sets `result` to point to the buffer.
+// `path` must be an absolute, normalized, Windows style path, with a "\\?\"
+// prefix if its longer than MAX_PATH. The result will have a "\\?\" prefix if
+// and only if `path` had one as well. (It's the caller's responsibility to keep
+// or remove this prefix.)
+bool GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 
 }  // namespace windows_util
 
