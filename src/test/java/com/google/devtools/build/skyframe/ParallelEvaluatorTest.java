@@ -979,6 +979,7 @@ public class ParallelEvaluatorTest {
         new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
   }
 
+  @Test
   public void valueAboveCycleAndExceptionReportsException() throws Exception {
     graph = new InMemoryGraphImpl();
     SkyKey aKey = GraphTester.toSkyKey("a");
