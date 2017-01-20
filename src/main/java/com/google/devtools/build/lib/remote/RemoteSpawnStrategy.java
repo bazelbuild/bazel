@@ -175,8 +175,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       try {
         if (ConcurrentMapFactory.isRemoteCacheOptions(options)) {
           actionCache = new ConcurrentMapActionCache(ConcurrentMapFactory.create(options));
-        }
-        if (GrpcActionCache.isRemoteCacheOptions(options)) {
+        } else if (GrpcActionCache.isRemoteCacheOptions(options)) {
           actionCache = new GrpcActionCache(options);
         }
         // Otherwise actionCache remains null and remote caching/execution are disabled.
