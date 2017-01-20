@@ -926,7 +926,13 @@ public final class CcLibraryHelper {
     }
 
     DwoArtifactsCollector dwoArtifacts =
-        DwoArtifactsCollector.transitiveCollector(ccOutputs, deps);
+        DwoArtifactsCollector.transitiveCollector(
+            ruleContext,
+            ccOutputs,
+            deps, /*generateDwo=*/
+            false, /*ltoBackendArtifactsUsePic=*/
+            false, /*ltoBackendArtifacts=*/
+            ImmutableList.of());
     Runfiles cppStaticRunfiles = collectCppRunfiles(ccLinkingOutputs, true);
     Runfiles cppSharedRunfiles = collectCppRunfiles(ccLinkingOutputs, false);
 

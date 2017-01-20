@@ -829,6 +829,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
                   + "    action: 'c++-compile'"
                   + "    action: 'assemble'"
                   + "    action: 'preprocess-assemble'"
+                  + "    action: 'lto-backend'"
                   + "    expand_if_all_available: 'per_object_debug_info_file'"
                   + "    flag_group {"
                   + "      flag: '-gsplit-dwarf'"

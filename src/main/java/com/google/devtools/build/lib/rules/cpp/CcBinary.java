@@ -275,15 +275,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // Store immutable context for use in other *_binary rules that are implemented by
     // linking the interpreter (Java, Python, etc.) together with native deps.
     CppLinkAction.Context linkContext = new CppLinkAction.Context(linkActionBuilder);
+    Iterable<LTOBackendArtifacts> ltoBackendArtifacts = ImmutableList.of();
+    boolean usePic = CppHelper.usePic(ruleContext, !isLinkShared(ruleContext));
 
     if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       linkActionBuilder.setLTOIndexing(true);
       CppLinkAction indexAction = linkActionBuilder.build();
       ruleContext.registerAction(indexAction);
 
-      for (LTOBackendArtifacts ltoArtifacts : indexAction.getAllLTOBackendArtifacts()) {
-        boolean usePic = CppHelper.usePic(ruleContext, !isLinkShared(ruleContext));
-        ltoArtifacts.scheduleLTOBackendAction(ruleContext, featureConfiguration, usePic);
+      ltoBackendArtifacts = indexAction.getAllLTOBackendArtifacts();
+      for (LTOBackendArtifacts ltoArtifacts : ltoBackendArtifacts) {
+        ltoArtifacts.scheduleLTOBackendAction(
+            ruleContext,
+            featureConfiguration,
+            usePic,
+            /*generateDwo=*/ cppConfiguration.useFission());
       }
 
       linkActionBuilder.setLTOIndexing(false);
@@ -317,7 +323,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     CppHelper.createStripAction(ruleContext, cppConfiguration, executable, strippedFile);
 
     DwoArtifactsCollector dwoArtifacts =
-        collectTransitiveDwoArtifacts(ruleContext, ccCompilationOutputs, linkStaticness);
+        collectTransitiveDwoArtifacts(
+            ruleContext,
+            ccCompilationOutputs,
+            linkStaticness,
+            cppConfiguration.useFission(),
+            usePic,
+            ltoBackendArtifacts);
     Artifact dwpFile =
         ruleContext.getImplicitOutputArtifact(CppRuleClasses.CC_BINARY_DEBUG_PACKAGE);
     createDebugPackagerActions(ruleContext, cppConfiguration, dwpFile, dwoArtifacts);
@@ -514,16 +526,23 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    * Collects .dwo artifacts either transitively or directly, depending on the link type.
    *
    * <p>For a cc_binary, we only include the .dwo files corresponding to the .o files that are
-   * passed into the link. For static linking, this includes all transitive dependencies. But
-   * for dynamic linking, dependencies are separately linked into their own shared libraries,
-   * so we don't need them here.
+   * passed into the link. For static linking, this includes all transitive dependencies. But for
+   * dynamic linking, dependencies are separately linked into their own shared libraries, so we
+   * don't need them here.
    */
-  private static DwoArtifactsCollector collectTransitiveDwoArtifacts(RuleContext context,
-      CcCompilationOutputs compilationOutputs, LinkStaticness linkStaticness) {
+  private static DwoArtifactsCollector collectTransitiveDwoArtifacts(
+      RuleContext context,
+      CcCompilationOutputs compilationOutputs,
+      LinkStaticness linkStaticness,
+      boolean generateDwo,
+      boolean ltoBackendArtifactsUsePic,
+      Iterable<LTOBackendArtifacts> ltoBackendArtifacts) {
     if (linkStaticness == LinkStaticness.DYNAMIC) {
-      return DwoArtifactsCollector.directCollector(compilationOutputs);
+      return DwoArtifactsCollector.directCollector(
+          context, compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
     } else {
-      return CcCommon.collectTransitiveDwoArtifacts(context, compilationOutputs);
+      return CcCommon.collectTransitiveDwoArtifacts(
+          context, compilationOutputs, generateDwo, ltoBackendArtifactsUsePic, ltoBackendArtifacts);
     }
   }
 
