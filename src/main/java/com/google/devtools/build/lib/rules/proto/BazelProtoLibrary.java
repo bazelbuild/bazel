@@ -39,7 +39,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     ImmutableList<Artifact> protoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", TARGET).list();
-    ImmutableList<Artifact> checkDepsProtoSources =
+    NestedSet<Artifact> checkDepsProtoSources =
         ProtoCommon.getCheckDepsProtoSources(ruleContext, protoSources);
     ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
 

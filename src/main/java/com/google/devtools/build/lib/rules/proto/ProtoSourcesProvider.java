@@ -40,7 +40,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> transitiveImports,
       NestedSet<Artifact> transitiveProtoSources,
       ImmutableList<Artifact> protoSources,
-      ImmutableList<Artifact> checkDepsProtoSources,
+      NestedSet<Artifact> checkDepsProtoSources,
       @Nullable Artifact descriptorSet) {
     return new AutoValue_ProtoSourcesProvider(
         transitiveImports,
@@ -78,7 +78,6 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   /**
    * Returns the proto sources from the 'srcs' attribute.
    */
-  // TODO(bazel-team): This should be NestedSets.
   @SkylarkCallable(
     name = "direct_sources",
     doc = "Proto sources from the 'srcs' attribute.",
@@ -87,10 +86,12 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   public abstract ImmutableList<Artifact> getDirectProtoSources();
 
   /**
-   * Returns the proto sources from the 'srcs' attribute. If the library is a proxy library
-   * that has no sources, return the sources from the direct deps.
+   * Returns the proto sources from the 'srcs' attribute. If the library is a proxy library that has
+   * no sources, return the sources from the direct deps.
+   *
+   * <p>This must be a set to avoid collecting the same source twice when depending on 2 proxy 
+   * proto_library's that depend on the same proto_library.
    */
-  // TODO(bazel-team): This should be NestedSets.
   @SkylarkCallable(
     name = "check_deps_sources",
     doc =
@@ -99,7 +100,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
             + "from this library's direct deps.",
     structField = true
   )
-  public abstract ImmutableList<Artifact> getCheckDepsProtoSources();
+  public abstract NestedSet<Artifact> getCheckDepsProtoSources();
 
   /**
    * Be careful while using this artifact - it is the parsing of the transitive set of .proto files.
