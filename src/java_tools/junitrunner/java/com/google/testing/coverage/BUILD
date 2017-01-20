@@ -91,7 +91,12 @@ genrule(
         #
         # TODO(lberki): Remove this once a Bazel version with a fix to either of
         # these bugs is out.
-        "if [[ $$(uname -a) =~ MSYS ]]; then",
+        #
+        # Additionally, there is a hard-coded path to /bin/bash which is wrong on
+        # freebsd; so disable there as well until a fixed version is in there as
+        # well.
+        # TODO(aehlig): fix and remove once a version with the fix is out.
+        "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ freebsd ]]; then",
         "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
         "else",
         "  \"$(location //third_party/java/jarjar:jarjar_bin)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
