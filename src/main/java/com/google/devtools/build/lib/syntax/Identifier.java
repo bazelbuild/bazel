@@ -14,13 +14,9 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.Variable.SkylarkVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.SpellChecker;
 import java.util.Set;
 import javax.annotation.Nullable;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 // TODO(bazel-team): for extra performance:
 // (1) intern the strings, so we can use == to compare, and have .equals use the assumption.
@@ -97,11 +93,5 @@ public final class Identifier extends Expression {
     }
     String suggestion = SpellChecker.didYouMean(name, symbols);
     return new EvalException(getLocation(), "name '" + name + "' is not defined" + suggestion);
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) {
-    SkylarkVariable variable = scope.getVariable(this);
-    return variable.load(scope, debugInfo.add(this));
   }
 }

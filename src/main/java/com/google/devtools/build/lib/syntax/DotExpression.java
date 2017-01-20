@@ -17,15 +17,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.SpellChecker;
-import java.util.ArrayList;
-import java.util.List;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-import net.bytebuddy.implementation.bytecode.constant.TextConstant;
 
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
@@ -140,36 +132,5 @@ public final class DotExpression extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     obj.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    code.add(obj.compile(scope, debugInfo));
-    TextConstant name = new TextConstant(field.getName());
-    ByteCodeUtils.append(
-        code,
-        Duplication.SINGLE,
-        name,
-        debugInfo.add(this).loadLocation,
-        scope.loadEnvironment(),
-        ByteCodeUtils.invoke(
-            DotExpression.class,
-            "eval",
-            Object.class,
-            String.class,
-            Location.class,
-            Environment.class),
-        // at this point we have the value of obj and the result of eval on the stack
-        name,
-        debugInfo.add(this).loadLocation,
-        ByteCodeUtils.invoke(
-            DotExpression.class,
-            "checkResult",
-            Object.class,
-            Object.class,
-            String.class,
-            Location.class));
-    return ByteCodeUtils.compoundAppender(code);
   }
 }

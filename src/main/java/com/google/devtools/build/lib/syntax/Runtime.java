@@ -19,13 +19,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * Global constants and support for global namespaces of runtime functions.
@@ -92,12 +90,6 @@ public final class Runtime {
   @SkylarkSignature(name = "<unbound>", returnType = UnboundMarker.class, documented = false,
       doc = "Marker for unbound values in cases where neither Skylark None nor Java null can do.")
   public static final UnboundMarker UNBOUND = new UnboundMarker();
-
-  /**
-   * Load {@link #NONE} on the stack.
-   * <p>Kept close to the definition to avoid reflection errors when changing it.
-   */
-  public static final StackManipulation GET_NONE = ByteCodeUtils.getField(Runtime.class, "NONE");
 
   @SkylarkSignature(name = "None", returnType = NoneType.class,
       doc = "Literal for the None value.")

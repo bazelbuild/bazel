@@ -14,28 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
-
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.Jump;
-import com.google.devtools.build.lib.syntax.compiler.Jump.PrimitiveComparison;
-import com.google.devtools.build.lib.syntax.compiler.LabelAdder;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import javax.annotation.Nullable;
-import net.bytebuddy.description.type.TypeDescription;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Base class for list and dict comprehension expressions.
@@ -75,14 +60,6 @@ public abstract class AbstractComprehension extends Expression {
      */
     abstract void eval(Environment env, OutputCollector collector, int step)
         throws EvalException, InterruptedException;
-
-    ByteCodeAppender compile(
-        ByteCodeAppender inner,
-        VariableScope scope,
-        DebugInfo debugInfo,
-        ASTNode node,
-        AstAccessors debugAccessors)
-        throws EvalException;
 
     abstract void validate(ValidationEnvironment env) throws EvalException;
 
@@ -149,48 +126,6 @@ public abstract class AbstractComprehension extends Expression {
     public String toString() {
       return Printer.format("for %s in %r", variables.toString(), list);
     }
-
-    @Override
-    public ByteCodeAppender compile(
-        @Nullable ByteCodeAppender inner,
-        VariableScope scope,
-        DebugInfo debugInfo,
-        ASTNode node,
-        AstAccessors debugAccessors)
-        throws EvalException {
-      List<ByteCodeAppender> code = new ArrayList<>();
-      InternalVariable iterator =
-          scope.freshVariable(new TypeDescription.ForLoadedType(Iterator.class));
-      // compute the collection and get it on the stack and transform it to the right type
-      code.add(list.compile(scope, debugInfo));
-      append(
-          code,
-          debugAccessors.loadLocation,
-          EvalUtils.toIterable,
-          ByteCodeMethodCalls.BCImmutableList.copyOf,
-          ByteCodeMethodCalls.BCImmutableList.iterator);
-      code.add(iterator.store());
-      LabelAdder loopHeader = new LabelAdder();
-      LabelAdder loopBody = new LabelAdder();
-      append(
-          code,
-          Jump.to(loopHeader),
-          loopBody,
-          iterator.load(),
-          ByteCodeMethodCalls.BCIterator.next);
-      // store current element into l-values
-      code.add(variables.compileAssignment(node, debugAccessors, scope));
-      code.add(inner);
-      // compile code for the loop header
-      append(
-          code,
-          loopHeader,
-          iterator.load(),
-          ByteCodeMethodCalls.BCIterator.hasNext,
-          // falls through to end of loop if hasNext() was false, otherwise jumps back
-          Jump.ifIntOperandToZero(PrimitiveComparison.NOT_EQUAL).to(loopBody));
-      return ByteCodeUtils.compoundAppender(code);
-    }
   }
 
   /**
@@ -229,28 +164,6 @@ public abstract class AbstractComprehension extends Expression {
     @Override
     public String toString() {
       return String.format("if %s", condition);
-    }
-
-    @Override
-    public ByteCodeAppender compile(
-        ByteCodeAppender inner,
-        VariableScope scope,
-        DebugInfo debugInfo,
-        ASTNode node,
-        AstAccessors debugAccessors)
-        throws EvalException {
-      List<ByteCodeAppender> code = new ArrayList<>();
-      LabelAdder nopeLabel = new LabelAdder();
-      // compile condition and convert to boolean
-      code.add(condition.compile(scope, debugInfo));
-      append(
-          code,
-          EvalUtils.toBoolean,
-          // don't execute inner if false
-          Jump.ifIntOperandToZero(PrimitiveComparison.EQUAL).to(nopeLabel));
-      code.add(inner);
-      append(code, nopeLabel);
-      return ByteCodeUtils.compoundAppender(code);
     }
   }
 
@@ -333,27 +246,6 @@ public abstract class AbstractComprehension extends Expression {
     }
   }
 
-  @Override
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
-    // We use a new scope for all comprehensions, as in Python 3 semantics
-    // In Python 2, list comprehensions are in the same scope as the function and the backported
-    // dict comprehensions (2.7) use a new scope
-    VariableScope ourScope = scope.createSubScope();
-    List<ByteCodeAppender> code = new ArrayList<>();
-    InternalVariable collection = compileInitialization(ourScope, code);
-    AstAccessors debugAccessors = debugInfo.add(this);
-    ByteCodeAppender collector = compileCollector(ourScope, collection, debugInfo, debugAccessors);
-    for (ListIterator<Clause> clauseIterator = clauses.listIterator(clauses.size());
-        clauseIterator.hasPrevious();
-        ) {
-      Clause clause = clauseIterator.previous();
-      collector = clause.compile(collector, ourScope, debugInfo, this, debugAccessors);
-    }
-    code.add(collector);
-    code.add(compileBuilding(ourScope, collection));
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
   /**
    * Evaluate the clause indexed by step, or elementExpression. When we evaluate the
    * comprehension, step is 0 and we evaluate the first clause. Each clause may
@@ -378,26 +270,6 @@ public abstract class AbstractComprehension extends Expression {
   abstract String printExpressions();
 
   abstract OutputCollector createCollector(Environment env);
-
-  /**
-   * Add byte code which initializes the collection and returns the variable it is saved in.
-   */
-  abstract InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code);
-
-  /**
-   * Add byte code which adds a value to the collection.
-   */
-  abstract ByteCodeAppender compileCollector(
-      VariableScope scope,
-      InternalVariable collection,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors)
-      throws EvalException;
-
-  /**
-   * Add byte code which finalizes and loads the collection on the stack.
-   */
-  abstract ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection);
 
   /**
    * Interface for collecting the intermediate output of an {@code AbstractComprehension} and for

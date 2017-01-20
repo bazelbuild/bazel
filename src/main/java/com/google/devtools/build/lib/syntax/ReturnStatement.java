@@ -13,13 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.member.MethodReturn;
 
 /**
  * A wrapper Statement class for return expressions.
@@ -82,14 +76,5 @@ public class ReturnStatement extends Statement {
       throw new EvalException(getLocation(), "Return statements must be inside a function");
     }
     returnExpression.validate(env);
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-      throws EvalException {
-    ByteCodeAppender compiledExpression = returnExpression.compile(scope, debugInfo);
-    return new ByteCodeAppender.Compound(
-        compiledExpression, new ByteCodeAppender.Simple(MethodReturn.REFERENCE));
   }
 }

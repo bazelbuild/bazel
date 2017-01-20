@@ -24,13 +24,11 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 /**
  * Utilities used by the evaluator.
@@ -102,9 +100,6 @@ public final class EvalUtils {
           "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
     }
   }
-
-  public static final StackManipulation checkValidDictKey =
-      ByteCodeUtils.invoke(EvalUtils.class, "checkValidDictKey", Object.class);
 
   /**
    * Checks that an Object is a valid key for a Skylark dict.
@@ -281,9 +276,6 @@ public final class EvalUtils {
     return obj;
   }
 
-  public static final StackManipulation toBoolean =
-      ByteCodeUtils.invoke(EvalUtils.class, "toBoolean", Object.class);
-
   /**
    * @return the truth value of an object, according to Python rules.
    * http://docs.python.org/2/library/stdtypes.html#truth-value-testing
@@ -311,9 +303,6 @@ public final class EvalUtils {
       return true;
     }
   }
-
-  public static final StackManipulation toCollection =
-      ByteCodeUtils.invoke(EvalUtils.class, "toCollection", Object.class, Location.class);
 
   public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
     if (o instanceof Collection) {
@@ -344,9 +333,6 @@ public final class EvalUtils {
           "type '" + getDataTypeName(o) + "' is not a collection");
     }
   }
-
-  public static final StackManipulation toIterable =
-      ByteCodeUtils.invoke(EvalUtils.class, "toIterable", Object.class, Location.class);
 
   public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
     if (o instanceof String) {

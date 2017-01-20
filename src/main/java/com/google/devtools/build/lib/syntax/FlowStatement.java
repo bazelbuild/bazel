@@ -13,13 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.Jump;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-import com.google.devtools.build.lib.util.Preconditions;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * A class for flow statements (e.g. break and continue)
@@ -68,13 +61,6 @@ public final class FlowStatement extends Statement {
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    Preconditions.checkArgument(loopLabels.isPresent(), "break/continue not within loop");
-    return new ByteCodeAppender.Simple(Jump.to(loopLabels.get().labelFor(kind)));
   }
 
   /**

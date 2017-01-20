@@ -13,21 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
 
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
-import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
-import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-import net.bytebuddy.implementation.bytecode.Duplication;
-
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -51,38 +37,6 @@ public class DictComprehension extends AbstractComprehension {
   @Override
   OutputCollector createCollector(Environment env) {
     return new DictOutputCollector(env);
-  }
-
-  @Override
-  InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code) {
-    InternalVariable dict = scope.freshVariable(ImmutableMap.class);
-    append(code, scope.loadEnvironment(), ByteCodeMethodCalls.BCSkylarkDict.of);
-    code.add(dict.store());
-    return dict;
-  }
-
-  @Override
-  ByteCodeAppender compileCollector(
-      VariableScope scope,
-      InternalVariable collection,
-      DebugInfo debugInfo,
-      AstAccessors debugAccessors)
-      throws EvalException {
-    List<ByteCodeAppender> code = new ArrayList<>();
-    append(code, collection.load());
-    code.add(keyExpression.compile(scope, debugInfo));
-    append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
-    code.add(valueExpression.compile(scope, debugInfo));
-    append(code,
-        debugInfo.add(this).loadLocation,
-        scope.loadEnvironment(),
-        ByteCodeMethodCalls.BCSkylarkDict.put);
-    return ByteCodeUtils.compoundAppender(code);
-  }
-
-  @Override
-  ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection) {
-    return new ByteCodeAppender.Simple(collection.load());
   }
 
   /**

@@ -14,14 +14,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import java.util.Map;
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 /**
  * Syntax node for an import statement.
@@ -89,13 +84,5 @@ public final class LoadStatement extends Statement {
     for (Identifier symbol : cachedSymbols) {
       env.declare(symbol.getName(), getLocation());
     }
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    throw new UnsupportedOperationException(
-        "load statements should never appear in method bodies and"
-            + " should never be compiled in general");
   }
 }

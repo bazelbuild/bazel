@@ -13,14 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
-import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
-import com.google.devtools.build.lib.syntax.compiler.VariableScope;
-
-import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -122,13 +115,5 @@ public class FunctionDefStatement extends Statement {
     for (Statement stmts : statements) {
       stmts.validate(localEnv);
     }
-  }
-
-  @Override
-  ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
-    throw new UnsupportedOperationException(
-        "Skylark does not support nested function definitions"
-            + " and the current entry point for the compiler is UserDefinedFunction.");
   }
 }
