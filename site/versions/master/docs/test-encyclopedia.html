@@ -207,7 +207,12 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR/<i>workspace-name</i></code></td><td>recommended</td></tr>
     <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
-    <tr><td><code>TEST_RANDOM_SEED</code></td><td>Inherited from the client environment. If <code class='flag'>--runs_per_test</code> option is used and client environment does not contain this variable, it is set to the <var>run number</var> (starting with 1) for each individual test run.</td><td>optional</td></tr>
+    <tr>
+      <td><code>TEST_RANDOM_SEED</code></td>
+      <td colspan="2">If the <code class='flag'>--runs_per_test</code> option is used, TEST_RANDOM_SEED
+      is set to the <var>run number</var> (starting with 1) for each individual test run.</td>
+      <td>optional</td>
+    </tr>
     <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
