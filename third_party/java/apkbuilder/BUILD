@@ -4,7 +4,7 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "apkbuilder_deploy.jar",
+        "apkbuilder.jar",
     ],
     visibility = ["//src:__pkg__"],
 )

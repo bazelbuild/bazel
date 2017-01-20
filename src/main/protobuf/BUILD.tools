@@ -1,0 +1,16 @@
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "java_compilation_java_proto",
+    jars = ["java_compilation_java_proto_bin_deploy.jar"],
+)
+
+java_import(
+    name = "package_manifest_java_proto",
+    jars = ["package_manifest_java_proto_bin_deploy.jar"],
+)
+
+java_import(
+    name = "worker_protocol_java_proto",
+    jars = ["worker_protocol_java_proto_bin_deploy.jar"],
+)

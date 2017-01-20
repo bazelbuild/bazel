@@ -1,0 +1,6 @@
+package(default_visibility = ["//visibility:public"])
+
+alias(
+    name = "protobuf",
+    actual = "//third_party/protobuf/3.0.0:protobuf",
+)

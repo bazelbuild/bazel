@@ -2,17 +2,20 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "jar_filter_classes_deploy.jar",
-        "package_parser_classes_deploy.jar",
+        "libjar_filter_lib.jar",
+        "libpackage_parser_lib.jar",
     ],
     visibility = ["//src:__pkg__"],
 )
 
-java_binary(
-    name = "jar_filter_classes",
-    main_class = "does.not.exist",
-    runtime_deps = [":jar_filter_lib"],
-)
+IDEINFO_DEPS = [
+  "//src/main/java/com/google/devtools/common/options",
+  "//src/main/protobuf:package_manifest_java_proto",
+  "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+  "//third_party:guava",
+  "//third_party:jsr305",
+  "//third_party/protobuf",
+]
 
 java_binary(
     name = "JarFilter",
@@ -28,20 +31,7 @@ java_library(
         "//devtools/blaze/integration:__pkg__",
         "//src/test/java/com/google/devtools/build/android/ideinfo:__pkg__",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_java_proto",
-        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf",
-    ],
-)
-
-java_binary(
-    name = "package_parser_classes",
-    main_class = "does.not.exist",
-    runtime_deps = [":package_parser_lib"],
+    deps = IDEINFO_DEPS,
 )
 
 java_binary(
@@ -63,14 +53,7 @@ java_library(
         "//devtools/blaze/integration:__pkg__",
         "//src/test/java/com/google/devtools/build/android/ideinfo:__pkg__",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_java_proto",
-        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf",
-    ],
+    deps = IDEINFO_DEPS,
 )
 
 filegroup(

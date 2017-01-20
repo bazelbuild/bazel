@@ -27,6 +27,34 @@ FILES = [
     src = s + ".proto",
 ) for s in FILES]
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "java_compilation_java_proto_bin_deploy.jar",
+        "package_manifest_java_proto_bin_deploy.jar",
+        "worker_protocol_java_proto_bin_deploy.jar",
+    ],
+)
+
+java_binary(
+    name = "package_manifest_java_proto_bin",
+    main_class = "does.not.exist",
+    runtime_deps = ["package_manifest_java_proto"],
+)
+
+java_binary(
+    name = "java_compilation_java_proto_bin",
+    main_class = "does.not.exist",
+    runtime_deps = ["java_compilation_java_proto"],
+)
+
+java_binary(
+    name = "worker_protocol_java_proto_bin",
+    main_class = "does.not.exist",
+    runtime_deps = ["worker_protocol_java_proto"],
+)
+
 cc_proto_library(
     name = "worker_protocol_cc_proto",
     srcs = ["worker_protocol.proto"],

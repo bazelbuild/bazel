@@ -1,0 +1,152 @@
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "guava",
+    jars = [":guava_and_error_prone-jars"],
+)
+
+java_import(
+    name = "jsr305",
+    jars = ["jsr305/jsr-305.jar"],
+)
+
+java_import(
+    name = "asm",
+    jars = ["asm/asm-5.1.jar"],
+)
+
+java_import(
+    name = "asm-tree",
+    jars = ["asm/asm-tree-5.1.jar"],
+    runtime_deps = [":asm"],
+)
+
+java_import(
+    name = "asm-analysis",
+    jars = ["asm/asm-analysis-5.1.jar"],
+)
+
+java_import(
+    name = "android_common_25_0_0",
+    jars = [
+        "android_common/com.android_annotations_25.0.0.jar",
+        "android_common/com.android.tools.build_builder_2.0.0.jar",
+        "android_common/com.android.tools.build_builder-model_2.0.0.jar",
+        "android_common/com.android.tools.build_builder-test-api_2.0.0.jar",
+        "android_common/com.android.tools.build_manifest-merger_25.0.0.jar",
+        "android_common/com.android.tools.external.lombok_lombok-ast_0.2.3.jar",
+        "android_common/com.android.tools.layoutlib_layoutlib_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-api_25.0.0.jar",
+        "android_common/com.android.tools.lint_lint-checks_25.0.0.jar",
+        "android_common/com.android.tools_common_25.0.0.jar",
+        "android_common/com.android.tools_ddmlib_25.0.0.jar",
+        "android_common/com.android.tools_dvlib_25.0.0.jar",
+        "android_common/com.android.tools_repository_25.0.0.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_sdklib_25.0.0.jar",
+    ],
+    runtime_deps = [
+        ":asm",
+        ":asm-analysis",
+        ":asm-tree",
+    ],
+)
+
+filegroup(
+    name = "guava_and_error_prone-jars",
+    srcs = [
+        "guava/guava-21.0-20161101.jar",
+        "error_prone/error_prone_annotation-2.0.13.jar",
+        "error_prone/error_prone_annotations-2.0.13.jar",
+        "error_prone/error_prone_core-2.0.13.jar",
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+        "jsr305/jsr-305.jar",
+        "pcollections/pcollections-2.1.2.jar",
+        "//third_party/checker_framework_dataflow",
+        "//third_party/jformatstring",
+    ],
+)
+
+java_library(
+    name = "auto_value",
+    exported_plugins = [
+        ":auto_annotation_plugin",
+        ":auto_value_plugin",
+    ],
+    exports = [
+        ":auto_value_value",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_import(
+    name = "apache_commons_collections",
+    jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
+)
+
+java_import(
+    name = "apache_velocity",
+    jars = ["apache_velocity/velocity-1.7.jar"],
+    deps = [
+        ":apache_commons_collections",
+        ":apache_commons_lang",
+    ],
+)
+
+java_import(
+    name = "apache_commons_lang",
+    jars = ["apache_commons_lang/commons-lang-2.6.jar"],
+)
+
+java_import(
+    name = "auto_common",
+    jars = ["auto/auto-common-0.3.jar"],
+)
+
+java_import(
+    name = "auto_service",
+    jars = ["auto/auto-service-1.0-rc2.jar"],
+)
+
+java_plugin(
+    name = "auto_annotation_plugin",
+    processor_class = "com.google.auto.value.processor.AutoAnnotationProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service",
+        ":auto_value_value",
+        ":guava",
+        ":jsr305",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_plugin(
+    name = "auto_value_plugin",
+    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
+    deps = [
+        ":apache_commons_collections",
+        ":apache_velocity",
+        ":asm",
+        ":auto_common",
+        ":auto_service",
+        ":auto_value_value",
+        ":guava",
+        ":tomcat_annotations_api",
+    ],
+)
+
+java_import(
+    name = "auto_value_value",
+    jars = ["auto/auto-value-1.2.jar"],
+)
+
+java_import(
+    name = "tomcat_annotations_api",
+    jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+)
+
+

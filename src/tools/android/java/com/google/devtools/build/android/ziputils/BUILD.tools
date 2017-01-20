@@ -1,18 +1,37 @@
 package(default_visibility = ["//visibility:public"])
 
 java_import(
-    name = "classes",
-    jars = [":all_deploy.jar"],
+    name = "mapper_classes",
+    jars = [
+        "mapper_bin.jar",
+        "libsplitter_lib.jar",
+    ],
+)
+
+java_import(
+    name = "reducer_classes",
+    jars = [
+        "reducer_bin.jar",
+        "libziputils_lib.jar",
+    ],
 )
 
 java_binary(
     name = "mapper",
     main_class = "com.google.devtools.build.android.ziputils.DexMapper",
-    runtime_deps = [":classes"],
+    runtime_deps = [
+        ":mapper_classes",
+        "@bazel_tools//src/main/java/com/google/devtools/common/options:options",
+        "@bazel_tools//third_party:guava",
+    ],
 )
 
 java_binary(
     name = "reducer",
     main_class = "com.google.devtools.build.android.ziputils.DexReducer",
-    runtime_deps = [":classes"],
+    runtime_deps = [
+        ":reducer_classes",
+        "@bazel_tools//src/main/java/com/google/devtools/common/options:options",
+        "@bazel_tools//third_party:guava",
+    ],
 )

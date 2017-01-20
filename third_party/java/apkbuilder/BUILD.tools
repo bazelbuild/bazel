@@ -5,11 +5,15 @@ licenses(["notice"])  # Apache 2.0
 java_binary(
     name = "embedded_apkbuilder",
     main_class = "com.android.sdklib.build.ApkBuilderMain",
-    runtime_deps = [":apkbuilder_deploy_jar"],
+    runtime_deps = [
+        ":apkbuilder_jar",
+        "//third_party:guava",
+        "//tools/jdk:SingleJar_deploy.jar",
+    ],
     visibility = ["//visibility:public"],
 )
 
 java_import(
-    name = "apkbuilder_deploy_jar",
-    jars = [":apkbuilder_deploy.jar"]
+    name = "apkbuilder_jar",
+    jars = [":apkbuilder.jar"]
 )

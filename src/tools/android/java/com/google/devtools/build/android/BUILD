@@ -6,7 +6,7 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "classes_deploy.jar",
+        "libandroid_builder_lib.jar",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
     ],
 )

@@ -14,6 +14,14 @@ filegroup(
     visibility = ["//third_party:__pkg__"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "//third_party/protobuf/3.0.0:embedded_tools",
+    ],
+)
+
 proto_alias("protoc", PROTOBUF_VERSION)
 
 proto_alias("protobuf", PROTOBUF_VERSION)

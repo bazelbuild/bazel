@@ -4,7 +4,7 @@ licenses(["restricted"])  # GNU GPL v2 with Classpath exception
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"], exclude = ["BUILD"]),
 )
 
 java_library(

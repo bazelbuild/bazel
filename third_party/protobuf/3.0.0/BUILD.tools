@@ -1,0 +1,6 @@
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "protobuf",
+    jars = ["protobuf-java-3.0.0.jar"],
+)

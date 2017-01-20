@@ -12,6 +12,14 @@ java_library(
     srcs = glob(["java/**"]),
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":libjformatstring.jar",
+    ],
+)
+
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(

@@ -13,7 +13,10 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "all_deploy.jar",
+        ":libsplitter_lib.jar",
+        ":libziputils_lib.jar",
+        ":mapper_bin.jar",
+        ":reducer_bin.jar",
     ],
 )
 
@@ -51,8 +54,9 @@ java_library(
     ],
 )
 
+
 java_binary(
-    name = "mapper",
+    name = "mapper_bin",
     srcs = [
         "DexMapper.java",
     ],
@@ -66,7 +70,7 @@ java_binary(
 )
 
 java_binary(
-    name = "reducer",
+    name = "reducer_bin",
     srcs = [
         "DexReducer.java",
     ],
@@ -75,20 +79,5 @@ java_binary(
     deps = [
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
-    ],
-)
-
-java_binary(
-    name = "all",
-    srcs = [
-        "DexMapper.java",
-        "DexReducer.java",
-    ],
-    main_class = "does.not.exist",
-    deps = [
-        ":splitter_lib",
-        ":ziputils_lib",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
     ],
 )

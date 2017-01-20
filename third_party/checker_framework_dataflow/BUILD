@@ -7,6 +7,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":libchecker_framework_dataflow.jar",
+    ],
+)
+
 java_library(
     name = "checker_framework_dataflow",
     srcs = glob(["java/**"]),

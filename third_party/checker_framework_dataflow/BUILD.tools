@@ -1,0 +1,6 @@
+package(default_visibility = ["//visibility:public"])
+
+java_import(
+    name = "checker_framework_dataflow",
+    jars = ["libchecker_framework_dataflow.jar"],
+)

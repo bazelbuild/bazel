@@ -22,6 +22,15 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":libjarhelper.jar",
+    ],
+    visibility = ["//src:__pkg__"],
+)
+
 # JarHelper library for GenClass so it can create the gen jar.
 java_library(
     name = "jarhelper",

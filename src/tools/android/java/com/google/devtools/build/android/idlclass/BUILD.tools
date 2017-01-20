@@ -2,11 +2,17 @@ package(default_visibility = ["//visibility:public"])
 
 java_import(
     name = "classes",
-    jars = [":classes_deploy.jar"],
+    jars = [":libidlclass_lib.jar"],
 )
 
 java_binary(
     name = "IdlClass",
     main_class = "com.google.devtools.build.android.idlclass.IdlClass",
-    runtime_deps = [":classes"],
+    runtime_deps = [
+        ":classes",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:java_compilation_java_proto",
+        "//third_party:guava",
+    ],
 )

@@ -5,15 +5,13 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//external:android/dx_jar_import",
-        ":dexerdeps_deploy.jar",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//src/main/java/com/google/devtools/common/options:options",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:auto_value",
+        "//third_party:guava",
     ],
-    plugins = ["auto_value_plugin"],
-)
-
-java_plugin(
-    name = "auto_value_plugin",
-    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
-    deps = [":dexerdeps_deploy.jar"],
+    plugins = ["//third_party:auto_value_plugin"],
 )
 
 java_binary(

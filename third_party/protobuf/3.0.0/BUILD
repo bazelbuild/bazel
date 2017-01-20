@@ -30,6 +30,14 @@ java_import(
     jars = ["protobuf-java-3.0.0.jar"],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "protobuf-java-3.0.0.jar",
+    ],
+)
+
 # For bootstrapping JavaBuilder
 filegroup(
     name = "protobuf-jars",

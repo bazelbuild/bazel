@@ -539,6 +539,26 @@ filegroup(
     ],
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":android_common_25_0_0",
+        ":asm",
+        ":asm-tree",
+        ":asm-analysis",
+        ":guava",
+        ":jsr305",
+        ":auto_service",
+        ":auto_common",
+        ":apache_commons_lang",
+        ":apache_velocity",
+        ":apache_commons_collections",
+        ":tomcat_annotations_api",
+        ":auto_value_value",
+    ],
+)
+
 config_setting(
     name = "windows_mingw",
     values = {"compiler": "windows_mingw"},

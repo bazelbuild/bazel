@@ -2,15 +2,9 @@ filegroup(
     name = "embedded_tools",
     srcs = [
         "BUILD.tools",
-        "classes_deploy.jar",
+        "libidlclass_lib.jar",
     ],
     visibility = ["//src:__pkg__"],
-)
-
-java_binary(
-    name = "classes",
-    main_class = "does.not.exist",
-    runtime_deps = [":idlclass_lib"],
 )
 
 java_binary(

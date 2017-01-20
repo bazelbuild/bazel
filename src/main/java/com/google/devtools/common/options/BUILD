@@ -17,3 +17,11 @@ filegroup(
     testonly = 0,  # All srcs should be not test only, overwrite package default.
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        ":liboptions.jar",
+    ],
+)
