@@ -17,10 +17,8 @@ import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
-import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
-import com.sun.tools.javac.util.PropagatedException;
 import java.util.List;
 
 /**
@@ -32,37 +30,6 @@ import java.util.List;
  * com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin} for an example.
  */
 public abstract class BlazeJavaCompilerPlugin {
-
-  /**
-   * Allows plugins to pass errors through javac.Main to BlazeJavacMain and cleanly shut down the
-   * compiler.
-   */
-  public static final class PluginException extends RuntimeException {
-    private final Result result;
-    private final String message;
-
-    /** The compiler's exit status. */
-    public Result getResult() {
-      return result;
-    }
-
-    /** The message that will be printed to stderr before shutting down. */
-    @Override
-    public String getMessage() {
-      return message;
-    }
-
-    private PluginException(Result result, String message) {
-      this.result = result;
-      this.message = message;
-    }
-  }
-
-  /** Pass an error through javac.Main to BlazeJavacMain and cleanly shut down the compiler. */
-  protected static Exception throwError(Result result, String message) {
-    // Javac re-throws exceptions wrapped by PropagatedException.
-    throw new PropagatedException(new PluginException(result, message));
-  }
 
   protected Context context;
   protected Log log;
