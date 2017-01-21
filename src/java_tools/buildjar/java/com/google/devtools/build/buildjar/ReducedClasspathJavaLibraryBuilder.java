@@ -18,7 +18,6 @@ import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
 import java.io.IOException;
-import java.util.regex.Pattern;
 
 /**
  * A variant of SimpleJavaLibraryBuilder that attempts to reduce the compile-time classpath right
@@ -78,7 +77,16 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       return false;
     }
     for (FormattedDiagnostic diagnostic : result.diagnostics()) {
-      if (hasRecognizedError(diagnostic.getFormatted())) {
+      System.err.println(diagnostic.getCode());
+      String code = diagnostic.getCode();
+      if (code.contains("doesnt.exist")
+          || code.contains("cant.resolve")
+          || code.contains("cant.access")) {
+        return true;
+      }
+      // handle -Xdoclint:reference errors, which don't have a diagnostic code
+      // TODO(cushon): this is locale-dependent
+      if (diagnostic.getFormatted().contains("error: reference not found")) {
         return true;
       }
     }
@@ -86,17 +94,5 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       return true;
     }
     return false;
-  }
-
-  private static final Pattern MISSING_PACKAGE =
-      Pattern.compile("error: package ([\\p{javaJavaIdentifierPart}\\.]+) does not exist");
-
-  private static boolean hasRecognizedError(String output) {
-    // TODO(cushon): usage diagnostic codes instead
-    return output.contains("error: cannot access")
-        || output.contains("error: cannot find symbol")
-        || MISSING_PACKAGE.matcher(output).find()
-        // TODO(cushon): -Xdoclint:reference is probably a bad idea
-        || output.contains("error: reference not found");
   }
 }
