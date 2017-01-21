@@ -73,7 +73,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
   }
 
   private static boolean shouldFallBack(BlazeJavacResult result) {
-    if (result.isOk()) {
+    if (result.javacResult().isOK()) {
       return false;
     }
     for (FormattedDiagnostic diagnostic : result.diagnostics()) {

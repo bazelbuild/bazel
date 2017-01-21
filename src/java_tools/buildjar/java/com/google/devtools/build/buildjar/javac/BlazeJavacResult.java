@@ -16,36 +16,37 @@ package com.google.devtools.build.buildjar.javac;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.sun.tools.javac.main.Main.Result;
 
 /** The result of a single compilation performed by {@link BlazeJavacMain}. */
 public class BlazeJavacResult {
 
-  private final boolean ok;
+  private final Result javacResult;
   private final ImmutableList<FormattedDiagnostic> diagnostics;
   private final String output;
   private final BlazeJavaCompiler compiler;
 
   public static BlazeJavacResult ok() {
-    return new BlazeJavacResult(true, ImmutableList.of(), "", null);
+    return new BlazeJavacResult(Result.OK, ImmutableList.of(), "", null);
   }
 
   public static BlazeJavacResult error(String message) {
-    return new BlazeJavacResult(false, ImmutableList.of(), message, null);
+    return new BlazeJavacResult(Result.ERROR, ImmutableList.of(), message, null);
   }
 
   public BlazeJavacResult(
-      boolean ok,
+      Result javacResult,
       ImmutableList<FormattedDiagnostic> diagnostics,
       String output,
       BlazeJavaCompiler compiler) {
-    this.ok = ok;
+    this.javacResult = javacResult;
     this.diagnostics = diagnostics;
     this.output = output;
     this.compiler = compiler;
   }
 
-  public boolean isOk() {
-    return ok;
+  public Result javacResult() {
+    return javacResult;
   }
 
   public ImmutableList<FormattedDiagnostic> diagnostics() {
