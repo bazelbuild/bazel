@@ -25,11 +25,9 @@ import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
-import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.JavacFileManager;
 import com.sun.tools.javac.main.JavaCompiler;
-import com.sun.tools.javac.main.Main.Result;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.PropagatedException;
 import java.io.IOError;
@@ -77,7 +75,7 @@ public class BlazeJavacMain {
     Context context = new Context();
     setupBlazeJavaCompiler(arguments.plugins(), context);
 
-    Result result = Result.ABNORMAL;
+    boolean ok = false;
     StringWriter errOutput = new StringWriter();
     // TODO(cushon): where is this used when a diagnostic listener is registered? Consider removing
     // it and handling exceptions directly in callers.
@@ -103,16 +101,16 @@ public class BlazeJavacMain {
     setLocations(fileManager, arguments);
     try {
       try {
-        result = ((JavacTaskImpl) task).doCall();
+        ok = task.call();
       } catch (PropagatedException e) {
         throw e.getCause();
       }
     } catch (Throwable t) {
       t.printStackTrace(errWriter);
-      result = Result.ABNORMAL;
+      ok = false;
     } finally {
       compiler = (BlazeJavaCompiler) JavaCompiler.instance(context);
-      if (result.isOK()) {
+      if (ok) {
         // There could be situations where we incorrectly skip Error Prone and the compilation
         // ends up succeeding, e.g., if there are errors that are fixed by subsequent round of
         // annotation processing.  This check ensures that if there were any flow events at all,
@@ -120,13 +118,13 @@ public class BlazeJavacMain {
         // or empty source files.
         if (compiler.skippedFlowEvents() > 0 && compiler.flowEvents() == 0) {
           errWriter.println("Expected at least one FLOW event");
-          result = Result.ABNORMAL;
+          ok = false;
         }
       }
     }
     errWriter.flush();
     return new BlazeJavacResult(
-        result, filterDiagnostics(diagnostics.build()), errOutput.toString(), compiler);
+        ok, filterDiagnostics(diagnostics.build()), errOutput.toString(), compiler);
   }
 
   private static final ImmutableSet<String> IGNORED_DIAGNOSTIC_CODES =

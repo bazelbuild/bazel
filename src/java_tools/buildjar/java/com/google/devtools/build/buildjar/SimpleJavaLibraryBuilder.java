@@ -176,7 +176,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     BlazeJavacResult result = BlazeJavacResult.error("");
     try {
       result = compileJavaLibrary(build);
-      if (result.javacResult().isOK()) {
+      if (result.isOk()) {
         buildJar(build);
       }
       if (!build.getProcessors().isEmpty()) {
@@ -185,9 +185,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
         }
       }
     } finally {
-      build
-          .getDependencyModule()
-          .emitDependencyInformation(build.getClassPath(), result.javacResult().isOK());
+      build.getDependencyModule().emitDependencyInformation(build.getClassPath(), result.isOk());
       build.getProcessingModule().emitManifestProto();
     }
     return result;
