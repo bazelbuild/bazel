@@ -58,6 +58,32 @@ if [ "${MACHINE_TYPE}" = 'ppc64' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
+case "${PLATFORM}" in
+linux)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
+  ;;
+
+freebsd)
+  # JAVA_HOME must point to a Java installation.
+  JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
+  ;;
+
+darwin)
+  if [[ -z "$JAVA_HOME" ]]; then
+    JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
+      || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
+  fi
+  ;;
+
+msys*|mingw*)
+  # Use a simplified platform string.
+  PLATFORM="mingw"
+  PATHSEP=";"
+  # Find the latest available version of the SDK.
+  JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
+esac
+
 # Extension for executables.
 EXE_EXT=""
 case "${PLATFORM}" in
