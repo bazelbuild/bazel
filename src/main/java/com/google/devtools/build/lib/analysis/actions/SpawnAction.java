@@ -437,11 +437,11 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     /**
      * Creates an ActionSpawn with the given environment variables.
-     * 
+     *
      * <p>Subclasses of ActionSpawn may subclass in order to provide action-specific values for
      * environment variables or action inputs.
      */
-    public ActionSpawn(Map<String, String> clientEnv) {
+    protected ActionSpawn(Map<String, String> clientEnv) {
       super(ImmutableList.copyOf(argv.arguments()),
           ImmutableMap.<String, String>of(),
           executionInfo,
@@ -465,13 +465,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
         }
       }
       effectiveEnvironment = ImmutableMap.copyOf(env);
-    }
-
-    /**
-     * Creates an ActionSpawn with no environment variables.
-     */
-    public ActionSpawn() {
-      this(null);
     }
 
     @Override
@@ -1132,7 +1125,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
 
     public <T> Builder setExtraActionInfo(
         GeneratedExtension<ExtraActionInfo, T> extension, T value) {
-      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<T>(extension, value);
+      this.extraActionInfoSupplier = new ExtraActionInfoSupplier<>(extension, value);
       return this;
     }
 
