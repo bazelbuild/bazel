@@ -77,7 +77,6 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       return false;
     }
     for (FormattedDiagnostic diagnostic : result.diagnostics()) {
-      System.err.println(diagnostic.getCode());
       String code = diagnostic.getCode();
       if (code.contains("doesnt.exist")
           || code.contains("cant.resolve")
@@ -87,6 +86,13 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       // handle -Xdoclint:reference errors, which don't have a diagnostic code
       // TODO(cushon): this is locale-dependent
       if (diagnostic.getFormatted().contains("error: reference not found")) {
+        return true;
+      }
+      // Error Prone wraps completion failures
+      if (code.equals("compiler.err.error.prone.crash")
+          && diagnostic
+              .getFormatted()
+              .contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
         return true;
       }
     }
