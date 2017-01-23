@@ -619,7 +619,7 @@ public class BazelRuleClassProvider {
           builder.addNativeAspectClass(objcProtoAspect);
           builder.addRuleDefinition(new ObjcProtoLibraryRule(objcProtoAspect));
 
-          builder.addRuleDefinition(new AppleBinaryRule());
+          builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
           builder.addRuleDefinition(new AppleCcToolchainRule());
           builder.addRuleDefinition(new AppleDynamicLibraryRule());
           builder.addRuleDefinition(new AppleStaticLibraryRule());

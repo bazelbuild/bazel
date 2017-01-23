@@ -38,7 +38,16 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 public class AppleBinaryRule implements RuleDefinition {
 
   public static final String BINARY_TYPE_ATTR = "binary_type";
-  public static final String BUNDLE_LOADER_ATTR = "bundle_loader";
+  public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
+
+  private final ObjcProtoAspect objcProtoAspect;
+
+  /**
+   * Constructor that returns a newly configured AppleBinaryRule object.
+   */
+  public AppleBinaryRule(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
 
   /**
    * Template for the fat binary output (using Apple's "lipo" tool to combine binaries of
@@ -107,18 +116,15 @@ public class AppleBinaryRule implements RuleDefinition {
             attr(BINARY_TYPE_ATTR, STRING)
                 .value(AppleBinary.BinaryType.EXECUTABLE.toString())
                 .allowedValues(new AllowedValueSet(AppleBinary.BinaryType.getValues())))
-        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(bundle_loader) -->
-        The bundle loader to be used when linking this bundle. Can only be set when binary_type is
-        "bundle". This bundle loader may contain symbols that were not linked into the bundle to
-        reduce binary size.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
-            attr(BUNDLE_LOADER_ATTR, LABEL)
+            attr(BUNDLE_LOADER_ATTR_NAME, LABEL)
+                .direct_compile_time_input()
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        BundleLoaderProvider.class))
-                .legacyAllowAnyFileType()
-                .singleArtifact())
+                        AppleExecutableBinaryProvider.class))
+                .allowedFileTypes()
+                .singleArtifact()
+                .aspect(objcProtoAspect))
         .override(builder.copy("deps").cfg(splitTransitionProvider))
         .override(builder.copy("non_propagated_deps").cfg(splitTransitionProvider))
         /*<!-- #BLAZE_RULE(apple_binary).IMPLICIT_OUTPUTS -->

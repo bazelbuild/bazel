@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_DYNAMIC_LIBRARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -71,8 +70,7 @@ public class AppleDynamicLibrary implements RuleConfiguredTargetFactory {
             configToDepsCollectionMap,
             configurationToNonPropagatedObjcMap,
             dylibProviders,
-            dylibProtoProviders,
-            Optional.<ObjcProvider>absent());
+            dylibProtoProviders);
 
     multiArchBinarySupport.registerActions(
         platform,

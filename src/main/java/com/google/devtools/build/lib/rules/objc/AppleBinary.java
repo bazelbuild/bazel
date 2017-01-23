@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.rules.objc.AppleBinaryRule.BUNDLE_LOADER_ATTR_NAME;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.MULTI_ARCH_LINKED_BINARIES;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DylibDependingRule.DYLIBS_ATTR_NAME;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -42,24 +42,20 @@ import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Implementation for the "apple_binary" rule.
- */
+/** Implementation for the "apple_binary" rule. */
 public class AppleBinary implements RuleConfiguredTargetFactory {
 
-  /**
-   * Type of linked binary that apple_binary may create.
-   */
+  /** Type of linked binary that apple_binary may create. */
   enum BinaryType {
 
     /**
-     * Binaries that can be loaded by other binaries at runtime, and which can't be
-     * directly executed by the operating system. When linking, a bundle_loader binary may be passed
-     * which signals the linker on where to look for unimplemented symbols, basically declaring that
-     * the bundle should be loaded by that binary. Bundle binaries are usually found in Plugins, and
-     * one common use case is tests. Tests are bundled into an .xctest bundle which contains the
-     * test binary along with required resources. The test bundle is then loaded and run during
-     * test execution.
+     * Binaries that can be loaded by other binaries at runtime, and which can't be directly
+     * executed by the operating system. When linking, a bundle_loader binary may be passed which
+     * signals the linker on where to look for unimplemented symbols, basically declaring that the
+     * bundle should be loaded by that binary. Bundle binaries are usually found in Plugins, and one
+     * common use case is tests. Tests are bundled into an .xctest bundle which contains the test
+     * binary along with required resources. The test bundle is then loaded and run during test
+     * execution.
      */
     LOADABLE_BUNDLE,
 
@@ -73,9 +69,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     /**
      * Binaries meant to be loaded at load time (when the operating system is loading the binary
-     * into memory), which cannot be unloaded. They are usually distributed in frameworks,
-     * which are .framework bundles that contain the dylib as well as well as required resources to
-     * run.
+     * into memory), which cannot be unloaded. They are usually distributed in frameworks, which are
+     * .framework bundles that contain the dylib as well as well as required resources to run.
      */
     DYLIB;
 
@@ -116,22 +111,10 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     Platform platform = appleConfiguration.getMultiArchPlatform(platformType);
     ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap =
-        ruleContext.getPrerequisitesByConfiguration("non_propagated_deps", Mode.SPLIT,
-            ObjcProvider.class);
+        ruleContext.getPrerequisitesByConfiguration(
+            "non_propagated_deps", Mode.SPLIT, ObjcProvider.class);
     ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap =
         ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT);
-    Iterable<ObjcProvider> dylibProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
-    Iterable<ObjcProtoProvider> dylibProtoProviders =
-        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
-
-    BundleLoaderProvider bundleLoaderProvider =
-        ruleContext.getPrerequisite(
-            AppleBinaryRule.BUNDLE_LOADER_ATTR, Mode.TARGET, BundleLoaderProvider.class);
-    Optional<ObjcProvider> bundleLoaderObjcProvider = Optional.absent();
-    if (bundleLoaderProvider != null) {
-      bundleLoaderObjcProvider = Optional.of(bundleLoaderProvider.toObjcProvider());
-    }
 
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
     Artifact outputArtifact =
@@ -144,9 +127,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             childConfigurations,
             configToDepsCollectionMap,
             configurationToNonPropagatedObjcMap,
-            dylibProviders,
-            dylibProtoProviders,
-            bundleLoaderObjcProvider);
+            getDylibProviders(ruleContext),
+            getDylibProtoProviders(ruleContext));
 
     multiArchBinarySupport.registerActions(
         platform,
@@ -171,7 +153,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     targetBuilder.addProvider(ObjcProvider.class, objcProvider);
 
     if (getBinaryType(ruleContext) == BinaryType.EXECUTABLE) {
-      targetBuilder.addProvider(BundleLoaderProvider.class, new BundleLoaderProvider(objcProvider));
+      targetBuilder.addProvider(
+          AppleExecutableBinaryProvider.class, new AppleExecutableBinaryProvider(outputArtifact));
     }
     return targetBuilder.build();
   }
@@ -182,21 +165,22 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<String> extraLinkArgs = new ImmutableList.Builder<>();
 
     boolean didProvideBundleLoader =
-        ruleContext
-            .attributes()
-            .isAttributeValueExplicitlySpecified(AppleBinaryRule.BUNDLE_LOADER_ATTR);
+        ruleContext.attributes().isAttributeValueExplicitlySpecified(BUNDLE_LOADER_ATTR_NAME);
 
     if (didProvideBundleLoader && binaryType != BinaryType.LOADABLE_BUNDLE) {
       ruleContext.throwWithRuleError(BUNDLE_LOADER_NOT_IN_BUNDLE_ERROR);
     }
 
-    switch(binaryType) {
+    switch (binaryType) {
       case LOADABLE_BUNDLE:
         extraLinkArgs.add("-bundle");
         if (didProvideBundleLoader) {
-          Artifact bundleLoader =
-              ruleContext.getPrerequisiteArtifact(AppleBinaryRule.BUNDLE_LOADER_ATTR, TARGET);
-          extraLinkArgs.add("-bundle_loader " + bundleLoader.getExecPathString());
+          AppleExecutableBinaryProvider executableProvider =
+              ruleContext.getPrerequisite(
+                  BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, AppleExecutableBinaryProvider.class);
+          extraLinkArgs.add(
+              "-bundle_loader "
+                  + executableProvider.getAppleExecutableBinary().getExecPathString());
         }
         break;
       case DYLIB:
@@ -209,10 +193,41 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     return new ExtraLinkArgs(extraLinkArgs.build());
   }
 
+  private static Iterable<ObjcProvider> getDylibProviders(RuleContext ruleContext) {
+    Iterable<ObjcProvider> dylibProviders =
+        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
+
+    ObjcProvider bundleLoaderObjcProvider =
+        ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProvider.class);
+
+    if (bundleLoaderObjcProvider != null) {
+      dylibProviders = Iterables.concat(dylibProviders, ImmutableList.of(bundleLoaderObjcProvider));
+    }
+    return dylibProviders;
+  }
+
+  private static Iterable<ObjcProtoProvider> getDylibProtoProviders(RuleContext ruleContext) {
+    Iterable<ObjcProtoProvider> dylibProtoProviders =
+        ruleContext.getPrerequisites(DYLIBS_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
+
+    ObjcProtoProvider bundleLoaderObjcProtoProvider =
+        ruleContext.getPrerequisite(BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, ObjcProtoProvider.class);
+
+    if (bundleLoaderObjcProtoProvider != null) {
+      dylibProtoProviders =
+          Iterables.concat(dylibProtoProviders, ImmutableList.of(bundleLoaderObjcProtoProvider));
+    }
+    return dylibProtoProviders;
+  }
+
   private static Iterable<Artifact> getExtraLinkInputs(RuleContext ruleContext) {
-    return Optional.fromNullable(
-            ruleContext.getPrerequisiteArtifact(AppleBinaryRule.BUNDLE_LOADER_ATTR, TARGET))
-        .asSet();
+    AppleExecutableBinaryProvider executableProvider =
+        ruleContext.getPrerequisite(
+            BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, AppleExecutableBinaryProvider.class);
+    if (executableProvider != null) {
+      return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
+    }
+    return ImmutableSet.<Artifact>of();
   }
 
   private Set<BuildConfiguration> getChildConfigurations(RuleContext ruleContext) {
@@ -220,8 +235,8 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     // values of this rule -- this rule does not currently use the actual info provided by
     // this attribute. b/28403953 tracks cc toolchain usage.
     ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(":cc_toolchain", Mode.SPLIT,
-            CcToolchainProvider.class);
+        ruleContext.getPrerequisitesByConfiguration(
+            ":cc_toolchain", Mode.SPLIT, CcToolchainProvider.class);
 
     return configToProvider.keySet();
   }

@@ -146,8 +146,7 @@ public class MultiArchBinarySupport {
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
       Iterable<ObjcProvider> dylibObjcProviders,
-      Iterable<ObjcProtoProvider> dylibProtoProviders,
-      Optional<ObjcProvider> bundleLoaderObjcProvider)
+      Iterable<ObjcProtoProvider> dylibProtoProviders)
       throws RuleErrorException, InterruptedException {
     ImmutableMap.Builder<BuildConfiguration, ObjcProvider> configurationToObjcProviderBuilder =
         ImmutableMap.builder();
@@ -172,8 +171,7 @@ public class MultiArchBinarySupport {
           Iterables.concat(
               dylibObjcProviders,
               ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class),
-              protosObjcProvider.asSet(),
-              bundleLoaderObjcProvider.asSet());
+              protosObjcProvider.asSet());
 
       ObjcCommon common =
           common(
