@@ -113,7 +113,7 @@ function test_multiple_transports() {
 
 function test_root_cause_early() {
   (bazel build --experimental_build_event_text_file=$TEST_log \
-         pkg:fails_to_build && fail "bazel test failed") || true
+         pkg:fails_to_build && fail "build failure expected") || true
   # We expect precisely one action being reported (the failed one) and
   # precisely on report on a completed target; moreover, the action has
   # to be reported first.
