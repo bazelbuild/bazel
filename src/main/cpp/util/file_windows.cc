@@ -993,37 +993,14 @@ bool ChangeDirectory(const string& path) {
   return true;
 }
 
+#ifdef COMPILER_MSVC
 void ForEachDirectoryEntry(const string &path,
                            DirectoryEntryConsumer *consume) {
-  wstring wpath;
-  if (path.empty() || IsDevNull(path)) {
-    return;
-  }
-  if (!AsWindowsPath(path, &wpath)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "ForEachDirectoryEntry(%s): AsWindowsPath failed", path.c_str());
-  }
-
-  static const wstring kDot(L".");
-  static const wstring kDotDot(L"..");
-
-  wpath = L"\\\\?\\" + wpath + L"\\";
-  WIN32_FIND_DATAW metadata;
-  windows_util::AutoHandle handle(
-      FindFirstFileW((wpath + L"*").c_str(), &metadata));
-  if (handle.handle == INVALID_HANDLE_VALUE) {
-    return;  // directory does not exist or is empty
-  }
-
-  do {
-    if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
-      wstring wname = wpath + metadata.cFileName;
-      string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()).get());
-      bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-      consume->Consume(name, is_dir);
-    }
-  } while (FindNextFileW(handle.handle, &metadata));
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::ForEachDirectoryEntry is not implemented on Windows");
 }
+#else   // not COMPILER_MSVC
+#endif  // COMPILER_MSVC
 
 string NormalizeWindowsPath(string path) {
   if (path.empty()) {
