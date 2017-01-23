@@ -1613,19 +1613,22 @@ public class CppLinkActionBuilder {
       if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
         // Use normal shared library resolution rules for shared libraries.
         String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
-        librariesToLink.addValue(new LibraryToLinkValue("-l" + libName, inputIsWholeArchive));
+        librariesToLink.addValue(
+            LibraryToLinkValue.forDynamicLibrary(libName, inputIsWholeArchive));
       } else if (CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
         // Versioned shared libraries require the exact library filename, e.g.:
         // -lfoo -> libfoo.so
         // -l:libfoo.so.1 -> libfoo.so.1
-        librariesToLink.addValue(new LibraryToLinkValue("-l:" + name, inputIsWholeArchive));
+        librariesToLink.addValue(
+            LibraryToLinkValue.forVersionedDynamicLibrary(name, inputIsWholeArchive));
       } else {
         // Interface shared objects have a non-standard extension
         // that the linker won't be able to find.  So use the
         // filename directly rather than a -l option.  Since the
         // library has an SONAME attribute, this will work fine.
         librariesToLink.addValue(
-            new LibraryToLinkValue(inputArtifact.getExecPathString(), inputIsWholeArchive));
+            LibraryToLinkValue.forInterfaceLibrary(
+                inputArtifact.getExecPathString(), inputIsWholeArchive));
       }
     }
 
@@ -1640,7 +1643,8 @@ public class CppLinkActionBuilder {
         SequenceBuilder librariesToLink,
         boolean isRuntimeLinkerInput,
         @Nullable Map<Artifact, Artifact> ltoMap) {
-      Preconditions.checkState(!(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY));
+      ArtifactCategory artifactCategory = input.getArtifactCategory();
+      Preconditions.checkState(artifactCategory != ArtifactCategory.DYNAMIC_LIBRARY);
       // If we had any LTO artifacts, ltoMap whould be non-null. In that case,
       // we should have created a thinltoParamFile which the LTO indexing
       // step will populate with the exec paths that correspond to the LTO
@@ -1669,33 +1673,38 @@ public class CppLinkActionBuilder {
           if (!nonLTOArchiveMembers.isEmpty()) {
             boolean inputIsWholeArchive = !isRuntimeLinkerInput && needWholeArchive;
             librariesToLink.addValue(
-                new LibraryToLinkValue(nonLTOArchiveMembers, inputIsWholeArchive, true));
+                LibraryToLinkValue.forObjectFileGroup(nonLTOArchiveMembers, inputIsWholeArchive));
           }
         }
       } else {
+        Preconditions.checkArgument(
+            artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
+                || artifactCategory.equals(ArtifactCategory.STATIC_LIBRARY)
+                || artifactCategory.equals(ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY));
         boolean isAlwaysLinkStaticLibrary =
-            input.getArtifactCategory() == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY;
-        // For anything else, add the input directly.
-        Artifact inputArtifact = input.getArtifact();
+            artifactCategory == ArtifactCategory.ALWAYSLINK_STATIC_LIBRARY;
         boolean inputIsWholeArchive =
             (!isRuntimeLinkerInput && (isAlwaysLinkStaticLibrary || needWholeArchive))
                 || (isRuntimeLinkerInput && isAlwaysLinkStaticLibrary && !needWholeArchive);
 
+        Artifact inputArtifact = input.getArtifact();
         if (ltoMap != null && ltoMap.remove(inputArtifact) != null) {
           // The LTO artifacts that should be included in the final link
           // are listed in the thinltoParamFile.
           return;
         }
 
+        String name;
         if (input.isFake()) {
-          librariesToLink.addValue(
-              new LibraryToLinkValue(
-                  Link.FAKE_OBJECT_PREFIX + inputArtifact.getExecPathString(),
-                  inputIsWholeArchive));
+          name = Link.FAKE_OBJECT_PREFIX + inputArtifact.getExecPathString();
         } else {
-          librariesToLink.addValue(
-              new LibraryToLinkValue(inputArtifact.getExecPathString(), inputIsWholeArchive));
+          name = inputArtifact.getExecPathString();
         }
+
+        librariesToLink.addValue(
+            artifactCategory.equals(ArtifactCategory.OBJECT_FILE)
+                ? LibraryToLinkValue.forObjectFile(name, inputIsWholeArchive)
+                : LibraryToLinkValue.forStaticLibrary(name, inputIsWholeArchive));
       }
     }
   }

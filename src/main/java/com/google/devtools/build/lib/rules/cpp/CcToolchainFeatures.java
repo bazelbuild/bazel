@@ -987,25 +987,64 @@ public class CcToolchainFeatures implements Serializable {
      * significantly reduces memory overhead.
      */
     @Immutable
-    public static final class LibraryToLinkValue implements VariableValue {
+    public static class LibraryToLinkValue implements VariableValue {
 
-      public static final String NAMES_FIELD_NAME = "names";
+      public static final String OBJECT_FILES_FIELD_NAME = "object_files";
+      public static final String NAME_FIELD_NAME = "name";
+      public static final String TYPE_FIELD_NAME = "type";
       public static final String IS_WHOLE_ARCHIVE_FIELD_NAME = "is_whole_archive";
-      public static final String IS_LIB_GROUP_FIELD_NAME = "is_lib_group";
+      private enum Type {
+        OBJECT_FILE("object_file"),
+        OBJECT_FILE_GROUP("object_file_group"),
+        INTERFACE_LIBRARY("interface_library"),
+        STATIC_LIBRARY("static_library"),
+        DYNAMIC_LIBRARY("dynamic_library"),
+        VERSIONED_DYNAMIC_LIBRARY("versioned_dynamic_library");
 
-      private final ImmutableList<String> names;
-      private final boolean isWholeArchive;
-      private final boolean isLibGroup;
+        private final String name;
 
-      public LibraryToLinkValue(String name, boolean isWholeArchive) {
-        this(ImmutableList.of(name), isWholeArchive, false);
+        Type(String name) {
+          this.name = name;
+        }
       }
 
-      public LibraryToLinkValue(
-          ImmutableList<String> names, boolean isWholeArchive, boolean isLibGroup) {
-        this.names = names;
+      private final String name;
+      private final ImmutableList<String> objectFiles;
+      private final boolean isWholeArchive;
+      private final Type type;
+
+      public static LibraryToLinkValue forDynamicLibrary(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.DYNAMIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forVersionedDynamicLibrary(
+          String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.VERSIONED_DYNAMIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forInterfaceLibrary(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.INTERFACE_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.STATIC_LIBRARY);
+      }
+
+      public static LibraryToLinkValue forObjectFile(String name, boolean isWholeArchive) {
+        return new LibraryToLinkValue(name, null, isWholeArchive, Type.OBJECT_FILE);
+      }
+
+      public static LibraryToLinkValue forObjectFileGroup(
+          ImmutableList<String> objects, boolean isWholeArchive) {
+        return new LibraryToLinkValue(null, objects, isWholeArchive, Type.OBJECT_FILE_GROUP);
+      }
+
+      private LibraryToLinkValue(
+          String name, ImmutableList<String> objectFiles, boolean isWholeArchive, Type type) {
+        this.name = name;
+        this.objectFiles = objectFiles;
         this.isWholeArchive = isWholeArchive;
-        this.isLibGroup = isLibGroup;
+        this.type = type;
       }
 
       @Override
@@ -1025,22 +1064,27 @@ public class CcToolchainFeatures implements Serializable {
       @Override
       public VariableValue getFieldValue(String variableName, String field) {
         Preconditions.checkNotNull(field);
-        if (NAMES_FIELD_NAME.equals(field)) {
-          return new StringSequence(names);
+        if (NAME_FIELD_NAME.equals(field) && !type.equals(Type.OBJECT_FILE_GROUP)) {
+          return new StringValue(name);
+        } else if (OBJECT_FILES_FIELD_NAME.equals(field) && type.equals(Type.OBJECT_FILE_GROUP)) {
+          return new StringSequence(objectFiles);
+        } else if (TYPE_FIELD_NAME.equals(field)) {
+          return new StringValue(type.name);
         } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
           return new IntegerValue(isWholeArchive ? 1 : 0);
-        } else if (IS_LIB_GROUP_FIELD_NAME.equals(field)) {
-          return new IntegerValue(isLibGroup ? 1 : 0);
         } else if ("whole_archive_presence".equals(field)) {
           // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
           return isWholeArchive ? new IntegerValue(0) : null;
         } else if ("no_whole_archive_presence".equals(field)) {
           // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
           return !isWholeArchive ? new IntegerValue(0) : null;
-        } else if ("lib_group_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return isLibGroup ? new IntegerValue(0) : null;
         } else {
+          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
+          for (Type t : Type.values()) {
+            if ((t.name + "_presence").equals(field)) {
+              return type.equals(t) ? new IntegerValue(0) : null;
+            }
+          }
           return null;
         }
       }

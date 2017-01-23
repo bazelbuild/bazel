@@ -28,9 +28,11 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionExce
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.IntegerValue;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.SequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StructureBuilder;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValueBuilder;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -1334,5 +1336,32 @@ public class CcToolchainFeaturesTest {
       assertThat(e.getMessage())
           .contains(String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, "c++-compile"));
     }
+  }
+
+  @Test
+  public void testLibraryToLinkValue() {
+    assertThat(
+            LibraryToLinkValue.forDynamicLibrary("foo", false)
+                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME)
+                .getStringValue(LibraryToLinkValue.NAME_FIELD_NAME))
+        .isEqualTo("foo");
+    assertThat(
+            LibraryToLinkValue.forDynamicLibrary("foo", false)
+                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME))
+        .isNull();
+
+    assertThat(
+            LibraryToLinkValue.forObjectFileGroup(ImmutableList.of("foo", "bar"), false)
+                .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME))
+        .isNull();
+    Iterable<? extends VariableValue> objects =
+        LibraryToLinkValue.forObjectFileGroup(ImmutableList.of("foo", "bar"), false)
+            .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME)
+            .getSequenceValue(LibraryToLinkValue.OBJECT_FILES_FIELD_NAME);
+    ImmutableList.Builder<String> objectNames = ImmutableList.builder();
+    for (VariableValue object : objects) {
+      objectNames.add(object.getStringValue("name"));
+    }
+    assertThat(objectNames.build()).containsExactly("foo", "bar");
   }
 }

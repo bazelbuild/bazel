@@ -130,18 +130,22 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//x:foo");
     Variables variables = getLinkBuildVariables(target, LinkTargetType.DYNAMIC_LIBRARY);
-    VariableValue librariesToLinkSequence = variables.getVariable("libraries_to_link");
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
     assertThat(librariesToLinkSequence).isNotNull();
     Iterable<? extends VariableValue> librariesToLink =
-        librariesToLinkSequence.getSequenceValue("libraries_to_link");
+        librariesToLinkSequence.getSequenceValue(CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE);
     assertThat(librariesToLink).hasSize(1);
-    VariableValue nameValue = librariesToLink.iterator().next().getFieldValue(
-        "librariesToLink", LibraryToLinkValue.NAMES_FIELD_NAME);
+    VariableValue nameValue =
+        librariesToLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                CppLinkActionBuilder.LIBRARIES_TO_LINK_VARIABLE,
+                LibraryToLinkValue.NAME_FIELD_NAME);
     assertThat(nameValue).isNotNull();
-    Iterable<? extends VariableValue> names = nameValue.getSequenceValue("names");
-    assertThat(names).isNotNull();
-    assertThat(names).hasSize(1);
-    assertThat(names.iterator().next().getStringValue("names")).matches(".*a\\..*o");
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).matches(".*a\\..*o");
   }
 
   @Test
