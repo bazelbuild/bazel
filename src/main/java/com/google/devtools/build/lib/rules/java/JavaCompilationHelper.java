@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -670,7 +669,7 @@ public final class JavaCompilationHelper {
         if (provider == null) {
           // A target can either have both JavaCompilationArgsProvider and JavaProvider that
           // encapsulates the same information, or just one of them.
-          provider = getJavaCompilationArgsProviderFromDep(dep);
+          provider = JavaProvider.getProvider(JavaCompilationArgsProvider.class, dep);
         }
         if (provider != null) {
           compilationArgsProviders.add(provider);
@@ -678,25 +677,6 @@ public final class JavaCompilationHelper {
       }
       addDependencyArtifactsToAttributes(attributes, compilationArgsProviders);
     }
-  }
-
-  /**
-   * Returns a JavaCompilationArgsProvider fetched from the JavaProvider of the given target.
-   * JavaProvider can be found as a declared provider in SkylarkProviders.
-   */
-  @Nullable
-  private static JavaCompilationArgsProvider getJavaCompilationArgsProviderFromDep(
-      TransitiveInfoCollection target) {
-    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
-    if (skylarkProviders == null) {
-      return null;
-    }
-    JavaProvider javaProvider =
-        (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
-    if (javaProvider == null) {
-      return null;
-    }
-    return javaProvider.getJavaCompilationArgsProvider();
   }
 
   /**

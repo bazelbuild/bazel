@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import java.util.LinkedList;
 import java.util.List;
 
 /** A module that contains Skylark utilities for Java support. */
@@ -126,7 +125,9 @@ public class JavaSkylarkCommon {
             .addSourceFiles(sourceFiles)
             .setJavacOpts(javacOpts);
 
-    helper.addAllDeps(getJavaCompilationArgsProviders(deps));
+    List<JavaCompilationArgsProvider> compilationArgsProviders =
+        JavaProvider.fetchProvidersFromList(deps, JavaCompilationArgsProvider.class);
+    helper.addAllDeps(compilationArgsProviders);
     helper.setCompilationStrictDepsMode(getStrictDepsMode(strictDepsMode));
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
@@ -142,7 +143,22 @@ public class JavaSkylarkCommon {
             javaToolchainProvider,
             hostJavabaseArtifacts,
             SkylarkList.createImmutable(ImmutableList.<Artifact>of()));
-    return new JavaProvider(helper.buildCompilationArgsProvider(artifacts, true));
+    return JavaProvider.Builder.create()
+             .addProvider(
+                 JavaCompilationArgsProvider.class,
+                 helper.buildCompilationArgsProvider(artifacts, true))
+             .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
+             .build();
+  }
+
+  /**
+   * Creates a {@link JavaSourceJarsProvider} from the given list of source jars.
+   */
+  private static JavaSourceJarsProvider createJavaSourceJarsProvider(List<Artifact> sourceJars) {
+    NestedSet<Artifact> javaSourceJars =
+        NestedSetBuilder.<Artifact>stableOrder().addAll(sourceJars).build();
+    return JavaSourceJarsProvider.create(
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), javaSourceJars);
   }
 
   @SkylarkCallable(
@@ -172,17 +188,7 @@ public class JavaSkylarkCommon {
     mandatoryPositionals = 1
   )
   public static JavaProvider mergeJavaProviders(SkylarkList<JavaProvider> providers) {
-    return new JavaProvider(
-        JavaCompilationArgsProvider.merge(getJavaCompilationArgsProviders(providers)));
-  }
-
-  private static List<JavaCompilationArgsProvider> getJavaCompilationArgsProviders(
-      SkylarkList<JavaProvider> providers) {
-    List<JavaCompilationArgsProvider> javaCompilationArgsProviders = new LinkedList<>();
-    for (JavaProvider provider : providers) {
-      javaCompilationArgsProviders.add(provider.getJavaCompilationArgsProvider());
-    }
-    return javaCompilationArgsProviders;
+    return JavaProvider.merge(providers);
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {

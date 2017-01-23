@@ -306,10 +306,10 @@ public class JavaCommon {
           (JavaProvider) skylarkProviders.getDeclaredProvider(JavaProvider.JAVA_PROVIDER.getKey());
       if (javaProvider != null) {
         JavaCompilationArgsProvider compilationArgsProvider =
-            javaProvider.getJavaCompilationArgsProvider();
+            javaProvider.getProvider(JavaCompilationArgsProvider.class);
         if (!addedProviders.contains(compilationArgsProvider)) {
-          builder.addTransitive(javaProvider
-              .getJavaCompilationArgsProvider().getCompileTimeJavaDependencyArtifacts());
+          builder.addTransitive((javaProvider.getProvider(JavaCompilationArgsProvider.class))
+                  .getCompileTimeJavaDependencyArtifacts());
         }
       }
     }
@@ -390,9 +390,19 @@ public class JavaCommon {
   public NestedSet<Artifact> collectTransitiveSourceJars(Iterable<Artifact> targetSrcJars) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(targetSrcJars);
-    for (JavaSourceJarsProvider dep : getDependencies(JavaSourceJarsProvider.class)) {
-      builder.addTransitive(dep.getTransitiveSourceJars());
+
+    for (TransitiveInfoCollection dep : getDependencies()) {
+      JavaSourceJarsProvider sourceJarsProvider = dep.getProvider(JavaSourceJarsProvider.class);
+      if (sourceJarsProvider == null) {
+        // A target can either have both JavaSourceJarsProvider and JavaProvider that
+        // encapsulates the same information, or just one of them.
+        sourceJarsProvider = JavaProvider.getProvider(JavaSourceJarsProvider.class, dep);
+      }
+      if (sourceJarsProvider != null) {
+        builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
+      }
     }
+
     return builder.build();
   }
 

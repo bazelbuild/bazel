@@ -154,8 +154,8 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     JavaProvider jlTopJavaProvider = topJavaLibraryTarget.getProvider(JavaProvider.class);
 
     javaCompilationArgsHaveTheSameParent(
-        jlJavaProvider.getJavaCompilationArgsProvider().getJavaCompilationArgs(),
-        jlTopJavaProvider.getJavaCompilationArgsProvider().getJavaCompilationArgs());
+        jlJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs(),
+        jlTopJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs());
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(

@@ -97,7 +97,12 @@ public class JavaProtoSkylarkCommon {
       SkylarkRuleContext skylarkRuleContext, String protoToolchainAttr) {
     TransitiveInfoCollection runtime =
         getProtoToolchainProvider(skylarkRuleContext, protoToolchainAttr).runtime();
-    return new JavaProvider(runtime.getProvider(JavaCompilationArgsProvider.class));
+    return
+        JavaProvider.Builder.create()
+            .addProvider(
+                JavaCompilationArgsProvider.class,
+                runtime.getProvider(JavaCompilationArgsProvider.class))
+            .build();
   }
 
   @SkylarkCallable(
