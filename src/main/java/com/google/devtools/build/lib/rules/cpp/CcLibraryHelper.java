@@ -1225,7 +1225,9 @@ public final class CcLibraryHelper {
           new CppModuleMapAction(
               ruleContext.getActionOwner(),
               cppModuleMap,
-              privateHeaders,
+              featureConfiguration.isEnabled(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
+                  ? ImmutableList.<Artifact>of()
+                  : privateHeaders,
               publicHeaders.getHeaders(),
               collectModuleMaps(),
               additionalExportedHeaders,

@@ -294,6 +294,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             // We create a module map by default to allow for Swift interop.
             .add(CppRuleClasses.MODULE_MAPS)
             .add(CppRuleClasses.COMPILE_ALL_MODULES)
+            .add(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
             .add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)
             .add(CppRuleClasses.DEPENDENCY_FILE)
             .add(CppRuleClasses.INCLUDE_PATHS);

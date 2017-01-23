@@ -203,6 +203,12 @@ public class CppRuleClasses {
   public static final String COMPILE_ALL_MODULES = "compile_all_modules";
 
   /**
+   * A string constant for the exclude_private_headers_in_module_maps feature.
+   */
+  public static final String EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS =
+      "exclude_private_headers_in_module_maps";
+
+  /**
    * A string constant for the use_header_modules feature.
    *
    * <p>This feature is only used during rollout; we expect to default enable this once we
