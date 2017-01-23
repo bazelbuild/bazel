@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -37,8 +38,13 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> middleman =
         CompilationHelper.getAggregatingMiddleman(
             ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
+    // TODO(cushon): clean up uses of java_runtime in data deps and remove this
+    Runfiles runfiles =
+        new Runfiles.Builder(ruleContext.getWorkspaceName())
+            .addTransitiveArtifacts(filesToBuild)
+            .build();
     return new RuleConfiguredTargetBuilder(ruleContext)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .setFilesToBuild(filesToBuild)
         .addProvider(JavaRuntimeProvider.class, JavaRuntimeProvider.create(filesToBuild))
         .addProvider(MiddlemanProvider.class, new MiddlemanProvider(middleman))
