@@ -99,6 +99,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -106,6 +107,7 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -1810,5 +1812,29 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     return result.build();
+  }
+
+  protected Artifact getImplicitOutputArtifact(
+      ConfiguredTarget target, SafeImplicitOutputsFunction outputFunction) {
+    Rule associatedRule = target.getTarget().getAssociatedRule();
+    RepositoryName repository = associatedRule.getRepository();
+    BuildConfiguration configuration = target.getConfiguration();
+
+    Root root;
+    if (associatedRule.hasBinaryOutput()) {
+      root = configuration.getBinDirectory(repository);
+    } else {
+      root = configuration.getGenfilesDirectory(repository);
+    }
+    ArtifactOwner owner =
+        new ConfiguredTargetKey(target.getTarget().getLabel(), target.getConfiguration());
+
+    RawAttributeMapper attr = RawAttributeMapper.of(associatedRule);
+
+    String path = Iterables.getOnlyElement(outputFunction.getImplicitOutputs(attr));
+
+    return view.getArtifactFactory()
+        .getDerivedArtifact(
+            target.getTarget().getLabel().getPackageFragment().getRelative(path), root, owner);
   }
 }

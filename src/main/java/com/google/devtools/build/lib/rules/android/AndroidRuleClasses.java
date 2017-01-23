@@ -114,6 +114,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_filtered.jar");
   public static final SafeImplicitOutputsFunction ANDROID_R_TXT =
       fromTemplates("%{name}_symbols/R.txt");
+  public static final SafeImplicitOutputsFunction ANDROID_LOCAL_SYMBOLS =
+      fromTemplates("%{name}_symbols/local.bin");
   public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS =
       fromTemplates("%{name}_symbols/symbols.bin");
   public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
