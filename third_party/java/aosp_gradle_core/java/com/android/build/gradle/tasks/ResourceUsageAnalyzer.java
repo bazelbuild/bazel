@@ -46,6 +46,7 @@ import com.android.annotations.Nullable;
 import com.android.annotations.VisibleForTesting;
 import com.android.ide.common.resources.ResourceUrl;
 import com.android.ide.common.xml.XmlPrettyPrinter;
+import com.android.resources.FolderTypeRelationship;
 import com.android.resources.ResourceFolderType;
 import com.android.resources.ResourceType;
 import com.android.tools.lint.checks.ResourceUsageModel;
@@ -55,6 +56,7 @@ import com.android.tools.lint.detector.api.LintUtils;
 import com.android.utils.AsmUtils;
 import com.android.utils.Pair;
 import com.android.utils.XmlUtils;
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -238,21 +240,34 @@ public class ResourceUsageAnalyzer {
     Set<File> rewrite = Sets.newHashSetWithExpectedSize(resourceCount);
     Set<Resource> deleted = Sets.newHashSetWithExpectedSize(resourceCount);
     for (Resource resource : unused) {
-      deleted.add(resource);
       if (resource.declarations != null) {
         for (File file : resource.declarations) {
           String folder = file.getParentFile().getName();
           ResourceFolderType folderType = ResourceFolderType.getFolderType(folder);
           if (folderType != null && folderType != ResourceFolderType.VALUES) {
-            logger.fine("Deleted unused resource " + file + " for resource " + resource);
-            assert skip != null;
-            skip.add(file);
+            List<ResourceType> types = FolderTypeRelationship.getRelatedResourceTypes(folderType);
+            ResourceType type = types.get(0);
+            assert type != ResourceType.ID : folderType;
+            Resource fileResource = model.getResource(type, LintUtils.getBaseName(file.getName()));
+            // Only delete the file if there is no owning resource or this is the owning resource of
+            // the file, i.e. not an id declared within it, because id declarations are not
+            // considered uses and would otherwise cause deletion of the file.
+            if (fileResource == null || fileResource.equals(resource)) {
+              logger.fine("Deleted unused file " + file + " for resource " + resource);
+              assert skip != null;
+              skip.add(file);
+              deleted.add(resource);
+            }
           } else {
             // Can't delete values immediately; there can be many resources
             // in this file, so we have to process them all
             rewrite.add(file);
           }
         }
+      } else {
+        // Not declared anywhere; mark as deleted. Covers the case of inline resources.
+        // https://developer.android.com/guide/topics/resources/complex-xml-resources.html
+        deleted.add(resource);
       }
     }
     // Special case the base values.xml folder
@@ -263,11 +278,11 @@ public class ResourceUsageAnalyzer {
     }
 
     Map<File, String> rewritten = Maps.newHashMapWithExpectedSize(rewrite.size());
-    rewriteXml(rewrite, rewritten);
+    rewriteXml(rewrite, rewritten, deleted);
     // TODO(apell): The graph traversal does not mark IDs as reachable or not, so they cannot be
-    // accurately removed from public.xml, but the declarations may be deleted if they occur in
-    // other files. IDs should be added to values.xml so that there are no definitions in public.xml
-    // without declarations.
+    // accurately removed from public.xml, but the definitions may be deleted if they occur in
+    // other files. IDs should be added to values.xml so that there are no declarations in
+    // public.xml without definitions.
     File publicXml = new File(mergedResourceDir.toFile(),
         FD_RES_VALUES + File.separatorChar + "public.xml");
     createStubIds(values, rewritten, publicXml);
@@ -280,7 +295,7 @@ public class ResourceUsageAnalyzer {
   /**
    * Deletes unused resources from value XML files.
    */
-  private void rewriteXml(Set<File> rewrite, Map<File, String> rewritten)
+  private void rewriteXml(Set<File> rewrite, Map<File, String> rewritten, Set<Resource> deleted)
       throws IOException, ParserConfigurationException, SAXException {
     // Delete value resources: Must rewrite the XML files
     for (File file : rewrite) {
@@ -288,10 +303,17 @@ public class ResourceUsageAnalyzer {
       Document document = XmlUtils.parseDocument(xml, true);
       Element root = document.getDocumentElement();
       if (root != null && TAG_RESOURCES.equals(root.getTagName())) {
-        List<String> removed = Lists.newArrayList();
+        List<Resource> removed = Lists.newArrayList();
         stripUnused(root, removed);
-        logger.fine("Removed " + removed.size() + " unused resources from " + file + ":\n  "
-            + Joiner.on(", ").join(removed));
+        deleted.addAll(removed);
+        logger.fine(String.format("Removed %d unused resources from %s:\n  %s",
+            removed.size(), file,
+            Joiner.on(", ").join(Lists.transform(removed, new Function<Resource, String>() {
+              @Override
+              public String apply(Resource resource) {
+                return resource.getUrl();
+              }
+            }))));
         String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
         rewritten.put(file, formatted);
       }
@@ -312,14 +334,8 @@ public class ResourceUsageAnalyzer {
       Document document = XmlUtils.parseDocument(xml, true);
       Element root = document.getDocumentElement();
       for (Resource resource : model.getResources()) {
-        boolean inPublicXml = false;
-        if (resource.declarations != null) {
-          for (File file : resource.declarations) {
-            if (file.equals(publicXml)) {
-              inPublicXml = true;
-            }
-          }
-        }
+        boolean inPublicXml = resource.declarations != null
+            && resource.declarations.contains(publicXml);
         NodeList existing = null;
         try {
           XPathExpression expr = XPathFactory.newInstance().newXPath().compile(
@@ -409,7 +425,7 @@ public class ResourceUsageAnalyzer {
     }
   }
 
-  private void stripUnused(Element element, List<String> removed) {
+  private void stripUnused(Element element, List<Resource> removed) {
     ResourceType type = ResourceUsageModel.getResourceType(element);
     if (type == ResourceType.ATTR) {
       // Not yet properly handled
@@ -442,7 +458,7 @@ public class ResourceUsageAnalyzer {
       }
     }
     if (resource != null && !resource.isReachable() && resource.type != ResourceType.ID) {
-      removed.add(resource.getUrl());
+      removed.add(resource);
       Node parent = element.getParentNode();
       parent.removeChild(element);
     }
@@ -1233,11 +1249,6 @@ public class ResourceUsageAnalyzer {
               Resource resource;
               if (url.create) {
                 resource = declareResource(url.type, url.name, attr);
-                // The parent class does not consider id declarations in xml files to also be uses,
-                // which causes problems with the public.xml file. Modify that behavior here by
-                // adding a reference to any id declarations.
-                // Fix (see method comment): retain this modification when removing override.
-                from.addReference(resource);
               } else {
                 resource = addResource(url.type, url.name, null);
                 from.addReference(resource);
