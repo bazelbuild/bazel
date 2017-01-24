@@ -403,11 +403,6 @@ public final class AndroidRuleClasses {
                   .useOutputLicenses()
                   .allowedRuleClasses("java_toolchain")
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
-          .add(attr("emulator_arm", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("emulator_x86", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("emulator_x86_bios", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE))
-          .add(attr("mksd", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("empty_snapshot_fs", LABEL).cfg(HOST).allowedFileTypes(ANY_FILE))
           .build();
     }
 
