@@ -1432,66 +1432,64 @@ public class CppLinkActionBuilder {
                   || (linkType == LinkTargetType.EXECUTABLE
                       && linkStaticness == LinkStaticness.DYNAMIC));
 
-      String rpathRoot = null;
       ImmutableList.Builder<String> runtimeRpathEntries = ImmutableList.builder();
 
-      if (output != null) {
-        String origin =
-            useTestOnlyFlags && cppConfiguration.supportsExecOrigin()
-                ? "$EXEC_ORIGIN/"
-                : "$ORIGIN/";
+      String origin =
+          useTestOnlyFlags && cppConfiguration.supportsExecOrigin()
+              ? "$EXEC_ORIGIN/"
+              : "$ORIGIN/";
+      if (runtimeRpath) {
+        runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
+      }
+
+      String rpathRoot;
+      // Calculate the correct relative value for the "-rpath" link option (which sets
+      // the search path for finding shared libraries).
+      if (isSharedNativeLibrary()) {
+        // For shared native libraries, special symlinking is applied to ensure C++
+        // runtimes are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
+        // them.
+        //
+        // Note that we have to do this because $ORIGIN points to different paths for
+        // different targets. In other words, blaze-bin/d1/d2/d3/a_shareddeps.so and
+        // blaze-bin/d4/b_shareddeps.so have different path depths. The first could
+        // reference a standard blaze-bin/_solib_[arch] via $ORIGIN/../../../_solib[arch],
+        // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
+        // artifact, both are symlinks to the same place, so
+        // there's no *one* RPATH setting that fits all targets involved in the sharing.
+        rpathRoot =
+            "-Wl,-rpath," + origin + ":" + origin + cppConfiguration.getSolibDirectory() + "/";
         if (runtimeRpath) {
-          runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
+          runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
         }
-
-        // Calculate the correct relative value for the "-rpath" link option (which sets
-        // the search path for finding shared libraries).
-        if (isSharedNativeLibrary()) {
-          // For shared native libraries, special symlinking is applied to ensure C++
-          // runtimes are available under $ORIGIN/_solib_[arch]. So we set the RPATH to find
-          // them.
-          //
-          // Note that we have to do this because $ORIGIN points to different paths for
-          // different targets. In other words, blaze-bin/d1/d2/d3/a_shareddeps.so and
-          // blaze-bin/d4/b_shareddeps.so have different path depths. The first could
-          // reference a standard blaze-bin/_solib_[arch] via $ORIGIN/../../../_solib[arch],
-          // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
-          // artifact, both are symlinks to the same place, so
-          // there's no *one* RPATH setting that fits all targets involved in the sharing.
-          rpathRoot =
-              "-Wl,-rpath," + origin + ":" + origin + cppConfiguration.getSolibDirectory() + "/";
-          if (runtimeRpath) {
-            runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
-          }
-        } else {
-          // For all other links, calculate the relative path from the output file to _solib_[arch]
-          // (the directory where all shared libraries are stored, which resides under the blaze-bin
-          // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
-          // "../../_solib_[arch]".
-          if (runtimeRpath) {
-            runtimeRpathEntries.add(
-                "-Wl,-rpath,"
-                    + origin
-                    + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
-                    + runtimeSolibName
-                    + "/");
-          }
-
-          rpathRoot =
+      } else {
+        // For all other links, calculate the relative path from the output file to _solib_[arch]
+        // (the directory where all shared libraries are stored, which resides under the blaze-bin
+        // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
+        // "../../_solib_[arch]".
+        if (runtimeRpath) {
+          runtimeRpathEntries.add(
               "-Wl,-rpath,"
                   + origin
                   + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
-                  + cppConfiguration.getSolibDirectory()
-                  + "/";
+                  + runtimeSolibName
+                  + "/");
+        }
 
-          if (isNativeDeps) {
-            // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
-            // the package directory)
-            if (runtimeRpath) {
-              runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
-            }
-            rpathRoot += ":" + origin;
+        rpathRoot =
+            "-Wl,-rpath,"
+                + origin
+                + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
+                + cppConfiguration.getSolibDirectory()
+                + "/";
+
+        if (isNativeDeps) {
+          // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
+          // the package directory)
+          if (runtimeRpath) {
+            runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
           }
+          rpathRoot += ":" + origin;
         }
       }
 
@@ -1557,7 +1555,7 @@ public class CppLinkActionBuilder {
       }
 
       // rpath ordering matters for performance; first add the one where most libraries are found.
-      if (includeSolibDir && rpathRoot != null) {
+      if (includeSolibDir) {
         linkArgCollector.setRpathRoot(rpathRoot);
       }
       if (includeRuntimeSolibDir) {
@@ -1592,8 +1590,7 @@ public class CppLinkActionBuilder {
 
       Artifact inputArtifact = input.getArtifact();
       PathFragment libDir = inputArtifact.getExecPath().getParentDirectory();
-      if (rpathRoot != null
-          && !libDir.equals(solibDir)
+      if (!libDir.equals(solibDir)
           && (runtimeSolibDir == null || !runtimeSolibDir.equals(libDir))) {
         String dotdots = "";
         PathFragment commonParent = solibDir;
