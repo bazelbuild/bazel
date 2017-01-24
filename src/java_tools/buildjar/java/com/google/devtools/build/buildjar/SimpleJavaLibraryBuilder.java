@@ -195,6 +195,7 @@ public class SimpleJavaLibraryBuilder implements Closeable {
     JarCreator jar = new JarCreator(build.getOutputJar());
     jar.setNormalize(true);
     jar.setCompression(build.compressJar());
+    jar.setManifestFile(build.getManifestFile());
 
     for (String resourceJar : build.getResourceJars()) {
       for (Path root : getJarFileSystem(Paths.get(resourceJar)).getRootDirectories()) {

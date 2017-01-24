@@ -67,6 +67,8 @@ public final class JavaLibraryBuildRequest {
   private final String classDir;
   private final String tempDir;
 
+  private final String manifestFile;
+
   private JacocoInstrumentationProcessor jacocoInstrumentationProcessor;
 
   private final boolean compressJar;
@@ -156,6 +158,7 @@ public final class JavaLibraryBuildRequest {
     this.extdir = optionsParser.getExtdir();
     this.processorPath = optionsParser.getProcessorPath();
     this.processorNames = optionsParser.getProcessorNames();
+    this.manifestFile = optionsParser.getManifestFile();
     // Since the default behavior of this tool with no arguments is "rm -fr <classDir>", let's not
     // default to ".", shall we?
     if (optionsParser.getClassDir() != null) {
@@ -262,6 +265,10 @@ public final class JavaLibraryBuildRequest {
 
   public String getTempDir() {
     return tempDir;
+  }
+
+  public String getManifestFile() {
+    return manifestFile;
   }
 
   public JacocoInstrumentationProcessor getJacocoInstrumentationProcessor() {

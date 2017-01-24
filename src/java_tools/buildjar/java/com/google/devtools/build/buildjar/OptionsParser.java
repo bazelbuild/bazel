@@ -55,6 +55,7 @@ public final class OptionsParser {
   private String sourceGenDir;
   private String generatedSourcesOutputJar;
   private String manifestProtoPath;
+  private String manifestFile;
   private final Set<String> sourceRoots = new HashSet<>();
 
   private final List<String> sourceFiles = new ArrayList<>();
@@ -144,6 +145,9 @@ public final class OptionsParser {
           break;
         case "--output_manifest_proto":
           manifestProtoPath = getArgument(argQueue, arg);
+          break;
+        case "--manifest_file":
+          manifestFile = getArgument(argQueue, arg);
           break;
         case "--source_roots":
           collectFlagArguments(sourceRoots, argQueue, "-");
@@ -370,6 +374,10 @@ public final class OptionsParser {
 
   public String getManifestProtoPath() {
     return manifestProtoPath;
+  }
+
+  public String getManifestFile() {
+    return manifestFile;
   }
 
   public Set<String> getSourceRoots() {
