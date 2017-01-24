@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.escape.Escaper;
-
 import java.lang.reflect.Field;
+import java.nio.file.FileSystem;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -43,23 +43,20 @@ import java.util.Map;
  * List&lt;String&gt; otherArguments = parser.getResidue();
  * </pre>
  *
- * <p>FooOptions and BarOptions would be options specification classes, derived
- * from OptionsBase, that contain fields annotated with @Option(...).
+ * <p>FooOptions and BarOptions would be options specification classes, derived from OptionsBase,
+ * that contain fields annotated with @Option(...).
  *
- * <p>Alternatively, rather than calling
- * {@link #parseAndExitUponError(OptionPriority, String, String[])},
- * client code may call {@link #parse(OptionPriority,String,List)}, and handle
- * parser exceptions usage messages themselves.
+ * <p>Alternatively, rather than calling {@link #parseAndExitUponError(OptionPriority, String,
+ * String[])}, client code may call {@link #parse(OptionPriority,String,List)}, and handle parser
+ * exceptions usage messages themselves.
  *
- * <p>This options parsing implementation has (at least) one design flaw. It
- * allows both '--foo=baz' and '--foo baz' for all options except void, boolean
- * and tristate options. For these, the 'baz' in '--foo baz' is not treated as
- * a parameter to the option, making it is impossible to switch options between
- * void/boolean/tristate and everything else without breaking backwards
+ * <p>This options parsing implementation has (at least) one design flaw. It allows both '--foo=baz'
+ * and '--foo baz' for all options except void, boolean and tristate options. For these, the 'baz'
+ * in '--foo baz' is not treated as a parameter to the option, making it is impossible to switch
+ * options between void/boolean/tristate and everything else without breaking backwards
  * compatibility.
  *
- * @see Options a simpler class which you can use if you only have one options
- * specification class
+ * @see Options a simpler class which you can use if you only have one options specification class
  */
 public class OptionsParser implements OptionsProvider {
 
@@ -166,6 +163,11 @@ public class OptionsParser implements OptionsProvider {
    */
   public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
+  }
+  
+  /** Enables the Parser to handle params files loacted insinde the provided {@link FileSystem}. */
+  public void enableParamsFileSupport(FileSystem fs) {
+    this.impl.setArgsPreProcessor(new ParamsFilePreProcessor(fs));
   }
 
   public void parseAndExitUponError(String[] args) {

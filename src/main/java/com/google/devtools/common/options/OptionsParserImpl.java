@@ -31,7 +31,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
@@ -248,7 +247,15 @@ class OptionsParserImpl {
   private final List<String> warnings = Lists.newArrayList();
 
   private boolean allowSingleDashLongOptions = false;
-
+  
+  private ArgsPreProcessor argsPreProcessor =
+      new ArgsPreProcessor() {
+        @Override
+        public List<String> preProcess(List<String> args) throws OptionsParsingException {
+          return args;
+        }
+      };
+  
   /**
    * Create a new parser object
    */
@@ -262,6 +269,11 @@ class OptionsParserImpl {
    */
   void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.allowSingleDashLongOptions = allowSingleDashLongOptions;
+  }
+  
+  /** Sets the ArgsPreProcessor for manipulations of the options before parsing. */
+  void setArgsPreProcessor(ArgsPreProcessor preProcessor) {
+    this.argsPreProcessor = Preconditions.checkNotNull(preProcessor);
   }
 
   /**
@@ -543,7 +555,7 @@ class OptionsParserImpl {
     List<String> unparsedArgs = Lists.newArrayList();
     LinkedHashMap<String,List<String>> implicitRequirements = Maps.newLinkedHashMap();
 
-    Iterator<String> argsIterator = args.iterator();
+    Iterator<String> argsIterator = argsPreProcessor.preProcess(args).iterator();
     while (argsIterator.hasNext()) {
       String arg = argsIterator.next();
 

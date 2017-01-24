@@ -29,6 +29,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -134,6 +140,146 @@ public class OptionsParserTest {
     assertEquals(17, foo.bar);
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
     assertEquals("oops", baz.baz);
+  }
+  
+  @Test
+  public void parseWithParamsFile() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz=oops --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("oops", baz.baz);
+  }
+
+  @Test
+  public void parseWithParamsFileWithQuotedSpaces() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy\nfoo\" --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("\"fuzzy\nfoo\"", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("defaultBaz", baz.baz);
+  }
+
+  @Test
+  public void parseWithParamsFileWithEscapedSpaces() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=fuzzy\\ foo --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("fuzzy\\ foo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("defaultBaz", baz.baz);
+  }
+
+  @Test
+  public void parseWithParamsFileWithEscapedQuotes() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy\\\"foo\" --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("\"fuzzy\\\"foo\"", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("defaultBaz", baz.baz);
+  }
+
+  @Test
+  public void parseWithParamsFileUnmatchedQuote() throws IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--foo=\"fuzzy foo --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    try {
+      parser.parse("@" + params);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertEquals(
+          String.format(
+              ParamsFilePreProcessor.ERROR_MESSAGE_FORMAT,
+              params,
+              String.format(ParamsFilePreProcessor.UNFINISHED_QUOTE_MESSAGE_FORMAT, "\"", 6)),
+          e.getMessage());
+    }
+  }
+
+  @Test
+  public void parseWithParamsFileMultiline() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz", "oops", "--bar", "17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("oops", baz.baz);
+  }
+
+  @Test
+  public void parsingFailsWithMissingParamsFile() {
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    List<String> unknownOpts = asList("@does/not/exist");
+    try {
+      parser.parse(unknownOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertEquals("@does/not/exist", e.getInvalidArgument());
+      assertNotNull(parser.getOptions(ExampleFoo.class));
+      assertNotNull(parser.getOptions(ExampleBaz.class));
+    }
   }
 
   @Test
@@ -1176,3 +1322,4 @@ public class OptionsParserTest {
     assertEquals(Arrays.asList("--flag1=true", "--flag2=87", "--flag3=bar"), canonicalized);
   }
 }
+
