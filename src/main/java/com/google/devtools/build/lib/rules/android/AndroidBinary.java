@@ -441,7 +441,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext,
           resourceApk,
           proguardSpecs,
-          proguardOutput);
+          proguardOutput,
+          filesBuilder);
     }
 
     Artifact jarToDex = proguardOutput.getOutputJar();
@@ -1087,7 +1088,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext,
       ResourceApk resourceApk,
       ImmutableList<Artifact> proguardSpecs,
-      ProguardOutput proguardOutput) throws InterruptedException {
+      ProguardOutput proguardOutput,
+      NestedSetBuilder<Artifact> filesBuilder) throws InterruptedException {
 
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())
         && !proguardSpecs.isEmpty()) {
@@ -1110,6 +1112,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .setUncompressedExtensions(
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
           .build();
+      filesBuilder.add(ruleContext.getImplicitOutputArtifact(
+          AndroidRuleClasses.ANDROID_RESOURCE_SHRINKER_LOG));
       return new ResourceApk(apk,
           resourceApk.getResourceJavaSrcJar(),
           resourceApk.getResourceJavaClassJar(),
