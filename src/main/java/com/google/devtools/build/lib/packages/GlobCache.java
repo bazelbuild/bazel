@@ -238,7 +238,8 @@ public class GlobCache {
     // block on an individual pattern's results, but the other globs can
     // continue in the background.
     for (String pattern : Iterables.concat(includes, excludes)) {
-      getGlobUnsortedAsync(pattern, excludeDirs);
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError = getGlobUnsortedAsync(pattern, excludeDirs);
     }
 
     HashSet<String> results = new HashSet<>();

@@ -41,6 +41,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.Phaser;
 import org.junit.After;
 import org.junit.Before;
@@ -94,25 +95,28 @@ public class HttpConnectorMultiplexerIntegrationTest {
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
       for (final ServerSocket server : asList(server1, server2)) {
-        executor.submit(
-            new Callable<Object>() {
-              @Override
-              public Object call() throws Exception {
-                for (String status : asList("503 MELTDOWN", "500 ERROR", "200 OK")) {
-                  phaser.arriveAndAwaitAdvance();
-                  try (Socket socket = server.accept()) {
-                    readHttpRequest(socket.getInputStream());
-                    sendLines(socket,
-                        "HTTP/1.1 " + status,
-                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                        "Connection: close",
-                        "",
-                        "hello");
+        @SuppressWarnings("unused") 
+        Future<?> possiblyIgnoredError =
+            executor.submit(
+                new Callable<Object>() {
+                  @Override
+                  public Object call() throws Exception {
+                    for (String status : asList("503 MELTDOWN", "500 ERROR", "200 OK")) {
+                      phaser.arriveAndAwaitAdvance();
+                      try (Socket socket = server.accept()) {
+                        readHttpRequest(socket.getInputStream());
+                        sendLines(
+                            socket,
+                            "HTTP/1.1 " + status,
+                            "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                            "Connection: close",
+                            "",
+                            "hello");
+                      }
+                    }
+                    return null;
                   }
-                }
-                return null;
-              }
-            });
+                });
       }
       phaser.arriveAndAwaitAdvance();
       phaser.arriveAndDeregister();
@@ -140,41 +144,47 @@ public class HttpConnectorMultiplexerIntegrationTest {
         }).when(sleeper).sleepMillis(anyLong());
     try (final ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
         final ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))) {
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server1.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Warning: https://youtu.be/rJ6O5sTPn1k",
-                    "Connection: close",
-                    "",
-                    "Und wird die Welt auch in Flammen stehen",
-                    "Wir werden wieder auferstehen");
-              }
-              barrier.await();
-              return null;
-            }
-          });
-      executor.submit(
-          new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-              try (Socket socket = server2.accept()) {
-                readHttpRequest(socket.getInputStream());
-                sendLines(socket,
-                    "HTTP/1.1 200 OK",
-                    "Date: Fri, 31 Dec 1999 23:59:59 GMT",
-                    "Connection: close",
-                    "",
-                    "hello");
-              }
-              return null;
-            }
-          });
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server1.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Warning: https://youtu.be/rJ6O5sTPn1k",
+                        "Connection: close",
+                        "",
+                        "Und wird die Welt auch in Flammen stehen",
+                        "Wir werden wieder auferstehen");
+                  }
+                  barrier.await();
+                  return null;
+                }
+              });
+      @SuppressWarnings("unused")
+      Future<?> possiblyIgnoredError1 =
+          executor.submit(
+              new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                  try (Socket socket = server2.accept()) {
+                    readHttpRequest(socket.getInputStream());
+                    sendLines(
+                        socket,
+                        "HTTP/1.1 200 OK",
+                        "Date: Fri, 31 Dec 1999 23:59:59 GMT",
+                        "Connection: close",
+                        "",
+                        "hello");
+                  }
+                  return null;
+                }
+              });
       try (HttpStream stream =
               multiplexer.connect(
                   ImmutableList.of(

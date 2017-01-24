@@ -22,6 +22,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.Future;
 
 /** Several utilities to aid in writing {@link QueryExpression#parEvalImpl} implementations. */
 public class ParallelQueryUtils {
@@ -58,7 +59,8 @@ public class ParallelQueryUtils {
     for (QueryTask queryTask : queryTasks) {
       QueryTaskForkJoinTask forkJoinTask = adaptAsForkJoinTask(queryTask, failFastLatch);
       forkJoinTasks.add(forkJoinTask);
-      forkJoinPool.submit(forkJoinTask);
+      @SuppressWarnings("unused") 
+      Future<?> possiblyIgnoredError = forkJoinPool.submit(forkJoinTask);
     }
     failFastLatch.await();
     try {

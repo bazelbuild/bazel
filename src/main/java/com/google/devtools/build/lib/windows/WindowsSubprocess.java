@@ -21,6 +21,7 @@ import java.io.OutputStream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -144,11 +145,15 @@ public class WindowsSubprocess implements Subprocess {
     waitLatch = new CountDownLatch(1);
     // Every Windows process we start consumes a thread here. This is suboptimal, but seems to be
     // the sanest way to reconcile WaitForMultipleObjects() and Java-style interruption.
-    WAITER_POOL.submit(new Runnable() {
-        @Override public void run() {
-          waiterThreadFunc();
-        }
-    });
+    @SuppressWarnings("unused") 
+    Future<?> possiblyIgnoredError =
+        WAITER_POOL.submit(
+            new Runnable() {
+              @Override
+              public void run() {
+                waiterThreadFunc();
+              }
+            });
   }
 
   private void waiterThreadFunc() {
