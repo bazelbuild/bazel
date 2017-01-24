@@ -250,18 +250,43 @@ public class StandaloneTestStrategy extends TestStrategy {
     env.put("TEST_SRCDIR", testSrcDir);
     env.put("TEST_TMPDIR", tmpDirString);
     env.put("TEST_WORKSPACE", action.getRunfilesPrefix());
+
+    // TODO(ulfjack): Call into TestRunnerAction.setupEnvVariables instead.
     TestRunnerAction.ResolvedPaths resolvedPaths = action.resolve(execRoot);
     env.put(
         "XML_OUTPUT_FILE", resolvedPaths.getXmlOutputPath().relativeTo(execRoot).getPathString());
+    env.put("TEST_SIZE", action.getTestProperties().getSize().toString());
+    env.put("TEST_TIMEOUT", Integer.toString(getTimeout(action)));
+
+    // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
+    if (action.getConfiguration().getRunsPerTestForLabel(action.getOwner().getLabel()) > 1) {
+      env.put("TEST_RANDOM_SEED", Integer.toString(action.getRunNumber() + 1));
+    }
+
+    String testFilter = action.getExecutionSettings().getTestFilter();
+    if (testFilter != null) {
+      env.put("TESTBRIDGE_TEST_ONLY", testFilter);
+    }
+
+    if (action.isSharded()) {
+      env.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
+      env.put(
+          "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
+    }
     if (!action.isEnableRunfiles()) {
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 
     if (action.isCoverageMode()) {
+      env.put(
+          "COVERAGE_MANIFEST",
+          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
+      // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
+      env.put("RUNTEST_PRESERVE_CWD", "1");
+      env.put("MICROCOVERAGE_REQUESTED", action.isMicroCoverageMode() ? "true" : "false");
       env.put("COVERAGE_DIR", action.getCoverageDirectory().toString());
       env.put("COVERAGE_OUTPUT_FILE", action.getCoverageData().getExecPathString());
     }
-
     return env;
   }
 

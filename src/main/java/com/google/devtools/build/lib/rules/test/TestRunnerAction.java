@@ -57,6 +57,9 @@ import javax.annotation.Nullable;
 public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
   public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
 
+  // Used for selecting subset of testcase / testmethods.
+  private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
+
   private static final String GUID = "94857c93-f11c-4cbc-8c1b-e0a281633f9e";
 
   private final NestedSet<Artifact> runtime;
@@ -358,6 +361,70 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     }
   }
 
+  public void setupEnvVariables(Map<String, String> env, int timeoutInSeconds) {
+    env.put("TEST_SIZE", getTestProperties().getSize().toString());
+    env.put("TEST_TIMEOUT", Integer.toString(timeoutInSeconds));
+    env.put("TEST_WORKSPACE", getRunfilesPrefix());
+
+    // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
+    // Don't override any previous setting.
+    if (getConfiguration().getRunsPerTestForLabel(getOwner().getLabel()) > 1
+        && !env.containsKey("TEST_RANDOM_SEED")) {
+      env.put("TEST_RANDOM_SEED", Integer.toString(getRunNumber() + 1));
+    }
+
+    String testFilter = getExecutionSettings().getTestFilter();
+    if (testFilter != null) {
+      env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
+    }
+
+    env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());
+    env.put("TEST_UNUSED_RUNFILES_LOG_FILE", getUnusedRunfilesLogPath().getPathString());
+
+    env.put("TEST_LOGSPLITTER_OUTPUT_FILE", getSplitLogsPath().getPathString());
+
+    env.put("TEST_UNDECLARED_OUTPUTS_ZIP", getUndeclaredOutputsZipPath().getPathString());
+    env.put("TEST_UNDECLARED_OUTPUTS_DIR", getUndeclaredOutputsDir().getPathString());
+    env.put("TEST_UNDECLARED_OUTPUTS_MANIFEST", getUndeclaredOutputsManifestPath().getPathString());
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS",
+        getUndeclaredOutputsAnnotationsPath().getPathString());
+    env.put(
+        "TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR",
+        getUndeclaredOutputsAnnotationsDir().getPathString());
+
+    env.put("TEST_PREMATURE_EXIT_FILE", getExitSafeFile().getPathString());
+    env.put("TEST_INFRASTRUCTURE_FAILURE_FILE", getInfrastructureFailureFile().getPathString());
+
+    if (isSharded()) {
+      env.put("TEST_SHARD_INDEX", Integer.toString(getShardNum()));
+      env.put("TEST_TOTAL_SHARDS", Integer.toString(getExecutionSettings().getTotalShards()));
+      env.put("TEST_SHARD_STATUS_FILE", getTestShard().getPathString());
+    }
+    env.put("XML_OUTPUT_FILE", getXmlOutputPath().getPathString());
+
+    if (!isEnableRunfiles()) {
+      // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
+      env.put("RUNFILES_MANIFEST_ONLY", "1");
+    }
+
+    if (isCoverageMode()) {
+      // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
+      // TODO(ulfjack): Find a way to avoid setting this variable.
+      env.put("RUNTEST_PRESERVE_CWD", "1");
+
+      env.put("COVERAGE_MANIFEST", getCoverageManifest().getExecPathString());
+      env.put("COVERAGE_DIR", getCoverageDirectory().getPathString());
+      env.put("COVERAGE_OUTPUT_FILE", getCoverageData().getExecPathString());
+      if (isMicroCoverageMode()) {
+        env.put("MICROCOVERAGE_REQUESTED", "true");
+        env.put("MICROCOVERAGE_OUTPUT_FILE", getMicroCoverageData().getExecPathString());
+      } else {
+        env.put("MICROCOVERAGE_REQUESTED", "false");
+      }
+    }
+  }
+
   /**
    * Gets the test name in a user-friendly format.
    * Will generally include the target name and run/shard numbers, if applicable.
@@ -472,6 +539,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
    */
   @Nullable public Artifact getCoverageData() {
     return coverageData;
+  }
+
+  @Nullable public Artifact getCoverageManifest() {
+    return getExecutionSettings().getInstrumentedFileManifest();
   }
 
   /** Returns true if coverage data should be gathered. */

@@ -131,9 +131,6 @@ public abstract class TestStrategy implements TestActionContext {
 
   public static final PathFragment TEST_TMP_ROOT = new PathFragment("_tmp");
 
-  // Used for selecting subset of testcase / testmethods.
-  private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
-
   // Used for generating unique temporary directory names. Contains the next numeric index for every
   // executable base name.
   private final Map<String, Integer> tmpIndex = new HashMap<>();
@@ -165,34 +162,6 @@ public abstract class TestStrategy implements TestActionContext {
     env.putAll(action.getConfiguration().getLocalShellEnvironment());
     env.remove("LANG");
     env.put("TZ", "UTC");
-    env.put("TEST_SIZE", action.getTestProperties().getSize().toString());
-    env.put("TEST_TIMEOUT", Integer.toString(getTimeout(action)));
-
-    if (action.isSharded()) {
-      env.put("TEST_SHARD_INDEX", Integer.toString(action.getShardNum()));
-      env.put(
-          "TEST_TOTAL_SHARDS", Integer.toString(action.getExecutionSettings().getTotalShards()));
-    }
-
-    // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
-    if (action.getConfiguration().getRunsPerTestForLabel(action.getOwner().getLabel()) > 1) {
-      env.put("TEST_RANDOM_SEED", Integer.toString(action.getRunNumber() + 1));
-    }
-
-    String testFilter = action.getExecutionSettings().getTestFilter();
-    if (testFilter != null) {
-      env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
-    }
-
-    if (action.isCoverageMode()) {
-      env.put(
-          "COVERAGE_MANIFEST",
-          action.getExecutionSettings().getInstrumentedFileManifest().getExecPathString());
-      // Instruct remote-runtest.sh/local-runtest.sh not to cd into the runfiles directory.
-      env.put("RUNTEST_PRESERVE_CWD", "1");
-      env.put("MICROCOVERAGE_REQUESTED", action.isMicroCoverageMode() ? "true" : "false");
-    }
-
     return env;
   }
 
