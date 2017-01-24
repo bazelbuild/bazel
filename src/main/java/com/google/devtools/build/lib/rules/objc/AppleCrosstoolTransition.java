@@ -43,10 +43,7 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public BuildOptions apply(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
-    if (!(buildOptions.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
-        || buildOptions.get(ObjcCommandLineOptions.class).experimentalObjcLibrary
-        || buildOptions.get(ObjcCommandLineOptions.class).objcCrosstoolMode
-            != ObjcCrosstoolMode.OFF)) {
+    if (!shouldUseAppleCrosstoolTransition(buildOptions)) {
       return buildOptions;
     }
 
@@ -87,5 +84,15 @@ public class AppleCrosstoolTransition implements PatchTransition {
 
     // OSX toolchains do not support fission.
     to.get(CppOptions.class).fissionModes = ImmutableList.of();
+  }
+
+  /**
+   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple
+   * targets.
+   */
+  public static boolean shouldUseAppleCrosstoolTransition(BuildOptions options) {
+    return (options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
+        || options.get(ObjcCommandLineOptions.class).experimentalObjcLibrary
+        || options.get(ObjcCommandLineOptions.class).objcCrosstoolMode != ObjcCrosstoolMode.OFF);
   }
 }

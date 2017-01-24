@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.LipoTransition;
 import com.google.devtools.build.lib.rules.objc.AppleCrosstoolSplitTransition;
+import com.google.devtools.build.lib.rules.objc.AppleCrosstoolTransition;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -113,7 +114,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     @Override
     public BuildConfiguration toplevelConfigurationHook(Target toTarget) {
       ImmutableList<String> appleCrosstoolRuleClasses =
-          configuration.getFragment(AppleConfiguration.class).isAppleCrosstoolEnabled()
+          AppleCrosstoolTransition.shouldUseAppleCrosstoolTransition(configuration.getOptions())
               ? AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES
               : AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS;
 
