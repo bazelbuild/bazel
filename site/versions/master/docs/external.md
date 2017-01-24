@@ -112,7 +112,7 @@ maven_jar(
 This indicates that `org.springframework:spring:2.5.6`, `javax.mail:mail:1.4`,
 `httpunit:httpunit:1.6`, `org.springframework:spring-support:2.0.2`, and
 `org.slf4j:nlog4j:1.2.24` all depend on javax.activation. However, two of these
-libraries wanted version 1.1 and three of them wanted 1.0.2. The `WORkSPACE`
+libraries wanted version 1.1 and three of them wanted 1.0.2. The `WORKSPACE`
 file is using version 1.1, but that might not be the right version to use.
 
 You may also want to break `transitive-deps` into smaller targets, as it is
