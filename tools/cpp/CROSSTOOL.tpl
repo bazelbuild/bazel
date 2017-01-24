@@ -339,6 +339,7 @@ toolchain {
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
      implies: 'legacy_link_flags'
+     implies: 'linker_param_file'
   }
 
   action_config {
@@ -353,6 +354,7 @@ toolchain {
      implies: 'input_param_flags'
      implies: 'has_configured_linker_path'
      implies: 'legacy_link_flags'
+     implies: 'linker_param_file'
   }
 
   action_config {
@@ -362,6 +364,7 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
+     implies: 'linker_param_file'
   }
 
   action_config {
@@ -371,6 +374,7 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
+     implies: 'linker_param_file'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
@@ -382,6 +386,7 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
+     implies: 'linker_param_file'
   }
 
   action_config {
@@ -391,6 +396,7 @@ toolchain {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
      implies: 'input_param_flags'
+     implies: 'linker_param_file'
   }
 
   action_config {
@@ -399,6 +405,7 @@ toolchain {
     tool {
       tool_path: 'wrapper/bin/msvc_link.bat'
     }
+    implies: 'linker_param_file'
   }
 
   feature {
@@ -555,6 +562,29 @@ toolchain {
       action: 'c++-link-dynamic-library'
       flag_group {
         flag: '%{legacy_link_flags}'
+      }
+    }
+  }
+
+
+  feature {
+    name: 'linker_param_file'
+    flag_set {
+      expand_if_all_available: 'linker_param_file'
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      flag_group {
+        flag: '-Wl,@%{linker_param_file}'
+      }
+    }
+    flag_set {
+      expand_if_all_available: 'linker_param_file'
+      action: 'c++-link-static-library'
+      action: 'c++-link-alwayslink-static-library'
+      action: 'c++-link-pic-static-library'
+      action: 'c++-link-alwayslink-pic-static-library'
+      flag_group {
+        flag: '@%{linker_param_file}'
       }
     }
   }
