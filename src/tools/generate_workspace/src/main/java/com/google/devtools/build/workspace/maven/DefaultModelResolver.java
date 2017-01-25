@@ -19,9 +19,16 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
-
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
@@ -41,14 +48,6 @@ import org.apache.maven.model.profile.DefaultProfileSelector;
 import org.apache.maven.model.resolution.ModelResolver;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 import org.eclipse.aether.artifact.Artifact;
-
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Resolver to find the repository a given Maven artifact should be fetched
@@ -134,7 +133,12 @@ public class DefaultModelResolver implements ModelResolver {
 
   private boolean pomFileExists(URL url) {
     try {
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      URLConnection urlConnection = url.openConnection();
+      if (!(urlConnection instanceof HttpURLConnection)) {
+        return false;
+      }
+
+      HttpURLConnection connection = (HttpURLConnection) urlConnection;
       connection.setRequestMethod("HEAD");
       connection.setInstanceFollowRedirects(true);
       connection.connect();
