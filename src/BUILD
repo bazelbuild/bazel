@@ -321,6 +321,7 @@ filegroup(
         "//src/test/java/com/google/devtools/common/options:srcs",
         "//src/test/shell:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
+        "//src/tools/benchmark:srcs",
         "//src/tools/generate_workspace:srcs",
         "//src/tools/xcode/actoolwrapper:srcs",
         "//src/tools/xcode/environment:srcs",

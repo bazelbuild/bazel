@@ -1,0 +1,36 @@
+java_test(
+    name = "JavaCodeGeneratorHelperTest",
+    srcs = ["JavaCodeGeneratorHelperTest.java"],
+    deps = [
+        "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "JavaCodeGeneratorTest",
+    srcs = ["JavaCodeGeneratorTest.java"],
+    deps = [
+        "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "MainTest",
+    srcs = ["MainTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
+        "//third_party:junit4",
+    ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)
