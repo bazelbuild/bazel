@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -390,11 +389,6 @@ public final class JavaCompilationHelper {
         outputJar.getRoot());
   }
 
-  /** Returns the artifact for an empty jar file containing classpath value in its manifest file. */
-  public Artifact createClasspathJar(Artifact executable) {
-    return getRuleContext().getRelatedArtifact(executable.getRootRelativePath(), "-classpath.jar");
-  }
-
   /**
    * Returns whether this target uses annotation processing.
    */
@@ -450,44 +444,6 @@ public final class JavaCompilationHelper {
                 .useParameterFile(ParameterFileType.SHELL_QUOTED)
                 .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
                 .setMnemonic("JavaSourceJar")
-                .build(getRuleContext()));
-  }
-
-  /**
-   * Creating the action for creating the classpath jar whose manifest file containing a long
-   * classpath value.
-   *
-   * @param classpathJar The artifact for the classpath jar emitted from JavaBuilder
-   * @param manifestFileContent The content of the manifest file in the classpath jar
-   */
-  public void createClasspathJarAction(Artifact classpathJar, CharSequence manifestFileContent) {
-    Artifact manifestFile =
-        ruleContext.getRelatedArtifact(classpathJar.getRootRelativePath(), ".jar_manifest_file");
-
-    ruleContext.registerAction(
-        FileWriteAction.create(ruleContext, manifestFile, manifestFileContent, false));
-
-    getRuleContext()
-        .registerAction(
-            new SpawnAction.Builder()
-                .addInput(manifestFile)
-                .addOutput(classpathJar)
-                .addTransitiveInputs(getHostJavabaseInputs(getRuleContext()))
-                .setJarExecutable(
-                    getRuleContext()
-                        .getHostConfiguration()
-                        .getFragment(Jvm.class)
-                        .getJavaExecutable(),
-                    javaToolchain.getJavaBuilder(),
-                    javaToolchain.getJvmOptions())
-                .setCommandLine(
-                    CustomCommandLine.builder()
-                        .addExecPath("--manifest_file", manifestFile)
-                        .addExecPath("--output", classpathJar)
-                        .build())
-                .useParameterFile(ParameterFileType.SHELL_QUOTED)
-                .setProgressMessage("Building classpath jar " + classpathJar.prettyPrint())
-                .setMnemonic("JavaClasspathJar")
                 .build(getRuleContext()));
   }
 

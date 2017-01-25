@@ -59,55 +59,6 @@ public class HelloLibrary {
 EOF
 }
 
-function write_hello_library_files_for_long_classpath() {
-  mkdir -p java/hello_library
-  cat >java/hello_library/BUILD <<EOF
-package(default_visibility=['//visibility:public'])
-EOF
-  deps=""
-  for i in `seq 1 1000`; do
-    deps="'//java/hello_library:hello_library$i', $deps"
-    cat >>java/hello_library/BUILD <<EOF
-java_library(name = 'hello_library$i',
-             srcs = ['HelloLibrary$i.java']);
-EOF
-    cat >java/hello_library/HelloLibrary$i.java <<EOF
-package hello_library;
-public class HelloLibrary$i {
-  public static void funcHelloLibrary() {
-    System.out.print("Hello, Library!;");
-  }
-}
-EOF
-  done
-
-  mkdir -p java/main
-  cat >java/main/BUILD <<EOF
-java_binary(name = 'main',
-    deps = [$deps],
-    srcs = ['Main.java'],
-    main_class = 'main.Main')
-EOF
-
-  cat >java/main/Main.java <<EOF
-package main;
-import hello_library.HelloLibrary1;
-public class Main {
-  public static void main(String[] args) {
-    HelloLibrary1.funcHelloLibrary();
-    System.out.println("Hello, World!");
-  }
-}
-EOF
-}
-
-function test_build_hello_world_with_long_classpath() {
-  write_hello_library_files_for_long_classpath
-
-  bazel build //java/main:main &> $TEST_log || fail "build failed"
-  assert_bazel_run "//java/main:main" "Hello, Library!;Hello, World!"
-}
-
 function test_build_hello_world() {
   write_hello_library_files
 
