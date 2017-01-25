@@ -89,7 +89,7 @@ public abstract class BazelJavaBuilder {
               : new SimpleJavaLibraryBuilder()) {
         BlazeJavacResult result = builder.run(build);
         for (FormattedDiagnostic d : result.diagnostics()) {
-          err.write(d.getFormatted());
+          err.write(d.getFormatted() + "\n");
         }
         err.write(result.output());
         return result.isOk() ? 0 : 1;
