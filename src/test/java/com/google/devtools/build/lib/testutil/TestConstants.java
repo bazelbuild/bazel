@@ -74,6 +74,10 @@ public class TestConstants {
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
 
+  // Constants used to determine how genrule pulls in the setup script.
+  public static final String GENRULE_SETUP = "@bazel_tools//tools/genrule:genrule-setup.sh";
+  public static final String GENRULE_SETUP_PATH = "genrule-setup.sh";
+
   public static final InvocationPolicy TEST_INVOCATION_POLICY =
       InvocationPolicy.getDefaultInstance();
 

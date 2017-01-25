@@ -127,7 +127,8 @@ public class BazelGenRule implements RuleConfiguredTargetFactory {
     FilesToRunProvider genruleSetup =
         ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
     inputs.addAll(genruleSetup.getFilesToRun());
-    List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh");
+    List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh",
+        ImmutableMap.copyOf(executionInfo));
 
     if (ruleContext.attributes().get("stamp", Type.BOOLEAN)) {
       inputs.add(ruleContext.getAnalysisEnvironment().getStableWorkspaceStatusArtifact());
