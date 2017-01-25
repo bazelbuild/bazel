@@ -58,6 +58,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = getArtifact("singlejar", ruleContext);
     Artifact genClass = getArtifact("genclass", ruleContext);
+    Artifact resourceJarBuilder = getArtifact("resourcejar", ruleContext);
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar", Mode.HOST);
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
@@ -87,14 +88,16 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             forciblyDisableHeaderCompilation,
             singleJar,
             genClass,
+            resourceJarBuilder,
             ijar,
             compatibleJavacOptions);
-    RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
-        .addSkylarkTransitiveInfo(JavaToolchainSkylarkApiProvider.NAME,
-            new JavaToolchainSkylarkApiProvider())
-        .add(JavaToolchainProvider.class, provider)
-        .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
-        .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .addSkylarkTransitiveInfo(
+                JavaToolchainSkylarkApiProvider.NAME, new JavaToolchainSkylarkApiProvider())
+            .add(JavaToolchainProvider.class, provider)
+            .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
+            .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
     return builder.build();
   }

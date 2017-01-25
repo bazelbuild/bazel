@@ -125,6 +125,11 @@ public final class JavaToolchainRule implements RuleDefinition {
                 .cfg(HOST)
                 .allowedFileTypes(FileTypeSet.ANY_FILE)
                 .exec())
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(resourcejar) -->
+        Label of the resource jar builder executable.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr("resourcejar", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(ijar) -->
         Label of the ijar executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
