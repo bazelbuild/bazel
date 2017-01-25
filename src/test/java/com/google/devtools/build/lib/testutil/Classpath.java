@@ -14,13 +14,18 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.file.Paths;
 import java.util.Enumeration;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
+import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -120,13 +125,46 @@ final class Classpath {
     return className.substring(0, classNameEnd).replace('/', '.');
   }
 
+  private static void getClassPathsFromClasspathJar(File classpathJar, Set<String> classPaths)
+      throws IOException {
+    Manifest manifest = new JarFile(classpathJar).getManifest();
+    Attributes attributes = manifest.getMainAttributes();
+    for (String classPath : attributes.getValue("Class-Path").split(" ")) {
+      try {
+        classPaths.add(Paths.get(new URI(classPath)).toAbsolutePath().toString());
+      } catch (URISyntaxException e) {
+        throw new AssertionError(
+            "Error parsing classpath uri " + classPath + ": " + e.getMessage());
+      }
+    }
+  }
+
   /**
-   * Gets the class path from the System Property "java.class.path" and splits
-   * it up into the individual elements.
+   * Gets the class path from the System Property "java.class.path" and splits it up into the
+   * individual elements.
+   *
+   * <p>Bazel creates a classpath jar when the class path length exceeds command line length limit,
+   * read the class path value from its manifest file if it's a classpath jar.
    */
-  private static String[] getClassPath() {
+  private static Set<String> getClassPath() {
     String classPath = System.getProperty("java.class.path");
     String separator = System.getProperty("path.separator", ":");
-    return classPath.split(Pattern.quote(separator));
+    String[] classPaths = classPath.split(Pattern.quote(separator));
+    Set<String> completeClassPaths = new TreeSet<>();
+    for (String entryName : classPaths) {
+      completeClassPaths.add(entryName);
+      if (entryName.endsWith("-classpath.jar")) {
+        File classPathEntry = new File(entryName);
+        if (classPathEntry.exists() && classPathEntry.isFile()) {
+          try {
+            getClassPathsFromClasspathJar(classPathEntry, completeClassPaths);
+          } catch (IOException e) {
+            throw new AssertionError(
+                "Can't read classpath entry " + entryName + ": " + e.getMessage());
+          }
+        }
+      }
+    }
+    return completeClassPaths;
   }
 }
