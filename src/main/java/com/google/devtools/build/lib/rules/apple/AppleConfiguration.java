@@ -566,6 +566,23 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     return enableAppleCrosstool;
   }
 
+  @Override
+  public Map<String, Object> lateBoundOptionDefaults() {
+    // xcode_version and *_sdk_version defaults come from processing the
+    // target with label given in --xcode_version_override.
+    ImmutableMap.Builder<String, Object> mapBuilder = ImmutableMap.builder();
+
+    if (xcodeVersion != null) {
+      mapBuilder.put("xcode_version", xcodeVersion);
+    }
+    return mapBuilder
+        .put("ios_sdk_version", iosSdkVersion)
+        .put("tvos_sdk_version", tvosSdkVersion)
+        .put("watchos_sdk_version", watchosSdkVersion)
+        .put("macosx_sdk_version", macosXSdkVersion)
+        .build();
+  }
+
   /**
    * Loads {@link AppleConfiguration} from build options.
    */
