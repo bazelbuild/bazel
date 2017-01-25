@@ -269,6 +269,23 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  public static final String PER_OBJECT_DEBUG_INFO_CONFIGURATION =
+      ""
+          + "feature { "
+          + "  name: 'per_object_debug_info'"
+          + "  flag_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'assemble'"
+          + "    action: 'preprocess-assemble'"
+          + "    action: 'lto-backend'"
+          + "    expand_if_all_available: 'per_object_debug_info_file'"
+          + "    flag_group {"
+          + "      flag: 'per_object_debug_info_option'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String STATIC_LINK_TWEAKED_CONFIGURATION =
       ""
           + "artifact_name_pattern {"
