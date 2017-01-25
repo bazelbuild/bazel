@@ -374,7 +374,7 @@ class ArgParser(object):
         rt = opt[:3]
         rt_idx = len(self.options) - i - 1
         break
-    rt = rt or '/MD'  # Default to dynamic runtime
+    rt = rt or '/MT'  # Default to static runtime
     # Add debug if necessary
     if enforce_debug_rt:
       rt += 'd'
