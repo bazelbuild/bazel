@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
-
 import java.io.BufferedOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -865,12 +864,13 @@ public final class Profiler {
     if (isActive() && isProfiling(type)) {
       long endTime = clock.nanoTime();
       TaskData data = taskStack.pop();
-      // Do not use Preconditions class below due to the very expensive
-      // toString() calls used in the message.
-      if (data.type != type) {
-        throw new IllegalStateException("Inconsistent Profiler.completeTask() call for the "
-            + type + " task.\n " + taskStack);
-      }
+      Preconditions.checkState(
+          data.type == type,
+          "Inconsistent Profiler.completeTask() call: should have been %s but got %s (%s, %s)",
+          data.type,
+          type,
+          data,
+          taskStack);
       data.duration = endTime - data.startTime;
       if (data.parentId > 0) {
         taskStack.peek().aggregateChild(data.type, data.duration);
