@@ -426,15 +426,34 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
         ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
 
+    boolean rexEnabled =
+        ruleContext.getFragment(AndroidConfiguration.class).useRexToCompressDexFiles()
+        || (ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN));
+
+    // TODO(bazel-team): Verify that proguard spec files don't contain -printmapping directions
+    // which this -printmapping command line flag will override.
+    Artifact proguardOutputMap = null;
+    if (ProguardHelper.genProguardMapping(ruleContext.attributes())
+        || ProguardHelper.getJavaOptimizationMode(ruleContext).alwaysGenerateOutputMapping()) {
+      if (rexEnabled) {
+        proguardOutputMap = ProguardHelper.getProguardTempArtifact(ruleContext,
+            ProguardHelper.getJavaOptimizationMode(ruleContext).name().toLowerCase(),
+            "proguard_output_for_rex.map");
+      } else {
+        proguardOutputMap =
+            ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
+      }
+    }
+
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
             androidCommon,
             javaSemantics,
             binaryJar,
-            filesBuilder,
             proguardSpecs,
-            proguardMapping);
+            proguardMapping,
+            proguardOutputMap);
 
     if (shrinkResources) {
       resourceApk = shrinkResources(
@@ -465,9 +484,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact finalDexes;
     Artifact finalProguardMap;
-
-    if (ruleContext.getFragment(AndroidConfiguration.class).useRexToCompressDexFiles()
-        || (ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN))) {
+    if (rexEnabled) {
       finalDexes = getDxArtifact(ruleContext, "rexed_dexes.zip");
       Builder rexActionBuilder = new SpawnAction.Builder();
       rexActionBuilder
@@ -479,7 +496,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .addArgument("--dex_output")
           .addOutputArgument(finalDexes);
       if (proguardOutput.getMapping() != null) {
-        finalProguardMap = getDxArtifact(ruleContext, "rexed_proguard.map");
+        finalProguardMap =
+            ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
         Artifact finalRexPackageMap = getDxArtifact(ruleContext, "rex_output_package.map");
         rexActionBuilder
             .addArgument("--proguard_input_map")
@@ -506,6 +524,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     } else {
       finalDexes = dexingOutput.classesDexZip;
       finalProguardMap = proguardOutput.getMapping();
+    }
+
+    if (!proguardSpecs.isEmpty()) {
+      proguardOutput.addAllToSet(filesBuilder, finalProguardMap);
     }
 
     ApkSigningMethod signingMethod =
@@ -996,9 +1018,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidCommon common,
       JavaSemantics javaSemantics,
       Artifact deployJarArtifact,
-      NestedSetBuilder<Artifact> filesBuilder,
       ImmutableList<Artifact> proguardSpecs,
-      Artifact proguardMapping) throws InterruptedException {
+      Artifact proguardMapping,
+      @Nullable Artifact proguardOutputMap) throws InterruptedException {
     Artifact proguardOutputJar =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
 
@@ -1010,7 +1032,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       // produce at the time of implicit output determination. As a result, this artifact must
       // always be created.
       return createEmptyProguardAction(ruleContext, javaSemantics, proguardOutputJar,
-                                       deployJarArtifact);
+                                       deployJarArtifact, proguardOutputMap);
     }
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
@@ -1033,9 +1055,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         libraryJars,
         proguardOutputJar,
         javaSemantics,
-        getProguardOptimizationPasses(ruleContext));
-    // Since Proguard is being run, add its output artifacts to the given filesBuilder
-    result.addAllToSet(filesBuilder);
+        getProguardOptimizationPasses(ruleContext),
+        proguardOutputMap);
     return result;
   }
 
@@ -1049,7 +1070,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static ProguardOutput createEmptyProguardAction(RuleContext ruleContext,
-      JavaSemantics semantics, Artifact proguardOutputJar, Artifact deployJarArtifact)
+      JavaSemantics semantics, Artifact proguardOutputJar, Artifact deployJarArtifact,
+      Artifact proguardOutputMap)
           throws InterruptedException {
     NestedSetBuilder<Artifact> failures = NestedSetBuilder.<Artifact>stableOrder();
     ProguardOutput outputs =
@@ -1058,7 +1080,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             /* proguardSeeds */ (Artifact) null,
             /* proguardUsage */ (Artifact) null,
             ruleContext,
-            semantics);
+            semantics,
+            proguardOutputMap);
     outputs.addAllToSet(failures);
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     ruleContext.registerAction(
