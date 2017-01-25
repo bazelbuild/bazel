@@ -176,6 +176,11 @@ public class BazelJavaRuleClasses {
               attr("runtime_deps", LABEL_LIST)
                   .allowedFileTypes(JavaSemantics.JAR)
                   .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
+                  .mandatoryProvidersList(
+                      ImmutableList.of(
+                          ImmutableList.of(
+                              SkylarkProviderIdentifier.forKey(
+                                  JavaProvider.JAVA_PROVIDER.getKey()))))
                   .skipAnalysisTimeFileTypeCheck())
 
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(srcs) -->

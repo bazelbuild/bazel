@@ -59,6 +59,46 @@ public class HelloLibrary {
 EOF
 }
 
+function write_java_custom_rule() {
+  cat > java_custom_library.bzl << EOF
+def _impl(ctx):
+  deps = []
+  for dep in ctx.attr.deps:
+    if java_common.provider in dep:
+      deps.append(dep[java_common.provider])
+  deps_provider = java_common.merge(deps)
+
+  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+
+  compilation_provider = java_common.compile(
+    ctx,
+    source_files = ctx.files.srcs,
+    output = output_jar,
+    javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain"),
+    deps = deps,
+    strict_deps = "ERROR",
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
+  )
+  result = java_common.merge([deps_provider, compilation_provider])
+  return struct(
+    files = set([output_jar]),
+    providers = [result]
+  )
+
+java_custom_library = rule(
+  implementation = _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files=True),
+    "deps": attr.label_list(),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+  },
+  fragments = ["java"]
+)
+EOF
+}
+
 function test_build_hello_world() {
   write_hello_library_files
 
@@ -234,40 +274,7 @@ class Main {
 }
 EOF
 
-  cat > java_custom_library.bzl << EOF
-def _impl(ctx):
-  deps = [dep[java_common.provider] for dep in ctx.attr.deps]
-  deps_provider = java_common.merge(deps)
-
-  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
-
-  compilation_provider = java_common.compile(
-    ctx,
-    source_files = ctx.files.srcs,
-    output = output_jar,
-    javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain"),
-    deps = deps,
-    strict_deps = "ERROR",
-    java_toolchain = ctx.attr._java_toolchain,
-    host_javabase = ctx.attr._host_javabase
-  )
-  result = java_common.merge([deps_provider, compilation_provider])
-  return struct(
-    files = set([output_jar]),
-    providers = [result]
-  )
-
-java_custom_library = rule(
-  implementation = _impl,
-  attrs = {
-    "srcs": attr.label_list(allow_files=True),
-    "deps": attr.label_list(),
-    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
-    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
-  },
-  fragments = ["java"]
-)
-EOF
+  write_java_custom_rule
 
   $PRODUCT_NAME run :Main > $TEST_log || fail "Java sandwich build failed"
   expect_log "Message from A"
@@ -275,4 +282,201 @@ EOF
   expect_log "Message from C"
 }
 
+function test_java_binary_deps_java_sandwich() {
+  mkdir -p java/com/google/sandwich
+  cd java/com/google/sandwich
+
+  touch BUILD A.java B.java Main.java java_custom_library.bzl
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_binary(
+  name = "Main",
+  srcs = ["Main.java"],
+  deps = [":custom"]
+)
+
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"],
+  deps = [":bottom"]
+)
+
+java_library(
+  name = "bottom",
+  srcs = ["B.java"]
+)
+EOF
+
+  cat > B.java << EOF
+package com.google.sandwich;
+class B {
+  public void print() {
+    System.out.println("Message from B");
+  }
+}
+EOF
+
+  cat > A.java << EOF
+package com.google.sandwich;
+class A {
+  B myObject;
+  public void print() {
+    System.out.println("Message from A");
+    myObject = new B();
+    myObject.print();
+  }
+}
+EOF
+
+  cat > Main.java << EOF
+package com.google.sandwich;
+class Main {
+  public static void main(String[] args) {
+    A myObject = new A();
+    myObject.print();
+  }
+}
+EOF
+
+  write_java_custom_rule
+
+  bazel run :Main > "$TEST_log" || fail "Java sandwich build failed"
+  expect_log "Message from A"
+  expect_log "Message from B"
+}
+
+function test_java_binary_runtime_deps_java_sandwich() {
+  mkdir -p java/com/google/sandwich
+  cd java/com/google/sandwich
+
+  touch BUILD A.java Main.java java_custom_library.bzl
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_binary(
+  name = "Main",
+  main_class = "com.google.sandwich.Main",
+  runtime_deps = [":custom"]
+)
+
+java_custom_library(
+  name = "custom",
+  srcs = ["Main.java"],
+  deps = [":bottom"]
+)
+
+java_library(
+  name = "bottom",
+  srcs = ["A.java"]
+)
+EOF
+
+  cat > A.java << EOF
+package com.google.sandwich;
+class A {
+  public void print() {
+    System.out.println("Message from A");
+  }
+}
+EOF
+
+  cat > Main.java << EOF
+package com.google.sandwich;
+class Main {
+  public static void main(String[] args) {
+    System.out.println("Message from Main");
+    A myObject = new A();
+    myObject.print();
+  }
+}
+EOF
+
+  write_java_custom_rule
+
+  bazel run :Main > "$TEST_log" || fail "Java sandwich build failed"
+  expect_log "Message from Main"
+  expect_log "Message from A"
+}
+
+function test_java_test_java_sandwich() {
+  mkdir -p java/com/google/sandwich
+  cd java/com/google/sandwich
+
+  touch BUILD A.java B.java MainTest.java java_custom_library.bzl
+
+  cat > BUILD << EOF
+load(':java_custom_library.bzl', 'java_custom_library')
+
+java_test(
+  name = "MainTest",
+  size = "small",
+  srcs = ["MainTest.java"],
+  deps = [":custom"]
+)
+
+java_custom_library(
+  name = "custom",
+  srcs = ["A.java"],
+  deps = [":bottom"]
+)
+
+java_library(
+  name = "bottom",
+  srcs = ["B.java"]
+)
+EOF
+
+  cat > A.java << EOF
+package com.google.sandwich;
+class A {
+  B myObj = new B();
+  public boolean returnsTrue() {
+    System.out.println("Message from A");
+    return myObj.returnsTrue();
+  }
+}
+EOF
+
+  cat > B.java << EOF
+package com.google.sandwich;
+class B {
+  public boolean returnsTrue() {
+    System.out.println("Message from B");
+    return true;
+  }
+}
+EOF
+
+  cat > MainTest.java << EOF
+package com.google.sandwich;
+
+import static org.junit.Assert.assertTrue;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
+public class MainTest {
+  @Test
+  public void testReturnsTrue() {
+    A myObj = new A();
+    assertTrue(myObj.returnsTrue());
+    System.out.println("Test message");
+  }
+}
+EOF
+
+  write_java_custom_rule
+
+  bazel test :MainTest --test_output=streamed > "$TEST_log" || fail "Java sandwich for java_test failed"
+  expect_log "Message from A"
+  expect_log "Message from B"
+  expect_log "Test message"
+}
+
 run_suite "Java integration tests"
+
