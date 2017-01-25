@@ -192,6 +192,13 @@ sh_test(
 )
 
 sh_test(
+    name = "cpp_test",
+    size = "large",
+    srcs = ["cpp_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "action_env_test",
     size = "large",
     srcs = ["action_env_test.sh"],

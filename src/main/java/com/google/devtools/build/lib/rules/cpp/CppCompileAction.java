@@ -173,6 +173,18 @@ public class CppCompileAction extends AbstractAction
   private final Label sourceLabel;
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
+
+  /**
+   * The set of include files that we unconditionally add to the inputs of the action (but they
+   * may be pruned after execution).
+   *
+   * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
+   * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in
+   * {@link #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we
+   * "discover" these headers.
+   */
+  private final NestedSet<Artifact> includesExemptFromDiscovery;
+
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
   private final boolean usePic;
@@ -210,13 +222,13 @@ public class CppCompileAction extends AbstractAction
    * Set when the action prepares for execution. Used to preserve state between preparation and
    * execution.
    */
-  private Collection<Artifact> additionalInputs = null;
+  private Iterable<Artifact> additionalInputs = null;
 
   /** Set when a two-stage input discovery is used. */
   private Collection<Artifact> usedModules = null;
 
   /** Used modules that are not transitively used through other topLevelModules. */
-  private Collection<Artifact> topLevelModules = null;
+  private Iterable<Artifact> topLevelModules = null;
 
   private CcToolchainFeatures.Variables overwrittenVariables = null;
 
@@ -274,6 +286,7 @@ public class CppCompileAction extends AbstractAction
       boolean useHeaderModules,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
+      NestedSet<Artifact> includesExemptFromDiscovery,
       Artifact outputFile,
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
@@ -335,6 +348,7 @@ public class CppCompileAction extends AbstractAction
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
+    this.includesExemptFromDiscovery = includesExemptFromDiscovery;
     this.builtinIncludeFiles = CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles();
     this.cppSemantics = cppSemantics;
     if (cppSemantics.needsIncludeValidation()) {
@@ -466,8 +480,8 @@ public class CppCompileAction extends AbstractAction
    * and clears the stored list. {@link #prepare} must be called before this method is called, on
    * each action execution.
    */
-  public Collection<? extends ActionInput> getAdditionalInputs() {
-    Collection<? extends ActionInput> result = Preconditions.checkNotNull(additionalInputs);
+  public Iterable<? extends ActionInput> getAdditionalInputs() {
+    Iterable<? extends ActionInput> result = Preconditions.checkNotNull(additionalInputs);
     additionalInputs = null;
     return result;
   }
@@ -482,12 +496,18 @@ public class CppCompileAction extends AbstractAction
     return true;
   }
 
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  public Iterable<Artifact> getPossibleInputsForTesting() {
+    return Iterables.concat(getInputs(), includesExemptFromDiscovery);
+  }
+
   @Nullable
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Collection<Artifact> initialResult;
+
     try {
       initialResult = executor.getContext(actionContext)
           .findAdditionalInputs(this, actionExecutionContext);
@@ -502,8 +522,9 @@ public class CppCompileAction extends AbstractAction
       return null;
     }
 
+    Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
+    Iterables.addAll(initialResultSet, includesExemptFromDiscovery);
     if (shouldPruneModules) {
-      Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
       usedModules = Sets.newLinkedHashSet();
       topLevelModules = null;
       for (CppCompilationContext.TransitiveModuleHeaders usedModule :
@@ -511,9 +532,9 @@ public class CppCompileAction extends AbstractAction
         usedModules.add(usedModule.getModule());
       }
       initialResultSet.addAll(usedModules);
-      initialResult = initialResultSet;
     }
 
+    initialResult = initialResultSet;
     this.additionalInputs = initialResult;
     // In some cases, execution backends need extra files for each included file. Add them
     // to the set of inputs the caller may need to be aware of.
@@ -579,14 +600,16 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     if (useHeaderModules) {
-      additionalInputs = Sets.newLinkedHashSet(context.getTransitiveModules(usePic).toCollection());
       // Here, we cannot really know what the top-level modules are, so we just mark all
       // transitive modules as "top level".
-      topLevelModules = additionalInputs;
-      return additionalInputs;
+      topLevelModules = Sets.newLinkedHashSet(context.getTransitiveModules(usePic).toCollection());
+      result.addTransitive(context.getTransitiveModules(usePic));
     }
-    return null;
+    result.addTransitive(includesExemptFromDiscovery);
+    additionalInputs = result.build();
+    return result.build();
   }
 
   @Override
@@ -856,7 +879,7 @@ public class CppCompileAction extends AbstractAction
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (Artifact input : mandatoryInputs) {
+    for (Artifact input : Iterables.concat(mandatoryInputs, includesExemptFromDiscovery)) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         artifactExpander.expand(input, allowedIncludes);
       }
@@ -1114,6 +1137,7 @@ public class CppCompileAction extends AbstractAction
   protected Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
     Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
     addToMap(allowedDerivedInputMap, mandatoryInputs);
+    addToMap(allowedDerivedInputMap, includesExemptFromDiscovery);
     addToMap(allowedDerivedInputMap, getDeclaredIncludeSrcs());
     addToMap(allowedDerivedInputMap, context.getTransitiveCompilationPrerequisites());
     addToMap(allowedDerivedInputMap, context.getTransitiveModules(usePic));
@@ -1223,6 +1247,10 @@ public class CppCompileAction extends AbstractAction
     for (Artifact input : getMandatoryInputs()) {
       f.addPath(input.getExecPath());
     }
+    f.addInt(0);
+    for (Artifact input : includesExemptFromDiscovery) {
+      f.addPath(input.getExecPath());
+    }
     return f.hexDigestAndReset();
   }
 
@@ -1253,18 +1281,7 @@ public class CppCompileAction extends AbstractAction
 
     // Post-execute "include scanning", which modifies the action inputs to match what the compile
     // action actually used by incorporating the results of .d file parsing.
-    //
-    // We enable this when "include scanning" itself is enabled, or when hdrs_check is set to loose
-    // or warn, as otherwise the action might be missing inputs that the compiler used and rebuilds
-    // become incorrect.
-    //
-    // Note that this effectively disables post-execute "include scanning" in Bazel, because
-    // hdrs_check is forced to "strict" and "include scanning" is forced to off.
-    boolean usesStrictHdrsChecks = context.getDeclaredIncludeDirs().isEmpty()
-        && context.getDeclaredIncludeWarnDirs().isEmpty();
-    if (shouldScanIncludes() || !usesStrictHdrsChecks) {
-      updateActionInputs(discoveredInputs);
-    }
+    updateActionInputs(discoveredInputs);
 
     // hdrs_check: This cannot be switched off, because doing so would allow for incorrect builds.
     validateInclusions(

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.sandbox;
 
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -184,7 +185,7 @@ public final class SpawnHelpers {
     if (spawn.getResourceOwner() instanceof CppCompileAction) {
       CppCompileAction action = (CppCompileAction) spawn.getResourceOwner();
       if (action.shouldScanIncludes()) {
-        inputs.addAll(action.getAdditionalInputs());
+        Iterables.addAll(inputs, action.getAdditionalInputs());
       }
     }
 

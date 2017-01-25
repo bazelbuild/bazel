@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.SpecialInputsHandler;
@@ -256,13 +257,9 @@ public class CppCompileActionBuilder {
             && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES);
 
     boolean fake = tempOutputFile != null;
-
     // Configuration can be null in tests.
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    if (!fake && !shouldScanIncludes) {
-      realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
-    }
     boolean shouldPruneModules =
         cppConfiguration.getPruneCppModules() && shouldScanIncludes && useHeaderModules;
     if (useHeaderModules && !shouldPruneModules) {
@@ -281,6 +278,12 @@ public class CppCompileActionBuilder {
           featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements();
     }
 
+    NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
+
+    NestedSet<Artifact> includesExemptFromDiscovery = shouldScanIncludes
+        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+        : context.getDeclaredIncludeSrcs();
+
     // Copying the collections is needed to make the builder reusable.
     if (fake) {
       return new FakeCppCompileAction(
@@ -294,7 +297,8 @@ public class CppCompileActionBuilder {
           usePic,
           useHeaderModules,
           sourceLabel,
-          realMandatoryInputsBuilder.build(),
+          realMandatoryInputs,
+          includesExemptFromDiscovery,
           outputFile,
           tempOutputFile,
           dotdFile,
@@ -307,8 +311,6 @@ public class CppCompileActionBuilder {
           ruleContext,
           cppSemantics);
     } else {
-      NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
-
       return new CppCompileAction(
           owner,
           ImmutableList.copyOf(features),
@@ -321,6 +323,7 @@ public class CppCompileActionBuilder {
           useHeaderModules,
           sourceLabel,
           realMandatoryInputs,
+          includesExemptFromDiscovery,
           outputFile,
           dotdFile,
           gcnoFile,
