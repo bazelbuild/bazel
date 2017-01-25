@@ -235,8 +235,46 @@ ARGS=(
   %java_start_class%
   "${ARGS[@]}")
 
-# Linux per-arg limit MAX_ARG_STRLEN == 128k!
-if (("${#CLASSPATH}" > 120000)); then
+if is_windows && (("${#CLASSPATH}" > 7000)); then
+  # Windows per-arg limit MAX_ARG_STRLEN == 8k
+
+  # Build class path as one single string separated by spaces
+  MANIFEST_CLASSPATH=""
+  IFS=';'
+  for x in $CLASSPATH
+  do
+    # Add file:/ prefix and escaped space characters, it should be a uri.
+    x="file:/${x// /%20}"
+    MANIFEST_CLASSPATH="$MANIFEST_CLASSPATH $x"
+  done
+  unset IFS
+
+  # Create manifest file
+  MANIFEST_FILE="${self}.jar_manifest"
+
+  echo "Manifest-Version: 1.0" >$MANIFEST_FILE
+  CLASSPATH_LINE="Class-Path:$MANIFEST_CLASSPATH"
+  # No line in the MANIFEST.MF file may be longer than 72 bytes.
+  # A space prefix indicates the line is still the content of the last attribute.
+  for i in `seq 0 71 ${#CLASSPATH_LINE}`; do
+    PREFIX=" "
+    if (($i == 0)); then
+      PREFIX=""
+    fi
+    echo "$PREFIX${CLASSPATH_LINE:$i:71}" >>$MANIFEST_FILE
+  done
+  echo "Created-By: Bazel" >>$MANIFEST_FILE
+
+  # Create classpath JAR file
+  MANIFEST_JAR_FILE="${self}-classpath.jar"
+  JARBIN=${JARBIN:-$(rlocation local_jdk/bin/jar.exe)}
+  $JARBIN cvfm $MANIFEST_JAR_FILE $MANIFEST_FILE >/dev/null
+
+  # Execute JAVA command
+  MANIFEST_JAR_FILE=$(cygpath --windows "$MANIFEST_JAR_FILE")
+  $JAVABIN -classpath "$MANIFEST_JAR_FILE" "${ARGS[@]}"
+elif (("${#CLASSPATH}" > 120000)); then
+  # Linux per-arg limit MAX_ARG_STRLEN == 128k
   set +o posix  # Enable process substitution.
   exec $JAVABIN -classpath @<(echo $CLASSPATH) "${ARGS[@]}"
 else
