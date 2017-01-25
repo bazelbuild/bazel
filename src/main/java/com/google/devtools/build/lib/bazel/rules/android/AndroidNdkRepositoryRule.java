@@ -29,9 +29,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceConfiguredTargetFactory;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**

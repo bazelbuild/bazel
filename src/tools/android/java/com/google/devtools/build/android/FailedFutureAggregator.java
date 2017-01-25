@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.util.concurrent.ListenableFuture;
-
 import com.android.ide.common.res2.MergingException;
-
+import com.google.common.util.concurrent.ListenableFuture;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;

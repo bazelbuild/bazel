@@ -15,10 +15,6 @@ package com.google.devtools.build.android.dexer;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
-
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
 import com.android.dex.FieldId;
@@ -26,7 +22,9 @@ import com.android.dex.MethodId;
 import com.android.dx.dex.file.DexFile;
 import com.android.dx.merge.CollisionPolicy;
 import com.android.dx.merge.DexMerger;
-
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
 import java.io.IOException;
 import java.nio.BufferOverflowException;

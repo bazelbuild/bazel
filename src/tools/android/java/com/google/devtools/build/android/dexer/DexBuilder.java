@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
+import com.android.dx.command.DxConsole;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -32,9 +33,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
-import com.android.dx.command.DxConsole;
-
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -48,7 +46,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
-
 import javax.annotation.Nullable;
 
 /**

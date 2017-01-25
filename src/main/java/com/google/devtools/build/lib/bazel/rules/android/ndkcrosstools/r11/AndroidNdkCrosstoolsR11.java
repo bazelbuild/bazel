@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;

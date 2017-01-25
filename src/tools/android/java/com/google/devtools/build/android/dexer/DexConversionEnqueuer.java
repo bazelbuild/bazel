@@ -20,7 +20,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import com.google.common.cache.Cache;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.dexer.Dexing.DexingKey;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Enumeration;
@@ -31,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
 import javax.annotation.Nullable;
 
 /**

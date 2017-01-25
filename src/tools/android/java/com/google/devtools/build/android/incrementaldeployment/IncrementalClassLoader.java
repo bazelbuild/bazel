@@ -15,9 +15,7 @@
 package com.google.devtools.build.android.incrementaldeployment;
 
 import android.util.Log;
-
 import dalvik.system.BaseDexClassLoader;
-
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;

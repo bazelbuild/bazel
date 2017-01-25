@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CompilationModeFlags;
-
 import java.util.List;
 
 /**

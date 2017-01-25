@@ -16,7 +16,6 @@ package com.google.devtools.build.android.ziputils;
 import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENOFF;
 
 import com.google.common.base.Preconditions;
-
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;

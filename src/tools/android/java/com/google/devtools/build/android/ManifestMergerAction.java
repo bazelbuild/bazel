@@ -15,6 +15,8 @@ package com.google.devtools.build.android;
 
 import static java.util.logging.Level.SEVERE;
 
+import com.android.manifmerger.ManifestMerger2.MergeType;
+import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
@@ -24,15 +26,6 @@ import com.google.devtools.build.android.Converters.StringDictionaryConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.utils.StdLogger;
-
-import org.w3c.dom.Document;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,7 +34,6 @@ import java.nio.file.attribute.FileTime;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Logger;
-
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -51,6 +43,10 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.TransformerFactoryConfigurationError;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * An action to perform manifest merging using the Gradle manifest merger.

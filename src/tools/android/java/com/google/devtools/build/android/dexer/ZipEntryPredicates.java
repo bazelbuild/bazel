@@ -15,7 +15,6 @@ package com.google.devtools.build.android.dexer;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
-
 import java.util.zip.ZipEntry;
 
 class ZipEntryPredicates {

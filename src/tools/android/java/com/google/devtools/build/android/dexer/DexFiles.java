@@ -15,7 +15,6 @@ package com.google.devtools.build.android.dexer;
 
 import com.android.dex.Dex;
 import com.android.dx.dex.file.DexFile;
-
 import java.io.IOException;
 
 /**

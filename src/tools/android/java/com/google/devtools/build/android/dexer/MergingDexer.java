@@ -17,7 +17,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.android.dx.cf.direct.DirectClassFile;
 import com.android.dx.dex.file.DexFile;
-
 import java.io.IOException;
 
 class MergingDexer {

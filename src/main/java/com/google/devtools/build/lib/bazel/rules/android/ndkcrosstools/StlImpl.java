@@ -18,7 +18,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
-
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;

@@ -17,6 +17,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.android.dex.Dex;
+import com.android.dex.DexFormat;
+import com.android.dx.command.DxConsole;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -30,11 +33,6 @@ import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import com.android.dex.Dex;
-import com.android.dex.DexFormat;
-import com.android.dx.command.DxConsole;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;

@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android.resources;
 
-import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.commons.InstructionAdapter;
-
 import java.io.IOException;
 import java.io.Writer;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.commons.InstructionAdapter;
 
 /**
  * Models an int field initializer.

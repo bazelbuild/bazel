@@ -13,11 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android.dexer;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionsBase;
-
 import com.android.dx.cf.direct.DirectClassFile;
 import com.android.dx.cf.direct.StdAttributeFactory;
 import com.android.dx.command.DxConsole;
@@ -28,6 +23,10 @@ import com.android.dx.dex.code.PositionList;
 import com.android.dx.dex.file.ClassDefItem;
 import com.android.dx.dex.file.DexFile;
 import com.android.dx.util.ByteArray;
+import com.google.auto.value.AutoValue;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
 
 /**
  * Common helper class that encodes Java classes into {@link DexFile}s.

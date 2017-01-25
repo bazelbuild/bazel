@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.common.base.Preconditions;
-
 import com.android.builder.dependency.SymbolFileProvider;
-
+import com.google.common.base.Preconditions;
 import java.io.File;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;

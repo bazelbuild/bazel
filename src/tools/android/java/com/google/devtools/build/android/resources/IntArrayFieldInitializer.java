@@ -17,13 +17,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-
+import java.io.IOException;
+import java.io.Writer;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.InstructionAdapter;
-
-import java.io.IOException;
-import java.io.Writer;
 
 /**
  * Models an int[] field initializer.

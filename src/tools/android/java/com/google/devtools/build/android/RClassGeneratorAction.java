@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.builder.core.VariantConfiguration;
+import com.android.builder.dependency.SymbolFileProvider;
+import com.android.builder.internal.SymbolLoader;
+import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
@@ -22,12 +26,6 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-
-import com.android.builder.core.VariantConfiguration;
-import com.android.builder.dependency.SymbolFileProvider;
-import com.android.builder.internal.SymbolLoader;
-import com.android.utils.StdLogger;
-
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;

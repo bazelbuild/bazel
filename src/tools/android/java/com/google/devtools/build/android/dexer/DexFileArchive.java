@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.android.dexer;
 
-import com.google.common.io.ByteStreams;
-
 import com.android.dex.Dex;
 import com.android.dx.dex.file.DexFile;
-
+import com.google.common.io.ByteStreams;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;

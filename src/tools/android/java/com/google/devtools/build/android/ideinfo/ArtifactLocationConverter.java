@@ -20,7 +20,6 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
