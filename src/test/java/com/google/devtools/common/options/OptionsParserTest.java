@@ -144,7 +144,7 @@ public class OptionsParserTest {
   
   @Test
   public void parseWithParamsFile() throws OptionsParsingException, IOException {
-    // TODO(bazel-team): Switch to an in memory file system.
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
         params,
@@ -161,10 +161,91 @@ public class OptionsParserTest {
     ExampleBaz baz = parser.getOptions(ExampleBaz.class);
     assertEquals("oops", baz.baz);
   }
+  
+  @Test
+  public void parseWithEmptyParamsFile() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(42, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("defaultBaz", baz.baz);
+  }
+  
+  @Test
+  public void parseWithParamsFileWithEmptyStringValues() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz", "", "--foo", ""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("", foo.foo);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("", baz.baz);
+  }
+  
+  @Test
+  public void parseWithParamsFileWithEmptyString() throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--baz  --bar 17"),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("", baz.baz);
+  }
+  
+  @Test
+  public void parseWithParamsFileWithEmptyStringAtEnd()
+      throws OptionsParsingException, IOException {
+    // TODO(bazel-team): Switch to an in memory file system, here and below.
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of("--bar",
+            "17",
+            " --baz",
+            ""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("defaultFoo", foo.foo);
+    assertEquals(17, foo.bar);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("", baz.baz);
+  }
 
   @Test
   public void parseWithParamsFileWithQuotedSpaces() throws OptionsParsingException, IOException {
-    // TODO(bazel-team): Switch to an in memory file system.
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
         params,
@@ -184,7 +265,6 @@ public class OptionsParserTest {
 
   @Test
   public void parseWithParamsFileWithEscapedSpaces() throws OptionsParsingException, IOException {
-    // TODO(bazel-team): Switch to an in memory file system.
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
         params,
@@ -204,7 +284,6 @@ public class OptionsParserTest {
 
   @Test
   public void parseWithParamsFileWithEscapedQuotes() throws OptionsParsingException, IOException {
-    // TODO(bazel-team): Switch to an in memory file system.
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
         params,
@@ -224,7 +303,6 @@ public class OptionsParserTest {
 
   @Test
   public void parseWithParamsFileUnmatchedQuote() throws IOException {
-    // TODO(bazel-team): Switch to an in memory file system.
     Path params = Files.createTempDirectory("foo").resolve("params");
     Files.write(
         params,
@@ -245,6 +323,54 @@ public class OptionsParserTest {
               String.format(ParamsFilePreProcessor.UNFINISHED_QUOTE_MESSAGE_FORMAT, "\"", 6)),
           e.getMessage());
     }
+  }
+  
+  @Test
+  public void parseWithParamsFileWithMultilineStringValues() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(
+            "--baz",
+            "'hello\nworld'",
+            "--foo",
+            "hello\\",
+            "world",
+            "--nodoc",
+            "\"hello",
+            "world\""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("hello\\\nworld", foo.foo);
+    assertEquals("\"hello\nworld\"", foo.nodoc);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("'hello\nworld'", baz.baz);
+  }
+  
+  @Test
+  public void parseWithParamsFileWithMultilineStringValuesCRLF() throws Exception {
+    Path params = Files.createTempDirectory("foo").resolve("params");
+    Files.write(
+        params,
+        ImmutableList.of(
+            "--baz\r\n'hello\nworld'\r\n--foo\r\nhello\\\r\nworld\r\n\r\n"
+            + "--nodoc\r\n\"hello\r\nworld\""),
+        StandardCharsets.UTF_8,
+        StandardOpenOption.CREATE);
+
+    OptionsParser parser = newOptionsParser(ExampleFoo.class, ExampleBaz.class);
+    parser.enableParamsFileSupport(FileSystems.getDefault());
+    parser.parse("@" + params);
+    ExampleBaz baz = parser.getOptions(ExampleBaz.class);
+    assertEquals("'hello\nworld'", baz.baz);
+    ExampleFoo foo = parser.getOptions(ExampleFoo.class);
+    assertEquals("hello\\\nworld", foo.foo);
+    assertEquals("\"hello\nworld\"", foo.nodoc);
   }
 
   @Test

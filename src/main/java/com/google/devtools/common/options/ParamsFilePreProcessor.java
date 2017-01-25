@@ -74,7 +74,7 @@ public class ParamsFilePreProcessor implements ArgsPreProcessor {
             arg.append(next);
           }
         }
-        // If there is still an arg in the buffer, add it.
+        // If there is an arg in the buffer, add it.
         if (arg.length() > 0) {
           newArgs.add(arg.toString());
         }
@@ -111,10 +111,14 @@ public class ParamsFilePreProcessor implements ArgsPreProcessor {
     }
 
     public boolean hasNext() throws IOException {
+      return peek() != -1;
+    }
+
+    private int peek() throws IOException {
       reader.mark(1);
       int next = reader.read();
       reader.reset();
-      return next != -1;
+      return next;
     }
 
     public boolean isInQuote() {
@@ -141,6 +145,11 @@ public class ParamsFilePreProcessor implements ArgsPreProcessor {
         throw new NoSuchElementException();
       }
       char current = (char) reader.read();
+      
+      // check for \r\n line endings. If found, drop the \r for normalized parsing.
+      if (current == '\r' && peek() == '\n') {
+        current = (char) reader.read();
+      }
 
       // check to see if the current position is escaped
       if (lastChar == '\\') {
