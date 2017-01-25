@@ -186,16 +186,26 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
         ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+
+    final String classpathJarPath =
+        javaCommon.needClasspathJar()
+            ? ruleContext.getRelatedArtifact(executable.getRootRelativePath(), "-classpath.jar")
+                         .getPath().toString()
+            : null;
+
     arguments.add(
         new ComputedSubstitution("%classpath%") {
           @Override
           public String getValue() {
-            StringBuilder buffer = new StringBuilder();
-            Iterable<Artifact> jars = javaCommon.getRuntimeClasspath();
-            char delimiter = File.pathSeparatorChar;
-            appendRunfilesRelativeEntries(
-                buffer, jars, workspacePrefix, delimiter, isRunfilesEnabled);
-            return buffer.toString();
+            if (javaCommon.needClasspathJar()) {
+              return classpathJarPath;
+            } else {
+              StringBuilder classpathValue = new StringBuilder();
+              char delimiter = File.pathSeparatorChar;
+              appendRunfilesRelativeEntries(
+                classpathValue, javaCommon.getRuntimeClasspath(), delimiter, isRunfilesEnabled);
+              return classpathValue.toString();
+            }
           }
         });
 
@@ -250,17 +260,18 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   /**
    * Builds a class path by concatenating the root relative paths of the artifacts separated by the
-   * delimiter. Each relative path entry is prepended with "${RUNPATH}" which will be expanded by
-   * the stub script at runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
+   * delimiter. If runfiles is disabled(eg. Windows) we return the absolute path, otherwise each
+   * relative path entry is prepended with "${RUNPATH}" which will be expanded by the stub script at
+   * runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
    *
    * @param buffer the buffer to use for concatenating the entries
    * @param artifacts the entries to concatenate in the buffer
    * @param delimiter the delimiter character to separate the entries
+   * @param isRunfilesEnabled true if runfiles is enabled
    */
   private static void appendRunfilesRelativeEntries(
       StringBuilder buffer,
       Iterable<Artifact> artifacts,
-      String workspacePrefix,
       char delimiter,
       boolean isRunfilesEnabled) {
     buffer.append("\"");
@@ -269,11 +280,8 @@ public class BazelJavaSemantics implements JavaSemantics {
         buffer.append(delimiter);
       }
       if (!isRunfilesEnabled) {
-        buffer.append("$(rlocation ");
-        PathFragment runfilePath =
-            new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
-        buffer.append(runfilePath.normalize().getPathString());
-        buffer.append(")");
+        // If runfiles directory doesn't exist (eg. Windows), return the absolute path.
+        buffer.append(artifact.getPath());
       } else {
         buffer.append("${RUNPATH}");
         buffer.append(artifact.getRunfilesPath().getPathString());

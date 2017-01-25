@@ -247,6 +247,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         filesBuilder.add(executableToRun);
         runfilesBuilder.addArtifact(executableToRun);
       }
+
+      if (common.needClasspathJar()) {
+        Artifact classpathJar = helper.createClasspathJar(executableForRunfiles);
+
+        StringBuilder manifestFileContent = common.getClasspathEntryForManifestFile();
+        helper.createClasspathJarAction(classpathJar, manifestFileContent.toString());
+
+        filesBuilder.add(classpathJar);
+        runfilesBuilder.addArtifact(classpathJar);
+      }
     }
 
     JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();

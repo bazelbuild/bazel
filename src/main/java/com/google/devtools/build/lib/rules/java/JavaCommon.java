@@ -49,10 +49,12 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Local
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -109,6 +111,12 @@ public class JavaCommon {
   private final RuleContext ruleContext;
   private final JavaSemantics semantics;
   private JavaCompilationHelper javaCompilationHelper;
+
+  // Windows per-arg limit MAX_ARG_STRLEN == 8k
+  // Linux per-arg limit MAX_ARG_STRLEN == 128k
+  private static final int MAX_ARG_STRLEN = (OS.getCurrent() == OS.WINDOWS) ? 7000 : 120000;
+  private Boolean needClasspathJarValue;
+
 
   public JavaCommon(RuleContext ruleContext, JavaSemantics semantics) {
     this(ruleContext, semantics,
@@ -887,6 +895,48 @@ public class JavaCommon {
 
   public NestedSet<Artifact> getRuntimeClasspath() {
     return classpathFragment.getRuntimeClasspath();
+  }
+
+  /**
+   * Compute the total length of all class paths (considering the worst case where every path is
+   * absolute), return true if it exceeds the max command line argument length limit.
+   */
+  public boolean needClasspathJar() {
+    if (needClasspathJarValue == null) {
+      Iterable<Artifact> artifacts = classpathFragment.getRuntimeClasspath();
+      int length = 0;
+      for (Artifact artifact : artifacts) {
+        length += artifact.getPath().toString().length() + 1;
+      }
+      needClasspathJarValue = length > MAX_ARG_STRLEN;
+    }
+    return needClasspathJarValue;
+  }
+
+  /** Adds line breaks to enforce a maximum 72 bytes per line. */
+  public static StringBuilder make72Safe(StringBuilder line) {
+    StringBuilder result = new StringBuilder();
+    int length = line.length();
+    for (int i = 0; i < length; i += 69) {
+      result.append(line, i, Math.min(i + 69, length));
+      result.append("\r\n ");
+    }
+    return result;
+  }
+
+  /**
+   * Build the entry for classpath in jar MANIFEST.MF file, spaces in path should be escaped since
+   * it's the delimiter.
+   */
+  public StringBuilder getClasspathEntryForManifestFile() {
+    StringBuilder buffer = new StringBuilder();
+    buffer.append("Class-Path:");
+    for (Artifact artifact : classpathFragment.getRuntimeClasspath()) {
+      buffer.append(" ");
+      buffer.append(Paths.get(artifact.getPath().toString()).toUri());
+    }
+    buffer.append("\r\n");
+    return make72Safe(buffer);
   }
 
   public NestedSet<Artifact> getCompileTimeClasspath() {
