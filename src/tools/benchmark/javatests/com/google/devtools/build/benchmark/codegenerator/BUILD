@@ -1,3 +1,5 @@
+package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
+
 java_test(
     name = "JavaCodeGeneratorHelperTest",
     srcs = ["JavaCodeGeneratorHelperTest.java"],
@@ -32,5 +34,4 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
 )

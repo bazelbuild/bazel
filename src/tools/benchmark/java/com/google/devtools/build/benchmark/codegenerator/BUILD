@@ -24,5 +24,4 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
 )
