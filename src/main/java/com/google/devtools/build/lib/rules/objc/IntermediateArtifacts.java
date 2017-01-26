@@ -432,7 +432,7 @@ public final class IntermediateArtifacts {
     return ruleContext.getUniqueDirectoryArtifact(
         "_j2objc_pruned",
         prunedSourceArtifactPath,
-        ruleContext.getBinOrGenfilesDirectory());
+        buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
   /**

@@ -864,7 +864,8 @@ public abstract class CompilationSupport {
               j2objcArchive.getOwner().toPathFragment(), ".param.j2objc");
       Artifact paramFile =
           ruleContext.getUniqueDirectoryArtifact(
-              "_j2objc_pruned", paramFilePath, ruleContext.getBinOrGenfilesDirectory());
+              "_j2objc_pruned", paramFilePath,
+              buildConfiguration.getBinDirectory(ruleContext.getRule().getRepository()));
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
           Iterables.getOnlyElement(
