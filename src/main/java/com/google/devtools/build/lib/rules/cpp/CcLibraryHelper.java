@@ -288,7 +288,8 @@ public final class CcLibraryHelper {
   private boolean emitCompileProviders;
   private final SourceCategory sourceCategory;
   private List<VariablesExtension> variablesExtensions = new ArrayList<>();
-  @Nullable private CppModuleMap injectedCppModuleMap;
+  @Nullable private CppModuleMap cppModuleMap;
+  private boolean propagateModuleMapToCompileAction = true;
 
   private final FeatureConfiguration featureConfiguration;
 
@@ -680,10 +681,20 @@ public final class CcLibraryHelper {
     return this;
   }
 
-  /** Sets the module map artifact for this build. */
+  /**
+   * Sets a module map artifact for this build.
+   */
   public CcLibraryHelper setCppModuleMap(CppModuleMap cppModuleMap) {
     Preconditions.checkNotNull(cppModuleMap);
-    this.injectedCppModuleMap = cppModuleMap;
+    this.cppModuleMap = cppModuleMap;
+    return this;
+  }
+
+  /**
+   * Signals that this target's module map should not be an input to c++ compile actions.
+   */
+  public CcLibraryHelper setPropagateModuleMapToCompileAction(boolean propagatesModuleMap) {
+    this.propagateModuleMapToCompileAction = propagatesModuleMap;
     return this;
   }
 
@@ -1216,10 +1227,11 @@ public final class CcLibraryHelper {
     }
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
-      CppModuleMap cppModuleMap =
-          injectedCppModuleMap == null
-              ? CppHelper.createDefaultCppModuleMap(ruleContext)
-              : injectedCppModuleMap;
+      if (cppModuleMap == null) {
+        cppModuleMap = CppHelper.createDefaultCppModuleMap(ruleContext);
+      }
+
+      contextBuilder.setPropagateCppModuleMapAsActionInput(propagateModuleMapToCompileAction);
       contextBuilder.setCppModuleMap(cppModuleMap);
       CppModuleMapAction action =
           new CppModuleMapAction(

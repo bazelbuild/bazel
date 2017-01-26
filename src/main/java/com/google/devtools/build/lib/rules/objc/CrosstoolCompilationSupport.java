@@ -274,6 +274,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
         .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
         .setCppModuleMap(intermediateArtifacts.moduleMap())
+        .setPropagateModuleMapToCompileAction(false)
         .addVariableExtension(extension);
   }
 

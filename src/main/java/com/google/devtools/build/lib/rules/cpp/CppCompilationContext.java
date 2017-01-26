@@ -63,7 +63,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   private final ModuleInfo picModuleInfo;
 
   private final CppModuleMap cppModuleMap;
-  
+  private final boolean propagateModuleMapAsActionInput;
+
   // Derived from depsContexts.
   private final ImmutableSet<Artifact> compilationPrerequisites;
 
@@ -77,7 +78,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       ModuleInfo moduleInfo,
       ModuleInfo picModuleInfo,
       NestedSet<Artifact> directModuleMaps,
-      CppModuleMap cppModuleMap) {
+      CppModuleMap cppModuleMap,
+      boolean propagateModuleMapAsActionInput) {
     Preconditions.checkNotNull(commandLineContext);
     this.commandLineContext = commandLineContext;
     this.declaredIncludeDirs = declaredIncludeDirs;
@@ -89,6 +91,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     this.picModuleInfo = picModuleInfo;
     this.cppModuleMap = cppModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
+    this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
   }
 
   /**
@@ -214,7 +217,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addTransitive(directModuleMaps);
-    if (cppModuleMap != null) {
+    if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
     return builder.build();
@@ -262,7 +265,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         context.moduleInfo,
         context.picModuleInfo,
         context.directModuleMaps,
-        context.cppModuleMap);
+        context.cppModuleMap,
+        context.propagateModuleMapAsActionInput);
   }
 
   /**
@@ -311,7 +315,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         moduleInfo.build(),
         picModuleInfo.build(),
         mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
-        libContext.cppModuleMap);
+        libContext.cppModuleMap,
+        libContext.propagateModuleMapAsActionInput);
   }
   
   /**
@@ -373,6 +378,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
+    private boolean propagateModuleMapAsActionInput = true;
 
     /** The rule that owns the context */
     private final RuleContext ruleContext;
@@ -594,6 +600,14 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     }
 
     /**
+     * Causes the module map to be passed as an action input to dependant compilations.
+     */
+    public Builder setPropagateCppModuleMapAsActionInput(boolean propagateModuleMap) {
+      this.propagateModuleMapAsActionInput = propagateModuleMap;
+      return this;
+    }
+
+    /**
      * Sets the C++ header module in non-pic mode.
      * @param headerModule The .pcm file generated for this library.
      */
@@ -645,7 +659,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           moduleInfo.build(),
           picModuleInfo.build(),
           directModuleMaps.build(),
-          cppModuleMap);
+          cppModuleMap,
+          propagateModuleMapAsActionInput);
     }
 
     /**
