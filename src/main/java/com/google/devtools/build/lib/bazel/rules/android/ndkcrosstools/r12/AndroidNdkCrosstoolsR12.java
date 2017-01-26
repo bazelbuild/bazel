@@ -26,10 +26,8 @@ import java.util.List;
 import java.util.Map.Entry;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
-public class AndroidNdkCrosstoolsR12 {
-
+final class AndroidNdkCrosstoolsR12 {
   private AndroidNdkCrosstoolsR12() {}
-
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
    * release revision. The crosstools are generated through code rather than checked in as a flat
@@ -40,18 +38,14 @@ public class AndroidNdkCrosstoolsR12 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  public static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
-
-    CrosstoolRelease crosstoolRelease =
-        CrosstoolRelease.newBuilder()
-            .setMajorVersion("android")
-            .setMinorVersion("")
-            .setDefaultTargetCpu("armeabi")
-            .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
-            .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
-            .build();
-
-    return crosstoolRelease;
+  static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+    return CrosstoolRelease.newBuilder()
+        .setMajorVersion("android")
+        .setMinorVersion("")
+        .setDefaultTargetCpu("armeabi")
+        .addAllDefaultToolchain(getDefaultCpuToolchains(stlImpl))
+        .addAllToolchain(createToolchains(ndkPaths, stlImpl, hostPlatform))
+        .build();
   }
 
   private static ImmutableList<CToolchain> createToolchains(

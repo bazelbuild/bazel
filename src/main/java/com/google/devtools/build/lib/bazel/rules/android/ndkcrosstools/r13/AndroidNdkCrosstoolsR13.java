@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -25,12 +25,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 
-/**
- * Generates a CrosstoolRelease proto for the Android NDK.
- */
-final class AndroidNdkCrosstoolsR11 {
-  private AndroidNdkCrosstoolsR11() {}
-
+/** Generates a CrosstoolRelease proto for the Android NDK. */
+final class AndroidNdkCrosstoolsR13 {
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
    * release revision. The crosstools are generated through code rather than checked in as a flat
@@ -41,7 +37,7 @@ final class AndroidNdkCrosstoolsR11 {
    *
    * @return A CrosstoolRelease for the Android NDK.
    */
-  public static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
+  static CrosstoolRelease create(NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
     return CrosstoolRelease.newBuilder()
         .setMajorVersion("android")
         .setMinorVersion("")
@@ -81,31 +77,29 @@ final class AndroidNdkCrosstoolsR11 {
   private static ImmutableList<DefaultCpuToolchain> getDefaultCpuToolchains(StlImpl stlImpl) {
     // TODO(bazel-team): It would be better to auto-generate this somehow.
 
-    ImmutableMap<String, String> defaultCpus = ImmutableMap.<String, String>builder()
-        // arm
-        .put("armeabi",                "arm-linux-androideabi-4.9")
-        .put("armeabi-v7a",            "arm-linux-androideabi-4.9-v7a")
-        .put("armeabi-v7a-hard",       "arm-linux-androideabi-4.9-v7a-hard")
-        .put("armeabi-thumb",          "arm-linux-androideabi-4.9-thumb")
-        .put("armeabi-v7a-thumb",      "arm-linux-androideabi-4.9-v7a-thumb")
-        .put("armeabi-v7a-hard-thumb", "arm-linux-androideabi-4.9-v7a-hard-thumb")
-        .put("arm64-v8a",              "aarch64-linux-android-4.9")
+    ImmutableMap<String, String> defaultCpus =
+        ImmutableMap.<String, String>builder()
+            // arm
+            .put("armeabi", "arm-linux-androideabi-clang3.8")
+            .put("armeabi-v7a", "arm-linux-androideabi-clang3.8-v7a")
+            .put("arm64-v8a", "aarch64-linux-android-clang3.8")
 
-        // mips
-        .put("mips",                   "mipsel-linux-android-4.9")
-        .put("mips64",                 "mips64el-linux-android-4.9")
+            // mips
+            .put("mips", "mipsel-linux-android-clang3.8")
+            .put("mips64", "mips64el-linux-android-clang3.8")
 
-        // x86
-        .put("x86",                    "x86-4.9")
-        .put("x86_64",                 "x86_64-4.9")
-        .build();
+            // x86
+            .put("x86", "x86-clang3.8")
+            .put("x86_64", "x86_64-clang3.8")
+            .build();
 
     ImmutableList.Builder<DefaultCpuToolchain> defaultCpuToolchains = ImmutableList.builder();
     for (Entry<String, String> defaultCpu : defaultCpus.entrySet()) {
-      defaultCpuToolchains.add(DefaultCpuToolchain.newBuilder()
-          .setCpu(defaultCpu.getKey())
-          .setToolchainIdentifier(defaultCpu.getValue() + "-" + stlImpl.getName())
-          .build());
+      defaultCpuToolchains.add(
+          DefaultCpuToolchain.newBuilder()
+              .setCpu(defaultCpu.getKey())
+              .setToolchainIdentifier(defaultCpu.getValue() + "-" + stlImpl.getName())
+              .build());
     }
     return defaultCpuToolchains.build();
   }

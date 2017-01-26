@@ -24,9 +24,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.AndroidNdkCrosstoolsR10e;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevelR10e;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.ApiLevelR12;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.NdkMajorRevisionR10;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.NdkMajorRevisionR12;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -43,7 +42,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
-/** Tests for {@link AndroidNdkCrosstoolsR10e}. */
+/** Tests for {@link AndroidNdkCrosstools}. */
 @RunWith(Parameterized.class)
 public class AndroidNdkCrosstoolsTest {
   private static final String HOST_PLATFORM = "linux-x86_64";
@@ -103,7 +102,8 @@ public class AndroidNdkCrosstoolsTest {
     return ImmutableList.of(
         new AndroidNdkCrosstoolsTestParams[] {
             new AndroidNdkCrosstoolsTestParams(
-                new ApiLevelR10e(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
+                new NdkMajorRevisionR10()
+                    .apiLevel(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
                 NdkRelease.create("r10e (64-bit)"),
                 "ndkfiles.txt",
                 "ndkdirectories.txt"
@@ -111,7 +111,8 @@ public class AndroidNdkCrosstoolsTest {
         },
         new AndroidNdkCrosstoolsTestParams[] {
             new AndroidNdkCrosstoolsTestParams(
-                new ApiLevelR12(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
+                new NdkMajorRevisionR12()
+                    .apiLevel(NullEventHandler.INSTANCE, REPOSITORY_NAME, "21"),
                 NdkRelease.create("Pkg.Desc = Android NDK\nPkg.Revision = 12.1.297705\n"),
                 "ndk12bfiles.txt",
                 "ndk12bdirectories.txt"

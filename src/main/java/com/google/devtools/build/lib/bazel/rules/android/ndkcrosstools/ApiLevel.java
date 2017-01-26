@@ -17,29 +17,14 @@ package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevelR10e;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11.ApiLevelR11;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r12.ApiLevelR12;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
 /**
- * Base class for ApiLevels, which provides a factory function to create an ApiLevel based on an
- * NDK release.
+ * Base class for NDK revision specific {@code ApiLevel}s that encapsulates NDK information about
+ * api level to architecture mappings and api level equivalences.
  */
-public abstract class ApiLevel {
-
-  public static ApiLevel getApiLevel(
-      NdkRelease release, EventHandler eventHandler, String repositoryName, String apiLevel) {
-    if ("10".equals(release.majorRevision)) {
-      return new ApiLevelR10e(eventHandler, repositoryName, apiLevel);
-    } else if ("11".equals(release.majorRevision)) {
-      return new ApiLevelR11(eventHandler, repositoryName, apiLevel);
-    } else {
-      return new ApiLevelR12(eventHandler, repositoryName, apiLevel);
-    }
-  }
-  
+public class ApiLevel {
   /**
    * Maps an Android API level to the architectures that that level supports.
    * Based on the directories in the "platforms" directory in the NDK.
@@ -86,7 +71,7 @@ public abstract class ApiLevel {
     return correctedApiLevel;
   }
 
-  public String getCpuCorrectedApiLevel(String targetCpu) {
+  String getCpuCorrectedApiLevel(String targetCpu) {
 
     // Check that this API level supports the given cpu architecture (eg 64 bit is supported on only
     // 21+).

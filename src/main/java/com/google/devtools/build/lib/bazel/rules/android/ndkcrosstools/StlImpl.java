@@ -31,9 +31,10 @@ public abstract class StlImpl {
   private enum RuntimeType {
     DYNAMIC("so"), STATIC("a");
 
-    private final String name, fileExtension;
+    private final String name;
+    private final String fileExtension;
 
-    private RuntimeType(String fileExtension) {
+    RuntimeType(String fileExtension) {
       this.name = name().toLowerCase();
       this.fileExtension = fileExtension;
     }    

@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,23 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r11;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r13;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.events.EventHandler;
 
-/**
- * Class which encodes information from the Android NDK makefiles about API levels. 
- */
-final class ApiLevelR11 extends ApiLevel {
+/** Class which encodes information from the Android NDK makefiles about API levels. */
+final class ApiLevelR13 extends ApiLevel {
+  /** This is the contents of {@code platforms/android-*} */
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
-          .putAll("3", "arm")
-          .putAll("4", "arm")
-          .putAll("5", "arm")
-          .putAll("8", "arm")
           .putAll("9", "arm", "mips", "x86")
           .putAll("12", "arm", "mips", "x86")
           .putAll("13", "arm", "mips", "x86")
@@ -43,67 +38,30 @@ final class ApiLevelR11 extends ApiLevel {
           .putAll("24", "arm", "mips", "x86", "arm64", "mips64", "x86_64")
           .build();
 
-  /**
-   * <p>Per the "special cases" listed in build/core/add-application.mk:
-   *
-   * <pre>
-   *   SPECIAL CASES:
-   *   1) android-6 and android-7 are the same thing as android-5
-   *   2) android-10 and android-11 are the same thing as android-9
-   *   3) android-20 is the same thing as android-19
-   *   4) android-21 and up are the same thing as android-21
-   *   ADDITIONAL CASES for remote server where total number of files is limited
-   *   5) android-13 is the same thing as android-12
-   *   6) android-15 is the same thing as android-14
-   *   7) android-17 is the same thing as android-16
-   * </pre>
-   */
+  /** This map fill in the gaps of {@code API_LEVEL_TO_ARCHITECTURES}. */
   private static final ImmutableMap<String, String> API_EQUIVALENCIES =
       ImmutableMap.<String, String>builder()
-          .put("3", "3")
-          .put("4", "4")
-    
-          // Case 1
-          .put("5", "5")
-          .put("6", "5")
-          .put("7", "5")
-    
           .put("8", "8")
-    
-          // Case 2
           .put("9", "9")
           .put("10", "9")
           .put("11", "9")
-    
-          // Case 5
           .put("12", "12")
           .put("13", "12")
-    
-          // Case 6
           .put("14", "14")
           .put("15", "14")
-    
-          // Case 7
           .put("16", "16")
           .put("17", "16")
-    
           .put("18", "18")
-    
-          // Case 3
           .put("19", "19")
           .put("20", "19")
-    
-          // Case 4
           .put("21", "21")
-          .put("22", "21")
-
+          .put("22", "22")
           .put("23", "23")
           .put("24", "24")
-    
+          .put("25", "24")
           .build();
 
-  ApiLevelR11(EventHandler eventHandler, String repositoryName, String apiLevel) {
+  ApiLevelR13(EventHandler eventHandler, String repositoryName, String apiLevel) {
     super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);
   }
 }
-

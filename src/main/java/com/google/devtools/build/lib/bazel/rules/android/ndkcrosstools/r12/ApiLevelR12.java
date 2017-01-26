@@ -20,8 +20,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.ApiLevel;
 import com.google.devtools.build.lib.events.EventHandler;
 
 /** Class which encodes information from the Android NDK makefiles about API levels. */
-public class ApiLevelR12 extends ApiLevel {
-
+final class ApiLevelR12 extends ApiLevel {
   private static final ImmutableListMultimap<String, String> API_LEVEL_TO_ARCHITECTURES =
       ImmutableListMultimap.<String, String>builder()
           .putAll("8", "arm")
@@ -85,12 +84,12 @@ public class ApiLevelR12 extends ApiLevel {
 
           // Case 4
           .put("21", "21")
-          .put("22", "21")
+          .put("22", "22")
           .put("23", "23")
           .put("24", "24")
           .build();
 
-  public ApiLevelR12(EventHandler eventHandler, String repositoryName, String apiLevel) {
+  ApiLevelR12(EventHandler eventHandler, String repositoryName, String apiLevel) {
     super(API_LEVEL_TO_ARCHITECTURES, API_EQUIVALENCIES, eventHandler, repositoryName, apiLevel);
   }
 }

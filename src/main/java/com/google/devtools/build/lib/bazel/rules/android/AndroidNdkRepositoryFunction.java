@@ -58,7 +58,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
   private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
-  
+
   private static final class CrosstoolStlPair {
 
     private final CrosstoolRelease crosstoolRelease;
@@ -117,7 +117,10 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     ApiLevel apiLevel;
     try {
       String apiLevelAttr = attributes.get("api_level", Type.INTEGER).toString();
-      apiLevel = ApiLevel.getApiLevel(ndkRelease, env.getListener(), ruleName, apiLevelAttr);
+      apiLevel =
+          AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS
+              .get(ndkRelease.majorRevision)
+              .apiLevel(env.getListener(), ruleName, apiLevelAttr);
     } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
@@ -136,7 +139,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
           + "The revision of the Android NDK given in android_ndk_repository rule '%s' is '%s'",
           AndroidNdkCrosstools.LATEST_KNOWN_REVISION, ruleName, ndkRelease.rawRelease)));
     }
-    
+
     ImmutableList.Builder<CrosstoolStlPair> crosstoolsAndStls = ImmutableList.builder();
     try {
 
