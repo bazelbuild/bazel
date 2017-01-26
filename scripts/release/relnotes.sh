@@ -65,7 +65,7 @@ function get_release_notes_commits() {
   local rollback_hashes=$(echo "$rollback_commits" | cut -d " " -f 1)
   local rolledback_hashes=$(echo "$rollback_commits" | cut -d " " -f 5 | sed -E 's/^(.......).*$/\1/')
   local exclude_hashes=$(echo $cherry_picks $rollback_hashes $rolledback_hashes | xargs echo | sed 's/ /|/g')
-  git log --reverse --pretty=format:%h ${baseline}.. -E --grep='^RELNOTES(\[[^\]+\])?:' \
+  git log --reverse --pretty=format:%H ${baseline}.. -E --grep='^RELNOTES(\[[^\]+\])?:' \
       | grep -Ev "^(${exclude_hashes})"
 }
 
