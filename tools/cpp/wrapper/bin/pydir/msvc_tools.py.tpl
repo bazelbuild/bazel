@@ -387,14 +387,17 @@ class ArgParser(object):
     # Add in any parsed files
     self.options += files
 
-    if '/w' in self.options:
-      self.options = [option for option in self.options if option not in ['/W2', '/W3', '/W4']]
+    # Suppress all warning messages if /w is specified
+    is_warning_off = '/w' in self.options
+    if is_warning_off:
+      self.options = [option for option in self.options
+                      if option not in ['/W2', '/W3', '/W4', '/Wall']]
 
     self.is_cuda_compilation = self.IsCudaCompilation()
     if self.is_cuda_compilation:
       self.GetOptionsForCudaCompilation()
 
-    if self.leftover:
+    if self.leftover and not is_warning_off:
       print('Warning: Unmatched arguments: ' + ' '.join(self.leftover))
 
   def NormPath(self, path):
