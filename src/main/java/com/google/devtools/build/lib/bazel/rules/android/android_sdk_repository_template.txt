@@ -11,4 +11,4 @@ create_android_sdk_rules(
 )
 
 exports_files([
-%exported_files%])
+%exported_files%] + glob(["system-images/**"]))
