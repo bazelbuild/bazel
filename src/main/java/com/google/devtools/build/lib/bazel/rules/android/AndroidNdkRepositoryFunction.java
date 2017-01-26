@@ -102,14 +102,17 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory,
-        directories.getOutputBase().getFileSystem().getPath(pathFragment))) {
+    Path ndkHome = directories.getOutputBase().getFileSystem().getPath(pathFragment);
+    if (!symlinkLocalRepositoryContents(ndkSymlinkTreeDirectory, ndkHome)) {
       return null;
     }
 
     String ruleName = rule.getName();
 
-    NdkRelease ndkRelease = getNdkRelease(outputDirectory, env);
+    // We need to fetch the NDK release info from the actual home to avoid cycle in the
+    // dependency graph (the path relative to the repository root depends on the
+    // repository being fetched).
+    NdkRelease ndkRelease = getNdkRelease(ndkHome, env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -294,20 +297,17 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       throws RepositoryFunctionException, InterruptedException {
 
     // For NDK r11+
-    Path releaseFilePath = directory.getRelative("ndk/source.properties");
+    Path releaseFilePath = directory.getRelative("source.properties");
     if (!releaseFilePath.exists()) {
       // For NDK r10e
-      releaseFilePath = directory.getRelative("ndk/RELEASE.TXT");
+      releaseFilePath = directory.getRelative("RELEASE.TXT");
     }
     
-    SkyKey releaseFileKey = FileValue.key(
-        RootedPath.toRootedPath(directory, releaseFilePath));
-    
+    SkyKey releaseFileKey = FileValue.key(RootedPath.toRootedPath(directory, releaseFilePath));
+
     String releaseFileContent;
     try {
-      env.getValueOrThrow(releaseFileKey,
-          IOException.class,
-          FileSymlinkException.class,
+      env.getValueOrThrow(releaseFileKey, IOException.class, FileSymlinkException.class,
           InconsistentFilesystemException.class);
 
       releaseFileContent = new String(FileSystemUtils.readContent(releaseFilePath));

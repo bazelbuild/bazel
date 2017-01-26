@@ -62,7 +62,7 @@ public class RepositoryValue implements SkyValue {
     return Objects.hashCode(repositoryName, repositoryDirectory);
   }
 
-  static SkyKey key(RepositoryName repositoryName) {
+  public static SkyKey key(RepositoryName repositoryName) {
     return SkyKey.create(SkyFunctions.REPOSITORY, repositoryName);
   }
 }
