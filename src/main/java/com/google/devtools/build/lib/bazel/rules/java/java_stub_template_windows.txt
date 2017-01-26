@@ -20,12 +20,13 @@
 @SETLOCAL ENABLEEXTENSIONS
 
 @set bash_path=%bash_exe_path%
+@set cygpath_path=%cygpath_exe_path%
 
 @rem launcher=${$0%.cmd}
 @set launcher=%~dp0%~n0
 
 @rem sh_path=$($cygpath_path -m $launcher)
-@set sh_path=%launcher:\=/%
+@for /f %%i in ('%cygpath_path% -m %launcher%') do @set sh_path=%%i
 
 @rem replaces $ with \$ in $*, then puts it on the command line
 @rem Cribbed from here: http://ss64.com/nt/syntax-replace.html

@@ -74,49 +74,15 @@ die() {
 }
 
 # Windows
-PLATFORM="$OSTYPE"
+PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
 function is_windows() {
   # On windows, the shell test actually running on msys
-  if [[ "${PLATFORM}" =~ msys* ]]; then
+  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
     true
   else
     false
   fi
 }
-
-if is_windows; then
-  function to_win_path() {
-    # Replace all "/" with "\"
-    result="${1////\\}"
-
-    # Replace "\x\" with "X:\"
-    prefix="${result:0:3}"
-    prefix="${prefix,,}"
-    for letter in {a..z} ; do
-      if [[ "$prefix" == "\\$letter\\" ]]; then
-        result="${letter^^}:${result:2}"
-        break
-      fi
-    done
-    echo "$result"
-  }
-
-  function to_unix_path() {
-    # Replace all "\" with "/"
-    result="${1//\\//}"
-
-    # Replace "C:/" or "c:/" with "/c/"
-    prefix="${result:0:3}"
-    prefix="${prefix,,}"
-    for letter in {a..z} ; do
-      if [[ "$prefix" == "$letter:/" ]]; then
-        result="/${letter}${result:2}"
-        break
-      fi
-    done
-    echo "$result"
-  }
-fi
 
 # Parse arguments sequentially until the first unrecognized arg is encountered.
 # Scan the remaining args for --wrapper_script_flag=X options and process them.
@@ -153,7 +119,7 @@ done
 # If we are running on Windows, convert the windows style path
 # to unix style for detecting runfiles path.
 if is_windows; then
-  self="$(to_unix_path $0)"
+  self=$(cygpath --unix "$0")
 else
   self="$0"
 fi
@@ -196,7 +162,7 @@ fi
 
 # If we are running on Windows, we need a windows style runfiles path for constructing CLASSPATH
 if is_windows; then
-  JAVA_RUNFILES="$(to_win_path $JAVA_RUNFILES)"
+  JAVA_RUNFILES=$(cygpath --windows "$JAVA_RUNFILES")
 fi
 
 RUNFILES_MANIFEST_FILE="${JAVA_RUNFILES}/MANIFEST"
@@ -211,22 +177,11 @@ if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
     fi
   }
 else
-  # Read file into my_array
-  mapfile -t my_array < $RUNFILES_MANIFEST_FILE
-
-  # Process each runfile line into a [key,value] entry in runfiles_array
-  declare -A runfiles_array
-  for line in "${my_array[@]}"
-  do
-    line_split=($line)
-    runfiles_array[${line_split[0]}]=${line_split[1]}
-  done
-
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo $1
     else
-      echo ${runfiles_array[$1]}
+      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
     fi
   }
 fi
