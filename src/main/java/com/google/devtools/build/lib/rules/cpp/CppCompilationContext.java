@@ -36,6 +36,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Immutable store of information needed for C++ compilation that is aggregated
@@ -63,6 +64,8 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   private final ModuleInfo picModuleInfo;
 
   private final CppModuleMap cppModuleMap;
+  private final CppModuleMap verificationModuleMap;
+
   private final boolean propagateModuleMapAsActionInput;
 
   // Derived from depsContexts.
@@ -79,6 +82,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       ModuleInfo picModuleInfo,
       NestedSet<Artifact> directModuleMaps,
       CppModuleMap cppModuleMap,
+      @Nullable CppModuleMap verificationModuleMap,
       boolean propagateModuleMapAsActionInput) {
     Preconditions.checkNotNull(commandLineContext);
     this.commandLineContext = commandLineContext;
@@ -90,6 +94,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     this.moduleInfo = moduleInfo;
     this.picModuleInfo = picModuleInfo;
     this.cppModuleMap = cppModuleMap;
+    this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
   }
@@ -266,6 +271,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         context.picModuleInfo,
         context.directModuleMaps,
         context.cppModuleMap,
+        context.verificationModuleMap,
         context.propagateModuleMapAsActionInput);
   }
 
@@ -316,9 +322,10 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         picModuleInfo.build(),
         mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
         libContext.cppModuleMap,
+        libContext.verificationModuleMap,
         libContext.propagateModuleMapAsActionInput);
   }
-  
+
   /**
    * Return a nested set containing all elements from {@code s1} and {@code s2}.
    */
@@ -332,6 +339,11 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   /** @return the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
+  }
+
+  /** @return the C++ module map of the owner. */
+  public CppModuleMap getVerificationModuleMap() {
+    return verificationModuleMap;
   }
 
   /**
@@ -378,6 +390,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
     private final Set<String> defines = new LinkedHashSet<>();
     private CppModuleMap cppModuleMap;
+    private CppModuleMap verificationModuleMap;
     private boolean propagateModuleMapAsActionInput = true;
 
     /** The rule that owns the context */
@@ -591,11 +604,15 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Sets the C++ module map.
-     */
+    /** Sets the C++ module map. */
     public Builder setCppModuleMap(CppModuleMap cppModuleMap) {
       this.cppModuleMap = cppModuleMap;
+      return this;
+    }
+
+    /** Sets the C++ module map used to verify that headers are modules compatible. */
+    public Builder setVerificationModuleMap(CppModuleMap verificationModuleMap) {
+      this.verificationModuleMap = verificationModuleMap;
       return this;
     }
 
@@ -609,6 +626,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
 
     /**
      * Sets the C++ header module in non-pic mode.
+     *
      * @param headerModule The .pcm file generated for this library.
      */
     public Builder setHeaderModule(Artifact headerModule) {
@@ -660,6 +678,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           picModuleInfo.build(),
           directModuleMaps.build(),
           cppModuleMap,
+          verificationModuleMap,
           propagateModuleMapAsActionInput);
     }
 

@@ -93,15 +93,23 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
-  /**
-   * A feature configuration snippet useful for testing header modules.
-   */
+  /** A feature configuration snippet useful for testing header modules. */
   public static final String HEADER_MODULES_FEATURE_CONFIGURATION =
       ""
           + "feature {"
           + "  name: 'header_modules'"
-          + "  implies: 'module_maps'"
           + "  implies: 'use_header_modules'"
+          + "  implies: 'header_module_compile'"
+          + "}"
+          + "feature {"
+          + "  name: 'header_module_compile'"
+          + "  implies: 'module_maps'"
+          + "  flag_set {"
+          + "    action: 'c++-module-compile'"
+          + "    flag_group {"
+          + "      flag: '--woohoo_modules'"
+          + "    }"
+          + "  }"
           + "}"
           + "feature {"
           + "  name: 'module_maps'"

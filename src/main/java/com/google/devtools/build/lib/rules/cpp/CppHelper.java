@@ -435,16 +435,19 @@ public class CppHelper {
   }
 
   /**
-   * Creates a CppModuleMap object for pure c++ builds.  The module map artifact becomes a
-   * candidate input to a CppCompileAction.
+   * Creates a CppModuleMap object for pure c++ builds. The module map artifact becomes a candidate
+   * input to a CppCompileAction.
    */
-  public static CppModuleMap createDefaultCppModuleMap(RuleContext ruleContext) {
+  public static CppModuleMap createDefaultCppModuleMap(RuleContext ruleContext, String suffix) {
     // Create the module map artifact as a genfile.
-    Artifact mapFile = ruleContext.getPackageRelativeArtifact(
-        ruleContext.getLabel().getName()
-            + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
-        ruleContext.getConfiguration().getGenfilesDirectory(
-            ruleContext.getRule().getRepository()));
+    Artifact mapFile =
+        ruleContext.getPackageRelativeArtifact(
+            ruleContext.getLabel().getName()
+                + suffix
+                + Iterables.getOnlyElement(CppFileTypes.CPP_MODULE_MAP.getExtensions()),
+            ruleContext
+                .getConfiguration()
+                .getGenfilesDirectory(ruleContext.getRule().getRepository()));
     return new CppModuleMap(mapFile, ruleContext.getLabel().toString());
   }
 

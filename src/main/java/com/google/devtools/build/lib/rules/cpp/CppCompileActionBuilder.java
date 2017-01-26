@@ -212,9 +212,11 @@ public class CppCompileActionBuilder {
       return CppCompileAction.CPP_MODULE_COMPILE;
     } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
       // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
+      if (!cppConfiguration.getParseHeadersVerifiesModules()
+          && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
         return CppCompileAction.CPP_HEADER_PARSING;
-      } else if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
+      } else if (!cppConfiguration.getParseHeadersVerifiesModules()
+          && featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
         return CppCompileAction.CPP_HEADER_PREPROCESSING;
       } else {
         // CcCommon.collectCAndCppSources() ensures we do not add headers to

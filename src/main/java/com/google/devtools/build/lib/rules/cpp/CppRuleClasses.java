@@ -192,10 +192,11 @@ public class CppRuleClasses {
    */
   public static final String LAYERING_CHECK = "layering_check";
 
-  /**
-   * A string constant for the header_modules feature.
-   */
+  /** A string constant for the header_modules feature. */
   public static final String HEADER_MODULES = "header_modules";
+
+  /** A string constant for the header_modules_compile feature. */
+  public static final String HEADER_MODULE_COMPILE = "header_module_compile";
 
   /**
    * A string constant for the compile_all_modules feature.

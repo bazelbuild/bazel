@@ -482,8 +482,12 @@ public final class CcLibraryHelper {
   }
 
   private boolean shouldProcessHeaders() {
-    return featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    // If parse_headers_verifies_modules is switched on, we verify that headers are
+    // self-contained by building the module instead.
+    return !cppConfiguration.getParseHeadersVerifiesModules()
+        && (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
+            || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS));
   }
 
   /**
@@ -1161,8 +1165,6 @@ public final class CcLibraryHelper {
 
   /** Create context for cc compile action from generated inputs. */
   private CppCompilationContext initializeCppCompilationContext(CppModel model) {
-    PublicHeaders publicHeaders = computePublicHeaders();
-
     CppCompilationContext.Builder contextBuilder = new CppCompilationContext.Builder(ruleContext);
 
     // Setup the include path; local include directories come before those inherited from deps or
@@ -1186,6 +1188,7 @@ public final class CcLibraryHelper {
       contextBuilder.addIncludeDir(includeDir);
     }
 
+    PublicHeaders publicHeaders = computePublicHeaders();
     if (publicHeaders.getVirtualIncludePath() != null) {
       contextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
     }
@@ -1228,37 +1231,66 @@ public final class CcLibraryHelper {
 
     if (featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAPS)) {
       if (cppModuleMap == null) {
-        cppModuleMap = CppHelper.createDefaultCppModuleMap(ruleContext);
+        cppModuleMap = CppHelper.createDefaultCppModuleMap(ruleContext, /*suffix=*/ "");
       }
 
       contextBuilder.setPropagateCppModuleMapAsActionInput(propagateModuleMapToCompileAction);
       contextBuilder.setCppModuleMap(cppModuleMap);
-      CppModuleMapAction action =
-          new CppModuleMapAction(
-              ruleContext.getActionOwner(),
-              cppModuleMap,
-              featureConfiguration.isEnabled(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
-                  ? ImmutableList.<Artifact>of()
-                  : privateHeaders,
-              publicHeaders.getHeaders(),
-              collectModuleMaps(),
-              additionalExportedHeaders,
-              featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
-                  || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES),
-              featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
-              featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
-              !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
-      ruleContext.registerAction(action);
+      // There are different modes for module compilation:
+      // 1. We create the module map and compile the module so that libraries depending on us can
+      //    use the resulting module artifacts in their compilation (compiled is true).
+      // 2. We create the module map so that libraries depending on us will include the headers
+      //    textually (compiled is false).
+      boolean compiled =
+          featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+              || featureConfiguration.isEnabled(CppRuleClasses.COMPILE_ALL_MODULES);
+      Iterable<CppModuleMap> dependentModuleMaps = collectModuleMaps();
+      ruleContext.registerAction(
+          createModuleMapAction(cppModuleMap, publicHeaders, dependentModuleMaps, compiled));
       if (model.getGeneratesPicHeaderModule()) {
         contextBuilder.setPicHeaderModule(model.getPicHeaderModule(cppModuleMap.getArtifact()));
       }
       if (model.getGeneratesNoPicHeaderModule()) {
         contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
       }
+      if (!compiled
+          && featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)
+          && featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
+          && ruleContext.getFragment(CppConfiguration.class).getParseHeadersVerifiesModules()) {
+        // Here, we are creating a compiled module to verify that headers are self-contained and
+        // modules ready, but we don't use the corresponding module map or compiled file anywhere
+        // else.
+        CppModuleMap verificationMap =
+            CppHelper.createDefaultCppModuleMap(ruleContext, /*suffix=*/ ".verify");
+        ruleContext.registerAction(
+            createModuleMapAction(
+                verificationMap, publicHeaders, dependentModuleMaps, /*compiledModule=*/ true));
+        contextBuilder.setVerificationModuleMap(verificationMap);
+      }
     }
 
     semantics.setupCompilationContext(ruleContext, contextBuilder);
     return contextBuilder.build();
+  }
+  
+  private CppModuleMapAction createModuleMapAction(
+      CppModuleMap moduleMap,
+      PublicHeaders publicHeaders,
+      Iterable<CppModuleMap> dependentModuleMaps,
+      boolean compiledModule) {
+    return new CppModuleMapAction(
+        ruleContext.getActionOwner(),
+        moduleMap,
+        featureConfiguration.isEnabled(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
+            ? ImmutableList.<Artifact>of()
+            : privateHeaders,
+        publicHeaders.getHeaders(),
+        dependentModuleMaps,
+        additionalExportedHeaders,
+        compiledModule,
+        featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_HOME_CWD),
+        featureConfiguration.isEnabled(CppRuleClasses.GENERATE_SUBMODULES),
+        !featureConfiguration.isEnabled(CppRuleClasses.MODULE_MAP_WITHOUT_EXTERN_MODULE));
   }
 
   /**

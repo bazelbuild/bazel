@@ -1781,6 +1781,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return cppOptions.pruneCppModules;
   }
 
+  public boolean getParseHeadersVerifiesModules() {
+    return cppOptions.parseHeadersVerifiesModules;
+  }
+
   public LibcTop getLibcTop() {
     return cppOptions.libcTop;
   }

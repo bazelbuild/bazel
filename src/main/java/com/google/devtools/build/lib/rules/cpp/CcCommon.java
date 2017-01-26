@@ -76,19 +76,19 @@ public final class CcCommon {
     }
   };
     
-  /**
-   * Features we request to enable unless a rule explicitly doesn't support them.
-   */
-  private static final ImmutableSet<String> DEFAULT_FEATURES = ImmutableSet.of(
-      CppRuleClasses.DEPENDENCY_FILE,
-      CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET,
-      CppRuleClasses.RANDOM_SEED,
-      CppRuleClasses.MODULE_MAPS,
-      CppRuleClasses.MODULE_MAP_HOME_CWD,
-      CppRuleClasses.INCLUDE_PATHS,
-      CppRuleClasses.PIC,
-      CppRuleClasses.PER_OBJECT_DEBUG_INFO,
-      CppRuleClasses.PREPROCESSOR_DEFINES);
+  /** Features we request to enable unless a rule explicitly doesn't support them. */
+  private static final ImmutableSet<String> DEFAULT_FEATURES =
+      ImmutableSet.of(
+          CppRuleClasses.DEPENDENCY_FILE,
+          CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET,
+          CppRuleClasses.RANDOM_SEED,
+          CppRuleClasses.MODULE_MAPS,
+          CppRuleClasses.MODULE_MAP_HOME_CWD,
+          CppRuleClasses.HEADER_MODULE_COMPILE,
+          CppRuleClasses.INCLUDE_PATHS,
+          CppRuleClasses.PIC,
+          CppRuleClasses.PER_OBJECT_DEBUG_INFO,
+          CppRuleClasses.PREPROCESSOR_DEFINES);
 
   /** C++ configuration */
   private final CppConfiguration cppConfiguration;
