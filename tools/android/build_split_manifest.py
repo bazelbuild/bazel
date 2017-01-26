@@ -42,8 +42,8 @@ FLAGS = gflags.FLAGS
 MANIFEST_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:versionCode="%(version_code)s"
-    android:versionName="%(version_name)s"
+    %(version_code_attribute)s
+    %(version_name_attribute)s
     package="%(package)s"
     split="%(split)s">
   <application android:hasCode="%(hascode)s">
@@ -80,8 +80,10 @@ def BuildSplitManifest(main_manifest, override_package, split, hascode):
   version_name = manifest.get(android_namespace_prefix + "versionName")
 
   return MANIFEST_TEMPLATE % {
-      "version_code": version_code,
-      "version_name": version_name,
+      "version_code_attribute":
+          'android:versionCode="%s"' % version_code if version_code else "",
+      "version_name_attribute":
+          'android:versionName="%s"' % version_name if version_name else "",
       "package": package,
       "split": split,
       "hascode": str(hascode).lower()

@@ -85,6 +85,8 @@ def StubifyMobileInstall(manifest_string):
 
   new_manifest = ElementTree.tostring(manifest)
   app_package = manifest.get("package")
+  if not app_package:
+    raise BadManifestException("manifest tag does not have a package specified")
   return (new_manifest, old_application, app_package)
 
 
@@ -158,4 +160,8 @@ def main():
 
 if __name__ == "__main__":
   FLAGS(sys.argv)
-  main()
+  try:
+    main()
+  except BadManifestException as e:
+    print e
+    sys.exit(1)
