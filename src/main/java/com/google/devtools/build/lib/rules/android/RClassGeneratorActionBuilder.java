@@ -132,6 +132,7 @@ public class RClassGeneratorActionBuilder {
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();
     ruleContext.registerAction(
         spawnActionBuilder
+            .useParameterFile(ParameterFileType.UNQUOTED)
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
             .useParameterFile(ParameterFileType.SHELL_QUOTED)

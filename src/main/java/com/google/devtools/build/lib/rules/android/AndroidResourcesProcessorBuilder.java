@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -310,6 +311,7 @@ public class AndroidResourcesProcessorBuilder {
     // Create the spawn action.
     ruleContext.registerAction(
         this.spawnActionBuilder
+            .useParameterFile(ParameterFileType.UNQUOTED)
             .addTool(sdk.getAapt())
             .addTransitiveInputs(inputs.build())
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
