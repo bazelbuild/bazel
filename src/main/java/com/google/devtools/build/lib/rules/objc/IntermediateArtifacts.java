@@ -372,9 +372,12 @@ public final class IntermediateArtifacts {
             suffix));
   }
 
-  /**
-   * Representation for a specific architecture.
-   */
+  /** Bitcode symbol map generated for a linked binary, for a specific architecture. */
+  public Artifact bitcodeSymbolMap() {
+    return appendExtension(".bcsymbolmap");
+  }
+
+  /** Representation for a specific architecture. */
   private Artifact architectureRepresentation(String arch, String suffix) {
     return appendExtension(String.format("_%s%s", arch, suffix));
   }

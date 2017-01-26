@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import java.util.Map;
 import java.util.Set;
@@ -156,6 +158,23 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
       targetBuilder.addProvider(
           AppleExecutableBinaryProvider.class, new AppleExecutableBinaryProvider(outputArtifact));
     }
+
+    AppleDebugOutputsProvider.Builder builder = AppleDebugOutputsProvider.Builder.create();
+
+    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+      for (BuildConfiguration c : childConfigurations) {
+        String arch = c.getFragment(AppleConfiguration.class).getSingleArchitecture();
+        IntermediateArtifacts intermediateArtifacts =
+            new IntermediateArtifacts(
+                ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", c);
+        Artifact bitcodeSymbol = intermediateArtifacts.bitcodeSymbolMap();
+
+        builder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbol);
+      }
+    }
+
+    targetBuilder.addProvider(AppleDebugOutputsProvider.class, builder.build());
+
     return targetBuilder.build();
   }
 

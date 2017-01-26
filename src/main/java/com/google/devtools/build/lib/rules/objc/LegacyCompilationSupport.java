@@ -515,6 +515,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
       DsymOutputType dsymOutputType) {
     Optional<Artifact> dsymBundleZip;
     Optional<Artifact> linkmap;
+    Optional<Artifact> bitcodeSymbolMap;
     if (objcConfiguration.generateDsym()) {
       registerDsymActions(dsymOutputType);
       dsymBundleZip = Optional.of(intermediateArtifacts.tempDsymBundleZip(dsymOutputType));
@@ -532,13 +533,20 @@ public class LegacyCompilationSupport extends CompilationSupport {
       linkmap = Optional.absent();
     }
 
+    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+      bitcodeSymbolMap = Optional.of(intermediateArtifacts.bitcodeSymbolMap());
+    } else {
+      bitcodeSymbolMap = Optional.absent();
+    }
+
     registerLinkAction(
         objcProvider,
         extraLinkArgs,
         extraLinkInputs,
         dsymBundleZip,
         prunedJ2ObjcArchives,
-        linkmap);
+        linkmap,
+        bitcodeSymbolMap);
     return this;
   }
 
@@ -552,7 +560,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       Iterable<Artifact> extraLinkInputs,
       Optional<Artifact> dsymBundleZip,
       Iterable<Artifact> prunedJ2ObjcArchives,
-      Optional<Artifact> linkmap) {
+      Optional<Artifact> linkmap,
+      Optional<Artifact> bitcodeSymbolMap) {
     Artifact binaryToLink = getBinaryToLink();
 
     ImmutableList<Artifact> objcLibraries = objcProvider.getObjcLibraries();
@@ -567,7 +576,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
             dsymBundleZip,
             ccLibraries,
             bazelBuiltLibraries,
-            linkmap);
+            linkmap,
+            bitcodeSymbolMap);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
@@ -577,6 +587,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
             .addOutput(binaryToLink)
             .addOutputs(dsymBundleZip.asSet())
             .addOutputs(linkmap.asSet())
+            .addOutputs(bitcodeSymbolMap.asSet())
             .addInputs(bazelBuiltLibraries)
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(STATIC_FRAMEWORK_FILE))
@@ -633,7 +644,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       Optional<Artifact> dsymBundleZip,
       Iterable<Artifact> ccLibraries,
       Iterable<Artifact> bazelBuiltLibraries,
-      Optional<Artifact> linkmap) {
+      Optional<Artifact> linkmap,
+      Optional<Artifact> bitcodeSymbolMap) {
     Iterable<String> libraryNames = libraryNames(objcProvider);
 
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
@@ -680,7 +692,11 @@ public class LegacyCompilationSupport extends CompilationSupport {
     if (bitcodeMode == AppleBitcodeMode.EMBEDDED) {
       commandLine.add("-Xlinker").add("-bitcode_verify");
       commandLine.add("-Xlinker").add("-bitcode_hide_symbols");
-      // TODO(b/32910627): Add Bitcode symbol maps outputs.
+      commandLine
+          .add("-Xlinker")
+          .add("-bitcode_symbol_map")
+          .add("-Xlinker")
+          .add(bitcodeSymbolMap.get().getExecPathString());
     }
 
     commandLine
