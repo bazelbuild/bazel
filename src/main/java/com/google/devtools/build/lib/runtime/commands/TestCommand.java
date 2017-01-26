@@ -71,8 +71,8 @@ public class TestCommand implements BlazeCommand {
     try {
       if (testOutput == TestStrategy.TestOutputFormat.STREAMED) {
         env.getReporter().handle(Event.warn(
-            "Streamed test output requested so all tests will be run locally, without sharding, " +
-             "one at a time"));
+            "Streamed test output requested. All tests will be run locally, without sharding, "
+            + "one at a time"));
         optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
             "streamed output requires locally run tests, without sharding",
             ImmutableList.of("--test_sharding_strategy=disabled", "--test_strategy=exclusive"));
