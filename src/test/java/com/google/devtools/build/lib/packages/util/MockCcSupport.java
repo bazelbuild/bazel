@@ -220,7 +220,7 @@ public abstract class MockCcSupport {
           + "  flag_set {"
           + "    action: 'lto-indexing'"
           + "    flag_group {"
-          + "      flag: 'param_file=%{thinlto_param_file}'"
+          + "      flag: 'param_file=%{thinlto_indexing_param_file}'"
           + "      flag: 'prefix_replace=%{thinlto_prefix_replace}'"
           + "    }"
           + "  }"

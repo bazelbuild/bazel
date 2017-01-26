@@ -86,6 +86,11 @@ public class CppLinkActionBuilder {
    */
   public static final String THINLTO_PARAM_FILE_VARIABLE = "thinlto_param_file";
 
+  /**
+   * A build variable to let thinlto know where it should write linker flags when indexing.
+   */
+  public static final String THINLTO_INDEXING_PARAM_FILE_VARIABLE = "thinlto_indexing_param_file";
+
   public static final String THINLTO_PREFIX_REPLACE_VARIABLE = "thinlto_prefix_replace";
 
   /**
@@ -1349,12 +1354,12 @@ public class CppLinkActionBuilder {
         if (thinltoParamFile != null) {
           // This is a lto-indexing action and we want it to populate param file.
           buildVariables.addStringVariable(
-              THINLTO_PARAM_FILE_VARIABLE, thinltoParamFile.getExecPathString());
+              THINLTO_INDEXING_PARAM_FILE_VARIABLE, thinltoParamFile.getExecPathString());
           // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
           buildVariables.addStringVariable(
               "thinlto_optional_params_file", "=" + thinltoParamFile.getExecPathString());
         } else {
-          buildVariables.addStringVariable(THINLTO_PARAM_FILE_VARIABLE, "");
+          buildVariables.addStringVariable(THINLTO_INDEXING_PARAM_FILE_VARIABLE, "");
           // TODO(b/33846234): Remove once all the relevant crosstools don't depend on the variable.
           buildVariables.addStringVariable("thinlto_optional_params_file", "");
         }
