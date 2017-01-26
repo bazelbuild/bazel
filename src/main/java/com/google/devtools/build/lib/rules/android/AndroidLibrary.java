@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
@@ -57,9 +56,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     }
     checkResourceInlining(ruleContext);
     NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
-    NestedSet<LinkerInput> transitiveNativeLibraries =
-        AndroidCommon.collectTransitiveNativeLibraries(
-            AndroidCommon.collectTransitiveInfo(ruleContext, Mode.TARGET));
 
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();
     proguardConfigsbuilder.addTransitive(new ProguardLibrary(ruleContext).collectProguardSpecs());
@@ -198,9 +194,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
             NativeLibsZipsProvider.class,
             new NativeLibsZipsProvider(
                 AndroidCommon.collectTransitiveNativeLibsZips(ruleContext).build()))
-        .add(
-            AndroidNativeLibraryProvider.class,
-            AndroidNativeLibraryProvider.create(transitiveNativeLibraries))
         .add(
             JavaNeverlinkInfoProvider.class,
             new JavaNeverlinkInfoProvider(androidCommon.isNeverLink()))

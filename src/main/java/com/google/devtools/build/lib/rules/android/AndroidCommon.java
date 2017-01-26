@@ -45,9 +45,6 @@ import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceTyp
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
-import com.google.devtools.build.lib.rules.cpp.CcNativeLibraryProvider;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
-import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -56,7 +53,6 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathTyp
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
-import com.google.devtools.build.lib.rules.java.JavaNativeLibraryProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
@@ -823,38 +819,6 @@ public class AndroidCommon {
     return new PathFragment(ruleContext.attributes().get(
         ResourceType.ASSETS.getAttribute() + "_dir",
         Type.STRING));
-  }
-
-  public static NestedSet<LinkerInput> collectTransitiveNativeLibraries(
-      Iterable<? extends TransitiveInfoCollection> deps) {
-    NestedSetBuilder<LinkerInput> builder = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection dep : deps) {
-      AndroidNativeLibraryProvider android = dep.getProvider(AndroidNativeLibraryProvider.class);
-      if (android != null) {
-        builder.addTransitive(android.getTransitiveAndroidNativeLibraries());
-        continue;
-      }
-
-      JavaNativeLibraryProvider java = dep.getProvider(JavaNativeLibraryProvider.class);
-      if (java != null) {
-        builder.addTransitive(java.getTransitiveJavaNativeLibraries());
-        continue;
-      }
-
-      CcNativeLibraryProvider cc = dep.getProvider(CcNativeLibraryProvider.class);
-      if (cc != null) {
-        for (LinkerInput input : cc.getTransitiveCcNativeLibraries()) {
-          Artifact library = input.getOriginalLibraryArtifact();
-          String name = library.getFilename();
-          if (CppFileTypes.SHARED_LIBRARY.matches(name)
-              || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
-            builder.add(input);
-          }
-        }
-      }
-    }
-
-    return builder.build();
   }
 
   public static AndroidResourcesProvider getAndroidResources(RuleContext ruleContext) {
