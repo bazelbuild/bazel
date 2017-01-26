@@ -274,22 +274,17 @@ function push_if_exists() {
   fi
 }
 
-# Push release notes refs but also a given ref
-function push_notes_and_ref() {
-  local ref="$1"
-  for repo in ${RELEASE_REPOSITORIES}; do
-    push_if_exists "${repo}" "${ref}"
-    push_if_exists "${repo}" "refs/notes/release"
-    push_if_exists "${repo}" "refs/notes/release-candidate"
-    push_if_exists "${repo}" "refs/notes/release-notes"
-    push_if_exists "${repo}" "refs/notes/cherrypick"
-  done
-}
-
 # Push the release branch to the release repositories so a release
 # candidate can be created.
 function push_release_candidate() {
-  push_notes_and_ref "$(get_release_branch)"
+  local branch="$(get_release_branch)"
+  for repo in ${RELEASE_REPOSITORIES}; do
+    push_if_exists "${repo}" "${branch}"
+    push_if_exists "${repo}" "refs/notes/release"
+    push_if_exists "${repo}" "refs/notes/release-candidates"
+    push_if_exists "${repo}" "refs/notes/release-notes"
+    push_if_exists "${repo}" "refs/notes/cherrypick"
+  done
 }
 
 # Deletes the release branch after a release or abandoning the release
@@ -340,7 +335,12 @@ function do_release() {
     for i in $MASTER_REPOSITORIES; do
       git push $i +master
     done
-    push_notes_and_ref "+refs/tags/${tag_name}"
+    for i in $RELEASE_REPOSITORIES; do
+      git push $i +refs/tags/${tag_name}
+      git push $i +refs/notes/release-candidate
+      git push $i +refs/notes/release
+      git push $i +refs/notes/release-notes
+    done
     cleanup_branches ${tag_name}
   fi
 }
