@@ -50,8 +50,8 @@ function get_release_name() {
 }
 
 # Get the short hash of a commit
-function git_commit_shorthash() {
-  git rev-parse --short "${1}"
+function git_commit_hash() {
+  git rev-parse "${1}"
 }
 
 # Get the subject (first line of the commit message) of a commit
@@ -111,7 +111,7 @@ function wrap_text() {
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
 function create_revision_information() {
-  echo "Baseline: $(git_commit_shorthash "${1}")"
+  echo "Baseline: $(git_commit_hash "${1}")"
   local first=1
   shift
   while [ -n "${1-}" ]; do
@@ -119,11 +119,11 @@ function create_revision_information() {
       echo -e "\nCherry picks:"
       first=0
     fi
-    local hash="$(git_commit_shorthash "${1}")"
+    local hash="$(git_commit_hash "${1}")"
     local subject="$(git_commit_subject $hash)"
-    local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
-    echo "   + $hash: $lines" | head -1
-    echo "$lines" | tail -n +2 | sed 's/^/              /'
+    local lines=$(echo "$subject" | wrap_text 65)  # 5 leading spaces.
+    echo "   + $hash:"
+    echo "$lines" | sed 's/^/     /'
     shift
   done
 }
