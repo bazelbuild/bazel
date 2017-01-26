@@ -355,10 +355,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
-    @Option(name = "experimental_android_resource_shrinking",
+    @Option(name = "android_resource_shrinking",
+        oldName = "experimental_android_resource_shrinking",
         defaultValue = "false",
-        category = "undocumented",
-        help = "Enables resource shrinking for android_binary APKs that use proguard.")
+        category = "semantics",
+        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
     public boolean useAndroidResourceShrinking;
 
     @Option(name = "android_manifest_merger",

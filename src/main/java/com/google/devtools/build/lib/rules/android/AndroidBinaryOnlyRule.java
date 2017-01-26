@@ -86,9 +86,18 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("resource_configuration_filters", STRING_LIST))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(shrink_resources) -->
-        Do resource shrinking (or not). This allows resource shrinking to be controlled on a per
-        target basis and will only be used if Android resource shrinking is enabled globally. This
-        is only supported for local resources (not android_resources).
+        Whether to perform resource shrinking. Resources that are not used by the binary will be
+        removed from the APK. This is only supported for rules using local resources (i.e. the
+        <code>manifest</code> and <code>resource_files</code> attributes) and requires ProGuard. It
+        operates in mostly the same manner as the Gradle resource shrinker
+        (https://developer.android.com/studio/build/shrink-code.html#shrink-resources).
+        <p>Notable differences:
+        <ul>
+          <li>uses <code>strict mode</code> by default</li>
+          <li>removing unused ID resources is not supported</li>
+        </ul>
+        If resource shrinking is enabled, <code><var>name</var>_files/resource_shrinker.log</code>
+        will also be generated, detailing the analysis and deletions performed.
         <p>Possible values:
         <ul>
           <li><code>shrink_resources = 1</code>: Turns on Android resource shrinking</li>
@@ -98,9 +107,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
               --android_resource_shrinking</a> flag.</li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("shrink_resources", TRISTATE)
-            .value(TriState.AUTO)
-            .undocumented("Android resource shrinking is still experimental"))
+        .add(attr("shrink_resources", TRISTATE).value(TriState.AUTO))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(densities) -->
         Densities to filter for when building the apk.
         This will strip out raster drawable resources that would not be loaded by a device with

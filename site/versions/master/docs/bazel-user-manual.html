@@ -1659,6 +1659,13 @@ The default is <code>armeabi-v7a</code>.
   where users want PIC code explicitly generated for static links.
 </p>
 
+<h4 id='flag--android_resource_shrinking'><code class='flag'>--android_resource_shrinking</code></h4>
+<p>
+  Selects whether to perform resource shrinking for android_binary rules. Sets the default for the
+  <a href='be/android.html#android_binary.shrink_resources'>shrink_resources attribute</a> on
+  android_binary rules; see the documentation for that rule for further details. Defaults to off.
+</p>
+
 <h4 id='flag--custom_malloc'><code class='flag'>--custom_malloc <var>malloc-library-target</var></code></h4>
 <p>
   When specified, always use the given malloc implementation, overriding all
