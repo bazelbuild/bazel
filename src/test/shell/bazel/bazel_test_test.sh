@@ -411,8 +411,10 @@ EOF
   expect_log_once "FAIL: //:flaky (.*/flaky/test_attempts/attempt_1.log)"
   expect_log_once "PASS: //:flaky"
   expect_log_once "FLAKY"
+  cat bazel-testlogs/flaky/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(tail -1 bazel-testlogs/flaky/test_attempts/attempt_1.log)"
   assert_equals 1 $(ls bazel-testlogs/flaky/test_attempts/*.log | wc -l)
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   bazel test //:pass &> $TEST_log \
@@ -421,6 +423,7 @@ EOF
   expect_log_once PASSED
   [ ! -d bazel-test_logs/pass/test_attempts ] \
     || fail "Got test attempts while expected non for non-flaky tests"
+  cat bazel-testlogs/flaky/test.log &> $TEST_log
   assert_equals "pass" "$(tail -1 bazel-testlogs/flaky/test.log)"
 
   bazel test //:fail &> $TEST_log \
@@ -429,8 +432,10 @@ EOF
   expect_log_n "FAIL: //:fail (.*/fail/test_attempts/attempt_..log)" 2
   expect_log_once "FAIL: //:fail (.*/fail/test.log)"
   expect_log_once "FAILED"
+  cat bazel-testlogs/fail/test_attempts/attempt_1.log &> $TEST_log
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test_attempts/attempt_1.log)"
   assert_equals 2 $(ls bazel-testlogs/fail/test_attempts/*.log | wc -l)
+  cat bazel-testlogs/fail/test.log &> $TEST_log
   assert_equals "fail" "$(sed -n '3p' < bazel-testlogs/fail/test.log)"
 }
 

@@ -27,24 +27,56 @@ else
   echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 fi
 
-# Bazel sets some environment vars to relative paths, but it's easier to deal
-# with absolute paths once we're actually running the test, so let's convert
-# them.
-if [[ "$TEST_SRCDIR" != /* ]]; then
-  export TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+# Bazel sets some environment vars to relative paths to improve caching and
+# support remote execution, where the absolute path may not be known to Bazel.
+# Convert them to absolute paths here before running the actual test.
+[[ "$TEST_PREMATURE_EXIT_FILE" != /* ]] &&
+  TEST_PREMATURE_EXIT_FILE="$PWD/$TEST_PREMATURE_EXIT_FILE"
+[[ "$TEST_WARNINGS_OUTPUT_FILE" != /* ]] &&
+  TEST_WARNINGS_OUTPUT_FILE="$PWD/$TEST_WARNINGS_OUTPUT_FILE"
+[[ "$TEST_LOGSPLITTER_OUTPUT_FILE" != /* ]] &&
+  TEST_LOGSPLITTER_OUTPUT_FILE="$PWD/$TEST_LOGSPLITTER_OUTPUT_FILE"
+[[ "$TEST_INFRASTRUCTURE_FAILURE_FILE" != /* ]] &&
+  TEST_INFRASTRUCTURE_FAILURE_FILE="$PWD/$TEST_INFRASTRUCTURE_FAILURE_FILE"
+[[ "$TEST_UNUSED_RUNFILES_LOG_FILE" != /* ]] &&
+  TEST_UNUSED_RUNFILES_LOG_FILE="$PWD/$TEST_UNUSED_RUNFILES_LOG_FILE"
+[[ "$TEST_UNDECLARED_OUTPUTS_DIR" != /* ]] &&
+  TEST_UNDECLARED_OUTPUTS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_DIR"
+[[ "$TEST_UNDECLARED_OUTPUTS_MANIFEST" != /* ]] &&
+  TEST_UNDECLARED_OUTPUTS_MANIFEST="$PWD/$TEST_UNDECLARED_OUTPUTS_MANIFEST"
+[[ "$TEST_UNDECLARED_OUTPUTS_ZIP" != /* ]] &&
+  TEST_UNDECLARED_OUTPUTS_ZIP="$PWD/$TEST_UNDECLARED_OUTPUTS_ZIP"
+[[ "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS" != /* ]] &&
+  TEST_UNDECLARED_OUTPUTS_ANNOTATIONS="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS"
+[[ "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR" != /* ]] &&
+  TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR="$PWD/$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
+
+[[ "$TEST_SRCDIR" != /* ]] && TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+[[ "$TEST_TMPDIR" != /* ]] && TEST_TMPDIR="$PWD/$TEST_TMPDIR"
+[[ "$XML_OUTPUT_FILE" != /* ]] && XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
+
+# The test shard status file is only set for sharded tests.
+if [[ -n "$TEST_SHARD_STATUS_FILE" ]]; then
+  [[ "$TEST_SHARD_STATUS_FILE" != /* ]] && TEST_SHARD_STATUS_FILE="$PWD/$TEST_SHARD_STATUS_FILE"
+  mkdir -p "${TEST_SHARD_STATUS_FILE%/*}"
 fi
-if [[ "$JAVA_RUNFILES" != /* ]]; then
-  export JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
-fi
-if [[ "$PYTHON_RUNFILES" != /* ]]; then
-  export PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
-fi
-if [[ "$TEST_TMPDIR" != /* ]]; then
-  export TEST_TMPDIR="$PWD/$TEST_TMPDIR"
-fi
-if [[ "$XML_OUTPUT_FILE" != /* ]]; then
-  export XML_OUTPUT_FILE="$PWD/$XML_OUTPUT_FILE"
-fi
+
+[[ "$RUNFILES_DIR" != /* ]] && RUNFILES_DIR="$PWD/$RUNFILES_DIR"
+
+# TODO(ulfjack): Standardize on RUNFILES_DIR and remove the {JAVA,PYTHON}_RUNFILES vars.
+[[ "$JAVA_RUNFILES" != /* ]] && JAVA_RUNFILES="$PWD/$JAVA_RUNFILES"
+[[ "$PYTHON_RUNFILES" != /* ]] && PYTHON_RUNFILES="$PWD/$PYTHON_RUNFILES"
+
+# Create directories for undeclared outputs and their annotations
+mkdir -p "${XML_OUTPUT_FILE%/*}" \
+    "$TEST_UNDECLARED_OUTPUTS_DIR" \
+    "$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR"
+
+# Unexport environment variables related to undeclared test outputs that are
+# only supposed to be used in this script.
+export -n TEST_UNDECLARED_OUTPUTS_MANIFEST
+export -n TEST_UNDECLARED_OUTPUTS_ZIP
+export -n TEST_UNDECLARED_OUTPUTS_ANNOTATIONS
 
 # Tell googletest about Bazel sharding.
 if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
@@ -52,6 +84,10 @@ if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
   export GTEST_TOTAL_SHARDS="${TEST_TOTAL_SHARDS}"
 fi
 export GTEST_TMP_DIR="${TEST_TMPDIR}"
+
+# TODO(ulfjack): Update Gunit to accept XML_OUTPUT_FILE and drop this env
+# variable.
+GUNIT_OUTPUT="xml:${XML_OUTPUT_FILE}"
 
 RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
 
