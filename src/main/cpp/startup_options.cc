@@ -15,13 +15,13 @@
 
 #include <assert.h>
 #include <errno.h>  // errno, ENOENT
-#include <string.h>  // strerror
 
 #include <cstdio>
 #include <cstdlib>
 
-#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/blaze_util.h"
+#include "src/main/cpp/blaze_util_platform.h"
+#include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -360,8 +360,8 @@ string StartupOptions::GetJvm() {
     if (!blaze_util::PathExists(java_program)) {
       fprintf(stderr, "Couldn't find java at '%s'.\n", java_program.c_str());
     } else {
-      fprintf(stderr, "Couldn't access %s: %s\n", java_program.c_str(),
-          strerror(errno));
+      fprintf(stderr, "Java at '%s' exists but is not executable: %s\n",
+              java_program.c_str(), blaze_util::GetLastErrorString().c_str());
     }
     exit(1);
   }

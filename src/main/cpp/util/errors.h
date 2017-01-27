@@ -18,6 +18,7 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_ERRORS_H_
 
+#include <string>
 #include "src/main/cpp/util/port.h"
 
 namespace blaze_util {
@@ -29,6 +30,11 @@ void die(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
 void pdie(const int exit_status, const char *format, ...) ATTRIBUTE_NORETURN
     PRINTF_ATTRIBUTE(2, 3);
 void PrintError(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+
+// Returns the last error as a platform-specific error message.
+// The string will also contain the platform-specific error code itself
+// (which is `errno` on Linux/Darwin, and `GetLastError()` on Windows).
+std::string GetLastErrorString();
 
 }  // namespace blaze_util
 

@@ -304,8 +304,9 @@ static string GetInstallBase(const string &root, const string &self_path) {
       devtools_ijar::ZipExtractor::Create(self_path.c_str(), &processor));
   if (extractor.get() == NULL) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open %s as a zip file: (%d) %s",
-        globals->options->product_name.c_str(), errno, strerror(errno));
+        "\nFailed to open %s as a zip file: %s",
+        globals->options->product_name.c_str(),
+        blaze_util::GetLastErrorString().c_str());
   }
   if (extractor->ProcessAll() < 0) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -777,9 +778,11 @@ static void StartServerAndConnect(const WorkspaceLayout* workspace_layout,
 
     std::this_thread::sleep_until(next_attempt_time);
     if (!server_startup->IsStillAlive()) {
-      fprintf(stderr, "\nunexpected pipe read status: %s\n"
-          "Server presumed dead. Now printing '%s':\n",
-          strerror(errno), globals->jvm_log_file.c_str());
+      fprintf(stderr,
+              "\nunexpected pipe read status: %s\n"
+              "Server presumed dead. Now printing '%s':\n",
+              blaze_util::GetLastErrorString().c_str(),
+              globals->jvm_log_file.c_str());
       WriteFileToStderrOrDie(globals->jvm_log_file.c_str());
       exit(blaze_exit_code::INTERNAL_ERROR);
     }
@@ -810,7 +813,7 @@ class ExtractBlazeZipProcessor : public devtools_ijar::ZipExtractorProcessor {
     if (!blaze_util::WriteFile(data, size, path)) {
       die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
           "\nFailed to write zipped file \"%s\": %s", path.c_str(),
-          strerror(errno));
+          blaze_util::GetLastErrorString().c_str());
     }
   }
 
@@ -834,8 +837,9 @@ static void ActuallyExtractData(const string &argv0,
       devtools_ijar::ZipExtractor::Create(argv0.c_str(), &processor));
   if (extractor.get() == NULL) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-        "\nFailed to open %s as a zip file: (%d) %s",
-        globals->options->product_name.c_str(), errno, strerror(errno));
+        "\nFailed to open %s as a zip file: %s",
+        globals->options->product_name.c_str(),
+        blaze_util::GetLastErrorString().c_str());
   }
   if (extractor->ProcessAll() < 0) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,

@@ -61,8 +61,13 @@ cc_library(
 
 cc_library(
     name = "errors",
-    srcs = ["errors.cc"],
+    srcs = ["errors.cc"] + select({
+        "//src:windows": ["errors_windows.cc"],
+        "//src:windows_msvc": ["errors_windows.cc"],
+        "//conditions:default": ["errors_posix.cc"],
+    }),
     hdrs = ["errors.h"],
+    visibility = ["//src/main/cpp:__subpackages__"],
     deps = [":port"],
 )
 

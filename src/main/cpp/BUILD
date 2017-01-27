@@ -99,6 +99,7 @@ cc_binary(
     deps = [
         ":blaze_util",
         "//src/main/cpp/util",
+        "//src/main/cpp/util:errors",
         "//src/main/cpp/util:logging",
         "//src/main/cpp/util:strings",
         "//src/main/protobuf:command_server_cc_proto",

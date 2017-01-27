@@ -14,10 +14,9 @@
 
 #include "src/main/cpp/util/errors.h"
 
-#include <errno.h>
 #include <stdarg.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 namespace blaze_util {
@@ -37,7 +36,7 @@ void pdie(const int exit_status, const char *format, ...) {
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
-  fprintf(stderr, ": %s\n", strerror(errno));
+  fprintf(stderr, ": %s\n", GetLastErrorString().c_str());
   exit(exit_status);
 }
 
@@ -47,7 +46,7 @@ void PrintError(const char *format, ...) {
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
-  fprintf(stderr, ": %s\n", strerror(errno));
+  fprintf(stderr, ": %s\n", GetLastErrorString().c_str());
 }
 
 }  // namespace blaze_util
