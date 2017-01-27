@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -506,15 +507,24 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    Collection<Artifact> initialResult;
+    Collection<Artifact> initialResult = null;
 
-    try {
-      initialResult = executor.getContext(actionContext)
-          .findAdditionalInputs(this, actionExecutionContext);
-    } catch (ExecException e) {
-      throw e.toActionExecutionException("Include scanning of rule '" + getOwner().getLabel() + "'",
-          executor.getVerboseFailures(), this);
+    // Switch running status to "analysis".
+    if (shouldScanIncludes()) {
+      actionExecutionContext.getExecutor().getEventBus()
+          .post(ActionStatusMessage.analysisStrategy(this));
+
+      try {
+        initialResult = executor.getContext(actionContext)
+            .findAdditionalInputs(this, actionExecutionContext);
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Include scanning of rule '" + getOwner().getLabel() + "'",
+            executor.getVerboseFailures(),
+            this);
+      }
     }
+
     if (initialResult == null) {
       // We will find inputs during execution. Store an empty list to show we did try to discover
       // inputs and return null to inform the caller that inputs will be discovered later.
@@ -1372,9 +1382,18 @@ public class CppCompileAction extends AbstractAction
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Collection<Artifact> scannedIncludes =
-        actionExecutionContext.getExecutor().getContext(actionContext)
-        .getScannedIncludeFiles(this, actionExecutionContext);
+    Collection<Artifact> scannedIncludes;
+    try {
+      scannedIncludes = actionExecutionContext.getExecutor().getContext(actionContext)
+          .findAdditionalInputs(this, actionExecutionContext);
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(this);
+    }
+
+    if (scannedIncludes == null) {
+      return ImmutableList.of();
+    }
+
     // Use a set to eliminate duplicates.
     ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
     return result.addAll(getInputs()).addAll(scannedIncludes).build();

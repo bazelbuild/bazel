@@ -68,12 +68,4 @@ public interface CppCompileActionContext extends ActionContext {
    * Returns the estimated resource consumption of the action.
    */
   ResourceSet estimateResourceConsumption(CppCompileAction action);
-
-  /**
-   * Returns the include files that should be shipped to the executor in addition the ones that
-   * were declared.
-   */
-  Collection<Artifact> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext)
-          throws ActionExecutionException, InterruptedException;
 }

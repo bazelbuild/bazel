@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -78,12 +77,6 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   @Override
   public ResourceSet estimateResourceConsumption(CppCompileAction action) {
     return action.estimateResourceConsumptionLocal();
-  }
-
-  @Override
-  public Collection<Artifact> getScannedIncludeFiles(
-      CppCompileAction action, ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.of();
   }
 
   @Override
