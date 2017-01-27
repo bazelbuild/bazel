@@ -592,7 +592,7 @@ public class PackageFunction implements SkyFunction {
       BuildFileAST buildFileAST,
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
-      throws PackageFunctionException, InterruptedException {
+      throws NoSuchPackageException, InterruptedException {
     Preconditions.checkArgument(!packageId.getRepository().isDefault());
 
     ImmutableList<SkylarkImport> imports = buildFileAST.getImports();
@@ -615,8 +615,7 @@ public class PackageFunction implements SkyFunction {
         return null;
       }
     } catch (SkylarkImportFailedException e) {
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
+      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
     }
 
     // Look up and load the imports.
@@ -670,11 +669,9 @@ public class PackageFunction implements SkyFunction {
 
       }
     } catch (SkylarkImportFailedException e) {
-      throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
+      throw new BuildFileContainsErrorsException(packageId, e.getMessage());
     } catch (InconsistentFilesystemException e) {
-      throw new PackageFunctionException(
-          new NoSuchPackageException(packageId, e.getMessage(), e), Transience.PERSISTENT);
+      throw new NoSuchPackageException(packageId, e.getMessage(), e);
     }
 
     if (valuesMissing) {
@@ -1191,7 +1188,9 @@ public class PackageFunction implements SkyFunction {
                   astAfterPreprocessing.ast,
                   env,
                   skylarkImportLookupFunctionForInlining);
-        } catch (PackageFunctionException | InterruptedException e) {
+        } catch (NoSuchPackageException e) {
+          throw new PackageFunctionException(e, Transience.PERSISTENT);
+        } catch (InterruptedException e) {
           astCache.invalidate(packageId);
           throw e;
         }

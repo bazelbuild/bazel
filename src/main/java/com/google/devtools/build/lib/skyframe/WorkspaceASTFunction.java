@@ -119,7 +119,10 @@ public class WorkspaceASTFunction implements SkyFunction {
   }
 
   private static final class WorkspaceASTFunctionException extends SkyFunctionException {
-    public WorkspaceASTFunctionException(Exception e, Transience transience) {
+    WorkspaceASTFunctionException(BuildFileContainsErrorsException e, Transience transience) {
+      super(e, transience);
+    }
+    WorkspaceASTFunctionException(IOException e, Transience transience) {
       super(e, transience);
     }
   }
