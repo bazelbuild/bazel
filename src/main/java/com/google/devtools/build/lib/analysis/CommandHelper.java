@@ -99,7 +99,7 @@ public final class CommandHelper {
   public CommandHelper(
       RuleContext ruleContext,
       Iterable<? extends TransitiveInfoCollection> tools,
-      ImmutableMap<Label, Iterable<Artifact>> labelMap) {
+      ImmutableMap<Label, ? extends Iterable<Artifact>> labelMap) {
     this.ruleContext = ruleContext;
 
     ImmutableList.Builder<Artifact> resolvedToolsBuilder = ImmutableList.builder();
@@ -107,7 +107,7 @@ public final class CommandHelper {
         ImmutableMap.builder();
     Map<Label, Collection<Artifact>> tempLabelMap = new HashMap<>();
 
-    for (Map.Entry<Label, Iterable<Artifact>> entry : labelMap.entrySet()) {
+    for (Map.Entry<Label, ? extends Iterable<Artifact>> entry : labelMap.entrySet()) {
       Iterables.addAll(mapGet(tempLabelMap, entry.getKey()), entry.getValue());
     }
 

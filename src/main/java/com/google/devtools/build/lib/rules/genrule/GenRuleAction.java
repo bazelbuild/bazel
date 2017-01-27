@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.genrule;
+package com.google.devtools.build.lib.rules.genrule;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,13 +31,13 @@ import java.util.List;
  * A spawn action for genrules. Genrules are handled specially in that inputs and outputs are
  * checked for directories.
  */
-public final class BazelGenRuleAction extends SpawnAction {
+public class GenRuleAction extends SpawnAction {
 
   private static final ResourceSet GENRULE_RESOURCES =
       // Not chosen scientifically/carefully.  300MB memory, 100% CPU, no I/O.
       ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
 
-  public BazelGenRuleAction(
+  public GenRuleAction(
       ActionOwner owner,
       Iterable<Artifact> tools,
       Iterable<Artifact> inputs,

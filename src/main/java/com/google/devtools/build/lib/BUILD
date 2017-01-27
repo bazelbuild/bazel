@@ -32,6 +32,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
@@ -570,6 +571,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:CcProtoLibrary",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery",
+        "//src/main/java/com/google/devtools/build/lib/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
@@ -1112,6 +1114,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
     ],
 )

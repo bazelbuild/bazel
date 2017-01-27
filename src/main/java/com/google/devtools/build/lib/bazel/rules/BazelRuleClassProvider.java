@@ -113,6 +113,7 @@ import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.extra.ActionListenerRule;
 import com.google.devtools.build.lib.rules.extra.ExtraActionRule;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
+import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
@@ -342,6 +343,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AliasRule());
           builder.addRuleDefinition(new BazelFilegroupRule());
           builder.addRuleDefinition(new TestSuiteRule());
+          builder.addRuleDefinition(new GenRuleBaseRule());
           builder.addRuleDefinition(new BazelGenRuleRule());
           builder.addRuleDefinition(new GenQueryRule());
 

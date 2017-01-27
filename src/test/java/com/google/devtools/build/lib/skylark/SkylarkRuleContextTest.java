@@ -527,48 +527,41 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "consume_rule(name = 'c_str', s = [cdict['kind'], cdict['name'], cdict['x']])");
 
     SkylarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
-    Object result = evalRuleContextCode(allContext, "ruleContext.attr.s");
-    assertEquals(
-        SkylarkList.createImmutable(ImmutableList.<String>of("genrule", "a", "nop_rule", "c")),
-        result);
+    List<String> result = (List<String>) evalRuleContextCode(allContext, "ruleContext.attr.s");
+    assertThat(result).containsExactly("genrule", "a", "nop_rule", "c");
 
-    result = evalRuleContextCode(createRuleContext("//test/getrule:a_str"), "ruleContext.attr.s");
-    assertEquals(
-        SkylarkList.createImmutable(
-            ImmutableList.<String>of("genrule", "a", ":a.txt", "//test:bla")),
-        result);
+    result = (List<String>) evalRuleContextCode(
+        createRuleContext("//test/getrule:a_str"), "ruleContext.attr.s");
+    assertThat(result).containsExactly("genrule", "a", ":a.txt", "//test:bla");
 
-    result = evalRuleContextCode(createRuleContext("//test/getrule:c_str"), "ruleContext.attr.s");
-    assertEquals(
-        SkylarkList.createImmutable(ImmutableList.<String>of("nop_rule", "c", ":a")), result);
+    result = (List<String>) evalRuleContextCode(
+        createRuleContext("//test/getrule:c_str"), "ruleContext.attr.s");
+    assertThat(result).containsExactly("nop_rule", "c", ":a");
 
-    result =
-        evalRuleContextCode(createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
-    assertEquals(
-        SkylarkList.createImmutable(
-            ImmutableList.<String>of(
-                "name",
-                "visibility",
-                "tags",
-                "generator_name",
-                "generator_function",
-                "generator_location",
-                "features",
-                "compatible_with",
-                "restricted_to",
-                "srcs",
-                "tools",
-                "toolchains",
-                "outs",
-                "cmd",
-                "output_to_bindir",
-                "local",
-                "message",
-                "executable",
-                "stamp",
-                "heuristic_label_expansion",
-                "kind")),
-        result);
+    result = (List<String>) evalRuleContextCode(
+        createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
+    assertThat(result).containsExactly(
+        "name",
+        "visibility",
+        "tags",
+        "generator_name",
+        "generator_function",
+        "generator_location",
+        "features",
+        "compatible_with",
+        "restricted_to",
+        "srcs",
+        "tools",
+        "toolchains",
+        "outs",
+        "cmd",
+        "output_to_bindir",
+        "local",
+        "message",
+        "executable",
+        "stamp",
+        "heuristic_label_expansion",
+        "kind");
   }
 
   @Test
