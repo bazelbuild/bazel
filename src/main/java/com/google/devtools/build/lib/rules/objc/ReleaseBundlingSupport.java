@@ -281,7 +281,9 @@ public final class ReleaseBundlingSupport {
    * @return this release bundling support
    */
   ReleaseBundlingSupport validateResources() {
-    bundleSupport.validate(objcProvider);
+    bundleSupport
+        .validatePlatform()
+        .validateResources(objcProvider);
     return this;
   }
 

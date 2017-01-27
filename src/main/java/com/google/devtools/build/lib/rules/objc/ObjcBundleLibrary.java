@@ -58,13 +58,16 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     }
 
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+
+    // Platform is purposefully not validated on this BundleSupport. Multi-arch validation and
+    // resource de-duplication should only take place at the level of the bundling rule.
     new BundleSupport(ruleContext,
             appleConfiguration,
             appleConfiguration.getMultiArchPlatform(PlatformType.IOS),
             bundling,
             new ExtraActoolArgs())
+        .validateResources(common.getObjcProvider())
         .registerActions(common.getObjcProvider())
-        .validate(common.getObjcProvider())
         .addXcodeSettings(xcodeProviderBuilder);
 
     if (ruleContext.hasErrors()) {
