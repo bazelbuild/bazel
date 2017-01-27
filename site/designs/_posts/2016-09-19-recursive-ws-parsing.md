@@ -39,7 +39,7 @@ about don't need to be resolved.
 Suppose we have a main repository that depends on repo x, and x depends on repo
 y:
 
-<img src="/assets/ws-line.jpg" class="img-responsive">
+<img src="/assets/ws-line.png" class="img-responsive">
 
 In this case, version 1 of "foo" wins.  This way, if a library has already
 figured out which version works for them, its reverse dependencies do not have
@@ -54,7 +54,7 @@ If there is no obvious hierarchy and multiple versions are specified, error out.
 Report what each chain of dependencies was that wanted the dep and at which
 versions:
 
-<img src="/assets/ws-multiline.jpg" class="img-responsive">
+<img src="/assets/ws-multiline.png" class="img-responsive">
 
 In this case, Bazel would error out with:
 
@@ -68,7 +68,7 @@ vs. bazel-external/a/WORKSPACE:2 repository(name = 'foo' version = '2')
 
 This is also the case with diamond dependencies:
 
-<img src="/assets/ws-diamond.jpg" class="img-responsive">
+<img src="/assets/ws-diamond.png" class="img-responsive">
 
 This would print:
 
