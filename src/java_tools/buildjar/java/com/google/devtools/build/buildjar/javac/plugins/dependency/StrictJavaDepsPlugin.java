@@ -170,12 +170,15 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
       String canonicalizedLabel =
           dependencyModule.getTargetLabel() == null
               ? null
+              // we don't use the target mapping for the target, just the missing deps
               : canonicalizeTarget(dependencyModule.getTargetLabel());
       List<JarOwner> canonicalizedMissing = new ArrayList<>();
       for (JarOwner owner :
           Ordering.natural().onResultOf(JarOwner.LABEL).immutableSortedCopy(missingTargets)) {
-        canonicalizedMissing.add(
-            JarOwner.create(canonicalizeTarget(owner.label()), owner.aspect()));
+        // for dependencies that are missing we canonicalize and remap the target so we don't
+        // suggest private build labels.
+        String actualTarget = canonicalizeTarget(remapTarget(owner.label()));
+        canonicalizedMissing.add(JarOwner.create(actualTarget, owner.aspect()));
       }
       errWriter.print(
           dependencyModule
@@ -271,7 +274,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         JarOwner owner = indirectJarsToTargets.get(jarName);
         if (owner != null && seenTargets.add(owner)) {
           // owner is of the form "//label/of:rule <Aspect name>" where <Aspect name> is optional.
-          String canonicalTargetName = canonicalizeTarget(owner.label());
+          String canonicalTargetName = canonicalizeTarget(remapTarget(owner.label()));
           missingTargets.add(owner);
           String toolInfo =
               owner.aspect() == null
@@ -381,12 +384,17 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
     return ProcessorDependencyMode.DEFAULT;
   }
 
-  /** Returns the canonical version of the target name. Package private for testing. */
-  static String canonicalizeTarget(String target) {
+  /** Replace the given target with a configured replacement. Package private for testing. */
+  static String remapTarget(String target) {
     String replacement = targetMap.getProperty(target);
     if (replacement != null) {
       return replacement;
     }
+    return target;
+  }
+
+  /** Returns the canonical version of the target name. Package private for testing. */
+  static String canonicalizeTarget(String target) {
     int atIndex = target.indexOf('@');
     if (atIndex != -1) {
       // target starts with @@repo ('@' is escaped for the params file parsing) so one @ needs to
