@@ -10,5 +10,35 @@ create_android_sdk_rules(
     default_api_level = %default_api_level%,
 )
 
+alias(
+    name = "adb",
+    actual = "platform-tools/adb",
+)
+
+alias(
+    name = "emulator_arm",
+    actual = "tools/emulator64-arm",
+)
+
+alias(
+    name = "emulator_x86",
+    actual = "tools/emulator64-x86",
+)
+
+filegroup(
+    name = "emulator_x86_bios",
+    srcs = glob(["tools/lib/pc-bios/*"]),
+)
+
+alias(
+    name = "mksd",
+    actual = "tools/mksdcard",
+)
+
+alias(
+    name = "empty_snapshot_fs",
+    actual = "tools/lib/emulator/snapshots.img",
+)
+
 exports_files([
 %exported_files%] + glob(["system-images/**"]))

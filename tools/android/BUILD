@@ -125,7 +125,7 @@ py_test(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//tools/android/emulator:srcs"],
 )
 
 filegroup(
@@ -136,5 +136,5 @@ filegroup(
             "*_test.py",
             "*_test.sh",
         ],
-    ),
+    ) + ["//tools/android/emulator:embedded_tools"],
 )

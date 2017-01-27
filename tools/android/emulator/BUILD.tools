@@ -1,0 +1,46 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["no_se_linux.properties"])
+
+alias(
+    name = "emulator_arm",
+    actual = "@androidsdk//:emulator_arm",
+)
+
+alias(
+    name = "emulator_x86",
+    actual = "@androidsdk//:emulator_x86",
+)
+
+alias(
+    name = "emulator_x86_bios",
+    actual = "@androidsdk//:emulator_x86_bios",
+)
+
+alias(
+    name = "mksd",
+    actual = "@androidsdk//:mksd",
+)
+
+alias(
+    name = "empty_snapshot_fs",
+    actual = "@androidsdk//:empty_snapshot_fs",
+)
+
+filegroup(
+    name = "xvfb_support",
+    srcs = [],
+)
+
+# Unified launcher is not included with Bazel or the Android SDK. Instead, it
+# comes from an external repository that must be set up in order for
+# android_device to work.
+alias(
+    name = "unified_launcher",
+    actual = "@org_unified_launcher//tools/android/emulator:unified_launcher",
+)
+
+filegroup(
+    name = "shbase",
+    srcs = ["googletest.sh"],
+)
