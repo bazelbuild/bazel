@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
@@ -25,14 +24,12 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.io.IOException;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.List;
 
 /** Tests for RunfilesSupplierImpl */
 @RunWith(JUnit4.class)
@@ -54,23 +51,10 @@ public class RunfilesSupplierImplTest {
   public void testGetArtifactsWithSingleMapping() {
     List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
 
-    RunfilesSupplierImpl underTest = new RunfilesSupplierImpl(
-        ImmutableMap.of(new PathFragment("notimportant"), mkRunfiles(artifacts)));
+    RunfilesSupplierImpl underTest =
+        new RunfilesSupplierImpl(new PathFragment("notimportant"), mkRunfiles(artifacts));
 
     assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
-  }
-
-  @Test
-  public void testGetArtifactsWithMultipleMappings() {
-    List<Artifact> artifacts1 = mkArtifacts(rootDir, "thing_1", "thing_2", "duplicated");
-    List<Artifact> artifacts2 = mkArtifacts(rootDir, "thing_3", "thing_4", "duplicated");
-
-    RunfilesSupplierImpl underTest = new RunfilesSupplierImpl(ImmutableMap.of(
-        new PathFragment("notimportant"), mkRunfiles(artifacts1),
-        new PathFragment("stillnotimportant"), mkRunfiles(artifacts2)));
-
-    assertThat(underTest.getArtifacts()).containsExactlyElementsIn(
-        mkArtifacts(rootDir, "thing_1", "thing_2", "thing_3", "thing_4", "duplicated"));
   }
 
   @Test
@@ -79,10 +63,25 @@ public class RunfilesSupplierImplTest {
     Artifact middleman = new Artifact(new PathFragment("middleman"), middlemanRoot);
     Runfiles runfiles = mkRunfiles(Iterables.concat(artifacts, ImmutableList.of(middleman)));
 
-    RunfilesSupplier underTest = new RunfilesSupplierImpl(
-        ImmutableMap.of(new PathFragment("notimportant"), runfiles));
+    RunfilesSupplier underTest =
+        new RunfilesSupplierImpl(new PathFragment("notimportant"), runfiles);
 
     assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
+  }
+
+  @Test
+  public void testGetManifestsWhenNone() {
+    RunfilesSupplier underTest =
+        new RunfilesSupplierImpl(new PathFragment("ignored"), Runfiles.EMPTY, null);
+    assertThat(underTest.getManifests()).isEmpty();
+  }
+
+  @Test
+  public void testGetManifestsWhenSupplied() {
+    Artifact manifest = new Artifact(new PathFragment("manifest"), rootDir);
+    RunfilesSupplier underTest =
+        new RunfilesSupplierImpl(new PathFragment("ignored"), Runfiles.EMPTY, manifest);
+    assertThat(underTest.getManifests()).containsExactly(manifest);
   }
 
   private static Runfiles mkRunfiles(Iterable<Artifact> artifacts) {

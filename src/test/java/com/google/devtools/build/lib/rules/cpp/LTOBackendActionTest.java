@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -160,9 +162,11 @@ public class LTOBackendActionTest extends BuildViewTestCase {
             builder.setMnemonic((i & 4) == 0 ? "a" : "b");
 
             if ((i & 8) == 0) {
-              builder.addInputManifest(artifactA, new PathFragment("a"));
+              builder.addRunfilesSupplier(
+                  new RunfilesSupplierImpl(new PathFragment("a"), Runfiles.EMPTY, artifactA));
             } else {
-              builder.addInputManifest(artifactB, new PathFragment("a"));
+              builder.addRunfilesSupplier(
+                  new RunfilesSupplierImpl(new PathFragment("a"), Runfiles.EMPTY, artifactB));
             }
 
             if ((i & 16) == 0) {

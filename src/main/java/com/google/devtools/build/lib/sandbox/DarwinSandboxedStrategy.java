@@ -282,7 +282,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       spawnHelpers.mountInputs(mounts, spawn, executionContext);
 
       Map<PathFragment, Path> unfinalized = new HashMap<>();
-      spawnHelpers.mountRunfilesFromManifests(unfinalized, spawn);
       spawnHelpers.mountRunfilesFromSuppliers(unfinalized, spawn);
       spawnHelpers.mountFilesFromFilesetManifests(unfinalized, spawn, executionContext);
       mounts.putAll(finalizeLinks(unfinalized));

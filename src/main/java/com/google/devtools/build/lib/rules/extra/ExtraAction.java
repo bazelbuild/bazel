@@ -26,9 +26,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
@@ -53,7 +55,7 @@ import javax.annotation.concurrent.GuardedBy;
 public final class ExtraAction extends SpawnAction {
   private final Action shadowedAction;
   private final boolean createDummyOutput;
-  private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
+  private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> extraActionInputs;
   // This can be read/written from multiple threads, and so accesses should be synchronized.
   @GuardedBy("this")
@@ -71,9 +73,9 @@ public final class ExtraAction extends SpawnAction {
         }
       };
 
-  public ExtraAction(
+  ExtraAction(
       ImmutableSet<Artifact> extraActionInputs,
-      Map<PathFragment, Artifact> runfilesManifests,
+      RunfilesSupplier runfilesSupplier,
       Collection<Artifact> outputs,
       Action shadowedAction,
       boolean createDummyOutput,
@@ -86,7 +88,7 @@ public final class ExtraAction extends SpawnAction {
     super(
         shadowedAction.getOwner(),
         ImmutableList.<Artifact>of(),
-        createInputs(shadowedAction.getInputs(), extraActionInputs),
+        createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
@@ -94,12 +96,13 @@ public final class ExtraAction extends SpawnAction {
         ImmutableSet.copyOf(clientEnvironmentVariables),
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        getManifests(shadowedAction),
+        // TODO(michajlo): Do we need the runfiles manifest as an input / should this be composite?
+        shadowedAction.getRunfilesSupplier(),
         mnemonic,
         false,
         null);
     this.shadowedAction = shadowedAction;
-    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
+    this.runfilesSupplier = runfilesSupplier;
     this.createDummyOutput = createDummyOutput;
 
     this.extraActionInputs = extraActionInputs;
@@ -108,16 +111,6 @@ public final class ExtraAction extends SpawnAction {
       // Expecting just a single dummy file in the outputs.
       Preconditions.checkArgument(outputs.size() == 1, outputs);
     }
-  }
-
-  private static ImmutableMap<PathFragment, Artifact> getManifests(Action shadowedAction) {
-    // If the shadowed action is a SpawnAction, then we also add the input manifests to this
-    // action's input manifests.
-    // TODO(bazel-team): Also handle other action classes correctly.
-    if (shadowedAction instanceof SpawnAction) {
-      return ((SpawnAction) shadowedAction).getInputManifests();
-    }
-    return ImmutableMap.of();
   }
 
   @Override
@@ -135,7 +128,7 @@ public final class ExtraAction extends SpawnAction {
     if (shadowedAction.discoversInputs() && shadowedAction instanceof AbstractAction) {
       Iterable<Artifact> additionalInputs =
           ((AbstractAction) shadowedAction).getInputFilesForExtraAction(actionExecutionContext);
-      updateInputs(createInputs(additionalInputs, extraActionInputs));
+      updateInputs(createInputs(additionalInputs, extraActionInputs, runfilesSupplier));
       return ImmutableSet.copyOf(additionalInputs);
     }
     return null;
@@ -147,13 +140,16 @@ public final class ExtraAction extends SpawnAction {
   }
 
   private static NestedSet<Artifact> createInputs(
-      Iterable<Artifact> shadowedActionInputs, ImmutableSet<Artifact> extraActionInputs) {
+      Iterable<Artifact> shadowedActionInputs,
+      ImmutableSet<Artifact> extraActionInputs,
+      RunfilesSupplier extraActionRunfilesSupplier) {
     NestedSetBuilder<Artifact> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
     if (shadowedActionInputs instanceof NestedSet) {
       result.addTransitive((NestedSet<Artifact>) shadowedActionInputs);
     } else {
       result.addAll(shadowedActionInputs);
     }
+    result.addAll(extraActionRunfilesSupplier.getArtifacts());
     return result.addAll(extraActionInputs).build();
   }
 
@@ -221,11 +217,9 @@ public final class ExtraAction extends SpawnAction {
   public Spawn getSpawn(Map<String, String> clientEnv) {
     final Spawn base = super.getSpawn(clientEnv);
     return new DelegateSpawn(base) {
-      @Override public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
-        ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
-        builder.putAll(super.getRunfilesManifests());
-        builder.putAll(runfilesManifests);
-        return builder.build();
+      @Override
+      public RunfilesSupplier getRunfilesSupplier() {
+        return new CompositeRunfilesSupplier(super.getRunfilesSupplier(), runfilesSupplier);
       }
 
       @Override public String getMnemonic() { return ExtraAction.this.getMnemonic(); }

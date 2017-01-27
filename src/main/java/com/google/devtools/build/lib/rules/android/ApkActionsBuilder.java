@@ -16,12 +16,15 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ApkSigningMethod;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
@@ -189,12 +192,19 @@ public class ApkActionsBuilder {
           .addInputArgument(javaResourceZip);
     }
 
-    Artifact nativeSymlinks = nativeLibs.createApkBuilderSymlinks(ruleContext);
-    if (nativeSymlinks != null) {
-      PathFragment nativeSymlinksDir = nativeSymlinks.getExecPath().getParentDirectory();
+    Pair<Artifact, Runfiles> nativeSymlinksManifestAndRunfiles =
+        nativeLibs.createApkBuilderSymlinks(ruleContext);
+    if (nativeSymlinksManifestAndRunfiles != null) {
+      Artifact nativeSymlinksManifest = nativeSymlinksManifestAndRunfiles.first;
+      Runfiles nativeSymlinksRunfiles = nativeSymlinksManifestAndRunfiles.second;
+      PathFragment nativeSymlinksDir = nativeSymlinksManifest.getExecPath().getParentDirectory();
       actionBuilder
-          .addInputManifest(nativeSymlinks, nativeSymlinksDir)
-          .addInput(nativeSymlinks)
+          .addRunfilesSupplier(
+              new RunfilesSupplierImpl(
+                  nativeSymlinksDir,
+                  nativeSymlinksRunfiles,
+                  nativeSymlinksManifest))
+          .addInput(nativeSymlinksManifest)
           .addInputs(nativeLibs.getAllNativeLibs())
           .addArgument("-nf")
           // If the native libs are "foo/bar/x86/foo.so", we need to pass "foo/bar" here

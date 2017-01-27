@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.Collection;
 
 /**
@@ -56,11 +55,6 @@ public interface Spawn {
    * @param workingDir the initial working directory of the command
    */
   String asShellCommand(Path workingDir);
-
-  /**
-   * Returns the runfiles data for remote execution. Format is (directory, manifest file).
-   */
-  ImmutableMap<PathFragment, Artifact> getRunfilesManifests();
 
   /**
    * Returns the {@link RunfilesSupplier} helper encapsulating the runfiles for this spawn.

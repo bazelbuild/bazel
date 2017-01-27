@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.extra;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -27,11 +28,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.util.List;
 
 /**
@@ -78,7 +77,7 @@ public final class ExtraActionFactory implements RuleConfiguredTargetFactory {
 
     ExtraActionSpec spec = new ExtraActionSpec(
         commandHelper.getResolvedTools(),
-        commandHelper.getRemoteRunfileManifestMap(),
+        new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
         resolvedData,
         outputTemplates,
         command,

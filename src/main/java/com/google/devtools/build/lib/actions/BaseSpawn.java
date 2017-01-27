@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -37,21 +36,15 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
   private final ImmutableSet<PathFragment> optionalOutputFiles;
   private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSet localResources;
 
-  // TODO(bazel-team): When we migrate ActionSpawn to use this constructor decide on and enforce
-  // policy on runfilesManifests and runfilesSupplier being non-empty (ie: are overlapping mappings
-  // allowed?).
-  @VisibleForTesting
-  BaseSpawn(
+  public BaseSpawn(
       List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      Map<PathFragment, Artifact> runfilesManifests,
       RunfilesSupplier runfilesSupplier,
       ActionExecutionMetadata action,
       ResourceSet localResources,
@@ -59,7 +52,6 @@ public class BaseSpawn implements Spawn {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
-    this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
     this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
@@ -81,30 +73,7 @@ public class BaseSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        ImmutableMap.<PathFragment, Artifact>of(),
         runfilesSupplier,
-        action,
-        localResources,
-        ImmutableSet.<PathFragment>of());
-  }
-
-  /**
-   * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
-   * this method.
-   */
-  public BaseSpawn(
-      List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      Map<PathFragment, Artifact> runfilesManifests,
-      ActionExecutionMetadata action,
-      ResourceSet localResources) {
-    this(
-        arguments,
-        environment,
-        executionInfo,
-        runfilesManifests,
-        EmptyRunfilesSupplier.INSTANCE,
         action,
         localResources,
         ImmutableSet.<PathFragment>of());
@@ -121,28 +90,9 @@ public class BaseSpawn implements Spawn {
         arguments,
         environment,
         executionInfo,
-        ImmutableMap.<PathFragment, Artifact>of(),
+        EmptyRunfilesSupplier.INSTANCE,
         action,
         localResources);
-  }
-
-  public BaseSpawn(
-      List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
-      ActionExecutionMetadata action,
-      ResourceSet localResources,
-      Collection<PathFragment> optionalOutputFiles) {
-    this(
-        arguments,
-        environment,
-        executionInfo,
-        ImmutableMap.<PathFragment, Artifact>of(),
-        runfilesSupplier,
-        action,
-        localResources,
-        optionalOutputFiles);
   }
 
   public static PathFragment runfilesForFragment(PathFragment pathFragment) {
@@ -167,11 +117,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public String asShellCommand(Path workingDir) {
     return asShellCommand(getArguments(), workingDir, getEnvironment());
-  }
-
-  @Override
-  public ImmutableMap<PathFragment, Artifact> getRunfilesManifests() {
-    return runfilesManifests;
   }
 
   @Override
@@ -234,10 +179,8 @@ public class BaseSpawn implements Spawn {
   /** @return the runfiles directory if there is only one, otherwise null */
   private PathFragment getRunfilesRoot() {
     Set<PathFragment> runfilesSupplierRoots = runfilesSupplier.getRunfilesDirs();
-    if (runfilesSupplierRoots.size() == 1 && runfilesManifests.isEmpty()) {
+    if (runfilesSupplierRoots.size() == 1) {
       return Iterables.getOnlyElement(runfilesSupplierRoots);
-    } else if (runfilesManifests.size() == 1 && runfilesSupplierRoots.isEmpty()) {
-      return Iterables.getOnlyElement(runfilesManifests.keySet());
     } else {
       return null;
     }

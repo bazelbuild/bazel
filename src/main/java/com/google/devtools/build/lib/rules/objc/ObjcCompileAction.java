@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -74,7 +75,7 @@ public class ObjcCompileAction extends SpawnAction {
    * re-introduced into action inputs.
    */
   public class ObjcCompileActionSpawn extends ActionSpawn {
-    
+
     public ObjcCompileActionSpawn(Map<String, String> clientEnv) {
       super(clientEnv);
     }
@@ -84,10 +85,10 @@ public class ObjcCompileAction extends SpawnAction {
       return ImmutableList.<ActionInput>builder()
           .addAll(super.getInputFiles())
           .addAll(filterHeaderFiles())
-          .build();      
+          .build();
     }
   }
-  
+
   private final DotdFile dotdFile;
   private final Artifact sourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -97,7 +98,7 @@ public class ObjcCompileAction extends SpawnAction {
   // This can be read/written from multiple threads, so accesses must be synchronized.
   @GuardedBy("this")
   private boolean inputsKnown = false;
-  
+
   private static final String GUID = "a00d5bac-a72c-4f0f-99a7-d5fdc6072137";
 
   private ObjcCompileAction(
@@ -110,7 +111,7 @@ public class ObjcCompileAction extends SpawnAction {
       ImmutableMap<String, String> environment,
       ImmutableMap<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<PathFragment, Artifact> inputManifests,
+      RunfilesSupplier runfilesSupplier,
       String mnemonic,
       boolean executeUnconditionally,
       ExtraActionInfoSupplier<?> extraActionInfoSupplier,
@@ -130,7 +131,7 @@ public class ObjcCompileAction extends SpawnAction {
         ImmutableSet.<String>of(),
         executionInfo,
         progressMessage,
-        inputManifests,
+        runfilesSupplier,
         mnemonic,
         executeUnconditionally,
         extraActionInfoSupplier);
@@ -151,7 +152,7 @@ public class ObjcCompileAction extends SpawnAction {
           inputs.add(headerArtifact);
         }
     }
-    return inputs.build();    
+    return inputs.build();
   }
 
   /** Returns the DotdPruningPlan for this compile */
@@ -164,12 +165,12 @@ public class ObjcCompileAction extends SpawnAction {
   public synchronized boolean inputsKnown() {
     return inputsKnown;
   }
-  
+
   @Override
   public final Spawn getSpawn(Map<String, String> clientEnv) {
     return new ObjcCompileActionSpawn(clientEnv);
   }
-  
+
   @Override
   public boolean discoversInputs() {
     return true;
@@ -184,7 +185,7 @@ public class ObjcCompileAction extends SpawnAction {
   public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
     return filterHeaderFiles();
   }
- 
+
   // Keep in sync with {@link CppCompileAction#resolveInputsFromCache}
   @Override
   public Iterable<Artifact> resolveInputsFromCache(
@@ -225,17 +226,17 @@ public class ObjcCompileAction extends SpawnAction {
         inputs.add(artifact);
       }
     }
-    return inputs;    
+    return inputs;
   }
-  
+
   @Override
   public synchronized void updateInputs(Iterable<Artifact> inputs) {
     inputsKnown = true;
     synchronized (this) {
       setInputs(inputs);
     }
-  }  
-  
+  }
+
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of(dotdFile.artifact());
@@ -408,7 +409,7 @@ public class ObjcCompileAction extends SpawnAction {
       this.dotdPruningPlan = dotdPruningPlan;
       return this;
     }
-    
+
     /** Adds to the set of all possible headers that could be required by this compile action. */
     public Builder addTransitiveHeaders(NestedSet<Artifact> headers) {
       this.headers.addTransitive(Preconditions.checkNotNull(headers));
@@ -435,7 +436,7 @@ public class ObjcCompileAction extends SpawnAction {
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
-        ImmutableMap<PathFragment, Artifact> inputAndToolManifests,
+        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new ObjcCompileAction(
           owner,
@@ -447,7 +448,7 @@ public class ObjcCompileAction extends SpawnAction {
           env,
           executionInfo,
           progressMessage,
-          inputAndToolManifests,
+          runfilesSupplier,
           mnemonic,
           executeUnconditionally,
           extraActionInfoSupplier,

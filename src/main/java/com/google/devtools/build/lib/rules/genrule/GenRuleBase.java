@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -190,7 +191,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
             env,
             clientEnvVars,
             ImmutableMap.copyOf(executionInfo),
-            ImmutableMap.copyOf(commandHelper.getRemoteRunfileManifestMap()),
+            new CompositeRunfilesSupplier(commandHelper.getToolsRunfilesSuppliers()),
             message + ' ' + ruleContext.getLabel()));
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(

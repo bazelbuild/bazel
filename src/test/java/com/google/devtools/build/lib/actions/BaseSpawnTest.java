@@ -21,61 +21,30 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
-import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
-import org.junit.Before;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
-import java.util.Map;
 
 /** Tests for BaseSpawns less trivial aspects. */
 @RunWith(JUnit4.class)
 public class BaseSpawnTest {
 
-  private Root rootDir;
-
-  @Before
-  public final void setup() throws IOException {
-    Scratch scratch = new Scratch();
-    rootDir = Root.asDerivedRoot(scratch.dir("/fake/root/dont/matter"));
-  }
-
   @Test
   public void testGetEnvironmentDoesntAddRunfilesVarsWhenSourcesAreEmpty() {
     Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron, ImmutableMap.<PathFragment, Artifact>of(),
-        EmptyRunfilesSupplier.INSTANCE);
+    BaseSpawn underTest = minimalBaseSpawn(baseEnviron, EmptyRunfilesSupplier.INSTANCE);
 
     assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
-  }
-
-  @Test
-  public void testGetEnvironmentAddsRunfilesWhenOnlyOneSuppliedViaManifests() {
-    Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
-    final String runfilesDir = "runfilesdir";
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        ImmutableMap.of(new PathFragment(runfilesDir), mkArtifact("dontmatter", rootDir)),
-        EmptyRunfilesSupplier.INSTANCE);
-
-    Map<String, String> expected = ImmutableMap.<String, String>builder()
-        .putAll(baseEnviron)
-        .put("PYTHON_RUNFILES", runfilesDir)
-        .put("JAVA_RUNFILES", runfilesDir)
-        .build();
-
-    assertThat(underTest.getEnvironment()).isEqualTo(expected);
   }
 
   @Test
   public void testGetEnvironmentAddsRunfilesWhenOnlyOneSuppliedViaRunfilesSupplier() {
     Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
     final String runfilesDir = "runfilesdir";
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        ImmutableMap.<PathFragment, Artifact>of(),
+    BaseSpawn underTest = minimalBaseSpawn(
+        baseEnviron,
         new RunfilesSupplierImpl(new PathFragment(runfilesDir), Runfiles.EMPTY));
 
     Map<String, String> expected = ImmutableMap.<String, String>builder()
@@ -88,55 +57,26 @@ public class BaseSpawnTest {
   }
 
   @Test
-  public void testGetEnvironmentDoesntAddRunfilesWhenSupplierAndManifestsSupplied() {
-    Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        ImmutableMap.of(new PathFragment("runfilesdir"), mkArtifact("dontmatter", rootDir)),
-        new RunfilesSupplierImpl(new PathFragment("runfilesdir2"), Runfiles.EMPTY));
-
-    assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
-  }
-
-  @Test
   public void testGetEnvironmentDoesntAddRunfilesWhenMultipleManifestsSupplied() {
     Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
     BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        ImmutableMap.of(
-            new PathFragment("runfilesdir1"), mkArtifact("dontmatter", rootDir),
-            new PathFragment("runfilesdir2"), mkArtifact("stilldontmatter", rootDir)),
-        EmptyRunfilesSupplier.INSTANCE);
-
-    assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
-  }
-
-  @Test
-  public void testGetEnvironmentDoesntAddRunfilesWhenMultipleSuppliersSupplied() {
-    Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
-    BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
-        ImmutableMap.<PathFragment, Artifact>of(),
-        new RunfilesSupplierImpl(ImmutableMap.of(
-            new PathFragment("runfilesdir1"), Runfiles.EMPTY,
-            new PathFragment("runfilesdir2"), Runfiles.EMPTY)));
+        new CompositeRunfilesSupplier(
+            new RunfilesSupplierImpl(new PathFragment("rfdir1"), Runfiles.EMPTY),
+            new RunfilesSupplierImpl(new PathFragment("rfdir2"), Runfiles.EMPTY)));
 
     assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
   }
 
   private static BaseSpawn minimalBaseSpawn(
       Map<String, String> environment,
-      Map<PathFragment, Artifact> runfilesManifests,
       RunfilesSupplier runfilesSupplier) {
     return new BaseSpawn(
         ImmutableList.<String>of(),
         environment,
         ImmutableMap.<String, String>of(),
-        runfilesManifests,
         runfilesSupplier,
         null,
         null,
         ImmutableSet.<PathFragment>of());
-  }
-
-  private static Artifact mkArtifact(String path, Root rootDir) {
-    return new Artifact(new PathFragment(path), rootDir);
   }
 }

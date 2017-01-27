@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -77,7 +78,7 @@ public final class LTOBackendAction extends SpawnAction {
       Set<String> clientEnvironmentVariables,
       Map<String, String> executionInfo,
       String progressMessage,
-      ImmutableMap<PathFragment, Artifact> inputManifests,
+      RunfilesSupplier runfilesSupplier,
       String mnemonic) {
     super(
         owner,
@@ -90,7 +91,7 @@ public final class LTOBackendAction extends SpawnAction {
         ImmutableSet.copyOf(clientEnvironmentVariables),
         ImmutableMap.copyOf(executionInfo),
         progressMessage,
-        ImmutableMap.copyOf(inputManifests),
+        runfilesSupplier,
         mnemonic,
         false,
         null);
@@ -201,10 +202,10 @@ public final class LTOBackendAction extends SpawnAction {
     f.addString(GUID);
     f.addStrings(getArguments());
     f.addString(getMnemonic());
-    f.addInt(getInputManifests().size());
-    for (Map.Entry<PathFragment, Artifact> input : getInputManifests().entrySet()) {
-      f.addString(input.getKey().getPathString() + "/");
-      f.addPath(input.getValue().getExecPath());
+    f.addPaths(getRunfilesSupplier().getRunfilesDirs());
+    ImmutableList<Artifact> runfilesManifests = getRunfilesSupplier().getManifests();
+    for (Artifact runfilesManifest : runfilesManifests) {
+      f.addPath(runfilesManifest.getExecPath());
     }
     for (Artifact input : getMandatoryInputs()) {
       f.addPath(input.getExecPath());
@@ -242,7 +243,7 @@ public final class LTOBackendAction extends SpawnAction {
         ImmutableSet<String> clientEnvironmentVariables,
         ImmutableMap<String, String> executionInfo,
         String progressMessage,
-        ImmutableMap<PathFragment, Artifact> inputAndToolManifests,
+        RunfilesSupplier runfilesSupplier,
         String mnemonic) {
       return new LTOBackendAction(
           inputsAndTools.toCollection(),
@@ -255,7 +256,7 @@ public final class LTOBackendAction extends SpawnAction {
           clientEnvironmentVariables,
           executionInfo,
           progressMessage,
-          inputAndToolManifests,
+          runfilesSupplier,
           mnemonic);
     }
   }

@@ -14,7 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -22,17 +23,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.IOException;
 import java.util.Map;
-import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
-/**
- * {@link RunfilesSupplier} implementation wrapping directory to {@link Runfiles} objects mappings.
- */
+/** {@link RunfilesSupplier} implementation wrapping a single {@link Runfiles} directory mapping. */
+// TODO(bazel-team): Consider renaming to SingleRunfilesSupplierImpl.
 public class RunfilesSupplierImpl implements RunfilesSupplier {
-
-  private final ImmutableMap<PathFragment, Runfiles> inputRunfiles;
+  private final PathFragment runfilesDir;
+  private final Runfiles runfiles;
+  @Nullable
+  private final Artifact manifest;
 
   /**
    * Create an instance for an executable.
@@ -46,43 +47,48 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
   }
 
   /**
-   * Create an instance when you have a a single mapping.
-   *
-   * @param runfilesDir the desired runfiles directory. Should be relative.
-   * @param runfiles the runfiles for runfilesDir
+   * Create an instance. When a manifest is available consider using
+   * {@link #RunfilesSupplierImpl(PathFragment, Runfiles, Artifact)} instead.
    */
   public RunfilesSupplierImpl(PathFragment runfilesDir, Runfiles runfiles) {
-    this.inputRunfiles = ImmutableMap.of(runfilesDir, runfiles);
+    this(runfilesDir, runfiles, /*manifest=*/ null);
   }
 
-  @VisibleForTesting
-  public RunfilesSupplierImpl(Map<PathFragment, Runfiles> inputRunfiles) {
-    this.inputRunfiles = ImmutableMap.copyOf(inputRunfiles);
+  /**
+   * Create an instance mapping {@code runfiles} to {@code runfilesDir}.
+   *
+   * @param runfilesDir the desired runfiles directory. Should be relative.
+   * @param runfiles the runfiles for runilesDir.
+   * @param manifest runfiles' associated runfiles manifest artifact, if present.
+   */
+  public RunfilesSupplierImpl(
+      PathFragment runfilesDir,
+      Runfiles runfiles,
+      @Nullable Artifact manifest) {
+    this.runfilesDir = Preconditions.checkNotNull(runfilesDir);
+    this.runfiles = Preconditions.checkNotNull(runfiles);
+    this.manifest = manifest;
   }
 
   @Override
   public Iterable<Artifact> getArtifacts() {
-    ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
-    for (Entry<PathFragment, Runfiles> entry : inputRunfiles.entrySet()) {
-      builder.addAll(
-          Iterables.filter(entry.getValue().getAllArtifacts(), Artifact.MIDDLEMAN_FILTER));
-    }
-    return builder.build();
+    return Iterables.filter(runfiles.getAllArtifacts(), Artifact.MIDDLEMAN_FILTER);
   }
 
   @Override
   public ImmutableSet<PathFragment> getRunfilesDirs() {
-    return inputRunfiles.keySet();
+    return ImmutableSet.of(runfilesDir);
   }
 
   @Override
   public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() throws IOException {
-    ImmutableMap.Builder<PathFragment, Map<PathFragment, Artifact>> result =
-        ImmutableMap.builder();
-    for (Entry<PathFragment, Runfiles> entry : inputRunfiles.entrySet()) {
-      result.put(entry.getKey(), entry.getValue().getRunfilesInputs(null, null));
-    }
-    return result.build();
+    return ImmutableMap.of(
+        runfilesDir,
+        runfiles.getRunfilesInputs(/*eventHandler=*/ null, /*location=*/ null));
   }
 
+  @Override
+  public ImmutableList<Artifact> getManifests() {
+    return manifest != null ? ImmutableList.of(manifest) : ImmutableList.<Artifact>of();
+  }
 }

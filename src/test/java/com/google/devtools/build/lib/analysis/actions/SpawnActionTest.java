@@ -30,10 +30,13 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
@@ -345,11 +348,12 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInputManifest() throws Exception {
+  public void testInputManifestsRemovedIfSupplied() throws Exception {
     Artifact manifest = getSourceArtifact("MANIFEST");
     Action[] actions = builder()
         .addInput(manifest)
-        .addInputManifest(manifest, new PathFragment("/destination/"))
+        .addRunfilesSupplier(
+            new RunfilesSupplierImpl(new PathFragment("/destination/"), Runfiles.EMPTY, manifest))
         .addOutput(getBinArtifactWithNoOwner("output"))
         .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
@@ -381,15 +385,15 @@ public class SpawnActionTest extends BuildViewTestCase {
         builder.setMnemonic((i & 4) == 0 ? "a" : "b");
 
         if ((i & 8) == 0) {
-          builder.addInputManifest(artifactA, new PathFragment("a"));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("a")));
         } else {
-          builder.addInputManifest(artifactB, new PathFragment("a"));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactB, new PathFragment("a")));
         }
 
         if ((i & 16) == 0) {
-          builder.addInputManifest(artifactA, new PathFragment("aa"));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("aa")));
         } else {
-          builder.addInputManifest(artifactA, new PathFragment("ab"));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("ab")));
         }
 
         Map<String, String> env = new HashMap<>();
@@ -461,5 +465,9 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(extraActionInfo.getAspectParametersMap())
         .containsExactly(
             "parameter", ExtraActionInfo.StringList.newBuilder().addValue("param_value").build());
+  }
+
+  private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {
+    return new RunfilesSupplierImpl(dir, Runfiles.EMPTY, manifest);
   }
 }

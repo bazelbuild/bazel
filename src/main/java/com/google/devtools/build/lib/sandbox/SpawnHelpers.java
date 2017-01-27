@@ -52,23 +52,10 @@ public final class SpawnHelpers {
   public Map<PathFragment, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
       throws IOException {
     Map<PathFragment, Path> mounts = new HashMap<>();
-    mountRunfilesFromManifests(mounts, spawn);
     mountRunfilesFromSuppliers(mounts, spawn);
     mountFilesFromFilesetManifests(mounts, spawn, executionContext);
     mountInputs(mounts, spawn, executionContext);
     return mounts;
-  }
-
-  /** Mount all runfiles that the spawn needs as specified in its runfiles manifests. */
-  void mountRunfilesFromManifests(Map<PathFragment, Path> mounts, Spawn spawn) throws IOException {
-    for (Map.Entry<PathFragment, Artifact> manifest : spawn.getRunfilesManifests().entrySet()) {
-      String manifestFilePath = manifest.getValue().getPath().getPathString();
-      Preconditions.checkState(!manifest.getKey().isAbsolute());
-      PathFragment targetDirectory = manifest.getKey();
-
-      parseManifestFile(
-          execRoot.getFileSystem(), mounts, targetDirectory, new File(manifestFilePath), false, "");
-    }
   }
 
   /** Mount all files that the spawn needs as specified in its fileset manifests. */

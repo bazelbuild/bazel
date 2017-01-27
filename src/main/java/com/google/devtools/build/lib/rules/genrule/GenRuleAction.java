@@ -21,10 +21,10 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /**
@@ -46,7 +46,7 @@ public class GenRuleAction extends SpawnAction {
       ImmutableMap<String, String> environment,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> executionInfo,
-      ImmutableMap<PathFragment, Artifact> runfilesManifests,
+     RunfilesSupplier runfilesSupplier,
       String progressMessage) {
     super(
         owner,
@@ -59,7 +59,7 @@ public class GenRuleAction extends SpawnAction {
         clientEnvironmentVariables,
         executionInfo,
         progressMessage,
-        runfilesManifests,
+        runfilesSupplier,
         "Genrule",
         false,
         null);
