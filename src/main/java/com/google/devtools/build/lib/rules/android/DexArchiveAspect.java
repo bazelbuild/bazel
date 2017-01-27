@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.rules.android.AndroidCommon.getAndroidConfig;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -55,6 +54,10 @@ import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
+import com.google.devtools.build.lib.rules.java.proto.JavaCompilationArgsAspectProvider;
+import com.google.devtools.build.lib.rules.java.proto.JavaLiteProtoAspect;
+import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -101,7 +104,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   /** Aspect-only label for desugaring executable, to avoid name clashes with labels on rules. */
   private static final String ASPECT_DESUGAR_PREREQ = "$aspect_desugar";
   private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES =
-      ImmutableList.of("deps", "exports", "runtime_deps");
+      ImmutableList.of("deps", "exports", "runtime_deps",
+          // To get from proto_library through proto_lang_toolchain rule to proto runtime library.
+          JavaLiteProtoAspect.PROTO_TOOLCHAIN_ATTR, "runtime");
 
   private final String toolsRepository;
 
@@ -112,8 +117,14 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
     AspectDefinition.Builder result = new AspectDefinition.Builder(this)
-        // Actually we care about JavaRuntimeJarProvider, but rules don't advertise that provider.
-        .requireProviders(JavaCompilationArgsProvider.class)
+        .requireProviderSets(
+            ImmutableList.of(
+                // We care about JavaRuntimeJarProvider, but rules don't advertise that provider.
+                ImmutableSet.<Class<?>>of(JavaCompilationArgsProvider.class),
+                // For proto_library rules, where we care about JavaCompilationArgsAspectProvider.
+                ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
+                // For proto_lang_toolchain rules, where we just want to get at their runtime deps.
+                ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
         // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
         .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))
@@ -156,11 +167,11 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
     DexArchiveProvider.Builder dexArchives = new DexArchiveProvider.Builder()
         .addTransitiveProviders(collectPrerequisites(ruleContext, DexArchiveProvider.class));
-    JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
-    if (jarProvider != null) {
-      boolean basenameClash = checkBasenameClash(jarProvider.getRuntimeJars());
+    Iterable<Artifact> runtimeJars = getProducedRuntimeJars(base, ruleContext);
+    if (runtimeJars != null) {
+      boolean basenameClash = checkBasenameClash(runtimeJars);
       Set<Set<String>> aspectDexopts = aspectDexopts(ruleContext);
-      for (Artifact jar : jarProvider.getRuntimeJars()) {
+      for (Artifact jar : runtimeJars) {
         for (Set<String> incrementalDexopts : aspectDexopts) {
           // Since we're potentially dexing the same jar multiple times with different flags, we
           // need to write unique artifacts for each flag combination. Here, it is convenient to
@@ -200,13 +211,19 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     }
     AndroidRuntimeJarProvider.Builder desugaredJars = new AndroidRuntimeJarProvider.Builder()
         .addTransitiveProviders(collectPrerequisites(ruleContext, AndroidRuntimeJarProvider.class));
+    if (isProtoLibrary(ruleContext)) {
+      // TODO(b/33557068): Desugar protos if needed instead of assuming they don't need desugaring
+      result.addProvider(desugaredJars.build());
+      return Functions.identity();
+    }
+
     JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
     if (jarProvider != null) {
       // These are all transitive hjars of dependencies and hjar of the jar itself
-      NestedSet<Artifact> compileTimeClasspath = base
-          .getProvider(JavaCompilationArgsProvider.class) // aspect definition requires this
-          .getRecursiveJavaCompilationArgs()
-          .getCompileTimeJars();
+      NestedSet<Artifact> compileTimeClasspath =
+          getJavaCompilationArgsProvider(base, ruleContext)
+              .getRecursiveJavaCompilationArgs()
+              .getCompileTimeJars();
       // For android_* targets we need to honor their bootclasspath (nicer in general to do so)
       ImmutableList<Artifact> bootclasspath = getBootclasspath(base, ruleContext);
 
@@ -222,10 +239,37 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
     return Functions.forMap(newlyDesugared);
   }
 
-  private static boolean checkBasenameClash(ImmutableList<Artifact> artifacts) {
-    if (artifacts.size() <= 1) {
-      return false;
+  private static Iterable<Artifact> getProducedRuntimeJars(ConfiguredTarget base,
+      RuleContext ruleContext) {
+    if (isProtoLibrary(ruleContext)) {
+      JavaCompilationArgsAspectProvider javaProtos =
+          base.getProvider(JavaCompilationArgsAspectProvider.class);
+      if (javaProtos != null && !ruleContext.getPrerequisites("srcs", Mode.TARGET).isEmpty()) {
+        return javaProtos.provider.getJavaCompilationArgs().getRuntimeJars();
+      }
+    } else {
+      JavaRuntimeJarProvider jarProvider = base.getProvider(JavaRuntimeJarProvider.class);
+      if (jarProvider != null) {
+        return jarProvider.getRuntimeJars();
+      }
     }
+    return null;
+  }
+
+  private static JavaCompilationArgsProvider getJavaCompilationArgsProvider(ConfiguredTarget base,
+      RuleContext ruleContext) {
+    if (isProtoLibrary(ruleContext)) {
+      return base.getProvider(JavaCompilationArgsAspectProvider.class).provider;
+    } else {
+      return base.getProvider(JavaCompilationArgsProvider.class);
+    }
+  }
+
+  private static boolean isProtoLibrary(RuleContext ruleContext) {
+    return "proto_library".equals(ruleContext.getRule().getRuleClass());
+  }
+
+  private static boolean checkBasenameClash(Iterable<Artifact> artifacts) {
     HashSet<String> seen = new HashSet<>();
     for (Artifact artifact : artifacts) {
       if (!seen.add(artifact.getFilename())) {
@@ -239,7 +283,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
       RuleContext ruleContext, Class<T> classType) {
     IterablesChain.Builder<T> result = IterablesChain.builder();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
-      if (ruleContext.getRule().getRuleClassObject().hasAttr(attr, LABEL_LIST)) {
+      if (ruleContext.attributes().getAttributeType(attr) != null) {
         result.add(ruleContext.getPrerequisites(attr, Mode.TARGET, classType));
       }
     }
@@ -278,8 +322,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
   }
 
   /**
-   * Desugars the given Jar using an executable prerequisite {@code "$dexbuilder"}.  Rules
-   * calling this method must declare the appropriate prerequisite, similar to how
+   * Desugars the given Jar using an executable prerequisite {@code "$desugar"}.
+   * Rules calling this method must declare the appropriate prerequisite, similar to how
    * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
    *
    * <p>It's useful to have this action separately since callers need to look up classpath and
