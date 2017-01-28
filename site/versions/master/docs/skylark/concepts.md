@@ -204,44 +204,45 @@ The following Python features are not supported:
 
 The following items are upcoming changes.
 
-* Comprehensions currently "leak" the values of their loop variables into the
-  surrounding scope (Python 2 semantics). This will be changed so that
-  comprehension variables are local (Python 3 semantics).
+*   Comprehensions currently "leak" the values of their loop variables into the
+    surrounding scope (Python 2 semantics). This will be changed so that
+    comprehension variables are local (Python 3 semantics).
 
-* Previously dictionaries were guaranteed to use sorted order for their keys.
-  Going forward, there is no guarantee on order besides that it is
-  deterministic. As an implementation matter, some kinds of dictionaries may
-  continue to use sorted order while others may use insertion order.
+*   Previously dictionaries were guaranteed to use sorted order for their keys.
+    Going forward, there is no guarantee on order besides that it is
+    deterministic. As an implementation matter, some kinds of dictionaries may
+    continue to use sorted order while others may use insertion order.
 
-* The `+=` operator and similar operators are currently syntactic sugar;
-  `x += y` is the same as `x = x + y`. This will change to follow Python
-  semantics, so that for mutable collection datatypes, `x += y` will be a
-  mutation to the value of `x` rather than a rebinding of the variable `x`
-  itself to a new value. E.g. for lists, `x += y` will be the same as
-  `x.extend(y)`.
+*   The `+=` operator and similar operators are currently syntactic sugar; `x +=
+    y` is the same as `x = x + y`. This will change to follow Python semantics,
+    so that for mutable collection datatypes, `x += y` will be a mutation to the
+    value of `x` rather than a rebinding of the variable `x` itself to a new
+    value. E.g. for lists, `x += y` will be the same as `x.extend(y)`.
 
-* The `+` operator is defined for dictionaries, returning an immutable
-  concatenated dictionary created from the entries of the original
-  dictionaries. This will be going away. The same result can be achieved using
-  `dict(a.items() + b.items())`. Likewise, there is a `+` operator for sets that
-  will be going away; users should use `|` instead.
+*   The "set" datatype is being renamed to "depset" in order to avoid confusion
+    with Python's sets, which behave very differently.
 
-* The order comparison operators (<, <=, >=, >) are currently defined across
-  different types of values, e.g., you can write `5 < 'foo'`. This will be an
-  error, just like in Python 3. Note that this means you will be unable to
-  sort lists that contain mixed types of values.
+*   The `+` operator is defined for dictionaries, returning an immutable
+    concatenated dictionary created from the entries of the original
+    dictionaries. This will be going away. The same result can be achieved using
+    `dict(a.items() + b.items())`.
 
-* The structure of the set that you get back from using the `+` or `|` operator
-  is changing. Previously `a + b`, where `a` is a set, would include as its
-  direct items all of `a`'s direct items. Under the upcoming way, the result
-  will only include `a` as a single transitive entity. This will alter the
-  visible iteration order of the returned set. Most notably,
-  `set([1, 2]) + set([3, 4] + set([5, 6])` will return elements in the order
-  `1 2 3 4 5 6` instead of `3 4 5 6 1 2`. This change is associated with a fix
-  that improves set union to be O(1) time.
+*   The `|` operator is defined for depsets as a synonym for `+`. This will be
+    going away; use `+` instead.
 
-* The set datatype will be renamed in order to avoid confusion with Python's
-  set datatype, which behaves very differently.
+*   The order comparison operators (<, <=, >=, >) are currently defined across
+    different types of values, e.g., you can write `5 < 'foo'`. This will be an
+    error, just like in Python 3. Note that this means you will be unable to
+    sort lists that contain mixed types of values.
+
+*   The structure of the set that you get back from using the `+` or `|`
+    operator is changing. Previously `a + b`, where `a` is a set, would include
+    as its direct items all of `a`'s direct items. Under the upcoming way, the
+    result will only include `a` as a single transitive entity. This will alter
+    the visible iteration order of the returned set. Most notably, `set([1,
+    2]) + set([3, 4] + set([5, 6])` will return elements in the order `1 2 3 4 5
+    6` instead of `3 4 5 6 1 2`. This change is associated with a fix that
+    improves set union to be O(1) time.
 
 These changes concern the `load()` syntax in particular.
 

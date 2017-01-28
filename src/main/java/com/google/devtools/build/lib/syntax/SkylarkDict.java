@@ -27,22 +27,22 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "dict",
     category = SkylarkModuleCategory.BUILTIN,
-    doc = "A language built-in type to support dicts. "
-    + "Example of dict literal:<br>"
+    doc = "A language built-in type representating a dictionary (associative mapping). "
+    + "Dictionaries may be constructed with a special literal syntax:<br>"
     + "<pre class=\"language-python\">d = {\"a\": 2, \"b\": 5}</pre>"
-    + "Use brackets to access elements:<br>"
+    + "Use square brackets to access elements:<br>"
     + "<pre class=\"language-python\">e = d[\"a\"]   # e == 2</pre>"
-    + "Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple "
-    + "keys the second one overrides the first one. Examples:<br>"
-    + "<pre class=\"language-python\">"
-    + "d = {\"a\" : 1} + {\"b\" : 2}   # d == {\"a\" : 1, \"b\" : 2}\n"
-    + "d += {\"c\" : 3}              # d == {\"a\" : 1, \"b\" : 2, \"c\" : 3}\n"
-    + "d = d + {\"c\" : 5}           # d == {\"a\" : 1, \"b\" : 2, \"c\" : 5}</pre>"
-    + "Iterating on a dict is equivalent to iterating on its keys (order is not specified).<br>"
-    + "Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. "
-    + "Example:<br>"
-    + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True"
-    + "</pre>")
+    + "Like lists, they can also be constructed using a comprehension syntax:<br>"
+    + "<pre class=\"language-python\">d = {i: 2*i for i in range(20)}\n"
+    + "e = d[8]       # e == 16</pre>"
+    + "See also the <a href=\"globals.html#dict\">dict()</a> constructor function. "
+    + "<p>Iterating over a dict is equivalent to iterating over its keys. The <code>in</code> "
+    + "operator tests for membership in the keyset of the dict.<br>"
+    + "<pre class=\"language-python\">\"a\" in {\"a\" : 2, \"b\" : 5}   # evaluates as True</pre>"
+    + "The iteration order for a dict is deterministic but not specified. When constructing a dict "
+    + "using any of the above methods, if there are two identical keys with conflicting values "
+    + "then the last value takes precedence."
+)
 public final class SkylarkDict<K, V>
     extends MutableMap<K, V> implements Map<K, V>, SkylarkIndexable {
 
