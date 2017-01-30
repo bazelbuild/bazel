@@ -85,4 +85,22 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY SPLIT");
   }
+
+  @Test
+  public void testEmptySplitDoesNotSuppressRuleClassTransition() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.EmptySplitRule(),
+        new TestAspects.RuleClassTransitionRule());
+    scratch.file(
+        "a/BUILD",
+        "empty_split(",
+        "   name = 'empty',",
+        "   with_empty_transition = ':rule_class',",
+        ")",
+        "rule_class_transition(name='rule_class')");
+    List<ConfiguredTarget> deps = getConfiguredDeps("//a:empty", "with_empty_transition");
+    BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
+    assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
+  }
 }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -50,7 +51,14 @@ public class ComposingSplitTransition implements SplitTransition<BuildOptions> {
     } else if (transition instanceof PatchTransition) {
       return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(patchedOptions));
     } else if (transition instanceof SplitTransition) {
-      return ((SplitTransition<BuildOptions>) transition).split(patchedOptions);
+      SplitTransition split = (SplitTransition<BuildOptions>) transition;
+      List<BuildOptions> splitOptions = split.split(patchedOptions);
+      if (splitOptions.isEmpty()) {
+        Verify.verify(split.defaultsToSelf());
+        return ImmutableList.of(patchedOptions);
+      } else {
+        return splitOptions;
+      }
     } else {
       throw new IllegalStateException(
           String.format("Unsupported composite transition type: %s",

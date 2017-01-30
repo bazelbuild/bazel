@@ -925,6 +925,19 @@ public class TestAspects {
     }
   }
 
+  private static class EmptySplitTransition implements SplitTransition<BuildOptions> {
+
+    @Override
+    public List<BuildOptions> split(BuildOptions buildOptions) {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
   /**
    * Rule with a split transition on an attribute.
    */
@@ -968,6 +981,28 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_class_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /** A rule with an empty split transition on an attribute. */
+  public static class EmptySplitRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("with_empty_transition", LABEL)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .cfg(new EmptySplitTransition()))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("empty_split")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
