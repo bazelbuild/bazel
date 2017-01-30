@@ -43,6 +43,7 @@ cc_test(
     name = "logging_test",
     srcs = ["logging_test.cc"],
     deps = [
+        "//src/main/cpp:blaze_util",
         "//src/main/cpp/util:bazel_log_handler",
         "//src/main/cpp/util:logging",
         "//third_party:gtest",

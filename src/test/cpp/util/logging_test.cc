@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 
+#include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/bazel_log_handler.h"
 #include "src/main/cpp/util/logging.h"
 #include "gtest/gtest.h"
@@ -22,7 +23,12 @@
 namespace blaze_util {
 
 TEST(LoggingTest, BazelLogHandlerDumpsToCerrAtFail) {
-  // Set up logging and be prepared to capture stderr at destruction.
+  // Set the value of $TMP first, because CaptureStderr retrieves a temp
+  // directory path and on Windows, the corresponding function (GetTempPathA)
+  // reads $TMP.
+  blaze::SetEnv("TMP", blaze::GetEnv("TEST_TMPDIR"));
+  // Set up logging now that $TMP is set, and be prepared to capture stderr at
+  // destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
@@ -51,7 +57,12 @@ TEST(LoggingTest, LogLevelNamesMatch) {
 }
 
 TEST(LoggingTest, ImpossibleFile) {
-  // Set up to capture logging to stderr.
+  // Set the value of $TMP first, because CaptureStderr retrieves a temp
+  // directory path and on Windows, the corresponding function (GetTempPathA)
+  // reads $TMP.
+  blaze::SetEnv("TMP", blaze::GetEnv("TEST_TMPDIR"));
+  // Set up logging now that $TMP is set, and be prepared to capture stderr at
+  // destruction.
   testing::internal::CaptureStderr();
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
