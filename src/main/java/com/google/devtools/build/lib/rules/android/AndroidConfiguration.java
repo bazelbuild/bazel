@@ -355,8 +355,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
+    @Option(name = "experimental_android_resource_shrinking",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
+    public boolean useExperimentalAndroidResourceShrinking;
+
     @Option(name = "android_resource_shrinking",
-        oldName = "experimental_android_resource_shrinking",
         defaultValue = "false",
         category = "semantics",
         help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
@@ -495,7 +500,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
-    this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
+    this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
+        || options.useExperimentalAndroidResourceShrinking;
     this.useParallelResourceProcessing = options.useParallelResourceProcessing;
     this.manifestMerger = options.manifestMerger;
     this.apkSigningMethod = options.apkSigningMethod;
