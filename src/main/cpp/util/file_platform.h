@@ -50,6 +50,8 @@ class IFileMtime {
 // Creates a platform-specific implementation of `IFileMtime`.
 IFileMtime *CreateFileMtime();
 
+std::string JoinPath(const std::string &path1, const std::string &path2);
+
 // Split a path to dirname and basename parts.
 std::pair<std::string, std::string> SplitPath(const std::string &path);
 

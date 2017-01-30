@@ -168,6 +168,35 @@ IPipe* CreatePipe() {
   return new PosixPipe(fd[0], fd[1]);
 }
 
+string JoinPath(const string &path1, const string &path2) {
+  if (path1.empty()) {
+    // "" + "/bar"
+    return path2;
+  }
+  if (path2.empty()) {
+    // "foo/" + ""
+    return path1;
+  }
+
+  if (path1.back() == '/') {
+    if (path2.front() == '/') {
+      // foo/ + /bar
+      return path1 + path2.substr(1);
+    } else {
+      // foo/ + bar
+      return path1 + path2;
+    }
+  } else {
+    if (path2.front() == '/') {
+      // foo + /bar
+      return path1 + path2;
+    } else {
+      // foo + bar
+      return path1 + "/" + path2;
+    }
+  }
+}
+
 pair<string, string> SplitPath(const string &path) {
   size_t pos = path.rfind('/');
 

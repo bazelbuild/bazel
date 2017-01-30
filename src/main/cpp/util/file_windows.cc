@@ -323,6 +323,44 @@ static bool IsRootOrAbsolute(const basic_string<char_type>& path,
        HasDriveSpecifierPrefix(path.c_str() + 4) && IsPathSeparator(path[6]));
 }
 
+string JoinPath(const string& path1, const string& path2) {
+  if (path1.empty()) {
+    // "" + "/bar"
+    return path2;
+  }
+  if (path2.empty()) {
+    // "foo/" + ""
+    return path1;
+  }
+
+  string p1 = path1;
+  if (path1.back() == '/') {
+    p1.pop_back();
+  }
+  string p2 = path2;
+  if (path2.front() == '/') {
+    p2[0] = '\\';
+  }
+
+  if (IsPathSeparator(p1.back())) {
+    if (!p2.empty() && IsPathSeparator(p2.front())) {
+      // foo/ + /bar
+      return p1 + p2.substr(1);
+    } else {
+      // foo/ + bar
+      return p1 + p2;
+    }
+  } else {
+    if (!p2.empty() && IsPathSeparator(p2.front())) {
+      // foo + /bar
+      return p1 + p2;
+    } else {
+      // foo + bar
+      return p1 + "\\" + p2;
+    }
+  }
+}
+
 pair<string, string> SplitPath(const string& path) {
   if (path.empty()) {
     return std::make_pair("", "");
