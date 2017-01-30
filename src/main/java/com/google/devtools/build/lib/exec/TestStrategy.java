@@ -395,12 +395,15 @@ public abstract class TestStrategy implements TestActionContext {
     Executor executor = actionExecutionContext.getExecutor();
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    Path outputManifest = runfilesDir.getRelative("MANIFEST");
     try {
       // Avoid rebuilding the runfiles directory if the manifest in it matches the input manifest,
-      // implying the symlinks exist and are already up to date.
-      if (Arrays.equals(
-          runfilesDir.getRelative("MANIFEST").getDigest(),
-          execSettings.getInputManifest().getPath().getDigest())) {
+      // implying the symlinks exist and are already up to date. If the output manifest is a
+      // symbolic link, it is likely a symbolic link to the input manifest, so we cannot trust it as
+      // an up-to-date check.
+      if (!outputManifest.isSymbolicLink()
+          && Arrays.equals(
+              outputManifest.getDigest(), execSettings.getInputManifest().getPath().getDigest())) {
         return;
       }
     } catch (IOException e1) {
