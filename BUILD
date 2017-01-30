@@ -23,7 +23,7 @@ filegroup(
     name = "changelog-file",
     srcs = [":CHANGELOG.md"],
     visibility = [
-        "//scripts/packages:__pkg__",
+        "//scripts/packages:__subpackages__",
     ],
 )
 
