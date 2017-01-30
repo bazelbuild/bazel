@@ -92,7 +92,8 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
   private ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(e.getKey(), SkylarkType.convertToSkylark(e.getValue(), null));
+      builder.put(
+          Attribute.getSkylarkName(e.getKey()), SkylarkType.convertToSkylark(e.getValue(), null));
     }
     return builder.build();
   }

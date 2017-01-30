@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.HttpUtils;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
@@ -83,19 +84,6 @@ public class SkylarkRepositoryContext {
   private final HttpDownloader httpDownloader;
 
   /**
-   * Convert attribute name from native naming convention to Skylark naming convention.
-   *
-   * <p>In native code, private values start with $ or :. In Skylark, private values start
-   * with _, because of the grammar.
-   */
-  private String attributeToSkylark(String oldName) {
-    if (!oldName.isEmpty() && (oldName.charAt(0) == '$' || oldName.charAt(0) == ':')) {
-      return "_" + oldName.substring(1);
-    }
-    return oldName;
-  }
-
-  /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
    * argument).
    */
@@ -114,7 +102,7 @@ public class SkylarkRepositoryContext {
       if (!name.equals("$local")) {
         Object val = attrs.getObject(name);
         attrBuilder.put(
-            attributeToSkylark(name),
+            Attribute.getSkylarkName(name),
             val == null
                 ? Runtime.NONE
                 // Attribute values should be type safe

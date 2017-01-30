@@ -691,20 +691,20 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ftb = depset(files)",
         "  return struct(runfiles = ctx.runfiles(), files = ftb)",
         "",
-        "def output_func(attr1, attr2):",
-        "  if attr2 != None: return {}",
-        "  return {'o': attr1 + '.txt'}",
+        "def output_func(public_attr, _private_attr):",
+        "  if _private_attr != None: return {}",
+        "  return {'o': public_attr + '.txt'}",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
-        "  attrs = {'attr1': attr.string(),",
-        "           'attr2': attr.label()},",
+        "  attrs = {'public_attr': attr.string(),",
+        "           '_private_attr': attr.label()},",
         "  outputs = output_func)");
 
     scratch.file(
         "test/skylark/BUILD",
         "load('/test/skylark/extension', 'custom_rule')",
         "",
-        "custom_rule(name = 'cr', attr1 = 'bar')");
+        "custom_rule(name = 'cr', public_attr = 'bar')");
 
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
 
@@ -714,6 +714,49 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         .containsExactly("bar.txt");
   }
 
+  @Test
+  public void testRuleClassImplicitOutputFunctionDependingOnComputedAttribute() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def custom_rule_impl(ctx):",
+        "  files = [ctx.outputs.o]",
+        "  ctx.action(",
+        "    outputs = files,",
+        "    command = 'echo')",
+        "  ftb = depset(files)",
+        "  return struct(runfiles = ctx.runfiles(), files = ftb)",
+        "",
+        "def attr_func(public_attr):",
+        "  return public_attr",
+        "",
+        "def output_func(_private_attr):",
+        "  return {'o': _private_attr.name + '.txt'}",
+        "",
+        "custom_rule = rule(implementation = custom_rule_impl,",
+        "  attrs = {'public_attr': attr.label(),",
+        "           '_private_attr': attr.label(default = attr_func)},",
+        "  outputs = output_func)",
+        "",
+        "def empty_rule_impl(ctx):",
+        "  pass",
+        "",
+        "empty_rule = rule(implementation = empty_rule_impl)");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/extension', 'custom_rule', 'empty_rule')",
+        "",
+        "empty_rule(name = 'foo')",
+        "custom_rule(name = 'cr', public_attr = '//test/skylark:foo')");
+
+    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
+
+    assertThat(
+        ActionsTestUtil.baseArtifactNames(
+            target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("foo.txt");
+  }
+  
   @Test
   public void testRuleClassImplicitOutputs() throws Exception {
     scratch.file(

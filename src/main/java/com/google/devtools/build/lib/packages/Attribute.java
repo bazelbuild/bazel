@@ -1084,7 +1084,7 @@ public final class Attribute implements Comparable<Attribute> {
       // do not modify this.allowedFileTypesForLabels, instead create a copy.
       FileTypeSet allowedFileTypesForLabels = this.allowedFileTypesForLabels;
       if ((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST)) {
-        if ((name.startsWith("$") || name.startsWith(":")) && allowedFileTypesForLabels == null) {
+        if (isPrivateAttribute(name) && allowedFileTypesForLabels == null) {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
         Preconditions.checkNotNull(
@@ -1391,7 +1391,7 @@ public final class Attribute implements Comparable<Attribute> {
       final String msg =
           String.format(
               "Cannot compute default value of attribute '%s' in rule '%s': ",
-              attr.getName().replace('$', '_'), rule.getLabel());
+              attr.getPublicName(), rule.getLabel());
       final AtomicReference<EvalException> caughtEvalExceptionIfAny = new AtomicReference<>();
       ComputationStrategy<InterruptedException> strategy =
           new ComputationStrategy<InterruptedException>() {
@@ -1813,12 +1813,7 @@ public final class Attribute implements Comparable<Attribute> {
    * Implicit and late-bound attributes start with '_' (instead of '$' or ':').
    */
   public String getPublicName() {
-    String name = getName();
-    // latebound and implicit attributes have a one-character prefix we want to drop
-    if (isLateBound() || isImplicit()) {
-      return "_" + name.substring(1);
-    }
-    return name;
+    return getSkylarkName(getName());
   }
 
   /**
@@ -2128,6 +2123,23 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public static boolean isLateBound(String name) {
     return name.startsWith(":");
+  }
+
+  /** Returns whether this attribute is considered private in Skylark. */
+  private static boolean isPrivateAttribute(String nativeAttrName) {
+    return isLateBound(nativeAttrName) || isImplicit(nativeAttrName);
+  }
+
+  /**
+   * Returns the Skylark-usable name of this attribute.
+   *
+   * Implicit and late-bound attributes start with '_' (instead of '$' or ':').
+   */
+  public static String getSkylarkName(String nativeAttrName) {
+    if (isPrivateAttribute(nativeAttrName)) {
+      return "_" + nativeAttrName.substring(1);
+    }
+    return nativeAttrName;
   }
 
   @Override
