@@ -274,7 +274,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval(
         "s = depset() + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
-    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5])");
+    assertThat(lookup("x")).isEqualTo("depset([2, 4, 6, 3, 5])");
   }
 
   @Test
@@ -282,7 +282,7 @@ public class SkylarkNestedSetTest extends EvaluationTestCase {
     eval(
         "s = depset(order = 'topological') + [2, 4, 6] + [3, 4, 5]",
         "x = str(s)");
-    assertThat(lookup("x")).isEqualTo("set([2, 4, 6, 3, 5], order = \"topological\")");
+    assertThat(lookup("x")).isEqualTo("depset([2, 4, 6, 3, 5], order = \"topological\")");
   }
 
   @SuppressWarnings("unchecked")

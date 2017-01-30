@@ -190,7 +190,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   SkylarkNestedSet(SkylarkType contentType, NestedSet<?> set) {
     // This is here for the sake of FuncallExpression.
     this.contentType = Preconditions.checkNotNull(contentType, "type cannot be null");
-    this.set = Preconditions.checkNotNull(set, "set cannot be null");
+    this.set = Preconditions.checkNotNull(set, "depset cannot be null");
     this.items = null;
     this.transitiveItems = null;
   }
@@ -333,7 +333,7 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
 
   @Override
   public void write(Appendable buffer, char quotationMark) {
-    Printer.append(buffer, "set(");
+    Printer.append(buffer, "depset(");
     Printer.printList(buffer, set, "[", ", ", "]", null, quotationMark);
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {

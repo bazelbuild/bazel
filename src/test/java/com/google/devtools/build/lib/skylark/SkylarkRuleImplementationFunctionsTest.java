@@ -680,7 +680,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testRunfilesBadSetGenericType() throws Exception {
     checkErrorContains(
         "expected depset of Files or NoneType for 'transitive_files' while calling runfiles "
-            + "but got depset of ints instead: set([1, 2, 3])",
+            + "but got depset of ints instead: depset([1, 2, 3])",
         "ruleContext.runfiles(transitive_files=depset([1, 2, 3]))");
   }
 
