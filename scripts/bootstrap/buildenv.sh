@@ -84,20 +84,15 @@ msys*|mingw*)
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
 esac
 
-# Extension for executables.
 EXE_EXT=""
-case "${PLATFORM}" in
-msys*|mingw*)
+if [ "${PLATFORM}" == "mingw" ]; then
+  # Extension for executables.
   EXE_EXT=".exe"
-esac
 
-# Fix TMPDIR on msys
-case "${PLATFORM}" in
-msys*|mingw*)
-  default_tmp=${TMP:-$(cygpath -W)/Temp}
+  # Fix TMPDIR on msys
+  default_tmp=${TMP:-$(cygpath -mO)/Temp}
   TMPDIR=$(cygpath -ml "${TMPDIR:-$default_tmp}")
-esac
-
+fi
 
 # Whether we display build messages or not.  We set this conditionally because
 # the file including us or the user may already have defined VERBOSE to their
@@ -116,6 +111,11 @@ function atexit() {
 
   [ -n "${ATEXIT_HANDLERS}" ] || trap 'run_atexit_handlers $?' EXIT
   ATEXIT_HANDLERS="${ATEXIT_HANDLERS} ${handler}"
+}
+
+function restore_saved_path() {
+  export PATH=$BAZEL_OLD_PATH
+  export BAZEL_OLD_PATH=
 }
 
 # Exit routine to run all registered atexit handlers.
@@ -146,6 +146,7 @@ function run_atexit_handlers() {
 
 function tempdir() {
   local tmp=${TMPDIR:-/tmp}
+  mkdir -p ${tmp}
   local DIR="$(mktemp -d ${tmp%%/}/bazel_XXXXXXXX)"
   mkdir -p "${DIR}"
   local DIRBASE=$(basename "${DIR}")
@@ -164,6 +165,7 @@ function cleanup_phasefile() {
 }
 
 atexit cleanup_phasefile
+atexit restore_saved_path
 
 # Excutes a command respecting the current verbosity settings.
 #

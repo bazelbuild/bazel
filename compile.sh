@@ -22,6 +22,26 @@
 
 set -o errexit
 
+# Correct PATH on Windows, to avoid using "FIND.EXE" instead of "/usr/bin/find"
+# etc, leading to confusing errors.
+export BAZEL_OLD_PATH=$PATH
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*)
+  # Check that the PATH is set up correctly by attempting to locate `[`.
+  # This ensures that `which` is installed correctly and can succeed, while
+  # also avoids accidentally locating a tool that exists in plain Windows too
+  # (like "find" for "FIND.EXE").
+  which [ >&/dev/null || export PATH="/bin:/usr/bin:$PATH"
+esac
+
+# Check that the bintools can be found, otherwise we would see very confusing
+# error messages.
+which [ >&/dev/null || {
+  echo >&2 "ERROR: cannot locate GNU bintools; check your PATH."
+  echo >&2 "       (You may need to run 'export PATH=/bin:/usr/bin:\$PATH)'"
+  exit 1
+}
+
 cd "$(dirname "$0")"
 
 # Set the default verbose mode in buildenv.sh so that we do not display command
