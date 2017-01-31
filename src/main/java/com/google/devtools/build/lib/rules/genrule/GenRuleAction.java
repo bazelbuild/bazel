@@ -46,7 +46,7 @@ public class GenRuleAction extends SpawnAction {
       ImmutableMap<String, String> environment,
       ImmutableSet<String> clientEnvironmentVariables,
       ImmutableMap<String, String> executionInfo,
-     RunfilesSupplier runfilesSupplier,
+      RunfilesSupplier runfilesSupplier,
       String progressMessage) {
     super(
         owner,

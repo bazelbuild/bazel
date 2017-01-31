@@ -241,68 +241,98 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     return ruleContext.expandMakeVariables(
         "cmd",
         command,
-        new ConfigurationMakeVariableContext(
-            ruleContext.getRule().getPackage(), ruleContext.getConfiguration(),
-            ToolchainProvider.getToolchainMakeVariables(ruleContext, "toolchains")) {
-          @Override
-          public String lookupMakeVariable(String name) throws ExpansionException {
-            if (name.equals("SRCS")) {
-              return Artifact.joinExecPaths(" ", resolvedSrcs);
-            } else if (name.equals("<")) {
-              return expandSingletonArtifact(resolvedSrcs, "$<", "input file");
-            } else if (name.equals("OUTS")) {
-              return Artifact.joinExecPaths(" ", filesToBuild);
-            } else if (name.equals("@")) {
-              return expandSingletonArtifact(filesToBuild, "$@", "output file");
-            } else if (name.equals("@D")) {
-              // The output directory. If there is only one filename in outs,
-              // this expands to the directory containing that file. If there are
-              // multiple filenames, this variable instead expands to the
-              // package's root directory in the genfiles tree, even if all the
-              // generated files belong to the same subdirectory!
-              if (Iterables.size(filesToBuild) == 1) {
-                Artifact outputFile = Iterables.getOnlyElement(filesToBuild);
-                PathFragment relativeOutputFile = outputFile.getExecPath();
-                if (relativeOutputFile.segmentCount() <= 1) {
-                  // This should never happen, since the path should contain at
-                  // least a package name and a file name.
-                  throw new IllegalStateException(
-                      "$(@D) for genrule " + ruleContext.getLabel() + " has less than one segment");
-                }
-                return relativeOutputFile.getParentDirectory().getPathString();
-              } else {
-                PathFragment dir;
-                if (ruleContext.getRule().hasBinaryOutput()) {
-                  dir = ruleContext.getConfiguration().getBinFragment();
-                } else {
-                  dir = ruleContext.getConfiguration().getGenfilesFragment();
-                }
-                PathFragment relPath =
-                    ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-                return dir.getRelative(relPath).getPathString();
-              }
-            } else {
-              return super.lookupMakeVariable(name);
-            }
-          }
-        });
+        createCommandResolverContext(ruleContext, resolvedSrcs, filesToBuild));
   }
 
   /**
-   * Returns the path of the sole element "artifacts", generating an exception with an informative
-   * error message iff the set is not a singleton. Used to expand "$<", "$@".
+   * Creates a new {@link CommandResolverContext} instance to use in {@link #resolveCommand}.
    */
-  private String expandSingletonArtifact(Iterable<Artifact> artifacts,
-                                         String variable,
-                                         String artifactName)
-      throws ExpansionException {
-    if (Iterables.isEmpty(artifacts)) {
-      throw new ExpansionException("variable '" + variable
-                                   + "' : no " + artifactName);
-    } else if (Iterables.size(artifacts) > 1) {
-      throw new ExpansionException("variable '" + variable
-                                   + "' : more than one " + artifactName);
+  protected CommandResolverContext createCommandResolverContext(RuleContext ruleContext,
+      NestedSet<Artifact> resolvedSrcs, NestedSet<Artifact> filesToBuild) {
+    return new CommandResolverContext(ruleContext, resolvedSrcs, filesToBuild);
+  }
+
+  /**
+   * Implementation of {@link ConfigurationMakeVariableContext} used to expand variables in a
+   * genrule command string.
+   */
+  protected static class CommandResolverContext extends ConfigurationMakeVariableContext {
+
+    private final RuleContext ruleContext;
+    private final NestedSet<Artifact> resolvedSrcs;
+    private final NestedSet<Artifact> filesToBuild;
+
+    public CommandResolverContext(RuleContext ruleContext, NestedSet<Artifact> resolvedSrcs,
+        NestedSet<Artifact> filesToBuild) {
+      super(ruleContext.getRule().getPackage(), ruleContext.getConfiguration(),
+          ToolchainProvider.getToolchainMakeVariables(ruleContext, "toolchains"));
+      this.ruleContext = ruleContext;
+      this.resolvedSrcs = resolvedSrcs;
+      this.filesToBuild = filesToBuild;
     }
-    return Iterables.getOnlyElement(artifacts).getExecPathString();
+
+    public RuleContext getRuleContext() {
+      return ruleContext;
+    }
+
+    @Override
+    public String lookupMakeVariable(String name) throws ExpansionException {
+      if (name.equals("SRCS")) {
+        return Artifact.joinExecPaths(" ", resolvedSrcs);
+      } else if (name.equals("<")) {
+        return expandSingletonArtifact(resolvedSrcs, "$<", "input file");
+      } else if (name.equals("OUTS")) {
+        return Artifact.joinExecPaths(" ", filesToBuild);
+      } else if (name.equals("@")) {
+        return expandSingletonArtifact(filesToBuild, "$@", "output file");
+      } else if (name.equals("@D")) {
+        // The output directory. If there is only one filename in outs,
+        // this expands to the directory containing that file. If there are
+        // multiple filenames, this variable instead expands to the
+        // package's root directory in the genfiles tree, even if all the
+        // generated files belong to the same subdirectory!
+        if (Iterables.size(filesToBuild) == 1) {
+          Artifact outputFile = Iterables.getOnlyElement(filesToBuild);
+          PathFragment relativeOutputFile = outputFile.getExecPath();
+          if (relativeOutputFile.segmentCount() <= 1) {
+            // This should never happen, since the path should contain at
+            // least a package name and a file name.
+            throw new IllegalStateException(
+                "$(@D) for genrule " + ruleContext.getLabel() + " has less than one segment");
+          }
+          return relativeOutputFile.getParentDirectory().getPathString();
+        } else {
+          PathFragment dir;
+          if (ruleContext.getRule().hasBinaryOutput()) {
+            dir = ruleContext.getConfiguration().getBinFragment();
+          } else {
+            dir = ruleContext.getConfiguration().getGenfilesFragment();
+          }
+          PathFragment relPath =
+              ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
+          return dir.getRelative(relPath).getPathString();
+        }
+      } else {
+        return super.lookupMakeVariable(name);
+      }
+    }
+
+    /**
+     * Returns the path of the sole element "artifacts", generating an exception with an informative
+     * error message iff the set is not a singleton. Used to expand "$<", "$@".
+     */
+    private final String expandSingletonArtifact(Iterable<Artifact> artifacts,
+        String variable,
+        String artifactName)
+        throws ExpansionException {
+      if (Iterables.isEmpty(artifacts)) {
+        throw new ExpansionException("variable '" + variable
+            + "' : no " + artifactName);
+      } else if (Iterables.size(artifacts) > 1) {
+        throw new ExpansionException("variable '" + variable
+            + "' : more than one " + artifactName);
+      }
+      return Iterables.getOnlyElement(artifacts).getExecPathString();
+    }
   }
 }
