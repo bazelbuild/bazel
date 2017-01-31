@@ -825,6 +825,8 @@ public class GrpcServerImpl implements RPCServer {
 
     if (sink.finish()) {
       // Client disconnected. Then we are not allowed to call any methods on the observer.
+      log.info(String.format("Client disconnected before we could send exit code for command %s",
+          commandId));
       return;
     }
 
