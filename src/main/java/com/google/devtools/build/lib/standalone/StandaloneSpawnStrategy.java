@@ -70,7 +70,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(
           Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
-              + "]", spawn.asShellCommand(executor.getExecRoot()));
+              + "]", Spawns.asShellCommand(spawn, executor.getExecRoot()));
     }
 
     executor

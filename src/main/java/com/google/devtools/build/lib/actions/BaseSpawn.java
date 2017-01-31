@@ -18,11 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
-import com.google.devtools.build.lib.actions.extra.SpawnInfo;
-import com.google.devtools.build.lib.util.CommandDescriptionForm;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.List;
@@ -115,11 +110,6 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public String asShellCommand(Path workingDir) {
-    return asShellCommand(getArguments(), workingDir, getEnvironment());
-  }
-
-  @Override
   public RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
   }
@@ -127,28 +117,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public ImmutableList<Artifact> getFilesetManifests() {
     return ImmutableList.<Artifact>of();
-  }
-
-  @Override
-  public SpawnInfo getExtraActionInfo() {
-    SpawnInfo.Builder info = SpawnInfo.newBuilder();
-
-    info.addAllArgument(getArguments());
-    for (Map.Entry<String, String> variable : getEnvironment().entrySet()) {
-      info.addVariable(
-          EnvironmentVariable.newBuilder()
-              .setName(variable.getKey())
-              .setValue(variable.getValue())
-              .build());
-    }
-    for (ActionInput input : getInputFiles()) {
-      // Explicitly ignore middleman artifacts here.
-      if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
-        info.addInputFile(input.getExecPathString());
-      }
-    }
-    info.addAllOutputFile(ActionInputHelper.toExecPaths(getOutputFiles()));
-    return info.build();
   }
 
   @Override
@@ -224,16 +192,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public String getMnemonic() {
     return action.getMnemonic();
-  }
-
-  /** Convert a working dir + environment map + arg list into a Bourne shell command. */
-  public static String asShellCommand(
-      Collection<String> arguments, Path workingDirectory, Map<String, String> environment) {
-    // We print this command out in such a way that it can safely be
-    // copied+pasted as a Bourne shell command.  This is extremely valuable for
-    // debugging.
-    return CommandFailureUtils.describeCommand(
-        CommandDescriptionForm.COMPLETE, arguments, environment, workingDirectory.getPathString());
   }
 
   /** A local spawn requiring zero resources. */

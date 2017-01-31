@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -51,7 +52,7 @@ public final class SandboxHelpers {
               + " ["
               + spawn.getResourceOwner().prettyPrint()
               + "]",
-          spawn.asShellCommand(executor.getExecRoot()));
+          Spawns.asShellCommand(spawn, executor.getExecRoot()));
     }
   }
 

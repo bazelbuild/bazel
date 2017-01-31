@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -381,7 +383,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     ExtraActionInfo.Builder builder = super.getExtraActionInfo();
     if (extraActionInfoSupplier == null) {
       Spawn spawn = getSpawn();
-      SpawnInfo spawnInfo = spawn.getExtraActionInfo();
+      SpawnInfo spawnInfo = getExtraActionInfo(spawn);
 
       return builder
           .setExtension(SpawnInfo.spawnInfo, spawnInfo);
@@ -389,6 +391,27 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
       extraActionInfoSupplier.extend(builder);
       return builder;
     }
+  }
+
+  private static SpawnInfo getExtraActionInfo(Spawn spawn) {
+    SpawnInfo.Builder info = SpawnInfo.newBuilder();
+
+    info.addAllArgument(spawn.getArguments());
+    for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
+      info.addVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(variable.getKey())
+              .setValue(variable.getValue())
+              .build());
+    }
+    for (ActionInput input : spawn.getInputFiles()) {
+      // Explicitly ignore middleman artifacts here.
+      if (!(input instanceof Artifact) || !((Artifact) input).isMiddlemanArtifact()) {
+        info.addInputFile(input.getExecPathString());
+      }
+    }
+    info.addAllOutputFile(ActionInputHelper.toExecPaths(spawn.getOutputFiles()));
+    return info.build();
   }
 
   @Override
