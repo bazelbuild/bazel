@@ -284,16 +284,16 @@ public interface NodeEntry extends ThinNodeEntry {
    * @see DirtyBuildingState#getNextDirtyDirectDeps()
    */
   @ThreadSafe
-  Collection<SkyKey> getNextDirtyDirectDeps();
+  Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Returns all deps of a node that has not yet finished evaluating. In other words, if a node has
    * a reverse dep on this node, its key will be in the returned set here. If this node was freshly
    * created, this is just any elements that were added using {@link #addTemporaryDirectDeps} (so it
    * is the same as {@link #getTemporaryDirectDeps}). If this node is marked dirty, this includes
-   * all the elements that would have been returned by successive calls to
-   * {@link #getNextDirtyDirectDeps} (or, equivalently, one call to
-   * {@link #getAllRemainingDirtyDirectDeps}).
+   * all the elements that would have been returned by successive calls to {@link
+   * #getNextDirtyDirectDeps} (or, equivalently, one call to {@link
+   * #getAllRemainingDirtyDirectDeps}).
    *
    * <p>This method should only be called when this node is about to be deleted after an aborted
    * evaluation. After such an evaluation, any nodes that did not finish evaluating are deleted, as
@@ -305,7 +305,7 @@ public interface NodeEntry extends ThinNodeEntry {
    * <p>This method must not be called twice: the next thing done to this node after this method is
    * called should be the removal of the node from the graph.
    */
-  Iterable<SkyKey> getAllDirectDepsForIncompleteNode();
+  Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException;
 
   /**
    * If an entry {@link #isDirty}, returns all direct deps that were present last build, but have
@@ -319,10 +319,10 @@ public interface NodeEntry extends ThinNodeEntry {
    * started evaluation.
    *
    * <p>This method does not mutate the entry. In particular, multiple calls to this method will
-   * always produce the same result until the entry finishes evaluation. Contrast with
-   * {@link #getAllDirectDepsForIncompleteNode}.
+   * always produce the same result until the entry finishes evaluation. Contrast with {@link
+   * #getAllDirectDepsForIncompleteNode}.
    */
-  Set<SkyKey> getAllRemainingDirtyDirectDeps();
+  Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException;
 
   /**
    * Notifies a node that it is about to be rebuilt. This method can only be called if the node

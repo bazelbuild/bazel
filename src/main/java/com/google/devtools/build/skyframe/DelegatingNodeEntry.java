@@ -106,17 +106,17 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Collection<SkyKey> getNextDirtyDirectDeps() {
+  public Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getNextDirtyDirectDeps();
   }
 
   @Override
-  public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
+  public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
     return getDelegate().getAllDirectDepsForIncompleteNode();
   }
 
   @Override
-  public Set<SkyKey> getAllRemainingDirtyDirectDeps() {
+  public Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
     return getDelegate().getAllRemainingDirtyDirectDeps();
   }
 

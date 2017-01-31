@@ -405,13 +405,14 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   /** @see DirtyBuildingState#getNextDirtyDirectDeps() */
   @Override
-  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() {
+  public synchronized Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isReady(), this);
     return getDirtyBuildingState().getNextDirtyDirectDeps();
   }
 
   @Override
-  public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
+  public synchronized Iterable<SkyKey> getAllDirectDepsForIncompleteNode()
+      throws InterruptedException {
     Preconditions.checkState(!isDone(), this);
     if (!isDirty()) {
       return Iterables.concat(getTemporaryDirectDeps());
@@ -428,7 +429,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() {
+  public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
     if (isDirty()) {
       Preconditions.checkState(
           getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);

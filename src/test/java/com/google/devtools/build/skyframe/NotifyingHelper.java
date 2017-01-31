@@ -306,7 +306,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() {
+    public Iterable<SkyKey> getAllDirectDepsForIncompleteNode() throws InterruptedException {
       graphListener.accept(
           myKey, EventType.GET_ALL_DIRECT_DEPS_FOR_INCOMPLETE_NODE, Order.BEFORE, this);
       return super.getAllDirectDepsForIncompleteNode();
