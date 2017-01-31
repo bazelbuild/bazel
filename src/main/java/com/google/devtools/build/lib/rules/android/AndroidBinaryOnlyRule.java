@@ -93,6 +93,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         (https://developer.android.com/studio/build/shrink-code.html#shrink-resources).
         <p>Notable differences:
         <ul>
+          <li>resources in <code>values/</code> will be removed as well as file based resources</li>
           <li>uses <code>strict mode</code> by default</li>
           <li>removing unused ID resources is not supported</li>
         </ul>

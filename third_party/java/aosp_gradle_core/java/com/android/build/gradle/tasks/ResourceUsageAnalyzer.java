@@ -138,9 +138,7 @@ import org.xml.sax.SAXException;
  * named "foo" as potentially used. However, if the string is "bar/foo" or " foo " these strings are
  * ignored. This means we can potentially miss resources usages where the resource name is completed
  * computed (e.g. by concatenating individual characters or taking substrings of strings that do not
- * look like resource names), but that seems extremely unlikely to be a real-world scenario. <p> For
- * now, for reasons detailed in the code, this only applies to file-based resources like layouts,
- * menus and drawables, not value-based resources like strings and dimensions.
+ * look like resource names), but that seems extremely unlikely to be a real-world scenario.
  */
 public class ResourceUsageAnalyzer {
   private static final String ANDROID_RES = "android_res/";
