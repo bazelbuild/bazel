@@ -322,6 +322,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageManager().getTarget(reporter, label);
   }
 
+  /**
+   * Checks that loading the given target fails with the expected error message.
+   *
+   * <p>Fails with an assertion error if this doesn't happen.
+   *
+   * <p>This method is useful for checking loading phase errors. Analysis phase errors can be
+   * checked with {@link #getConfiguredTarget} and related methods.
+   */
+  protected void assertTargetError(String label, String expectedError)
+      throws InterruptedException {
+    try {
+      getTarget(label);
+      fail("Expected loading phase failure for target " + label);
+    } catch (NoSuchPackageException | NoSuchTargetException | LabelSyntaxException e) {
+      // Target loading failed as expected.
+    }
+    assertContainsEvent(expectedError);
+  }
+
   private void setUpSkyframe() {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
