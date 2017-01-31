@@ -18,12 +18,12 @@ import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -73,6 +73,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
 
   private final Iterable<Artifact> directInputs;
   @Nullable private final CommandLine directCommandLine;
+  private final boolean fallbackError;
 
   /** Returns true if the header compilation will use direct dependencies only. */
   @VisibleForTesting
@@ -98,6 +99,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
    * @param directCommandLine the direct command line arguments for the java header compiler, or
    *     {@code null} if direct classpaths are disabled
    * @param transitiveCommandLine the transitive command line arguments for the java header compiler
+   * @param fallbackError true if falling back from the direct classpath should be an error
    * @param progressMessage the message printed during the progression of the build
    */
   protected JavaHeaderCompileAction(
@@ -108,6 +110,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
       Iterable<Artifact> outputs,
       CommandLine directCommandLine,
       CommandLine transitiveCommandLine,
+      boolean fallbackError,
       String progressMessage) {
     super(
         owner,
@@ -122,6 +125,7 @@ public class JavaHeaderCompileAction extends SpawnAction {
         "Turbine");
     this.directInputs = checkNotNull(directInputs);
     this.directCommandLine = directCommandLine;
+    this.fallbackError = fallbackError;
   }
 
   @Override
@@ -130,7 +134,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
         new Fingerprint()
             .addString(GUID)
             .addString(super.computeKey())
-            .addBoolean(useDirectClasspath());
+            .addBoolean(useDirectClasspath())
+            .addBoolean(fallbackError);
     if (directCommandLine != null) {
       fingerprint.addStrings(directCommandLine.arguments());
     }
@@ -138,10 +143,10 @@ public class JavaHeaderCompileAction extends SpawnAction {
   }
 
   @Override
-  protected void internalExecute(ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
+  public void execute(ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
     if (!useDirectClasspath()) {
-      super.internalExecute(actionExecutionContext);
+      super.execute(actionExecutionContext);
       return;
     }
     Executor executor = actionExecutionContext.getExecutor();
@@ -151,12 +156,14 @@ public class JavaHeaderCompileAction extends SpawnAction {
     } catch (ExecException e) {
       // if the direct input spawn failed, try again with transitive inputs to produce better
       // better messages
-      context.exec(getSpawn(actionExecutionContext.getClientEnv()), actionExecutionContext);
+      super.execute(actionExecutionContext);
       // the compilation should never fail with direct deps but succeed with transitive inputs
-      // TODO(cushon): make this an error before productionizing, we don't ever expect fallback
-      String message =
-          "header compilation failed unexpectedly: " + Throwables.getStackTraceAsString(e);
-      executor.getEventHandler().handle(Event.warn(getOwner().getLocation(), message));
+      if (fallbackError) {
+        throw e.toActionExecutionException(
+            "header compilation failed unexpectedly", executor.getVerboseFailures(), this);
+      }
+      Event event = Event.warn(getOwner().getLocation(), "header compilation failed unexpectedly");
+      executor.getEventHandler().handle(event);
     }
   }
 
@@ -410,6 +417,9 @@ public class JavaHeaderCompileAction extends SpawnAction {
               ImmutableList.of(outputJar, outputDepsProto),
               directCommandLine,
               transitiveCommandLine,
+              ruleContext
+                  .getFragment(JavaConfiguration.class)
+                  .headerCompilationDirectClasspathFallbackError(),
               getProgressMessage());
       ruleContext.registerAction(parameterFileWriteAction, javaHeaderCompileAction);
     }

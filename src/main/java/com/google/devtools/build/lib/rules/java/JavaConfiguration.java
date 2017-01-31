@@ -128,6 +128,7 @@ public final class JavaConfiguration extends Fragment {
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
   private final boolean headerCompilationDirectClasspath;
+  private final boolean headerCompilationDirectClasspathFallbackError;
   private final boolean generateJavaDeps;
   private final boolean strictDepsJavaProtos;
   private final JavaClasspathMode javaClasspath;
@@ -157,6 +158,8 @@ public final class JavaConfiguration extends Fragment {
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
     this.headerCompilationDirectClasspath = javaOptions.headerCompilationDirectClasspath;
+    this.headerCompilationDirectClasspathFallbackError =
+        javaOptions.headerCompilationDirectClasspathFallbackError;
     this.generateJavaDeps = generateJavaDeps;
     this.javaClasspath = javaOptions.javaClasspath;
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
@@ -220,6 +223,14 @@ public final class JavaConfiguration extends Fragment {
   /** Returns true if header compilations should use direct dependencies only. */
   public boolean headerCompilationDirectClasspath() {
     return headerCompilationDirectClasspath;
+  }
+
+  /**
+   * Returns true if transitive classpath fallback should be an error when {@link
+   * #headerCompilationDirectClasspath} is enabled.
+   */
+  public boolean headerCompilationDirectClasspathFallbackError() {
+    return headerCompilationDirectClasspathFallbackError;
   }
 
   /**

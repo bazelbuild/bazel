@@ -330,6 +330,15 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean headerCompilationDirectClasspath;
 
+  @Option(
+    name = "experimental_java_header_compilation_direct_classpath_fallback_error",
+    defaultValue = "false",
+    category = "undocumented",
+    help =
+        "If --experimental_java_header_compilation_direct_classpath is set, transitive classpath"
+            + " fallback is an error"
+  )
+  public boolean headerCompilationDirectClasspathFallbackError;
 
   @Override
   public FragmentOptions getHost(boolean fallback) {
@@ -348,6 +357,8 @@ public class JavaOptions extends FragmentOptions {
     host.useIjars = useIjars;
     host.headerCompilation = headerCompilation;
     host.headerCompilationDirectClasspath = headerCompilationDirectClasspath;
+    host.headerCompilationDirectClasspathFallbackError =
+        headerCompilationDirectClasspathFallbackError;
 
     host.javaDeps = javaDeps;
     host.javaClasspath = javaClasspath;
