@@ -19,10 +19,10 @@ pkg_tar(
 
 pkg_tar(
     name = "bazel-rc",
-    files = ["bazel.bazelrc"],
+    files = ["//scripts/packages:bazel.bazelrc"],
     mode = "0644",
     package_dir = "/etc",
-    strip_prefix = "debian",
+    strip_prefix = "/scripts/packages",
 )
 
 genrule(
@@ -50,14 +50,13 @@ pkg_tar(
 )
 
 genrule(
-    name = "embedded_label",
-    srcs = [":debian-data"],
+    name = "debian_version",
+    srcs = ["//scripts/packages:version.txt"],
     outs = [
         "version.txt",
     ],
     cmd =
-        "find -L . -name stable-status.txt -exec cat '{}' ';'" +
-        " | grep EMBED_LABEL | cut -d ' ' -f 2-" +
+        "cat $(location //scripts/packages:version.txt) " +
         # Debian package manager does not order our rcs correctly, insert a tilde
         # Non RC version number are not matched by the regex, example translations:
         # 0.1.2         0.1.2
@@ -65,7 +64,6 @@ genrule(
         # 0.1.2rc2-jdk7 0.1.2~rc2-jdk7
         " | sed -E 's/^([0-9\\.]+)([^0-9\\.].*)$$/\\1~\\2/'" +
         " > $@\n",
-    stamp = 1,
 )
 
 pkg_deb(

@@ -88,3 +88,16 @@ self_extract_binary(
     ],
     launcher = ":launcher_bin.sh",
 )
+
+genrule(
+    name = "embedded_label",
+    srcs = [],
+    outs = [
+        "version.txt",
+    ],
+    cmd =
+        "find -L . -name stable-status.txt -exec cat '{}' ';'" +
+        " | grep EMBED_LABEL | cut -d ' ' -f 2-" +
+        " > $@\n",
+    stamp = 1,
+)
