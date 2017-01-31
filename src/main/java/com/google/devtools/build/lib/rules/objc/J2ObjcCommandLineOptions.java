@@ -52,7 +52,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public boolean explicitJreDeps;
 
   @Option(name = "experimental_j2objc_srcjar_processing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "flags",
       help = "Whether to generate individual ObjC header files for each Java source file inside "
           + "Java source jars."
