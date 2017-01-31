@@ -818,6 +818,14 @@ bool PathExists(const string& path) {
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
+#ifdef COMPILER_MSVC
+string MakeCanonical(const char* path) {
+  // TODO(bazel-team): implement this.
+  pdie(255, "blaze_util::MakeCanonical is not implemented on Windows");
+  return "";
+}
+#endif  // COMPILER_MSVC
+
 static bool CanReadFileW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   if ((attrs == INVALID_FILE_ATTRIBUTES) ||
@@ -941,24 +949,6 @@ void SyncFile(const string& path) {
   // No-op on Windows native; unsupported by Cygwin.
   // fsync always fails on Cygwin with "Permission denied" for some reason.
 }
-
-#ifdef COMPILER_MSVC
-time_t GetMtimeMillisec(const string& path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::GetMtimeMillisec is not implemented on Windows");
-  return -1;
-}
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
-
-#ifdef COMPILER_MSVC
-bool SetMtimeMillisec(const string& path, time_t mtime) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::SetMtimeMillisec is not implemented on Windows");
-  return false;
-}
-#else  // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 static bool IsRootDirectoryW(const wstring& path) {
   return IsRootOrAbsolute(path, true);
