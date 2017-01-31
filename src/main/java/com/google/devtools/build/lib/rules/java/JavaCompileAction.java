@@ -669,12 +669,7 @@ public final class JavaCompileAction extends AbstractAction {
           result.addExecPath("--output_deps_proto", outputDepsProto);
         }
         if (!extdirInputs.isEmpty()) {
-          result.add("--extdir");
-          LinkedHashSet<PathFragment> extdirs = new LinkedHashSet<>();
-          for (Artifact extjar : extdirInputs) {
-            extdirs.add(extjar.getExecPath().getParentDirectory());
-          }
-          result.add(Joiner.on(pathSeparator).join(extdirs));
+          result.addJoinExecPaths("--extdir", pathSeparator, extdirInputs);
         }
         if (!processorPath.isEmpty() || !processorPathDirs.isEmpty()) {
           ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
