@@ -89,6 +89,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
+  private final boolean useTestRunner;
 
   // Mutable state related to test caching.
   private boolean checkedCaching = false;
@@ -127,7 +128,8 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       int shardNum,
       int runNumber,
       BuildConfiguration configuration,
-      String workspaceName) {
+      String workspaceName,
+      boolean useTestRunner) {
     super(owner, inputs,
         // Note that this action only cares about the runfiles, not the mapping.
         new RunfilesSupplierImpl(new PathFragment("runfiles"), executionSettings.getRunfiles()),
@@ -167,6 +169,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild("test.infrastructure_failure");
     this.workspaceName = workspaceName;
+    this.useTestRunner = useTestRunner;
 
     Map<String, String> mergedTestEnv = new HashMap<>(configuration.getTestEnv());
     mergedTestEnv.putAll(extraTestEnv);
@@ -583,6 +586,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public TestTargetExecutionSettings getExecutionSettings() {
     return executionSettings;
+  }
+
+  public boolean useTestRunner() {
+    return useTestRunner;
   }
 
   public boolean isSharded() {

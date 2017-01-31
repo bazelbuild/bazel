@@ -136,9 +136,36 @@ EOF
       || true
 }
 
-# TODO(kush): Remove this fake test once we enable real tests
-function test_placeholder_until_real_tests_are_enabled() {
-  echo "test_placeholder_until_real_tests_are_enabled"
+function test_fail_without_testrunner() {
+  mkdir -p java/testrunners || fail "mkdir failed"
+
+  cat > java/testrunners/TestWithoutRunner.java <<EOF
+package testrunners;
+public class TestWithoutRunner {
+  public static void main(String[] args) {
+    // Empty main. Silently pass.
+  }
+}
+EOF
+
+  cat > java/testrunners/BUILD <<EOF
+java_test(name = "TestWithoutRunner",
+          srcs = ['TestWithoutRunner.java'],
+          use_testrunner = 0,
+          main_class = "testrunners.TestWithoutRunner"
+)
+EOF
+
+  bazel test --no_cache_test_results //java/testrunners:TestWithoutRunner >& $TEST_log \
+      || fail "Normal test execution should pass."
+
+  bazel test --no_cache_test_results --test_strategy=experimental_worker >& $TEST_log \
+      //java/testrunners:TestWithoutRunner \
+      && fail "Test should have failed when running with an experimental runner." \
+      || true
+
+  expect_log \
+      "Tests that do not use the default test runner are incompatible with the persistent worker"
 }
 
 run_suite "Persistent Test Runner tests"

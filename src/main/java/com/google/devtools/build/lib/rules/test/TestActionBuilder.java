@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.rules.test.TestProvider.TestParams;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -282,12 +283,17 @@ public final class TestActionBuilder {
               targetName.getRelative(shardRunDir + "coverage.micro.dat"), root);
         }
 
+        boolean useTestRunner = false;
+        if (ruleContext.attributes().has("use_testrunner", Type.BOOLEAN)) {
+          useTestRunner = ruleContext.attributes().get("use_testrunner", Type.BOOLEAN);
+        }
         env.registerAction(new TestRunnerAction(
             ruleContext.getActionOwner(), inputs, testRuntime,
             testLog, cacheStatus,
             coverageArtifact, microCoverageArtifact,
             testProperties, testEnv, executionSettings,
-            shard, run, config, ruleContext.getWorkspaceName()));
+            shard, run, config, ruleContext.getWorkspaceName(),
+            useTestRunner));
         results.add(cacheStatus);
       }
     }

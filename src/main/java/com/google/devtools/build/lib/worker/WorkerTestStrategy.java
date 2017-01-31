@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
+import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
@@ -83,6 +84,10 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
+    if (!action.useTestRunner()) {
+      throw new UserExecException("Tests that do not use the default test runner are incompatible"
+          + " with the persistent worker test strategy. Please use another test strategy");
+    }
     List<String> startupArgs = getStartUpArgs(action);
 
     return execInWorker(
