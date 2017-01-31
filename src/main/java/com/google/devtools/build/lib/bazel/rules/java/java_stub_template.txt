@@ -74,10 +74,10 @@ die() {
 }
 
 # Windows
-PLATFORM="$(uname -s | tr 'A-Z' 'a-z')"
+PLATFORM="$OSTYPE"
 function is_windows() {
   # On windows, the shell test actually running on msys
-  if [[ "${PLATFORM}" =~ msys_nt* ]]; then
+  if [[ "${PLATFORM}" =~ msys* ]]; then
     true
   else
     false
@@ -177,11 +177,22 @@ if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
     fi
   }
 else
+  # Read file into my_array
+  mapfile -t my_array < $RUNFILES_MANIFEST_FILE
+
+  # Process each runfile line into a [key,value] entry in runfiles_array
+  declare -A runfiles_array
+  for line in "${my_array[@]}"
+  do
+    line_split=($line)
+    runfiles_array[${line_split[0]}]=${line_split[1]}
+  done
+
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo $1
     else
-      echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+      echo ${runfiles_array[$1]}
     fi
   }
 fi
