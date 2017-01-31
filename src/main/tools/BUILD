@@ -2,18 +2,27 @@ package(default_visibility = ["//src:__subpackages__"])
 
 cc_binary(
     name = "process-wrapper",
-    srcs = [
-        "process-tools.c",
-        "process-tools.h",
-        "process-wrapper.c",
-    ],
-    copts = ["-std=c99"],
+    srcs = select({
+        "//src:windows_msvc": ["process-wrapper-windows.cc"],
+        "//conditions:default": [
+            "process-tools.c",
+            "process-tools.h",
+            "process-wrapper.c",
+        ],
+    }),
+    copts = select({
+        "//src:windows_msvc": [],
+        "//conditions:default": ["-std=c99"],
+    }),
     linkopts = ["-lm"],
 )
 
 cc_binary(
     name = "build-runfiles",
-    srcs = ["build-runfiles.cc"],
+    srcs = select({
+        "//src:windows_msvc": ["build-runfiles-windows.cc"],
+        "//conditions:default": ["build-runfiles.cc"],
+    }),
 )
 
 cc_binary(
