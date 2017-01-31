@@ -63,6 +63,9 @@ public class TestConstants {
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
   public static final String TEST_RULE_MODULE =
         "com.google.devtools.build.lib.bazel.rules.BazelRulesModule";
+  public static final String TEST_REAL_UNIX_FILE_SYSTEM =
+      "com.google.devtools.build.lib.vfs.UnixFileSystem";
+
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
   public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
