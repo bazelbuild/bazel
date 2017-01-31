@@ -176,15 +176,15 @@ public class CppCompileAction extends AbstractAction
   private final NestedSet<Artifact> mandatoryInputs;
 
   /**
-   * The set of include files that we unconditionally add to the inputs of the action (but they
-   * may be pruned after execution).
+   * The set of input files that we add to the set of input artifacts of the action if we don't use
+   * input discovery. They may be pruned after execution.
    *
    * <p>This is necessary because the inputs that can be pruned by .d file parsing must be returned
    * from {@link #discoverInputs(ActionExecutionContext)} and they cannot be in
    * {@link #mandatoryInputs}. Thus, even with include scanning turned off, we pretend that we
    * "discover" these headers.
    */
-  private final NestedSet<Artifact> includesExemptFromDiscovery;
+  private final NestedSet<Artifact> prunableInputs;
 
   private final boolean shouldScanIncludes;
   private final boolean shouldPruneModules;
@@ -287,7 +287,7 @@ public class CppCompileAction extends AbstractAction
       boolean useHeaderModules,
       Label sourceLabel,
       NestedSet<Artifact> mandatoryInputs,
-      NestedSet<Artifact> includesExemptFromDiscovery,
+      NestedSet<Artifact> prunableInputs,
       Artifact outputFile,
       DotdFile dotdFile,
       @Nullable Artifact gcnoFile,
@@ -349,7 +349,7 @@ public class CppCompileAction extends AbstractAction
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
-    this.includesExemptFromDiscovery = includesExemptFromDiscovery;
+    this.prunableInputs = prunableInputs;
     this.builtinIncludeFiles = CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles();
     this.cppSemantics = cppSemantics;
     if (cppSemantics.needsIncludeValidation()) {
@@ -499,7 +499,7 @@ public class CppCompileAction extends AbstractAction
 
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public Iterable<Artifact> getPossibleInputsForTesting() {
-    return Iterables.concat(getInputs(), includesExemptFromDiscovery);
+    return Iterables.concat(getInputs(), prunableInputs);
   }
 
   @Nullable
@@ -509,8 +509,8 @@ public class CppCompileAction extends AbstractAction
     Executor executor = actionExecutionContext.getExecutor();
     Collection<Artifact> initialResult = null;
 
-    // Switch running status to "analysis".
     if (shouldScanIncludes()) {
+      // Switch running status to "analysis".
       actionExecutionContext.getExecutor().getEventBus()
           .post(ActionStatusMessage.analysisStrategy(this));
 
@@ -534,7 +534,7 @@ public class CppCompileAction extends AbstractAction
             .toCollection());
         result.addTransitive(context.getTransitiveModules(usePic));
       }
-      result.addTransitive(includesExemptFromDiscovery);
+      result.addTransitive(prunableInputs);
       additionalInputs = result.build();
       return result.build();
     }
@@ -882,7 +882,7 @@ public class CppCompileAction extends AbstractAction
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
-    for (Artifact input : Iterables.concat(mandatoryInputs, includesExemptFromDiscovery)) {
+    for (Artifact input : Iterables.concat(mandatoryInputs, prunableInputs)) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         artifactExpander.expand(input, allowedIncludes);
       }
@@ -1140,7 +1140,7 @@ public class CppCompileAction extends AbstractAction
   protected Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
     Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
     addToMap(allowedDerivedInputMap, mandatoryInputs);
-    addToMap(allowedDerivedInputMap, includesExemptFromDiscovery);
+    addToMap(allowedDerivedInputMap, prunableInputs);
     addToMap(allowedDerivedInputMap, getDeclaredIncludeSrcs());
     addToMap(allowedDerivedInputMap, context.getTransitiveCompilationPrerequisites());
     addToMap(allowedDerivedInputMap, context.getTransitiveModules(usePic));
@@ -1251,7 +1251,7 @@ public class CppCompileAction extends AbstractAction
       f.addPath(input.getExecPath());
     }
     f.addInt(0);
-    for (Artifact input : includesExemptFromDiscovery) {
+    for (Artifact input : prunableInputs) {
       f.addPath(input.getExecPath());
     }
     return f.hexDigestAndReset();
