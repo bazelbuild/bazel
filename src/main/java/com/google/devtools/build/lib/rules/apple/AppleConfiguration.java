@@ -86,7 +86,6 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static final ImmutableList<String> APPLE_CROSSTOOL_RULE_CLASSES =
       ImmutableList.of(
           "apple_binary",
-          "apple_dynamic_library",
           "apple_static_library",
           "apple_watch_extension_binary",
           "experimental_objc_library",
