@@ -46,13 +46,6 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
       compressedClasspath =
           build.getDependencyModule().computeStrictClasspath(build.getClassPath());
     }
-    if (compressedClasspath.isEmpty()) {
-      // If the empty classpath is specified and javac is invoked programatically,
-      // javac falls back to using the host classpath. We don't want JavaBuilder
-      // to leak onto the compilation classpath, so we add the (hopefully empty)
-      // class output directory to prevent that from happening.
-      compressedClasspath = build.getClassDir();
-    }
 
     // Compile!
     BlazeJavacResult result =
