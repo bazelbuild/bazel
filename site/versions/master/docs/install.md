@@ -224,7 +224,7 @@ label "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aop
 on GitHub issues.
 
 We currently support only 64 bit Windows 7 or higher and we compile Bazel as a
-msys2 binary.
+MSYS2 binary.
 
 Install Bazel on Windows using one of the following methods:
 
@@ -256,8 +256,8 @@ We provide binary versions on our
 <a href="https://github.com/bazelbuild/bazel/releases">GitHub releases page</a>
 
 This is merely the Bazel binary. You'll need additional software (e.g. msys2
-shell) and some setup in your environment to run Bazel. See these requirements
-on our [Windows page](windows.md#requirements).
+shell of the right version) and some setup in your environment to run Bazel.
+See these requirements on our [Windows page](windows.md#requirements).
 
 
 ## <a name="compiling-from-source"></a>Compiling from source
@@ -276,6 +276,41 @@ Unzip the archive and call `bash ./compile.sh`; this will create a
 bazel binary in `output/bazel`. This binary is self-contained,
 so it can be copied to a directory on the PATH (e.g.,
 `/usr/local/bin`) or used in-place.
+
+###<a name="compiling-from-source-issues"></a>Known issues when compiling from source
+
+**On Windows:**
+
+* version 0.4.4 and below: `compile.sh` may fail right after start with an error
+  like this:
+
+    ```
+    File not found - *.jar
+    no error prone jar
+    ```
+
+    Workaround is to run this (and add it to your `~/.bashrc`):
+
+    ```
+    export PATH="/bin:/usr/bin:$PATH"
+    ```
+
+* version 0.4.3 and below: `compile.sh` may fail fairly early with many Java
+  compilation errors. The errors look similar to:
+
+    ```
+    C:\...\bazel_VR1HFY7x\src\com\google\devtools\build\lib\remote\ExecuteServiceGrpc.java:11: error: package io.grpc.stub does not exist
+    import static io.grpc.stub.ServerCalls.asyncUnaryCall;
+                              ^
+    ```
+
+    This is caused by a bug in one of the bootstrap scripts
+    (`scripts/bootstrap/compile.sh`). Manually apply this one-line fix if you want
+    to build Bazel purely from source (without using an existing Bazel binary):
+    [5402993a5e9065984a42eca2132ec56ca3aa456f]( https://github.com/bazelbuild/bazel/commit/5402993a5e9065984a42eca2132ec56ca3aa456f).
+
+* version 0.3.2 and below:
+  [github issue #1919](https://github.com/bazelbuild/bazel/issues/1919)
 
 
 ## <a name="jdk7"></a>Using Bazel with JDK 7 (deprecated)
