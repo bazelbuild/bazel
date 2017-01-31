@@ -190,12 +190,6 @@ public abstract class AbstractAction implements Action, SkylarkValue {
 
   @Nullable
   @Override
-  public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
-    return null;
-  }
-
-  @Nullable
-  @Override
   public Iterable<Artifact> resolveInputsFromCache(
       ArtifactResolver artifactResolver,
       PackageRootResolver resolver,

@@ -178,11 +178,6 @@ public class ObjcCompileAction extends SpawnAction {
 
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
-    return null;
-  }
-
-  @Override
-  public Iterable<Artifact> getInputsWhenSkippingInputDiscovery() {
     return filterHeaderFiles();
   }
 

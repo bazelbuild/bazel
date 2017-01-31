@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -60,7 +59,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
@@ -389,54 +387,39 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           try {
             state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
                 perActionFileCache, metadataHandler, env);
+            Preconditions.checkState(state.discoveredInputs != null);
           } catch (MissingDepException e) {
             Preconditions.checkState(env.valuesMissing(), action);
             return null;
           }
         }
-        // state.discoveredInputs can be null even after include scanning if action discovers them
-        // during execution.
-        if (state.discoveredInputs != null) {
-          addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
+        addDiscoveredInputs(state.inputArtifactData, state.discoveredInputs, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
+        perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+        metadataHandler =
+            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+
+        // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
+        // files with addDiscoveredInputs() and then have waited for those files to be available
+        // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
+        // inputs to discover even more inputs and then potentially also wait for those to be
+        // available.
+        if (state.discoveredInputsStage2 == null) {
+          state.discoveredInputsStage2 = action.discoverInputsStage2(env);
+        }
+        if (state.discoveredInputsStage2 != null) {
+          addDiscoveredInputs(state.inputArtifactData, state.discoveredInputsStage2, env);
           if (env.valuesMissing()) {
             return null;
           }
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
               new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-
-          // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
-          // files with addDiscoveredInputs() and then have waited for those files to be available
-          // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
-          // inputs to discover even more inputs and then potentially also wait for those to be
-          // available.
-          if (state.discoveredInputsStage2 == null) {
-            state.discoveredInputsStage2 = action.discoverInputsStage2(env);
-          }
-          if (state.discoveredInputsStage2 != null) {
-            addDiscoveredInputs(state.inputArtifactData, state.discoveredInputsStage2, env);
-            if (env.valuesMissing()) {
-              return null;
-            }
-            perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-            metadataHandler =
-                new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-          }
-        } else {
-          // The action generally tries to discover its inputs during execution. If there are any
-          // additional inputs necessary to execute the action, make sure they are available now.
-          Iterable<Artifact> requiredInputs = action.getInputsWhenSkippingInputDiscovery();
-          if (requiredInputs != null) {
-            addDiscoveredInputs(state.inputArtifactData, requiredInputs, env);
-            if (env.valuesMissing()) {
-              return null;
-            }
-            perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-            metadataHandler =
-                new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-          }
         }
       }
+
       actionExecutionContext =
           skyframeActionExecutor.getContext(perActionFileCache,
               metadataHandler, state.expandedArtifacts);
@@ -458,55 +441,23 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           filterKnownInputs(action.getInputs(), state.inputArtifactData.keySet());
       Map<SkyKey, SkyValue> metadataFoundDuringActionExecution =
           env.getValues(toKeys(newInputs, action.getMandatoryInputs()));
-      if (state.discoveredInputs == null) {
-        // Include scanning didn't find anything beforehand -- these are the definitive discovered
-        // inputs.
-        state.discoveredInputs = newInputs;
-        if (env.valuesMissing()) {
-          return null;
+      state.discoveredInputs = newInputs;
+      if (env.valuesMissing()) {
+        return null;
+      }
+      if (!Iterables.isEmpty(newInputs)) {
+        // We are in the interesting case of an action that discovered its inputs during
+        // execution, and found some new ones, but the new ones were already present in the graph.
+        // We must therefore cache the metadata for those new ones.
+        Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
+        inputArtifactData.putAll(state.inputArtifactData);
+        for (Map.Entry<SkyKey, SkyValue> entry : metadataFoundDuringActionExecution.entrySet()) {
+          inputArtifactData.put(
+              ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
         }
-        if (!Iterables.isEmpty(newInputs)) {
-          // We are in the interesting case of an action that discovered its inputs during
-          // execution, and found some new ones, but the new ones were already present in the graph.
-          // We must therefore cache the metadata for those new ones.
-          Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
-          inputArtifactData.putAll(state.inputArtifactData);
-          for (Map.Entry<SkyKey, SkyValue> entry : metadataFoundDuringActionExecution.entrySet()) {
-            inputArtifactData.put(
-                ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
-          }
-          state.inputArtifactData = inputArtifactData;
-          metadataHandler =
-              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-        }
-      } else if (!Iterables.isEmpty(newInputs)) {
-        // The action has run and discovered more inputs. This is a bug, probably the result of
-        // the action dynamically executing locally instead of remotely, and a discrepancy between
-        // our include scanning and the action's compiler. Fail the build so that the user notices,
-        // and also report the issue.
-        String errorMessageStart =
-            action.prettyPrint()
-                + " discovered unexpected inputs. This indicates a mismatch between the build"
-                + " system and the action's compiler. Please report this issue. The ";
-        String errorMessageEnd = "";
-        int artifactPrinted = 0;
-        for (Artifact extraArtifact : newInputs) {
-          if (artifactPrinted >= 10) {
-            errorMessageStart += "first ten ";
-            break;
-          }
-          if (artifactPrinted > 0) {
-            errorMessageEnd += ", ";
-          }
-          artifactPrinted++;
-          errorMessageEnd += extraArtifact.prettyPrint();
-        }
-        errorMessageStart += "additional inputs found were: " + errorMessageEnd;
-        ActionExecutionException exception =
-            new ActionExecutionException(errorMessageStart, action, /*catastrophe=*/ false);
-        LoggingUtil.logToRemote(Level.SEVERE, errorMessageStart, exception);
-        throw skyframeActionExecutor.processAndThrow(
-            exception, action, actionExecutionContext.getFileOutErr());
+        state.inputArtifactData = inputArtifactData;
+        metadataHandler =
+            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
       }
     }
     Preconditions.checkState(!env.valuesMissing(), action);
