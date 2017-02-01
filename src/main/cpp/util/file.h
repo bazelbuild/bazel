@@ -17,7 +17,6 @@
 #include <functional>
 #include <string>
 #include <vector>
-#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze_util {
 
@@ -59,6 +58,8 @@ std::string Dirname(const std::string &path);
 // Returns the part of the path after the final "/".  If there is no
 // "/" in the path, the result is the same as the input.
 std::string Basename(const std::string &path);
+
+std::string JoinPath(const std::string &path1, const std::string &path2);
 
 // Lists all files in `path` and all of its subdirectories.
 //

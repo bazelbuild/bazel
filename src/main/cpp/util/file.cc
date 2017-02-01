@@ -77,6 +77,31 @@ string Basename(const string &path) {
   return SplitPath(path).second;
 }
 
+string JoinPath(const string &path1, const string &path2) {
+  if (path1.empty()) {
+    // "" + "/bar"
+    return path2;
+  }
+
+  if (path1[path1.size() - 1] == '/') {
+    if (path2.find('/') == 0) {
+      // foo/ + /bar
+      return path1 + path2.substr(1);
+    } else {
+      // foo/ + bar
+      return path1 + path2;
+    }
+  } else {
+    if (path2.find('/') == 0) {
+      // foo + /bar
+      return path1 + path2;
+    } else {
+      // foo + bar
+      return path1 + "/" + path2;
+    }
+  }
+}
+
 class DirectoryTreeWalker : public DirectoryEntryConsumer {
  public:
   DirectoryTreeWalker(vector<string> *files,
