@@ -72,7 +72,7 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.build/docs/be/workspace.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.build/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="30"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="44"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9">
          <a href="https://github.com/bazelbuild/bazel/releases/tag/0.1.0"><b>0.1</b>
          <br/><span class="label label-default">Released</span></a>
@@ -126,32 +126,59 @@ be refined if appropriate.
     </tr>
     <tr>
       <td rowspan="4"><b>0.5</b></td>
-      <td rowspan="4"><b>2017&#8209;01</b></td>
-      <td>P0. Support for testing Android apps</td>
+      <td rowspan="4"><b>2017&#8209;02</b></td>
+      <td>P0. Support for building and testing Java, C++ and Python on Windows</td>
     </tr>
-    <tr><td>P0. Bazel supports building Java, C++ and Python on Windows</td></tr>
-    <tr><td>P1. Bazel supports distributed execution of actions through a stable API</td></tr>
-    <tr><td>P2. Support for Swift language</td></tr>
+    <tr><td>P1. Initial API for a Build Event Protocol</td></tr>
+    <tr><td>P1. Support for coverage for Java</td></tr>
+    <tr><td>P2. Repository rules no longer have invalidation issues</td></tr>
     <tr>
-      <td rowspan="2"><b>0.6</b></td>
-      <td rowspan="2"><b>2017&#8209;03 </b></td>
-      <td>P0. Searchable "hub" of Skylark rules</td>
+      <td rowspan="5"><b>0.6</b></td>
+      <td rowspan="5"><b>2017&#8209;03 </b></td>
+      <td>P1. Stable API for Remote execution including platform description</td>
     </tr>
-    <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
+    <tr><td>P1. Release binaries with Java dependencies included in Bazel</td></tr>
+    <tr><td>P1. List of feature to deprecate until version 1.0 are tracked in a publicly available document</td></tr>
+    <tr><td>P2. Bazel on Windows does not need to install MSYS</td></tr>
+    <tr><td>P2. Bazel can load workspace recursively</td></tr>
     <tr>
-      <td rowspan="3"><b>0.7</b></td>
-      <td rowspan="3"><b>2017 Q2</b></td>
-      <td>P0. Full Windows support for Android: Android feature set is identical for Windows and Linux/OS X</tr>
+      <td rowspan="8"><b>0.7</b></td>
+      <td rowspan="8"><b>2017&#8209;06</b></td>
+      <td>P0. Decouple Skylark rules from Bazel</td>
     </tr>
-    <tr><td>P1. Android Studio interoperability</td></tr>
-    <tr><td>P1. Support for testing iOS apps</td></tr>
+    <tr><td>P0. Support for Android integration testing</td></tr>
+    <tr><td>P0. Support for Robolectric test for Android</td></tr>
+    <tr><td>P1. The Build Event Protocol is stable</td></tr>
+    <tr><td>P1. Support for coverage can be extended in Skylark and C++</td></tr>
+    <tr><td>P1. Support for testing Skylark rules</td></tr>
+    <tr><td>P2. All external repositories can use the local cache</td></tr>
+    <tr><td>P2. Local caching of build artifacts</td></tr>
     <tr>
-      <td rowspan="3"><b><a name="stable"></a>Stable</b></td>
-      <td rowspan="3"><b>1.0</b></td>
-      <td rowspan="3"><b>2017 Q4</b></td>
-      <td>P0. Github repository is primary</td>
+      <td rowspan="4"><b>0.8</b></td>
+      <td rowspan="4"><b>2017&#8209;09</b></td>
+      <td>P0. Support for iOS integration testing</td>
     </tr>
-    <tr><td>P0. Extension APIs are stable and versioned</td></tr>
-    <tr><td>P1. Bazel is available in the Ubuntu and Debian package managers</td></tr>
+    <tr><td>P1. Bazel can build Android application on Windows</td></tr>
+    <tr><td>P1. Local caching of external repository is turned on by default and has a deletion strategy</td></tr>
+    <tr><td>P1. Access to native rules functionality from Skylark (<a href-"https://bazel.build/designs/2016/08/04/extensibility-for-native-rules.html">"sandwich"</a>)</td></tr>
+   <tr>
+      <td rowspan="2"><b>0.9</b></td>
+      <td rowspan="2"><b>2017&#8209;12</b></td>
+      <td>P0. Full Windows support</td>
+    </tr>
+    <tr><td>P1. Full test suite is open-sourced</td></tr>
+    <tr>
+      <td rowspan="7"><b><a name="stable"></a>Stable</b></td>
+      <td rowspan="7"><b>1.0</b></td>
+      <td rowspan="7"><b>2018</b></td>
+      <td>P0. APIs are versioned</td>
+    </tr>
+    <tr><td>P0. Github is primary</td></tr>
+    <tr><td>P1. Deprecated features are removed</td></tr>
+    <tr><td>P1. Support policy is defined regarding LTS release</td></tr>
+    <tr><td>P1. Public review process for design documents</td></tr>
+    <tr><td>P1. Bazel respects the standard for Debian packaging</td></tr>
+    <tr><td>P2. Bazel is in the list of debian package for the next stable</td></tr>
   </tbody>
 </table>
+
