@@ -91,6 +91,16 @@ public class ProtoCommon {
     return importsBuilder.build();
   }
 
+  public static NestedSet<Artifact> collectDependenciesDescriptorSets(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+
+    for (ProtoSourcesProvider provider :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class)) {
+      result.addTransitive(provider.transitiveDescriptorSets());
+    }
+    return result.build();
+  }
+
   /**
    * Check that .proto files in sources are from the same package. This is done to avoid clashes
    * with the generated sources.

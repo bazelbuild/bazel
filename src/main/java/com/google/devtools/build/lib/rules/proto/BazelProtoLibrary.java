@@ -55,31 +55,28 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             transitiveImports,
             !protoSources.isEmpty());
 
-    Runfiles.Builder dataRunfiles =
-        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext);
+    Artifact descriptorSetOutput =
+        ruleContext.getGenfilesArtifact(
+            ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
+    NestedSet<Artifact> dependenciesDescriptorSets =
+        ProtoCommon.collectDependenciesDescriptorSets(ruleContext);
+    NestedSet<Artifact> transitiveDescriptorSetOutput =
+        NestedSetBuilder.fromNestedSet(dependenciesDescriptorSets).add(descriptorSetOutput).build();
 
-    RuleConfiguredTargetBuilder result = new RuleConfiguredTargetBuilder(ruleContext);
+    ProtoCompileActionBuilder.writeDescriptorSet(
+        ruleContext,
+        descriptorSetOutput.getExecPathString(),
+        protoSources,
+        transitiveImports,
+        protosInDirectDeps,
+        descriptorSetOutput,
+        true /* allowServices */,
+        dependenciesDescriptorSets);
 
-    Artifact descriptorSetOutput = null;
-    if (checkDepsProtoSources.isEmpty()) {
-      result.setFilesToBuild(NestedSetBuilder.<Artifact>create(STABLE_ORDER));
-    } else {
-      descriptorSetOutput =
-          ruleContext.getGenfilesArtifact(
-              ruleContext.getLabel().getName() + "-descriptor-set.proto.bin");
-      ProtoCompileActionBuilder.writeDescriptorSet(
-          ruleContext,
-          descriptorSetOutput.getExecPathString(),
-          checkDepsProtoSources,
-          transitiveImports,
-          protosInDirectDeps,
-          ImmutableList.of(descriptorSetOutput),
-          true /* allowServices */);
-
-      dataRunfiles.addArtifact(descriptorSetOutput);
-
-      result.setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput));
-    }
+    Runfiles dataRunfiles =
+        ProtoCommon.createDataRunfilesProvider(transitiveImports, ruleContext)
+            .addArtifact(descriptorSetOutput)
+            .build();
 
     // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
     ProtoSourcesProvider sourcesProvider =
@@ -88,10 +85,12 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
             transitiveImports,
             protoSources,
             checkDepsProtoSources,
-            descriptorSetOutput);
+            descriptorSetOutput,
+            transitiveDescriptorSetOutput);
 
-    return result
-        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles.build()))
+    return new RuleConfiguredTargetBuilder(ruleContext)
+        .setFilesToBuild(NestedSetBuilder.create(STABLE_ORDER, descriptorSetOutput))
+        .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, dataRunfiles))
         .addProvider(ProtoSourcesProvider.class, sourcesProvider)
         .addProvider(ProtoSupportDataProvider.class, new ProtoSupportDataProvider(supportData))
         .addSkylarkTransitiveInfo(ProtoSourcesProvider.SKYLARK_NAME, sourcesProvider)

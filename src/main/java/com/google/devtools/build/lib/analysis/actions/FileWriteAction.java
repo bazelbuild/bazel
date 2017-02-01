@@ -28,7 +28,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Collection;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
@@ -79,7 +78,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   private FileWriteAction(
       ActionOwner owner,
-      Collection<Artifact> inputs,
+      Iterable<Artifact> inputs,
       Artifact output,
       CharSequence fileContents,
       boolean makeExecutable,
@@ -104,7 +103,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    */
   public static FileWriteAction createEmptyWithInputs(
-      ActionOwner owner, Collection<Artifact> inputs, Artifact output) {
+      ActionOwner owner, Iterable<Artifact> inputs, Artifact output) {
     return new FileWriteAction(owner, inputs, output, "", false, Compression.DISALLOW);
   }
 

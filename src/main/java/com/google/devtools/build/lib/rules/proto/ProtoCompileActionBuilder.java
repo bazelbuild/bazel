@@ -35,11 +35,13 @@ import com.google.devtools.build.lib.analysis.MakeVariableExpander;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -371,21 +373,37 @@ public class ProtoCompileActionBuilder {
   public static void writeDescriptorSet(
       RuleContext ruleContext,
       final CharSequence outReplacement,
-      Iterable<Artifact> protosToCompile,
+      Collection<Artifact> protosToCompile,
       NestedSet<Artifact> transitiveSources,
       NestedSet<Artifact> protosInDirectDeps,
-      Iterable<Artifact> outputs,
-      boolean allowServices) {
-    registerActions(
-        ruleContext,
-        ImmutableList.of(createDescriptorSetToolchain(outReplacement)),
-        protosToCompile,
-        transitiveSources,
-        protosInDirectDeps,
-        ruleContext.getLabel().getCanonicalForm(),
-        outputs,
-        "Descriptor Set",
-        allowServices);
+      Artifact output,
+      boolean allowServices,
+      NestedSet<Artifact> transitiveDescriptorSets) {
+    if (protosToCompile.isEmpty()) {
+      ruleContext.registerAction(
+          FileWriteAction.createEmptyWithInputs(
+              ruleContext.getActionOwner(), transitiveDescriptorSets, output));
+      return;
+    }
+
+    SpawnAction.Builder actions =
+        createActions(
+            ruleContext,
+            ImmutableList.of(createDescriptorSetToolchain(outReplacement)),
+            protosToCompile,
+            transitiveSources,
+            protosInDirectDeps,
+            ruleContext.getLabel().getCanonicalForm(),
+            ImmutableList.of(output),
+            "Descriptor Set",
+            allowServices);
+    if (actions == null) {
+      return;
+    }
+
+    actions.setMnemonic("GenProtoDescriptorSet");
+    actions.addTransitiveInputs(transitiveDescriptorSets);
+    ruleContext.registerAction(actions.build(ruleContext));
   }
 
   private static ToolchainInvocation createDescriptorSetToolchain(CharSequence outReplacement) {
@@ -421,8 +439,36 @@ public class ProtoCompileActionBuilder {
       Iterable<Artifact> outputs,
       String flavorName,
       boolean allowServices) {
+    SpawnAction.Builder actions =
+        createActions(
+            ruleContext,
+            toolchainInvocations,
+            protosToCompile,
+            transitiveSources,
+            protosInDirectDeps,
+            ruleLabel,
+            outputs,
+            flavorName,
+            allowServices);
+    if (actions != null) {
+      ruleContext.registerAction(actions.build(ruleContext));
+    }
+  }
+
+  @Nullable
+  private static SpawnAction.Builder createActions(
+      RuleContext ruleContext,
+      List<ToolchainInvocation> toolchainInvocations,
+      Iterable<Artifact> protosToCompile,
+      NestedSet<Artifact> transitiveSources,
+      @Nullable NestedSet<Artifact> protosInDirectDeps,
+      String ruleLabel,
+      Iterable<Artifact> outputs,
+      String flavorName,
+      boolean allowServices) {
+
     if (isEmpty(outputs)) {
-      return;
+      return null;
     }
 
     SpawnAction.Builder result = new SpawnAction.Builder().addTransitiveInputs(transitiveSources);
@@ -437,7 +483,7 @@ public class ProtoCompileActionBuilder {
     FilesToRunProvider compilerTarget =
         ruleContext.getExecutablePrerequisite(":proto_compiler", RuleConfiguredTarget.Mode.HOST);
     if (compilerTarget == null) {
-      return;
+      return null;
     }
 
     result
@@ -458,7 +504,7 @@ public class ProtoCompileActionBuilder {
         .setProgressMessage("Generating " + flavorName + " proto_library " + ruleContext.getLabel())
         .setMnemonic(MNEMONIC);
 
-    ruleContext.registerAction(result.build(ruleContext));
+    return result;
   }
 
   /**
