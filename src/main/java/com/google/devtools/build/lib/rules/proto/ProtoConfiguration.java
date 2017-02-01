@@ -122,7 +122,7 @@ public class ProtoConfiguration extends Fragment {
       name = "output_descriptor_set",
       defaultValue = "true",
       category = "experimental",
-      help = "When true, a proto_library will produce a descriptor set proto in its outputs."
+      help = "ignored."
     )
     public boolean outputDescriptorSet;
 
@@ -137,7 +137,6 @@ public class ProtoConfiguration extends Fragment {
       host.protoToolchainForJavaLite = protoToolchainForJavaLite;
       host.protoToolchainForCc = protoToolchainForCc;
       host.strictProtoDeps = strictProtoDeps;
-      host.outputDescriptorSet = outputDescriptorSet;
       return host;
     }
   }
@@ -170,7 +169,6 @@ public class ProtoConfiguration extends Fragment {
   private final Label protoToolchainForJavaLite;
   private final Label protoToolchainForCc;
   private final StrictDepsMode strictProtoDeps;
-  private final boolean outputDescriptorSet;
 
   public ProtoConfiguration(Options options) {
     this.experimentalProtoExtraActions = options.experimentalProtoExtraActions;
@@ -180,7 +178,6 @@ public class ProtoConfiguration extends Fragment {
     this.protoToolchainForJavaLite = options.protoToolchainForJavaLite;
     this.protoToolchainForCc = options.protoToolchainForCc;
     this.strictProtoDeps = options.strictProtoDeps;
-    this.outputDescriptorSet = options.outputDescriptorSet;
   }
 
   public ImmutableList<String> protocOpts() {
@@ -214,9 +211,5 @@ public class ProtoConfiguration extends Fragment {
 
   public StrictDepsMode strictProtoDeps() {
     return strictProtoDeps;
-  }
-
-  public boolean outputDescriptorSet() {
-    return outputDescriptorSet;
   }
 }
