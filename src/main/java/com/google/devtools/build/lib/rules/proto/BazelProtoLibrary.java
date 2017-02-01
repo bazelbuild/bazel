@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.proto;
 
 import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.rules.proto.ProtoCommon.areDepsStrict;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -46,8 +45,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
     NestedSet<Artifact> transitiveImports =
         ProtoCommon.collectTransitiveImports(ruleContext, protoSources);
 
-    NestedSet<Artifact> protosInDirectDeps =
-        areDepsStrict(ruleContext) ? ProtoCommon.computeProtosInDirectDeps(ruleContext) : null;
+    NestedSet<Artifact> protosInDirectDeps = ProtoCommon.computeProtosInDirectDeps(ruleContext);
 
     final SupportData supportData =
         SupportData.create(

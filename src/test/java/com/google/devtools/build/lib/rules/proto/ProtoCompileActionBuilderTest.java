@@ -72,7 +72,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.of(artifact("//:dont-care", "source_file.proto")),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.create(
                 STABLE_ORDER,
                 artifact("//:dont-care", "import1.proto"),
@@ -87,7 +87,7 @@ public class ProtoCompileActionBuilderTest {
                 new ToolchainInvocation("pluginName", toolchainWithPlugin, "bar.srcjar")),
             supportData.getDirectProtoSources(),
             supportData.getTransitiveImports(),
-            supportData.getProtosInDirectDeps(),
+            null /* protosInDirectDeps */,
             "//foo:bar",
             true /* allowServices */,
             ImmutableList.<String>of() /* protocOpts */);
@@ -151,7 +151,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -193,7 +193,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
@@ -222,7 +222,7 @@ public class ProtoCompileActionBuilderTest {
         SupportData.create(
             Predicates.<TransitiveInfoCollection>alwaysFalse(),
             ImmutableList.<Artifact>of(),
-            null /* protosInDirectDeps */,
+            NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER) /* protosInDirectDeps */,
             NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER),
             true /* hasProtoSources */);
 
