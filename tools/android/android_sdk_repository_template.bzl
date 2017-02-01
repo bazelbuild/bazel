@@ -19,7 +19,7 @@ def create_android_sdk_rules(
     build_tools_directory,
     api_levels,
     default_api_level):
-  """Generate the contents of the android_sdk_repository.
+  """Generate android_sdk rules for the API levels in the Android SDK.
 
   Args:
     name: string, the name of the repository being generated.
@@ -203,3 +203,19 @@ def create_android_sdk_rules(
       name = "dx_jar_import",
       jars = [":dx_jar"],
   )
+
+def create_android_device_rules(system_image_dirs):
+  """Generate android_device rules for the system images in the Android SDK.
+
+  Args:
+    system_image_dirs: list of strings, the directories containing system image
+        files to be used to create android_device rules.
+  """
+
+  for system_image_dir in system_image_dirs:
+    name = "_".join(system_image_dir.split("/")[1:])
+
+    native.filegroup(
+        name = "%s_files" % name,
+        srcs = native.glob(["%s/**" % system_image_dir]),
+    )

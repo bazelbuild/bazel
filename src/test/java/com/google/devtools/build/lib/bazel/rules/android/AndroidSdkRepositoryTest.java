@@ -16,8 +16,11 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -59,23 +62,34 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         "tools/android/android_sdk_repository_template.bzl",
         "def create_android_sdk_rules(name, build_tools_version, build_tools_directory, ",
         "        api_levels, default_api_level):",
-        "    pass");
+        "    pass",
+        "def create_android_device_rules(system_image_dirs):",
+        "    native.filegroup(",
+        "        name = 'test_android_devices_filegroup',",
+        "        srcs = system_image_dirs)");
 
     scratch.setWorkingDir("/workspace");
     FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
         "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
         "android_sdk_repository(",
-        "    name = 'mysdk',",
+        "    name = 'androidsdk',",
         "    path = '/sdk',",
         "    build_tools_version = '25.0.0',",
         "    api_level = 25,",
         ")");
+    invalidatePackages();
+  }
+
+  private void setupSystemImages() throws Exception {
+    scratch.dir("/sdk/system-images/android-25/default/armeabi-v7a");
+    scratch.dir("/sdk/system-images/android-24/google_apis/x86");
+    scratch.dir("/sdk/system-images/android-24/google_apis/x86_64");
   }
 
   @Test
   public void testGeneratedAarImport() throws Exception {
-    invalidatePackages();
-    ConfiguredTarget aarImportTarget = getConfiguredTarget("@mysdk//com.google.android:foo-1.0.0");
+    ConfiguredTarget aarImportTarget =
+        getConfiguredTarget("@androidsdk//com.google.android:foo-1.0.0");
     assertThat(aarImportTarget).isNotNull();
     assertThat(aarImportTarget.getTarget().getAssociatedRule().getRuleClass())
         .isEqualTo("aar_import");
@@ -83,9 +97,34 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
 
   @Test
   public void testExportsFiles() throws Exception {
-    invalidatePackages();
     ConfiguredTarget aarTarget = getConfiguredTarget(
-        "@mysdk//:extras/google/m2repository/com/google/android/foo/1.0.0/foo.aar");
+        "@androidsdk//:extras/google/m2repository/com/google/android/foo/1.0.0/foo.aar");
     assertThat(aarTarget).isNotNull();
+  }
+
+  @Test
+  public void testSystemImageDirectoriesAreFound() throws Exception {
+    setupSystemImages();
+    ConfiguredTarget androidDevicesFilegroupTarget =
+        getConfiguredTarget("@androidsdk//:test_android_devices_filegroup");
+    ImmutableList<Artifact> systemImagesDirectories =
+        androidDevicesFilegroupTarget.getProvider(FilesToRunProvider.class).getFilesToRun();
+    assertThat(artifactsToStrings(systemImagesDirectories))
+        .containsExactly(
+            "src external/androidsdk/system-images/android-25/default/armeabi-v7a",
+            "src external/androidsdk/system-images/android-24/google_apis/x86",
+            "src external/androidsdk/system-images/android-24/google_apis/x86_64");
+  }
+
+  @Test
+  public void testNoSystemImageDirectory() throws Exception {
+    ConfiguredTarget androidDevicesFilegroupTarget =
+        getConfiguredTarget("@androidsdk//:test_android_devices_filegroup");
+    assertThat(androidDevicesFilegroupTarget).isNotNull();
+    assertThat(
+        androidDevicesFilegroupTarget
+            .getProvider(FilesToRunProvider.class)
+            .getFilesToRun())
+        .isEmpty();
   }
 }
