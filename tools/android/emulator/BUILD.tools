@@ -29,7 +29,9 @@ alias(
 
 filegroup(
     name = "xvfb_support",
-    srcs = [],
+    srcs = [
+        "@androidsdk//:emulator_shared_libs",
+    ],
 )
 
 # Unified launcher is not included with Bazel or the Android SDK. Instead, it

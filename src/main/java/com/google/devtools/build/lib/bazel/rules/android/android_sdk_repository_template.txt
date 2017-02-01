@@ -43,6 +43,11 @@ alias(
     actual = "tools/lib/emulator/snapshots.img",
 )
 
+filegroup(
+    name = "emulator_shared_libs",
+    srcs = glob(["tools/lib64/**"]),
+)
+
 create_android_device_rules(
     system_image_dirs = [
 %system_image_dirs%    ],
