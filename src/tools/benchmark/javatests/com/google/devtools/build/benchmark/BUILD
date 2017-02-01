@@ -1,16 +1,6 @@
 package(default_visibility = ["//src/tools/benchmark:__subpackages__"])
 
 java_test(
-    name = "MainTest",
-    srcs = ["MainTest.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
-        "//third_party:junit4",
-    ],
-)
-
-java_test(
     name = "BazelBuildCaseTest",
     srcs = ["BazelBuildCaseTest.java"],
     deps = [
