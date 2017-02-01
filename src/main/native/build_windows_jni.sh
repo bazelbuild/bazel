@@ -22,6 +22,18 @@
 DLL="$1"
 shift 1
 
+function fail() {
+  echo >&2 "ERROR: $@"
+  exit 1
+}
+
+# Ensure the PATH is set up correctly.
+if ! which which >&/dev/null ; then
+  PATH="/bin:/usr/bin:$PATH"
+  which which >&/dev/null \
+      || fail "System PATH is not set up correctly, cannot run GNU bintools"
+fi
+
 # Create a temp directory. It will used for the batch file we generate soon and
 # as the temp directory for CL.EXE .
 VSTEMP=$(mktemp -d)
@@ -30,11 +42,11 @@ trap "rm -fr \"$VSTEMP\"" EXIT
 # Find Visual Studio. We don't have any regular environment variables available
 # so this is the best we can do.
 if [ -z "${BAZEL_VS+set}" ]; then
-  VSVERSION="$(ls "C:/Program Files (x86)" | grep -E "Microsoft Visual Studio [0-9]+" | sort --version-sort | tail -n 1)"
-  if [[ "$VSVERSION" == "" ]]; then
-    echo "Visual Studio not found"
-    exit 1
-  fi
+  VSVERSION="$(ls "C:/Program Files (x86)" \
+      | grep -E "Microsoft Visual Studio [0-9]+" \
+      | sort --version-sort \
+      | tail -n 1)"
+  [[ -n "$VSVERSION" ]] || fail "Visual Studio not found"
   BAZEL_VS="C:/Program Files (x86)/$VSVERSION"
 fi
 VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
@@ -42,10 +54,7 @@ VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 # Find Java. $(JAVA) in the BUILD file points to external/local_jdk/..., which
 # is not very useful for anything not MSYS-based.
 JAVA=$(ls "C:/Program Files/java" | grep -E "^jdk" | sort | tail -n 1)
-if [[ "$JAVA" == "" ]]; then
-  echo "JDK not found"
-  exit 1
-fi
+[[ -n "$JAVA" ]] || fail "JDK not found"
 JAVAINCLUDES="C:/Program Files/java/$JAVA/include"
 
 # Convert all compilation units to Windows paths.
