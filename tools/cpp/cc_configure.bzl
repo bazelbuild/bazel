@@ -298,7 +298,22 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
 # TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
 def _get_windows_crosstool_content(repository_ctx):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
-  msys_root = _execute(repository_ctx, ["cygpath", "-m", "/"])
+  bazel_sh = _get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
+  tokens = bazel_sh.rsplit("/", 1)
+  msys_root = None
+  # while-loops are not supported in order to avoid Turing-completeness.
+  # Use a for-loop, we know it'll halt in at most len(tokens[0]) steps.
+  for _ in range(len(tokens[0])):
+    if len(tokens) < 2:
+      break
+    if tokens[1].startswith("msys"):
+      msys_root = tokens[0] + "/" + tokens[1] + "/"
+      break
+    else:
+      tokens = tokens[0].rsplit("/", 1)
+  if not msys_root:
+    auto_configure_fail(
+        "Could not determine MSYS root from BAZEL_SH (%s)" % bazel_sh)
   return (
       '   abi_version: "local"\n' +
       '   abi_libc_version: "local"\n' +
