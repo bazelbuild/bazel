@@ -1,6 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-load("@bazel_tools//tools/android:android_sdk_repository_template.bzl", "create_android_sdk_rules")
+load(
+    "@bazel_tools//tools/android:android_sdk_repository_template.bzl",
+    "create_android_device_rules",
+    "create_android_sdk_rules")
 
 create_android_sdk_rules(
     name = "%repository_name%",
@@ -38,6 +41,11 @@ alias(
 alias(
     name = "empty_snapshot_fs",
     actual = "tools/lib/emulator/snapshots.img",
+)
+
+create_android_device_rules(
+    system_image_dirs = [
+%system_image_dirs%    ],
 )
 
 exports_files([
