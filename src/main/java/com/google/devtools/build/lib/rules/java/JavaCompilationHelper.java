@@ -663,14 +663,8 @@ public final class JavaCompilationHelper {
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       List<JavaCompilationArgsProvider> compilationArgsProviders = new LinkedList<>();
       for (TransitiveInfoCollection dep : deps) {
-        // First check if there is a JavaCompilationArgsProvider.
-        JavaCompilationArgsProvider provider = dep.getProvider(JavaCompilationArgsProvider.class);
-
-        if (provider == null) {
-          // A target can either have both JavaCompilationArgsProvider and JavaProvider that
-          // encapsulates the same information, or just one of them.
-          provider = JavaProvider.getProvider(JavaCompilationArgsProvider.class, dep);
-        }
+        JavaCompilationArgsProvider provider =
+            JavaProvider.getProvider(JavaCompilationArgsProvider.class, dep);
         if (provider != null) {
           compilationArgsProviders.add(provider);
         }

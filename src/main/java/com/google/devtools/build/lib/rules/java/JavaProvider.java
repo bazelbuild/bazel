@@ -90,13 +90,21 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   }
 
   /**
-   * Returns a provider of the specified class, fetched from the JavaProvider of the given target.
-   * JavaProvider can be found as a declared provider in SkylarkProviders.
+   * Returns a provider of the specified class, fetched from the specified target or, if not found,
+   * from the JavaProvider of the given target. JavaProvider can be found as a declared provider
+   * in SkylarkProviders.
    * Returns null if no such provider exists.
+   *
+   * <p>A target can either have both the specified provider and JavaProvider that encapsulates the
+   * same information, or just one of them.</p>
    */
   @Nullable
   public static <T extends TransitiveInfoProvider> T getProvider(
       Class<T> providerClass, TransitiveInfoCollection target) {
+    T provider = target.getProvider(providerClass);
+    if (provider != null) {
+      return provider;
+    }
     SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
     if (skylarkProviders == null) {
       return null;
