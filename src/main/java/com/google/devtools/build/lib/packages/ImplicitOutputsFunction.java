@@ -94,6 +94,8 @@ public abstract class ImplicitOutputsFunction {
           attrValues.put(attrName, value == null ? Runtime.NONE : value);
         }
       }
+      // Add 'name' explicitly, since its value is not in the attribute map.
+      attrValues.put("name", map.getName());
       ClassObject attrs = SkylarkClassObjectConstructor.STRUCT.create(
           attrValues,
           "Attribute '%s' either doesn't exist "

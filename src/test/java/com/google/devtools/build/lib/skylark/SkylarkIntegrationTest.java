@@ -691,9 +691,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
         "  ftb = depset(files)",
         "  return struct(runfiles = ctx.runfiles(), files = ftb)",
         "",
-        "def output_func(public_attr, _private_attr):",
+        "def output_func(name, public_attr, _private_attr):",
         "  if _private_attr != None: return {}",
-        "  return {'o': public_attr + '.txt'}",
+        "  return {'o': name + '-' + public_attr + '.txt'}",
         "",
         "custom_rule = rule(implementation = custom_rule_impl,",
         "  attrs = {'public_attr': attr.string(),",
@@ -709,9 +709,9 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
 
     assertThat(
-        ActionsTestUtil.baseArtifactNames(
-            target.getProvider(FileProvider.class).getFilesToBuild()))
-        .containsExactly("bar.txt");
+            ActionsTestUtil.baseArtifactNames(
+                target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("cr-bar.txt");
   }
 
   @Test
