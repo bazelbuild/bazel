@@ -45,10 +45,11 @@ abstract class SandboxRunner {
    *
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
-   * @param outErr - error output to capture sandbox's and command's stderr
-   * @param timeout - after how many seconds should the process be killed
-   * @param allowNetwork - whether networking should be allowed for the process
-   * @param sandboxDebug - whether debugging message should be printed
+   * @param outErr - error output to capture sandbox's and command's stderr.
+   * @param timeout - after how many seconds should the process be killed.
+   * @param allowNetwork - whether networking should be allowed for the process.
+   * @param sandboxDebug - whether debugging message should be printed.
+   * @param useFakeHostname - whether the hostname should be set to 'localhost' inside the sandbox.
    */
   void run(
       List<String> arguments,
@@ -56,11 +57,12 @@ abstract class SandboxRunner {
       OutErr outErr,
       int timeout,
       boolean allowNetwork,
-      boolean sandboxDebug)
+      boolean sandboxDebug,
+      boolean useFakeHostname)
       throws ExecException {
     Command cmd;
     try {
-      cmd = getCommand(arguments, environment, timeout, allowNetwork);
+      cmd = getCommand(arguments, environment, timeout, allowNetwork, useFakeHostname);
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
@@ -106,11 +108,16 @@ abstract class SandboxRunner {
    *
    * @param arguments - arguments of spawn to run inside the sandbox.
    * @param environment - environment variables to pass to the spawn.
-   * @param timeout - after how many seconds should the process be killed
-   * @param allowNetwork - whether networking should be allowed for the process
+   * @param timeout - after how many seconds should the process be killed.
+   * @param allowNetwork - whether networking should be allowed for the process.
+   * @param useFakeHostname - whether the hostname should be set to 'localhost' inside the sandbox.
    */
   protected abstract Command getCommand(
-      List<String> arguments, Map<String, String> environment, int timeout, boolean allowNetwork)
+      List<String> arguments,
+      Map<String, String> environment,
+      int timeout,
+      boolean allowNetwork,
+      boolean useFakeHostname)
       throws IOException;
 
   /**

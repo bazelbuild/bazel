@@ -377,6 +377,66 @@ EOF
   kill_nc
 }
 
+function test_sandbox_can_resolve_own_hostname() {
+  mkdir -p src/test/java/com/example
+  cat > src/test/java/com/example/HostNameTest.java <<'EOF'
+package com.example;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+import java.net.*;
+import java.io.*;
+
+public class HostNameTest {
+  @Test
+  public void testGetHostName() throws Exception {
+    // This will throw an exception, if the local hostname cannot be resolved via DNS.
+    assertNotNull(InetAddress.getLocalHost().getHostName());
+  }
+}
+EOF
+  cat > src/test/java/com/example/BUILD <<'EOF'
+java_test(
+  name = "HostNameTest",
+  srcs = ["HostNameTest.java"],
+)
+EOF
+
+  bazel test --test_output=streamed src/test/java/com/example:HostNameTest &> $TEST_log \
+    || fail "test should have passed"
+}
+
+function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
+  mkdir -p src/test/java/com/example
+  cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
+package com.example;
+
+import static org.junit.Assert.*;
+
+import org.junit.Test;
+import java.net.*;
+import java.io.*;
+
+public class HostNameIsLocalhostTest {
+  @Test
+  public void testHostNameIsLocalhost() throws Exception {
+    // This will throw an exception, if the local hostname cannot be resolved via DNS.
+    assertEquals(InetAddress.getLocalHost().getHostName(), "localhost");
+  }
+}
+EOF
+  cat > src/test/java/com/example/BUILD <<'EOF'
+java_test(
+  name = "HostNameIsLocalhostTest",
+  srcs = ["HostNameIsLocalhostTest.java"],
+)
+EOF
+
+  bazel test --sandbox_fake_hostname --test_output=streamed src/test/java/com/example:HostNameIsLocalhostTest &> $TEST_log \
+    || fail "test should have passed"
+}
+
 # TODO(philwo) - this doesn't work on Ubuntu 14.04 due to "unshare" being too
 # old and not understanding the --user flag.
 function DISABLED_test_sandbox_different_nobody_uid() {

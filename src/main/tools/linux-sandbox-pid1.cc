@@ -138,11 +138,11 @@ static void SetupUserNamespace() {
 }
 
 static void SetupUtsNamespace() {
-  if (sethostname("sandbox", 7) < 0) {
+  if (sethostname("localhost", 9) < 0) {
     DIE("sethostname");
   }
 
-  if (setdomainname("sandbox", 7) < 0) {
+  if (setdomainname("localdomain", 11) < 0) {
     DIE("setdomainname");
   }
 }
@@ -641,7 +641,9 @@ int Pid1Main(void *sync_pipe_param) {
   SetupSelfDestruction(reinterpret_cast<int *>(sync_pipe_param));
   SetupMountNamespace();
   SetupUserNamespace();
-  SetupUtsNamespace();
+  if (opt.fake_hostname) {
+    SetupUtsNamespace();
+  }
   MountFilesystems();
   MakeFilesystemMostlyReadOnly();
   MountProc();

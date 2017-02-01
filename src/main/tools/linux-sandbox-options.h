@@ -44,6 +44,8 @@ struct Options {
   std::vector<const char *> bind_mount_sources;
   // Target of files or directories to explicitly bind mount in the sandbox (-m)
   std::vector<const char *> bind_mount_targets;
+  // Set the hostname inside the sandbox to 'localhost' (-H)
+  bool fake_hostname;
   // Create a new network namespace (-N)
   bool create_netns;
   // Pretend to be root inside the namespace (-R)

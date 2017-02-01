@@ -54,7 +54,11 @@ final class ProcessWrapperRunner extends SandboxRunner {
 
   @Override
   protected Command getCommand(
-      List<String> spawnArguments, Map<String, String> env, int timeout, boolean allowNetwork) {
+      List<String> spawnArguments,
+      Map<String, String> env,
+      int timeout,
+      boolean allowNetwork,
+      boolean useFakeHostname) {
     List<String> commandLineArgs = new ArrayList<>(5 + spawnArguments.size());
     commandLineArgs.add(execRoot.getRelative("_bin/process-wrapper").getPathString());
     commandLineArgs.add(Integer.toString(timeout));

@@ -86,6 +86,14 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxDebug;
 
   @Option(
+    name = "sandbox_fake_hostname",
+    defaultValue = "false",
+    category = "strategy",
+    help = "Change the current hostname to 'localhost' for sandboxed actions."
+  )
+  public boolean sandboxFakeHostname;
+
+  @Option(
     name = "sandbox_block_path",
     allowMultiple = true,
     defaultValue = "",

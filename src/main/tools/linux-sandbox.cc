@@ -165,10 +165,13 @@ static void SpawnPid1() {
     DIE("pipe");
   }
 
-  int clone_flags = CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-                    CLONE_NEWPID | SIGCHLD;
+  int clone_flags =
+      CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWPID | SIGCHLD;
   if (opt.create_netns) {
     clone_flags |= CLONE_NEWNET;
+  }
+  if (opt.fake_hostname) {
+    clone_flags |= CLONE_NEWUTS;
   }
 
   // We use clone instead of unshare, because unshare sometimes fails with

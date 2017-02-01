@@ -126,7 +126,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":CS:W:T:t:l:L:w:i:e:M:m:NRD")) != -1) {
+                     ":CS:W:T:t:l:L:w:i:e:M:m:HNRD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'C':
@@ -207,6 +207,9 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         opt.bind_mount_targets.pop_back();
         opt.bind_mount_targets.push_back(strdup(optarg));
         source_specified = false;
+        break;
+      case 'H':
+        opt.fake_hostname = true;
         break;
       case 'N':
         opt.create_netns = true;
