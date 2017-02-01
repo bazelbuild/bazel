@@ -100,14 +100,6 @@ public class ProtoConfiguration extends Fragment {
     public Label protoToolchainForCc;
 
     @Option(
-      name = "use_toolchain_for_java_proto",
-      defaultValue = "true",
-      category = "experimental",
-      help = "ignored."
-    )
-    public boolean useToolchainForJavaProto;
-
-    @Option(
       name = "strict_proto_deps",
       defaultValue = "strict",
       converter = BuildConfiguration.StrictDepsConverter.class,
