@@ -143,8 +143,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   protected CompilationSupport registerFullyLinkAction(
       ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive)
       throws InterruptedException {
-    Artifact fullyLinkedArchive =
-        ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB);
     PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -156,13 +154,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .setObjcProvider(objcProvider)
         .setConfiguration(ruleContext.getConfiguration())
         .setIntermediateArtifacts(intermediateArtifacts)
-        .setFullyLinkArchive(
-            ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
+        .setFullyLinkArchive(outputArchive)
         .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
         .build();
     
     CppLinkAction fullyLinkAction =
-        new CppLinkActionBuilder(ruleContext, fullyLinkedArchive)
+        new CppLinkActionBuilder(ruleContext, outputArchive)
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())

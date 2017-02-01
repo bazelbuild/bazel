@@ -182,7 +182,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     // values of this rule -- this rule does not currently use the actual info provided by
     // this attribute. b/28403953 tracks cc toolchain usage.
     ImmutableListMultimap<BuildConfiguration, CcToolchainProvider> configToProvider =
-        ruleContext.getPrerequisitesByConfiguration(":cc_toolchain", Mode.SPLIT,
+        ruleContext.getPrerequisitesByConfiguration(ObjcRuleClasses.CHILD_CONFIG_ATTR, Mode.SPLIT,
             CcToolchainProvider.class);
 
     return configToProvider.keySet();
