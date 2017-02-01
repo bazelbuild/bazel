@@ -166,7 +166,7 @@ def collect_transitive_exports(targets):
   """Build a union of all export dependencies."""
   result = set()
   for dep in targets:
-    result = result | dep.export_deps
+    result = result | dep.intellij_info.export_deps
   return result
 
 def targets_to_labels(targets):
@@ -179,7 +179,7 @@ def list_omit_none(value):
 
 def is_valid_aspect_target(target):
   """Returns whether the target has had the aspect run on it."""
-  return hasattr(target, "intellij_aspect")
+  return hasattr(target, "intellij_info")
 
 ##### Builders for individual parts of the aspect output
 
@@ -503,8 +503,8 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   intellij_resolve_files = set()
   intellij_compile_files = target.output_group("files_to_compile_INTERNAL_")
   for dep in prerequisites:
-    intellij_info_text = intellij_info_text | dep.intellij_info_files.intellij_info_text
-    intellij_resolve_files = intellij_resolve_files | dep.intellij_info_files.intellij_resolve_files
+    intellij_info_text = intellij_info_text | dep.intellij_info.intellij_info_text
+    intellij_resolve_files = intellij_resolve_files | dep.intellij_info.intellij_resolve_files
 
   # Collect python-specific information
   (py_ide_info, py_resolve_files) = build_py_ide_info(target, ctx)
@@ -564,17 +564,16 @@ def intellij_info_aspect_impl(target, ctx, semantics):
 
   # Return providers.
   return struct_omit_none(
-      intellij_aspect = True,
       output_groups = {
           "intellij-info-text" : intellij_info_text,
           "intellij-resolve" : intellij_resolve_files,
           "intellij-compile": intellij_compile_files,
       },
-      intellij_info_files = struct(
-        intellij_info_text = intellij_info_text,
-        intellij_resolve_files = intellij_resolve_files,
+      intellij_info = struct(
+          intellij_info_text = intellij_info_text,
+          intellij_resolve_files = intellij_resolve_files,
+          export_deps = export_deps,
       ),
-      export_deps = export_deps,
     )
 
 def semantics_extra_deps(base, semantics, name):
