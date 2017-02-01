@@ -608,7 +608,7 @@ public class ObjcRuleClasses {
           Unlike <a href="${link objc_library.copts}">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
           very careful, since this may have far-reaching effects.  When in doubt, add
-          "-I" flags to <a href="${link objc_library.copts}">COPTS</a> instead.
+          "-iquote" flags to <a href="${link objc_library.copts}">COPTS</a> instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", Type.STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_compile_dependency_rule).ATTRIBUTE(sdk_includes) -->
