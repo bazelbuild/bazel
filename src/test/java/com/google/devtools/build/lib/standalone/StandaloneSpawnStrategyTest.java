@@ -102,8 +102,6 @@ public class StandaloneSpawnStrategyTest {
             bus,
             BlazeClock.instance(),
             optionsParser,
-            /* verboseFailures */ false,
-            /* showSubcommands */ false,
             ImmutableList.<ActionContext>of(),
             ImmutableMap.<String, SpawnActionContext>of(
                 "",

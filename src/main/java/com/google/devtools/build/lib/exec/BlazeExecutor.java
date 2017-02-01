@@ -38,6 +38,8 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -67,31 +69,29 @@ public final class BlazeExecutor implements Executor {
       new HashMap<>();
 
   /**
-   * Constructs an Executor, bound to a specified output base path, and which
-   * will use the specified reporter to announce SUBCOMMAND events,
-   * the given event bus to delegate events and the given output streams
-   * for streaming output. The list of
-   * strategy implementation classes is used to construct instances of the
-   * strategies mapped by their declared abstract type. This list is uniquified
-   * before using. Each strategy instance is created with a reference to this
-   * Executor as well as the given options object.
-   * <p>
-   * Don't forget to call startBuildRequest() and stopBuildRequest() for each
-   * request, and shutdown() when you're done with this executor.
+   * Constructs an Executor, bound to a specified output base path, and which will use the specified
+   * reporter to announce SUBCOMMAND events, the given event bus to delegate events and the given
+   * output streams for streaming output. The list of strategy implementation classes is used to
+   * construct instances of the strategies mapped by their declared abstract type. This list is
+   * uniquified before using. Each strategy instance is created with a reference to this Executor as
+   * well as the given options object.
+   *
+   * <p>Don't forget to call startBuildRequest() and stopBuildRequest() for each request, and
+   * shutdown() when you're done with this executor.
    */
-  public BlazeExecutor(Path execRoot,
+  public BlazeExecutor(
+      Path execRoot,
       Reporter reporter,
       EventBus eventBus,
       Clock clock,
       OptionsClassProvider options,
-      boolean verboseFailures,
-      boolean showSubcommands,
       List<ActionContext> contextImplementations,
       Map<String, SpawnActionContext> spawnActionContextMap,
       Iterable<ActionContextProvider> contextProviders)
       throws ExecutorInitException {
-    this.verboseFailures = verboseFailures;
-    this.showSubcommands = showSubcommands;
+    ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
+    this.verboseFailures = executionOptions.verboseFailures;
+    this.showSubcommands = executionOptions.showSubcommands;
     this.execRoot = execRoot;
     this.reporter = reporter;
     this.eventBus = eventBus;
@@ -105,13 +105,37 @@ public final class BlazeExecutor implements Executor {
     allContexts.addAll(contextImplementations);
     allContexts.addAll(spawnActionContextMap.values());
     this.spawnActionContextMap = ImmutableMap.copyOf(spawnActionContextMap);
-
     for (ActionContext context : contextImplementations) {
       ExecutionStrategy annotation = context.getClass().getAnnotation(ExecutionStrategy.class);
       if (annotation != null) {
         contextMap.put(annotation.contextType(), context);
       }
       contextMap.put(context.getClass(), context);
+    }
+
+    // Print a sorted list of our (Spawn)ActionContext maps.
+    if (executionOptions.debugPrintActionContexts) {
+      for (Entry<String, SpawnActionContext> entry :
+          new TreeMap<>(spawnActionContextMap).entrySet()) {
+        reporter.handle(
+            Event.info(
+                String.format(
+                    "SpawnActionContextMap: \"%s\" = %s",
+                    entry.getKey(), entry.getValue().getClass().getSimpleName())));
+      }
+
+      TreeMap<String, String> sortedContextMapWithSimpleNames = new TreeMap<>();
+      for (Entry<Class<? extends ActionContext>, ActionContext> entry : contextMap.entrySet()) {
+        sortedContextMapWithSimpleNames.put(
+            entry.getKey().getSimpleName(), entry.getValue().getClass().getSimpleName());
+      }
+      for (Entry<String, String> entry : sortedContextMapWithSimpleNames.entrySet()) {
+        // Skip uninteresting identity mappings of contexts.
+        if (!entry.getKey().equals(entry.getValue())) {
+          reporter.handle(
+              Event.info(String.format("ContextMap: %s = %s", entry.getKey(), entry.getValue())));
+        }
+      }
     }
 
     for (ActionContextProvider factory : contextProviders) {

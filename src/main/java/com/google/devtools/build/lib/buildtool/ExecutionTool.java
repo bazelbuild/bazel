@@ -299,8 +299,6 @@ public class ExecutionTool {
         env.getEventBus(),
         runtime.getClock(),
         request,
-        request.getOptions(ExecutionOptions.class).verboseFailures,
-        request.getOptions(ExecutionOptions.class).showSubcommands,
         strategies,
         spawnStrategyMap,
         actionContextProviders);

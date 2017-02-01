@@ -95,11 +95,14 @@ public class TestExecutorBuilder {
   }
 
   public BlazeExecutor build() throws ExecutorInitException {
-    return new BlazeExecutor(directories.getExecRoot(), reporter, bus,
-        BlazeClock.instance(), optionsParser,
-        optionsParser.getOptions(ExecutionOptions.class).verboseFailures,
-        optionsParser.getOptions(ExecutionOptions.class).showSubcommands,
+    return new BlazeExecutor(
+        directories.getExecRoot(),
+        reporter,
+        bus,
+        BlazeClock.instance(),
+        optionsParser,
         strategies,
-        ImmutableMap.copyOf(spawnStrategyMap), ImmutableList.<ActionContextProvider>of());
+        ImmutableMap.copyOf(spawnStrategyMap),
+        ImmutableList.<ActionContextProvider>of());
   }
 }

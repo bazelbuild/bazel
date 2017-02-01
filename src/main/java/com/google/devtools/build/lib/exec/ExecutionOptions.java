@@ -197,4 +197,12 @@ public class ExecutionOptions extends OptionsBase {
   public boolean usingLocalTestJobs() {
     return localTestJobs != 0;
   }
+
+  @Option(
+    name = "debug_print_action_contexts",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Print the contents of the SpawnActionContext and ContextProviders maps."
+  )
+  public boolean debugPrintActionContexts;
 }
