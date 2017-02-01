@@ -44,8 +44,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     category = "build",
     converter = DottedVersionConverter.class,
     help =
-        "If specified, uses xcode of the given version for relevant build actions. "
-            + "If unspecified, uses the executor default version of xcode."
+        "If specified, uses Xcode of the given version for relevant build actions. "
+            + "If unspecified, uses the executor default version of Xcode."
   )
   // TODO(bazel-team): This should be of String type, to allow referencing an alias based
   // on an xcode_config target.
@@ -65,7 +65,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    help = "Specifies the version of the WatchOS SDK to use to build WatchOS applications."
+    help = "Specifies the version of the watchOS SDK to use to build watchOS applications."
   )
   public DottedVersion watchOsSdkVersion;
 
@@ -74,18 +74,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    help = "Specifies the version of the AppleTVOS SDK to use to build AppleTVOS applications."
+    help = "Specifies the version of the tvOS SDK to use to build tvOS applications."
   )
   public DottedVersion tvOsSdkVersion;
 
   @Option(
-    name = "macosx_sdk_version",
+    name = "macos_sdk_version",
     defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
-    help = "Specifies the version of the Mac OS X SDK to use to build Mac OS X applications."
+    help = "Specifies the version of the macOS SDK to use to build macOS applications."
   )
-  public DottedVersion macOsXSdkVersion;
+  public DottedVersion macOsSdkVersion;
 
   @Option(
       name = "ios_minimum_os",
@@ -114,9 +114,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public DottedVersion tvosMinimumOs;
 
+  @Option(
+      name = "macos_minimum_os",
+      defaultValue = "null",
+      category = "flags",
+      converter = DottedVersionConverter.class,
+      help = "Minimum compatible macOS version for targets."
+  )
+  public DottedVersion macosMinimumOs;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
-  @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
+  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
 
@@ -129,6 +138,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
    * The default tvOS CPU value.
    */
   public static final String DEFAULT_TVOS_CPU = "x86_64";
+
+  /**
+   * The default macOS CPU value.
+   */
+  public static final String DEFAULT_MACOS_CPU = "x86_64";
 
   @Option(name = "ios_cpu",
       defaultValue = DEFAULT_IOS_CPU,
@@ -197,6 +211,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
   public List<String> tvosCpus;
 
+  @Option(name = "macos_cpus",
+      converter = CommaSeparatedOptionListConverter.class,
+      defaultValue = DEFAULT_MACOS_CPU,
+      category = "flags",
+      help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
+  public List<String> macosCpus;
+
   @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",
       category = "undocumented",
@@ -209,8 +230,8 @@ public class AppleCommandLineOptions extends FragmentOptions {
     category = "undocumented",
     converter = LabelConverter.class,
     help =
-        "The label of the xcode_config rule to be used for selecting the xcode version "
-            + "in the build configuration"
+        "The label of the xcode_config rule to be used for selecting the Xcode version "
+            + "in the build configuration."
   )
   public Label xcodeVersionConfig;
 
@@ -351,7 +372,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     host.iosSdkVersion = iosSdkVersion;
     host.watchOsSdkVersion = watchOsSdkVersion;
     host.tvOsSdkVersion = tvOsSdkVersion;
-    host.macOsXSdkVersion = macOsXSdkVersion;
+    host.macOsSdkVersion = macOsSdkVersion;
     host.appleBitcodeMode = appleBitcodeMode;
 
     return host;

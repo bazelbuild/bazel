@@ -36,7 +36,7 @@ public enum Platform {
 
   IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
   IOS_SIMULATOR("ios_simulator", "iPhoneSimulator", PlatformType.IOS, false),
-  MACOS_X("macos_x", "MacOSX", PlatformType.MACOSX, true),
+  MACOS("macos", "MacOSX", PlatformType.MACOS, true),
   TVOS_DEVICE("tvos_device", "AppleTVOS", PlatformType.TVOS, true),
   TVOS_SIMULATOR("tvos_simulator", "AppleTVSimulator", PlatformType.TVOS, false),
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
@@ -54,7 +54,7 @@ public enum Platform {
       ImmutableSet.of("tvos_x86_64");
   private static final Set<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
-  private static final Set<String> MACOSX_TARGET_CPUS =
+  private static final Set<String> MACOS_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64");
 
   private final String skylarkKey;
@@ -125,8 +125,8 @@ public enum Platform {
       return TVOS_SIMULATOR;
     } else if (TVOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
       return TVOS_DEVICE;
-    } else if (MACOSX_TARGET_CPUS.contains(targetCpu)) {
-      return MACOS_X;
+    } else if (MACOS_TARGET_CPUS.contains(targetCpu)) {
+      return MACOS;
     } else {
       return null;
     }
@@ -140,7 +140,12 @@ public enum Platform {
    * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
    */
   public static Platform forTarget(PlatformType platformType, String arch) {
-    return forTargetCpu(String.format("%s_%s", platformType.toString(), arch));
+    switch (platformType) {
+      case MACOS:
+        return forTargetCpu(String.format("darwin_%s", arch));
+      default:
+        return forTargetCpu(String.format("%s_%s", platformType.toString(), arch));
+    }
   }
 
  /**
@@ -191,7 +196,7 @@ public enum Platform {
     IOS("ios"),
     WATCHOS("watchos"),
     TVOS("tvos"),
-    MACOSX("macosx");
+    MACOS("macos");
 
     /**
      * The key used to access the enum value as a field in the Skylark apple_common.platform_type

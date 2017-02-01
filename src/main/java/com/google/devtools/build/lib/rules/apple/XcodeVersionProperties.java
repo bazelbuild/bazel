@@ -38,14 +38,14 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
-  @VisibleForTesting public static final String DEFAULT_MACOSX_SDK_VERSION = "10.10";
+  @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
   @VisibleForTesting public static final String DEFAULT_TVOS_SDK_VERSION = "9.0";
 
   private final Optional<DottedVersion> xcodeVersion;
   private final DottedVersion defaultIosSdkVersion;
   private final DottedVersion defaultWatchosSdkVersion;
   private final DottedVersion defaultTvosSdkVersion;
-  private final DottedVersion defaultMacosxSdkVersion;
+  private final DottedVersion defaultMacosSdkVersion;
 
   /**
    * Creates and returns a tuple representing no known xcode property information (defaults are used
@@ -76,7 +76,7 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
       @Nullable String defaultIosSdkVersion,
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
-      @Nullable String defaultMacosxSdkVersion) {
+      @Nullable String defaultMacosSdkVersion) {
     super(
         SKYLARK_CONSTRUCTOR,
         getSkylarkFields(
@@ -84,7 +84,7 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
             defaultIosSdkVersion,
             defaultWatchosSdkVersion,
             defaultTvosSdkVersion,
-            defaultMacosxSdkVersion));
+            defaultMacosSdkVersion));
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
     this.defaultIosSdkVersion =
         (Strings.isNullOrEmpty(defaultIosSdkVersion))
@@ -98,10 +98,10 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
         (Strings.isNullOrEmpty(defaultTvosSdkVersion))
             ? DottedVersion.fromString(DEFAULT_TVOS_SDK_VERSION)
             : DottedVersion.fromString(defaultTvosSdkVersion);
-    this.defaultMacosxSdkVersion =
-        (Strings.isNullOrEmpty(defaultMacosxSdkVersion))
-            ? DottedVersion.fromString(DEFAULT_MACOSX_SDK_VERSION)
-            : DottedVersion.fromString(defaultMacosxSdkVersion);
+    this.defaultMacosSdkVersion =
+        (Strings.isNullOrEmpty(defaultMacosSdkVersion))
+            ? DottedVersion.fromString(DEFAULT_MACOS_SDK_VERSION)
+            : DottedVersion.fromString(defaultMacosSdkVersion);
   }
 
   /** Returns the xcode version, or {@link Optional#absent} if the xcode version is unknown. */
@@ -125,8 +125,8 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
   }
 
   /** Returns the default macosx sdk version to use if this xcode version is in use. */
-  public DottedVersion getDefaultMacosxSdkVersion() {
-    return defaultMacosxSdkVersion;
+  public DottedVersion getDefaultMacosSdkVersion() {
+    return defaultMacosSdkVersion;
   }
 
   private static Map<String, Object> getSkylarkFields(
@@ -134,7 +134,7 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
       @Nullable String defaultIosSdkVersion,
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
-      @Nullable String defaultMacosxSdkVersion) {
+      @Nullable String defaultMacosSdkVersion) {
     ImmutableMap.Builder<String, Object> skylarkFields = new ImmutableMap.Builder<>();
     if (xcodeVersion != null) {
       skylarkFields.put("xcode_version", xcodeVersion.toString());
@@ -152,8 +152,8 @@ public class XcodeVersionProperties extends SkylarkClassObject implements Transi
       skylarkFields.put("default_tvos_sdk_version", defaultTvosSdkVersion);
     }
 
-    if (defaultMacosxSdkVersion != null) {
-      skylarkFields.put("default_macos_sdk_version", defaultMacosxSdkVersion);
+    if (defaultMacosSdkVersion != null) {
+      skylarkFields.put("default_macos_sdk_version", defaultMacosSdkVersion);
     }
 
     return skylarkFields.build();

@@ -103,7 +103,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion watchosMinimumOs;
   private final DottedVersion tvosSdkVersion;
   private final DottedVersion tvosMinimumOs;
-  private final DottedVersion macosXSdkVersion;
+  private final DottedVersion macosSdkVersion;
+  private final DottedVersion macosMinimumOs;
   private final String iosCpu;
   private final String appleSplitCpu;
   private final PlatformType applePlatformType;
@@ -111,6 +112,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final ImmutableList<String> iosMultiCpus;
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
+  private final ImmutableList<String> macosCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   private final boolean enableAppleCrosstool;
@@ -124,7 +126,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       DottedVersion watchosMinimumOs,
       DottedVersion tvosSdkVersion,
       DottedVersion tvosMinimumOs,
-      DottedVersion macosXSdkVersion) {
+      DottedVersion macosSdkVersion,
+      DottedVersion macosMinimumOs) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.iosMinimumOs = Preconditions.checkNotNull(appleOptions.iosMinimumOs, "iosMinimumOs");
     this.watchosSdkVersion =
@@ -135,9 +138,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         Preconditions.checkNotNull(tvosSdkVersion, "tvOsSdkVersion");
     this.tvosMinimumOs =
         Preconditions.checkNotNull(tvosMinimumOs, "tvOsMinimumOs");
-
-    this.macosXSdkVersion =
-        Preconditions.checkNotNull(macosXSdkVersion, "macOsXSdkVersion");
+    this.macosSdkVersion =
+        Preconditions.checkNotNull(macosSdkVersion, "macOsSdkVersion");
+    this.macosMinimumOs = Preconditions.checkNotNull(macosMinimumOs, "macOsMinimumOs");
 
     this.xcodeVersion = xcodeVersion;
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
@@ -153,6 +156,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.tvosCpus = (appleOptions.tvosCpus == null || appleOptions.tvosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU)
         : ImmutableList.copyOf(appleOptions.tvosCpus);
+    this.macosCpus = (appleOptions.macosCpus == null || appleOptions.macosCpus.isEmpty())
+        ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
+        : ImmutableList.copyOf(appleOptions.macosCpus);
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
@@ -185,6 +191,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return tvosMinimumOs;
       case WATCHOS:
         return watchosMinimumOs;
+      case MACOS:
+        return macosMinimumOs;
       default:
         throw new IllegalArgumentException("Unhandled platform: " + platformType);
     }
@@ -217,8 +225,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       case WATCHOS_DEVICE:
       case WATCHOS_SIMULATOR:
         return watchosSdkVersion;
-      case MACOS_X:
-        return macosXSdkVersion;
+      case MACOS:
+        return macosSdkVersion;
     }
     throw new AssertionError();
 
@@ -344,7 +352,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus.get(0);
       case TVOS:
         return tvosCpus.get(0);
-      // TODO(cparsons): Handle all platform types.
+      case MACOS:
+        return macosCpus.get(0);
       default: 
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
@@ -388,6 +397,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         return watchosCpus;
       case TVOS:
         return tvosCpus;
+      case MACOS:
+        return macosCpus;
       default: 
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
@@ -446,6 +457,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           }
         }
         return Platform.TVOS_SIMULATOR;
+      case MACOS:
+        return Platform.MACOS;
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
@@ -588,7 +601,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
         .put("ios_sdk_version", iosSdkVersion)
         .put("tvos_sdk_version", tvosSdkVersion)
         .put("watchos_sdk_version", watchosSdkVersion)
-        .put("macosx_sdk_version", macosXSdkVersion)
+        .put("macos_sdk_version", macosSdkVersion)
         .build();
   }
 
@@ -614,12 +627,14 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           ? appleOptions.tvOsSdkVersion : xcodeVersionProperties.getDefaultTvosSdkVersion();
       DottedVersion tvosMinimumOsVersion = (appleOptions.tvosMinimumOs != null)
           ? appleOptions.tvosMinimumOs : tvosSdkVersion;
-      DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
-          ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
+      DottedVersion macosSdkVersion = (appleOptions.macOsSdkVersion != null)
+          ? appleOptions.macOsSdkVersion : xcodeVersionProperties.getDefaultMacosSdkVersion();
+      DottedVersion macosMinimumOsVersion = (appleOptions.macosMinimumOs != null)
+          ? appleOptions.macosMinimumOs : macosSdkVersion;
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion().orNull(),
               iosSdkVersion, watchosSdkVersion, watchosMinimumOsVersion,
-              tvosSdkVersion, tvosMinimumOsVersion, macosxSdkVersion);
+              tvosSdkVersion, tvosMinimumOsVersion, macosSdkVersion, macosMinimumOsVersion);
 
       validate(configuration);
       return configuration;

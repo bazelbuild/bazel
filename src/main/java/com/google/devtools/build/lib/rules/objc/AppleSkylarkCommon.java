@@ -81,7 +81,7 @@ public class AppleSkylarkCommon {
   @SkylarkCallable(
     name = "platform_type",
     doc = "Returns a struct containing fields corresponding to Apple platform types: 'ios', "
-        + "'watchos', 'tvos', and 'macosx'. These values can be passed to methods that expect a "
+        + "'watchos', 'tvos', and 'macos'. These values can be passed to methods that expect a "
         + "platform type, like the 'apple' configuration fragment's 'multi_arch_platform' "
         + "method. For example, ctx.fragments.apple.multi_arch_platform(apple_common."
         + "platform_type.ios).",

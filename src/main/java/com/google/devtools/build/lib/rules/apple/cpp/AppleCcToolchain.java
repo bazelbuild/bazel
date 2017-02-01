@@ -34,8 +34,8 @@ import java.util.Map;
 public class AppleCcToolchain extends CcToolchain {
   private static final String XCODE_VERSION_KEY = "xcode_version";
   private static final String IOS_SDK_VERSION_KEY = "ios_sdk_version";
-  private static final String MACOSX_SDK_VERSION_KEY = "macosx_sdk_version";
-  private static final String TVOS_SDK_VERSION_KEY = "appletvos_sdk_version";
+  private static final String MACOS_SDK_VERSION_KEY = "macos_sdk_version";
+  private static final String TVOS_SDK_VERSION_KEY = "tvos_sdk_version";
   private static final String WATCHOS_SDK_VERSION_KEY = "watchos_sdk_version";
   public static final String SDK_DIR_KEY = "sdk_dir";
   public static final String SDK_FRAMEWORK_DIR_KEY = "sdk_framework_dir";
@@ -74,8 +74,8 @@ public class AppleCcToolchain extends CcToolchain {
             appleConfiguration.getSdkVersionForPlatform(Platform.IOS_SIMULATOR)
                 .toStringWithMinimumComponents(2))
         .put(
-            MACOSX_SDK_VERSION_KEY,
-            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS_X)
+            MACOS_SDK_VERSION_KEY,
+            appleConfiguration.getSdkVersionForPlatform(Platform.MACOS)
                 .toStringWithMinimumComponents(2))
         .put(
             TVOS_SDK_VERSION_KEY,
