@@ -222,6 +222,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
   protected final AtomicReference<TimestampGranularityMonitor> tsgm =
       new AtomicReference<>();
+  protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
   // Under normal circumstances, the artifact factory persists for the life of a Blaze server, but
@@ -349,7 +350,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // is inserted.
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> map = ImmutableMap.builder();
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
-    map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction());
+    map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
     map.put(SkyFunctions.DIRECTORY_LISTING_STATE,
         new DirectoryListingStateFunction(externalFilesHelper));
@@ -727,10 +728,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     buildId.set(commandId);
   }
 
-  protected void setPrecomputedClientEnv(Map<String, String> clientEnv) {
-    PrecomputedValue.CLIENT_ENV.set(injectable(), clientEnv);
-  }
-
   /** Returns the build-info.txt and build-changelist.txt artifacts. */
   public Collection<Artifact> getWorkspaceStatusArtifacts(EventHandler eventHandler)
       throws InterruptedException {
@@ -952,7 +949,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.tsgm.set(tsgm);
     maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
-    setPrecomputedClientEnv(clientEnv);
+    this.clientEnv.set(clientEnv);
     setBlacklistedPackagePrefixesFile(getBlacklistedPackagePrefixesFile());
     setShowLoadingProgress(packageCacheOptions.showLoadingProgress);
     setDefaultVisibility(packageCacheOptions.defaultVisibility);

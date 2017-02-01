@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -98,6 +99,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private RecordingDifferencer recordingDiffer;
   private final DiffAwarenessManager diffAwarenessManager;
   private final Iterable<SkyValueDirtinessChecker> customDirtinessCheckers;
+  private Set<String> previousClientEnvironment = null;
 
   private SequencedSkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
@@ -366,6 +368,30 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry);
     handleDiffsWithMissingDiffInformation(eventHandler, tsgm, pathEntriesWithoutDiffInformation,
         checkOutputFiles);
+    handleClientEnvironmentChanges();
+  }
+
+  /** Invalidates entries in the client environment that have changed since last sync. */
+  private void handleClientEnvironmentChanges() {
+    Map<SkyKey, SkyValue> values = memoizingEvaluator.getValues();
+    ImmutableMap.Builder<SkyKey, SkyValue> newValuesBuilder = ImmutableMap.builder();
+    HashSet<String> envToCheck = new HashSet<>();
+    if (previousClientEnvironment != null) {
+      envToCheck.addAll(previousClientEnvironment);
+    }
+    envToCheck.addAll(clientEnv.get().keySet());
+    previousClientEnvironment = clientEnv.get().keySet();
+    for (String env : envToCheck) {
+      SkyKey key = SkyKey.create(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, env);
+      if (values.containsKey(key)) {
+        String value = ((ClientEnvironmentValue) values.get(key)).getValue();
+        String newValue = clientEnv.get().get(env);
+        if (!Objects.equal(newValue, value)) {
+          newValuesBuilder.put(key, new ClientEnvironmentValue(newValue));
+        }
+      }
+    }
+    recordingDiffer.inject(newValuesBuilder.build());
   }
 
   /**
