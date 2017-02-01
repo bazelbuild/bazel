@@ -114,8 +114,8 @@ filegroup(
 )
 
 alias(
-    name = 'other',
-    actual = ':data',
+    name = "other",
+    actual = ":data",
 )
 </pre>
 
