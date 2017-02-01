@@ -1,3 +1,101 @@
+## Release 0.4.4 (2017-02-01)
+
+```
+Baseline: 4bf8cc30a
+
+Cherry picks:
+   + ef1c6fd33: msvc_tools.py.tpl: Change default runtime library to
+              static
+```
+
+Incompatible changes:
+
+  - Only targets with public visibility can be bound to something in
+    //external: .
+  - The deprecated -x startup option has been removed.
+  - docker_build: change the repository names embedded by
+    docker_build. You can revert to the old behavior by setting
+    legacy_repository_naming=True.
+  - The string methods strip(), lstrip(), and rstrip() now
+    by default remove the same whitespace characters as Python 3
+    does, and accept
+    None as an argument.
+  - Deprecated globals HOST_CFG and DATA_CFG are removed. Use strings
+    "host" and "data" instead.
+  - repository_ctx environment is now affected by --action_env flag
+    (value from the
+    client environment will be replaced by value given on the command
+    line through --action_env).
+  - All executable labels must also have a cfg parameter specified.
+  - Removed the cmd_helper.template function.
+      The function was equivalent to:
+        def template(items, template):
+          return [template.format(path = i.path, short_path =
+    i.short_path)
+                    for i in items]
+  - Tuples that end with a trailing comma must now be inside parens,
+      e.g. (1,) instead of 1,
+  - The traversal orders for depsets have been renamed. The old names
+    are deprecated and will be removed in the future. New names:
+    "stable" -> "default", "compile" -> "postorder", "link" ->
+    "topological", "naive_link" -> "preorder".
+
+New features:
+
+  - Skylark: you can now multiply a list by an integer to get the
+    concatenation of N copies of this list, e.g. [a,b] * 3 =
+    [a,b,a,b,a,b]
+  - Allow Android aidl tool to add a jar to the program's classpath,
+    such as if needed to support generated sources.
+  - Add transitive proguard_specs when android_sdk.aidl_lib is
+    specified
+  - Windows: "/dev/null" is now a supported path, e.g.
+    --bazelrc=/dev/null now works
+
+Important changes:
+
+  - Bazel Android builds use the apksigner tool from the Android SDK
+    build-tools. Bazel Android builds now require build-tools version
+    24.0.3 or
+    later.
+  - Android SDK external bindings for support libraries, e.g.
+    //external:android/appcompat_v4, are removed because the support
+    library JARs that they referenced no longer ship with the Android
+    SDK.
+  - aar_import rule is now documented.
+  - An IE bug was fixed in repository_ctx.download_and_extract
+  - Update "-I" to "-isystem" in documentation to reflect current
+    behavior.
+  - android_sdk_repository build_tools_version is now optional. The
+    highest installed build-tools will be used if none is specified.
+  - New flag --sandbox_add_mount_pair to specify customized
+    source:target path pairs to bind mount inside the sandbox.
+  - expose proto_library descriptor set to skylark via
+    <dep>.proto.descriptor_set
+  - The `set` constructor is deprecated in favor of `depset`
+  - Autodetect gold linker in cc_configure.bzl
+  - Remove build flag --experimental_j2objc_annotation_processing. It
+    is on by default now.
+  - Set clang's -mwatchos-version-min correctly using the value of
+    --watchos_minimum_os, not --watchos_sdk_version.
+  - singlejar can now create jar files larger than 4GB.
+  - android_sdk_repository and android_ndk_repository now read
+    $ANDROID_HOME and $ANDROID_NDK_HOME if the path attribute is not
+    set.
+  - Removed broken api levels 3, 4 and 5 from Android NDK 12.
+  - Default --android_dynamic_mode to off.
+  - android_sdk_repository no longer requires api_level. If one is
+    not specified, the highest android platform installed will be
+    used. Furthermore, android_sdk's are created for all android
+    platforms installed and can be specified with the --android_sdk
+    flag.
+  - To iterate over or test for membership in a set, prefer using the
+    new to_list() method. E.g., "for x in myset.to_list():", or
+    "print(x in myset.to_list())". Iteration/membership-test on the
+    raw set itself is deprecated.
+  - Remove support for --javawarn; use e.g. --javacopt=-Xlint:all
+    instead
+
 ## Release 0.4.3 (2016-12-22)
 
 ```
@@ -893,3 +991,4 @@ Baseline: a0881e8
 ```
 
 Initial release.
+
