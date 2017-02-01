@@ -152,20 +152,6 @@ public abstract class TestStrategy implements TestActionContext {
       throws ExecException, InterruptedException;
 
   /**
-   * Returns mutable map of default testing shell environment. By itself it is incomplete and is
-   * modified further by the specific test strategy implementations (mostly due to the fact that
-   * environments used locally and remotely are different).
-   */
-  protected Map<String, String> getDefaultTestEnvironment(TestRunnerAction action) {
-    Map<String, String> env = new HashMap<>();
-
-    env.putAll(action.getConfiguration().getLocalShellEnvironment());
-    env.remove("LANG");
-    env.put("TZ", "UTC");
-    return env;
-  }
-
-  /**
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
@@ -251,16 +237,6 @@ public abstract class TestStrategy implements TestActionContext {
    */
   protected final int getTimeout(TestRunnerAction testAction) {
     return executionOptions.testTimeout.get(testAction.getTestProperties().getTimeout());
-  }
-
-  /**
-   * Returns a subset of the environment from the current shell.
-   *
-   * <p>Warning: Since these variables are not part of the configuration's fingerprint, they MUST
-   * NOT be used by any rule or action in such a way as to affect the semantics of that build step.
-   */
-  public Map<String, String> getAdmissibleShellEnvironment(Iterable<String> variables) {
-    return getMapping(variables, clientEnv);
   }
 
   /*

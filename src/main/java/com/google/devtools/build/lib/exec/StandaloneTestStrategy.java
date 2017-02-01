@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BinTools;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.test.TestRunnerAction.ResolvedPaths;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
@@ -60,6 +61,20 @@ public class StandaloneTestStrategy extends TestStrategy {
   // TODO(bazel-team) - add tests for this strategy.
   public static final String COLLECT_COVERAGE =
       "external/bazel_tools/tools/test/collect_coverage.sh";
+
+  private static final ImmutableMap<String, String> ENV_VARS =
+      ImmutableMap.<String, String>builder()
+          .put("TZ", "UTC")
+          .put("USER", TestPolicy.SYSTEM_USER_NAME)
+          .put("TEST_SRCDIR", TestPolicy.RUNFILES_DIR)
+          // TODO(lberki): Remove JAVA_RUNFILES and PYTHON_RUNFILES.
+          .put("JAVA_RUNFILES", TestPolicy.RUNFILES_DIR)
+          .put("PYTHON_RUNFILES", TestPolicy.RUNFILES_DIR)
+          .put("RUNFILES_DIR", TestPolicy.RUNFILES_DIR)
+          .put("TEST_TMPDIR", TestPolicy.TEST_TMP_DIR)
+          .build();
+
+  public static final TestPolicy DEFAULT_LOCAL_POLICY = new TestPolicy(ENV_VARS);
 
   protected final Path tmpDirRoot;
 
@@ -231,27 +246,18 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private Map<String, String> setupEnvironment(
       TestRunnerAction action, Path execRoot, Path runfilesDir, Path tmpDir) {
-    Map<String, String> env = getDefaultTestEnvironment(action);
-    BuildConfiguration config = action.getConfiguration();
-
-    env.putAll(config.getLocalShellEnvironment());
-    env.putAll(action.getTestEnv());
-
-    String tmpDirString;
+    PathFragment relativeTmpDir;
     if (tmpDir.startsWith(execRoot)) {
-      tmpDirString = tmpDir.relativeTo(execRoot).getPathString();
+      relativeTmpDir = tmpDir.relativeTo(execRoot);
     } else {
-      tmpDirString = tmpDir.getPathString();
+      relativeTmpDir = tmpDir.asFragment();
     }
-
-    String testSrcDir = runfilesDir.relativeTo(execRoot).getPathString();
-    env.put("JAVA_RUNFILES", testSrcDir);
-    env.put("PYTHON_RUNFILES", testSrcDir);
-    env.put("TEST_SRCDIR", testSrcDir);
-    env.put("TEST_TMPDIR", tmpDirString);
-
-    action.setupEnvVariables(env, getTimeout(action));
-    return env;
+    return DEFAULT_LOCAL_POLICY.computeTestEnvironment(
+        action,
+        clientEnv,
+        getTimeout(action),
+        runfilesDir.relativeTo(execRoot),
+        relativeTmpDir);
   }
 
   protected TestResultData executeTest(
