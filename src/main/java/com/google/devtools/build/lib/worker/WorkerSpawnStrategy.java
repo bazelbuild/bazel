@@ -34,10 +34,8 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -211,12 +209,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
         Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
 
     if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(
-          Label.print(spawn.getOwner().getLabel())
-              + " ["
-              + spawn.getResourceOwner().prettyPrint()
-              + "]",
-              Spawns.asShellCommand(spawn, executor.getExecRoot()));
+      executor.reportSubcommand(spawn);
     }
 
     if (!spawn.getExecutionInfo().containsKey("supports-workers")

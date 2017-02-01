@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleHostInfo;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -68,9 +67,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     Executor executor = actionExecutionContext.getExecutor();
 
     if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(
-          Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
-              + "]", Spawns.asShellCommand(spawn, executor.getExecRoot()));
+      executor.reportSubcommand(spawn);
     }
 
     executor

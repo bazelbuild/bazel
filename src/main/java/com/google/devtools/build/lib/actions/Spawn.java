@@ -122,11 +122,6 @@ public interface Spawn {
   ResourceSet getLocalResources();
 
   /**
-   * Returns the owner for this action. Production code should supply a non-null owner.
-   */
-  ActionOwner getOwner();
-
-  /**
    * Returns a mnemonic (string constant) for this kind of spawn.
    */
   String getMnemonic();
