@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
@@ -273,7 +274,8 @@ public class GrpcActionCacheTest {
         observer.onCompleted();
         return;
       }
-      for (ContentDigest digest : request.getDigestList()) {
+      // We change the order on purpose, to test for blobs out of order:
+      for (ContentDigest digest : Lists.reverse(request.getDigestList())) {
         observer.onNext(
             CasDownloadReply.newBuilder()
                 .setStatus(CasStatus.newBuilder().setSucceeded(true))

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Output;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Output.ContentCase;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -59,7 +60,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
@@ -232,8 +236,8 @@ public final class GrpcActionCache implements RemoteActionCache {
   }
 
   private CasServiceStub getStub() {
-    return CasServiceGrpc.newStub(channel).withDeadlineAfter(
-        options.grpcTimeoutSeconds, TimeUnit.SECONDS);
+    return CasServiceGrpc.newStub(channel)
+        .withDeadlineAfter(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
   }
 
   private ImmutableSet<ContentDigest> getMissingDigests(Iterable<ContentDigest> digests) {
@@ -311,14 +315,15 @@ public final class GrpcActionCache implements RemoteActionCache {
     // Send all the file requests in a single synchronous batch.
     // TODO(olaola): profile to maybe replace with separate concurrent requests.
     CasDownloadBlobRequest.Builder request = CasDownloadBlobRequest.newBuilder();
-    ArrayList<Output> fileOutputs = new ArrayList<>();
+    Map<ContentDigest, Pair<Path, FileMetadata>> metadataMap = new HashMap<>();
     for (Output output : result.getOutputList()) {
       Path path = execRoot.getRelative(output.getPath());
       if (output.getContentCase() == ContentCase.FILE_METADATA) {
-        ContentDigest digest = output.getFileMetadata().getDigest();
+        FileMetadata fileMetadata = output.getFileMetadata();
+        ContentDigest digest = fileMetadata.getDigest();
         if (digest.getSizeBytes() > 0) {
           request.addDigest(digest);
-          fileOutputs.add(output);
+          metadataMap.put(digest, Pair.of(path, fileMetadata));
         } else {
           // Handle empty file locally.
           FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
@@ -329,14 +334,19 @@ public final class GrpcActionCache implements RemoteActionCache {
       }
     }
     Iterator<CasDownloadReply> replies = getBlockingStub().downloadBlob(request.build());
-    for (Output output : fileOutputs) {
-      createFileFromStream(
-          execRoot.getRelative(output.getPath()), output.getFileMetadata(), replies);
+    Set<ContentDigest> results = new HashSet<>();
+    while (replies.hasNext()) {
+      results.add(createFileFromStream(metadataMap, replies));
+    }
+    for (ContentDigest digest : metadataMap.keySet()) {
+      if (!results.contains(digest)) {
+        throw new CacheNotFoundException(digest);
+      }
     }
   }
 
-  private void createFileFromStream(
-      Path path, FileMetadata fileMetadata, Iterator<CasDownloadReply> replies)
+  private ContentDigest createFileFromStream(
+      Map<ContentDigest, Pair<Path, FileMetadata>> metadataMap, Iterator<CasDownloadReply> replies)
       throws IOException, CacheNotFoundException {
     Preconditions.checkArgument(replies.hasNext());
     CasDownloadReply reply = replies.next();
@@ -345,7 +355,9 @@ public final class GrpcActionCache implements RemoteActionCache {
     }
     BlobChunk chunk = reply.getData();
     ContentDigest digest = chunk.getDigest();
-    Preconditions.checkArgument(digest.equals(fileMetadata.getDigest()));
+    Preconditions.checkArgument(metadataMap.containsKey(digest));
+    Pair<Path, FileMetadata> metadata = metadataMap.get(digest);
+    Path path = metadata.first;
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     try (OutputStream stream = path.getOutputStream()) {
       ByteString data = chunk.getData();
@@ -364,40 +376,9 @@ public final class GrpcActionCache implements RemoteActionCache {
         data.writeTo(stream);
         bytesLeft -= data.size();
       }
-      path.setExecutable(fileMetadata.getExecutable());
+      path.setExecutable(metadata.second.getExecutable());
     }
-  }
-
-  private byte[] getBlobFromStream(ContentDigest blobDigest, Iterator<CasDownloadReply> replies)
-      throws CacheNotFoundException {
-    Preconditions.checkArgument(replies.hasNext());
-    CasDownloadReply reply = replies.next();
-    if (reply.hasStatus()) {
-      handleDownloadStatus(reply.getStatus());
-    }
-    BlobChunk chunk = reply.getData();
-    ContentDigest digest = chunk.getDigest();
-    Preconditions.checkArgument(digest.equals(blobDigest));
-    // This is not enough, but better than nothing.
-    Preconditions.checkArgument(digest.getSizeBytes() / 1000.0 < MAX_MEMORY_KBYTES);
-    byte[] result = new byte[(int) digest.getSizeBytes()];
-    ByteString data = chunk.getData();
-    data.copyTo(result, 0);
-    int offset = data.size();
-    while (offset < result.length) {
-      Preconditions.checkArgument(replies.hasNext());
-      reply = replies.next();
-      if (reply.hasStatus()) {
-        handleDownloadStatus(reply.getStatus());
-      }
-      chunk = reply.getData();
-      Preconditions.checkArgument(!chunk.hasDigest());
-      Preconditions.checkArgument(chunk.getOffset() == offset);
-      data = chunk.getData();
-      data.copyTo(result, offset);
-      offset += data.size();
-    }
-    return result;
+    return digest;
   }
 
   /** Upload all results of a locally executed action to the cache. */
@@ -459,7 +440,9 @@ public final class GrpcActionCache implements RemoteActionCache {
     Iterator<CasDownloadReply> replies = getBlockingStub().downloadBlob(request.build());
     FileMetadata fileMetadata =
         FileMetadata.newBuilder().setDigest(digest).setExecutable(executable).build();
-    createFileFromStream(dest, fileMetadata, replies);
+    Map<ContentDigest, Pair<Path, FileMetadata>> metadataMap = new HashMap<>();
+    metadataMap.put(digest, Pair.of(dest, fileMetadata));
+    createFileFromStream(metadataMap, replies);
   }
 
   static class UploadBlobReplyStreamObserver implements StreamObserver<CasUploadBlobReply> {
@@ -602,12 +585,51 @@ public final class GrpcActionCache implements RemoteActionCache {
       }
     }
     Iterator<CasDownloadReply> replies = null;
-    if (request.getDigestCount() > 0) {
+    Map<ContentDigest, byte[]> results = new HashMap<>();
+    int digestCount = request.getDigestCount();
+    if (digestCount > 0) {
       replies = getBlockingStub().downloadBlob(request.build());
+      while (digestCount-- > 0) {
+        Preconditions.checkArgument(replies.hasNext());
+        CasDownloadReply reply = replies.next();
+        if (reply.hasStatus()) {
+          handleDownloadStatus(reply.getStatus());
+        }
+        BlobChunk chunk = reply.getData();
+        ContentDigest digest = chunk.getDigest();
+        // This is not enough, but better than nothing.
+        Preconditions.checkArgument(digest.getSizeBytes() / 1000.0 < MAX_MEMORY_KBYTES);
+        byte[] result = new byte[(int) digest.getSizeBytes()];
+        ByteString data = chunk.getData();
+        data.copyTo(result, 0);
+        int offset = data.size();
+        while (offset < result.length) {
+          Preconditions.checkArgument(replies.hasNext());
+          reply = replies.next();
+          if (reply.hasStatus()) {
+            handleDownloadStatus(reply.getStatus());
+          }
+          chunk = reply.getData();
+          Preconditions.checkArgument(!chunk.hasDigest());
+          Preconditions.checkArgument(chunk.getOffset() == offset);
+          data = chunk.getData();
+          data.copyTo(result, offset);
+          offset += data.size();
+        }
+        results.put(digest, result);
+      }
     }
+
     ArrayList<byte[]> result = new ArrayList<>();
     for (ContentDigest digest : digests) {
-      result.add(digest.getSizeBytes() == 0 ? new byte[0] : getBlobFromStream(digest, replies));
+      if (digest.getSizeBytes() == 0) {
+        result.add(new byte[0]);
+        continue;
+      }
+      if (!results.containsKey(digest)) {
+        throw new CacheNotFoundException(digest);
+      }
+      result.add(results.get(digest));
     }
     return ImmutableList.copyOf(result);
   }
@@ -645,8 +667,7 @@ public final class GrpcActionCache implements RemoteActionCache {
             .build();
     ExecutionCacheSetReply reply = stub.setCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
-    if (!status.getSucceeded()
-        && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED) {
+    if (!status.getSucceeded() && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED) {
       throw new RuntimeException(status.getErrorDetail());
     }
   }
