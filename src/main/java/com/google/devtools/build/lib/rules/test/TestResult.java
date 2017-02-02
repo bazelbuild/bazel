@@ -14,7 +14,13 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -23,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import java.util.Collection;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -30,7 +37,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
  */
 @ThreadSafe
 @Immutable
-public class TestResult {
+public class TestResult implements BuildEvent {
 
   private final TestRunnerAction testAction;
   private final TestResultData data;
@@ -129,5 +136,24 @@ public class TestResult {
 
   public TestResultData getData() {
     return data;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.testResult(
+        testAction.getOwner().getLabel(), testAction.getRunNumber(), testAction.getShardNum());
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
+    BuildEventStreamProtos.TestResult.Builder resultBuilder =
+        BuildEventStreamProtos.TestResult.newBuilder();
+    resultBuilder.setSuccess(data.getTestPassed());
+    return GenericBuildEvent.protoChaining(this).setTestResult(resultBuilder.build()).build();
   }
 }

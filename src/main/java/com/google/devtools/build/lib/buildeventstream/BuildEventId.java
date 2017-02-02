@@ -106,6 +106,17 @@ public final class BuildEventId implements Serializable {
     return new BuildEventId(cause.getIdProto());
   }
 
+  public static BuildEventId testResult(Label target, Integer run, Integer shard) {
+    BuildEventStreamProtos.BuildEventId.TestResultId resultId =
+        BuildEventStreamProtos.BuildEventId.TestResultId.newBuilder()
+            .setLabel(target.toString())
+            .setRun(run)
+            .setShard(shard)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTestResult(resultId).build());
+  }
+
   public static BuildEventId testSummary(Label target) {
     BuildEventStreamProtos.BuildEventId.TestSummaryId summaryId =
         BuildEventStreamProtos.BuildEventId.TestSummaryId.newBuilder()

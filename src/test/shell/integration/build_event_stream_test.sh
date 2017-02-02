@@ -81,6 +81,22 @@ function test_test_summary() {
   expect_not_log 'aborted'
 }
 
+function test_test_inidivual_results() {
+  # Requesting a test, we expect
+  # - precisely one test summary (for the single test we run)
+  # - that is properly chained (no additional progress events)
+  bazel test --experimental_build_event_text_file=$TEST_log \
+    --runs_per_test=2 pkg:true \
+    || fail "bazel test failed"
+  expect_log '^test_result'
+  expect_log 'run.*1'
+  expect_log 'success.*true'
+  expect_log_once '^test_summary '
+  expect_log_once '^progress '
+  expect_not_log 'aborted'
+}
+
+
 function test_build_only() {
   # When building but not testing a test, there won't be a test summary
   # (as nothing was tested), so it should not be announced.

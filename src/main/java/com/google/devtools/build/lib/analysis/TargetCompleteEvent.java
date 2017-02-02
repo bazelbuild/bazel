@@ -22,9 +22,11 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
@@ -101,7 +103,17 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
       childrenBuilder.add(BuildEventId.fromCause(cause));
     }
     if (isTest) {
-      childrenBuilder.add(BuildEventId.testSummary(target.getTarget().getLabel()));
+      // For tests, announce all the test actions that will minimally happen (except for
+      // interruption). If after the result of a test action another attempt is necessary,
+      // it will be announced with the action that made the new attempt necessary.
+      Label label = target.getTarget().getLabel();
+      TestProvider.TestParams params = target.getProvider(TestProvider.class).getTestParams();
+      for (int run = 0; run < Math.max(params.getRuns(), 1); run++) {
+        for (int shard = 0; shard < Math.max(params.getShards(), 1); shard++) {
+          childrenBuilder.add(BuildEventId.testResult(label, run, shard));
+        }
+      }
+      childrenBuilder.add(BuildEventId.testSummary(label));
     }
     return childrenBuilder.build();
   }

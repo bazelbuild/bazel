@@ -68,6 +68,13 @@ message BuildEventId {
     string primary_output = 1;
   }
 
+  // Identifier of an event reporting on an individual test run.
+  message TestResultId {
+    string label = 1;
+    int32 run = 2;
+    int32 shard = 3;
+  }
+
   // Identifier of an event reporting the summary of a test.
   message TestSummaryId {
     string label = 1;
@@ -80,6 +87,7 @@ message BuildEventId {
     PatternExpandedId pattern = 4;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
+    TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
   }
 }
@@ -192,6 +200,11 @@ message TargetComplete {
   bool success = 1;
 }
 
+// Payload on events reporting about individual test action.
+message TestResult {
+  bool success = 1;
+}
+
 // Payload of the event summarizing a test.
 // TODO(aehlig): extend event with additional information as soon as we known
 // which additional information we need for test summaries.
@@ -221,6 +234,7 @@ message BuildEvent {
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
     TargetComplete completed = 8;
+    TestResult test_result = 10;
     TestSummary test_summary = 9;
   };
 }
