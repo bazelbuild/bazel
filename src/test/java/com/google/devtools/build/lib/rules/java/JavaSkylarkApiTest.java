@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyJarNames;
 
 import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
@@ -156,6 +157,72 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
     javaCompilationArgsHaveTheSameParent(
         jlJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs(),
         jlTopJavaProvider.getProvider(JavaCompilationArgsProvider.class).getJavaCompilationArgs());
+  }
+
+  @Test
+  public void strictDepsEnabled() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[java_common.provider] for dep in ctx.attr.deps])",
+        "  if not ctx.attr.strict_deps:",
+        "    java_provider = java_common.make_non_strict(java_provider)",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a'], strict_deps = True)",
+        "java_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])",
+        "java_library(name = 'b', srcs = ['java/B.java'])"
+    );
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
+    List<String> directJars = prettyJarNames(
+        javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars());
+    assertThat(directJars).containsExactly("foo/liba.jar");
+  }
+
+  @Test
+  public void strictDepsDisabled() throws Exception {
+    scratch.file(
+        "foo/custom_library.bzl",
+        "def _impl(ctx):",
+        "  java_provider = java_common.merge([dep[java_common.provider] for dep in ctx.attr.deps])",
+        "  if not ctx.attr.strict_deps:",
+        "    java_provider = java_common.make_non_strict(java_provider)",
+        "  return [java_provider]",
+        "custom_library = rule(",
+        "  attrs = {",
+        "    'deps': attr.label_list(),",
+        "    'strict_deps': attr.bool()",
+        "  },",
+        "  implementation = _impl",
+        ")"
+    );
+    scratch.file(
+        "foo/BUILD",
+        "load(':custom_library.bzl', 'custom_library')",
+        "custom_library(name = 'custom', deps = [':a'], strict_deps = False)",
+        "java_library(name = 'a', srcs = ['java/A.java'], deps = [':b'])",
+        "java_library(name = 'b', srcs = ['java/B.java'])"
+    );
+
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:custom");
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, myRuleTarget);
+    List<String> directJars = prettyJarNames(
+        javaCompilationArgsProvider.getJavaCompilationArgs().getRuntimeJars());
+    assertThat(directJars).containsExactly("foo/liba.jar", "foo/libb.jar");
   }
 
   private static boolean javaCompilationArgsHaveTheSameParent(

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -22,8 +23,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -36,11 +35,10 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   public static final SkylarkClassObjectConstructor JAVA_PROVIDER =
       SkylarkClassObjectConstructor.createNative("java_common.provider");
 
-  private static final Set<Class<? extends TransitiveInfoProvider>> allowedProviders =
-      new HashSet<>(Arrays.asList(
+  private static final Set<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
+      ImmutableSet.of(
         JavaCompilationArgsProvider.class,
-        JavaSourceJarsProvider.class)
-      );
+        JavaSourceJarsProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -48,6 +46,10 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   @Nullable
   public <P extends TransitiveInfoProvider> P getProvider(Class<P> providerClass) {
     return providers.getProvider(providerClass);
+  }
+
+  public TransitiveInfoProviderMap getProviders() {
+    return providers;
   }
 
   /**
@@ -126,17 +128,23 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
    * A Builder for {@link JavaProvider}.
    */
   public static class Builder {
-    TransitiveInfoProviderMap.Builder providerMap = new TransitiveInfoProviderMap.Builder();
-
-    private Builder() {}
+    TransitiveInfoProviderMap.Builder providerMap;
+   
+    private Builder(TransitiveInfoProviderMap.Builder providerMap) {
+      this.providerMap = providerMap;
+    }
 
     public static Builder create() {
-      return new Builder();
+      return new Builder(new TransitiveInfoProviderMap.Builder());
+    }
+
+    public static Builder copyOf(JavaProvider javaProvider) {
+      return new Builder(javaProvider.getProviders().toBuilder());
     }
 
     public <P extends TransitiveInfoProvider> Builder addProvider(
         Class<P> providerClass, TransitiveInfoProvider provider) {
-      Preconditions.checkArgument(allowedProviders.contains(providerClass));
+      Preconditions.checkArgument(ALLOWED_PROVIDERS.contains(providerClass));
       providerMap.put(providerClass, provider);
       return this;
     }

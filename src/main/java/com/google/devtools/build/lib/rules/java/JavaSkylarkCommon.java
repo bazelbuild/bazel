@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -189,6 +190,23 @@ public class JavaSkylarkCommon {
   )
   public static JavaProvider mergeJavaProviders(SkylarkList<JavaProvider> providers) {
     return JavaProvider.merge(providers);
+  }
+
+  @SkylarkCallable(
+      name = "make_non_strict",
+      doc = "Returns a new Java provider whose direct-jars part is the union of both the direct and"
+          + " indirect jars of the given Java provider.",
+      // There's only one mandatory positional, the Java provider.
+      mandatoryPositionals = 1
+  )
+  public static JavaProvider makeNonStrict(JavaProvider javaProvider) {
+    JavaCompilationArgsProvider directCompilationArgs =
+        StrictDepsUtils.makeNonStrict(javaProvider.getProvider(JavaCompilationArgsProvider.class));
+
+    return JavaProvider.Builder.copyOf(javaProvider)
+        // Overwrites the old provider.
+        .addProvider(JavaCompilationArgsProvider.class, directCompilationArgs)
+        .build();
   }
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
