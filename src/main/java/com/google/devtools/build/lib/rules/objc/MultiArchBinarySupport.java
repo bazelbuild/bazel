@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 
@@ -181,7 +182,8 @@ public class MultiArchBinarySupport {
               nullToEmptyList(configToDepsCollectionMap.get(childConfig)),
               nullToEmptyList(configurationToNonPropagatedObjcMap.get(childConfig)),
               additionalDepProviders);
-      ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibObjcProviders);
+      ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibObjcProviders,
+          ImmutableList.<CcLinkParamsProvider>of());
 
       configurationToObjcProviderBuilder.put(childConfig, objcProvider);
     }

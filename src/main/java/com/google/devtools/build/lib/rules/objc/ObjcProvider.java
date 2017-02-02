@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -603,43 +604,82 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
    * <p>This is an expensive operation, as it requires flattening of all nested sets contained
    * in each provider.
    *
-   * @param avoidProviders providers which contain the dependency subtrees to subtract
+   * @param avoidObjcProviders objc providers which contain the dependency subtrees to subtract
+   * @param avoidCcProviders cc providers which contain the dependency subtrees to subtract
    */
   // TODO(b/19795062): Investigate subtraction generalized to NestedSet.
-  public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidProviders) {
+  public ObjcProvider subtractSubtrees(Iterable<ObjcProvider> avoidObjcProviders,
+      Iterable<CcLinkParamsProvider> avoidCcProviders) {
+    // LIBRARY and CC_LIBRARY need to be special cased for objc-cc interop.
+    // A library which is a dependency of a cc_library may be present in all or any of 
+    // three possible locations (and may be duplicated!):
+    // 1. ObjcProvider.LIBRARY
+    // 2. ObjcProvider.CC_LIBRARY
+    // 3. CcLinkParamsProvider->LibraryToLink->getArtifact()
+    // TODO(cpeyser): Clean up objc-cc interop.
+    HashSet<Artifact> avoidLibrariesSet = new HashSet<>();
+    for (CcLinkParamsProvider linkProvider : avoidCcProviders) {
+      NestedSet<LibraryToLink> librariesToLink =
+          linkProvider.getCcLinkParams(true, false).getLibraries();
+      for (LibraryToLink libraryToLink : librariesToLink.toList()) {
+        avoidLibrariesSet.add(libraryToLink.getArtifact());
+      }
+    }
+    for (ObjcProvider avoidProvider : avoidObjcProviders) {
+      avoidLibrariesSet.addAll(avoidProvider.getCcLibraries());
+      for (Artifact libraryToAvoid : avoidProvider.getPropagable(LIBRARY)) {
+        avoidLibrariesSet.add(libraryToAvoid);
+      }
+    }
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
     for (Key<?> key : getValuedKeys()) {
       if (key == CC_LIBRARY) {
-        // This needs to be special-cased since there are potentially duplicates
-        // between LIBRARY and CC_LIBRARY in cases where a cc_library depends on an objc_library,
-        // and if one is to be avoided so must its counterpart.
-        // TODO(cpeyser): Clean up objc-cc interop.
-        HashSet<Artifact> avoidLibrariesSet = new HashSet<>();
-        HashSet<LibraryToLink> avoidCcLibrariesSet = new HashSet<>();
-        for (ObjcProvider avoidProvider : avoidProviders) {
-          avoidCcLibrariesSet.addAll(avoidProvider.getPropagable(CC_LIBRARY).toList());
-          avoidLibrariesSet.addAll(avoidProvider.getPropagable(LIBRARY).toList());
-        }
         addTransitiveAndFilter(objcProviderBuilder, CC_LIBRARY,
-            libraryNotYetLinked(avoidCcLibrariesSet, avoidLibrariesSet));
+            ccLibraryNotYetLinked(avoidLibrariesSet));
+      } else if (key == LIBRARY) {
+        addTransitiveAndFilter(objcProviderBuilder, LIBRARY,
+            notContainedIn(avoidLibrariesSet));
       } else if (NON_SUBTRACTABLE_KEYS.contains(key)) {
         addTransitiveAndAvoid(objcProviderBuilder, key, ImmutableList.<ObjcProvider>of());
       } else {
-        addTransitiveAndAvoid(objcProviderBuilder, key, avoidProviders);
+        addTransitiveAndAvoid(objcProviderBuilder, key, avoidObjcProviders);
       }
     }
     return objcProviderBuilder.build();
   }
 
-  private static Predicate<LibraryToLink> libraryNotYetLinked(
-      final HashSet<LibraryToLink> librariesToLink,
+  /**
+   * Returns a predicate which returns true for a given artifact if the artifact is not contained
+   * in a given set.
+   *
+   * @param linkedLibraryArtifacts if a given artifact is present in this set, the predicate will
+   *     return false
+   */
+  private static Predicate<Artifact> notContainedIn(
+      final HashSet<Artifact> linkedLibraryArtifacts) {
+    return new Predicate<Artifact>() {
+
+      @Override
+      public boolean apply(Artifact libraryToLink) {
+        return !linkedLibraryArtifacts.contains(libraryToLink);
+      }
+    };
+  }
+
+  /**
+   * Returns a predicate which returns true for a given {@link LibraryToLink} if the library
+   * artifact is not contained in a given set.
+   *
+   * @param linkedLibraryArtifacts if a given library's artifact is present in this set, the
+   *     predicate will return false
+   */
+  private static Predicate<LibraryToLink> ccLibraryNotYetLinked(
       final HashSet<Artifact> linkedLibraryArtifacts) {
     return new Predicate<LibraryToLink>() {
 
       @Override
       public boolean apply(LibraryToLink libraryToLink) {
-        return (!librariesToLink.contains(libraryToLink))
-            && (!linkedLibraryArtifacts.contains(libraryToLink.getArtifact()));
+        return !linkedLibraryArtifacts.contains(libraryToLink.getArtifact());
       }
     };
   }
