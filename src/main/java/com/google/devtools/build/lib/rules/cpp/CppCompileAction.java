@@ -844,7 +844,7 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public Map<String, String> getExecutionInfo() {
+  public ImmutableMap<String, String> getExecutionInfo() {
     ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
     for (String requirement : executionRequirements) {
       result.put(requirement, "");
