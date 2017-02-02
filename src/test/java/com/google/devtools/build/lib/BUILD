@@ -229,6 +229,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//third_party:guava",
+        "//third_party:junit4",
         "//third_party:truth",
     ],
 )
