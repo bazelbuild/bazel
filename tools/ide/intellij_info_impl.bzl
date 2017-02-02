@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Implementation of IntelliJ-specific information collecting aspect.
+"""Implementation of IntelliJ-specific information collecting aspect."""
 
 # Compile-time dependency attributes, grouped by type.
 DEPS = struct(
@@ -43,20 +43,20 @@ PREREQUISITE_DEPS = struct(
 ##### Helpers
 
 def struct_omit_none(**kwargs):
-    """A replacement for standard `struct` function that omits the fields with None value."""
-    d = {name: kwargs[name] for name in kwargs if kwargs[name] != None}
-    return struct(**d)
+  """A replacement for standard `struct` function that omits the fields with None value."""
+  d = {name: kwargs[name] for name in kwargs if kwargs[name] != None}
+  return struct(**d)
 
-def artifact_location(file):
+def artifact_location(f):
   """Creates an ArtifactLocation proto from a File."""
-  if file == None:
+  if f == None:
     return None
 
   return struct_omit_none(
-      relative_path = get_relative_path(file),
-      is_source = file.is_source,
-      is_external = is_external(file.owner),
-      root_execution_path_fragment = file.root.path if not file.is_source else None,
+      relative_path = get_relative_path(f),
+      is_source = f.is_source,
+      is_external = is_external(f.owner),
+      root_execution_path_fragment = f.root.path if not f.is_source else None,
   )
 
 def is_external(label):
@@ -88,13 +88,10 @@ def source_directory_tuple(resource_file):
   )
 
 def all_unique_source_directories(resources):
-  """Builds a list of ArtifactLocation protos.
-
-  This is done for all source directories for a list of Android resources.
-  """
+  """Builds a list of unique ArtifactLocation protos."""
   # Sets can contain tuples, but cannot contain structs.
   # Use set of tuples to unquify source directories.
-  source_directory_tuples = set([source_directory_tuple(file) for file in resources])
+  source_directory_tuples = set([source_directory_tuple(f) for f in resources])
   return [struct_omit_none(relative_path = relative_path,
                            is_source = is_source,
                            root_execution_path_fragment = root_execution_path_fragment)
@@ -113,16 +110,16 @@ def library_artifact(java_output):
   if java_output == None or java_output.class_jar == None:
     return None
   return struct_omit_none(
-        jar = artifact_location(java_output.class_jar),
-        interface_jar = artifact_location(java_output.ijar),
-        source_jar = artifact_location(java_output.source_jar),
+      jar = artifact_location(java_output.class_jar),
+      interface_jar = artifact_location(java_output.ijar),
+      source_jar = artifact_location(java_output.source_jar),
   )
 
 def annotation_processing_jars(annotation_processing):
   """Creates a LibraryArtifact representing Java annotation processing jars."""
   return struct_omit_none(
-        jar = artifact_location(annotation_processing.class_jar),
-        source_jar = artifact_location(annotation_processing.source_jar),
+      jar = artifact_location(annotation_processing.class_jar),
+      source_jar = artifact_location(annotation_processing.source_jar),
   )
 
 def jars_from_output(output):
@@ -134,21 +131,16 @@ def jars_from_output(output):
           if jar != None and not jar.is_source]
 
 # TODO(salguarnieri) Remove once skylark provides the path safe string from a PathFragment.
-def replace_empty_path_with_dot(pathString):
-  return "." if len(pathString) == 0 else pathString
+def replace_empty_path_with_dot(path):
+  return path or "."
 
-def sources_from_target(context):
-  """
-  Get the list of sources from a target as artifact locations.
+def sources_from_target(ctx):
+  """Get the list of sources from a target as artifact locations."""
 
-  Returns the list of sources as artifact locations for a target or an empty list if no sources are
-  present.
-  """
-
-  if hasattr(context.rule.attr, "srcs"):
-    return [artifact_location(file)
-            for src in context.rule.attr.srcs
-            for file in src.files]
+  if hasattr(ctx.rule.attr, "srcs"):
+    return [artifact_location(f)
+            for src in ctx.rule.attr.srcs
+            for f in src.files]
   return []
 
 def collect_targets_from_attrs(rule_attrs, attrs):
@@ -184,11 +176,7 @@ def is_valid_aspect_target(target):
 ##### Builders for individual parts of the aspect output
 
 def build_py_ide_info(target, ctx):
-  """Build PyIdeInfo.
-
-  Returns a tuple of (PyIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the target is not a python rule).
-  """
+  """Build PyIdeInfo."""
   if not hasattr(target, "py"):
     return (None, set())
 
@@ -201,11 +189,7 @@ def build_py_ide_info(target, ctx):
   return (py_ide_info, transitive_sources)
 
 def build_c_ide_info(target, ctx):
-  """Build CIdeInfo.
-
-  Returns a tuple of (CIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the target is not a C rule).
-  """
+  """Build CIdeInfo."""
   if not hasattr(target, "cc"):
     return (None, set())
 
@@ -236,12 +220,8 @@ def build_c_ide_info(target, ctx):
   intellij_resolve_files = cc_provider.transitive_headers
   return (c_ide_info, intellij_resolve_files)
 
-def build_c_toolchain_ide_info(target, ctx):
-  """Build CToolchainIdeInfo.
-
-  Returns a pair of (CToolchainIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the target is not a cc_toolchain rule).
-  """
+def build_c_toolchain_ide_info(ctx):
+  """Build CToolchainIdeInfo."""
 
   if ctx.rule.kind != "cc_toolchain":
     return (None, set())
@@ -265,13 +245,7 @@ def build_c_toolchain_ide_info(target, ctx):
   return (c_toolchain_ide_info, set())
 
 def build_java_ide_info(target, ctx, semantics):
-  """
-  Build JavaIdeInfo.
-
-  Returns a pair of
-  (JavaIdeInfo proto, a set of ide-info-files, a set of intellij-resolve-files).
-  (or (None, empty set, empty set) if the target is not Java rule).
-  """
+  """Build JavaIdeInfo."""
   if not hasattr(target, "java"):
     return (None, set(), set())
 
@@ -411,11 +385,7 @@ def divide_java_sources(ctx):
   return java_sources, gen_java_sources, srcjars
 
 def build_android_ide_info(target, ctx, semantics):
-  """Build AndroidIdeInfo.
-
-  Returns a pair of (AndroidIdeInfo proto, a set of intellij-resolve-files).
-  (or (None, empty set) if the target is not Android rule).
-  """
+  """Build AndroidIdeInfo."""
   if not hasattr(target, "android"):
     return (None, set())
 
@@ -443,8 +413,8 @@ def build_android_ide_info(target, ctx, semantics):
 
   return (android_ide_info, intellij_resolve_files)
 
-def build_test_info(target, ctx):
-  """Build TestInfo"""
+def build_test_info(ctx):
+  """Build TestInfo."""
   if not is_test_rule(ctx):
     return None
   return struct_omit_none(
@@ -514,7 +484,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   (c_ide_info, c_resolve_files) = build_c_ide_info(target, ctx)
   intellij_resolve_files = intellij_resolve_files | c_resolve_files
 
-  (c_toolchain_ide_info, c_toolchain_resolve_files) = build_c_toolchain_ide_info(target, ctx)
+  (c_toolchain_ide_info, c_toolchain_resolve_files) = build_c_toolchain_ide_info(ctx)
   intellij_resolve_files = intellij_resolve_files | c_toolchain_resolve_files
 
   # Collect Java-specific information
@@ -532,7 +502,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
 
   # Collect test info
-  test_info = build_test_info(target, ctx)
+  test_info = build_test_info(ctx)
 
   # Any extra ide info
   extra_ide_info = {}
@@ -574,7 +544,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
           intellij_resolve_files = intellij_resolve_files,
           export_deps = export_deps,
       ),
-    )
+  )
 
 def semantics_extra_deps(base, semantics, name):
   if not hasattr(semantics, name):
