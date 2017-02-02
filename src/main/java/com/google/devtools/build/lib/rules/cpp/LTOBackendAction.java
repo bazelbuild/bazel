@@ -22,9 +22,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
@@ -175,15 +172,9 @@ public final class LTOBackendAction extends SpawnAction {
     inputsKnown = true;
   }
 
-  @Nullable
   @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException {
-    Set<Artifact> bitcodeInputSet = computeBitcodeInputs(inputPaths);
-    return createInputs(bitcodeInputSet, getMandatoryInputs());
+  public Iterable<Artifact> getAllowedDerivedInputs() {
+    return bitcodeFiles.values();
   }
 
   @Override

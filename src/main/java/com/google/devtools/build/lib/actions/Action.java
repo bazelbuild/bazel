@@ -18,10 +18,8 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.profiler.Describable;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
-import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -165,25 +163,15 @@ public interface Action extends ActionExecutionMetadata, Describable {
       throws ActionExecutionException, InterruptedException;
 
   /**
-   * Method used to resolve action inputs based on the information contained in the action cache. It
-   * will be called iff inputsKnown() is false for the given action instance and there is a related
-   * cache entry in the action cache.
+   * Returns the set of artifacts that can possibly be inputs. It will be called iff inputsKnown()
+   * is false for the given action instance and there is a related cache entry in the action cache.
    *
    * <p>Method must be redefined for any action that may return inputsKnown() == false.
    *
-   * @param artifactResolver the artifact factory that can be used to manufacture artifacts
-   * @param resolver object which helps to resolve some of the artifacts
-   * @param inputPaths List of relative (to the execution root) input paths
-   * @return List of Artifacts corresponding to inputPaths, or null if some dependencies were
-   *     missing and we need to try again later.
-   * @throws PackageRootResolutionException on failure to determine package roots of inputPaths
+   * <p>The method is allowed to return source artifacts. They are useless, though, since exec paths
+   * in the action cache referring to source artifacts are always resolved.
    */
-  @Nullable
-  Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException;
+  Iterable<Artifact> getAllowedDerivedInputs();
 
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can

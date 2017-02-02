@@ -15,8 +15,6 @@
 package com.google.devtools.build.lib.rules.extra;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicates;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -25,11 +23,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.DelegateSpawn;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -40,7 +35,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -159,18 +153,9 @@ public final class ExtraAction extends SpawnAction {
     inputsKnown = true;
   }
 
-  @Nullable
   @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException {
-    // We update the inputs directly from the shadowed action.
-    Set<PathFragment> extraActionPathFragments =
-        ImmutableSet.copyOf(Artifact.asPathFragments(extraActionInputs));
-    return shadowedAction.resolveInputsFromCache(artifactResolver, resolver,
-        Collections2.filter(inputPaths, Predicates.in(extraActionPathFragments)));
+  public Iterable<Artifact> getAllowedDerivedInputs() {
+    return shadowedAction.getAllowedDerivedInputs();
   }
 
   /**

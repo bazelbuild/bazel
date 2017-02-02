@@ -300,16 +300,57 @@ public class ActionCacheChecker {
     for (Artifact output : action.getOutputs()) {
       outputs.add(output.getExecPath());
     }
-    List<PathFragment> inputs = new ArrayList<>();
+    List<PathFragment> inputExecPaths = new ArrayList<>();
     for (String path : entry.getPaths()) {
       PathFragment execPath = new PathFragment(path);
       // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be
       // most efficient.
       if (!outputs.contains(execPath)) {
-        inputs.add(execPath);
+        inputExecPaths.add(execPath);
       }
     }
-    return action.resolveInputsFromCache(artifactResolver, resolver, inputs);
+
+    // Note that this method may trigger a violation of the desirable invariant that getInputs()
+    // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
+    // error message and the integration test test_crosstool_change_and_failure().
+    Map<PathFragment, Artifact> allowedDerivedInputsMap = new HashMap<>();
+    for (Artifact derivedInput : action.getAllowedDerivedInputs()) {
+      if (!derivedInput.isSourceArtifact()) {
+        allowedDerivedInputsMap.put(derivedInput.getExecPath(), derivedInput);
+      }
+    }
+
+    List<Artifact> inputArtifacts = new ArrayList<>();
+    List<PathFragment> unresolvedPaths = new ArrayList<>();
+    for (PathFragment execPath : inputExecPaths) {
+      Artifact artifact = allowedDerivedInputsMap.get(execPath);
+      if (artifact != null) {
+        inputArtifacts.add(artifact);
+      } else {
+        // Remember this execPath, we will try to resolve it as a source artifact.
+        unresolvedPaths.add(execPath);
+      }
+    }
+
+    Map<PathFragment, Artifact> resolvedArtifacts =
+        artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
+    if (resolvedArtifacts == null) {
+      // We are missing some dependencies. We need to rerun this update later.
+      return null;
+    }
+
+    for (PathFragment execPath : unresolvedPaths) {
+      Artifact artifact = resolvedArtifacts.get(execPath);
+      // If PathFragment cannot be resolved into the artifact, ignore it. This could happen if the
+      // rule has changed and the action no longer depends on, e.g., an additional source file in a
+      // separate package and that package is no longer referenced anywhere else. It is safe to
+      // ignore such paths because dependency checker would identify changes in inputs (ignored path
+      // was used before) and will force action execution.
+      if (artifact != null) {
+        inputArtifacts.add(artifact);
+      }
+    }
+    return inputArtifacts;
   }
 
   /**

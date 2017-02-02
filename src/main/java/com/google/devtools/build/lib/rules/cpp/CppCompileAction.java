@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.PackageRootResolutionException;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
@@ -1081,50 +1079,6 @@ public class CppCompileAction extends AbstractAction
     return variableBuilder.build();
   }
 
-  // Keep in sync with {@link ObjcCompileAction#resolveInputsFromCache}
-  @Override
-  public Iterable<Artifact> resolveInputsFromCache(
-      ArtifactResolver artifactResolver,
-      PackageRootResolver resolver,
-      Collection<PathFragment> inputPaths)
-      throws PackageRootResolutionException, InterruptedException {
-    // Note that this method may trigger a violation of the desirable invariant that getInputs()
-    // is a superset of getMandatoryInputs(). See bug about an "action not in canonical form"
-    // error message and the integration test test_crosstool_change_and_failure().
-    Map<PathFragment, Artifact> allowedDerivedInputsMap = getAllowedDerivedInputsMap();
-    List<Artifact> inputs = new ArrayList<>();
-    List<PathFragment> unresolvedPaths = new ArrayList<>();
-    for (PathFragment execPath : inputPaths) {
-      Artifact artifact = allowedDerivedInputsMap.get(execPath);
-      if (artifact != null) {
-        inputs.add(artifact);
-      } else {
-        // Remember this execPath, we will try to resolve it as a source artifact.
-        unresolvedPaths.add(execPath);
-      }
-    }
-
-    Map<PathFragment, Artifact> resolvedArtifacts =
-        artifactResolver.resolveSourceArtifacts(unresolvedPaths, resolver);
-    if (resolvedArtifacts == null) {
-      // We are missing some dependencies. We need to rerun this update later.
-      return null;
-    }
-
-    for (PathFragment execPath : unresolvedPaths) {
-      Artifact artifact = resolvedArtifacts.get(execPath);
-      // If PathFragment cannot be resolved into the artifact - ignore it. This could happen if
-      // rule definition has changed and action no longer depends on, e.g., additional source file
-      // in the separate package and that package is no longer referenced anywhere else.
-      // It is safe to ignore such paths because dependency checker would identify change in inputs
-      // (ignored path was used before) and will force action execution.
-      if (artifact != null) {
-        inputs.add(artifact);
-      }
-    }
-    return inputs;
-  }
-
   @Override protected void setInputs(Iterable<Artifact> inputs) {
     super.setInputs(inputs);
   }
@@ -1135,6 +1089,11 @@ public class CppCompileAction extends AbstractAction
     synchronized (this) {
       setInputs(inputs);
     }
+  }
+
+  @Override
+  public Iterable<Artifact> getAllowedDerivedInputs() {
+    return getAllowedDerivedInputsMap().values();
   }
 
   protected Map<PathFragment, Artifact> getAllowedDerivedInputsMap() {
