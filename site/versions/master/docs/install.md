@@ -325,14 +325,23 @@ If you wish to use JDK 7, follow the same steps as for JDK 8 but with the _jdk7_
 
 ## <a name="bash"></a>Getting bash completion
 
-Bazel comes with a bash completion script. To install it:
+Bazel comes with a bash completion script, which the installer copies into the
+`bin` directory. If you ran the installer with `--user`, this will be
+`$HOME/.bazel/bin`. If you ran the installer as root, this will be
+`/usr/local/bazel/bin`.
+
+Copy the `bazel-complete.bash` script to your completion folder
+(`/etc/bash_completion.d` directory under Ubuntu). If you don't have a
+completion folder, you can copy it wherever suits you and insert
+`source /path/to/bazel-complete.bash` in your `~/.bashrc` file (under OS X, put
+it in your `~/.bash_profile` file).
+
+If you built Bazel from source, the bash completion target is in the `//scripts`
+package:
 
 1. Build it with Bazel: `bazel build //scripts:bazel-complete.bash`.
-2. Copy the script `bazel-bin/scripts/bazel-complete.bash` to your
-   completion folder (`/etc/bash_completion.d` directory under Ubuntu).
-   If you don't have a completion folder, you can copy it wherever suits
-   you and simply insert `source /path/to/bazel-complete.bash` in your
-   `~/.bashrc` file (under OS X, put it in your `~/.bash_profile` file).
+2. Copy the script `bazel-bin/scripts/bazel-complete.bash` to one of the
+   locations described above.
 
 ## <a name="zsh"></a>Getting zsh completion
 
