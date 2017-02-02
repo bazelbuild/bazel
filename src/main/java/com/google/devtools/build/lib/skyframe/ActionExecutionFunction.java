@@ -387,7 +387,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           try {
             state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
                 perActionFileCache, metadataHandler, env);
-            Preconditions.checkState(state.discoveredInputs != null);
+            Preconditions.checkState(state.discoveredInputs != null,
+                "discoverInputs() returned null on action %s", action);
           } catch (MissingDepException e) {
             Preconditions.checkState(env.valuesMissing(), action);
             return null;
