@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariableValue;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionConfigs.CppLinkPlatform;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,10 +87,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
     return CcToolchainFeaturesTest.buildFeatures(
             CppLinkActionConfigs.getCppLinkActionConfigs(
-                CppLinkPlatform.LINUX,
-                ImmutableSet.<String>of(),
-                "dynamic_library_linker_tool",
-                true))
+                CppLinkPlatform.LINUX, ImmutableSet.<String>of(), "dynamic_library_linker_tool"))
         .getFeatureConfiguration(
             Link.LinkTargetType.EXECUTABLE.getActionName(),
             Link.LinkTargetType.DYNAMIC_LIBRARY.getActionName(),
@@ -160,34 +155,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 + "-lbar -lqux(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
-  }
-
-  @Test
-  public void testExposesRuntimeLibrarySearchDirectoriesVariable() throws Exception {
-    scratch.file(
-        "x/BUILD",
-        "cc_binary(",
-        "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
-        ")");
-    scratch.file("x/some-dir/bar.so");
-    scratch.file("x/some-other-dir/qux.so");
-
-    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
-    CppLinkAction linkAction =
-        (CppLinkAction)
-            getGeneratingAction(configuredTarget, "x/foo" + OsUtils.executableExtension());
-
-    Iterable<? extends VariableValue> runtimeLibrarySearchDirectories =
-        linkAction
-            .getLinkCommandLine()
-            .getBuildVariables()
-            .getSequenceVariable(CppLinkActionBuilder.RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE);
-    List<String> directories = new ArrayList<>();
-    for (VariableValue value : runtimeLibrarySearchDirectories) {
-      directories.add(value.getStringValue("runtime_library_search_directory"));
-    }
-    assertThat(Joiner.on(" ").join(directories)).matches(".*some-dir .*some-other-dir");
   }
 
   @Test

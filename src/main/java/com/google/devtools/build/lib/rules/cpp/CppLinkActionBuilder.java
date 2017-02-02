@@ -21,7 +21,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -64,9 +63,17 @@ import javax.annotation.Nullable;
 /** Builder class to construct {@link CppLinkAction}s. */
 public class CppLinkActionBuilder {
 
-  /** A build variable for entries in the linker runtime search path (usually set by -rpath flag) */
-  public static final String RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE =
-      "runtime_library_search_directories";
+  /** A build variable for clang flags that set the root of the linker search path. */
+  public static final String RUNTIME_ROOT_FLAGS_VARIABLE = "runtime_root_flags";
+
+  /** A build variable for entries in the linker search path. */
+  public static final String RUNTIME_ROOT_ENTRIES_VARIABLE = "runtime_root_entries";
+
+  /**
+   * A build variable for options applying to specific libraries in the linker invocation that
+   * either identify a library to be linked or add a directory to the runtime library search path.
+   */
+  public static final String LIBOPTS_VARIABLE = "libopts";
 
   public static final String LIBRARY_SEARCH_DIRECTORIES_VARIABLE = "library_search_directories";
 
@@ -126,12 +133,6 @@ public class CppLinkActionBuilder {
 
   /** A build variable whose presence indicates that this action is a cc_test linking action. */
   public static final String IS_CC_TEST_LINK_ACTION_VARIABLE = "is_cc_test_link_action";
-
-  /**
-   * A (temporary) build variable whose presence indicates that this action is not a cc_test linking
-   * action.
-   */
-  public static final String IS_NOT_CC_TEST_LINK_ACTION_VARIABLE = "is_not_cc_test_link_action";
 
   // Builder-only
   // Null when invoked from tests (e.g. via createTestBuilder).
@@ -1196,13 +1197,22 @@ public class CppLinkActionBuilder {
   }
 
   private static class LinkArgCollector {
-    ImmutableSet<String> runtimeLibrarySearchDirectories;
+    String rpathRoot;
+    ImmutableList<String> rpathEntries;
+    ImmutableSet<String> libopts;
     ImmutableSet<String> librarySearchDirectories;
     SequenceBuilder librariesToLink;
 
-    public void setRuntimeLibrarySearchDirectories(
-        ImmutableSet<String> runtimeLibrarySearchDirectories) {
-      this.runtimeLibrarySearchDirectories = runtimeLibrarySearchDirectories;
+    public void setRpathRoot(String rPathRoot) {
+      this.rpathRoot = rPathRoot;
+    }
+
+    public void setRpathEntries(ImmutableList<String> rpathEntries) {
+      this.rpathEntries = rpathEntries;
+    }
+
+    public void setLibopts(ImmutableSet<String> libopts) {
+      this.libopts = libopts;
     }
 
     public void setLibrariesToLink(SequenceBuilder librariesToLink) {
@@ -1213,8 +1223,16 @@ public class CppLinkActionBuilder {
       this.librarySearchDirectories = librarySearchDirectories;
     }
 
-    public ImmutableSet<String> getRuntimeLibrarySearchDirectories() {
-      return runtimeLibrarySearchDirectories;
+    public String getRpathRoot() {
+      return rpathRoot;
+    }
+
+    public ImmutableList<String> getRpathEntries() {
+      return rpathEntries;
+    }
+
+    public ImmutableSet<String> getLibopts() {
+      return libopts;
     }
 
     public SequenceBuilder getLibrariesToLink() {
@@ -1296,15 +1314,20 @@ public class CppLinkActionBuilder {
 
       if (useTestOnlyFlags()) {
         buildVariables.addStringVariable(IS_CC_TEST_LINK_ACTION_VARIABLE, "");
-      } else {
-        buildVariables.addStringVariable(IS_NOT_CC_TEST_LINK_ACTION_VARIABLE, "");
       }
 
-      if (linkArgCollector.getRuntimeLibrarySearchDirectories() != null) {
-        buildVariables.addStringSequenceVariable(
-            RUNTIME_LIBRARY_SEARCH_DIRECTORIES_VARIABLE,
-            linkArgCollector.getRuntimeLibrarySearchDirectories());
+      // rpath
+      if (linkArgCollector.getRpathRoot() != null) {
+        buildVariables.addStringVariable(
+            RUNTIME_ROOT_FLAGS_VARIABLE, linkArgCollector.getRpathRoot());
       }
+
+      if (linkArgCollector.getRpathEntries() != null) {
+        buildVariables.addStringSequenceVariable(
+            RUNTIME_ROOT_ENTRIES_VARIABLE, linkArgCollector.getRpathEntries());
+      }
+
+      buildVariables.addStringSequenceVariable(LIBOPTS_VARIABLE, linkArgCollector.getLibopts());
 
       buildVariables.addCustomBuiltVariable(
           LIBRARIES_TO_LINK_VARIABLE, linkArgCollector.getLibrariesToLink());
@@ -1393,9 +1416,10 @@ public class CppLinkActionBuilder {
      * <p>TODO: Factor out of the bazel binary into build variables for crosstool action_configs.
      */
     private void addInputFileLinkOptions(LinkArgCollector linkArgCollector) {
+
+      // Used to collect -L and -Wl,-rpath options, ensuring that each used only once.
+      ImmutableSet.Builder<String> libOpts = ImmutableSet.builder();
       ImmutableSet.Builder<String> librarySearchDirectories = ImmutableSet.builder();
-      ImmutableSet.Builder<String> runtimeRpathRoots = ImmutableSet.builder();
-      ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
 
       // List of command line parameters that need to be placed *outside* of
       // --whole-archive ... --no-whole-archive.
@@ -1413,9 +1437,14 @@ public class CppLinkActionBuilder {
                   || (linkType == LinkTargetType.EXECUTABLE
                       && linkStaticness == LinkStaticness.DYNAMIC));
 
+      ImmutableList.Builder<String> runtimeRpathEntries = ImmutableList.builder();
+
+      String origin =
+          useTestOnlyFlags && cppConfiguration.supportsExecOrigin()
+              ? "$EXEC_ORIGIN/"
+              : "$ORIGIN/";
       if (runtimeRpath) {
-        runtimeRpathRoots.add(".");
-        runtimeRpathRoots.add(runtimeSolibName + "/");
+        runtimeRpathEntries.add("-Wl,-rpath," + origin + runtimeSolibName + "/");
       }
 
       String rpathRoot;
@@ -1433,9 +1462,10 @@ public class CppLinkActionBuilder {
         // and the second could use $ORIGIN/../_solib_[arch]. But since this is a shared
         // artifact, both are symlinks to the same place, so
         // there's no *one* RPATH setting that fits all targets involved in the sharing.
-        rpathRoot = cppConfiguration.getSolibDirectory() + "/";
+        rpathRoot =
+            "-Wl,-rpath," + origin + ":" + origin + cppConfiguration.getSolibDirectory() + "/";
         if (runtimeRpath) {
-          runtimeRpathRoots.add("../" + runtimeSolibName + "/");
+          runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
         }
       } else {
         // For all other links, calculate the relative path from the output file to _solib_[arch]
@@ -1443,14 +1473,18 @@ public class CppLinkActionBuilder {
         // directory. In other words, given blaze-bin/my/package/binary, rpathRoot would be
         // "../../_solib_[arch]".
         if (runtimeRpath) {
-          runtimeRpathRoots.add(
-              Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
+          runtimeRpathEntries.add(
+              "-Wl,-rpath,"
+                  + origin
+                  + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
                   + runtimeSolibName
                   + "/");
         }
 
         rpathRoot =
-            Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
+            "-Wl,-rpath,"
+                + origin
+                + Strings.repeat("../", output.getRootRelativePath().segmentCount() - 1)
                 + cppConfiguration.getSolibDirectory()
                 + "/";
 
@@ -1458,106 +1492,31 @@ public class CppLinkActionBuilder {
           // We also retain the $ORIGIN/ path to solibs that are in _solib_<arch>, as opposed to
           // the package directory)
           if (runtimeRpath) {
-            runtimeRpathRoots.add("../" + runtimeSolibName + "/");
+            runtimeRpathEntries.add("-Wl,-rpath," + origin + "../" + runtimeSolibName + "/");
           }
+          rpathRoot += ":" + origin;
         }
       }
 
-      Map<Artifact, Artifact> ltoMap = generateLtoMap();
-      boolean includeSolibDir =
-          addLinkerInputs(
-              librarySearchDirectories,
-              rpathRootsForExplicitSoDeps,
-              librariesToLink,
-              solibDir,
-              rpathRoot,
-              ltoMap);
-      boolean includeRuntimeSolibDir =
-          addRuntimeLinkerInputs(
-              librarySearchDirectories,
-              rpathRootsForExplicitSoDeps,
-              librariesToLink,
-              solibDir,
-              rpathRoot,
-              ltoMap);
-      Preconditions.checkState(
-          ltoMap == null || ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMap);
-
-      ImmutableSet.Builder<String> runtimeLibrarySearchDirectories = ImmutableSet.builder();
-      // rpath ordering matters for performance; first add the one where most libraries are found.
-      if (includeSolibDir) {
-        runtimeLibrarySearchDirectories.add(rpathRoot);
-      }
-      runtimeLibrarySearchDirectories.addAll(rpathRootsForExplicitSoDeps.build());
-      if (includeRuntimeSolibDir) {
-        runtimeLibrarySearchDirectories.addAll(runtimeRpathRoots.build());
-      }
-
-      linkArgCollector.setLibrarySearchDirectories(librarySearchDirectories.build());
-      linkArgCollector.setRuntimeLibrarySearchDirectories(runtimeLibrarySearchDirectories.build());
-      linkArgCollector.setLibrariesToLink(librariesToLink);
-    }
-
-    private Map<Artifact, Artifact> generateLtoMap() {
-      if (isLTOIndexing || allLTOArtifacts == null) {
-        return null;
-      }
-      // TODO(bazel-team): The LTO final link can only work if there are individual .o files on
-      // the command line. Rather than crashing, this should issue a nice error. We will get
-      // this by
-      // 1) moving supports_start_end_lib to a toolchain feature
-      // 2) having thin_lto require start_end_lib
-      // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
-      // of a command line option.
-
-      Preconditions.checkState(cppConfiguration.useStartEndLib());
-      Map<Artifact, Artifact> ltoMap = new HashMap<>();
-      for (LTOBackendArtifacts l : allLTOArtifacts) {
-        ltoMap.put(l.getBitcodeFile(), l.getObjectFile());
-      }
-      return ltoMap;
-    }
-
-    private boolean addRuntimeLinkerInputs(
-        Builder<String> librarySearchDirectories,
-        Builder<String> rpathRootsForExplicitSoDeps,
-        SequenceBuilder librariesToLink,
-        PathFragment solibDir,
-        String rpathRoot,
-        Map<Artifact, Artifact> ltoMap) {
-      boolean includeRuntimeSolibDir = false;
-      for (LinkerInput input : runtimeLinkerInputs) {
-        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
-          PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-          Preconditions.checkState(
-              runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
-              "Artifact '%s' is not under directory '%s'.",
-              input.getArtifact(),
-              solibDir);
-          includeRuntimeSolibDir = true;
-          addDynamicInputLinkOptions(
-              input,
-              librariesToLink,
-              true,
-              librarySearchDirectories,
-              rpathRootsForExplicitSoDeps,
-              solibDir,
-              rpathRoot);
-        } else {
-          addStaticInputLinkOptions(input, librariesToLink, true, ltoMap);
-        }
-      }
-      return includeRuntimeSolibDir;
-    }
-
-    private boolean addLinkerInputs(
-        Builder<String> librarySearchDirectories,
-        Builder<String> rpathEntries,
-        SequenceBuilder librariesToLink,
-        PathFragment solibDir,
-        String rpathRoot,
-        Map<Artifact, Artifact> ltoMap) {
       boolean includeSolibDir = false;
+
+      Map<Artifact, Artifact> ltoMap = null;
+      if (!isLTOIndexing && (allLTOArtifacts != null)) {
+        // TODO(bazel-team): The LTO final link can only work if there are individual .o files on
+        // the command line. Rather than crashing, this should issue a nice error. We will get
+        // this by
+        // 1) moving supports_start_end_lib to a toolchain feature
+        // 2) having thin_lto require start_end_lib
+        // As a bonus, we can rephrase --nostart_end_lib as --features=-start_end_lib and get rid
+        // of a command line option.
+
+        Preconditions.checkState(cppConfiguration.useStartEndLib());
+        ltoMap = new HashMap<>();
+        for (LTOBackendArtifacts l : allLTOArtifacts) {
+          ltoMap.put(l.getBitcodeFile(), l.getObjectFile());
+        }
+      }
+
       for (LinkerInput input : linkerInputs) {
         if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
@@ -1573,15 +1532,49 @@ public class CppLinkActionBuilder {
               input,
               librariesToLink,
               false,
+              libOpts,
               librarySearchDirectories,
-              rpathEntries,
               solibDir,
               rpathRoot);
         } else {
           addStaticInputLinkOptions(input, librariesToLink, false, ltoMap);
         }
       }
-      return includeSolibDir;
+
+      boolean includeRuntimeSolibDir = false;
+
+      for (LinkerInput input : runtimeLinkerInputs) {
+        if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
+          PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
+          Preconditions.checkState(
+              runtimeSolibDir != null && libDir.equals(runtimeSolibDir),
+              "Artifact '%s' is not under directory '%s'.",
+              input.getArtifact(),
+              solibDir);
+          includeRuntimeSolibDir = true;
+          addDynamicInputLinkOptions(
+              input, librariesToLink, true, libOpts, librarySearchDirectories, solibDir, rpathRoot);
+        } else {
+          addStaticInputLinkOptions(input, librariesToLink, true, ltoMap);
+        }
+      }
+
+      // rpath ordering matters for performance; first add the one where most libraries are found.
+      if (includeSolibDir) {
+        linkArgCollector.setRpathRoot(rpathRoot);
+      }
+      if (includeRuntimeSolibDir) {
+        linkArgCollector.setRpathEntries(runtimeRpathEntries.build());
+      }
+
+      linkArgCollector.setLibopts(libOpts.build());
+      linkArgCollector.setLibrarySearchDirectories(librarySearchDirectories.build());
+
+      linkArgCollector.setLibrariesToLink(librariesToLink);
+
+      if (ltoMap != null) {
+        Preconditions.checkState(ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMap);
+      }
     }
 
     /**
@@ -1593,8 +1586,8 @@ public class CppLinkActionBuilder {
         LinkerInput input,
         SequenceBuilder librariesToLink,
         boolean isRuntimeLinkerInput,
+        ImmutableSet.Builder<String> libOpts,
         ImmutableSet.Builder<String> librarySearchDirectories,
-        ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
         PathFragment solibDir,
         String rpathRoot) {
       Preconditions.checkState(input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY);
@@ -1611,8 +1604,7 @@ public class CppLinkActionBuilder {
           commonParent = commonParent.getParentDirectory();
         }
 
-        rpathRootsForExplicitSoDeps.add(
-            rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
+        libOpts.add(rpathRoot + dotdots + libDir.relativeTo(commonParent).getPathString());
       }
 
       librarySearchDirectories.add(
