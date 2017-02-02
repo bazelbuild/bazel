@@ -386,18 +386,19 @@ static void MakeFilesystemMostlyReadOnly() {
     PRINT_DEBUG("remount %s: %s", (mountFlags & MS_RDONLY) ? "ro" : "rw",
                 ent->mnt_dir);
     if (mount(NULL, ent->mnt_dir, NULL, mountFlags, NULL) < 0) {
-      // If we get EACCES, this might be a mount-point for which we don't have
-      // read access. Not much we can do about this, but it also won't do any
-      // harm, so let's go on. The same goes for EINVAL, which is fired in case
-      // a later mount overlaps an earlier mount, e.g. consider the case of
-      // /proc, /proc/sys/fs/binfmt_misc and /proc, with the latter /proc being
-      // the one that an outer sandbox has mounted on top of its parent /proc.
-      // In that case, we're not allowed to remount /proc/sys/fs/binfmt_misc,
-      // because it is hidden. If we get ESTALE, the mount is a broken NFS
-      // mount. In the ideal case, the user would either fix or remove that
-      // mount, but in cases where that's not possible, we should just ignore
-      // it.
-      if (errno != EACCES && errno != EINVAL && errno != ESTALE) {
+      // If we get EACCES or EPERM, this might be a mount-point for which we
+      // don't have read access. Not much we can do about this, but it also
+      // won't do any harm, so let's go on. The same goes for EINVAL, which is
+      // fired in case a later mount overlaps an earlier mount, e.g. consider
+      // the case of /proc, /proc/sys/fs/binfmt_misc and /proc, with the latter
+      // /proc being the one that an outer sandbox has mounted on top of its
+      // parent /proc. In that case, we're not allowed to remount
+      // /proc/sys/fs/binfmt_misc, because it is hidden. If we get ESTALE, the
+      // mount is a broken NFS mount. In the ideal case, the user would either
+      // fix or remove that mount, but in cases where that's not possible, we
+      // should just ignore it.
+      if (errno != EACCES && errno != EINVAL && errno != ESTALE &&
+          errno != EPERM) {
         DIE("remount(NULL, %s, NULL, %d, NULL)", ent->mnt_dir, mountFlags);
       }
     }
