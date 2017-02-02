@@ -70,6 +70,8 @@ public class ObjcRuleClasses {
    * Name of the attribute used for implicit dependency on the libtool wrapper.
    */
   public static final String LIBTOOL_ATTRIBUTE = "$libtool";
+  /** Name of the attribute used for implicit dependency on the header_scanner wrapper. */
+  public static final String HEADER_SCANNER_ATTRIBUTE = ":header_scanner";
 
   static final String CLANG = "clang";
   static final String CLANG_PLUSPLUS = "clang++";
@@ -654,7 +656,7 @@ public class ObjcRuleClasses {
         Iterables.<String>concat(
             ALLOWED_CC_DEPS_RULE_CLASSES,
             ImmutableList.of("experimental_objc_library"));
-        
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -741,6 +743,27 @@ public class ObjcRuleClasses {
           @import path_to_package_target;
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("enable_modules", BOOLEAN))
+          /* Provides the label for header_scanner tool that is used to scan inclusions for ObjC
+          sources and provide a list of required headers via a .header_list file.
+
+          Either points to a label for a binary which can be executed for header scanning or an
+          empty filegroup to indicate that the tool is unavailable. Due to the possibility of this
+          being an empty filegroup and executable prerequisites validating that they contain at
+          least one artifact this attribute cannot be #exec(). */
+          .add(
+              attr(HEADER_SCANNER_ATTRIBUTE, LABEL)
+                  .cfg(HOST)
+                  .value(
+                      new LateBoundLabel<BuildConfiguration>(
+                          "//tools/objc:header_scanner", ObjcConfiguration.class) {
+                        @Override
+                        public Label resolve(
+                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                          return configuration
+                              .getFragment(ObjcConfiguration.class)
+                              .getObjcHeaderScannerTool();
+                        }
+                      }))
           .build();
     }
     @Override

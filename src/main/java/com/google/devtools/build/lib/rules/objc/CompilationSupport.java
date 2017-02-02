@@ -1022,4 +1022,26 @@ public abstract class CompilationSupport {
     }
     return parents.build();
   }
+
+  /**
+   * Returns true when ObjC header thinning is enabled via configuration and an a valid
+   * header_scanner executable target is provided.
+   */
+  protected boolean isHeaderThinningEnabled() {
+    if (objcConfiguration.useExperimentalHeaderThinning()
+        && ruleContext.isAttrDefined(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, BuildType.LABEL)) {
+      FilesToRunProvider tool = getHeaderThinningToolExecutable();
+      // Additional here to ensure that an Executable Artifact exists to disable where the tool
+      // is an empty filegroup
+      return tool != null && tool.getExecutable() != null;
+    }
+    return false;
+  }
+
+  protected FilesToRunProvider getHeaderThinningToolExecutable() {
+    return ruleContext
+        .getPrerequisite(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, Mode.HOST)
+        .getProvider(FilesToRunProvider.class);
+  }
+
 }

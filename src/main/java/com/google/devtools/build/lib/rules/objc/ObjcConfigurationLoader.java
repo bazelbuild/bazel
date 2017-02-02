@@ -33,8 +33,18 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
       throws InvalidConfigurationException, InterruptedException {
     Options options = buildOptions.get(BuildConfiguration.Options.class);
     ObjcCommandLineOptions objcOptions = buildOptions.get(ObjcCommandLineOptions.class);
-
+    validate(objcOptions);
     return new ObjcConfiguration(objcOptions, options, env.getBlazeDirectories());
+  }
+
+  private static void validate(ObjcCommandLineOptions objcOptions)
+      throws InvalidConfigurationException {
+    if (objcOptions.experimentalObjcHeaderThinning && objcOptions.useDotdPruning) {
+      throw new InvalidConfigurationException(
+          "Cannot use Objective-C dotd pruning "
+              + "(--objc_use_dotd_pruning) and experimental Objective-C header thinning "
+              + "(--experimental_objc_header_thinning) at the same time.");
+    }
   }
 
   @Override

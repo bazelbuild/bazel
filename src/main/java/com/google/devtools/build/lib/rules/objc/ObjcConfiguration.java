@@ -80,6 +80,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean experimentalObjcLibrary;
   private final boolean enableAppleBinaryNativeProtos;
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
+  private final boolean experimentalHeaderThinning;
+  private final Label objcHeaderScannerTool;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -118,6 +120,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         objcOptions.useDotdPruning
             ? HeaderDiscovery.DotdPruningMode.USE
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
+    this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
+    this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
   }
 
   /**
@@ -340,5 +344,15 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns the DotdPruningPlan for compiles in this build. */
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;
+  }
+
+  /** Returns true if header thinning of ObjcCompile actions is enabled to reduce action inputs. */
+  public boolean useExperimentalHeaderThinning() {
+    return experimentalHeaderThinning;
+  }
+
+  /** Returns the label for the ObjC header scanner tool. */
+  public Label getObjcHeaderScannerTool() {
+    return objcHeaderScannerTool;
   }
 }

@@ -270,6 +270,11 @@ public final class IntermediateArtifacts {
     }
   }
 
+  /** The artifact for the .headers file output by the header thinning action for this source. */
+  public Artifact headersListFile(Artifact source) {
+    return inUniqueObjsDir(source, ".headers_list");
+  }
+
   /**
    * The artifact for the .gcno file that should be generated when compiling the {@code source}
    * artifact.

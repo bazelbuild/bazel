@@ -275,6 +275,35 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean enableAppleBinaryNativeProtos;
 
+  @Option(
+    name = "experimental_objc_header_thinning",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If set then ObjcCompile actions will have their action inputs reduced by running a tool "
+            + "to detect which headers are actually required for compilation."
+  )
+  public boolean experimentalObjcHeaderThinning;
+
+  @Option(
+    name = "objc_header_scanner_tool",
+    defaultValue = "@bazel_tools//tools/objc:header_scanner",
+    category = "undocumented",
+    converter = LabelConverter.class,
+    help =
+        "Location of tool to scan Objective-C code for inclusions and output a .headers_list "
+            + "file."
+  )
+  public Label objcHeaderScannerTool;
+
+  @Override
+  public FragmentOptions getHost(boolean fallback) {
+    ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost(fallback);
+    // This should have the same value in both target and host configurations
+    host.objcHeaderScannerTool = this.objcHeaderScannerTool;
+    return host;
+  }
+
   @SuppressWarnings("unchecked")
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
