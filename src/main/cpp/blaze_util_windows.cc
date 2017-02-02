@@ -44,8 +44,9 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/md5.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/numbers.h"
+#include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows_util.h"
 
 // Defined by file_windows.cc
 namespace blaze_util {
@@ -1365,7 +1366,6 @@ bool IsEmacsTerminal() {
 // environment variables).
 bool IsStandardTerminal() {
 #ifdef COMPILER_MSVC
-  pdie(255, "blaze::IsStandardTerminal is not implemented on Windows");
   return false;
 #else  // not COMPILER_MSVC
   string term = GetEnv("TERM");
@@ -1381,14 +1381,13 @@ bool IsStandardTerminal() {
 // Returns the number of columns of the terminal to which stdout is
 // connected, or $COLUMNS (default 80) if there is no such terminal.
 int GetTerminalColumns() {
-#ifdef COMPILER_MSVC
-  pdie(255, "blaze::GetTerminalColumns is not implemented on Windows");
-  return 0;
-#else  // not COMPILER_MSVC
+#ifndef COMPILER_MSVC
   struct winsize ws;
   if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1) {
     return ws.ws_col;
   }
+#endif  // not COMPILER_MSVC
+
   string columns_env = GetEnv("COLUMNS");
   if (!columns_env.empty()) {
     char* endptr;
@@ -1397,8 +1396,21 @@ int GetTerminalColumns() {
       return columns;
     }
   }
-  return 80;  // default if not a terminal.
+
+#ifdef COMPILER_MSVC
+  // This code path is MSVC-only because when running under MSYS there's no
+  // Windows console attached so GetConsoleScreenBufferInfo fails.
+  windows_util::AutoHandle stdout_handle(::GetStdHandle(STD_OUTPUT_HANDLE));
+  CONSOLE_SCREEN_BUFFER_INFO screen_info;
+  if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
+    int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
+    if (width > 1) {
+      return width;
+    }
+  }
 #endif  // COMPILER_MSVC
+
+  return 80;  // default if not a terminal.
 }
 
 }  // namespace blaze
