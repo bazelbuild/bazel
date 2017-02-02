@@ -330,17 +330,11 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         "workspace(name='bleh')",
         "local_repository(name='bazel_tools', path=__workspace_dir__)",
         "load('//:def.bzl', 'macro')");
-    scratch.overwriteFile("tools/genrule/genrule-setup.sh");
-    scratch.overwriteFile("tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
     scratch.file("data.txt");
-    scratch.file("BUILD",
-        "genrule(",
-        "  name='data', ",
-        "  outs=['data.out'],",
-        "  srcs=['data.txt'],",
-        "  cmd='cp $< $@')");
+    scratch.file("BUILD", "filegroup(", "  name='files', ", "  srcs=['data.txt'])");
     invalidatePackages();
-    assertThat(getRuleContext(getConfiguredTarget("//:data")).getWorkspaceName()).isEqualTo("bleh");
+    assertThat(getRuleContext(getConfiguredTarget("//:files")).getWorkspaceName())
+        .isEqualTo("bleh");
   }
 
   @Test
