@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -34,7 +35,11 @@ public final class PrecompiledFiles {
    * rule (this is the most common usage for this class).
    */
   public PrecompiledFiles(RuleContext ruleContext) {
-    this.files = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
+      this.files = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    } else {
+      this.files = ImmutableList.<Artifact>of();
+    }
   }
 
   public Iterable<Artifact> getLibraries() {

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourceFileBlacklist;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -65,7 +66,8 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
     return builder
-        .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
+        .requiresConfigurationFragments(
+            CppConfiguration.class, ObjcConfiguration.class, AppleConfiguration.class)
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(deps) -->
         The directly depended upon proto_library rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -157,7 +159,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         .name("objc_proto_library")
         .factoryClass(ObjcProtoLibrary.class)
         .ancestors(BaseRuleClasses.RuleBase.class, ObjcRuleClasses.LibtoolRule.class,
-            ObjcRuleClasses.XcrunRule.class)
+            ObjcRuleClasses.XcrunRule.class, ObjcRuleClasses.CrosstoolRule.class)
         .build();
   }
 }

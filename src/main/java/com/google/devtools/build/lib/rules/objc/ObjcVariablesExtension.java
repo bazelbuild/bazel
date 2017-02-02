@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.StringSequenceBuilder;
@@ -117,7 +118,8 @@ class ObjcVariablesExtension implements VariablesExtension {
   }
 
   private void addPchVariables(CcToolchainFeatures.Variables.Builder builder) {
-    if (ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
+    if (ruleContext.attributes().has("pch", BuildType.LABEL)
+        && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       builder.addStringVariable(
           PCH_FILE_VARIABLE_NAME,
           ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
