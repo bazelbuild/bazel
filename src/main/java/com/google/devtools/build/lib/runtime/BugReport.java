@@ -74,6 +74,7 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, String... args) {
+    LOG.severe("Crash: " + Throwables.getStackTraceAsString(throwable));
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
     System.err.println(getProductName() + " crash in async thread:");
@@ -181,6 +182,7 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
+    LOG.severe("Exception: " + Throwables.getStackTraceAsString(exception));
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
     String preamble = getProductName()
