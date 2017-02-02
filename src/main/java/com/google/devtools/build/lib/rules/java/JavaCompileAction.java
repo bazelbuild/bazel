@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomArgv;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.CustomMultiArgv;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -470,15 +469,16 @@ public final class JavaCompileAction extends AbstractAction {
       }
       final ImmutableList<Artifact> minimumInputs = minInputsBuilder.build();
       // The two things needed to enable minimum incremental classpath compile - command & inputs
-      minCommandLine =
-          CustomCommandLine.builder()
-              .add(minimumCommandLineBase.arguments())
-              .add("--classpath")
-              .add(getClasspathArg(minimumInputs, classDirectory, pathDelimiter))
-              .add("--strict_java_deps")
-              .add(strictJavaDeps.toString())
-              .add(new JarsToTargetsArgv(minimumInputs, directJars))
-              .build();
+      CustomCommandLine.Builder minCommandLineBuilder = CustomCommandLine.builder();
+      minCommandLineBuilder.add(minimumCommandLineBase.arguments());
+      if (!minimumInputs.isEmpty()) {
+        minCommandLineBuilder.addJoinExecPaths("--classpath", pathDelimiter, minimumInputs);
+      }
+      minCommandLineBuilder
+          .add("--strict_java_deps")
+          .add(strictJavaDeps.toString())
+          .add(new JarsToTargetsArgv(minimumInputs, directJars));
+      minCommandLine = minCommandLineBuilder.build();
 
       // Keep in sync with inputs in constructor call to 'super', except do not
       // include compileTimeDependencyArtifacts or paramFile, which are unneeded here.
@@ -569,7 +569,6 @@ public final class JavaCompileAction extends AbstractAction {
     info.addAllSourceFile(Artifact.toExecPaths(getSourceFiles()));
     info.addAllClasspath(Artifact.toExecPaths(getClasspath()));
     info.addAllBootclasspath(Artifact.toExecPaths(getBootclasspath()));
-    info.addClasspath(getClassDirectory().getPathString());
     info.addAllSourcepath(Artifact.toExecPaths(getSourceJars()));
     info.addAllJavacOpt(getJavacOpts());
     info.addAllProcessor(getProcessorNames());
@@ -578,21 +577,6 @@ public final class JavaCompileAction extends AbstractAction {
 
     return super.getExtraActionInfo()
         .setExtension(JavaCompileInfo.javaCompileInfo, info.build());
-  }
-
-  private static CustomArgv getClasspathArg(final Iterable<Artifact> classpath,
-      final PathFragment classDirectory, final String pathDelimiter) {
-    return new CustomArgv() {
-      @Override
-      public String argv() {
-        List<PathFragment> classpathEntries = new ArrayList<>();
-        for (Artifact classpathArtifact : classpath) {
-          classpathEntries.add(classpathArtifact.getExecPath());
-        }
-        classpathEntries.add(classDirectory);
-        return Joiner.on(pathDelimiter).join(classpathEntries);
-      }
-    };
   }
 
   /**
@@ -736,14 +720,11 @@ public final class JavaCompileAction extends AbstractAction {
    * @param commonJavaBuilderArgs common flag values consumed by JavaBuilder
    * @param configuration the build configuration, which provides the default options and the path
    *     to the compiler, etc.
-   * @param classDirectory the directory in which generated classfiles are placed relative to the
-   *     exec root
    * @param classpath the complete classpath, the directory in which generated classfiles are placed
    */
   private static CustomCommandLine.Builder javaCompileCommandLine(
       CustomMultiArgv commonJavaBuilderArgs,
       final BuildConfiguration configuration,
-      final PathFragment classDirectory,
       final NestedSet<Artifact> classpath,
       final NestedSet<Artifact> directJars,
       BuildConfiguration.StrictDepsMode strictJavaDeps,
@@ -751,8 +732,9 @@ public final class JavaCompileAction extends AbstractAction {
     CustomCommandLine.Builder result = CustomCommandLine.builder();
 
     result.add(commonJavaBuilderArgs);
-    result.add("--classpath");
-    result.add(getClasspathArg(classpath, classDirectory, configuration.getHostPathSeparator()));
+    if (!classpath.isEmpty()) {
+      result.addJoinExecPaths("--classpath", configuration.getHostPathSeparator(), classpath);
+    }
 
     // strict_java_deps controls whether the mapping from jars to targets is
     // written out and whether we try to minimize the compile-time classpath.
@@ -1132,7 +1114,6 @@ public final class JavaCompileAction extends AbstractAction {
       CustomCommandLine.Builder paramFileContentsBuilder = javaCompileCommandLine(
           commonJavaBuilderArgs,
           configuration,
-          classDirectory,
           classpathEntries,
           directJars,
           strictJavaDeps,
