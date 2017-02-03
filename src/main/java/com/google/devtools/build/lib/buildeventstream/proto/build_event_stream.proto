@@ -68,11 +68,16 @@ message BuildEventId {
     string primary_output = 1;
   }
 
-  // Identifier of an event reporting on an individual test run.
+  // Identifier of an event reporting on an individual test run. The label
+  // identifies the test that is reported about, the remaining fields are
+  // in such a way as to uniquely identify the action within a build. In fact,
+  // attempts for the same test, run, shard tripple are counted sequentially,
+  // starting with 1.
   message TestResultId {
     string label = 1;
     int32 run = 2;
     int32 shard = 3;
+    int32 attempt = 4;
   }
 
   // Identifier of an event reporting the summary of a test.

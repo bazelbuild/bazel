@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -42,6 +43,7 @@ public class TestResult implements BuildEvent {
   private final TestRunnerAction testAction;
   private final TestResultData data;
   private final boolean cached;
+  private final @Nullable Integer attempt;
 
   /**
    * Construct the TestResult for the given test / status.
@@ -50,10 +52,16 @@ public class TestResult implements BuildEvent {
    * @param data test result protobuffer.
    * @param cached true if this is a locally cached test result.
    */
-  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
+  public TestResult(
+      TestRunnerAction testAction, TestResultData data, boolean cached, @Nullable Integer attempt) {
     this.testAction = Preconditions.checkNotNull(testAction);
     this.data = data;
     this.cached = cached;
+    this.attempt = attempt;
+  }
+
+  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
+    this(testAction, data, cached, null);
   }
 
   public static boolean isBlazeTestStatusPassed(BlazeTestStatus status) {
@@ -140,8 +148,16 @@ public class TestResult implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.testResult(
-        testAction.getOwner().getLabel(), testAction.getRunNumber(), testAction.getShardNum());
+    if (attempt != null) {
+      return BuildEventId.testResult(
+          testAction.getOwner().getLabel(),
+          testAction.getRunNumber(),
+          testAction.getShardNum(),
+          attempt);
+    } else {
+      return BuildEventId.testResult(
+          testAction.getOwner().getLabel(), testAction.getRunNumber(), testAction.getShardNum());
+    }
   }
 
   @Override

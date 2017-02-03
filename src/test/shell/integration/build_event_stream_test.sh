@@ -32,6 +32,11 @@ function set_up() {
 exit 0
 EOF
   chmod 755 pkg/true.sh
+  cat > pkg/false.sh <<EOF
+#!/bin/sh
+exit 1
+EOF
+  chmod 755 pkg/false.sh
   cat > pkg/BUILD <<EOF
 sh_test(
   name = "true",
@@ -40,6 +45,11 @@ sh_test(
 test_suite(
   name = "suite",
   tests = ["true"],
+)
+sh_test(
+  name = "flaky",
+  srcs = ["false.sh"],
+  flaky = True,
 )
 genrule(
   name = "fails_to_build",
@@ -92,6 +102,43 @@ function test_test_inidivual_results() {
   expect_log 'run.*1'
   expect_log 'success.*true'
   expect_log_once '^test_summary '
+  expect_log_once '^progress '
+  expect_not_log 'aborted'
+}
+
+function test_test_attempts() {
+  ( bazel test --experimental_build_event_text_file=$TEST_log pkg:flaky \
+    && fail "test failure expected" ) || true
+  expect_log 'attempt.*1'
+  expect_log 'attempt.*2'
+  expect_log 'attempt.*3'
+  expect_log_once '^test_summary '
+  expect_log_once '^progress '
+  expect_not_log 'aborted'
+}
+
+function test_test_attempts_multi_runs() {
+  # Sanity check on individual test attempts. Even in more complicated
+  # situations, with some test rerun and some not, all events are properly
+  # announced by the test actions (and not chained into the progress events).
+  ( bazel test --experimental_build_event_text_file=$TEST_log \
+    --runs_per_test=2 pkg:true pkg:flaky \
+    && fail "test failure expected" ) || true
+  expect_log 'run.*1'
+  expect_log 'attempt.*2'
+  expect_log_once '^progress '
+  expect_not_log 'aborted'
+}
+
+function test_test_attempts_multi_runs_flake_detection() {
+  # Sanity check on individual test attempts. Even in more complicated
+  # situations, with some test rerun and some not, all events are properly
+  # announced by the test actions (and not chained into the progress events).
+  ( bazel test --experimental_build_event_text_file=$TEST_log \
+    --runs_per_test=2 --runs_per_test_detects_flakes pkg:true pkg:flaky \
+    && fail "test failure expected" ) || true
+  expect_log 'run.*1'
+  expect_log 'attempt.*2'
   expect_log_once '^progress '
   expect_not_log 'aborted'
 }
