@@ -34,6 +34,7 @@
 #include <sstream>
 #include <thread>  // NOLINT (to slience Google-internal linter)
 #include <type_traits>  // static_assert
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -73,7 +74,6 @@ using blaze_util::pdie;
 
 using std::string;
 using std::unique_ptr;
-using std::vector;
 using std::wstring;
 
 SignalHandler SignalHandler::INSTANCE;
@@ -379,7 +379,7 @@ struct CmdLine {
   char cmdline[MAX_CMDLINE_LENGTH];
 };
 static void CreateCommandLine(CmdLine* result, const string& exe,
-                              const vector<string>& args_vector) {
+                              const std::vector<string>& args_vector) {
   std::ostringstream cmdline;
   string short_exe;
   if (!blaze_util::AsShortWindowsPath(exe, &short_exe)) {
@@ -718,8 +718,7 @@ static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
 
 // Run the given program in the current working directory,
 // using the given argument vector.
-void ExecuteProgram(
-    const string& exe, const vector<string>& args_vector) {
+void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
@@ -992,7 +991,8 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
     return false;
   }
 
-  vector<char> print_name(reparse_buffer->PrintNameLength * sizeof(WCHAR) + 1);
+  std::vector<char> print_name(reparse_buffer->PrintNameLength * sizeof(WCHAR) +
+                               1);
   int count = ::WideCharToMultiByte(
       CP_UTF8,
       0,
@@ -1402,7 +1402,7 @@ int GetTerminalColumns() {
   // Windows console attached so GetConsoleScreenBufferInfo fails.
   windows_util::AutoHandle stdout_handle(::GetStdHandle(STD_OUTPUT_HANDLE));
   CONSOLE_SCREEN_BUFFER_INFO screen_info;
-  if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
+  if (GetConsoleScreenBufferInfo(stdout_handle.handle, &screen_info)) {
     int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
     if (width > 1) {
       return width;
