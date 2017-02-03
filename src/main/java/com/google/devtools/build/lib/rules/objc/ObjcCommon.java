@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
 import com.google.devtools.build.lib.syntax.Type;
@@ -157,6 +158,21 @@ public final class ObjcCommon {
     private Optional<Artifact> linkmapFile = Optional.absent();
     private Iterable<CppCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkParamsProvider> depCcLinkProviders = ImmutableList.of();
+
+    /** Filters directory artifacts (and other non-headers) out of a group of artifacts. */
+    private static Iterable<Artifact> filterHeaders(Iterable<Artifact> headers) {
+      ImmutableList.Builder<Artifact> inputs = ImmutableList.<Artifact>builder();
+      for (Artifact headerArtifact : headers) {
+        if (CppFileTypes.OBJC_HEADER.matches(headerArtifact.getFilename())
+            || CppFileTypes.C_SOURCE.matches(headerArtifact.getFilename())
+            || CppFileTypes.CPP_SOURCE.matches(headerArtifact.getFilename())
+            || CppFileTypes.OBJC_SOURCE.matches(headerArtifact.getFilename())
+            || CppFileTypes.OBJCPP_SOURCE.matches(headerArtifact.getFilename())) {
+          inputs.add(headerArtifact);
+        }
+      }
+      return inputs.build();
+    }
 
     /**
      * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from
@@ -463,8 +479,8 @@ public final class ObjcCommon {
                     PathFragment.safePathStrings(attributes.sdkIncludes())),
                 TO_PATH_FRAGMENT);
         objcProvider
-            .addAll(HEADER, attributes.hdrs())
-            .addAll(HEADER, attributes.textualHdrs())
+            .addAll(HEADER, filterHeaders(attributes.hdrs()))
+            .addAll(HEADER, filterHeaders(attributes.textualHdrs()))
             .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
