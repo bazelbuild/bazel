@@ -66,6 +66,24 @@ py_binary(
     ],
 )
 
+# Used by pkg_rpm in rpm.bzl.
+py_binary(
+    name = "make_rpm",
+    srcs = ["make_rpm.py"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel_tools//third_party/py/gflags",
+    ],
+)
+
+py_test(
+    name = "make_rpm_test",
+    srcs = ["make_rpm_test.py"],
+    deps = [
+        ":make_rpm",
+    ],
+)
+
 # tests
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_deb", "pkg_tar")
 

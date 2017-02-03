@@ -5,26 +5,18 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-genrule(
-    name = "bazel-fedora",
-    srcs = [
-        "bazel.spec",
-        "//scripts/packages:bazel",
-        "//scripts/packages:bazel-real",
-        "//scripts/packages:debian/bazel.bazelrc",
+load("//tools/build_defs/pkg:rpm.bzl", "pkg_rpm")
+
+pkg_rpm(
+    name = "bazel",
+    architecture = "x86_64",
+    changelog = "//:changelog-file",
+    data = [
         "//scripts:bash_completion",
+        "//scripts/packages:bazel",
+        "//scripts/packages:bazel.bazelrc",
+        "//scripts/packages:bazel-real",
     ],
-    outs = [
-        "bazel-fedora.rpm",
-    ],
-    cmd = """
-      $(location :build_rpm.sh) \
-        $(location :bazel.spec) \
-        $(location bazel-fedora.rpm) \
-        $(location //scripts/packages:bazel) \
-        $(location //scripts/packages:bazel-real) \
-        $(location //scripts/packages:debian/bazel.bazelrc) \
-        $(location //scripts:bash_completion)
-    """,
-    tools = ["build_rpm.sh"],
+    spec_file = "bazel.spec",
+    version_file = "//scripts/packages:version.txt",
 )

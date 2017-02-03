@@ -30,7 +30,7 @@ install -m 755 bazel %{buildroot}%{_bindir}/bazel
 install -m 755 bazel-real %{buildroot}%{_bindir}/bazel-real
 mkdir -p %{buildroot}%{_sysconfdir}/
 install -m 644 bazel.bazelrc %{buildroot}%{_sysconfdir}/bazel.bazelrc
-mkdir -p %{buildroot}%{_sysconfdir}/bash_completion.d
+mkdir -p %{buildroot}%{_sysconfdir}/bash_completion.d/
 install -m 644 bazel-complete.bash %{buildroot}%{_sysconfdir}/bash_completion.d/bazel
 
 %files
@@ -40,4 +40,6 @@ install -m 644 bazel-complete.bash %{buildroot}%{_sysconfdir}/bash_completion.d/
 %{_sysconfdir}/bash_completion.d/bazel
 
 %changelog
-# TODO: Include changelog.
+* Fri Jan 27 2017 jcater@google.com - devel-1
+- Initial package version released.
+
