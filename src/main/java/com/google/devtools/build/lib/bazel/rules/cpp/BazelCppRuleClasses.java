@@ -122,7 +122,7 @@ public class BazelCppRuleClasses {
       };
 
   public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
+      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();

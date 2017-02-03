@@ -467,25 +467,37 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
                 CC_CONFIGURED_TARGET_FILTER),
             JAVA_CONFIGURED_TARGET_FILTER);
 
+    boolean foundSrc = false;
+    boolean foundTool = false;
+    boolean foundSetup = false;
     for (ConfiguredTarget prereq : prereqs) {
       String name = prereq.getLabel().getName();
+      if (name.startsWith("cc-") || name.startsWith("jdk-")) {
+          // Ignore these, they are present due to the implied genrule dependency on crosstool and
+          // JDK.
+        continue;
+      }
       switch (name) {
         case "src":
           assertConfigurationsEqual(getTargetConfiguration(), prereq.getConfiguration());
+          foundSrc = true;
           break;
         case "tool":
           assertTrue(getHostConfiguration().equalsOrIsSupersetOf(prereq.getConfiguration()));
+          foundTool = true;
           break;
         case GENRULE_SETUP_PATH:
           assertNull(prereq.getConfiguration());
+          foundSetup = true;
           break;
         default:
-          fail("unexpected prerequisite " + prereq);
+          fail("unexpected prerequisite " + prereq + " (name: " + name + ")");
       }
     }
-    if (Iterables.size(prereqs) != 3) {
-      fail("Expected 3 prerequisites, got: " + prereqs);
-    }
+
+    assertThat(foundSrc).isTrue();
+    assertThat(foundTool).isTrue();
+    assertThat(foundSetup).isTrue();
   }
 
   @Test

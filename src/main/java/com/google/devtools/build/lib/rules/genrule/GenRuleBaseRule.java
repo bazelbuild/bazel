@@ -67,7 +67,6 @@ public class GenRuleBaseRule implements RuleDefinition {
             .direct_compile_time_input()
             .allowedFileTypes(FileTypeSet.ANY_FILE))
 
-
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(tools) -->
         A list of <i>tool</i> dependencies for this rule. See the definition of
         <a href="../build-ref.html#deps">dependencies</a> for more information. <br/>

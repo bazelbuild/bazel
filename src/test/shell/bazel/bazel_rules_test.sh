@@ -307,6 +307,20 @@ EOF
   expect_log bazel-genfiles/external/r/package/c/d
 }
 
+function test_genrule_toolchain_dependency {
+  mkdir -p t
+  cat > t/BUILD <<EOF
+genrule(
+    name = "toolchain_check",
+    outs = ["version"],
+    cmd = "ls -al \$(JAVABASE) > \$@",
+)
+EOF
+  bazel build //t:toolchain_check >$TEST_log 2>&1 || fail "Should build"
+  expect_log "bazel-genfiles/t/version"
+  expect_not_log "ls: cannot access"
+}
+
 function test_python_with_workspace_name() {
 
  create_new_workspace

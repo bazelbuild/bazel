@@ -286,9 +286,11 @@ public class BazelRuleClassProvider {
     TESTING_SUPPORT.init(builder);
     VARIOUS_WORKSPACE_RULES.init(builder);
 
-    // This rule is a little special: it needs to depend on every configuration fragment that has
-    // Make variables, so we can't put it in any of the above buckets.
+    // These rules are a little special: they need to depend on every configuration fragment that
+    // has Make variables, so we can't put them in any of the above buckets.
     builder.addRuleDefinition(new BazelToolchainLookupRule());
+    builder.addRuleDefinition(new GenRuleBaseRule());
+    builder.addRuleDefinition(new BazelGenRuleRule());
   }
 
   public static final RuleSet BAZEL_SETUP =
@@ -342,8 +344,6 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AliasRule());
           builder.addRuleDefinition(new BazelFilegroupRule());
           builder.addRuleDefinition(new TestSuiteRule());
-          builder.addRuleDefinition(new GenRuleBaseRule());
-          builder.addRuleDefinition(new BazelGenRuleRule());
           builder.addRuleDefinition(new GenQueryRule());
 
           try {

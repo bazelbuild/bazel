@@ -41,16 +41,32 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.ToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppHelper;
+import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * A base implementation of genrule, to be used by specific implementing rules which can change some
  * of the semantics around when the execution info and inputs are changed.
  */
 public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
+
+  private static final Pattern CROSSTOOL_MAKE_VARIABLE =
+      Pattern.compile("\\$\\((CC|AR|NM|OBJCOPY|STRIP|GCOVTOOL)\\)");
+  private static final Pattern JDK_MAKE_VARIABLE =
+      Pattern.compile("\\$\\((JAVABASE|JAVA)\\)");
+
+  protected boolean requiresCrosstool(String command) {
+    return CROSSTOOL_MAKE_VARIABLE.matcher(command).find();
+  }
+
+  protected boolean requiresJdk(String command) {
+    return JDK_MAKE_VARIABLE.matcher(command).find();
+  }
 
   /**
    * Returns a {@link Map} of execution info, which will be used in later processing to construct
@@ -171,6 +187,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addAll(genruleSetup.getFilesToRun());
     List<String> argv = commandHelper.buildCommandLine(command, inputs, ".genrule_script.sh",
           ImmutableMap.copyOf(executionInfo));
+
+    // TODO(bazel-team): Make the make variable expander pass back a list of these.
+    if (requiresCrosstool(baseCommand)) {
+      // If cc is used, silently throw in the crosstool filegroup as a dependency.
+      inputs.addTransitive(CppHelper.getToolchain(ruleContext).getCrosstoolMiddleman());
+    }
+    if (requiresJdk(baseCommand)) {
+      // If javac is used, silently throw in the jdk filegroup as a dependency.
+      // Note we expand Java-related variables with the *host* configuration.
+      inputs.addTransitive(JavaHelper.getHostJavabaseInputs(ruleContext));
+    }
 
     for (NestedSet<Artifact> extraInputs : getExtraInputArtifacts(ruleContext, baseCommand)) {
       inputs.addTransitive(extraInputs);
@@ -312,6 +339,10 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
               ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
           return dir.getRelative(relPath).getPathString();
         }
+      } else if (JDK_MAKE_VARIABLE.matcher("$(" + name + ")").find()) {
+        return new ConfigurationMakeVariableContext(
+            ruleContext.getTarget().getPackage(), ruleContext.getHostConfiguration())
+            .lookupMakeVariable(name);
       } else {
         return super.lookupMakeVariable(name);
       }

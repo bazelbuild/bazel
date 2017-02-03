@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -296,7 +297,7 @@ public final class CommandHelper {
    */
   private PathFragment shellPath(Map<String, String> executionInfo) {
     // Use vanilla /bin/bash for actions running on mac machines.
-    return executionInfo.containsKey("requires-darwin")
+    return executionInfo.containsKey(ExecutionRequirements.REQUIRES_DARWIN)
         ? new PathFragment("/bin/bash") : ruleContext.getConfiguration().getShellExecutable();
   }
 }

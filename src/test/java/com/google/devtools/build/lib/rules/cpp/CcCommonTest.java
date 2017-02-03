@@ -932,6 +932,7 @@ public class CcCommonTest extends BuildViewTestCase {
    */
   @RunWith(JUnit4.class)
   public static class OnlyCppRules extends CcCommonTest {
+
     @Override
     protected AnalysisMock getAnalysisMock() {
       final AnalysisMock original = BazelAnalysisMock.INSTANCE;
@@ -976,6 +977,16 @@ public class CcCommonTest extends BuildViewTestCase {
     @Override
     public void testStartEndLib() throws Exception {
       // Test sets --fat_apk_cpu, which doesn't exist.
+    }
+
+    @Override
+    public void testExpandLabelInLinkoptsAgainstSrc() throws Exception {
+      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
+    }
+
+    @Override
+    public void testExpandedLinkopts() throws Exception {
+      // genrule now requires JavaConfiguration, so isn't appropriate for OnlyCppRules.
     }
   }
 }
