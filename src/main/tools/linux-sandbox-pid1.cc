@@ -167,14 +167,6 @@ static void SetupHelperFiles() {
   }
 }
 
-static bool IsDirectory(const char *path) {
-  struct stat sb;
-  if (stat(path, &sb) < 0) {
-    DIE("stat(%s)", path);
-  }
-  return S_ISDIR(sb.st_mode);
-}
-
 // Recursively creates the file or directory specified in "path" and its parent
 // directories.
 static int CreateTarget(const char *path, bool is_directory) {
