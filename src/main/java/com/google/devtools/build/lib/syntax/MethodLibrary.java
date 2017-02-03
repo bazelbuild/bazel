@@ -1813,7 +1813,7 @@ public class MethodLibrary {
     doc =
         "Return a hash value for a string. This is computed deterministically using the same "
             + "algorithm as Java's <code>String.hashCode()</code>, namely: "
-            + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[0]"
+            + "<pre class=\"language-python\">s[0] * (31^(n-1)) + s[1] * (31^(n-2)) + ... + s[n-1]"
             + "</pre> Hashing of values besides strings is not currently supported.",
     // Deterministic hashing is important for the consistency of builds, hence why we
     // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
