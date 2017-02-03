@@ -439,6 +439,10 @@ def build_java_toolchain_ide_info(target):
 
 def intellij_info_aspect_impl(target, ctx, semantics):
   """Aspect implementation function."""
+  tags = ctx.rule.attr.tags
+  if "no-ide" in tags:
+    return struct()
+
   rule_attrs = ctx.rule.attr
 
   # Collect direct dependencies
@@ -520,7 +524,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
       c_toolchain_ide_info = c_toolchain_ide_info,
       java_ide_info = java_ide_info,
       android_ide_info = android_ide_info,
-      tags = ctx.rule.attr.tags,
+      tags = tags,
       test_info = test_info,
       java_toolchain_ide_info = java_toolchain_ide_info,
       py_ide_info = py_ide_info,
