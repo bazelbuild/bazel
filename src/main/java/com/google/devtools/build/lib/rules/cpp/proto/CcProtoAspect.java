@@ -164,7 +164,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
 
         NestedSetBuilder<Artifact> publicHeaderPaths = NestedSetBuilder.stableOrder();
         publicHeaderPaths.addAll(headers);
-        headerProvider = new ProtoCcHeaderProvider(publicHeaderPaths.build(), true);
+        headerProvider = new ProtoCcHeaderProvider(publicHeaderPaths.build());
       } else {
         // If this proto_library doesn't have sources, it provides the combined headers of all its
         // direct dependencies. Thus, if a direct dependency does have sources, the generated files
@@ -172,19 +172,13 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
         // do the same thing, so that effectively this library looks through all source-less
         // proto_libraries and provides all generated headers of the proto_libraries with sources
         // that it depends on.
-        //
-        // Similar, if a proto_library, does not have sources, it forwards the information whether
-        // its transitive dependencies generated .pb.h files. If one of them doesn't, this
-        // proto_library pretends to not generate them either.
-        boolean hasDepWithoutPbH = false;
         NestedSetBuilder<Artifact> transitiveHeaders = NestedSetBuilder.stableOrder();
         for (ProtoCcHeaderProvider provider :
             ruleContext.getPrerequisites("deps", TARGET, ProtoCcHeaderProvider.class)) {
           helper.addPublicTextualHeaders(provider.getHeaders());
           transitiveHeaders.addTransitive(provider.getHeaders());
-          hasDepWithoutPbH = hasDepWithoutPbH || !provider.getGeneratesPbH();
         }
-        headerProvider = new ProtoCcHeaderProvider(transitiveHeaders.build(), !hasDepWithoutPbH);
+        headerProvider = new ProtoCcHeaderProvider(transitiveHeaders.build());
       }
 
       filesBuilder = NestedSetBuilder.stableOrder();
