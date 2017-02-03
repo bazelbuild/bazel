@@ -117,7 +117,8 @@ public final class LTOBackendAction extends SpawnAction {
 
   @Nullable
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public synchronized Iterable<Artifact> discoverInputs(
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     // Build set of files this LTO backend artifact will import from.
     HashSet<PathFragment> importSet = new HashSet<>();

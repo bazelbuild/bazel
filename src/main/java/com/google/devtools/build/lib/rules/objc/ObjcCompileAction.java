@@ -186,8 +186,8 @@ public class ObjcCompileAction extends SpawnAction {
     return true;
   }
 
-  @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public synchronized Iterable<Artifact> discoverInputs(
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     if (headersListFile != null) {
       discoveredInputs = findRequiredHeaderInputs();
