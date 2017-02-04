@@ -89,6 +89,7 @@ public class JavacTurbineCompiler {
         t.printStackTrace(pw);
         status = Status.ERROR;
       }
+      comp.close();
     }
 
     return new JavacTurbineCompileResult(ImmutableMap.copyOf(files), status, sw, context);

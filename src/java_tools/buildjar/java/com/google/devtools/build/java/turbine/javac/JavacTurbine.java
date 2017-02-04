@@ -230,9 +230,9 @@ public class JavacTurbine implements AutoCloseable {
       emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files());
       dependencyModule.emitDependencyInformation(
           CLASSPATH_JOINER.join(actualClasspath), compileResult.success());
+    } else {
+      out.print(compileResult.output());
     }
-
-    out.print(compileResult.output());
     return result;
   }
 

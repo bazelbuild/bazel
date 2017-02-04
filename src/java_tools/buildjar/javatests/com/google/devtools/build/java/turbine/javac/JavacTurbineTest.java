@@ -1240,7 +1240,7 @@ public class JavacTurbineTest {
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
       result = turbine.compile();
     }
-    assertThat(errOutput.toString()).contains("warning: [strict]");
+    assertThat(errOutput.toString()).isEmpty();
     assertThat(result).isNotEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 
@@ -1400,5 +1400,42 @@ public class JavacTurbineTest {
       ""
     };
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @SupportedAnnotationTypes("*")
+  public static class SimpleProcessor extends AbstractProcessor {
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      return false;
+    }
+  }
+
+  @Test
+  public void noWarningDiagnostics() throws Exception {
+    addSourceLines(
+        "A.java", //
+        "@Deprecated public class A {",
+        "}");
+    addSourceLines(
+        "B.java", //
+        "public class B {",
+        "  public static final A a;",
+        "}");
+
+    optionsBuilder.addProcessors(ImmutableList.of(SimpleProcessor.class.getName()));
+    optionsBuilder.addProcessorPathEntries(
+        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addAllJavacOpts(Arrays.asList("-Xlint:deprecation"));
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter output = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(output, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+
+    assertThat(output.toString()).isEmpty();
+    assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 }
