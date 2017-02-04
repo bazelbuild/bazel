@@ -327,19 +327,12 @@ public class Path implements Comparable<Path>, Serializable {
       // Non-cacheable children won't show up in `children` so applyToChildren won't run for these.
       return parent.createChildPath(childName);
     }
-    // We use double-checked locking so that we only hold the lock when we might need to mutate the
-    // 'children' variable. 'children' will never become null if it's already non-null, so we only
-    // need to worry about the case where it's currently null and we race with another thread
-    // executing getCachedChildPath(<doesn't matter>) trying to set 'children' to a non-null value.
-    if (parent.children == null) {
-      synchronized (parent) {
-        if (parent.children == null) {
-          // 66% of Paths have size == 1, 80% <= 2
-          parent.children = new IdentityHashMap<>(1);
-        }
-      }
-    }
+
     synchronized (parent) {
+      if (parent.children == null) {
+        // 66% of Paths have size == 1, 80% <= 2
+        parent.children = new IdentityHashMap<>(1);
+      }
       Reference<Path> childRef = parent.children.get(childName);
       Path child;
       if (childRef == null || (child = childRef.get()) == null) {
