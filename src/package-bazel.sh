@@ -41,7 +41,7 @@ touch -t 198001010000.00 ${PACKAGE_DIR}/*
 
 if [ -n "${EMBEDDED_TOOLS}" ]; then
   mkdir ${PACKAGE_DIR}/embedded_tools
-  (cd ${PACKAGE_DIR}/embedded_tools && unzip -q ${WORKDIR}/${EMBEDDED_TOOLS})
+  (cd ${PACKAGE_DIR}/embedded_tools && unzip -q "${WORKDIR}/${EMBEDDED_TOOLS}")
 fi
 
-(cd ${PACKAGE_DIR} && find . -type f | sort | zip -qDX@ ${WORKDIR}/${OUT})
+(cd ${PACKAGE_DIR} && find . -type f | sort | zip -qDX@ "${WORKDIR}/${OUT}")
