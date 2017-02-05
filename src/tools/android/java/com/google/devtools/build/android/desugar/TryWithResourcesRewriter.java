@@ -52,6 +52,8 @@ public class TryWithResourcesRewriter extends ClassVisitor {
       ImmutableSet.of(
           THROWABLE_EXTENSION_INTERNAL_NAME,
           THROWABLE_EXTENSION_INTERNAL_NAME + "$AbstractDesugaringStrategy",
+          THROWABLE_EXTENSION_INTERNAL_NAME + "$ConcurrentWeakIdentityHashMap",
+          THROWABLE_EXTENSION_INTERNAL_NAME + "$ConcurrentWeakIdentityHashMap$WeakKey",
           THROWABLE_EXTENSION_INTERNAL_NAME + "$MimicDesugaringStrategy",
           THROWABLE_EXTENSION_INTERNAL_NAME + "$NullDesugaringStrategy",
           THROWABLE_EXTENSION_INTERNAL_NAME + "$ReuseDesugaringStrategy");
