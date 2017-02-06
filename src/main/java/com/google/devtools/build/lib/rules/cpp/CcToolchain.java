@@ -228,7 +228,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .add(CcToolchainProvider.class, provider)
-            .add(FdoSupportProvider.class, new FdoSupportProvider(fdoSupport.getFdoSupport()))
+            .add(FdoSupportProvider.class,
+                fdoSupport.getFdoSupport().createFdoSupportProvider(ruleContext))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
             .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 

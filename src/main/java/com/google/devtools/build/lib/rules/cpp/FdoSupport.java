@@ -17,12 +17,14 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -102,7 +104,6 @@ import java.util.zip.ZipException;
  */
 @Immutable
 public class FdoSupport {
-
   /**
    * The FDO mode we are operating in.
    *
@@ -525,7 +526,7 @@ public class FdoSupport {
         return;
       }
       Iterable<Artifact> auxiliaryInputs = getAuxiliaryInputs(
-          ruleContext, env, sourceName, sourceExecPath, usePic, lipoInputProvider);
+          ruleContext, sourceName, sourceExecPath, usePic, lipoInputProvider);
       builder.addMandatoryInputs(auxiliaryInputs);
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
@@ -549,21 +550,14 @@ public class FdoSupport {
    * Returns the auxiliary files that need to be added to the {@link CppCompileAction}.
    */
   private Iterable<Artifact> getAuxiliaryInputs(
-      RuleContext ruleContext, AnalysisEnvironment env, PathFragment sourceName,
-      PathFragment sourceExecPath, boolean usePic, LipoContextProvider lipoContextProvider) {
+      RuleContext ruleContext, PathFragment sourceName, PathFragment sourceExecPath, boolean usePic,
+      LipoContextProvider lipoContextProvider) {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();
     } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.LLVM_FDO) {
       ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
-
-      PathFragment profileRootRelativePath = fdoMode == FdoMode.LLVM_FDO
-          ? getLLVMProfileRootRelativePath(fdoProfile)
-          : getAutoProfileRootRelativePath(fdoProfile);
-      Artifact artifact = env.getDerivedArtifact(
-          fdoPath.getRelative(profileRootRelativePath), fdoRoot);
-      env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
-      auxiliaryInputs.add(artifact);
+      auxiliaryInputs.add(getFdoSupportProvider(ruleContext).getProfileArtifact());
       if (lipoContextProvider != null) {
         auxiliaryInputs.addAll(getAutoFdoImports(ruleContext, sourceExecPath, lipoContextProvider));
       }
@@ -576,13 +570,13 @@ public class FdoSupport {
 
       Label lipoLabel = ruleContext.getLabel();
       auxiliaryInputs.addAll(
-          getGcdaArtifactsForObjectFileName(ruleContext, env, objectName, lipoLabel));
+          getGcdaArtifactsForObjectFileName(ruleContext, objectName, lipoLabel));
 
       if (lipoContextProvider != null) {
         for (PathFragment importedFile : getImports(
             getNonLipoObjDir(ruleContext, lipoLabel), objectName)) {
           if (CppFileTypes.COVERAGE_DATA.matches(importedFile.getBaseName())) {
-            Artifact gcdaArtifact = getGcdaArtifactsForGcdaPath(ruleContext, env, importedFile);
+            Artifact gcdaArtifact = getGcdaArtifactsForGcdaPath(ruleContext, importedFile);
             if (gcdaArtifact == null) {
               ruleContext.ruleError(String.format(
                   ".gcda file %s is not in the FDO zip (referenced by source file %s)",
@@ -611,15 +605,12 @@ public class FdoSupport {
    * Returns the .gcda file artifacts for a .gcda path from the .gcda.imports file or null if the
    * referenced .gcda file is not in the FDO zip.
    */
-  private Artifact getGcdaArtifactsForGcdaPath(RuleContext ruleContext,
-      AnalysisEnvironment env, PathFragment gcdaPath) {
+  private Artifact getGcdaArtifactsForGcdaPath(RuleContext ruleContext, PathFragment gcdaPath) {
     if (!gcdaFiles.contains(gcdaPath)) {
       return null;
     }
 
-    Artifact artifact = env.getDerivedArtifact(fdoPath.getRelative(gcdaPath), fdoRoot);
-    env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
-    return artifact;
+    return getFdoSupportProvider(ruleContext).getGcdaArtifacts().get(gcdaPath);
   }
 
   private PathFragment getNonLipoObjDir(RuleContext ruleContext, Label label) {
@@ -635,7 +626,7 @@ public class FdoSupport {
    * symlink to it).
    */
   private ImmutableList<Artifact> getGcdaArtifactsForObjectFileName(RuleContext ruleContext,
-      AnalysisEnvironment env, PathFragment objectFileName, Label lipoLabel) {
+      PathFragment objectFileName, Label lipoLabel) {
     // We put the .gcda files relative to the location of the .o file in the instrumentation run.
     String gcdaExt = Iterables.getOnlyElement(CppFileTypes.COVERAGE_DATA.getExtensions());
     PathFragment baseName = FileSystemUtils.replaceExtension(objectFileName, gcdaExt);
@@ -656,10 +647,7 @@ public class FdoSupport {
       }
     }
 
-    final Artifact artifact = env.getDerivedArtifact(fdoPath.getRelative(gcdaFile), fdoRoot);
-    env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
-
-    return ImmutableList.of(artifact);
+    return ImmutableList.of(getFdoSupportProvider(ruleContext).getGcdaArtifacts().get(gcdaFile));
   }
 
 
@@ -713,11 +701,7 @@ public class FdoSupport {
     }
     buildVariables.addStringVariable("fdo_profile_path", getAutoProfilePath(
         fdoProfile, fdoRootExecPath).getPathString());
-    Artifact artifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
-        fdoPath.getRelative(getAutoProfileRootRelativePath(fdoProfile)), fdoRoot);
-    ruleContext.getAnalysisEnvironment().registerAction(
-        new FdoStubAction(ruleContext.getActionOwner(), artifact));
-    return artifact;
+    return getFdoSupportProvider(ruleContext).getAutoProfileArtifact();
   }
 
   /**
@@ -727,6 +711,43 @@ public class FdoSupport {
   @VisibleForTesting
   public PathFragment getFdoOptimizeDir() {
     return fdoRootExecPath;
+  }
+
+  public FdoSupportProvider createFdoSupportProvider(
+      RuleContext ruleContext) {
+    if (fdoRoot == null) {
+      return new FdoSupportProvider(this, null, null, null);
+    }
+
+    Preconditions.checkState(fdoPath != null);
+    PathFragment profileRootRelativePath = fdoMode == FdoMode.LLVM_FDO
+        ? getLLVMProfileRootRelativePath(fdoProfile)
+        : getAutoProfileRootRelativePath(fdoProfile);
+    Artifact profileArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        fdoPath.getRelative(profileRootRelativePath), fdoRoot);
+    ruleContext.registerAction(new FdoStubAction(ruleContext.getActionOwner(), profileArtifact));
+
+    Artifact autoProfileArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        fdoPath.getRelative(getAutoProfileRootRelativePath(fdoProfile)), fdoRoot);
+    ruleContext.getAnalysisEnvironment().registerAction(
+        new FdoStubAction(ruleContext.getActionOwner(), autoProfileArtifact));
+
+    Preconditions.checkState(fdoPath != null);
+    ImmutableMap.Builder<PathFragment, Artifact> gcdaArtifacts = ImmutableMap.builder();
+    for (PathFragment path : gcdaFiles) {
+      Artifact gcdaArtifact = ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+          fdoPath.getRelative(path), fdoRoot);
+      ruleContext.registerAction(new FdoStubAction(ruleContext.getActionOwner(), gcdaArtifact));
+      gcdaArtifacts.put(path, gcdaArtifact);
+    }
+
+    return new FdoSupportProvider(
+        this, profileArtifact, autoProfileArtifact, gcdaArtifacts.build());
+  }
+
+  private static FdoSupportProvider getFdoSupportProvider(RuleContext ruleContext) {
+    return ruleContext.getPrerequisite(
+        ":cc_toolchain", Mode.TARGET).getProvider(FdoSupportProvider.class);
   }
 
   /**

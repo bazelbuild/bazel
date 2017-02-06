@@ -30,6 +30,11 @@ import com.google.devtools.build.lib.vfs.Path;
  * <p>This is needed because the extraction is currently not a bona fide action, therefore, Blaze
  * would complain that these files have no generating action if we did not set it to an instance of
  * this class.
+ *
+ * <p>These actions are all owned by the {@code cc_toolchain} rule. It's possible that they are
+ * shared actions since the FDO path is the same regardless of the configuration of the rule that
+ * created it, but in practice this shouldn't happen very often, because we usually have only one
+ * FDO optimized configuration.
  */
 @Immutable
 public final class FdoStubAction extends AbstractAction {
