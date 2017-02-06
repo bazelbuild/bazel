@@ -480,6 +480,7 @@ enum LinkingMode {
   FULLY_STATIC = 1;
   MOSTLY_STATIC = 2;
   DYNAMIC = 3;
+  MOSTLY_STATIC_LIBRARIES = 4;
 }
 
 message LinkingModeFlags {
