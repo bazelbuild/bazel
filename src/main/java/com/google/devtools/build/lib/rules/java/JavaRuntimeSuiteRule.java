@@ -37,7 +37,9 @@ public final class JavaRuntimeSuiteRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtimes", BuildType.LABEL_DICT_UNARY))
         /* <!-- #BLAZE_RULE(java_runtime_suite).ATTRIBUTE(default) -->
-        A map from each supported architecture to the corresponding <code>java_runtime</code>.
+        The default <code>java_runtime</code>, used if
+        <a href="${link java_runtime_suite.runtimes}"><code>runtimes</code></a>
+        does not contain an entry for the configured architecture.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr("default", BuildType.LABEL)
