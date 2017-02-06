@@ -25,6 +25,11 @@ def _parent_dirs(dirs):
   return set([f.rpartition("/")[0] for f in dirs])
 
 
+def _framework_names(dirs):
+  """Returns the framework name for each directory in dir."""
+  return set([f.rpartition("/")[2].partition(".")[0] for f in dirs])
+
+
 def _intersperse(separator, iterable):
   """Inserts separator before each item in iterable."""
   result = []
@@ -241,10 +246,12 @@ def swiftc_args(ctx):
   objc_includes = set()     # Everything that needs to be included with -I
   objc_module_maps = set()  # Module maps for dependent targets
   objc_defines = set()
+  static_frameworks = set()
   for objc in objc_providers:
     objc_includes += objc.include
     objc_module_maps += objc.module_map
 
+    static_frameworks += _framework_names(objc.framework_dir)
     framework_dirs += _parent_dirs(objc.framework_dir)
     framework_dirs += _parent_dirs(objc.dynamic_framework_dir)
 
@@ -264,6 +271,13 @@ def swiftc_args(ctx):
   include_args = ["-I%s" % d for d in include_dirs + objc_includes]
   framework_args = ["-F%s" % x for x in framework_dirs]
   define_args = ["-D%s" % x for x in swiftc_defines]
+
+  # Disable the LC_LINKER_OPTION load commands for static frameworks automatic
+  # linking. This is needed to correctly deduplicate static frameworks from also
+  # being linked into test binaries where it is also linked into the app binary.
+  autolink_args =_intersperse(
+      "-Xfrontend",
+      _intersperse("-disable-autolink-framework", static_frameworks))
 
   clang_args = _intersperse(
       "-Xcc",
@@ -307,6 +321,7 @@ def swiftc_args(ctx):
   args.extend(framework_args)
   args.extend(clang_args)
   args.extend(define_args)
+  args.extend(autolink_args)
   args.extend(ctx.fragments.swift.copts())
   args.extend(ctx.attr.copts)
 
