@@ -212,6 +212,9 @@ class StartupOptions {
   // abruptly without proper communication over gRPC.
   bool use_custom_exit_code_on_abrupt_exit;
 
+  // Value of the java.util.logging.FileHandler.formatter Java property.
+  std::string java_logging_formatter;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

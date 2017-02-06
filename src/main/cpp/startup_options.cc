@@ -56,7 +56,8 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false),
-      use_custom_exit_code_on_abrupt_exit(true) {
+      use_custom_exit_code_on_abrupt_exit(true),
+      java_logging_formatter("java.util.logging.SimpleFormatter") {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -409,7 +410,7 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
                                  "java.util.logging.FileHandler.limit=50000\n"
                                  "java.util.logging.FileHandler.count=1\n"
                                  "java.util.logging.FileHandler.formatter="
-                                 "java.util.logging.SimpleFormatter\n",
+                                 + java_logging_formatter + "\n",
                              propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {

@@ -60,6 +60,11 @@ TEST_F(StartupOptionsTest, ProductName) {
   ASSERT_EQ("Bazel", startup_options_->product_name);
 }
 
+TEST_F(StartupOptionsTest, JavaLoggingOptions) {
+  ASSERT_EQ("java.util.logging.SimpleFormatter",
+      startup_options_->java_logging_formatter);
+}
+
 TEST_F(StartupOptionsTest, OutputRootPreferTestTmpdirIfSet) {
   setenv("HOME", "/nonexistent/home", 1);
   setenv("TEST_TMPDIR", "/nonexistent/tmpdir", 1);
