@@ -24,7 +24,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -479,8 +478,8 @@ public class CppCompileAction extends AbstractAction
    * and clears the stored list. {@link #prepare} must be called before this method is called, on
    * each action execution.
    */
-  public Iterable<? extends ActionInput> getAdditionalInputs() {
-    Iterable<? extends ActionInput> result = Preconditions.checkNotNull(additionalInputs);
+  public Iterable<Artifact> getAdditionalInputs() {
+    Iterable<Artifact> result = Preconditions.checkNotNull(additionalInputs);
     additionalInputs = null;
     return result;
   }
@@ -506,22 +505,23 @@ public class CppCompileAction extends AbstractAction
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    Collection<Artifact> initialResult = null;
+    Iterable<Artifact> initialResult;
 
-    if (shouldScanIncludes()) {
-      // Switch running status to "analysis".
-      actionExecutionContext.getExecutor().getEventBus()
-          .post(ActionStatusMessage.analysisStrategy(this));
-
-      try {
-        initialResult = executor.getContext(actionContext)
-            .findAdditionalInputs(this, actionExecutionContext);
-      } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            "Include scanning of rule '" + getOwner().getLabel() + "'",
-            executor.getVerboseFailures(),
-            this);
-      }
+    actionExecutionContext
+        .getExecutor()
+        .getEventBus()
+        .post(ActionStatusMessage.analysisStrategy(this));
+    try {
+      initialResult =
+          executor
+              .getContext(actionContext)
+              .findAdditionalInputs(
+                  this, actionExecutionContext, cppSemantics.getIncludeProcessing());
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(
+          "Include scanning of rule '" + getOwner().getLabel() + "'",
+          executor.getVerboseFailures(),
+          this);
     }
 
     if (initialResult == null) {
@@ -566,12 +566,8 @@ public class CppCompileAction extends AbstractAction
     // TODO(ulfjack): This only works if include scanning is enabled; the cleanup is in progress,
     // and this needs to be fixed before we can even consider disabling it.
     resolvedInputs = ImmutableList.copyOf(result);
-    if (result.isEmpty()) {
-      result = initialResult;
-    } else {
-      result.addAll(initialResult);
-    }
-    return result;
+    Iterables.addAll(result, initialResult);
+    return Preconditions.checkNotNull(result);
   }
 
   @Override
@@ -1246,9 +1242,15 @@ public class CppCompileAction extends AbstractAction
     // action actually used by incorporating the results of .d file parsing.
     updateActionInputs(discoveredInputs);
 
-    // hdrs_check: This cannot be switched off, because doing so would allow for incorrect builds.
-    validateInclusions(
-        discoveredInputs, actionExecutionContext.getArtifactExpander(), executor.getEventHandler());
+    // hdrs_check: This cannot be switched off for C++ build actions,
+    // because doing so would allow for incorrect builds.
+    // HeadersCheckingMode.NONE should only be used for ObjC build actions.
+    if (cppSemantics.needsIncludeValidation()) {
+      validateInclusions(
+          discoveredInputs,
+          actionExecutionContext.getArtifactExpander(),
+          executor.getEventHandler());
+    }
   }
 
   @VisibleForTesting

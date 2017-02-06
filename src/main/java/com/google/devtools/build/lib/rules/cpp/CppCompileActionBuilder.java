@@ -281,7 +281,11 @@ public class CppCompileActionBuilder {
 
     NestedSet<Artifact> realMandatoryInputs = realMandatoryInputsBuilder.build();
 
-    NestedSet<Artifact> prunableInputs = context.getDeclaredIncludeSrcs();
+    NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
+    prunableInputBuilder.addTransitive(context.getDeclaredIncludeSrcs());
+    prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
+
+    NestedSet<Artifact> prunableInputs = prunableInputBuilder.build();
 
     // Copying the collections is needed to make the builder reusable.
     if (fake) {

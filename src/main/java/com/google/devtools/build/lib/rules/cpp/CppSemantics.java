@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -49,9 +50,17 @@ public interface CppSemantics {
       RuleContext ruleContext, CppCompilationContext.Builder contextBuilder);
 
   /**
+   * Returns the set of includes which are not mandatory and may be pruned by include processing.
+   */
+  NestedSet<Artifact> getAdditionalPrunableIncludes();
+
+  /**
    * Determines the applicable mode of headers checking for the passed in ruleContext.
    */
   HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
+
+  /** Returns the include processing closure, which handles include processing for this build */
+  IncludeProcessing getIncludeProcessing();
 
   /**
    * Returns true iff this build configuration requires inclusion extraction (for include scanning)

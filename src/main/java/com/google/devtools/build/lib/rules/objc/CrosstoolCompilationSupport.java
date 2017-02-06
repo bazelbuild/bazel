@@ -43,8 +43,10 @@ import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
+import com.google.devtools.build.lib.rules.cpp.NoProcessing;
 import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag;
 import com.google.devtools.build.lib.rules.objc.ObjcVariablesExtension.VariableCategory;
@@ -247,11 +249,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     Collection<Artifact> privateHdrs =
         ImmutableSortedSet.copyOf(compilationArtifacts.getPrivateHdrs());
     Collection<Artifact> publicHdrs = ImmutableSortedSet.copyOf(attributes.hdrs());
+    IncludeProcessing includeProcessing = new NoProcessing();
     CcLibraryHelper result =
         new CcLibraryHelper(
                 ruleContext,
                 new ObjcCppSemantics(
-                    objcProvider, ruleContext.getFragment(ObjcConfiguration.class)),
+                    objcProvider,
+                    includeProcessing,
+                    ruleContext.getFragment(ObjcConfiguration.class)),
                 getFeatureConfiguration(ruleContext),
                 CcLibraryHelper.SourceCategory.CC_AND_OBJC)
             .addSources(arcSources, ImmutableMap.of("objc_arc", ""))
