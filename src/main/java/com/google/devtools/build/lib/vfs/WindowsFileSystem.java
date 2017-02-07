@@ -335,7 +335,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       if (targetFile.isDirectory()) {
         createDirectoryJunction(targetFile, file);
       } else {
-        Files.copy(targetFile.toPath(), file.toPath());
+        if (targetFile.isAbsolute()) {
+          Files.copy(targetFile.toPath(), file.toPath());
+        } else {
+          // When targetFile is a relative path to linkPath, resolve it to an absolute path first.
+          Files.copy(file.toPath().getParent().resolve(targetFile.toPath()), file.toPath());
+        }
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS);
