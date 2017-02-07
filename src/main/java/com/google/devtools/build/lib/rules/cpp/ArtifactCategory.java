@@ -18,11 +18,16 @@ package com.google.devtools.build.lib.rules.cpp;
  * select a single artifact.
  */
 public enum ArtifactCategory {
+  VERBATIM_STATIC_LIBRARY("%{base_name}.a"),
+  VERBATIM_PIC_STATIC_LIBRARY("%{base_name}.pic.a"),
+  VERBATIM_ALWAYSLINK_STATIC_LIBRARY("%{base_name}.lo"),
+  VERBATIM_DYNAMIC_LIBRARY("%{base_name}.so"),
   STATIC_LIBRARY("lib%{base_name}.a"),
   ALWAYSLINK_STATIC_LIBRARY("lib%{base_name}.lo"),
   DYNAMIC_LIBRARY("lib%{base_name}.so"),
   EXECUTABLE("%{base_name}"),
   INTERFACE_LIBRARY("lib%{base_name}.ifso"),
+  VERBATIM_INTERFACE_LIBRARY("%{base_name}.ifso"),
   PIC_FILE("%{output_name}.pic"),
   INCLUDED_FILE_LIST("%{output_name}.d"),
   OBJECT_FILE("%{output_name}.o"),

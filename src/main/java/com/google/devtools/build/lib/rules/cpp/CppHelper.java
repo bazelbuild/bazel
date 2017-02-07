@@ -335,10 +335,15 @@ public class CppHelper {
   }
 
   /** Returns the linked artifact for linux. */
-  public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
+  public static Artifact getLinuxLinkedArtifact(
+      RuleContext ruleContext, LinkTargetType linkType, boolean libPrefix) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
-      name = name.replaceName("lib" + name.getBaseName() + linkType.getExtension());
+      String baseName = name.getBaseName();
+      if (libPrefix) {
+        baseName = "lib" + baseName;
+      }
+      name = name.replaceName(baseName + linkType.getExtension());
     }
 
     return ruleContext.getBinArtifact(name);

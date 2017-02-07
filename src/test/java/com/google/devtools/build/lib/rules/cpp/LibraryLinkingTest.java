@@ -75,6 +75,24 @@ public final class LibraryLinkingTest extends BuildViewTestCase {
   }
 
   /**
+   * Tests that the shared library specified with verbatim produces static and dynamic
+   * libraries without 'lib' prefix
+   */
+  @Test
+  public void testVerbatimCcLibrary() throws Exception {
+    ConfiguredTarget verbatimlib =
+      scratchConfiguredTarget(
+          "verbatimrule",
+          "verbatim",
+          "cc_library(name = 'verbatim',",
+          "           verbatim = True)");
+    Artifact staticLibrary = getBinArtifact("verbatim.a", verbatimlib);
+    Artifact dynamicLibrary = getBinArtifact("verbatim.so", verbatimlib);
+    assertThat(staticLibrary).isNotNull();
+    assertThat(dynamicLibrary).isNotNull();
+  }
+
+  /**
    * Tests that the shared library version of a cc_library includes linkopts settings
    * in its link command line, but the archive library version doesn't.
    */
