@@ -201,9 +201,6 @@ public class AndroidResourcesProcessorBuilder {
   public ResourceContainer build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
-    // Set the busybox tool.
-    builder.add("--tool").add("PACKAGE").add("--");
 
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
       builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
@@ -212,9 +209,7 @@ public class AndroidResourcesProcessorBuilder {
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST)
             .getRunfilesSupport()
             .getRunfilesArtifactsWithoutMiddlemen());
 
@@ -322,7 +317,7 @@ public class AndroidResourcesProcessorBuilder {
             .addOutputs(ImmutableList.<Artifact>copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST))
             .setProgressMessage("Processing Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidAapt")
             .build(context));

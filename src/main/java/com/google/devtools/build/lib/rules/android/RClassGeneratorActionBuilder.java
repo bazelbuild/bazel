@@ -98,16 +98,10 @@ public class RClassGeneratorActionBuilder {
 
   public void build() {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
-    // Set the busybox tool.
-    builder.add("--tool").add("GENERATE_BINARY_R").add("--");
-
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_rclass_generator", Mode.HOST)
+        .getRunfilesSupport()
+        .getRunfilesArtifactsWithoutMiddlemen());
 
     List<Artifact> outs = new ArrayList<>();
     if (primary.getRTxt() != null) {
@@ -144,7 +138,7 @@ public class RClassGeneratorActionBuilder {
             .useParameterFile(ParameterFileType.SHELL_QUOTED)
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_rclass_generator", Mode.HOST))
             .setProgressMessage("Generating R Classes: " + ruleContext.getLabel())
             .setMnemonic("RClassGenerator")
             .build(ruleContext));

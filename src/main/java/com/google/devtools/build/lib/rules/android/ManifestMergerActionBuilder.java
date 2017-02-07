@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -88,15 +89,10 @@ public class ManifestMergerActionBuilder {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-    
-    // Set the busybox tool.
-    builder.add("--tool").add("MERGE_MANIFEST").add("--");
 
-    inputs.addAll(
-        ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
-            .getRunfilesSupport()
-            .getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_manifest_merger", Mode.HOST)
+        .getRunfilesSupport()
+        .getRunfilesArtifactsWithoutMiddlemen());
 
     builder.addExecPath("--manifest", manifest);
     inputs.add(manifest);
@@ -139,7 +135,7 @@ public class ManifestMergerActionBuilder {
             .addOutputs(outputs.build())
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_manifest_merger", Mode.HOST))
             .setProgressMessage("Merging manifest for " + ruleContext.getLabel())
             .setMnemonic("ManifestMerger")
             .build(context));

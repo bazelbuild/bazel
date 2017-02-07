@@ -163,7 +163,14 @@ public final class AndroidRuleClasses {
       "//tools/android:incremental_stub_application";
   public static final String DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
       "//tools/android:incremental_split_stub_application";
-  public static final String DEFAULT_RESOURCES_BUSYBOX = "//tools/android:busybox";
+  public static final String DEFAULT_AAR_GENERATOR = "//tools/android:aar_generator";
+  public static final String DEFAULT_MANIFEST_MERGER = "//tools/android:manifest_merger";
+  public static final String DEFAULT_RCLASS_GENERATOR = "//tools/android:rclass_generator";
+  public static final String DEFAULT_RESOURCES_PROCESSOR = "//tools/android:resources_processor";
+  public static final String DEFAULT_RESOURCE_MERGER = "//tools/android:resource_merger";
+  public static final String DEFAULT_RESOURCE_PARSER = "//tools/android:resource_parser";
+  public static final String DEFAULT_RESOURCE_SHRINKER = "//tools/android:resource_shrinker";
+  public static final String DEFAULT_RESOURCE_VALIDATOR = "//tools/android:resource_validator";
   public static final String DEFAULT_SDK = "//tools/android:sdk";
 
   /**
@@ -416,11 +423,22 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(
-              attr("$android_resources_busybox", LABEL)
-                  .cfg(HOST)
-                  .exec()
-                  .value(env.getToolsLabel(DEFAULT_RESOURCES_BUSYBOX)))
+          .add(attr("$android_aar_generator", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_AAR_GENERATOR)))
+          .add(attr("$android_manifest_merger", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_MANIFEST_MERGER)))
+          .add(attr("$android_rclass_generator", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RCLASS_GENERATOR)))
+          .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCES_PROCESSOR)))
+          .add(attr("$android_resource_merger", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_MERGER)))
+          .add(attr("$android_resource_parser", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_PARSER)))
+          .add(attr("$android_resource_validator", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_VALIDATOR)))
+          .add(attr("$android_resource_shrinker", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_SHRINKER)))
           .build();
     }
 

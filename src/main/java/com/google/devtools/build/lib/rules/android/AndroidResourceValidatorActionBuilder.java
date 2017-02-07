@@ -91,9 +91,6 @@ class AndroidResourceValidatorActionBuilder {
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
-    // Set the busybox tool.
-    builder.add("--tool").add("VALIDATE").add("--");
-
     if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
       builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
     }
@@ -104,7 +101,7 @@ class AndroidResourceValidatorActionBuilder {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     inputs.addAll(
         ruleContext
-            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+            .getExecutablePrerequisite("$android_resource_validator", Mode.HOST)
             .getRunfilesSupport()
             .getRunfilesArtifactsWithoutMiddlemen());
 
@@ -149,7 +146,7 @@ class AndroidResourceValidatorActionBuilder {
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_resource_validator", Mode.HOST))
             .setProgressMessage("Validating Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidResourceValidator")
             .build(context));
