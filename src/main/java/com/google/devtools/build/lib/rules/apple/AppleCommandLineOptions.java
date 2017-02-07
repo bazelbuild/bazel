@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
@@ -284,6 +285,34 @@ public class AppleCommandLineOptions extends FragmentOptions {
       }
     }
     return Platform.forTarget(PlatformType.IOS, iosCpu);
+  }
+
+  /**
+   * Returns the architecture implied by these options.
+   *
+   * <p> In contexts in which a configuration instance is present, prefer
+   * {@link AppleConfiguration#getSingleArchitecture}.
+   */
+  public String getSingleArchitecture() {
+    if (!Strings.isNullOrEmpty(appleSplitCpu)) {
+      return appleSplitCpu;
+    }
+    switch (applePlatformType) {
+      case IOS:
+        if (!iosMultiCpus.isEmpty()) {
+          return iosMultiCpus.get(0);
+        } else {
+          return iosCpu;
+        }
+      case WATCHOS:
+        return watchosCpus.get(0);
+      case TVOS:
+        return tvosCpus.get(0);
+      case MACOS:
+        return macosCpus.get(0);
+      default:
+        throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
+    }
   }
 
   @Override

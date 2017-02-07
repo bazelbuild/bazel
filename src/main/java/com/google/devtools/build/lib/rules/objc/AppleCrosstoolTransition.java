@@ -53,7 +53,10 @@ public class AppleCrosstoolTransition implements PatchTransition {
 
     // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
     // --apple_cpu) for toolchain selection in top-level consuming rules.
-    String cpu = "ios_" + buildOptions.get(AppleCommandLineOptions.class).iosCpu;
+    String cpu = String.format("%s_%s",
+        buildOptions.get(AppleCommandLineOptions.class).applePlatformType,
+        buildOptions.get(AppleCommandLineOptions.class).getSingleArchitecture());
+
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
     return result;
   }
