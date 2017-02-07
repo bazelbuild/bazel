@@ -548,20 +548,28 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     /**
      * Adds a header that has been declared in the {@code src} or {@code headers attribute}. The
      * header will also be added to the compilation prerequisites.
+     *
+     * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
     public Builder addDeclaredIncludeSrc(Artifact header) {
-      declaredIncludeSrcs.add(header);
-      compilationPrerequisites.add(header);
+      if (!header.isFileset()) {
+        declaredIncludeSrcs.add(header);
+        compilationPrerequisites.add(header);
+      }
       return this;
     }
 
     /**
      * Adds multiple headers that have been declared in the {@code src} or {@code headers
      * attribute}. The headers will also be added to the compilation prerequisites.
+     *
+     * <p>Filters out fileset directory artifacts, which are not valid inputs.
      */
     public Builder addDeclaredIncludeSrcs(Collection<Artifact> declaredIncludeSrcs) {
-      this.declaredIncludeSrcs.addAll(declaredIncludeSrcs);
-      return addCompilationPrerequisites(declaredIncludeSrcs);
+      for (Artifact source : declaredIncludeSrcs) {
+        addDeclaredIncludeSrc(source);
+      }
+      return this;
     }
 
     public Builder addModularHdrs(Collection<Artifact> headers) {

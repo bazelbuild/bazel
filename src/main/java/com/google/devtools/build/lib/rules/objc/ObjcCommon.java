@@ -90,6 +90,18 @@ import java.util.Set;
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
 public final class ObjcCommon {
+
+  /** Filters fileset artifacts out of a group of artifacts. */
+  public static Iterable<Artifact> filterFileset(Iterable<Artifact> artifacts) {
+    ImmutableList.Builder<Artifact> inputs = ImmutableList.<Artifact>builder();
+    for (Artifact artifact : artifacts) {
+      if (!artifact.isFileset()) {
+        inputs.add(artifact);
+      }
+    }
+    return inputs.build();
+  }
+
   /**
    * Provides a way to access attributes that are common to all resources rules.
    */
@@ -416,7 +428,7 @@ public final class ObjcCommon {
       }
 
       for (CppCompilationContext headerProvider : depCcHeaderProviders) {
-        objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
+        objcProvider.addAll(HEADER, filterFileset(headerProvider.getDeclaredIncludeSrcs()));
         objcProvider.addAll(INCLUDE, headerProvider.getIncludeDirs());
         // TODO(bazel-team): This pulls in stl via CppHelper.mergeToolchainDependentContext but
         // probably shouldn't.
@@ -463,8 +475,8 @@ public final class ObjcCommon {
                     PathFragment.safePathStrings(attributes.sdkIncludes())),
                 TO_PATH_FRAGMENT);
         objcProvider
-            .addAll(HEADER, attributes.hdrs())
-            .addAll(HEADER, attributes.textualHdrs())
+            .addAll(HEADER, filterFileset(attributes.hdrs()))
+            .addAll(HEADER, filterFileset(attributes.textualHdrs()))
             .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
@@ -512,7 +524,7 @@ public final class ObjcCommon {
         // TODO(bazel-team): Add private headers to the provider when we have module maps to enforce
         // them.
         objcProvider
-            .addAll(HEADER, artifacts.getAdditionalHdrs())
+            .addAll(HEADER, filterFileset(artifacts.getAdditionalHdrs()))
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources);
 
