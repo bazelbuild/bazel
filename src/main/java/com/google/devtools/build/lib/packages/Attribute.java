@@ -1014,6 +1014,9 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
+    /**
+     * Should only be used for deserialization.
+     */
     public Builder<TYPE> aspect(final Aspect aspect) {
       PredefinedRuleAspect predefinedRuleAspect = new PredefinedRuleAspect(aspect);
       RuleAspect<?> oldAspect =

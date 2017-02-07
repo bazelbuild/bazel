@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -352,7 +353,49 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
+    ConfiguredAspect configuredAspect = aspectFactory
+        .create(associatedTarget, ruleContext, aspect.getParameters());
+    validateAdvertisedProviders(
+        configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+        associatedTarget.getTarget(),
+        env.getEventHandler()
+    );
+    return configuredAspect;
+  }
+
+  private void validateAdvertisedProviders(
+      ConfiguredAspect configuredAspect,
+      AdvertisedProviderSet advertisedProviders, Target target,
+      EventHandler eventHandler) {
+    if (advertisedProviders.canHaveAnyProvider()) {
+      return;
+    }
+    for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
+      if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                aClass.getSimpleName()
+            )));
+      }
+    }
+
+    for (String providerName : advertisedProviders.getSkylarkProviders()) {
+      SkylarkProviders skylarkProviders = configuredAspect.getProvider(SkylarkProviders.class);
+      if (skylarkProviders == null || skylarkProviders.getValue(providerName) == null) {
+        eventHandler.handle(Event.error(
+            target.getLocation(),
+            String.format(
+                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                configuredAspect.getName(),
+                target.getLabel(),
+                providerName
+            )));
+      }
+    }
   }
 
   /**

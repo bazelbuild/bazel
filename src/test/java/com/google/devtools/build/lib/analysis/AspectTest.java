@@ -684,4 +684,29 @@ public class AspectTest extends AnalysisTestCase {
         .containsExactly(
             "aspect //a:a", "aspect //a:b", "aspect //a:c", "aspect //a:tool", "rule //a:x");
   }
+
+  @Test
+  public void aspectTruthInAdvertisement() throws Exception {
+    reporter.removeHandler(failFastHandler); // expect errors
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.SimpleRule(),
+        new TestAspects.FalseAdvertisementAspectRule());
+    pkg(
+        "a",
+        "simple(name = 's')",
+        "false_advertisement_aspect(name = 'x', deps = [':s'])"
+    );
+    try {
+      update("//a:x");
+    } catch (ViewCreationFailedException e) {
+      // expected.
+    }
+    assertContainsEvent(
+        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
+            + " does not provide advertised provider 'RequiredProvider'");
+    assertContainsEvent(
+        "Aspect 'FalseAdvertisementAspect', applied to '//a:s',"
+            + " does not provide advertised provider 'advertised_provider'");
+  }
 }

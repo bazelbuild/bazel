@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -52,6 +53,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class AspectDefinition {
   private final AspectClass aspectClass;
+  private final AdvertisedProviderSet advertisedProviders;
   private final RequiredProviders requiredProviders;
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
@@ -66,14 +68,21 @@ public final class AspectDefinition {
   @Nullable private final ImmutableSet<String> restrictToAttributes;
   @Nullable private final ConfigurationFragmentPolicy configurationFragmentPolicy;
 
+  public AdvertisedProviderSet getAdvertisedProviders() {
+    return advertisedProviders;
+  }
+
+
   private AspectDefinition(
       AspectClass aspectClass,
+      AdvertisedProviderSet advertisedProviders,
       RequiredProviders requiredProviders,
       RequiredProviders requiredAspectProviders,
       ImmutableMap<String, Attribute> attributes,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy) {
     this.aspectClass = aspectClass;
+    this.advertisedProviders = advertisedProviders;
     this.requiredProviders = requiredProviders;
     this.requiredProvidersForAspects = requiredAspectProviders;
 
@@ -217,6 +226,8 @@ public final class AspectDefinition {
   public static final class Builder {
     private final AspectClass aspectClass;
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
+    private final AdvertisedProviderSet.Builder advertisedProviders =
+        AdvertisedProviderSet.builder();
     private RequiredProviders.Builder requiredProviders = RequiredProviders.acceptAnyBuilder();
     private RequiredProviders.Builder requiredAspectProviders =
         RequiredProviders.acceptNoneBuilder();
@@ -266,6 +277,29 @@ public final class AspectDefinition {
       }
       return this;
     }
+
+    /**
+     * State that the aspect being built provides given providers.
+     */
+    public Builder advertiseProvider(Class<?>... providers) {
+      for (Class<?> provider : providers) {
+        advertisedProviders.addNative(provider);
+      }
+      return this;
+    }
+
+    /**
+     * State that the aspect being built provides given providers.
+     */
+    public Builder advertiseProvider(ImmutableList<SkylarkProviderIdentifier> providers) {
+      for (SkylarkProviderIdentifier provider : providers) {
+        // todo(dslomov,vladmos): support declared providers
+        Preconditions.checkState(provider.isLegacy());
+        advertisedProviders.addSkylark(provider.getLegacyId());
+      }
+      return this;
+    }
+
 
 
     /**
@@ -402,6 +436,7 @@ public final class AspectDefinition {
      */
     public AspectDefinition build() {
       return new AspectDefinition(aspectClass,
+          advertisedProviders.build(),
           requiredProviders.build(),
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),

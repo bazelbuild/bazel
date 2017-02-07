@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -440,6 +441,33 @@ public class TestAspects {
       new AspectDefinition.Builder(ERROR_ASPECT)
       .propagateAlongAttribute("bar")
       .build();
+
+  /**
+   * An aspect that advertises but fails to provide providers.
+   */
+  public static class FalseAdvertisementAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return FALSE_ADVERTISEMENT_DEFINITION;
+    }
+
+    @Override
+    public ConfiguredAspect create(ConfiguredTarget base, RuleContext context,
+        AspectParameters parameters) throws InterruptedException {
+      return new ConfiguredAspect.Builder(this, parameters, context).build();
+    }
+  }
+  public static final FalseAdvertisementAspect FALSE_ADVERTISEMENT_ASPECT
+      = new FalseAdvertisementAspect();
+  private static final AspectDefinition FALSE_ADVERTISEMENT_DEFINITION =
+      new AspectDefinition.Builder(FALSE_ADVERTISEMENT_ASPECT)
+        .advertiseProvider(RequiredProvider.class)
+        .advertiseProvider(
+            ImmutableList.of(SkylarkProviderIdentifier.forLegacy("advertised_provider")))
+        .build();
+
 
   /**
    * A common base rule for mock rules in this class to reduce boilerplate.
@@ -960,6 +988,28 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("attribute_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Rule with {@link FalseAdvertisementAspect}
+   */
+  public static final class FalseAdvertisementAspectRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(attr("deps", LABEL_LIST).allowedFileTypes().aspect(FALSE_ADVERTISEMENT_ASPECT))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return  RuleDefinition.Metadata.builder()
+          .name("false_advertisement_aspect")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();
