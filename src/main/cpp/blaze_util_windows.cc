@@ -107,14 +107,10 @@ class WindowsClock {
 void SignalHandler::Install(GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
   // TODO(bazel-team): implement this.
-  pdie(255, "blaze::SignalHandler::Install is not implemented on Windows");
 }
 
 ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
   // TODO(bazel-team): implement this.
-  pdie(255,
-       "blaze::SignalHandler::PropagateSignalOrExit is not implemented on "
-       "Windows");
 }
 
 #else  // not COMPILER_MSVC
@@ -208,7 +204,7 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 // in case the Blaze server has written a partial line.
 void SigPrintf(const char *format, ...) {
 #ifdef COMPILER_MSVC
-  pdie(255, "blaze::SigPrintf is not implemented on Windows");
+  // TODO(bazel-team): implement this.
 #else  // not COMPILER_MSVC
   char buf[1024];
   va_list ap;
@@ -282,6 +278,12 @@ string GetSelfPath() {
 }
 
 string GetOutputRoot() {
+  for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
+    string tmpdir(GetEnv(i));
+    if (!tmpdir.empty()) {
+      return tmpdir;
+    }
+  }
 #ifdef COMPILER_MSVC
   // GetTempPathW and GetEnvironmentVariableW only work properly when Bazel
   // runs under cmd.exe, not when it's run from msys.
@@ -296,13 +298,6 @@ string GetOutputRoot() {
   }
   return string(blaze_util::WstringToCstring(buffer).get());
 #else  // not COMPILER_MSVC
-  for (const char* i : {"TMPDIR", "TEMPDIR", "TMP", "TEMP"}) {
-    string tmpdir(GetEnv(i));
-    if (!tmpdir.empty()) {
-      return tmpdir;
-    }
-  }
-
   return "/var/tmp";
 #endif  // COMPILER_MSVC
 }
@@ -310,7 +305,6 @@ string GetOutputRoot() {
 string FindSystemWideBlazerc() {
 #ifdef COMPILER_MSVC
   // TODO(bazel-team): implement this.
-  pdie(255, "FindSystemWideBlazer is not yet implemented on Windows");
   return "";
 #else   // not COMPILER_MSVC
   string path = "/etc/bazel.bazelrc";
@@ -1087,19 +1081,17 @@ string GetHashedBaseDir(const string& root, const string& hashable) {
 }
 
 void CreateSecureOutputRoot(const string& path) {
-  // TODO(bazel-team) 2016-11-26: implement this function without using the
-  // POSIX API, then get rid of the POSIX version, which is a copy of the
-  // blaze_util_posix version of the same method.
-
-#ifdef COMPILER_MSVC
-  pdie(255, "blaze::CreateSecureOutputRoot is not implemented on Windows");
-#else  // not COMPILER_MSVC
+  // TODO(bazel-team): implement this properly, by mimicing whatever the POSIX
+  // implementation does.
   const char* root = path.c_str();
-  struct stat fileinfo = {};
-
-  if (!blaze_util::MakeDirectories(root, 0755)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "mkdir('%s')", root);
+  if (!blaze_util::MakeDirectories(path, 0755)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "MakeDirectories(%s) failed: %s", root,
+         blaze_util::GetLastErrorString());
   }
+
+#ifndef COMPILER_MSVC
+  struct stat fileinfo = {};
 
   // The path already exists.
   // Check ownership and mode, and verify that it is a directory.
@@ -1113,6 +1105,7 @@ void CreateSecureOutputRoot(const string& path) {
         root);
   }
 
+  // Ensure the permission mask is indeed 0755 (rwxr-xr-x).
   if ((fileinfo.st_mode & 022) != 0) {
     int new_mode = fileinfo.st_mode & (~022);
     if (chmod(root, new_mode) < 0) {
@@ -1121,18 +1114,14 @@ void CreateSecureOutputRoot(const string& path) {
           fileinfo.st_mode & 07777, new_mode);
     }
   }
+#endif  // not COMPILER_MSVC
 
-  if (stat(root, &fileinfo) < 0) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "stat('%s')", root);
-  }
-
-  if (!S_ISDIR(fileinfo.st_mode)) {
+  if (!blaze_util::IsDirectory(path)) {
     die(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "'%s' is not a directory",
         root);
   }
 
   ExcludePathFromBackup(root);
-#endif  // COMPILER_MSVC
 }
 
 string GetEnv(const string& name) {
@@ -1169,7 +1158,7 @@ void UnsetEnv(const string& name) { SetEnv(name, ""); }
 
 void SetupStdStreams() {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
+  // TODO(bazel-team): Decide if we want to implement this, and act accordingly.
   pdie(255, "blaze::SetupStdStreams is not implemented on Windows");
 #else  // not COMPILER_MSVC
   // Set non-buffered output mode for stderr/stdout. The server already
@@ -1241,7 +1230,7 @@ uint64_t WindowsClock::GetProcessMilliseconds() const {
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
 #ifdef COMPILER_MSVC
-  pdie(255, "blaze::AcquireLock is not implemented on Windows");
+  // TODO(bazel-team): implement this.
   return 0;
 #else  // not COMPILER_MSVC
   string lockfile = blaze_util::JoinPath(output_base, "lock");
@@ -1323,7 +1312,7 @@ uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
 
 void ReleaseLock(BlazeLock* blaze_lock) {
 #ifdef COMPILER_MSVC
-  pdie(255, "blaze::AcquireLock is not implemented on Windows");
+  // TODO(bazel-team): implement this.
 #else  // not COMPILER_MSVC
   close(blaze_lock->lockfd);
 #endif  // COMPILER_MSVC
@@ -1346,10 +1335,6 @@ string GetUserName() {
 }
 
 bool IsEmacsTerminal() {
-#ifdef COMPILER_MSVC
-  pdie(255, "blaze::IsEmacsTerminal is not implemented on Windows");
-  return false;
-#else  // not COMPILER_MSVC
   string emacs = GetEnv("EMACS");
   string inside_emacs = GetEnv("INSIDE_EMACS");
   // GNU Emacs <25.1 (and ~all non-GNU emacsen) set EMACS=t, but >=25.1 doesn't
@@ -1357,7 +1342,6 @@ bool IsEmacsTerminal() {
   // e.g. "25.1.1,comint").  So we check both variables for maximum
   // compatibility.
   return emacs == "t" || !inside_emacs.empty();
-#endif  // COMPILER_MSVC
 }
 
 // Returns true iff both stdout and stderr are connected to a
@@ -1366,6 +1350,8 @@ bool IsEmacsTerminal() {
 // environment variables).
 bool IsStandardTerminal() {
 #ifdef COMPILER_MSVC
+  // TODO(bazel-team): Implement this method properly. We may return true if
+  // stdout and stderr are not redirected.
   return false;
 #else  // not COMPILER_MSVC
   string term = GetEnv("TERM");
