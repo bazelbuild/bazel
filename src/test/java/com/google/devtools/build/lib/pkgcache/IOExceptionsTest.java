@@ -47,8 +47,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   private static final String FS_ROOT = "/fsg";
 
-  protected TransitivePackageLoader visitor;
-
   private static final Function<Path, String> NULL_FUNCTION = new Function<Path, String>() {
     @Override
     @Nullable
@@ -62,7 +60,6 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
   @Before
   public final void initializeVisitor() throws Exception {
     setUpSkyframe(ConstantRuleVisibility.PRIVATE, loadingMock.getDefaultsPackageContent());
-    this.visitor = skyframeExecutor.pkgLoader();
   }
 
   private boolean visitTransitively(Label label) throws InterruptedException {
