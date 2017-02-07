@@ -234,6 +234,13 @@ public final class BuildTool {
     } catch (Error e) {
       catastrophe = true;
       throw e;
+    } catch (InvalidConfigurationException e) {
+      // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
+      // to a single target and have to halt the entire build. Once configurations are genuinely
+      // created as part of the analysis phase they should report their error on the level of the
+      // target(s) that triggered them.
+      catastrophe = true;
+      throw e;
     } finally {
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
@@ -376,6 +383,11 @@ public final class BuildTool {
     } catch (InvalidConfigurationException e) {
       exitCode = ExitCode.COMMAND_LINE_ERROR;
       reportExceptionError(e);
+      // TODO(gregce): With "global configurations" we cannot tie a configuration creation failure
+      // to a single target and have to halt the entire build. Once configurations are genuinely
+      // created as part of the analysis phase they should report their error on the level of the
+      // target(s) that triggered them.
+      result.setCatastrophe();
     } catch (AbruptExitException e) {
       exitCode = e.getExitCode();
       reportExceptionError(e);
