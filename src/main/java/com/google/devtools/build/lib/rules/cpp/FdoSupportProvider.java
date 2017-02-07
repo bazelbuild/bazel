@@ -27,33 +27,21 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public class FdoSupportProvider implements TransitiveInfoProvider {
   private final FdoSupport fdoSupport;
   private final Artifact profileArtifact;
-  // We *probably* don't need both an AutoFDO profile artifact and a profile artifact. However,
-  // the decision whether to make the latter seems to depend on the feature configuration of the
-  // eventual cc_binary rule, which we don't have in cc_toolchain, so we just create both because
-  // one extra artifact doesn't harm anyone.
-  private final Artifact autoProfileArtifact;
   private final ImmutableMap<PathFragment, Artifact> gcdaArtifacts;
 
   public FdoSupportProvider(FdoSupport fdoSupport, Artifact profileArtifact,
-      Artifact autoProfileArtifact, ImmutableMap<PathFragment, Artifact> gcdaArtifacts) {
+      ImmutableMap<PathFragment, Artifact> gcdaArtifacts) {
     this.fdoSupport = fdoSupport;
     this.profileArtifact = profileArtifact;
-    this.autoProfileArtifact = autoProfileArtifact;
     this.gcdaArtifacts = gcdaArtifacts;
   }
 
   public FdoSupport getFdoSupport() {
     return fdoSupport;
   }
-
   public Artifact getProfileArtifact() {
     return profileArtifact;
   }
-
-  public Artifact getAutoProfileArtifact() {
-    return autoProfileArtifact;
-  }
-
   public ImmutableMap<PathFragment, Artifact> getGcdaArtifacts() {
     return gcdaArtifacts;
   }
