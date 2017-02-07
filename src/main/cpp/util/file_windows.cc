@@ -33,7 +33,6 @@ using std::basic_string;
 using std::pair;
 using std::string;
 using std::unique_ptr;
-using std::vector;
 using std::wstring;
 
 // Returns the current working directory as a Windows path.
@@ -108,7 +107,7 @@ static bool HasUncPrefix(const char_type* path) {
 }
 
 static void AddUncPrefixMaybe(wstring* path) {
-  if (path->size() > MAX_PATH && !HasUncPrefix(path->c_str())) {
+  if (path->size() >= MAX_PATH && !HasUncPrefix(path->c_str())) {
     *path = wstring(L"\\\\?\\") + *path;
   }
 }
@@ -1008,7 +1007,7 @@ string NormalizeWindowsPath(string path) {
   static const string dot(".");
   static const string dotdot("..");
 
-  vector<string> segments;
+  std::vector<string> segments;
   int segment_start = -1;
   // Find the path segments in `path` (separated by "/").
   for (int i = 0;; ++i) {

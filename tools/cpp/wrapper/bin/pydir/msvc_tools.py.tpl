@@ -24,6 +24,7 @@ import subprocess
 MAX_PATH = 260  # The maximum number of characters in a Windows path.
 MAX_OPTION_LENGTH = 10  # The maximum length of a compiler/linker option.
 MAX_DRIVE_LENGTH = 3  # The maximum length of a drive.
+MAX_PATH_ADJUSTED = MAX_PATH - MAX_OPTION_LENGTH - MAX_DRIVE_LENGTH
 ASSEMBLY_AS_C_SOURCE = '/Tc'
 LIB_SUFFIX = '.lib'
 
@@ -424,9 +425,9 @@ class WindowsRunner(object):
   """Base class that encapsulates the details of running a binary."""
 
   def NormPath(self, path):
-    """Normalizes an input unix style path to a < 260 char Windows format.
+    """Normalizes an input unix style path to a < MAX_PATH char Windows format.
 
-    Windows paths cannot be greater than 260 characters.
+    Windows paths cannot be greater than MAX_PATH characters.
 
     Args:
       path: A path in unix format.
@@ -441,10 +442,11 @@ class WindowsRunner(object):
     abspath = os.path.abspath(path)
     # We must allow for the drive letter as well, which is three characters, and
     # the length of any compiler option ahead of the path,
-
-    if len(abspath) + MAX_DRIVE_LENGTH + MAX_OPTION_LENGTH > MAX_PATH:
-      print('Warning: path "' + abspath + '" is > than 260 characters (' +
-            str(len(abspath)) + '); programs may crash with long arguments')
+    if len(abspath) >= MAX_PATH_ADJUSTED:
+      print(
+          'Warning: path "%s" is >= %d characters (%d); programs may crash '
+          'with long arguments'
+          % (str(abspath), MAX_PATH_ADJUSTED, len(abspath)))
     return abspath
 
   def SetupEnvironment(self):

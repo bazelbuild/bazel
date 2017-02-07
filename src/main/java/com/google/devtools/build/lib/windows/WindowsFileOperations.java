@@ -42,6 +42,8 @@ public class WindowsFileOperations {
     // Prevent construction
   }
 
+  private static final int MAX_PATH = 260;
+
   // Keep IS_JUNCTION_* values in sync with src/main/native/windows_file_operations.cc.
   private static final int IS_JUNCTION_YES = 0;
   private static final int IS_JUNCTION_NO = 1;
@@ -91,11 +93,11 @@ public class WindowsFileOperations {
   /**
    * Returns a Windows-style path suitable to pass to unicode WinAPI functions.
    *
-   * <p>Returns an UNC path if `path` is longer than `MAX_PATH` (in <windows.h>). If it's shorter or
-   * is already an UNC path, then this method returns `path` itself.
+   * <p>Returns an UNC path if `path` is at least `MAX_PATH` long. If it's shorter or is already an
+   * UNC path, then this method returns `path` itself.
    */
   static String asLongPath(String path) {
-    return path.length() > 260 && !path.startsWith("\\\\?\\")
+    return path.length() >= MAX_PATH && !path.startsWith("\\\\?\\")
         ? ("\\\\?\\" + path.replace('/', '\\'))
         : path;
   }

@@ -153,7 +153,7 @@ static std::wstring GetJavaWstring(JNIEnv* env, jstring str) {
 }
 
 static std::wstring AddUncPrefixMaybe(const std::wstring& path) {
-  return (path.size() > MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
+  return (path.size() >= MAX_PATH) ? (std::wstring(L"\\\\?\\") + path) : path;
 }
 
 static jlong PtrAsJlong(void* p) { return reinterpret_cast<jlong>(p); }

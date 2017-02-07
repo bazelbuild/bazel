@@ -387,7 +387,7 @@ public class WindowsProcessesTest {
     process =
         WindowsProcesses.nativeCreateProcess(mockBinary, mockArgs("O."), null, dir1, null, null);
     assertNoProcessError();
-    byte[] buf = new byte[1024];  // Windows MAX_PATH is 256, but whatever
+    byte[] buf = new byte[1024]; // Windows MAX_PATH is 260, but whatever
     int len = readStdout(buf, 0, 1024);
     assertNoProcessError();
     assertThat(new String(buf, 0, len, UTF8).replace("\\", "/")).isEqualTo(dir1);

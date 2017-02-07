@@ -69,8 +69,8 @@ public class WindowsSubprocessFactory implements Subprocess.Factory {
 
   public String processArgv0(String argv0) {
     // Normalize the path and make it Windows-style.
-    // If argv0 is longer than MAX_PATH (260 chars), createNativeProcess calls GetShortPathNameW to
-    // obtain a 8dot3 name for it (thereby support long paths in CreateProcessA), but then argv0
+    // If argv0 is at least MAX_PATH (260 chars) long, createNativeProcess calls GetShortPathNameW
+    // to obtain a 8dot3 name for it (thereby support long paths in CreateProcessA), but then argv0
     // must be prefixed with "\\?\" for GetShortPathNameW to work, so it also must be an absolute,
     // normalized, Windows-style path.
     // Therefore if it's absolute, then normalize it also.
