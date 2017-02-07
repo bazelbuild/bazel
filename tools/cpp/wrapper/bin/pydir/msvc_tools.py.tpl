@@ -509,7 +509,8 @@ class WindowsRunner(object):
         # Using parameter file as input when linking static libraries.
         params_file = open(parser.params_file, 'w')
         for arg in args:
-          params_file.write(arg + '\n')
+          params_file.write(('"%s"' % arg) if os.path.isfile(arg) else arg)
+          params_file.write('\n')
         params_file.close()
       except (IOError, e):
         print('Could not open', parser.params_file, 'for writing:', str(e))

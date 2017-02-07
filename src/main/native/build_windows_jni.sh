@@ -61,7 +61,7 @@ JAVAINCLUDES="C:/Program Files/java/$JAVA/include"
 WINDOWS_SOURCES=()
 for i in $*; do
   if [[ "$i" =~ ^.*\.cc$ ]]; then
-    WINDOWS_SOURCES+=("$(cygpath -a -w $i)")
+    WINDOWS_SOURCES+=("\"$(cygpath -a -w $i)\"")
   fi
 done
 

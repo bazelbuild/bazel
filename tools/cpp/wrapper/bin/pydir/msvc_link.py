@@ -15,6 +15,7 @@
 """Wrapper script for executing the Microsoft Linker."""
 
 import os
+import re
 import sys
 import msvc_tools
 
@@ -25,8 +26,8 @@ sys.path.append(SCRIPT_DIR)
 LINKPATTERNS = [
     ('-m(32|64)', ['$TARGET_ARCH']),
     ('-Xcompilation-mode=(dbg|fastbuild|opt)', ['$COMPILATION_MODE']),
-    (('rcs.*', '(.+)'), ['/OUT:$PATH0']),
-    (('-o', '(.+)'), ['/OUT:$PATH0']),
+    (('rcs.*', '(.+)'), ['/OUT:"$PATH0"']),
+    (('-o', '(.+)'), ['/OUT:"$PATH0"']),
     ('-B(.+)', []),
     ('-lpthread', []),
     ('-L(.+)', ['/LIBPATH:$PATH0']),
@@ -75,7 +76,7 @@ class MsvcLinker(msvc_tools.WindowsRunner):
     name = ''
     for arg in parser.options:
       if '/OUT:' in arg:
-        name = arg[5:]
+        name = re.sub(r'^"|"$', '', arg[5:])
     if not name:
       raise msvc_tools.Error('No output file name specified!')
     # Check if the library is empty, which is what happens when we create header

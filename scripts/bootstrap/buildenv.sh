@@ -146,8 +146,8 @@ function run_atexit_handlers() {
 
 function tempdir() {
   local tmp=${TMPDIR:-/tmp}
-  mkdir -p ${tmp}
-  local DIR="$(mktemp -d ${tmp%%/}/bazel_XXXXXXXX)"
+  mkdir -p "${tmp}"
+  local DIR="$(mktemp -d "${tmp%%/}/bazel_XXXXXXXX")"
   mkdir -p "${DIR}"
   local DIRBASE=$(basename "${DIR}")
   eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}'; }"
