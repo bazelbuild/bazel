@@ -35,7 +35,7 @@ import java.util.List;
  * $android_resource_validator action. For android_binary, see {@link
  * AndroidResourcesProcessorBuilder}.
  */
-class AndroidResourceMergingActionBuilder {
+public class AndroidResourceMergingActionBuilder {
 
   private static final ResourceContainerConverter.ToArtifacts RESOURCE_CONTAINER_TO_ARTIFACTS =
       ResourceContainerConverter.builder()
@@ -107,12 +107,15 @@ class AndroidResourceMergingActionBuilder {
 
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+    
+    // Set the busybox tool.
+    builder.add("--tool").add("MERGE").add("--");
 
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
     inputs.addAll(
         ruleContext
-            .getExecutablePrerequisite("$android_resource_merger", Mode.HOST)
+            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
             .getRunfilesSupport()
             .getRunfilesArtifactsWithoutMiddlemen());
 
@@ -162,7 +165,7 @@ class AndroidResourceMergingActionBuilder {
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resource_merger", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Merging Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidResourceMerger")
             .build(context));

@@ -16,43 +16,8 @@ android_library(
 )
 
 alias(
-    name = "aar_generator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AarGeneratorAction",
-)
-
-alias(
-    name = "manifest_merger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:ManifestMergerAction",
-)
-
-alias(
-    name = "rclass_generator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:RClassGeneratorAction",
-)
-
-alias(
-    name = "resources_processor",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceProcessingAction",
-)
-
-alias(
-    name = "resource_merger",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceMergingAction",
-)
-
-alias(
-    name = "resource_parser",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceParsingAction",
-)
-
-alias(
-    name = "resource_shrinker",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceShrinkerAction",
-)
-
-alias(
-    name = "resource_validator",
-    actual = "//src/tools/android/java/com/google/devtools/build/android:AndroidResourceValidatorAction",
+    name = "busybox",
+    actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceBusyBox",
 )
 
 alias(

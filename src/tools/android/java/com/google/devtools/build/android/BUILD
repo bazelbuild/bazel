@@ -17,73 +17,10 @@ java_binary(
     runtime_deps = [":android_builder_lib"],
 )
 
+# Used by //src/test/shell/bazel/android:android_integration_test
 java_binary(
-    name = "AarGeneratorAction",
-    main_class = "com.google.devtools.build.android.AarGeneratorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceMergingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceMergingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceParsingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceParsingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceProcessingAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "AndroidResourceValidatorAction",
-    main_class = "com.google.devtools.build.android.AndroidResourceValidatorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "ManifestMergerAction",
-    main_class = "com.google.devtools.build.android.ManifestMergerAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "RClassGeneratorAction",
-    main_class = "com.google.devtools.build.android.RClassGeneratorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "LibraryRClassGeneratorAction",
-    main_class = "com.google.devtools.build.android.LibraryRClassGeneratorAction",
-    runtime_deps = [
-        ":android_builder_lib",
-    ],
-)
-
-java_binary(
-    name = "ResourceShrinkerAction",
-    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
+    name = "ResourceProcessorBusyBox",
+    main_class = "com.google.devtools.build.android.ResourceProcessorBusyBox",
     runtime_deps = [
         ":android_builder_lib",
     ],
