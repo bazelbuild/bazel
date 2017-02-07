@@ -49,7 +49,9 @@ public class AndroidNdkRepositoryRule implements RuleDefinition {
 
           return ImmutableMap.of(
               "android/crosstool",
-              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName));
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:" + defaultToolchainName),
+              "android_ndk_for_testing",
+              Label.parseAbsoluteUnchecked("@" + rule.getName() + "//:files"));
         }
       };
 
