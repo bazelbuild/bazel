@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotSame;
 
 import com.google.common.base.Function;
@@ -27,7 +26,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -43,7 +41,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.DelegatingWalkableGraph;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
@@ -120,27 +117,10 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    * Check that the expected targets were exactly those visited, and that the packages of these
    * expected targets were exactly those packages visited.
    */
-  protected void assertExpectedTargets(Set<String> expectedLabels, Set<Target> startingTargets)
+  protected void assertExpectedTargets(Set<String> expectedLabels, Set<Label> startingLabels)
       throws Exception {
-    Set<Label> visitedLabels =
-        getVisitedLabels(
-            Iterables.transform(
-                startingTargets,
-                new Function<Target, Label>() {
-                  @Override
-                  public Label apply(Target target) {
-                    return target.getLabel();
-                  }
-                }),
-            getSkyframeExecutor());
+    Set<Label> visitedLabels = getVisitedLabels(startingLabels, getSkyframeExecutor());
     assertThat(visitedLabels).containsExactlyElementsIn(asLabelSet(expectedLabels));
-
-    Set<PathFragment> expectedPkgs = new HashSet<>();
-    for (Label label : visitedLabels) {
-      expectedPkgs.add(label.getPackageFragment());
-    }
-
-    assertEquals(expectedPkgs, getVisitedPackageNames(startingTargets));
   }
 
   /**
@@ -148,26 +128,24 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
    * the dependency trees starting at startingLabels, and no other labels are visited.
    *
    * @param expectedLabels The expected set of labels visited.
-   * @param startingLabels Visit the transitive closure of each of these labels.
+   * @param startingLabelStrings Visit the transitive closure of each of these labels.
    * @param expectError Whether the visitation should succeed.
    * @param keepGoing Whether the visitation continues after encountering
    *        errors.
    */
   protected void assertLabelsVisited(
       Set<String> expectedLabels,
-      Set<String> startingLabels,
+      Set<String> startingLabelStrings,
       boolean expectError,
       boolean keepGoing)
       throws Exception {
-    Set<Target> startingTargets = asTargetSet(startingLabels);
+    Set<Label> startingLabels = asLabelSet(startingLabelStrings);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    boolean result =
-        visitor.sync(
-            reporter, startingTargets, ImmutableSet.<Label>of(), keepGoing, 200, Integer.MAX_VALUE);
+    boolean result = visitor.sync(reporter, startingLabels, keepGoing, /*parallelThreads=*/ 200);
 
     assertNotSame(expectError, result);
-    assertExpectedTargets(expectedLabels, startingTargets);
+    assertExpectedTargets(expectedLabels, startingLabels);
   }
 
   /**
@@ -236,12 +214,10 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
       boolean expectError,
       boolean keepGoing)
       throws Exception {
-    Set<Target> targets = asTargetSet(startingLabels);
+    Set<Label> labels = asLabelSet(startingLabels);
 
     // Spawn a lot of threads to help uncover concurrency issues
-    boolean result =
-        visitor.sync(
-            reporter, targets, ImmutableSet.<Label>of(), keepGoing, 200, Integer.MAX_VALUE);
+    boolean result = visitor.sync(reporter, labels, keepGoing, 200);
     assertNotSame(expectError, result);
     assertThat(getVisitedLabels(asLabelSet(startingLabels), skyframeExecutor))
         .containsAllIn(asLabelSet(expectedLabels));
@@ -256,7 +232,6 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
         .invalidateFilesUnderPathForTesting(reporter, modifiedFileSet, rootDirectory);
   }
 
-  @Override
   protected Set<Target> asTargetSet(Iterable<String> strLabels)
       throws LabelSyntaxException, NoSuchThingException, InterruptedException {
     Set<Target> targets = new HashSet<>();
@@ -265,17 +240,6 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
       targets.add(getSkyframeExecutor().getPackageManager().getTarget(reporter, label));
     }
     return targets;
-  }
-
-  protected Set<PathFragment> getVisitedPackageNames(Set<Target> startingTargets) {
-    ImmutableSet.Builder<PathFragment> builder = ImmutableSet.builder();
-    for (PackageIdentifier packageId : visitor.getVisitedPackageNames()) {
-      builder.add(packageId.getPackageFragment());
-    }
-    for (Target target : startingTargets) {
-      builder.add(target.getPackage().getNameFragment());
-    }
-    return builder.build();
   }
 
   @Before

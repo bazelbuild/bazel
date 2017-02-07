@@ -90,7 +90,6 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
@@ -1523,18 +1522,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     /**
      * Loads the specified {@link TransitiveTargetValue}s.
      */
-    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(EventHandler eventHandler,
-            Iterable<Target> targetsToVisit, Iterable<Label> labelsToVisit, boolean keepGoing,
-            int parallelThreads)
+    EvaluationResult<TransitiveTargetValue> loadTransitiveTargets(
+        EventHandler eventHandler, Iterable<Label> labelsToVisit, boolean keepGoing,
+        int parallelThreads)
         throws InterruptedException {
       List<SkyKey> valueNames = new ArrayList<>();
-      for (Target target : targetsToVisit) {
-        valueNames.add(TransitiveTargetValue.key(target.getLabel()));
-      }
       for (Label label : labelsToVisit) {
         valueNames.add(TransitiveTargetValue.key(label));
       }
-
       return buildDriver.evaluate(valueNames, keepGoing, parallelThreads, eventHandler);
     }
   }

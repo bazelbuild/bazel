@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -53,8 +52,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -260,20 +257,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       result.add(Label.parseAbsolute(s));
     }
     return result;
-  }
-
-  protected final Set<Target> asTargetSet(String... strLabels)
-      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
-    return asTargetSet(Arrays.asList(strLabels));
-  }
-
-  protected Set<Target> asTargetSet(Iterable<String> strLabels)
-      throws LabelSyntaxException, NoSuchThingException, InterruptedException {
-    Set<Target> targets = new HashSet<>();
-    for (String strLabel : strLabels) {
-      targets.add(getTarget(strLabel));
-    }
-    return targets;
   }
 
   protected PackageManager getPackageManager() {

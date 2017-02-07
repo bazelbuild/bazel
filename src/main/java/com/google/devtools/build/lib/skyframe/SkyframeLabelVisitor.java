@@ -13,32 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframeTransitivePackageLoader;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-
 import javax.annotation.Nullable;
 
 /**
@@ -49,27 +37,18 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private final SkyframeTransitivePackageLoader transitivePackageLoader;
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
 
-  private Set<PackageIdentifier> allVisitedPackages;
-  private Set<TransitiveTargetValue> previousBuildTargetValueSet = null;
-  private boolean lastBuildKeepGoing;
-  private final Multimap<Label, Label> rootCauses = HashMultimap.create();
-
   SkyframeLabelVisitor(SkyframeTransitivePackageLoader transitivePackageLoader,
       AtomicReference<CyclesReporter> skyframeCyclesReporter) {
     this.transitivePackageLoader = transitivePackageLoader;
     this.skyframeCyclesReporter = skyframeCyclesReporter;
   }
 
+  // The only remaining non-test caller of this code is BlazeQueryEnvironment.
   @Override
-  public boolean sync(EventHandler eventHandler, Set<Target> targetsToVisit,
-      Set<Label> labelsToVisit, boolean keepGoing, int parallelThreads, int maxDepth)
-      throws InterruptedException {
-    rootCauses.clear();
-    lastBuildKeepGoing = false;
+  public boolean sync(EventHandler eventHandler, Set<Label> labelsToVisit, boolean keepGoing,
+      int parallelThreads) throws InterruptedException {
     EvaluationResult<TransitiveTargetValue> result = transitivePackageLoader.loadTransitiveTargets(
-        eventHandler, targetsToVisit, labelsToVisit, keepGoing, parallelThreads);
-    updateVisitedValues(result.values());
-    lastBuildKeepGoing = keepGoing;
+        eventHandler, labelsToVisit, keepGoing, parallelThreads);
 
     if (!hasErrors(result)) {
       return true;
@@ -104,8 +83,6 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       Label topLevelLabel = (Label) key.argument();
       if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
         skyframeCyclesReporter.get().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
-        rootCauses.putAll(
-            topLevelLabel, getRootCausesOfCycles(topLevelLabel, errorInfo.getCycleInfo()));
       }
       if (isDirectErrorFromTopLevelLabel(topLevelLabel, labelsToVisit, errorInfo)) {
         // Unlike top-level targets, which have already gone through target parsing,
@@ -115,23 +92,11 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
         eventHandler.handle(Event.error(errorInfo.getException().getMessage()));
       }
       warnAboutLoadingFailure(topLevelLabel, eventHandler);
-      for (SkyKey badKey : errorInfo.getRootCauses()) {
-        if (badKey.functionName().equals(SkyFunctions.PACKAGE)) {
-          // Transitive target function may ask for a Package, but don't include this in the root
-          // causes. We'll get more precise information from dependencies on transitive and direct
-          // target dependencies.
-          continue;
-        }
-        Preconditions.checkState(badKey.argument() instanceof Label,
-            "%s %s %s", key, errorInfo, badKey);
-        rootCauses.put(topLevelLabel, (Label) badKey.argument());
-      }
     }
     for (Label topLevelLabel : result.<Label>keyNames()) {
       SkyKey topLevelTransitiveTargetKey = TransitiveTargetValue.key(topLevelLabel);
       TransitiveTargetValue topLevelTransitiveTargetValue = result.get(topLevelTransitiveTargetKey);
       if (topLevelTransitiveTargetValue.getTransitiveRootCauses() != null) {
-        rootCauses.putAll(topLevelLabel, topLevelTransitiveTargetValue.getTransitiveRootCauses());
         warnAboutLoadingFailure(topLevelLabel, eventHandler);
       }
     }
@@ -165,63 +130,5 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   private static void warnAboutLoadingFailure(Label label, EventHandler eventHandler) {
     eventHandler.handle(Event.warn("errors encountered while loading target '" + label + "'"));
-  }
-
-  private static Set<Label> getRootCausesOfCycles(Label labelToLoad, Iterable<CycleInfo> cycles) {
-    ImmutableSet.Builder<Label> builder = ImmutableSet.builder();
-    for (CycleInfo cycleInfo : cycles) {
-      // The root cause of a cycle depends on the type of a cycle.
-
-      SkyKey culprit = Iterables.getFirst(cycleInfo.getCycle(), null);
-      if (culprit == null) {
-        continue;
-      }
-      if (culprit.functionName().equals(SkyFunctions.TRANSITIVE_TARGET)) {
-        // For a cycle between build targets, the root cause is the first element of the cycle.
-        builder.add((Label) culprit.argument());
-      } else {
-        // For other types of cycles (e.g. file symlink cycles), the root cause is the furthest
-        // target dependency that itself depended on the cycle.
-        Label furthestTarget = labelToLoad;
-        for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
-          if (skyKey.functionName().equals(SkyFunctions.TRANSITIVE_TARGET)) {
-            furthestTarget = (Label) skyKey.argument();
-          } else {
-            break;
-          }
-        }
-        builder.add(furthestTarget);
-      }
-    }
-    return builder.build();
-  }
-
-  // Unfortunately we have to do an effective O(TC) visitation after the eval() call above to
-  // determine all of the packages in the closure.
-  private void updateVisitedValues(Collection<TransitiveTargetValue> targetValues) {
-    Set<TransitiveTargetValue> currentBuildTargetValueSet = new HashSet<>(targetValues);
-    if (Objects.equals(previousBuildTargetValueSet, currentBuildTargetValueSet)) {
-      // The next stanza is slow (and scales with the edge count of the target graph), so avoid
-      // the computation if the previous build already did it.
-      return;
-    }
-    NestedSetBuilder<PackageIdentifier> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
-    for (TransitiveTargetValue value : targetValues) {
-      nestedAllPkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
-      nestedAllPkgsBuilder.addTransitive(value.getTransitiveUnsuccessfulPackages());
-    }
-    allVisitedPackages = nestedAllPkgsBuilder.build().toSet();
-    previousBuildTargetValueSet = currentBuildTargetValueSet;
-  }
-
-  @Override
-  public Set<PackageIdentifier> getVisitedPackageNames() {
-    return allVisitedPackages;
-  }
-
-  @Override
-  public Multimap<Label, Label> getRootCauses() {
-    Preconditions.checkState(lastBuildKeepGoing);
-    return rootCauses;
   }
 }

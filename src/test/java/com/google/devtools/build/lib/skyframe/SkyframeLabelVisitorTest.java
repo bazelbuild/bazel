@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -535,17 +536,11 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
           }
         };
     fs.stubStat(bazDir, inconsistentParentFileStatus);
-    Label fooLabel = Label.parseAbsolute("//foo:foo");
+    Set<Label> labels = ImmutableSet.of(Label.parseAbsolute("//foo:foo"));
     getSkyframeExecutor()
         .getPackageManager()
         .newTransitiveLoader()
-        .sync(
-            reporter, /*targetsToVisit=*/
-            ImmutableSet.of(getTarget(fooLabel)),
-            ImmutableSet.<Label>of(), /*keepGoing=*/
-            true,
-            /*parallelThreads=*/ 100, /*maxDepth=*/
-            -1);
+        .sync(reporter, labels, /*keepGoing=*/ true, /*parallelThreads=*/ 100);
     assertContainsEvent("Inconsistent filesystem operations");
   }
 }
