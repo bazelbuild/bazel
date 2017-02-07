@@ -848,7 +848,9 @@ public final class BlazeRuntime {
           "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
       RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
       rpcServer[0] = factory.create(commandExecutor, runtime.getClock(),
-          startupOptions.commandPort, runtime.getServerDirectory(),
+          startupOptions.commandPort,
+          runtime.getWorkspace().getWorkspace(),
+          runtime.getServerDirectory(),
           startupOptions.maxIdleSeconds);
       return rpcServer[0];
     } catch (ReflectiveOperationException | IllegalArgumentException e) {

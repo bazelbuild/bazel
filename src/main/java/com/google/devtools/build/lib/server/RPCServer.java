@@ -28,8 +28,8 @@ public interface RPCServer {
    * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
   interface Factory {
-    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port, Path serverDirectory,
-        int maxIdleSeconds) throws IOException;
+    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port,
+        Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException;
   }
 
   /**
