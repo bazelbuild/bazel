@@ -916,12 +916,31 @@ static void ExtractData(const string &self_path) {
     uint64_t et = GetMillisecondsMonotonic();
     globals->extract_data_time = et - st;
 
-    // Now rename the completed installation to its final name. If this
-    // fails due to an ENOTEMPTY then we assume another good
-    // installation snuck in before us.
-    if (rename(tmp_install.c_str(), globals->options->install_base.c_str()) ==
-            -1 &&
-        errno != ENOTEMPTY) {
+    // Now rename the completed installation to its final name.
+    int attempts = 0;
+    while (attempts < 120) {
+      int result = blaze_util::RenameDirectory(
+          tmp_install.c_str(), globals->options->install_base.c_str());
+      if (result == blaze_util::kRenameDirectorySuccess ||
+          result == blaze_util::kRenameDirectoryFailureNotEmpty) {
+        // If renaming fails because the directory already exists and is not
+        // empty, then we assume another good installation snuck in before us.
+        break;
+      } else {
+        // Otherwise the install directory may still be scanned by the antivirus
+        // (in case we're running on Windows) so we need to wait for that to
+        // finish and try renaming again.
+        ++attempts;
+        fprintf(stderr,
+                "install base directory '%s' could not be renamed into place"
+                "after %d second(s), trying again\r",
+                tmp_install.c_str(), attempts);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+      }
+    }
+
+    // Give up renaming after 120 failed attempts / 2 minutes.
+    if (attempts == 120) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "install base directory '%s' could not be renamed into place",
            tmp_install.c_str());

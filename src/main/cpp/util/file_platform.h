@@ -64,6 +64,16 @@ bool ReadFile(const std::string &filename, std::string *content,
 // Returns false on failure, sets errno.
 bool WriteFile(const std::string &content, const std::string &filename);
 
+enum RenameDirectoryResult {
+  kRenameDirectorySuccess = 0,
+  kRenameDirectoryFailureNotEmpty = 1,
+  kRenameDirectoryFailureOtherError = 2,
+};
+
+// Renames the directory at `old_name` to `new_name`.
+// Returns one of the RenameDirectoryResult enum values.
+int RenameDirectory(const std::string &old_name, const std::string &new_name);
+
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);

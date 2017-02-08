@@ -144,4 +144,23 @@ TEST(FileTest, TestMtimeHandling) {
   ASSERT_FALSE(mtime.get()->GetIfInDistantFuture(file, &actual));
 }
 
+TEST(FileTest, TestRenameDirectory) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  EXPECT_NE(tempdir_cstr, nullptr);
+  EXPECT_NE(tempdir_cstr[0], 0);
+  string tempdir(tempdir_cstr);
+
+  string dir1(JoinPath(tempdir, "test_rename_dir/dir1"));
+  string dir2(JoinPath(tempdir, "test_rename_dir/dir2"));
+  EXPECT_TRUE(MakeDirectories(dir1, 0700));
+  string file1(JoinPath(dir1, "file1.txt"));
+  EXPECT_TRUE(WriteFile("hello", 5, file1));
+
+  ASSERT_EQ(RenameDirectory(dir1, dir2), kRenameDirectorySuccess);
+  ASSERT_EQ(RenameDirectory(dir1, dir2), kRenameDirectoryFailureOtherError);
+  EXPECT_TRUE(MakeDirectories(dir1, 0700));
+  EXPECT_TRUE(WriteFile("hello", 5, file1));
+  ASSERT_EQ(RenameDirectory(dir2, dir1), kRenameDirectoryFailureNotEmpty);
+}
+
 }  // namespace blaze_util

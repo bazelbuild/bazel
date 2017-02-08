@@ -596,6 +596,37 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
   return result;
 }
 
+int RenameDirectory(const std::string& old_name, const std::string& new_name) {
+  wstring wold_name;
+  if (!AsWindowsPathWithUncPrefix(old_name, &wold_name)) {
+    std::ostringstream error;
+    error << "RenameDirectory(" << old_name << ", " << new_name
+          << "): AsWindowsPathWithUncPrefix failed for old_name: "
+          << GetLastErrorString() << "\n";
+    PrintError(error.str().c_str());
+    return kRenameDirectoryFailureOtherError;
+  }
+
+  wstring wnew_name;
+  if (!AsWindowsPathWithUncPrefix(new_name, &wnew_name)) {
+    std::ostringstream error;
+    error << "RenameDirectory(" << old_name << ", " << new_name
+          << "): AsWindowsPathWithUncPrefix failed for new_name: "
+          << GetLastErrorString() << "\n";
+    PrintError(error.str().c_str());
+    return kRenameDirectoryFailureOtherError;
+  }
+
+  if (!::MoveFileExW(wold_name.c_str(), wnew_name.c_str(),
+                     MOVEFILE_COPY_ALLOWED | MOVEFILE_FAIL_IF_NOT_TRACKABLE |
+                         MOVEFILE_WRITE_THROUGH)) {
+    return GetLastError() == ERROR_ALREADY_EXISTS
+               ? kRenameDirectoryFailureNotEmpty
+               : kRenameDirectoryFailureOtherError;
+  }
+  return kRenameDirectorySuccess;
+}
+
 static bool UnlinkPathW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
   if (attrs == INVALID_FILE_ATTRIBUTES) {

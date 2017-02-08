@@ -208,6 +208,15 @@ bool WriteFile(const void *data, size_t size, const string &filename) {
   return result;
 }
 
+int RenameDirectory(const std::string &old_name, const std::string &new_name) {
+  if (rename(old_name.c_str(), new_name.c_str()) == 0) {
+    return kRenameDirectorySuccess;
+  } else {
+    return errno == ENOTEMPTY ? kRenameDirectoryFailureNotEmpty
+                              : kRenameDirectoryFailureOtherError;
+  }
+}
+
 bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
 }
