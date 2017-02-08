@@ -355,8 +355,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
       }
       // -fmodule-map-file only loads the module in Xcode 7, so we add the module maps's directory
       // to the include path instead.
-      // TODO(bazel-team): Use -fmodule-map-file when Xcode 6 support is dropped.
-
       commandLine
           .add("-iquote")
           .add(
@@ -365,7 +363,14 @@ public class LegacyCompilationSupport extends CompilationSupport {
               .getArtifact()
               .getExecPath()
               .getParentDirectory()
-              .toString());
+              .toString())
+          .add("-fmodule-map-file=" + moduleMap
+              .get()
+              .getArtifact()
+              .getExecPath()
+              .toString()
+          )
+          ;
       boolean alreadyHasModuleName = false;
 
       for (String otherFlag : attributes.copts()) {

@@ -68,6 +68,8 @@ def module(
 
 def _rel_path(relfrom, file):
   segments_to_exec_path = len(relfrom.dirname.split("/"))
+  if relfrom.dirname == file.dirname:
+    return file.basename
   leading_periods = "../" * segments_to_exec_path
   return leading_periods + file.path
 

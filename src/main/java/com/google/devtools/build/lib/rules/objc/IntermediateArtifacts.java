@@ -413,7 +413,7 @@ public final class IntermediateArtifacts {
 
     // To get Swift to pick up module maps, we need to name them "module.modulemap" and have their
     // parent directory in the module map search paths.
-    return new CppModuleMap(appendExtensionInGenfiles(".modulemaps/module.modulemap"), moduleName);
+    return new CppModuleMap(appendExtensionInGenfiles(".modulemap"), moduleName);
   }
 
   /**

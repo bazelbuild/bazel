@@ -20,7 +20,7 @@ load("shared",
      "module_cache_path",
      "label_scoped_path")
 
-load("modulemap",
+load(":modulemap.bzl",
      "module",
      "submodule",
      "modulemap_action")
