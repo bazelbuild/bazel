@@ -302,10 +302,7 @@ public class ProtoCompileActionBuilder {
       // Note: the %s in the line below is used by proto-compiler. That is, the string we create
       // here should have a literal %s in it.
       result.add(
-          "--direct_dependencies_violation_msg=%s is imported, "
-              + "but "
-              + ruleContext.getLabel().getCanonicalForm()
-              + " doesn't directly depend on a proto_library that 'srcs' it.");
+          createStrictProtoDepsViolationErrorMessage(ruleContext.getLabel().getCanonicalForm()));
     }
 
     for (Artifact src : supportData.getDirectProtoSources()) {
@@ -576,13 +573,7 @@ public class ProtoCompileActionBuilder {
     cmdLine.add(new ProtoCommandLineArgv(protosInDirectDeps, transitiveSources));
 
     if (protosInDirectDeps != null) {
-      // Note: the %s in the line below is used by proto-compiler. That is, the string we create
-      // here should have a literal %s in it.
-      cmdLine.add(
-          "--direct_dependencies_violation_msg=%s is imported, "
-              + "but "
-              + ruleLabel
-              + " doesn't directly depend on a proto_library that 'srcs' it.");
+      cmdLine.add(createStrictProtoDepsViolationErrorMessage(ruleLabel));
     }
 
     for (Artifact src : protosToCompile) {
@@ -594,6 +585,14 @@ public class ProtoCompileActionBuilder {
     }
 
     return cmdLine.build();
+  }
+
+  @SuppressWarnings("FormatString") // Errorprone complains that there's no '%s' in the format
+  // string, but it's actually in MESSAGE.
+  @VisibleForTesting
+  public static String createStrictProtoDepsViolationErrorMessage(String ruleLabel) {
+    return "--direct_dependencies_violation_msg="
+        + String.format(StrictProtoDepsViolationMessage.MESSAGE, ruleLabel);
   }
 
   /**

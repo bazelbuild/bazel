@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createCommandLineFromToolchains;
+import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createStrictProtoDepsViolationErrorMessage;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
 
@@ -139,8 +140,7 @@ public class ProtoCompileActionBuilderTest {
             "-Iimport1.proto=import1.proto",
             "-Iimport2.proto=import2.proto",
             "--direct_dependencies=import1.proto",
-            "--direct_dependencies_violation_msg=%s is imported, "
-                + "but //foo:bar doesn't directly depend on a proto_library that 'srcs' it.",
+            createStrictProtoDepsViolationErrorMessage("//foo:bar"),
             "source_file.proto")
         .inOrder();
   }
