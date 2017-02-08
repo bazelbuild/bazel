@@ -138,8 +138,7 @@ class BuildResultPrinter {
                 + OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),
                     env.getWorkspaceName(),
                     env.getWorkspace(),
-                    request.getBuildOptions().getSymlinkPrefix(productName),
-                    productName));
+                    request.getBuildOptions().getSymlinkPrefix(productName)));
           }
         }
       }
@@ -157,7 +156,7 @@ class BuildResultPrinter {
     String productName = env.getRuntime().getProductName();
     return "  " + OutputDirectoryLinksUtils.getPrettyPath(artifact.getPath(),
         env.getWorkspaceName(), env.getWorkspace(),
-        request.getBuildOptions().getSymlinkPrefix(productName), productName);
+        request.getBuildOptions().getSymlinkPrefix(productName));
   }
 
   /**

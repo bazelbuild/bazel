@@ -38,12 +38,12 @@ public class OutputDirectoryLinksUtils {
 
   private static final String NO_CREATE_SYMLINKS_PREFIX = "/";
 
-  public static String getOutputSymlinkName(String productName) {
-    return productName + "-out";
+  public static String getOutputSymlinkName(String symlinkPrefix) {
+    return symlinkPrefix + "out";
   }
 
-  private static String execRootSymlink(String productName, String workspaceName) {
-    return productName + "-" + workspaceName;
+  private static String execRootSymlink(String symlinkPrefix, String workspaceName) {
+    return symlinkPrefix + workspaceName;
   }
   /**
    * Attempts to create convenience symlinks in the workspaceDirectory and in
@@ -53,8 +53,7 @@ public class OutputDirectoryLinksUtils {
    */
   static void createOutputDirectoryLinks(String workspaceName,
       Path workspace, Path execRoot, Path outputPath,
-      EventHandler eventHandler, @Nullable BuildConfiguration targetConfig,
-      String symlinkPrefix, String productName) {
+      EventHandler eventHandler, @Nullable BuildConfiguration targetConfig, String symlinkPrefix) {
     if (NO_CREATE_SYMLINKS_PREFIX.equals(symlinkPrefix)) {
       return;
     }
@@ -63,10 +62,10 @@ public class OutputDirectoryLinksUtils {
     // Make the two non-specific links from the workspace to the output area,
     // and the configuration-specific links in both the workspace and the execution root dirs.
     // NB!  Keep in sync with removeOutputDirectoryLinks below.
-    createLink(workspace, getOutputSymlinkName(productName), outputPath, failures);
+    createLink(workspace, getOutputSymlinkName(symlinkPrefix), outputPath, failures);
 
     // Points to execroot
-    createLink(workspace, execRootSymlink(productName, workspaceName), execRoot, failures);
+    createLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), execRoot, failures);
 
     if (targetConfig != null) {
       createLink(workspace, symlinkPrefix + "bin",
@@ -93,7 +92,7 @@ public class OutputDirectoryLinksUtils {
    * before, the pretty path may be incorrect if the symlinks end up pointing somewhere new.
    */
   public static PathFragment getPrettyPath(Path file, String workspaceName,
-      Path workspaceDirectory, String symlinkPrefix, String productName) {
+      Path workspaceDirectory, String symlinkPrefix) {
     for (String link : LINKS) {
       PathFragment result = relativize(file, workspaceDirectory, symlinkPrefix + link);
       if (result != null) {
@@ -102,12 +101,12 @@ public class OutputDirectoryLinksUtils {
     }
 
     PathFragment result = relativize(file, workspaceDirectory,
-        execRootSymlink(productName, workspaceName));
+        execRootSymlink(symlinkPrefix, workspaceName));
     if (result != null) {
       return result;
     }
 
-    result = relativize(file, workspaceDirectory, getOutputSymlinkName(productName));
+    result = relativize(file, workspaceDirectory, getOutputSymlinkName(symlinkPrefix));
     if (result != null) {
       return result;
     }
@@ -150,8 +149,8 @@ public class OutputDirectoryLinksUtils {
     }
     List<String> failures = new ArrayList<>();
 
-    removeLink(workspace, getOutputSymlinkName(productName), failures);
-    removeLink(workspace, execRootSymlink(productName, workspaceName), failures);
+    removeLink(workspace, getOutputSymlinkName(symlinkPrefix), failures);
+    removeLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), failures);
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);
