@@ -112,11 +112,16 @@ public class AndroidResourceParsingActionBuilder {
 
   public ResourceContainer build(ActionConstructionContext context) {
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
+    
+    // Set the busybox tool.
+    builder.add("--tool").add("PARSE").add("--");
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();
-    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resource_parser", Mode.HOST)
-        .getRunfilesSupport()
-        .getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(
+        ruleContext
+            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+            .getRunfilesSupport()
+            .getRunfilesArtifactsWithoutMiddlemen());
 
     Preconditions.checkNotNull(primary);
     builder.add("--primaryData").add(RESOURCE_CONTAINER_TO_ARG.apply(primary));
@@ -136,7 +141,7 @@ public class AndroidResourceParsingActionBuilder {
             .addOutputs(ImmutableList.copyOf(outs))
             .setCommandLine(builder.build())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$android_resource_parser", Mode.HOST))
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
             .setProgressMessage("Parsing Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidResourceParser")
             .build(context));

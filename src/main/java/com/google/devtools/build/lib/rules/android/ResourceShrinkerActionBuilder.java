@@ -144,10 +144,15 @@ public class ResourceShrinkerActionBuilder {
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
 
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
+    
+    // Set the busybox tool.
+    commandLine.add("--tool").add("SHRINK").add("--");
 
-    inputs.addAll(ruleContext.getExecutablePrerequisite("$android_resource_shrinker", Mode.HOST)
-        .getRunfilesSupport()
-        .getRunfilesArtifactsWithoutMiddlemen());
+    inputs.addAll(
+        ruleContext
+            .getExecutablePrerequisite("$android_resources_busybox", Mode.HOST)
+            .getRunfilesSupport()
+            .getRunfilesArtifactsWithoutMiddlemen());
 
     commandLine.addExecPath("--aapt", sdk.getAapt().getExecutable());
 
@@ -208,16 +213,17 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addExecPath("--log", logOut);
     outputs.add(logOut);
 
-    ruleContext.registerAction(spawnActionBuilder
-        .addTool(sdk.getAapt())
-        .addInputs(inputs.build())
-        .addOutputs(outputs.build())
-        .setCommandLine(commandLine.build())
-        .setExecutable(ruleContext.getExecutablePrerequisite(
-            "$android_resource_shrinker", Mode.HOST))
-        .setProgressMessage("Shrinking resources for " + ruleContext.getLabel())
-        .setMnemonic("ResourceShrinker")
-        .build(ruleContext));
+    ruleContext.registerAction(
+        spawnActionBuilder
+            .addTool(sdk.getAapt())
+            .addInputs(inputs.build())
+            .addOutputs(outputs.build())
+            .setCommandLine(commandLine.build())
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST))
+            .setProgressMessage("Shrinking resources for " + ruleContext.getLabel())
+            .setMnemonic("ResourceShrinker")
+            .build(ruleContext));
 
     return resourceApkOut;
   }

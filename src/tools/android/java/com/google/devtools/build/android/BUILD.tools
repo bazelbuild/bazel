@@ -76,3 +76,11 @@ java_binary(
         ":classes",
     ],
 )
+
+java_binary(
+    name = "ResourceProcessorBusyBox",
+    main_class = "com.google.devtools.build.android.ResourceProcessorBusyBox",
+    runtime_deps = [
+        ":classes",
+    ],
+)
