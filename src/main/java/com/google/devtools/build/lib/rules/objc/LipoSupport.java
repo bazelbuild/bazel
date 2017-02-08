@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
@@ -36,24 +38,33 @@ public class LipoSupport {
    * Registers an action to invoke "lipo" on all artifacts in {@code inputBinaries} to create the
    * {@code outputBinary} multi-architecture artifact, built for platform {@code platform}.
    *
+   * <p>If there is only one input binary given, since "lipo" is an expensive action, this will only
+   * symlink the output location to the input binary.
+   *
    * @return this object
    */
   public LipoSupport registerCombineArchitecturesAction(NestedSet<Artifact> inputBinaries,
       Artifact outputBinary, Platform platform) {
-
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
-            ruleContext.getFragment(AppleConfiguration.class), platform)
-        .setMnemonic("ObjcCombiningArchitectures")
-        .addTransitiveInputs(inputBinaries)
-        .addOutput(outputBinary)
-        .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
-        .setCommandLine(CustomCommandLine.builder()
-            .add(ObjcRuleClasses.LIPO)
-            .addExecPaths("-create", inputBinaries)
-            .addExecPath("-o", outputBinary)
-            .build())
-        .build(ruleContext));
-    
+    if (inputBinaries.toList().size() > 1) {
+      ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(
+              ruleContext.getFragment(AppleConfiguration.class), platform)
+          .setMnemonic("ObjcCombiningArchitectures")
+          .addTransitiveInputs(inputBinaries)
+          .addOutput(outputBinary)
+          .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
+          .setCommandLine(CustomCommandLine.builder()
+              .add(ObjcRuleClasses.LIPO)
+              .addExecPaths("-create", inputBinaries)
+              .addExecPath("-o", outputBinary)
+              .build())
+          .build(ruleContext));
+    } else {
+      ruleContext.registerAction(new SymlinkAction(
+          ruleContext.getActionOwner(),
+          Iterables.getOnlyElement(inputBinaries),
+          outputBinary,
+          "Symlinking single-architecture binary"));
+    }
     return this;
   }
 }
