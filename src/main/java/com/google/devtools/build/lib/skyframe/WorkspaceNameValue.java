@@ -24,7 +24,7 @@ import javax.annotation.Nullable;
  *
  * <p>This is a separate value with trivial change pruning so as to not necessitate a dependency
  * from every {@link PackageValue} to the //external {@link PackageValue}, since such a
- * hypothetical design would necessiate reloading all packages whenever there's a benign change to
+ * hypothetical design would necessitate reloading all packages whenever there's a benign change to
  * the WORKSPACE file.
  */
 public class WorkspaceNameValue implements SkyValue {
