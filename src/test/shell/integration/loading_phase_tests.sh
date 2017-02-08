@@ -315,4 +315,29 @@ function test_incremental_deleting_package_roots() {
   expect_not_log "//a:external"
 }
 
+function test_no_package_loading_on_benign_workspace_file_changes() {
+  mkdir foo
+
+  echo 'workspace(name="wsname1")' > WORKSPACE
+  echo 'sh_library(name="shname1")' > foo/BUILD
+  bazel query //foo:all >& "$TEST_log" || fail "Expected success"
+  expect_log "//foo:shname1"
+
+  echo 'sh_library(name="shname2")' > foo/BUILD
+  bazel query //foo:all >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: foo"
+  expect_log "//foo:shname2"
+
+  echo 'workspace(name="wsname1")' > WORKSPACE
+  echo '#benign comment' >> WORKSPACE
+  bazel query //foo:all >& "$TEST_log" || fail "Expected success"
+  expect_not_log "Loading package: foo"
+  expect_log "//foo:shname2"
+
+  echo 'workspace(name="wsname2")' > WORKSPACE
+  bazel query //foo:all >& "$TEST_log" || fail "Expected success"
+  expect_log "Loading package: foo"
+  expect_log "//foo:shname2"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

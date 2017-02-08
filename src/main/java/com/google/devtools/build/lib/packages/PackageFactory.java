@@ -1289,7 +1289,7 @@ public final class PackageFactory {
    */
   // Used outside of bazel!
   public Package.Builder createPackageFromPreprocessingResult(
-      Package externalPkg,
+      String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
       Preprocessor.Result preprocessingResult,
@@ -1306,7 +1306,7 @@ public final class PackageFactory {
     AstAfterPreprocessing astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult,
         buildFileAST, localReporterForParsing);
     return createPackageFromPreprocessingAst(
-        externalPkg,
+        workspaceName,
         packageId,
         buildFile,
         astAfterPreprocessing,
@@ -1326,7 +1326,7 @@ public final class PackageFactory {
   }
 
   public Package.Builder createPackageFromPreprocessingAst(
-      Package externalPkg,
+      String workspaceName,
       PackageIdentifier packageId,
       Path buildFile,
       Preprocessor.AstAfterPreprocessing astAfterPreprocessing,
@@ -1344,7 +1344,7 @@ public final class PackageFactory {
       prefetchGlobs(packageId, astAfterPreprocessing.ast, astAfterPreprocessing.preprocessed,
           buildFile, globber, defaultVisibility, makeEnv);
       return evaluateBuildFile(
-          externalPkg,
+          workspaceName,
           packageId,
           astAfterPreprocessing.ast,
           buildFile,
@@ -1420,7 +1420,7 @@ public final class PackageFactory {
 
     Package result =
         createPackageFromPreprocessingResult(
-                externalPkg,
+                externalPkg.getWorkspaceName(),
                 packageId,
                 buildFile,
                 preprocessingResult,
@@ -1661,7 +1661,7 @@ public final class PackageFactory {
    */
   @VisibleForTesting // used by PackageFactoryApparatus
   public Package.Builder evaluateBuildFile(
-      Package externalPkg,
+      String workspaceName,
       PackageIdentifier packageId,
       BuildFileAST buildFileAST,
       Path buildFilePath,
@@ -1694,7 +1694,7 @@ public final class PackageFactory {
           // set default_visibility once, be reseting the PackageBuilder.defaultVisibilitySet flag.
           .setDefaultVisibilitySet(false)
           .setSkylarkFileDependencies(skylarkFileDependencies)
-          .setWorkspaceName(externalPkg.getWorkspaceName());
+          .setWorkspaceName(workspaceName);
 
       Event.replayEventsOn(eventHandler, pastEvents);
 

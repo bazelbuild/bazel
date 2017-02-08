@@ -97,6 +97,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO_COLLECTION =
       SkyFunctionName.create("BUILD_INFO_COLLECTION");
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.create("BUILD_INFO");
+  public static final SkyFunctionName WORKSPACE_NAME = SkyFunctionName.create("WORKSPACE_NAME");
   public static final SkyFunctionName WORKSPACE_FILE = SkyFunctionName.create("WORKSPACE_FILE");
   public static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.create("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.create("REPOSITORY");

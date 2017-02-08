@@ -448,13 +448,13 @@ public class PackageFunction implements SkyFunction {
     if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
-    SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
-    PackageValue externalPackage = (PackageValue) env.getValue(externalPackageKey);
-    if (externalPackage == null) {
+    WorkspaceNameValue workspaceNameValue =
+        (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (workspaceNameValue == null) {
       return null;
     }
-    Package externalPkg = externalPackage.getPackage();
-    if (externalPkg.containsErrors()) {
+    String workspaceName = workspaceNameValue.maybeGetName();
+    if (workspaceName == null) {
       throw new PackageFunctionException(
           new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
           Transience.PERSISTENT);
@@ -502,7 +502,7 @@ public class PackageFunction implements SkyFunction {
             ? astLookupValue.getAST().getStatements() : ImmutableList.<Statement>of();
     CacheEntryWithGlobDeps<Package.Builder> packageBuilderAndGlobDeps =
         loadPackage(
-            externalPkg,
+            workspaceName,
             replacementContents,
             packageId,
             buildFilePath,
@@ -1107,7 +1107,7 @@ public class PackageFunction implements SkyFunction {
    */
   @Nullable
   private CacheEntryWithGlobDeps<Package.Builder> loadPackage(
-      Package externalPkg,
+      String workspaceName,
       @Nullable String replacementContents,
       PackageIdentifier packageId,
       Path buildFilePath,
@@ -1208,7 +1208,7 @@ public class PackageFunction implements SkyFunction {
         SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
             env, legacyGlobber);
         Package.Builder pkgBuilder = packageFactory.createPackageFromPreprocessingAst(
-            externalPkg, packageId, buildFilePath, astAfterPreprocessing, importResult.importMap,
+            workspaceName, packageId, buildFilePath, astAfterPreprocessing, importResult.importMap,
             importResult.fileDependencies, defaultVisibility, skyframeGlobber);
         Set<SkyKey> globDepsRequested = ImmutableSet.<SkyKey>builder()
             .addAll(globDepsRequestedDuringPreprocessing)
