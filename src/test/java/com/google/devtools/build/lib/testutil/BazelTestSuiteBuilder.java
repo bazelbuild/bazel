@@ -25,10 +25,10 @@ import java.util.Set;
  * A base class for constructing test suites by searching the classpath for
  * tests, possibly restricted to a predicate.
  */
-public class BlazeTestSuiteBuilder {
+public class BazelTestSuiteBuilder {
 
   /**
-   * @return a TestSuiteBuilder configured for Blaze.
+   * @return a TestSuiteBuilder configured for Bazel.
    */
   protected TestSuiteBuilder getBuilder() {
     return new TestSuiteBuilder()

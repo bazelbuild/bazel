@@ -35,6 +35,20 @@ public final class TestSuiteBuilder {
 
   private Set<Class<?>> testClasses = Sets.newTreeSet(new TestClassNameComparator());
   private Predicate<Class<?>> matchClassPredicate = Predicates.alwaysTrue();
+  private final boolean tolerateEmptyTestSuites;
+
+  public TestSuiteBuilder() {
+    tolerateEmptyTestSuites = false;
+  }
+
+  /**
+   * @param tolerateEmptyTestSuites set this to true to add an empty test which passes to the suite.
+   *     Its better for Test Suites to fail when they create an empty set of classes to test, so new
+   *     suites should avoid setting this to true.
+   */
+  public TestSuiteBuilder(boolean tolerateEmptyTestSuites) {
+    this.tolerateEmptyTestSuites = tolerateEmptyTestSuites;
+  }
 
   /**
    * Adds the tests found (directly) in class {@code c} to the set of tests
@@ -84,7 +98,7 @@ public final class TestSuiteBuilder {
     for (Class<?> testClass : Iterables.filter(testClasses, matchClassPredicate)) {
       result.add(testClass);
     }
-    if (result.isEmpty()) {
+    if (tolerateEmptyTestSuites && result.isEmpty()) {
       // We have some cases where the resulting test suite is empty, which some of our test
       // infrastructure treats as an error.
       result.add(TautologyTest.class);
