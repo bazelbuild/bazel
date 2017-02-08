@@ -424,13 +424,49 @@ def _find_python(repository_ctx):
   auto_configure_warning("Python found at %s" % python_binary)
   return python_binary
 
+def _add_system_root(repository_ctx, env):
+  r"""Running VCVARSALL.BAT and VCVARSQUERYREGISTRY.BAT need %SYSTEMROOT%\\system32 in PATH."""
+  if "PATH" not in env:
+    env["PATH"] = ""
+  env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
+  return env
 
-def _find_vs_path(repository_ctx):
-  """Find Visual Studio install path."""
+def _find_vc_path(repository_ctx):
+  """Find Visual C++ build tools install path."""
+  # 1. Check if BAZEL_VC or BAZEL_VS is already set by user.
+  if "BAZEL_VC" in repository_ctx.os.environ:
+    return repository_ctx.os.environ["BAZEL_VC"]
+
   if "BAZEL_VS" in repository_ctx.os.environ:
-    return repository_ctx.os.environ["BAZEL_VS"]
-  auto_configure_warning("'BAZEL_VS' is not set, start looking for the latest Visual Studio installed.")
+    return repository_ctx.os.environ["BAZEL_VS"] + "\\VC\\"
+  auto_configure_warning("'BAZEL_VC' is not set, " +
+                         "start looking for the latest Visual C++ installed.")
 
+  # 2. Check if VS%VS_VERSION%COMNTOOLS is set, if true then try to find and use
+  # vcvarsqueryregistry.bat to detect VC++.
+  auto_configure_warning("Looking for VS%VERSION%COMNTOOLS environment variables," +
+                         "eg. VS140COMNTOOLS")
+  for vscommontools_env in ["VS140COMNTOOLS", "VS120COMNTOOLS",
+                            "VS110COMNTOOLS", "VS100COMNTOOLS", "VS90COMNTOOLS"]:
+    if vscommontools_env not in repository_ctx.os.environ:
+      continue
+    vcvarsqueryregistry = repository_ctx.os.environ[vscommontools_env] + "\\vcvarsqueryregistry.bat"
+    if not repository_ctx.path(vcvarsqueryregistry).exists:
+      continue
+    repository_ctx.file("wrapper/get_vc_dir.bat",
+                        "@echo off\n" +
+                        "call \"" + vcvarsqueryregistry + "\"\n" +
+                        "echo %VCINSTALLDIR%", True)
+    env = _add_system_root(repository_ctx, repository_ctx.os.environ)
+    vc_dir = _execute(repository_ctx, ["wrapper/get_vc_dir.bat"], environment=env)
+
+    auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
+    return vc_dir
+
+  # 3. User might clean up all environment variables, if so looking for Visual C++ through registry.
+  # This method only works if Visual Studio is installed, and for some reason, is flaky.
+  # https://github.com/bazelbuild/bazel/issues/2434
+  auto_configure_warning("Looking for Visual C++ through registry")
   # Query the installed visual stduios on the machine, should return something like:
   # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0
   # HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\8.0
@@ -460,23 +496,20 @@ def _find_vs_path(repository_ctx):
             vs_dir = "\\".join(path_segments[:-2])
 
   if not vs_dir:
-    auto_configure_fail("Visual Studio not found on your machine.")
-  auto_configure_warning("Visual Studio found at %s" % vs_dir)
-  return vs_dir
+    auto_configure_fail("Visual C++ build tools not found on your machine.")
+  vc_dir = vs_dir + "\\VC\\"
+  auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
+  return vc_dir
 
 
-def _find_env_vars(repository_ctx, vs_path):
+def _find_env_vars(repository_ctx, vc_path):
   """Get environment variables set by VCVARSALL.BAT."""
-  vsvars = vs_path + "/VC/VCVARSALL.BAT"
+  vsvars = vc_path + "/VCVARSALL.BAT"
   repository_ctx.file("wrapper/get_env.bat",
                       "@echo off\n" +
                       "call \"" + vsvars + "\" amd64 \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
-  env = repository_ctx.os.environ
-  if "PATH" not in env:
-    env["PATH"]=""
-  # Running VCVARSALL.BAT needs %SYSTEMROOT%\\system32 to be in PATH
-  env["PATH"] = env["PATH"] + ";" + _get_system_root(repository_ctx) + "\\system32"
+  env = _add_system_root(repository_ctx, repository_ctx.os.environ)
   envs = _execute(repository_ctx, ["wrapper/get_env.bat"], environment=env).split(",")
   env_map = {}
   for env in envs:
@@ -485,12 +518,12 @@ def _find_env_vars(repository_ctx, vs_path):
   return env_map
 
 
-def _is_support_whole_archive(repository_ctx, vs_dir):
+def _is_support_whole_archive(repository_ctx, vc_dir):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  result = _execute(repository_ctx, [vs_dir + "/VC/BIN/amd64/link"])
+  result = _execute(repository_ctx, [vc_dir + "/BIN/amd64/link"])
   return result.find("/WHOLEARCHIVE") != -1
 
 
@@ -554,13 +587,13 @@ def _impl(repository_ctx):
     python_binary = _find_python(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/call_python.bat", {"%{python_binary}": python_binary})
 
-    vs_path = _find_vs_path(repository_ctx)
-    env = _find_env_vars(repository_ctx, vs_path)
+    vc_path = _find_vc_path(repository_ctx)
+    env = _find_env_vars(repository_ctx, vc_path)
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
-    lib_tool = vs_path.replace("\\", "\\\\") + "/VC/bin/amd64/lib.exe"
-    if _is_support_whole_archive(repository_ctx, vs_path):
+    lib_tool = vc_path.replace("\\", "\\\\") + "/bin/amd64/lib.exe"
+    if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
       support_whole_archive = "False"
