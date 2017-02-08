@@ -1303,7 +1303,7 @@ public final class CcLibraryHelper {
     semantics.setupCompilationContext(ruleContext, contextBuilder);
     return contextBuilder.build();
   }
-  
+
   private CppModuleMapAction createModuleMapAction(
       CppModuleMap moduleMap,
       PublicHeaders publicHeaders,
@@ -1315,7 +1315,9 @@ public final class CcLibraryHelper {
         featureConfiguration.isEnabled(CppRuleClasses.EXCLUDE_PRIVATE_HEADERS_IN_MODULE_MAPS)
             ? ImmutableList.<Artifact>of()
             : privateHeaders,
-        publicHeaders.getModuleMapHeaders(),
+        featureConfiguration.isEnabled(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
+            ? Iterables.filter(publicHeaders.getModuleMapHeaders(), CppFileTypes.MODULE_MAP_HEADER)
+            : publicHeaders.getModuleMapHeaders(),
         dependentModuleMaps,
         additionalExportedHeaders,
         compiledModule,

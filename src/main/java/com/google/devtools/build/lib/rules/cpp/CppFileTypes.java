@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -161,6 +163,25 @@ public final class CppFileTypes {
 
   public static final FileType CLIF_INPUT_PROTO = FileType.of(".ipb");
   public static final FileType CLIF_OUTPUT_PROTO = FileType.of(".opb");
+
+  /** Predicate that matches all artifacts that can be used in an objc Clang module map. */
+  public static final Predicate<Artifact> MODULE_MAP_HEADER =
+      new Predicate<Artifact>() {
+        @Override
+        public boolean apply(Artifact artifact) {
+          if (artifact.isTreeArtifact()) {
+            // Tree artifact is basically a directory, which does not have any information about
+            // the contained files and their extensions. Here we assume the passed in tree artifact
+            // contains proper header files with .h extension.
+            return true;
+          } else {
+            // The current clang (clang-600.0.57) on Darwin doesn't support 'textual', so we can't
+            // have '.inc' files in the module map (since they're implictly textual).
+            // TODO(bazel-team): Use HEADERS file type once clang-700 is the base clang we support.
+            return artifact.getFilename().endsWith(".h");
+          }
+        }
+      };
 
   public static final boolean mustProduceDotdFile(String source) {
     return !ASSEMBLER.matches(source)

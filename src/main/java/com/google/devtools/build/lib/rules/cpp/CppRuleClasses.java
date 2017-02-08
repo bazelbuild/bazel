@@ -228,6 +228,13 @@ public class CppRuleClasses {
   public static final String GENERATE_SUBMODULES = "generate_submodules";
 
   /**
+   * A string constant for the only_doth_headers_in_module_maps.
+   *
+   * <p>This feature filters any headers without a ".h" suffix from generated module maps.
+   */
+  public static final String ONLY_DOTH_HEADERS_IN_MODULE_MAPS = "only_doth_headers_in_module_maps";
+
+  /**
    * A string constant for the no_legacy_features feature.
    *
    * <p>If this feature is enabled, Bazel will not extend the crosstool configuration with the
