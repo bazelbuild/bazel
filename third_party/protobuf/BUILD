@@ -16,28 +16,25 @@ filegroup(
 
 proto_alias("protoc", PROTOBUF_VERSION)
 
-proto_alias("protobuf", PROTOBUF_VERSION)
-
-# "protobuf" above refers to the Java proto runtime, but upstream, 
-# "protobuf" refers to the C++ proto runtime. This alias allows us
-# to switch all Bazel refernces to "protobuf" to the correct "protobuf_java".
-# This alias should be temporary while this transition is done.
-alias(
-    name = "protobuf_java",
-    actual = "//third_party/protobuf/3.0.0:protobuf"
-)
+proto_alias("protobuf_java", PROTOBUF_VERSION)
 
 proto_alias("protobuf-jars", PROTOBUF_VERSION)
 
 proto_alias("protobuf-util", PROTOBUF_VERSION)
 
-proto_alias("protobuf_python_srcs", PROTOBUF_VERSION)
+alias(
+    name = "protobuf_java_util",
+    actual = "//third_party/protobuf/3.0.0:protobuf-util"
+)
 
 proto_alias("protobuf_python", PROTOBUF_VERSION)
 
-proto_alias("protobuf_lite", PROTOBUF_VERSION)
-
 proto_alias("protobuf_clib", PROTOBUF_VERSION)
+
+alias(
+    name = "protobuf",
+    actual = "//third_party/protobuf/3.0.0:protobuf_clib"
+)
 
 proto_alias("protoc_lib", PROTOBUF_VERSION)
 

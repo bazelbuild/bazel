@@ -26,7 +26,7 @@ java_import(
 )
 
 java_import(
-    name = "protobuf",
+    name = "protobuf_java",
     jars = ["protobuf-java-3.0.0.jar"],
 )
 
