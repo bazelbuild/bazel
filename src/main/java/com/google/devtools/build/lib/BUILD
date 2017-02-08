@@ -116,7 +116,7 @@ java_library(
         "//src/main/protobuf:invocation_policy_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -268,7 +268,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -307,7 +307,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -425,7 +425,7 @@ java_library(
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -450,7 +450,7 @@ java_library(
         "//src/main/protobuf:build_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -525,7 +525,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -717,7 +717,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -739,7 +739,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -805,7 +805,7 @@ java_library(
         "//third_party:guava",
         "//third_party:joda_time",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -921,7 +921,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -945,7 +945,7 @@ java_library(
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -969,7 +969,7 @@ java_library(
         "//src/main/protobuf:intellij_ide_info_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -1032,7 +1032,7 @@ java_library(
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 

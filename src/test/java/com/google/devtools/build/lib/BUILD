@@ -586,7 +586,7 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -623,7 +623,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -682,7 +682,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -750,7 +750,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -949,7 +949,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -996,7 +996,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -1087,7 +1087,7 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -1174,7 +1174,7 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
