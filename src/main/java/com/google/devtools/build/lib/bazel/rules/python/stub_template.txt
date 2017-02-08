@@ -124,6 +124,9 @@ def Main():
   if old_python_path:
     python_path += separator + old_python_path
 
+  if IsWindows():
+    python_path = python_path.replace("/", os.sep)
+
   new_env['PYTHONPATH'] = python_path
 
   # Now look for my main python source file.
