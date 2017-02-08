@@ -535,9 +535,10 @@ public final class CcCommon {
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
     for (String feature :
         Iterables.concat(
-            ImmutableSet.of(toolchain.getCompilationMode().toString()),
-            ImmutableSet.of(getHostOrNonHostFeature(ruleContext)),
+            ImmutableSet.of(
+                toolchain.getCompilationMode().toString(), getHostOrNonHostFeature(ruleContext)),
             DEFAULT_FEATURES,
+            toolchain.getFeatures().getDefaultFeatures(),
             ruleContext.getFeatures())) {
       if (!unsupportedFeatures.contains(feature)) {
         requestedFeatures.add(feature);

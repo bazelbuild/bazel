@@ -1040,6 +1040,13 @@ public class CcToolchainFeaturesTest {
     assertThat(features.getFeatureConfiguration("b").getCommandLine(CppCompileAction.CPP_COMPILE,
         createVariables("v", "1"))).containsExactly("-f", "1");
   }
+  
+  @Test
+  public void testDefaultFeatures() throws Exception {
+    CcToolchainFeatures features =
+        buildFeatures("feature { name: 'a' }", "feature { name: 'b' enabled: true }");
+    assertThat(features.getDefaultFeatures()).containsExactly("b");
+  }
 
   @Test
   public void testActivateActionConfigFromFeature() throws Exception {

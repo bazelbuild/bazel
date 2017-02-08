@@ -178,13 +178,18 @@ message CToolchain {
   }
 
   // Contains all flag specifications for one feature.
-  // Next ID: 7
+  // Next ID: 8
   message Feature {
     // The feature's name. Feature names are generally defined by Bazel; it is
     // possible to introduce a feature without a change to Bazel by adding a
     // 'feature' section to the toolchain and adding the corresponding string as
     // feature in the BUILD file.
     optional string name = 1;
+
+    // If 'true', this feature is enabled unless a rule type explicitly marks it
+    // as unssupported. Such features cannot be turned of from with in a BUILD
+    // file or the command line.
+    optional bool enabled = 7;
 
     // If the given feature is enabled, the flag sets will be applied for the
     // actions in the modes that they are specified for.

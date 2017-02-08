@@ -1820,13 +1820,15 @@ public class CcToolchainFeatures implements Serializable {
    * was disabled.
    */
   private final ImmutableMultimap<CrosstoolSelectable, CrosstoolSelectable> requiredBy;
+
+  private final ImmutableList<String> defaultFeatures;
  
   /**
-   * A cache of feature selection results, so we do not recalculate the feature selection for
-   * all actions.
+   * A cache of feature selection results, so we do not recalculate the feature selection for all
+   * actions.
    */
-  private transient LoadingCache<Collection<String>, FeatureConfiguration>
-      configurationCache = buildConfigurationCache();
+  private transient LoadingCache<Collection<String>, FeatureConfiguration> configurationCache =
+      buildConfigurationCache();
 
   /**
    * Constructs the feature configuration from a {@code CToolchain} protocol buffer.
@@ -1846,11 +1848,16 @@ public class CcToolchainFeatures implements Serializable {
     // Also build a map from action -> action_config, for use in tool lookups
     ImmutableMap.Builder<String, ActionConfig> actionConfigsByActionName = ImmutableMap.builder();
 
+    ImmutableList.Builder<String> defaultFeaturesBuilder = ImmutableList.builder();
     for (CToolchain.Feature toolchainFeature : toolchain.getFeatureList()) {
       Feature feature = new Feature(toolchainFeature);
       selectablesBuilder.add(feature);
       selectablesByName.put(feature.getName(), feature);
+      if (toolchainFeature.getEnabled()) {
+        defaultFeaturesBuilder.add(feature.getName());
+      }
     }
+    this.defaultFeatures = defaultFeaturesBuilder.build();
     
     for (CToolchain.ActionConfig toolchainActionConfig : toolchain.getActionConfigList()) {
       ActionConfig actionConfig = new ActionConfig(toolchainActionConfig);
@@ -2004,6 +2011,11 @@ public class CcToolchainFeatures implements Serializable {
    */ 
   public FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
     return getFeatureConfiguration(Arrays.asList(requestedFeatures));
+  }
+
+  /** Returns the list of features that specify themselves as enabled by default. */
+  public ImmutableList<String> getDefaultFeatures() {
+    return defaultFeatures;
   }
 
   /**
