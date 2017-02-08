@@ -627,6 +627,7 @@ public class LoadingPhaseRunnerTest {
           analysisMock.getDefaultsPackageContent(),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
+          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(clock));
       loadingPhaseRunner =
           skyframeExecutor.getLoadingPhaseRunner(pkgFactory.getRuleClassNames(), useNewImpl);

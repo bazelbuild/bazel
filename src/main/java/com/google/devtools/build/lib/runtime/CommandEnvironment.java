@@ -477,9 +477,7 @@ public final class CommandEnvironment {
         getWorkingDirectory(),
         defaultsPackageContents,
         getCommandId(),
-        // TODO(bazel-team): this optimization disallows rule-specified additional dependencies
-        // on the client environment!
-        getWhitelistedClientEnv(),
+        clientEnv,
         timestampGranularityMonitor,
         options);
   }

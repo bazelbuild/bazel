@@ -138,6 +138,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         defaultsPackageContents,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
@@ -151,6 +152,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageCacheOptions,
         loadingMock.getDefaultsPackageContent(),
         UUID.randomUUID(),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(

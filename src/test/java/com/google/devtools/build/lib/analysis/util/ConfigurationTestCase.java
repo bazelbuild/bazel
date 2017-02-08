@@ -129,6 +129,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             analysisMock.getInvocationPolicyEnforcer().getInvocationPolicy()),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
+        ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);

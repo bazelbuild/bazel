@@ -498,6 +498,7 @@ public class IncrementalLoadingTest {
           "",
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
+          ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
     }
 
@@ -583,6 +584,7 @@ public class IncrementalLoadingTest {
           packageCacheOptions,
           "",
           UUID.randomUUID(),
+          ImmutableMap.<String, String>of(),
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(

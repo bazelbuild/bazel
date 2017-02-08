@@ -84,6 +84,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "",
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
+            ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
@@ -452,6 +453,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             packageCacheOptions,
             "",
             UUID.randomUUID(),
+            ImmutableMap.<String, String>of(),
             ImmutableMap.<String, String>of(),
             tsgm);
     value = validPackage(skyKey);

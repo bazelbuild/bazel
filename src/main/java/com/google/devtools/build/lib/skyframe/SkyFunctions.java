@@ -24,6 +24,8 @@ public final class SkyFunctions {
   public static final SkyFunctionName PRECOMPUTED = SkyFunctionName.create("PRECOMPUTED");
   public static final SkyFunctionName CLIENT_ENVIRONMENT_VARIABLE =
       SkyFunctionName.create("CLIENT_ENVIRONMENT_VARIABLE");
+  public static final SkyFunctionName ACTION_ENVIRONMENT_VARIABLE =
+      SkyFunctionName.create("ACTION_ENVIRONMENT_VARIABLE");
   public static final SkyFunctionName FILE_STATE = SkyFunctionName.create("FILE_STATE");
   public static final SkyFunctionName DIRECTORY_LISTING_STATE =
       SkyFunctionName.create("DIRECTORY_LISTING_STATE");

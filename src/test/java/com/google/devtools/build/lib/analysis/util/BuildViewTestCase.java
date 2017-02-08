@@ -243,6 +243,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "",
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
+        ImmutableMap.<String, String>of(),
         tsgm);
     useConfiguration();
     setUpSkyframe();
@@ -350,6 +351,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageCacheOptions,
         ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID(),
+        ImmutableMap.<String, String>of(),
         ImmutableMap.<String, String>of(),
         tsgm);
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
