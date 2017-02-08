@@ -223,7 +223,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
     Iterable<Artifact> dynamicRuntimeActionInputs =
-        CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs();
+        CppHelper.getToolchain(ruleContext, ":cc_toolchain").getDynamicRuntimeLinkInputs();
 
 
     Iterables.addAll(jvmFlags,

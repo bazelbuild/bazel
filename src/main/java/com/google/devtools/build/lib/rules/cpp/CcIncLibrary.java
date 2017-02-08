@@ -59,7 +59,9 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(final RuleContext ruleContext)
       throws RuleErrorException, InterruptedException {
-    FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext, ":cc_toolchain");
+    FeatureConfiguration featureConfiguration =
+        CcCommon.configureFeatures(ruleContext, ccToolchain);
     PathFragment packageFragment = ruleContext.getPackageDirectory();
 
     // The rule needs a unique location for the include directory, which doesn't conflict with any
@@ -126,7 +128,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
         new CreateIncSymlinkAction(ruleContext.getActionOwner(), virtualArtifactMap, includeRoot));
 
     CcLibraryHelper.Info info =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain)
             .addIncludeDirs(Arrays.asList(includePath))
             .addPublicHeaders(virtualArtifactMap.keySet())
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET))

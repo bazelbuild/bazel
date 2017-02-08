@@ -191,7 +191,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     // TODO(bazel-team): Make the make variable expander pass back a list of these.
     if (requiresCrosstool(baseCommand)) {
       // If cc is used, silently throw in the crosstool filegroup as a dependency.
-      inputs.addTransitive(CppHelper.getToolchain(ruleContext).getCrosstoolMiddleman());
+      inputs.addTransitive(
+          CppHelper.getToolchain(ruleContext, ":cc_toolchain").getCrosstoolMiddleman());
     }
     if (requiresJdk(baseCommand)) {
       // If javac is used, silently throw in the jdk filegroup as a dependency.

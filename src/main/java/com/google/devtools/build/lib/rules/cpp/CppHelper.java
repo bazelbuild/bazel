@@ -83,7 +83,7 @@ public class CppHelper {
    * using the ":stl" attribute.
    */
   public static void mergeToolchainDependentContext(RuleContext ruleContext,
-      Builder contextBuilder) {
+      CcToolchainProvider toolchain, Builder contextBuilder) {
     if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
       TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
       if (stl != null) {
@@ -93,7 +93,6 @@ public class CppHelper {
         contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
       }
     }
-    CcToolchainProvider toolchain = getToolchain(ruleContext);
     if (toolchain != null) {
       contextBuilder.mergeDependentContext(toolchain.getCppCompilationContext());
     }
@@ -225,36 +224,39 @@ public class CppHelper {
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
-      RuleContext ruleContext) {
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return CppHelper.getToolchain(ruleContext).getCoverageEnvironment();
+      return toolchain.getCoverageEnvironment();
     } else {
       return NestedSetBuilder.emptySet(Order.COMPILE_ORDER);
     }
   }
 
-  public static NestedSet<Artifact> getGcovFilesIfNeeded(RuleContext ruleContext) {
+  public static NestedSet<Artifact> getGcovFilesIfNeeded(
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return CppHelper.getToolchain(ruleContext).getCrosstool();
+      return toolchain.getCrosstool();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
   }
 
   /**
-   * This almost trivial method looks up the :cc_toolchain attribute on the rule context, makes sure
-   * that it refers to a rule that has a {@link CcToolchainProvider} (gives an error otherwise), and
-   * returns a reference to that {@link CcToolchainProvider}. The method only returns {@code null}
-   * if there is no such attribute (this is currently not an error).
+   * This almost trivial method looks up the given cc toolchain attribute on the rule context, makes
+   * sure that it refers to a rule that has a {@link CcToolchainProvider}
+   * (gives an error otherwise), and returns a reference to that {@link CcToolchainProvider}.
+   * The method only returns {@code null} if there is no such attribute
+   * (this is currently not an error).
    */
-  @Nullable public static CcToolchainProvider getToolchain(RuleContext ruleContext) {
-    if (!ruleContext.isAttrDefined(":cc_toolchain", LABEL)) {
-      // TODO(bazel-team): Report an error or throw an exception in this case.
-      return null;
-    }
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(":cc_toolchain", Mode.TARGET);
-    return getToolchain(ruleContext, dep);
-  }
+   @Nullable public static CcToolchainProvider getToolchain(RuleContext ruleContext,
+       String toolchainAttribute) {
+     if (!ruleContext.isAttrDefined(toolchainAttribute, LABEL)) {
+       // TODO(bazel-team): Report an error or throw an exception in this case.
+       return null;
+     }
+     TransitiveInfoCollection dep = ruleContext.getPrerequisite(toolchainAttribute, Mode.TARGET);
+     return getToolchain(ruleContext, dep);
+   }
 
   /**
    * This almost trivial method makes sure that the given info collection has a {@link
@@ -537,11 +539,11 @@ public class CppHelper {
   /**
    * Creates an action to strip an executable.
    */
-  public static void createStripAction(RuleContext context,
+  public static void createStripAction(RuleContext context, CcToolchainProvider toolchain,
       CppConfiguration cppConfiguration, Artifact input, Artifact output) {
     context.registerAction(new SpawnAction.Builder()
         .addInput(input)
-        .addTransitiveInputs(CppHelper.getToolchain(context).getStrip())
+        .addTransitiveInputs(toolchain.getStrip())
         .addOutput(output)
         .useDefaultShellEnvironment()
         .setExecutable(cppConfiguration.getStripExecutable())
@@ -582,18 +584,21 @@ public class CppHelper {
         ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
-  static String getArtifactNameForCategory(RuleContext ruleContext, ArtifactCategory category,
+  static String getArtifactNameForCategory(
+      RuleContext ruleContext, CcToolchainProvider toolchain, ArtifactCategory category,
       String outputName) {
-    return getToolchain(ruleContext).getFeatures().getArtifactNameForCategory(category, outputName);
+    return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
   }
 
-  static String getDotdFileName(RuleContext ruleContext, ArtifactCategory outputCategory,
+  static String getDotdFileName(
+      RuleContext ruleContext, CcToolchainProvider toolchain, ArtifactCategory outputCategory,
       String outputName) {
     String baseName = outputCategory == ArtifactCategory.OBJECT_FILE
         || outputCategory == ArtifactCategory.PROCESSED_HEADER
         ? outputName
-        : getArtifactNameForCategory(ruleContext, outputCategory, outputName);
+        : getArtifactNameForCategory(ruleContext, toolchain, outputCategory, outputName);
 
-    return getArtifactNameForCategory(ruleContext, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
+    return getArtifactNameForCategory(
+        ruleContext, toolchain, ArtifactCategory.INCLUDED_FILE_LIST, baseName);
   }
 }

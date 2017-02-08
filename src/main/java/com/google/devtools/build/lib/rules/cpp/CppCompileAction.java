@@ -269,6 +269,8 @@ public class CppCompileAction extends AbstractAction
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
    * @param ruleContext The rule-context that produced this action
+   * @param cppSemantics C++ compilation semantics
+   * @param ccToolchain C++ toolchain provider
    */
   protected CppCompileAction(
       ActionOwner owner,
@@ -305,11 +307,13 @@ public class CppCompileAction extends AbstractAction
       ImmutableMap<String, String> environment,
       String actionName,
       RuleContext ruleContext,
-      CppSemantics cppSemantics) {
+      CppSemantics cppSemantics,
+      CcToolchainProvider ccToolchain) {
     super(
         owner,
         createInputs(
             ruleContext,
+            ccToolchain,
             mandatoryInputs,
             context.getTransitiveCompilationPrerequisites(),
             optionalSourceFile,
@@ -347,7 +351,7 @@ public class CppCompileAction extends AbstractAction
     // artifact and will definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     this.prunableInputs = prunableInputs;
-    this.builtinIncludeFiles = CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles();
+    this.builtinIncludeFiles = ccToolchain.getBuiltinIncludeFiles();
     this.cppSemantics = cppSemantics;
     if (cppSemantics.needsIncludeValidation()) {
       verifyIncludePaths(ruleContext);
@@ -392,6 +396,7 @@ public class CppCompileAction extends AbstractAction
 
   private static NestedSet<Artifact> createInputs(
       RuleContext ruleContext,
+      CcToolchainProvider ccToolchain,
       NestedSet<Artifact> mandatoryInputs,
       Set<Artifact> prerequisites,
       Artifact optionalSourceFile,
@@ -401,7 +406,7 @@ public class CppCompileAction extends AbstractAction
       builder.add(optionalSourceFile);
     }
     builder.addAll(prerequisites);
-    builder.addAll(CppHelper.getToolchain(ruleContext).getBuiltinIncludeFiles());
+    builder.addAll(ccToolchain.getBuiltinIncludeFiles());
     builder.addTransitive(mandatoryInputs);
     if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
       // We need to add "legal generated scanner files" coming through LIPO scannables here. These

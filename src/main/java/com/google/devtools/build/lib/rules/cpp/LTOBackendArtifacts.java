@@ -108,6 +108,7 @@ public final class LTOBackendArtifacts {
   public void scheduleLTOBackendAction(
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
+      CcToolchainProvider ccToolchain,
       boolean usePic,
       boolean generateDwo) {
     LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
@@ -115,7 +116,7 @@ public final class LTOBackendArtifacts {
 
     builder.addInput(bitcodeFile);
     builder.addInput(index);
-    builder.addTransitiveInputs(CppHelper.getToolchain(ruleContext).getCompile());
+    builder.addTransitiveInputs(ccToolchain.getCompile());
 
     builder.addOutput(objectFile);
 

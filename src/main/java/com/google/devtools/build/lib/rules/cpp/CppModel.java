@@ -87,10 +87,13 @@ public final class CppModel {
   private Artifact soImplArtifact;
   private FeatureConfiguration featureConfiguration;
   private List<VariablesExtension> variablesExtensions = new ArrayList<>();
+  private CcToolchainProvider ccToolchain;
 
-  public CppModel(RuleContext ruleContext, CppSemantics semantics) {
+  public CppModel(RuleContext ruleContext, CppSemantics semantics,
+      CcToolchainProvider ccToolchain) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
+    this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     configuration = ruleContext.getConfiguration();
     cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
   }
@@ -252,7 +255,7 @@ public final class CppModel {
     this.featureConfiguration = featureConfiguration;
     return this;
   }
-  
+
   /**
    * @returns whether we want to provide header modules for the current target.
    */
@@ -446,7 +449,7 @@ public final class CppModel {
       buildVariables.addStringVariable("per_object_debug_info_file", dwoFile.getExecPathString());
     }
 
-    buildVariables.addAllStringVariables(CppHelper.getToolchain(ruleContext).getBuildVariables());
+    buildVariables.addAllStringVariables(ccToolchain.getBuildVariables());
 
     buildVariables.addAllStringVariables(sourceSpecificBuildVariables);
 
@@ -518,8 +521,8 @@ public final class CppModel {
 
   private void createHeaderAction(String outputName, Builder result, AnalysisEnvironment env,
       CppCompileActionBuilder builder, boolean generateDotd) {
-    String outputNameBase = CppHelper.getArtifactNameForCategory(ruleContext,
-        ArtifactCategory.GENERATED_HEADER, outputName);
+    String outputNameBase = CppHelper.getArtifactNameForCategory(
+        ruleContext, ccToolchain, ArtifactCategory.GENERATED_HEADER, outputName);
 
     builder
         .setOutputs(ArtifactCategory.PROCESSED_HEADER, outputNameBase, generateDotd)
@@ -630,11 +633,11 @@ public final class CppModel {
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
       if (generatePicAction) {
         String picOutputBase = CppHelper.getArtifactNameForCategory(ruleContext,
-            ArtifactCategory.PIC_FILE, outputName);
+            ccToolchain, ArtifactCategory.PIC_FILE, outputName);
         CppCompileActionBuilder picBuilder = copyAsPicBuilder(
             builder, picOutputBase, outputCategory, generateDotd);
         String gcnoFileName = CppHelper.getArtifactNameForCategory(ruleContext,
-            ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
+            ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
         Artifact gcnoFile = enableCoverage
             ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName)
             : null;
@@ -683,11 +686,13 @@ public final class CppModel {
       }
 
       if (generateNoPicAction) {
-        Artifact noPicOutputFile = CppHelper.getCompileOutputArtifact(ruleContext,
-            CppHelper.getArtifactNameForCategory(ruleContext, outputCategory, outputName));
+        Artifact noPicOutputFile = CppHelper.getCompileOutputArtifact(
+            ruleContext,
+            CppHelper.getArtifactNameForCategory(
+                ruleContext, ccToolchain, outputCategory, outputName));
         builder.setOutputs(outputCategory, outputName, generateDotd);
         String gcnoFileName = CppHelper.getArtifactNameForCategory(ruleContext,
-            ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+            ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
 
         // Create non-PIC compile actions
         Artifact gcnoFile =
@@ -748,7 +753,8 @@ public final class CppModel {
 
   String getOutputNameBaseWith(String base, boolean usePic) {
     return usePic
-        ? CppHelper.getArtifactNameForCategory(ruleContext, ArtifactCategory.PIC_FILE, base)
+        ? CppHelper.getArtifactNameForCategory(
+            ruleContext, ccToolchain, ArtifactCategory.PIC_FILE, base)
         : base;
   }
 
@@ -759,8 +765,9 @@ public final class CppModel {
     String outputNameBase = getOutputNameBaseWith(outputName, usePic);
     String tempOutputName = ruleContext.getConfiguration().getBinFragment()
         .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()))
-        .getRelative(CppHelper.getArtifactNameForCategory(ruleContext, outputCategory,
-            getOutputNameBaseWith(outputName + ".temp", usePic)))
+        .getRelative(
+            CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory,
+                getOutputNameBaseWith(outputName + ".temp", usePic)))
         .getPathString();
     builder
         .setPicMode(usePic)
@@ -809,11 +816,11 @@ public final class CppModel {
       String maybePicName = ruleContext.getLabel().getName();
       if (linkTargetType.picness() == Picness.PIC) {
         maybePicName = CppHelper.getArtifactNameForCategory(
-            ruleContext, ArtifactCategory.PIC_FILE, maybePicName);
+            ruleContext, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
       }
 
       String linkedName = CppHelper.getArtifactNameForCategory(
-          ruleContext, linkTargetType.getLinkerOutput(), maybePicName);
+          ruleContext, ccToolchain, linkTargetType.getLinkerOutput(), maybePicName);
       PathFragment artifactFragment = new PathFragment(ruleContext.getLabel().getName())
           .getParentDirectory().getRelative(linkedName);
       result = ruleContext.getBinArtifact(artifactFragment);
@@ -982,8 +989,8 @@ public final class CppModel {
             .addLinkopts(sonameLinkopts)
             .setRuntimeInputs(
                 ArtifactCategory.DYNAMIC_LIBRARY,
-                CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
-                CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
+                ccToolchain.getDynamicRuntimeLinkMiddleman(),
+                ccToolchain.getDynamicRuntimeLinkInputs())
             .setFeatureConfiguration(featureConfiguration)
             .addVariablesExtensions(variablesExtensions);
 
@@ -997,6 +1004,7 @@ public final class CppModel {
         ltoArtifacts.scheduleLTOBackendAction(
             ruleContext,
             featureConfiguration,
+            ccToolchain,
             usePicForSharedLibs,
             // If support is ever added for generating a dwp file for shared
             // library targets (e.g. when linkstatic=0), then this should change
@@ -1044,8 +1052,8 @@ public final class CppModel {
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
-    return new CppLinkActionBuilder(ruleContext, outputArtifact)
-        .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
+    return new CppLinkActionBuilder(ruleContext, outputArtifact, ccToolchain)
+        .setCrosstoolInputs(ccToolchain.getLink())
         .addNonCodeInputs(context.getTransitiveCompilationPrerequisites());
   }
 
@@ -1055,10 +1063,10 @@ public final class CppModel {
    */
   private CppCompileActionBuilder createCompileActionBuilder(Artifact source, Label label) {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(
-        ruleContext, source, label);
+        ruleContext, source, label, ccToolchain);
 
     builder.setContext(context).addCopts(copts);
-    builder.addEnvironment(CppHelper.getToolchain(ruleContext).getEnvironment());
+    builder.addEnvironment(ccToolchain.getEnvironment());
     return builder;
   }
 

@@ -95,9 +95,13 @@ public final class CcCommon {
   
   private final RuleContext ruleContext;
 
+  private final CcToolchainProvider ccToolchain;
+
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    this.ccToolchain =
+        Preconditions.checkNotNull(CppHelper.getToolchain(ruleContext, ":cc_toolchain"));
   }
 
   /**
@@ -269,6 +273,13 @@ public final class CcCommon {
       result.add(Pair.of(entry.getKey(), entry.getValue()));
     }
     return result.build();
+  }
+
+  /**
+   * Returns the C++ toolchain provider.
+   */
+  public CcToolchainProvider getToolchain() {
+    return ccToolchain;
   }
 
   /**
@@ -491,8 +502,8 @@ public final class CcCommon {
         ? InstrumentedFilesProviderImpl.EMPTY
         : InstrumentedFilesCollector.collect(
             ruleContext, CppRuleClasses.INSTRUMENTATION_SPEC, CC_METADATA_COLLECTOR, files,
-            CppHelper.getGcovFilesIfNeeded(ruleContext),
-            CppHelper.getCoverageEnvironmentIfNeeded(ruleContext),
+            CppHelper.getGcovFilesIfNeeded(ruleContext, ccToolchain),
+            CppHelper.getCoverageEnvironmentIfNeeded(ruleContext, ccToolchain),
             withBaselineCoverage);
   }
 
@@ -581,24 +592,14 @@ public final class CcCommon {
   }
 
   /**
-   * Creates a feature configuration for a given rule.
-   *
-   * @param ruleContext the context of the rule we want the feature configuraiton for.
-   * @param sourceCategory the category of sources to be used in this build.
-   * @return the feature configuration for the given {@code ruleContext}.
-   */
-  public static FeatureConfiguration configureFeatures(
-      RuleContext ruleContext, SourceCategory sourceCategory) {
-    return configureFeatures(ruleContext, CppHelper.getToolchain(ruleContext), sourceCategory);
-  }
-
-  /**
    * Creates a feature configuration for a given rule.  Assumes strictly cc sources.
    *
    * @param ruleContext the context of the rule we want the feature configuration for.
+   * @param toolchain C++ toolchain provider.
    * @return the feature configuration for the given {@code ruleContext}.
    */
-  public static FeatureConfiguration configureFeatures(RuleContext ruleContext) {
-    return configureFeatures(ruleContext, SourceCategory.CC);
+  public static FeatureConfiguration configureFeatures(
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    return configureFeatures(ruleContext, toolchain, SourceCategory.CC);
   }
 }

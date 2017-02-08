@@ -83,13 +83,15 @@ public class CppCompileActionBuilder {
   private Boolean shouldScanIncludes;
   private Map<String, String> environment = new LinkedHashMap<>();
   private CppSemantics cppSemantics;
+  private CcToolchainProvider ccToolchain;
   // New fields need to be added to the copy constructor.
 
   /**
    * Creates a builder from a rule. This also uses the configuration and
    * artifact factory from the rule.
    */
-  public CppCompileActionBuilder(RuleContext ruleContext, Artifact sourceFile, Label sourceLabel) {
+  public CppCompileActionBuilder(RuleContext ruleContext, Artifact sourceFile, Label sourceLabel,
+      CcToolchainProvider ccToolchain) {
     this.owner = ruleContext.getActionOwner();
     this.actionContext = CppCompileActionContext.class;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -101,6 +103,7 @@ public class CppCompileActionBuilder {
     this.lipoScannableMap = getLipoScannableMap(ruleContext);
     this.ruleContext = ruleContext;
     this.allowUsingHeaderModules = true;
+    this.ccToolchain = ccToolchain;
 
     features.addAll(ruleContext.getFeatures());
   }
@@ -154,6 +157,7 @@ public class CppCompileActionBuilder {
     this.shouldScanIncludes = other.shouldScanIncludes;
     this.environment = new LinkedHashMap<>(other.environment);
     this.cppSemantics = other.cppSemantics;
+    this.ccToolchain = other.ccToolchain;
   }
 
   public PathFragment getTempOutputFile() {
@@ -312,7 +316,8 @@ public class CppCompileActionBuilder {
           ImmutableList.copyOf(copts),
           getNocoptPredicate(nocopts),
           ruleContext,
-          cppSemantics);
+          cppSemantics,
+          ccToolchain);
     } else {
       return new CppCompileAction(
           owner,
@@ -347,7 +352,8 @@ public class CppCompileActionBuilder {
           ImmutableMap.copyOf(environment),
           getActionName(),
           ruleContext,
-          cppSemantics);
+          cppSemantics,
+          ccToolchain);
     }
   }
   
@@ -430,9 +436,11 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setOutputs(
       ArtifactCategory outputCategory, String outputName, boolean generateDotd) {
     this.outputFile = CppHelper.getCompileOutputArtifact(
-        ruleContext, CppHelper.getArtifactNameForCategory(ruleContext, outputCategory, outputName));
+        ruleContext,
+        CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName));
     if (generateDotd) {
-      String dotdFileName = CppHelper.getDotdFileName(ruleContext, outputCategory, outputName);
+      String dotdFileName =
+          CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
       if (configuration.getFragment(CppConfiguration.class).getInmemoryDotdFiles()) {
         // Just set the path, no artifact is constructed
         dotdFile = new DotdFile(
@@ -529,5 +537,9 @@ public class CppCompileActionBuilder {
 
   public boolean getShouldScanIncludes() {
     return shouldScanIncludes;
+  }
+
+  public CcToolchainProvider getToolchain() {
+    return ccToolchain;
   }
 }

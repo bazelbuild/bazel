@@ -83,7 +83,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       ImmutableList<String> copts,
       Predicate<String> nocopts,
       RuleContext ruleContext,
-      CppSemantics cppSemantics) {
+      CppSemantics cppSemantics,
+      CcToolchainProvider ccToolchain) {
     super(
         owner,
         features,
@@ -124,7 +125,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
         ruleContext,
-        cppSemantics);
+        cppSemantics,
+        ccToolchain);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
