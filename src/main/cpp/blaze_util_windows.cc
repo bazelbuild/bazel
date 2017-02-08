@@ -13,21 +13,25 @@
 // limitations under the License.
 
 #include <errno.h>  // errno, ENAMETOOLONG
+#include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>  // va_start, va_end, va_list
 
 #ifndef COMPILER_MSVC
-#include <fcntl.h>
 #include <sys/cygwin.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <unistd.h>
-#endif  // COMPILER_MSVC
+#endif  // not COMPILER_MSVC
 
 #include <windows.h>
 #include <lmcons.h>  // UNLEN
+
+#ifdef COMPILER_MSVC
+#include <io.h>  // _open
+#endif  // COMPILER_MSVC
 
 #include <cstdio>
 #include <cstdlib>
@@ -1158,8 +1162,16 @@ void UnsetEnv(const string& name) { SetEnv(name, ""); }
 
 void SetupStdStreams() {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): Decide if we want to implement this, and act accordingly.
-  pdie(255, "blaze::SetupStdStreams is not implemented on Windows");
+  static const DWORD stdhandles[] = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
+                                     STD_ERROR_HANDLE};
+  for (int i = 0; i < 2; ++i) {
+    HANDLE handle = ::GetStdHandle(stdhandles[i]);
+    if (handle == INVALID_HANDLE_VALUE || handle == NULL) {
+      // Ensure we have open fds to each std* stream. Otherwise we can end up
+      // with bizarre things like stdout going to the lock file, etc.
+      _open("NUL", (i == 0) ? _O_RDONLY : _O_WRONLY);
+    }
+  }
 #else  // not COMPILER_MSVC
   // Set non-buffered output mode for stderr/stdout. The server already
   // line-buffers messages where it makes sense, so there's no need to do set
