@@ -1400,7 +1400,7 @@ int GetTerminalColumns() {
   // Windows console attached so GetConsoleScreenBufferInfo fails.
   windows_util::AutoHandle stdout_handle(::GetStdHandle(STD_OUTPUT_HANDLE));
   CONSOLE_SCREEN_BUFFER_INFO screen_info;
-  if (GetConsoleScreenBufferInfo(stdout_handle.handle, &screen_info)) {
+  if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
     int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
     if (width > 1) {
       return width;

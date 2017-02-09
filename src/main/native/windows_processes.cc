@@ -235,7 +235,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
         /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
         /* hTemplateFile */ NULL);
 
-    if (stdout_process.handle == INVALID_HANDLE_VALUE) {
+    if (!stdout_process.IsValid()) {
       result->error_ = windows_util::GetLastErrorString("CreateFile(stdout)");
       return PtrAsJlong(result);
     }
@@ -359,7 +359,7 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
   }
 
   // Now that we put the process in a new job object, we can start executing it
-  if (ResumeThread(thread.handle) == -1) {
+  if (ResumeThread(thread) == -1) {
     result->error_ = windows_util::GetLastErrorString("ResumeThread()");
     return PtrAsJlong(result);
   }

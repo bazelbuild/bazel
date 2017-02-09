@@ -119,21 +119,10 @@ class WindowsPipe : public IPipe {
 
   WindowsPipe() = delete;
 
-  virtual ~WindowsPipe() {
-    if (_read_handle != INVALID_HANDLE_VALUE) {
-      CloseHandle(_read_handle);
-      _read_handle = INVALID_HANDLE_VALUE;
-    }
-    if (_write_handle != INVALID_HANDLE_VALUE) {
-      CloseHandle(_write_handle);
-      _write_handle = INVALID_HANDLE_VALUE;
-    }
-  }
-
   bool Send(const void* buffer, int size) override {
     DWORD actually_written = 0;
-    return ::WriteFile(_write_handle, buffer, size, &actually_written, NULL) ==
-           TRUE;
+    return ::WriteFile(_write_handle, buffer, size, &actually_written,
+                       NULL) == TRUE;
   }
 
   int Receive(void* buffer, int size) override {
@@ -144,8 +133,8 @@ class WindowsPipe : public IPipe {
   }
 
  private:
-  HANDLE _read_handle;
-  HANDLE _write_handle;
+  windows_util::AutoHandle _read_handle;
+  windows_util::AutoHandle _write_handle;
 };
 
 IPipe* CreatePipe() {
@@ -203,12 +192,12 @@ bool WindowsFileMtime::GetIfInDistantFuture(const string& path, bool* result) {
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
-  if (handle.handle == INVALID_HANDLE_VALUE) {
+  if (!handle.IsValid()) {
     return false;
   }
   FILETIME mtime;
   if (!::GetFileTime(
-          /* hFile */ handle.handle,
+          /* hFile */ handle,
           /* lpCreationTime */ NULL,
           /* lpLastAccessTime */ NULL,
           /* lpLastWriteTime */ &mtime)) {
@@ -252,11 +241,11 @@ bool WindowsFileMtime::Set(const string& path, const FILETIME& time) {
           ? (FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS)
           : FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL));
-  if (handle.handle == INVALID_HANDLE_VALUE) {
+  if (!handle.IsValid()) {
     return false;
   }
   return ::SetFileTime(
-             /* hFile */ handle.handle,
+             /* hFile */ handle,
              /* lpCreationTime */ NULL,
              /* lpLastAccessTime */ NULL,
              /* lpLastWriteTime */ &time) == TRUE;
@@ -540,26 +529,26 @@ bool ReadFile(const string& filename, string* content, int max_size) {
   if (!AsWindowsPathWithUncPrefix(filename, &wfilename)) {
     return false;
   }
-  HANDLE handle = ::CreateFileW(
+  windows_util::AutoHandle handle(::CreateFileW(
       /* lpFileName */ wfilename.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
-  if (handle == INVALID_HANDLE_VALUE) {
+      /* hTemplateFile */ NULL));
+  if (!handle.IsValid()) {
     return false;
   }
 
+  HANDLE h = handle;
   bool result = ReadFrom(
-      [handle](void* buf, int len) {
+      [h](void* buf, int len) {
         DWORD actually_read = 0;
-        ::ReadFile(handle, buf, len, &actually_read, NULL);
+        ::ReadFile(h, buf, len, &actually_read, NULL);
         return actually_read;
       },
       content, max_size);
-  CloseHandle(handle);
   return result;
 }
 
@@ -573,26 +562,26 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
   }
 
   UnlinkPathW(wpath);  // We don't care about the success of this.
-  HANDLE handle = ::CreateFileW(
+  windows_util::AutoHandle handle(::CreateFileW(
       /* lpFileName */ wpath.c_str(),
       /* dwDesiredAccess */ GENERIC_WRITE,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ CREATE_ALWAYS,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
-  if (handle == INVALID_HANDLE_VALUE) {
+      /* hTemplateFile */ NULL));
+  if (!handle.IsValid()) {
     return false;
   }
 
+  HANDLE h = handle;
   bool result = WriteTo(
-      [handle](const void* buf, size_t bufsize) {
+      [h](const void* buf, size_t bufsize) {
         DWORD actually_written = 0;
-        ::WriteFile(handle, buf, bufsize, &actually_written, NULL);
+        ::WriteFile(h, buf, bufsize, &actually_written, NULL);
         return actually_written;
       },
       data, size);
-  CloseHandle(handle);
   return result;
 }
 
@@ -758,8 +747,9 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
         return false;
       }
       // Get a handle to the directory.
-      HANDLE handle = OpenDirectory(path, /* read_write */ false);
-      if (handle == INVALID_HANDLE_VALUE) {
+      windows_util::AutoHandle handle(
+          OpenDirectory(path, /* read_write */ false));
+      if (!handle.IsValid()) {
         // Opening the junction failed for whatever reason. For all intents and
         // purposes we can treat this file as if it didn't exist.
         return false;
@@ -769,7 +759,6 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
       BOOL ok = ::DeviceIoControl(
           handle, FSCTL_GET_REPARSE_POINT, NULL, 0, reparse_buffer_,
           MAXIMUM_REPARSE_DATA_BUFFER_SIZE, &bytes_returned, NULL);
-      CloseHandle(handle);
       if (!ok) {
         // Reading the junction data failed. For all intents and purposes we can
         // treat this file as if it didn't exist.
@@ -827,20 +816,15 @@ static bool CanReadFileW(const wstring& path) {
   }
   // The only easy way to find out if a file is readable is to attempt to open
   // it for reading.
-  HANDLE handle = ::CreateFileW(
+  windows_util::AutoHandle handle(::CreateFileW(
       /* lpFileName */ path.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
-  if (handle == INVALID_HANDLE_VALUE) {
-    return false;
-  } else {
-    CloseHandle(handle);
-    return true;
-  }
+      /* hTemplateFile */ NULL));
+  return handle.IsValid();
 }
 
 bool CanReadFile(const std::string& path) {
