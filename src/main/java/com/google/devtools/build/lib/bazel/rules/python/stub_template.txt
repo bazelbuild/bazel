@@ -99,12 +99,9 @@ def Main():
   python_path_entries += repositories
 
   old_python_path = os.environ.get('PYTHONPATH')
-  separator = ':'
-  if IsWindows():
-    separator = ';'
-  python_path = separator.join(python_path_entries)
+  python_path = os.pathsep.join(python_path_entries)
   if old_python_path:
-    python_path += separator + old_python_path
+    python_path += os.pathsep + old_python_path
 
   new_env['PYTHONPATH'] = python_path
 
