@@ -35,6 +35,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IQUOTE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
@@ -158,8 +159,9 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<ObjcProvider> runtimeDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
+    private Iterable<PathFragment> includes = ImmutableList.of();
+    private Iterable<PathFragment> directDependencyIncludes = ImmutableList.of();
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
-    private Iterable<PathFragment> directDependencyHeaderSearchPaths = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
@@ -318,20 +320,23 @@ public final class ObjcCommon {
       return this;
     }
 
-    public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
-      this.userHeaderSearchPaths =
-          Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
+    /** Adds includes to be passed into compile actions with {@code -I}. */
+    public Builder addIncludes(Iterable<PathFragment> includes) {
+      this.includes = Iterables.concat(this.includes, includes);
       return this;
     }
 
-    /**
-     * Adds header search paths that will only be visible by strict dependents of the provider.
-     */
-    public Builder addDirectDependencyHeaderSearchPaths(
-        Iterable<PathFragment> directDependencyHeaderSearchPaths) {
-      this.directDependencyHeaderSearchPaths =
-          Iterables.concat(
-              this.directDependencyHeaderSearchPaths, directDependencyHeaderSearchPaths);
+    /** Adds header search paths that will only be visible by strict dependents of the provider. */
+    public Builder addDirectDependencyIncludes(Iterable<PathFragment> directDependencyIncludes) {
+      this.directDependencyIncludes =
+          Iterables.concat(this.directDependencyIncludes, directDependencyIncludes);
+      return this;
+    }
+
+    /** Adds user header search paths to be passed into compile actions with {@code -iquote}. */
+    public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
+      this.userHeaderSearchPaths =
+          Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
       return this;
     }
 
@@ -394,6 +399,7 @@ public final class ObjcCommon {
     }
 
     ObjcCommon build() {
+
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
 
       ObjcProvider.Builder objcProvider =
@@ -409,12 +415,16 @@ public final class ObjcCommon {
               .addAll(SDK_DYLIB, extraSdkDylibs)
               .addAll(STATIC_FRAMEWORK_FILE, staticFrameworkImports)
               .addAll(DYNAMIC_FRAMEWORK_FILE, dynamicFrameworkImports)
-              .addAll(STATIC_FRAMEWORK_DIR,
+              .addAll(
+                  STATIC_FRAMEWORK_DIR,
                   uniqueContainers(staticFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
-              .addAll(DYNAMIC_FRAMEWORK_DIR,
+              .addAll(
+                  DYNAMIC_FRAMEWORK_DIR,
                   uniqueContainers(dynamicFrameworkImports, FRAMEWORK_CONTAINER_TYPE))
-              .addAll(INCLUDE, userHeaderSearchPaths)
-              .addAllForDirectDependents(INCLUDE, directDependencyHeaderSearchPaths)
+              .addAll(INCLUDE, includes)
+              .addAll(IQUOTE, userHeaderSearchPaths)
+              .add(IQUOTE, buildConfiguration.getGenfilesFragment())
+              .addAllForDirectDependents(INCLUDE, directDependencyIncludes)
               .addAll(DEFINE, defines)
               .addTransitiveAndPropagate(depObjcProviders)
               .addTransitiveWithoutPropagating(directDepObjcProviders);
@@ -673,8 +683,13 @@ public final class ObjcCommon {
     return false;
   }
 
-  static ImmutableList<PathFragment> userHeaderSearchPaths(BuildConfiguration configuration) {
-    return ImmutableList.of(new PathFragment("."), configuration.getGenfilesFragment());
+  static ImmutableSet<PathFragment> userHeaderSearchPaths(
+      ObjcProvider provider, BuildConfiguration config) {
+    return ImmutableSet.<PathFragment>builder()
+        .add(new PathFragment("."))
+        .add(config.getGenfilesFragment())
+        .addAll(provider.get(IQUOTE))
+        .build();
   }
 
   /**

@@ -121,7 +121,7 @@ final class ProtocolBuffers2Support {
   public XcodeProvider getXcodeProvider() {
     XcodeProvider.Builder xcodeProviderBuilder =
         new XcodeProvider.Builder()
-            .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
+            .addUserHeaderSearchPaths(getIncludes())
             .setCompilationArtifacts(getCompilationArtifacts());
 
     new XcodeSupport(ruleContext)
@@ -145,7 +145,7 @@ final class ProtocolBuffers2Support {
         .setIntermediateArtifacts(new IntermediateArtifacts(ruleContext, ""))
         .setHasModuleMap()
         .setCompilationArtifacts(getCompilationArtifacts())
-        .addUserHeaderSearchPaths(getUserHeaderSearchPaths())
+        .addIncludes(getIncludes())
         .addDepObjcProviders(
             ruleContext.getPrerequisites(
                 ObjcRuleClasses.PROTO_LIB_ATTR, Mode.TARGET, ObjcProvider.class))
@@ -198,7 +198,7 @@ final class ProtocolBuffers2Support {
     return commandLineBuilder.build();
   }
 
-  public ImmutableSet<PathFragment> getUserHeaderSearchPaths() {
+  public ImmutableSet<PathFragment> getIncludes() {
     ImmutableSet.Builder<PathFragment> searchPathEntriesBuilder =
         new ImmutableSet.Builder<PathFragment>().add(getWorkspaceRelativeOutputDir());
 

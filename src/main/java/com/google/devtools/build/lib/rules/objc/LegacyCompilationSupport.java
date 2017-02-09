@@ -287,7 +287,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
         .add(compileFlagsForClang(appleConfiguration))
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add(objcConfiguration.getCoptsForCompilationMode())
-        .addBeforeEachPath("-iquote", ObjcCommon.userHeaderSearchPaths(buildConfiguration))
+        .addBeforeEachPath(
+            "-iquote", ObjcCommon.userHeaderSearchPaths(objcProvider, buildConfiguration))
         .addBeforeEachExecPath("-include", pchFile.asSet())
         .addBeforeEachPath("-I", priorityHeaders)
         .addBeforeEachPath("-I", objcProvider.get(INCLUDE))
