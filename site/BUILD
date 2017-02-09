@@ -106,7 +106,11 @@ origdir=$$PWD
 tmpdir=$$(mktemp -d)
 for f in $(SRCS); do
     mkdir -p $$tmpdir/$$(dirname $$f)
-    $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+    if which dot; then
+      $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
+    else
+      cp $$f $$tempdir/$$f
+    fi
 done
 cd $$tmpdir/site
 tar cf $$origdir/$@ *
