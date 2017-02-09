@@ -538,7 +538,11 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testListMultiply() throws Exception {
     newTest()
+        .testStatement("[1, 2, 3] * 1", MutableList.of(env, 1, 2, 3))
         .testStatement("[1, 2] * 2", MutableList.of(env, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 3", MutableList.of(env, 1, 2, 1, 2, 1, 2))
+        .testStatement("[1, 2] * 4", MutableList.of(env, 1, 2, 1, 2, 1, 2, 1, 2))
+        .testStatement("[8] * 5", MutableList.of(env, 8, 8, 8, 8, 8))
         .testStatement("[    ] * 10", MutableList.EMPTY)
         .testStatement("[1, 2] * 0", MutableList.EMPTY)
         .testStatement("[1, 2] * -4", MutableList.EMPTY)
