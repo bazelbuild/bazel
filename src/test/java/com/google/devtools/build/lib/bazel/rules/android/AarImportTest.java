@@ -209,4 +209,20 @@ public class AarImportTest extends BuildViewTestCase {
             "bin a/_aar/foo/classes_and_libs_merged.jar",
             "src java/baz.jar");
   }
+
+  @Test
+  public void testFailsWithoutAndroidSdk() throws Exception {
+    scratch.file("sdk/BUILD",
+        "alias(",
+        "    name = 'sdk',",
+        "    actual = 'doesnotexist',",
+        ")");
+    useConfiguration("--android_sdk=//sdk");
+    checkError("aar", "aar",
+        "No Android SDK found. Use the --android_sdk command line option to specify one.",
+        "aar_import(",
+        "    name = 'aar',",
+        "    aar = 'a.aar',",
+        ")");
+  }
 }
