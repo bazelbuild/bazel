@@ -74,7 +74,7 @@ def get_relative_path(artifact):
     string: the root-relative path for this artifact.
   """
   # TODO(bazel-team): remove this workaround when Artifact::short_path is fixed.
-  if artifact.is_source and is_external(artifact.owner) and artifact.short_path.startswith(".."):
+  if is_external(artifact.owner) and artifact.short_path.startswith(".."):
     # short_path is '../repo_name/path', we want 'external/repo_name/path'
     return "external" + artifact.short_path[2:]
   return artifact.short_path
