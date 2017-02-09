@@ -98,6 +98,9 @@ public interface QueryableGraph {
     /** The node is being looked up so that an rdep can be removed from it. */
     RDEP_REMOVAL,
 
+    /** The node is being looked up for any graph clean-up effort that may be necessary. */
+    CLEAN_UP,
+
     /** The node is being looked up so it can be enqueued for evaluation or change pruning. */
     ENQUEUING_CHILD,
 
