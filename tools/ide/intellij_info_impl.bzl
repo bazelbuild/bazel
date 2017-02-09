@@ -15,30 +15,20 @@
 """Implementation of IntelliJ-specific information collecting aspect."""
 
 # Compile-time dependency attributes, grouped by type.
-DEPS = struct(
-    label = [
-        "_cc_toolchain",  # From C rules
-        "_java_toolchain",  # From java rules
-    ],
-    label_list = [
-        "deps",
-        "exports",
-        "_robolectric",  # From android_robolectric_test
-    ],
-)
+DEPS = [
+    "_cc_toolchain",  # From C rules
+    "_java_toolchain",  # From java rules
+    "deps",
+    "exports",
+    "_robolectric",  # From android_robolectric_test
+]
 
 # Run-time dependency attributes, grouped by type.
-RUNTIME_DEPS = struct(
-    label = [],
-    label_list = [
-        "runtime_deps",
-    ],
-)
+RUNTIME_DEPS = [
+    "runtime_deps",
+]
 
-PREREQUISITE_DEPS = struct(
-    label = [],
-    label_list = [],
-)
+PREREQUISITE_DEPS = []
 
 ##### Helpers
 
@@ -143,16 +133,23 @@ def sources_from_target(ctx):
             for f in src.files]
   return []
 
+def _collect_target_from_attr(rule_attrs, attr_name, result):
+  """Collects the targets from the given attr into the result."""
+  if not hasattr(rule_attrs, attr_name):
+    return
+  attr_value = getattr(rule_attrs, attr_name)
+  type_name = type(attr_value)
+  if type_name == "Target":
+    result.append(attr_value)
+  elif type_name == "list":
+    result.extend(attr_value)
+
 def collect_targets_from_attrs(rule_attrs, attrs):
   """Returns a list of targets from the given attributes."""
-  list_deps = [dep for attr_name in attrs.label_list
-               if hasattr(rule_attrs, attr_name)
-               for dep in getattr(rule_attrs, attr_name)]
-
-  scalar_deps = [getattr(rule_attrs, attr_name) for attr_name in attrs.label
-                 if hasattr(rule_attrs, attr_name)]
-
-  return [dep for dep in (list_deps + scalar_deps) if is_valid_aspect_target(dep)]
+  result = []
+  for attr_name in attrs:
+    _collect_target_from_attr(rule_attrs, attr_name, result)
+  return [target for target in result if is_valid_aspect_target(target)]
 
 def collect_transitive_exports(targets):
   """Build a union of all export dependencies."""
@@ -555,10 +552,7 @@ def semantics_extra_deps(base, semantics, name):
   if not hasattr(semantics, name):
     return base
   extra_deps = getattr(semantics, name)
-  return struct(
-      label = base.label + extra_deps.label,
-      label_list = base.label_list + extra_deps.label_list,
-  )
+  return base + extra_deps
 
 def make_intellij_info_aspect(aspect_impl, semantics):
   """Creates the aspect given the semantics."""
@@ -567,9 +561,7 @@ def make_intellij_info_aspect(aspect_impl, semantics):
   runtime_deps = semantics_extra_deps(RUNTIME_DEPS, semantics, "extra_runtime_deps")
   prerequisite_deps = semantics_extra_deps(PREREQUISITE_DEPS, semantics, "extra_prerequisites")
 
-  attr_aspects = deps.label + deps.label_list
-  attr_aspects += runtime_deps.label + runtime_deps.label_list
-  attr_aspects += prerequisite_deps.label + prerequisite_deps.label_list
+  attr_aspects = deps + runtime_deps + prerequisite_deps
 
   return aspect(
       attrs = {
