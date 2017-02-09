@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLo
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.CyclesReporter;
-
 import java.io.PrintStream;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -77,11 +76,6 @@ class SkyframePackageManager implements PackageManager {
   public Target getTarget(EventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
-  }
-
-  @Override
-  public void partiallyClear() {
-    packageLoader.partiallyClear();
   }
 
   @Override

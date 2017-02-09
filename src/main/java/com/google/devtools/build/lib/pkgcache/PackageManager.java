@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-
 import java.io.PrintStream;
 
 /**
@@ -27,12 +26,6 @@ public interface PackageManager extends PackageProvider, CachingPackageLocator {
    * Returns the package cache statistics.
    */
   PackageManagerStatistics getStatistics();
-
-  /**
-   * Removes cached data which is not needed anymore after loading is complete, to reduce memory
-   * consumption between builds. Whether or not this method is called does not affect correctness.
-   */
-  void partiallyClear();
 
   /**
    * Dump the contents of the package manager in human-readable form.

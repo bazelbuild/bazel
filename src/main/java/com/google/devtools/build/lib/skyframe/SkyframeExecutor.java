@@ -1683,11 +1683,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           "package must be absolute: %s", packageName);
       return deletedPackages.get().contains(packageName);
     }
-
-    /** Same as {@link PackageManager#partiallyClear}. */
-    void partiallyClear() {
-      packageFunctionCache.invalidateAll();
-    }
   }
 
   @VisibleForTesting
