@@ -27,6 +27,6 @@ java_library(
         "//third_party:hazelcast",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )

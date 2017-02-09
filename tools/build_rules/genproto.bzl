@@ -114,7 +114,7 @@ def java_proto_library(name, src, use_grpc_plugin=False):
     grpc_java_plugin = str(Label("//third_party/grpc:grpc-java-plugin"))
 
   gensrcjar(name=name + "_srcjar", src=src, grpc_java_plugin=grpc_java_plugin)
-  deps = [str(Label("//third_party/protobuf"))]
+  deps = [str(Label("//third_party/protobuf:protobuf_java"))]
   if use_grpc_plugin:
     deps += [
         str(Label("//third_party/grpc:grpc-jar")),

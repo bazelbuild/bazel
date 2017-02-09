@@ -17,7 +17,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -33,7 +33,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -48,6 +48,6 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party/protobuf",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
