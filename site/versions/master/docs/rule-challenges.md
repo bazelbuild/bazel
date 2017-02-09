@@ -177,7 +177,7 @@ problem in any build system based on library and binary rules. There are two
 very common patterns that introduce quadratic memory consumption (and therefore
 quadratic time consumption).
 
-1. Chains of Library Rules
+1. Chains of Library Rules -
 Consider the case of a chain of library rules A depends on B, depends on C, and
 so on. Then, we want to compute some property over the transitive closure of
 these rules, such as the Java runtime classpath, or the C++ linker command for
@@ -186,7 +186,7 @@ this already introduces quadratic memory consumption: the first library
 contains one entry on the classpath, the second two, the third three, and so
 on, for a total of 1+2+3+...+N = O(N^2) entries.
 
-2. Binary Rules Depending on the Same Library Rules
+2. Binary Rules Depending on the Same Library Rules -
 Consider the case where a set of binaries that depend on the same library
 rules; for example, you might have a number of test rules that test the same
 library code. Let’s say out of N rules, half the rules are binary rules, and
