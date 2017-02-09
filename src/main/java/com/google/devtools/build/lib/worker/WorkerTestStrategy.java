@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -193,8 +192,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
   }
 
   private List<String> getStartUpArgs(TestRunnerAction action) throws ExecException {
-    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
-    List<String> args = getArgs(testSetup.getExecPathString(), "", action);
+    List<String> args = getArgs(/*coverageScript=*/ "", action);
     ImmutableList.Builder<String> startupArgs = ImmutableList.builder();
     // Add test setup with no echo to prevent stdout corruption.
     startupArgs.add(args.get(0)).add("--no_echo");

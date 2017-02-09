@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -113,10 +112,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     info.put("timeout", "" + getTimeout(action));
     info.putAll(action.getTestProperties().getExecutionInfo());
 
-    Artifact testSetup = action.getRuntimeArtifact(TEST_SETUP_BASENAME);
     Spawn spawn =
         new BaseSpawn(
-            getArgs(testSetup.getExecPathString(), COLLECT_COVERAGE, action),
+            getArgs(COLLECT_COVERAGE, action),
             env,
             info,
             new RunfilesSupplierImpl(

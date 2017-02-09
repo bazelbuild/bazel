@@ -21,6 +21,7 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -155,21 +156,22 @@ public abstract class TestStrategy implements TestActionContext {
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
-   * @param testScript the setup script that invokes the test
    * @param coverageScript a script interjected between setup script and rest of command line to
    *     collect coverage data. If this is an empty string, it is ignored.
    * @param testAction The test action.
    * @return the command line as string list.
    */
-  protected List<String> getArgs(
-      String testScript, String coverageScript, TestRunnerAction testAction) {
+  protected List<String> getArgs(String coverageScript, TestRunnerAction testAction)
+      throws ExecException {
     List<String> args = Lists.newArrayList();
     if (OS.getCurrent() == OS.WINDOWS) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
       args.add("$0 $*");
     }
-    args.add(testScript);
+
+    Artifact testSetup = testAction.getRuntimeArtifact(TEST_SETUP_BASENAME);
+    args.add(testSetup.getExecPathString());
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
 
     List<String> execArgs = new ArrayList<>();
