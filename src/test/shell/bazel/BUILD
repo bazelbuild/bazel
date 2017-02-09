@@ -397,7 +397,7 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
-    tags = ["manual"],
+    tags = ["jdk8"],
 )
 
 sh_test(
