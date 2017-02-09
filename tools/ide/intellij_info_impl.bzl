@@ -297,6 +297,7 @@ def build_java_ide_info(target, ctx, semantics):
       generated_jars = gen_jars,
       package_manifest = artifact_location(package_manifest),
       filtered_gen_jar = filtered_gen_jar,
+      main_class = ctx.rule.attr.main_class if hasattr(ctx.rule.attr, "main_class") else None,
   )
   return (java_ide_info, ide_info_files, intellij_resolve_files)
 

@@ -42,6 +42,7 @@ message JavaIdeInfo {
   repeated ArtifactLocation sources = 4;
   ArtifactLocation jdeps = 5;
   LibraryArtifact filtered_gen_jar = 6;
+  string main_class = 7;
 }
 
 message CIdeInfo {
