@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
+import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
@@ -183,7 +183,7 @@ final class LabelVisitor {
    *
    * Life is not simple.
    */
-  private final PackageProvider packageProvider;
+  private final TargetProvider targetProvider;
   private final DependencyFilter edgeFilter;
   private final SetMultimap<Package, Target> visitedMap =
       Multimaps.synchronizedSetMultimap(HashMultimap.<Package, Target>create());
@@ -199,12 +199,11 @@ final class LabelVisitor {
   /**
    * Construct a LabelVisitor.
    *
-   * @param packageProvider how to resolve labels to targets.
-   * @param edgeFilter which edges may be traversed.
+   * @param targetProvider how to resolve labels to targets
+   * @param edgeFilter which edges may be traversed
    */
-  public LabelVisitor(
-      PackageProvider packageProvider, DependencyFilter edgeFilter) {
-    this.packageProvider = packageProvider;
+  public LabelVisitor(TargetProvider targetProvider, DependencyFilter edgeFilter) {
+    this.targetProvider = targetProvider;
     this.lastVisitation = new VisitationAttributes();
     this.edgeFilter = edgeFilter;
   }
@@ -343,7 +342,7 @@ final class LabelVisitor {
         public void run() {
           try {
             try {
-              visit(from, attr, packageProvider.getTarget(eventHandler, label), depth + 1, count);
+              visit(from, attr, targetProvider.getTarget(eventHandler, label), depth + 1, count);
             } catch (NoSuchThingException e) {
               observeError(from, label, e);
             }

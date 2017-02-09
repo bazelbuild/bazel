@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
@@ -99,7 +98,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
    * @param settings a set of enabled settings
    */
   BlazeQueryEnvironment(TransitivePackageLoader transitivePackageLoader,
-      PackageProvider packageProvider,
+      TargetProvider targetProvider,
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       boolean strictScope,
@@ -113,10 +112,10 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         keepGoing, strictScope, labelFilter, eventHandler, settings, extraFunctions, evalListener);
     this.targetPatternEvaluator = targetPatternEvaluator;
     this.transitivePackageLoader = transitivePackageLoader;
-    this.targetProvider = packageProvider;
+    this.targetProvider = targetProvider;
     this.errorObserver = new ErrorPrintingTargetEdgeErrorObserver(this.eventHandler);
     this.loadingPhaseThreads = loadingPhaseThreads;
-    this.labelVisitor = new LabelVisitor(packageProvider, dependencyFilter);
+    this.labelVisitor = new LabelVisitor(targetProvider, dependencyFilter);
   }
 
   @Override
