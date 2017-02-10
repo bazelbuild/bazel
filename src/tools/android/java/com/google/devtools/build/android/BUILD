@@ -7,6 +7,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "classes_deploy.jar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
     ],
 )
@@ -50,6 +51,7 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/dexer:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",

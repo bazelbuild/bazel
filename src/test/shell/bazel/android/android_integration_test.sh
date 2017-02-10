@@ -189,7 +189,7 @@ function check_soname() {
 
 function test_sdk_library_deps() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
 
   mkdir -p java/a
   cat > java/a/BUILD<<EOF
@@ -204,7 +204,8 @@ EOF
 
 function test_android_binary() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
+  setup_android_ndk_support
   create_android_binary
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
@@ -221,7 +222,8 @@ function test_android_binary_clang() {
     return
   fi
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
+  setup_android_ndk_support
   create_android_binary
 
   cpus="armeabi,armeabi-v7a,arm64-v8a,mips,mips64,x86,x86_64"
@@ -237,7 +239,7 @@ function test_android_binary_clang() {
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.
 function test_empty_tree_artifact_action_inputs_mount_empty_directories() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.test"/>
 EOF
@@ -259,7 +261,7 @@ EOF
 
 function test_nonempty_aar_resources_tree_artifact() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
   cat > AndroidManifest.xml <<EOF
 <manifest package="com.test"/>
 EOF
@@ -315,9 +317,9 @@ EOF
 
 function test_android_sdk_repository_path_from_environment() {
   create_new_workspace
-  setup_android_support
-  # Overwrite WORKSPACE that was created by setup_android_support with one that
-  # does not set the path attribute of android_sdk_repository.
+  setup_android_sdk_support
+  # Overwrite WORKSPACE that was created by setup_android_sdk_support with one
+  # that does not set the path attribute of android_sdk_repository.
   cat > WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
@@ -331,7 +333,7 @@ EOF
 
 function test_android_ndk_repository_path_from_environment() {
   create_new_workspace
-  setup_android_support
+  setup_android_ndk_support
   cat > WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
@@ -345,7 +347,6 @@ EOF
 
 function test_android_sdk_repository_no_path_or_android_home() {
   create_new_workspace
-  setup_android_support
   cat > WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
@@ -358,7 +359,6 @@ EOF
 
 function test_android_ndk_repository_no_path_or_android_ndk_home() {
   create_new_workspace
-  setup_android_support
   cat > WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
@@ -402,7 +402,8 @@ EOF
 # Check that the build succeeds if an android_sdk is specified with --android_sdk
 function test_specifying_android_sdk_flag() {
   create_new_workspace
-  setup_android_support
+  setup_android_sdk_support
+  setup_android_ndk_support
   create_android_binary
   cat > WORKSPACE <<EOF
 android_sdk_repository(

@@ -25,3 +25,16 @@ sh_test(
         "//external:android_sdk_for_testing",
     ],
 )
+
+sh_test(
+    name = "desugarer_integration_test",
+    size = "large",
+    srcs = ["desugarer_integration_test.sh"],
+    data = [
+        # See comment in data attribute of :android_integration_test.
+        "//external:android_sdk_for_testing",
+        "//src/test/shell/bazel:test-deps",
+    ],
+    # This test builds an android_binary with Java 8 code.
+    tags = ["jdk8"],
+)

@@ -258,43 +258,38 @@ ${EXTRA_BAZELRC:-}
 EOF
 }
 
-function setup_android_support() {
-  ANDROID_NDK=$PWD/android_ndk
+function setup_android_sdk_support() {
   ANDROID_SDK=$PWD/android_sdk
-
-  # TODO(bazel-team): This hard-codes the name of the Android repository in
-  # the WORKSPACE file of Bazel. Change this once external repositories have
-  # their own defined names under which they are mounted.
-  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
   SDK_SRCDIR=$TEST_SRCDIR/androidsdk
-
-  mkdir -p $ANDROID_NDK
   mkdir -p $ANDROID_SDK
+  for i in $SDK_SRCDIR/*; do
+    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
+  done
+  ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
+cat >> WORKSPACE <<EOF
+android_sdk_repository(
+    name = "androidsdk",
+    path = "$ANDROID_SDK",
+    api_level = $ANDROID_SDK_API_LEVEL,
+)
+EOF
+}
 
+function setup_android_ndk_support() {
+  ANDROID_NDK=$PWD/android_ndk
+  NDK_SRCDIR=$TEST_SRCDIR/androidndk/ndk
+  mkdir -p $ANDROID_NDK
   for i in $NDK_SRCDIR/*; do
     if [[ "$(basename $i)" != "BUILD" ]]; then
       ln -s "$i" "$ANDROID_NDK/$(basename $i)"
     fi
   done
-
-  for i in $SDK_SRCDIR/*; do
-    ln -s "$i" "$ANDROID_SDK/$(basename $i)"
-  done
-
-
-  ANDROID_SDK_API_LEVEL=$(ls $SDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
   ANDROID_NDK_API_LEVEL=$(ls $NDK_SRCDIR/platforms | cut -d '-' -f 2 | sort -n | tail -1)
   cat >> WORKSPACE <<EOF
 android_ndk_repository(
     name = "androidndk",
     path = "$ANDROID_NDK",
     api_level = $ANDROID_NDK_API_LEVEL,
-)
-
-android_sdk_repository(
-    name = "androidsdk",
-    path = "$ANDROID_SDK",
-    api_level = $ANDROID_SDK_API_LEVEL,
 )
 EOF
 }

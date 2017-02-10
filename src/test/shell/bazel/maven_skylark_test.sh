@@ -149,7 +149,7 @@ EOF
 }
 
 function test_maven_aar_skylark() {
-  setup_android_support
+  setup_android_sdk_support
   if [ -z "$ANDROID_NDK_API_LEVEL" ] || [ -z "$ANDROID_SDK_API_LEVEL" ]; then
     fail "This test cannot run without Android repositories set up," \
       "see the WORKSPACE file for instructions"
