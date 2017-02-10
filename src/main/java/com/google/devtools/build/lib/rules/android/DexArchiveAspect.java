@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationInfoProvider;
@@ -124,7 +125,9 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
                 // For proto_library rules, where we care about JavaCompilationArgsAspectProvider.
                 ImmutableSet.<Class<?>>of(ProtoSourcesProvider.class),
                 // For proto_lang_toolchain rules, where we just want to get at their runtime deps.
-                ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class)))
+                ImmutableSet.<Class<?>>of(ProtoLangToolchainProvider.class),
+                // Let this aspect "see through" alias targets until b/35213665 is fixed
+                ImmutableSet.<Class<?>>of(AliasProvider.class)))
         // Parse labels since we don't have RuleDefinitionEnvironment.getLabel like in a rule
         .add(attr(ASPECT_DESUGAR_PREREQ, LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:desugar_java8")))

@@ -63,7 +63,8 @@ public class Alias implements RuleConfiguredTargetFactory {
               .allowedFileTypes(FileTypeSet.ANY_FILE)
               .allowedRuleClasses(ANY_RULE)
               .mandatory())
-          .canHaveAnyProvider()
+          // Stopgap until b/35213665 is fixed: should be canHaveAnyProvider()
+          .advertiseProvider(AliasProvider.class)
           .build();
     }
 
