@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -336,11 +335,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
             pchFile,
             otherFlags,
             isCPlusPlusSource);
-
-    // The linker needs full debug symbol information to perform binary dead-code stripping.
-    if (objcConfiguration.shouldStripBinary()) {
-      commandLine.add("-g");
-    }
 
     if (collectCodeCoverage) {
       if (buildConfiguration.isLLVMCoverageMapFormatEnabled()) {
@@ -671,8 +665,12 @@ public class LegacyCompilationSupport extends CompilationSupport {
     return this;
   }
 
-  private boolean isDynamicLib(CommandLine commandLine) {
+  private static boolean isDynamicLib(CommandLine commandLine) {
     return Iterables.contains(commandLine.arguments(), "-dynamiclib");
+  }
+
+  private static boolean isBundle(CommandLine commandLine) {
+    return Iterables.contains(commandLine.arguments(), "-bundle");
   }
 
   private void registerLinkAction(
@@ -723,12 +721,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
 
     if (objcConfiguration.shouldStripBinary()) {
       final Iterable<String> stripArgs;
-      if (TargetUtils.isTestRule(ruleContext.getRule())) {
-        // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
-        // to strip off all symbols in XCTest bundle.
-        stripArgs = ImmutableList.of("-S");
-      } else if (isDynamicLib(commandLine)) {
-        // For dynamic libs must pass "-x" to strip only local symbols.
+      // For dynamic libraries and bundles the -x flag must be passed
+      // to the strip command so that only local symbols are stripped.
+      if (isDynamicLib(commandLine) || isBundle(commandLine)) {
         stripArgs = ImmutableList.of("-x");
       } else {
         stripArgs = ImmutableList.<String>of();
@@ -780,10 +775,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
       commandLine.add(CLANG);
     }
 
-    // Do not perform code stripping on tests because XCTest binary is linked not as an executable
-    // but as a bundle without any entry point.
-    boolean isTestTarget = TargetUtils.isTestRule(ruleContext.getRule());
-    if (objcConfiguration.shouldStripBinary() && !isTestTarget) {
+    if (objcConfiguration.shouldStripBinary()) {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
 
