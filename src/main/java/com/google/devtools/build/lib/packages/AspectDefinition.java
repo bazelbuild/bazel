@@ -25,11 +25,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -190,32 +191,36 @@ public final class AspectDefinition {
    * Collects all attribute labels from the specified aspectDefinition.
    */
   public static void addAllAttributesOfAspect(
-      Rule from,
-      Multimap<Attribute, Label> labelBuilder,
+      final Rule from,
+      final Multimap<Attribute, Label> labelBuilder,
       Aspect aspect,
       DependencyFilter dependencyFilter) {
     ImmutableMap<String, Attribute> attributes = aspect.getDefinition().getAttributes();
-    for (Attribute aspectAttribute : attributes.values()) {
+    for (final Attribute aspectAttribute : attributes.values()) {
       if (!dependencyFilter.apply(aspect, aspectAttribute)) {
         continue;
       }
-      if (aspectAttribute.getType() == BuildType.LABEL) {
-        Label label = maybeGetRepositoryRelativeLabel(
-            from, BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from)));
-        if (label != null) {
-          labelBuilder.put(aspectAttribute, label);
-        }
-      } else if (aspectAttribute.getType() == BuildType.LABEL_LIST) {
-        List<Label> defaultLabels = BuildType.LABEL_LIST.cast(
+      Type type = aspectAttribute.getType();
+      if (type.getLabelClass() != LabelClass.DEPENDENCY) {
+        continue;
+      }
+      try {
+        type.visitLabels(
+            new LabelVisitor() {
+              @Override
+              public void visit(Label label) {
+                Label repositoryRelative = maybeGetRepositoryRelativeLabel(from, label);
+                if (repositoryRelative == null) {
+                  return;
+                }
+                labelBuilder.put(aspectAttribute, repositoryRelative);
+              }
+            },
             aspectAttribute.getDefaultValue(from));
-        if (defaultLabels != null) {
-          for (Label defaultLabel : defaultLabels) {
-            Label label = maybeGetRepositoryRelativeLabel(from, defaultLabel);
-            if (label != null) {
-              labelBuilder.put(aspectAttribute, label);
-            }
-          }
-        }
+      } catch (InterruptedException ex) {
+        // Because the LabelVisitor does not throw InterruptedException, it should not be thrown
+        // by visitLabels here.
+        throw new AssertionError(ex);
       }
     }
   }

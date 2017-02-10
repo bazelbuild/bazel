@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Definition of the {@code cc_toolchain_suite} rule.
@@ -34,6 +35,7 @@ public final class CcToolchainSuiteRule implements RuleDefinition {
         .setUndocumented()
         .add(attr("toolchains", BuildType.LABEL_DICT_UNARY)
             .mandatory()
+            .allowedFileTypes(FileTypeSet.NO_FILE)
             .nonconfigurable("Used during configuration creation"))
         .add(attr("proto", Type.STRING)
             .nonconfigurable("Used during configuration creation"))

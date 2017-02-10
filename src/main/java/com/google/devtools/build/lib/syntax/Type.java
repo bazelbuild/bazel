@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -138,6 +139,31 @@ public abstract class Type<T> {
    * their children. Keep all definitions as explicit as possible.
    */
   public abstract void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException;
+
+  /** Classifications of labels by their usage. */
+  public enum LabelClass {
+    /** Used for types which are not labels. */
+    NONE,
+    /** Used for types which use labels to declare a dependency. */
+    DEPENDENCY,
+    /**
+     * Used for types which use labels to reference another target but do not declare a dependency,
+     * in cases where doing so would cause a dependency cycle.
+     */
+    NONDEP_REFERENCE,
+    /** Used for types which use labels to declare an output path. */
+    OUTPUT,
+    /**
+     * Used for types which contain Fileset entries, which contain labels but do not produce
+     * normal dependencies.
+     */
+    FILESET_ENTRY
+  }
+
+  /** Returns the class of labels contained by this type, if any. */
+  public LabelClass getLabelClass() {
+    return LabelClass.NONE;
+  }
 
   /**
    * Implementation of concatenation for this type (e.g. "val1 + val2"). Returns null to
@@ -423,6 +449,8 @@ public abstract class Type<T> {
 
     private final Map<KeyT, ValueT> empty = ImmutableMap.of();
 
+    private final LabelClass labelClass;
+
     @Override
     public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
       for (Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
@@ -433,12 +461,24 @@ public abstract class Type<T> {
 
     public static <KEY, VALUE> DictType<KEY, VALUE> create(
         Type<KEY> keyType, Type<VALUE> valueType) {
-      return new DictType<>(keyType, valueType);
+      LabelClass keyLabelClass = keyType.getLabelClass();
+      LabelClass valueLabelClass = valueType.getLabelClass();
+      Preconditions.checkArgument(
+          keyLabelClass == LabelClass.NONE
+              || valueLabelClass == LabelClass.NONE
+              || keyLabelClass == valueLabelClass,
+          "A DictType's keys and values must be the same class of label if both contain labels, "
+          + "but the key type " + keyType + " contains " + keyLabelClass + " labels, while "
+          + "the value type " + valueType + " contains " + valueLabelClass + " labels.");
+      LabelClass labelClass = (keyLabelClass != LabelClass.NONE) ? keyLabelClass : valueLabelClass;
+
+      return new DictType<>(keyType, valueType, labelClass);
     }
 
-    private DictType(Type<KeyT> keyType, Type<ValueT> valueType) {
+    private DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
       this.keyType = keyType;
       this.valueType = valueType;
+      this.labelClass = labelClass;
     }
 
     public Type<KeyT> getKeyType() {
@@ -447,6 +487,11 @@ public abstract class Type<T> {
 
     public Type<ValueT> getValueType() {
       return valueType;
+    }
+
+    @Override
+    public LabelClass getLabelClass() {
+      return labelClass;
     }
 
     @SuppressWarnings("unchecked")
@@ -508,6 +553,11 @@ public abstract class Type<T> {
     @Override
     public Type<ElemT> getListElementType() {
       return elemType;
+    }
+
+    @Override
+    public LabelClass getLabelClass() {
+      return elemType.getLabelClass();
     }
 
     @Override

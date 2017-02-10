@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -235,7 +236,7 @@ public final class SkylarkAttr {
       Object fileTypesObj = arguments.get(ALLOW_SINGLE_FILE_ARG);
       setAllowedFileTypes(ALLOW_SINGLE_FILE_ARG, fileTypesObj, ast, builder);
       builder.setPropertyFlag("SINGLE_ARTIFACT");
-    } else if (type.equals(BuildType.LABEL) || type.equals(BuildType.LABEL_LIST)) {
+    } else if (type.getLabelClass() == LabelClass.DEPENDENCY) {
       builder.allowedFileTypes(FileTypeSet.NO_FILE);
     }
 

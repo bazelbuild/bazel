@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -1083,8 +1084,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
@@ -1125,8 +1125,7 @@ public final class RuleContext extends TargetContext
       throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
         + " attribute " + attributeName + " is not defined");
     }
-    if (!(attributeDefinition.getType() == BuildType.LABEL
-        || attributeDefinition.getType() == BuildType.LABEL_LIST)) {
+    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
       throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
         + " is not a label type attribute");
     }
