@@ -20,16 +20,18 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 
-/**
- * This event is raised whenever a an individual test attempt is completed that is not the final
- * attempt for the given test, shard, and run.
- */
+/** This event is raised whenever a an individual test attempt is completed. */
 public class TestAttempt implements BuildEvent {
 
   private final TestRunnerAction testAction;
+  private final boolean success;
   private final int attempt;
+  private final boolean lastAttempt;
+  private final Collection<Pair<String, Path>> files;
 
   /**
    * Construct the event given the test action and attempt number.
@@ -37,9 +39,25 @@ public class TestAttempt implements BuildEvent {
    * @param testAction The test that was run.
    * @param attempt The number of the attempt for this action.
    */
-  public TestAttempt(TestRunnerAction testAction, Integer attempt) {
+  public TestAttempt(
+      TestRunnerAction testAction,
+      Integer attempt,
+      boolean success,
+      Collection<Pair<String, Path>> files,
+      boolean lastAttempt) {
     this.testAction = testAction;
     this.attempt = attempt;
+    this.success = success;
+    this.files = files;
+    this.lastAttempt = lastAttempt;
+  }
+
+  public TestAttempt(
+      TestRunnerAction testAction,
+      Integer attempt,
+      boolean success,
+      Collection<Pair<String, Path>> files) {
+    this(testAction, attempt, success, files, false);
   }
 
   @Override
@@ -53,18 +71,30 @@ public class TestAttempt implements BuildEvent {
 
   @Override
   public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.of(
-        BuildEventId.testResult(
-            testAction.getOwner().getLabel(),
-            testAction.getRunNumber(),
-            testAction.getShardNum(),
-            attempt + 1));
+    if (lastAttempt) {
+      return ImmutableList.of();
+    } else {
+      return ImmutableList.of(
+          BuildEventId.testResult(
+              testAction.getOwner().getLabel(),
+              testAction.getRunNumber(),
+              testAction.getShardNum(),
+              attempt + 1));
+    }
   }
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
-    BuildEventStreamProtos.TestResult.Builder resultBuilder =
+    BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
-    return GenericBuildEvent.protoChaining(this).setTestResult(resultBuilder.build()).build();
+    builder.setSuccess(success);
+    for (Pair<String, Path> file : files) {
+      builder.addTestActionOutput(
+          BuildEventStreamProtos.File.newBuilder()
+              .setName(file.getFirst())
+              .setUri(pathConverter.apply(file.getSecond()))
+              .build());
+    }
+    return GenericBuildEvent.protoChaining(this).setTestResult(builder.build()).build();
   }
 }

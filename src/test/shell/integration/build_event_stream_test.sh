@@ -107,14 +107,23 @@ function test_test_inidivual_results() {
 }
 
 function test_test_attempts() {
+  # Run a failing test declared as flaky.
+  # We expect to see 3 attempts to happen, and also find the 3 xml files
+  # mentioned in the stream.
   ( bazel test --experimental_build_event_text_file=$TEST_log pkg:flaky \
     && fail "test failure expected" ) || true
-  expect_log 'attempt.*1'
-  expect_log 'attempt.*2'
-  expect_log 'attempt.*3'
+  expect_log 'attempt.*1$'
+  expect_log 'attempt.*2$'
+  expect_log 'attempt.*3$'
   expect_log_once '^test_summary '
   expect_log_once '^progress '
   expect_not_log 'aborted'
+  expect_log 'test_action_output'
+  expect_log 'flaky/.*attempt_1.xml'
+  expect_log 'flaky/.*attempt_2.xml'
+  expect_log 'flaky/.*test.xml'
+  expect_log 'name:.*test.log'
+  expect_log 'name:.*test.xml'
 }
 
 function test_test_attempts_multi_runs() {

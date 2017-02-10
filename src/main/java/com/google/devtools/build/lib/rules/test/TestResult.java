@@ -14,13 +14,7 @@
 
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -29,8 +23,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import java.util.Collection;
-import javax.annotation.Nullable;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -38,12 +30,11 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 @Immutable
-public class TestResult implements BuildEvent {
+public class TestResult {
 
   private final TestRunnerAction testAction;
   private final TestResultData data;
   private final boolean cached;
-  private final @Nullable Integer attempt;
 
   /**
    * Construct the TestResult for the given test / status.
@@ -52,16 +43,10 @@ public class TestResult implements BuildEvent {
    * @param data test result protobuffer.
    * @param cached true if this is a locally cached test result.
    */
-  public TestResult(
-      TestRunnerAction testAction, TestResultData data, boolean cached, @Nullable Integer attempt) {
+  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
     this.testAction = Preconditions.checkNotNull(testAction);
     this.data = data;
     this.cached = cached;
-    this.attempt = attempt;
-  }
-
-  public TestResult(TestRunnerAction testAction, TestResultData data, boolean cached) {
-    this(testAction, data, cached, null);
   }
 
   public static boolean isBlazeTestStatusPassed(BlazeTestStatus status) {
@@ -144,32 +129,5 @@ public class TestResult implements BuildEvent {
 
   public TestResultData getData() {
     return data;
-  }
-
-  @Override
-  public BuildEventId getEventId() {
-    if (attempt != null) {
-      return BuildEventId.testResult(
-          testAction.getOwner().getLabel(),
-          testAction.getRunNumber(),
-          testAction.getShardNum(),
-          attempt);
-    } else {
-      return BuildEventId.testResult(
-          testAction.getOwner().getLabel(), testAction.getRunNumber(), testAction.getShardNum());
-    }
-  }
-
-  @Override
-  public Collection<BuildEventId> getChildrenEvents() {
-    return ImmutableList.of();
-  }
-
-  @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
-    BuildEventStreamProtos.TestResult.Builder resultBuilder =
-        BuildEventStreamProtos.TestResult.newBuilder();
-    resultBuilder.setSuccess(data.getTestPassed());
-    return GenericBuildEvent.protoChaining(this).setTestResult(resultBuilder.build()).build();
   }
 }
