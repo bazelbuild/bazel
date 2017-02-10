@@ -89,24 +89,28 @@ class Skylark {
   }
 
   /** Execute a Skylark file. */
-  public void execute(String path) {
+  public int execute(String path) {
     String content;
     try {
       content = new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
       BuildFileAST.eval(env, content);
+      return 0;
     } catch (Exception e) {
       System.err.println(e);
+      return 1;
     }
   }
 
   public static void main(String[] args) {
+    int ret = 0;
     if (args.length == 0) {
       new Skylark().readEvalPrintLoop();
     } else if (args.length == 1) {
-      new Skylark().execute(args[0]);
+      ret = new Skylark().execute(args[0]);
     } else {
       System.err.println("too many arguments");
-      System.exit(1);
+      ret = 1;
     }
+    System.exit(ret);
   }
 }
