@@ -59,7 +59,7 @@ public class Main {
     BuildGroupRunner runner = new BuildGroupRunner(workspace.toPath());
     BuildGroupResult result = null;
     try {
-      result = runner.run(opt.from, opt.to);
+      result = runner.run(opt);
     } catch (Exception e) {
       logger.log(Level.SEVERE, e.getMessage());
       System.exit(1);
@@ -82,12 +82,24 @@ public class Main {
   public static BenchmarkOptions parseArgs(String[] args) throws OptionsParsingException {
     BenchmarkOptions opt = Options.parse(BenchmarkOptions.class, args).getOptions();
 
-    // Check options
-    if (opt.workspace.isEmpty() || opt.from.isEmpty() || opt.to.isEmpty() || opt.output.isEmpty()) {
+    // Missing options
+    if (opt.workspace.isEmpty() || opt.output.isEmpty()) {
       System.err.println(Options.getUsage(BenchmarkOptions.class));
-      throw new IllegalArgumentException("Argument value should not be empty.");
+      throw new IllegalArgumentException("Argument --workspace and --output should not be empty.");
+    }
+    // Should use exact one argument between from/to, after/before and versions
+    int emptyNum = booleanToInt(opt.versionFilter == null)
+        + booleanToInt(opt.dateFilter == null)
+        + booleanToInt(opt.versions.isEmpty());
+    if (emptyNum != 2) {
+      System.err.println(Options.getUsage(BenchmarkOptions.class));
+      throw new IllegalArgumentException("Please use exact one type of version filter at a time.");
     }
 
     return opt;
+  }
+
+  private static int booleanToInt(boolean b) {
+    return b ? 1 : 0;
   }
 }

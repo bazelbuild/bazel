@@ -64,9 +64,15 @@ final class BazelBuildCase implements BuildCase {
   }
 
   @Override
-  public ImmutableList<String> getCodeVersions(Builder builder, String from, String to)
+  public ImmutableList<String> getCodeVersions(Builder builder, BenchmarkOptions options)
       throws IOException, CommandException {
-    return builder.getCodeVersionsBetween(from, to);
+    if (options.versionFilter != null) {
+      return builder.getCodeVersionsBetweenVersions(options.versionFilter);
+    }
+    if (options.dateFilter != null) {
+      return builder.getCodeVersionsBetweenDates(options.dateFilter);
+    }
+    return ImmutableList.copyOf(options.versions);
   }
 
   @Override

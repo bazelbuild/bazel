@@ -7,6 +7,7 @@ java_test(
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark:benchmark_lib",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

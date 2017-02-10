@@ -29,10 +29,9 @@ interface BuildCase {
   ImmutableList<BuildTargetConfig> getBuildTargetConfigs();
 
   /**
-   * Returns a list of code versions (can be anything you specified) in {@code (from, to]} (can be
-   * any interval you specified) of {@code builder}.
+   * Returns a list of code versions (can be anything you specified) of {@code builder}.
    */
-  ImmutableList<String> getCodeVersions(Builder builder, String from, String to)
+  ImmutableList<String> getCodeVersions(Builder builder, BenchmarkOptions options)
       throws IOException, CommandException;
 
   /**

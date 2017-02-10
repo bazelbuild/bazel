@@ -35,7 +35,8 @@ class BuildGroupRunner {
     this.workspace = workspace;
   }
 
-  BuildGroupResult run(String from, String to) throws IOException, CommandException {
+  BuildGroupResult run(BenchmarkOptions opt)
+      throws IOException, CommandException {
     BuildCase buildCase = new BazelBuildCase();
     ImmutableList<BuildTargetConfig> buildTargetConfigs = buildCase.getBuildTargetConfigs();
     ImmutableList<BuildEnvConfig> buildEnvConfigs = buildCase.getBuildEnvConfigs();
@@ -44,7 +45,12 @@ class BuildGroupRunner {
     prepareBuilder();
     System.out.println("Done preparing builder.");
 
-    ImmutableList<String> codeVersions = buildCase.getCodeVersions(builder, from, to);
+    // Get code versions (commit hashtag for Bazel)
+    ImmutableList<String> codeVersions = buildCase.getCodeVersions(builder, opt);
+    System.out.println("Ready to run benchmark for the following versions:");
+    for (String version : codeVersions) {
+      System.out.println(version);
+    }
 
     BuildGroupResult.Builder buildGroupResultBuilder =
         getBuildGroupResultBuilder(buildTargetConfigs, buildEnvConfigs, codeVersions);
@@ -57,11 +63,14 @@ class BuildGroupRunner {
       // Get builder binary (build Bazel binary)
       Path buildBinary = buildBinary = builder.getBuildBinary(version);
 
+      // Repeat several times to calculate average result
       for (int t = 0; t < REPEAT_TIMES; ++t) {
+        // Environment config
         for (int envIndex = 0; envIndex < buildEnvConfigs.size(); ++envIndex) {
           BuildEnvConfig envConfig = buildEnvConfigs.get(envIndex);
           System.out.println("Started config: " + envConfig.getDescription());
 
+          // Target config
           for (int targetIndex = 0; targetIndex < buildTargetConfigs.size(); ++targetIndex) {
             BuildTargetConfig targetConfig = buildTargetConfigs.get(targetIndex);
             System.out.println(targetConfig.getDescription());

@@ -28,8 +28,13 @@ interface Builder {
   /** Returns the binary path of the build tool of a specific {@code codeVersion}. */
   Path getBuildBinary(String codeVersion) throws IOException, CommandException;
 
-  /** Return a list of code versions in {@code (from, to]}. */
-  ImmutableList<String> getCodeVersionsBetween(String from, String to) throws CommandException;
+  /** Returns the code versions of the build tool between versions {@code (from, to]}. */
+  ImmutableList<String> getCodeVersionsBetweenVersions(VersionFilter versionFilter)
+      throws CommandException;
+
+  /** Returns the code versions of the build tool between dates {@code [from, to]}. */
+  ImmutableList<String> getCodeVersionsBetweenDates(DateFilter dateFilter)
+      throws CommandException;
 
   /** Returns a command for build under specific config. */
   ImmutableList<String> getCommandFromConfig(

@@ -50,16 +50,6 @@ class BazelBuilder implements Builder {
   }
 
   @Override
-  public ImmutableList<String> getCodeVersionsBetween(String from, String to)
-      throws CommandException {
-    String[] gitLogCommand = {"git", "log", from + ".." + to, "--pretty=format:%H", "--reverse"};
-    Command cmd = new Command(gitLogCommand, null, builderDir.toFile());
-    CommandResult result = cmd.execute();
-    String output = new String(result.getStdout(), UTF_8).trim();
-    return ImmutableList.copyOf(output.split("\n"));
-  }
-
-  @Override
   public Path getBuildBinary(String codeVersion) throws IOException, CommandException {
     if (buildBinary != null && currentCodeVersion.equals(codeVersion)) {
       return buildBinary;
@@ -135,6 +125,23 @@ class BazelBuilder implements Builder {
     prepareFromGitRepo(DEFAULT_GIT_REPO);
   }
 
+  @Override
+  public ImmutableList<String> getCodeVersionsBetweenVersions(VersionFilter versionFilter)
+      throws CommandException {
+    return getListOfOutputFromCommand(
+        "git", "log",
+        versionFilter.getFrom() + ".." + versionFilter.getTo(), "--pretty=format:%H", "--reverse");
+  }
+
+  @Override
+  public ImmutableList<String> getCodeVersionsBetweenDates(DateFilter dateFilter)
+      throws CommandException {
+    return getListOfOutputFromCommand(
+        "git", "log",
+        "--after", dateFilter.getFromString(),
+        "--before", dateFilter.getToString(), "--pretty=format:%H", "--reverse");
+  }
+
   void prepareFromGitRepo(String gitRepo) throws IOException, CommandException {
     if (builderDir.toFile().exists() && !builderDir.toFile().isDirectory()) {
       try {
@@ -155,5 +162,13 @@ class BazelBuilder implements Builder {
       cmd.execute();
     }
     // Assume the directory is what we need if not empty
+  }
+
+  private ImmutableList<String> getListOfOutputFromCommand(String... command)
+      throws CommandException{
+    Command cmd = new Command(command, null, builderDir.toFile());
+    CommandResult result = cmd.execute();
+    String output = new String(result.getStdout(), UTF_8).trim();
+    return ImmutableList.copyOf(output.split("\n"));
   }
 }
