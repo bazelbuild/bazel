@@ -378,13 +378,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
     if (oldAction == null) {
       actionTask.run();
-    } else if (action == oldAction.first) {
-      // We only allow the same action to be executed twice if it discovers inputs. We allow that
-      // because we need to declare additional dependencies on those new inputs.
-      Preconditions.checkState(action.discoversInputs(),
-          "Same action shouldn't execute twice in build: %s", action);
-      actionTask = oldAction.second;
     } else {
+      Preconditions.checkState(action != oldAction.first, action);
       Preconditions.checkState(Actions.canBeShared(oldAction.first, action),
           "Actions cannot be shared: %s %s", oldAction.first, action);
       // Wait for other action to finish, so any actions that depend on its outputs can execute.
