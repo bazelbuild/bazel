@@ -97,6 +97,10 @@ public class BazelJavaSemantics implements JavaSemantics {
   public void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon) {}
 
+  @Override
+  public void checkProtoDeps(
+      RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps) {}
+
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {

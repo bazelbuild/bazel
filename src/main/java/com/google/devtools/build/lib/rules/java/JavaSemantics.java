@@ -216,6 +216,8 @@ public interface JavaSemantics {
   void checkForProtoLibraryAndJavaProtoLibraryOnSameProto(
       RuleContext ruleContext, JavaCommon javaCommon);
 
+  void checkProtoDeps(RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps);
+
   /**
    * Returns the main class of a Java binary.
    */

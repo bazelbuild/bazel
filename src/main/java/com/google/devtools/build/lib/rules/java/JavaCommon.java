@@ -609,6 +609,8 @@ public class JavaCommon {
     semantics.commonDependencyProcessing(ruleContext, javaTargetAttributes,
         targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
 
+    semantics.checkProtoDeps(ruleContext, targetsTreatedAsDeps(ClasspathType.BOTH));
+
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {
