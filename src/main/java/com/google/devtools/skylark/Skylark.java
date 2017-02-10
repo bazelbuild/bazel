@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.syntax.Printer;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * Skylark is a standalone skylark intepreter. The environment doesn't
@@ -33,15 +35,16 @@ class Skylark {
   private static final String START_PROMPT = ">> ";
   private static final String CONTINUATION_PROMPT = ".. ";
 
-  public static final EventHandler PRINT_HANDLER = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        System.out.println(event.getMessage());
-      }
-    };
+  private static final EventHandler PRINT_HANDLER =
+      new EventHandler() {
+        @Override
+        public void handle(Event event) {
+          System.out.println(event.getMessage());
+        }
+      };
 
-  private final BufferedReader reader = new BufferedReader(
-      new InputStreamReader(System.in, Charset.defaultCharset()));
+  private final BufferedReader reader =
+      new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
   private final Mutability mutability = Mutability.create("interpreter");
   private final Environment env =
       Environment.builder(mutability)
@@ -49,7 +52,7 @@ class Skylark {
           .setEventHandler(PRINT_HANDLER)
           .build();
 
-  public String prompt() {
+  private String prompt() {
     StringBuilder input = new StringBuilder();
     System.out.print(START_PROMPT);
     try {
@@ -70,6 +73,7 @@ class Skylark {
     }
   }
 
+  /** Provide a REPL evaluating Skylark code. */
   public void readEvalPrintLoop() {
     String input;
     while ((input = prompt()) != null) {
@@ -84,11 +88,24 @@ class Skylark {
     }
   }
 
+  /** Execute a Skylark file. */
+  public void execute(String path) {
+    String content;
+    try {
+      content = new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
+      BuildFileAST.eval(env, content);
+    } catch (Exception e) {
+      System.err.println(e);
+    }
+  }
+
   public static void main(String[] args) {
     if (args.length == 0) {
       new Skylark().readEvalPrintLoop();
+    } else if (args.length == 1) {
+      new Skylark().execute(args[0]);
     } else {
-      System.err.println("no argument expected");
+      System.err.println("too many arguments");
       System.exit(1);
     }
   }
