@@ -31,7 +31,7 @@ cc_proto_library(
     name = "worker_protocol_cc_proto",
     srcs = ["worker_protocol.proto"],
     include = ".",
-    default_runtime = "//third_party/protobuf:protobuf_clib",
+    default_runtime = "//third_party/protobuf:protobuf",
     protoc = "//third_party/protobuf:protoc",
 )
 

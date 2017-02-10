@@ -19,8 +19,8 @@ java_binary(
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf-util",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
@@ -36,8 +36,8 @@ java_library(
         "//src/tools/benchmark/java/com/google/devtools/build/benchmark/codegenerator:codegenerator_lib",
         "//third_party:auto_value",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf-util",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
 
