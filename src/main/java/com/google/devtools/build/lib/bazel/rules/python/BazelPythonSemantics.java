@@ -242,7 +242,7 @@ public class BazelPythonSemantics implements PythonSemantics {
 
     // Read each runfile from execute path, add them into zip file at the right runfiles path.
     // Filter the executable file, cause we are building it.
-    for (Artifact artifact : runfilesSupport.getRunfiles().getArtifacts()) {
+    for (Artifact artifact : runfilesSupport.getRunfilesArtifactsWithoutMiddlemen()) {
       if (!artifact.equals(executable)) {
         argv.add(
             getZipRunfilesPath(artifact.getRunfilesPath(), workspaceName)

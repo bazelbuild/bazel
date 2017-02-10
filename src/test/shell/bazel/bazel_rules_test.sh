@@ -396,6 +396,23 @@ EOF
  expect_log "The number is 42"
 }
 
+function test_build_python_zip_with_middleman() {
+  mkdir py
+  touch py/data.txt
+  cat > py/BUILD <<EOF
+py_binary(name = "bin", srcs = ["bin.py"], data = ["data.txt"])
+py_binary(name = "bin2", srcs = ["bin2.py"], data = [":bin"])
+EOF
+  cat > py/bin.py <<EOF
+print("hello")
+EOF
+  cat > py/bin2.py <<EOF
+print("world")
+EOF
+  bazel build --build_python_zip //py:bin2 || fail "build failed"
+  unzip -l ./bazel-bin/py/bin2 | grep "data.txt" || fail "failed to zip data file"
+}
+
 function test_build_with_aliased_input_file() {
   mkdir -p a
   cat > a/BUILD <<EOF
