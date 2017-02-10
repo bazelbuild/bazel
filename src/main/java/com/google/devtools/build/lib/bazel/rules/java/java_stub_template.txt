@@ -74,14 +74,14 @@ die() {
 }
 
 # Windows
-PLATFORM="$OSTYPE"
 function is_windows() {
   # On windows, the shell test actually running on msys
-  if [[ "${PLATFORM}" =~ msys* ]]; then
-    true
-  else
-    false
-  fi
+  [[ "${OSTYPE}" =~ msys* ]]
+}
+
+# macOS
+function is_macos() {
+  [[ "${OSTYPE}" =~ darwin* ]]
 }
 
 # Parse arguments sequentially until the first unrecognized arg is encountered.
@@ -177,25 +177,32 @@ if [ -z "$RUNFILES_MANIFEST_ONLY" ]; then
     fi
   }
 else
-  # Read file into my_array
-  oifs=$IFS
-  IFS=$'\n'
-  my_array=( $(sed -e 's/\r//g' "$RUNFILES_MANIFEST_FILE") )
-  IFS=$oifs
+  if ! is_macos; then
+    # Read file into my_array
+    oifs=$IFS
+    IFS=$'\n'
+    my_array=( $(sed -e 's/\r//g' "$RUNFILES_MANIFEST_FILE") )
+    IFS=$oifs
 
-  # Process each runfile line into a [key,value] entry in runfiles_array
-  declare -a runfiles_array
-  for line in "${my_array[@]}"
-  do
-    line_split=($line)
-    runfiles_array[${line_split[0]}]=${line_split[1]}
-  done
+    # Process each runfile line into a [key,value] entry in runfiles_array
+    # declare -A is not supported on macOS because an old version of bash is used.
+    declare -A runfiles_array
+    for line in "${my_array[@]}"
+    do
+      line_split=($line)
+      runfiles_array[${line_split[0]}]=${line_split[1]}
+    done
+  fi
 
   function rlocation() {
     if [[ "$1" = /* ]]; then
       echo $1
     else
-      echo ${runfiles_array[$1]}
+      if is_macos; then
+        echo $(grep "^$1 " $RUNFILES_MANIFEST_FILE | awk '{ print $2 }')
+      else
+        echo ${runfiles_array[$1]}
+      fi
     fi
   }
 fi
