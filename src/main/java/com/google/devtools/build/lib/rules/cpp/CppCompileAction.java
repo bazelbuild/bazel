@@ -195,7 +195,7 @@ public class CppCompileAction extends AbstractAction
   // files--such as Clif--may use this mechanism.
   private final ImmutableList<Artifact> additionalIncludeScannables;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
-  private final ImmutableSet<String> executionRequirements;
+  private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<String, String> environment;
 
   @VisibleForTesting final CppConfiguration cppConfiguration;
@@ -303,7 +303,7 @@ public class CppCompileAction extends AbstractAction
       Iterable<IncludeScannable> lipoScannables,
       ImmutableList<Artifact> additionalIncludeScannables,
       UUID actionClassId,
-      ImmutableSet<String> executionRequirements,
+      ImmutableMap<String, String> executionInfo,
       ImmutableMap<String, String> environment,
       String actionName,
       RuleContext ruleContext,
@@ -344,7 +344,7 @@ public class CppCompileAction extends AbstractAction
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
-    this.executionRequirements = executionRequirements;
+    this.executionInfo = executionInfo;
     this.environment = environment;
 
     // We do not need to include the middleman artifact since it is a generated
@@ -847,11 +847,7 @@ public class CppCompileAction extends AbstractAction
 
   @Override
   public ImmutableMap<String, String> getExecutionInfo() {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
-    for (String requirement : executionRequirements) {
-      result.put(requirement, "");
-    }
-    return result.build();
+    return executionInfo;
   }
   
   /**
@@ -1184,7 +1180,7 @@ public class CppCompileAction extends AbstractAction
     Fingerprint f = new Fingerprint();
     f.addUUID(actionClassId);
     f.addStringMap(getEnvironment());
-    f.addStrings(executionRequirements);
+    f.addStringMap(executionInfo);
 
     // For the argv part of the cache key, ignore all compiler flags that explicitly denote module
     // file (.pcm) inputs. Depending on input discovery, some of the unused ones are removed from
