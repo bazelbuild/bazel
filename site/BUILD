@@ -109,7 +109,7 @@ for f in $(SRCS); do
     if which dot; then
       $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
     else
-      cp $$f $$tempdir/$$f
+      cp $$f $$tmpdir/$$f
     fi
 done
 cd $$tmpdir/site
