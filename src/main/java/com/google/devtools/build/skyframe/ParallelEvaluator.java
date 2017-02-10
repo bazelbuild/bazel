@@ -370,7 +370,17 @@ public final class ParallelEvaluator implements Evaluator {
         SkyValue value = null;
         long startTime = BlazeClock.instance().nanoTime();
         try {
-          value = factory.compute(skyKey, env);
+          try {
+            value = factory.compute(skyKey, env);
+          } finally {
+            long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;
+            if (elapsedTimeNanos > 0) {
+              evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
+              Profiler.instance()
+                  .logSimpleTaskDuration(
+                      startTime, elapsedTimeNanos, ProfilerTask.SKYFUNCTION, skyKey);
+            }
+          }
         } catch (final SkyFunctionException builderException) {
           ReifiedSkyFunctionException reifiedBuilderException =
               new ReifiedSkyFunctionException(builderException, skyKey);
@@ -440,13 +450,6 @@ public final class ParallelEvaluator implements Evaluator {
           throw ex;
         } finally {
           env.doneBuilding();
-          long elapsedTimeNanos = BlazeClock.instance().nanoTime() - startTime;
-          if (elapsedTimeNanos > 0) {
-            evaluatorContext.getProgressReceiver().computed(skyKey, elapsedTimeNanos);
-            Profiler.instance()
-                .logSimpleTaskDuration(
-                    startTime, elapsedTimeNanos, ProfilerTask.SKYFUNCTION, skyKey);
-          }
         }
 
         GroupedListHelper<SkyKey> newDirectDeps = env.getNewlyRequestedDeps();
