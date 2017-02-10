@@ -1,6 +1,5 @@
 DEFAULT_VISIBILITY = [
-    "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:__subpackages__",
-    "//src/test/junitrunner/javatests/com/google/testing/junit/runner:__subpackages__",
+    "//src/java_tools/junitrunner:__subpackages__",
 ]
 
 licenses(["notice"])  # Apache 2.0
