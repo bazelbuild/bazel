@@ -539,6 +539,6 @@ cc_library(
     ],
     deps = [
         ":grpc_unsecure",
-        "//third_party/protobuf:protobuf_clib",
+        "//third_party/protobuf:protobuf",
     ],
 )

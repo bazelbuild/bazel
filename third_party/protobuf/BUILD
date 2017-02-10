@@ -20,21 +20,11 @@ proto_alias("protobuf_java", PROTOBUF_VERSION)
 
 proto_alias("protobuf-jars", PROTOBUF_VERSION)
 
-proto_alias("protobuf-util", PROTOBUF_VERSION)
-
-alias(
-    name = "protobuf_java_util",
-    actual = "//third_party/protobuf/3.0.0:protobuf-util"
-)
+proto_alias("protobuf_java_util", PROTOBUF_VERSION)
 
 proto_alias("protobuf_python", PROTOBUF_VERSION)
 
-proto_alias("protobuf_clib", PROTOBUF_VERSION)
-
-alias(
-    name = "protobuf",
-    actual = "//third_party/protobuf/3.0.0:protobuf_clib"
-)
+proto_alias("protobuf", PROTOBUF_VERSION)
 
 proto_alias("protoc_lib", PROTOBUF_VERSION)
 

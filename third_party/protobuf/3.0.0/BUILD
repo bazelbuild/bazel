@@ -18,7 +18,7 @@ filegroup(
 )
 
 java_import(
-    name = "protobuf-util",
+    name = "protobuf_java_util",
     jars = ["protobuf-java-util-3.0.0.jar"],
     exports = [
         "//third_party:gson",
@@ -142,11 +142,8 @@ cc_library(
     visibility = ["//visibility:public"],
 )
 
-# This is named just "protobuf" in protobuf's BUILD file, but it is renamed here
-# to "protobuf_clib" to avoid conflicting with the java_import named "protobuf"
-# above.
 cc_library(
-    name = "protobuf_clib",
+    name = "protobuf",
     srcs = [
         # AUTOGEN(protobuf_srcs)
         "src/google/protobuf/any.cc",
@@ -311,7 +308,7 @@ cc_library(
     includes = ["src/"],
     linkopts = LINK_OPTS,
     visibility = ["//visibility:public"],
-    deps = [":protobuf_clib"],
+    deps = [":protobuf"],
 )
 
 proto_lang_toolchain(
