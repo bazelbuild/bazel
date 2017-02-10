@@ -94,7 +94,7 @@ public class PackageFunction implements SkyFunction {
   private final Cache<PackageIdentifier, CacheEntryWithGlobDeps<AstAfterPreprocessing>> astCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
-  private final PackageProgressReceiver packageProgress;
+  @Nullable private final PackageProgressReceiver packageProgress;
   private final Profiler profiler = Profiler.instance();
   private final Label preludeLabel;
 
