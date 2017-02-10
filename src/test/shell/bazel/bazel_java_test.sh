@@ -105,6 +105,15 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+# Runfiles is disabled by default on Windows, but we can test it on Unix by
+# adding flag --experimental_enable_runfiles=0
+function test_build_and_run_hello_world_without_runfiles() {
+  write_hello_library_files
+
+  bazel run --experimental_enable_runfiles=0 //java/main:main &> $TEST_log || fail "build failed"
+  expect_log "Hello, Library!;Hello, World!"
+}
+
 function test_errorprone_error_fails_build_by_default() {
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
