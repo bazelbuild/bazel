@@ -584,9 +584,19 @@ public class CppHelper {
         ruleContext.getConfiguration().getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
-  static String getArtifactNameForCategory(
-      RuleContext ruleContext, CcToolchainProvider toolchain, ArtifactCategory category,
-      String outputName) {
+  /**
+   * Returns the corresponding compiled TreeArtifact given the source TreeArtifact.
+   */
+  public static Artifact getCompileOutputTreeArtifact(
+      RuleContext ruleContext, Artifact sourceTreeArtifact) {
+    PathFragment objectDir = getObjDirectory(ruleContext.getLabel());
+    PathFragment rootRelativePath = sourceTreeArtifact.getRootRelativePath();
+    return ruleContext.getTreeArtifact(
+        objectDir.getRelative(rootRelativePath), sourceTreeArtifact.getRoot());
+  }
+
+  static String getArtifactNameForCategory(RuleContext ruleContext, CcToolchainProvider toolchain,
+      ArtifactCategory category, String outputName) {
     return toolchain.getFeatures().getArtifactNameForCategory(category, outputName);
   }
 

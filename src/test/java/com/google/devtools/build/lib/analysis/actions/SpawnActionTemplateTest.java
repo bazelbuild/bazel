@@ -24,20 +24,16 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
-import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 /**
  * Tests {@link SpawnActionTemplate}.
@@ -288,82 +284,6 @@ public class SpawnActionTemplateTest {
           inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER);
       fail("Output paths containing '..' not allowed, expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      // expected
-    }
-  }
-
-  @Test
-  public void testExpandedAction_actionConflicts() throws Exception {
-    Artifact inputTreeArtifact = createInputTreeArtifact();
-    Artifact outputTreeArtifact = createOutputTreeArtifact();
-
-    OutputPathMapper mapper = new OutputPathMapper() {
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return new PathFragment("conflict_path");
-      }
-    };
-
-    SpawnActionTemplate actionTemplate = builder(inputTreeArtifact, outputTreeArtifact)
-        .setExecutable(new PathFragment("/bin/cp"))
-        .setCommandLineTemplate(
-            createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-        .setOutputPathMapper(mapper)
-        .build(ActionsTestUtil.NULL_ACTION_OWNER);
-
-    Iterable<TreeFileArtifact> inputTreeFileArtifacts =
-        createInputTreeFileArtifacts(inputTreeArtifact);
-
-    try {
-      actionTemplate.generateActionForInputArtifacts(
-          inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER);
-      fail("Expected ActionConflictException");
-    } catch (ActionConflictException e) {
-      // expected
-    }
-  }
-
-  @Test
-  public void testExpandedAction_artifactPrefixConflicts() throws Exception {
-    Artifact inputTreeArtifact = createInputTreeArtifact();
-    Artifact outputTreeArtifact = createOutputTreeArtifact();
-
-    OutputPathMapper mapper = new OutputPathMapper() {
-      private int i = 0;
-      @Override
-      public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        PathFragment path;
-        switch (i) {
-          case 0:
-            path = new PathFragment("path_prefix");
-            break;
-          case 1:
-            path = new PathFragment("path_prefix/conflict");
-            break;
-          default:
-            path = inputTreeFileArtifact.getParentRelativePath();
-        }
-
-        ++i;
-        return path;
-      }
-    };
-
-    SpawnActionTemplate actionTemplate = builder(inputTreeArtifact, outputTreeArtifact)
-        .setExecutable(new PathFragment("/bin/cp"))
-        .setCommandLineTemplate(
-            createSimpleCommandLineTemplate(inputTreeArtifact, outputTreeArtifact))
-        .setOutputPathMapper(mapper)
-        .build(ActionsTestUtil.NULL_ACTION_OWNER);
-
-    Iterable<TreeFileArtifact> inputTreeFileArtifacts =
-        createInputTreeFileArtifacts(inputTreeArtifact);
-
-    try {
-      actionTemplate.generateActionForInputArtifacts(
-          inputTreeFileArtifacts, ArtifactOwner.NULL_OWNER);
-      fail("Expected ArtifactPrefixConflictException");
-    } catch (ArtifactPrefixConflictException e) {
       // expected
     }
   }

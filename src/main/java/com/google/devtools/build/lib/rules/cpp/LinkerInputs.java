@@ -47,7 +47,10 @@ public abstract class LinkerInputs {
           break;
 
         case OBJECT_FILE:
-          Preconditions.checkState(Link.OBJECT_FILETYPES.matches(basename));
+          // We skip file extension checks for TreeArtifacts because they represent directory
+          // artifacts without a file extension.
+          Preconditions.checkState(
+              artifact.isTreeArtifact() || Link.OBJECT_FILETYPES.matches(basename));
           break;
 
         default:

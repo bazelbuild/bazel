@@ -1407,12 +1407,27 @@ public class CcToolchainFeatures implements Serializable {
       private final Map<String, VariableValue> variablesMap = new LinkedHashMap<>();
       private final Map<String, String> stringVariablesMap = new LinkedHashMap<>();
 
+      public Builder() {};
+
+      public Builder(Variables variables) {
+        variablesMap.putAll(variables.variablesMap);
+        stringVariablesMap.putAll(variables.stringVariablesMap);
+      }
+
       /** Add a variable that expands {@code name} to {@code value}. */
       public Builder addStringVariable(String name, String value) {
         Preconditions.checkArgument(
             !variablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
         Preconditions.checkArgument(
             !stringVariablesMap.containsKey(name), "Cannot overwrite variable '%s'", name);
+        Preconditions.checkNotNull(
+            value, "Cannot set null as a value for variable '%s'", name);
+        stringVariablesMap.put(name, value);
+        return this;
+      }
+
+      /** Overrides a variable to expands {@code name} to {@code value} instead. */
+      public Builder overrideStringVariable(String name, String value) {
         Preconditions.checkNotNull(
             value, "Cannot set null as a value for variable '%s'", name);
         stringVariablesMap.put(name, value);

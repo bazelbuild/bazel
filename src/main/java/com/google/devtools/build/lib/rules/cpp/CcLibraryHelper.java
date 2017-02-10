@@ -451,13 +451,16 @@ public final class CcLibraryHelper {
    * file type also to compilationUnitSources.
    */
   private void addHeader(Artifact header, Label label) {
-    boolean isHeader = CppFileTypes.CPP_HEADER.matches(header.getExecPath());
+    // We assume TreeArtifacts passed in are directories containing proper headers.
+    boolean isHeader =
+        CppFileTypes.CPP_HEADER.matches(header.getExecPath()) || header.isTreeArtifact();
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
     publicHeaders.add(header);
     if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
       return;
     }
-    compilationUnitSources.add(CppSource.create(header, label, ImmutableMap.<String, String>of()));
+    compilationUnitSources.add(
+        CppSource.create(header, label, ImmutableMap.<String, String>of(), CppSource.Type.HEADER));
   }
 
   /** Adds a header to {@code publicHeaders}, but not to this target's module map. */
@@ -476,14 +479,26 @@ public final class CcLibraryHelper {
     Preconditions.checkNotNull(featureConfiguration);
     boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
-    boolean isCompiledSource = sourceCategory.getSourceTypes().matches(source.getExecPathString());
+    // We assume TreeArtifacts passed in are directories containing proper sources for compilation.
+    boolean isCompiledSource =
+        sourceCategory.getSourceTypes().matches(source.getExecPathString())
+            || source.isTreeArtifact();
     if (isHeader || isTextualInclude) {
       privateHeaders.add(source);
     }
     if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
       return;
     }
-    compilationUnitSources.add(CppSource.create(source, label, buildVariables));
+    boolean isClifInputProto = CppFileTypes.CLIF_INPUT_PROTO.matches(source.getExecPathString());
+    CppSource.Type type;
+    if (isHeader) {
+      type = CppSource.Type.HEADER;
+    } else if (isClifInputProto) {
+      type = CppSource.Type.CLIF_INPUT_PROTO;
+    } else {
+      type = CppSource.Type.SOURCE;
+    }
+    compilationUnitSources.add(CppSource.create(source, label, buildVariables, type));
   }
 
   private boolean shouldProcessHeaders() {

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
-import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -76,7 +76,7 @@ class ArtifactFunction implements SkyFunction {
 
     // If the action is an ActionTemplate, we need to expand the ActionTemplate into concrete
     // actions, execute those actions in parallel and then aggregate the action execution results.
-    if (artifact.isTreeArtifact() && actionMetadata instanceof SpawnActionTemplate) {
+    if (artifact.isTreeArtifact() && actionMetadata instanceof ActionTemplate) {
       // Create the directory structures for the output TreeArtifact first.
       try {
         FileSystemUtils.createDirectoryAndParents(artifact.getPath());
@@ -91,7 +91,7 @@ class ArtifactFunction implements SkyFunction {
       }
 
       return createTreeArtifactValueFromActionTemplate(
-          (SpawnActionTemplate) actionMetadata, artifact, env);
+          (ActionTemplate) actionMetadata, artifact, env);
     } else {
       Preconditions.checkState(
           actionMetadata instanceof Action,
@@ -118,7 +118,7 @@ class ArtifactFunction implements SkyFunction {
   }
 
   private static TreeArtifactValue createTreeArtifactValueFromActionTemplate(
-      SpawnActionTemplate actionTemplate, Artifact treeArtifact, Environment env)
+      ActionTemplate actionTemplate, Artifact treeArtifact, Environment env)
       throws ArtifactFunctionException, InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     ActionTemplateExpansionValue expansionValue = (ActionTemplateExpansionValue) env.getValue(

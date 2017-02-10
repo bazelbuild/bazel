@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -236,6 +235,7 @@ public class CppCompileAction extends AbstractAction
    * Creates a new action to compile C/C++ source files.
    *
    * @param owner the owner of the action, usually the configured target that emitted it
+   * @param allInputs the list of all action inputs.
    * @param features TODO(bazel-team): Add parameter description.
    * @param featureConfiguration TODO(bazel-team): Add parameter description.
    * @param variables TODO(bazel-team): Add parameter description.
@@ -266,14 +266,15 @@ public class CppCompileAction extends AbstractAction
    * @param executionRequirements out-of-band hints to be passed to the execution backend to signal
    *     platform requirements
    * @param environment TODO(bazel-team): Add parameter description
+   * @param builtinIncludeFiles List of include files that may be included even if they are not
+   *     mentioned in the source file or any of the headers included by it
    * @param actionName a string giving the name of this action for the purpose of toolchain
    *     evaluation
-   * @param ruleContext The rule-context that produced this action
    * @param cppSemantics C++ compilation semantics
-   * @param ccToolchain C++ toolchain provider
    */
   protected CppCompileAction(
       ActionOwner owner,
+      NestedSet<Artifact> allInputs,
       // TODO(bazel-team): Eventually we will remove 'features'; all functionality in 'features'
       // will be provided by 'featureConfiguration'.
       ImmutableList<String> features,
@@ -306,18 +307,11 @@ public class CppCompileAction extends AbstractAction
       ImmutableMap<String, String> executionInfo,
       ImmutableMap<String, String> environment,
       String actionName,
-      RuleContext ruleContext,
-      CppSemantics cppSemantics,
-      CcToolchainProvider ccToolchain) {
+      Iterable<Artifact> builtinIncludeFiles,
+      CppSemantics cppSemantics) {
     super(
         owner,
-        createInputs(
-            ruleContext,
-            ccToolchain,
-            mandatoryInputs,
-            context.getTransitiveCompilationPrerequisites(),
-            optionalSourceFile,
-            lipoScannables),
+        allInputs,
         CollectionUtils.asListWithoutNulls(
             outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
     this.localShellEnvironment = localShellEnvironment;
@@ -351,78 +345,9 @@ public class CppCompileAction extends AbstractAction
     // artifact and will definitely exist prior to this action execution.
     this.mandatoryInputs = mandatoryInputs;
     this.prunableInputs = prunableInputs;
-    this.builtinIncludeFiles = ccToolchain.getBuiltinIncludeFiles();
+    this.builtinIncludeFiles = ImmutableList.copyOf(builtinIncludeFiles);
     this.cppSemantics = cppSemantics;
-    if (cppSemantics.needsIncludeValidation()) {
-      verifyIncludePaths(ruleContext);
-    }
     this.additionalIncludeScannables = ImmutableList.copyOf(additionalIncludeScannables);
-  }
-
-  /**
-   * Verifies that the include paths of this action are within the limits of the execution root.
-   */
-  private void verifyIncludePaths(RuleContext ruleContext) {
-    if (ruleContext == null) {
-      return;
-    }
-
-    Iterable<PathFragment> ignoredDirs = getValidationIgnoredDirs();
-
-    // We currently do not check the output of:
-    // - getQuoteIncludeDirs(): those only come from includes attributes, and are checked in
-    //   CcCommon.getIncludeDirsFromIncludesAttribute().
-    // - getBuiltinIncludeDirs(): while in practice this doesn't happen, bazel can be configured
-    //   to use an absolute system root, in which case the builtin include dirs might be absolute.
-    for (PathFragment include : Iterables.concat(getIncludeDirs(), getSystemIncludeDirs())) {
-
-      // Ignore headers from built-in include directories.
-      if (FileSystemUtils.startsWithAny(include, ignoredDirs)) {
-        continue;
-      }
-
-      // One starting ../ is okay for getting to a sibling repository.
-      if (include.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
-        include = include.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      }
-
-      if (include.isAbsolute()
-          || !PathFragment.EMPTY_FRAGMENT.getRelative(include).normalize().isNormalized()) {
-        ruleContext.ruleError(
-            "The include path '" + include + "' references a path outside of the execution root.");
-      }
-    }
-  }
-
-  private static NestedSet<Artifact> createInputs(
-      RuleContext ruleContext,
-      CcToolchainProvider ccToolchain,
-      NestedSet<Artifact> mandatoryInputs,
-      Set<Artifact> prerequisites,
-      Artifact optionalSourceFile,
-      Iterable<IncludeScannable> lipoScannables) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    if (optionalSourceFile != null) {
-      builder.add(optionalSourceFile);
-    }
-    builder.addAll(prerequisites);
-    builder.addAll(ccToolchain.getBuiltinIncludeFiles());
-    builder.addTransitive(mandatoryInputs);
-    if (lipoScannables != null && lipoScannables.iterator().hasNext()) {
-      // We need to add "legal generated scanner files" coming through LIPO scannables here. These
-      // usually contain pre-grepped source files, i.e. files just containing the #include lines
-      // extracted from generated files. With LIPO, some of these files can be accessed, even though
-      // there is no direct dependency on them. Adding the artifacts as inputs to this compile
-      // action ensures that the action generating them is actually executed.
-      for (IncludeScannable lipoScannable : lipoScannables) {
-        for (Artifact value : lipoScannable.getLegalGeneratedScannerFileMap().values()) {
-          if (value != null) {
-            builder.add(value);
-          }
-        }
-      }
-    }
-    return builder.build();
   }
 
   /**
@@ -959,7 +884,7 @@ public class CppCompileAction extends AbstractAction
     errors.assertProblemFree(this, getSourceFile());
   }
 
-  private Iterable<PathFragment> getValidationIgnoredDirs() {
+  Iterable<PathFragment> getValidationIgnoredDirs() {
     List<PathFragment> cxxSystemIncludeDirs = cppConfiguration.getBuiltInIncludeDirectories();
     return Iterables.concat(
         cxxSystemIncludeDirs, context.getSystemIncludeDirs());
@@ -1383,7 +1308,7 @@ public class CppCompileAction extends AbstractAction
         CcToolchainFeatures.Variables variables,
         String actionName) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
-      this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
+      this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile)
                       ? Preconditions.checkNotNull(dotdFile) : null;
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;

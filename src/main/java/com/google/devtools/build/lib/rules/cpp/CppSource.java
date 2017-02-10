@@ -22,7 +22,17 @@ import java.util.Map;
 
 /** A source file that is an input to a c++ compilation. */
 @AutoValue
-abstract class CppSource {
+public abstract class CppSource {
+
+  /**
+   * Types of sources.
+   */
+  public enum Type {
+    SOURCE,
+    HEADER,
+    CLIF_INPUT_PROTO,
+  }
+
   /**
    * Creates a {@code CppSource}.
    * 
@@ -30,9 +40,11 @@ abstract class CppSource {
    * @param label  the label from which this source arises in the build graph
    * @param buildVariables  build variables that should be used specifically in the compilation
    *     of this source
+   * @param type type of the source file.
    */
-  static CppSource create(Artifact source, Label label, Map<String, String> buildVariables) {
-    return new AutoValue_CppSource(source, label, buildVariables);
+  static CppSource create(Artifact source, Label label, Map<String, String> buildVariables,
+      Type type) {
+    return new AutoValue_CppSource(source, label, buildVariables, type);
   }
 
   /**
@@ -49,4 +61,9 @@ abstract class CppSource {
    * Returns build variables to be used specifically in the compilation of this source.
    */
   abstract Map<String, String> getBuildVariables();
+
+  /**
+   * Returns the type of this source.
+   */
+  abstract Type getType();
 }

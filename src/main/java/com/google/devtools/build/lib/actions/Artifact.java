@@ -508,6 +508,10 @@ public class Artifact
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
           parent);
+      Preconditions.checkState(
+          parentRelativePath.isNormalized() && !parentRelativePath.isAbsolute(),
+          "%s is not a proper normalized relative path",
+          parentRelativePath);
       this.parentTreeArtifact = parent;
       this.parentRelativePath = parentRelativePath;
     }

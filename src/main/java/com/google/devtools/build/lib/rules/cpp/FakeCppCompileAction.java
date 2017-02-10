@@ -29,8 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -61,6 +59,7 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   FakeCppCompileAction(
       ActionOwner owner,
+      NestedSet<Artifact> allInputs,
       ImmutableList<String> features,
       FeatureConfiguration featureConfiguration,
       CcToolchainFeatures.Variables variables,
@@ -75,18 +74,20 @@ public class FakeCppCompileAction extends CppCompileAction {
       Artifact outputFile,
       PathFragment tempOutputFile,
       DotdFile dotdFile,
-      BuildConfiguration configuration,
+      ImmutableMap<String, String> localShellEnvironment,
+      boolean codeCoverageEnabled,
       CppConfiguration cppConfiguration,
       CppCompilationContext context,
       Class<? extends CppCompileActionContext> actionContext,
       ImmutableList<String> copts,
       Predicate<String> nocopts,
-      RuleContext ruleContext,
+      Iterable<IncludeScannable> lipoScannables,
+      Iterable<Artifact> builtinIncludeFiles,
       CppSemantics cppSemantics,
-      CcToolchainProvider ccToolchain,
       ImmutableMap<String, String> executionInfo) {
     super(
         owner,
+        allInputs,
         features,
         featureConfiguration,
         variables,
@@ -103,8 +104,8 @@ public class FakeCppCompileAction extends CppCompileAction {
         null,
         null,
         null,
-        configuration.getLocalShellEnvironment(),
-        configuration.isCodeCoverageEnabled(),
+        localShellEnvironment,
+        codeCoverageEnabled,
         cppConfiguration,
         // We only allow inclusion of header files explicitly declared in
         // "srcs", so we only use declaredIncludeSrcs, not declaredIncludeDirs.
@@ -118,15 +119,14 @@ public class FakeCppCompileAction extends CppCompileAction {
         copts,
         nocopts,
         VOID_SPECIAL_INPUTS_HANDLER,
-        ImmutableList.<IncludeScannable>of(),
+        lipoScannables,
         ImmutableList.<Artifact>of(),
         GUID,
         executionInfo,
         ImmutableMap.<String, String>of(),
         CppCompileAction.CPP_COMPILE,
-        ruleContext,
-        cppSemantics,
-        ccToolchain);
+        builtinIncludeFiles,
+        cppSemantics);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 

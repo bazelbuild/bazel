@@ -183,10 +183,16 @@ public final class CppFileTypes {
         }
       };
 
-  public static final boolean mustProduceDotdFile(String source) {
-    return !ASSEMBLER.matches(source)
-        && !PIC_ASSEMBLER.matches(source)
-        && !CLIF_INPUT_PROTO.matches(source);
+  public static final boolean mustProduceDotdFile(Artifact source) {
+    // Sources from TreeArtifacts and TreeFileArtifacts will not generate dotd file.
+    if (source.isTreeArtifact() || source.hasParent()) {
+      return false;
+    }
+
+    String fileName = source.getFilename();
+    return !ASSEMBLER.matches(fileName)
+        && !PIC_ASSEMBLER.matches(fileName)
+        && !CLIF_INPUT_PROTO.matches(fileName);
   }
 
 }

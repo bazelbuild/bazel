@@ -954,8 +954,11 @@ public class CppLinkActionBuilder {
   }
 
   private void addObjectFile(LinkerInput input) {
+    // We skip file extension checks for TreeArtifacts because they represent directory artifacts
+    // without a file extension.
     String name = input.getArtifact().getFilename();
-    Preconditions.checkArgument(Link.OBJECT_FILETYPES.matches(name), name);
+    Preconditions.checkArgument(
+        input.getArtifact().isTreeArtifact() || Link.OBJECT_FILETYPES.matches(name), name);
     this.objectFiles.add(input);
   }
 
