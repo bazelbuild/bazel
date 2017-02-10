@@ -58,15 +58,16 @@ filegroup(
 genrule(
     name = "gen_java_lang_invoke_jar",
     srcs = [
-        "@bazel_tools//tools/jdk:SingleJar_deploy.jar",
         "@local_jdk//:bootclasspath"
+    ],
+    tools = [
+        "@bazel_tools//tools/jdk:SingleJar_binary",
     ],
     outs = ["java_lang_invoke.jar"],
     cmd = """
           for jar in $(locations @local_jdk//:bootclasspath); do
             if [[ "$${jar}" == *"/rt.jar" ]]; then
-              java -jar \
-                  $(location @bazel_tools//tools/jdk:SingleJar_deploy.jar) \
+              $(location @bazel_tools//tools/jdk:SingleJar_binary) \
                   --exclude_build_data \
                   --dont_change_compression \
                   --sources $${jar} \

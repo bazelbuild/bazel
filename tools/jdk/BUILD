@@ -170,3 +170,14 @@ java_import(
     name = "JacocoCoverage",
     jars = [":JacocoCoverage_deploy.jar"],
 )
+
+java_import(
+    name = "SingleJar",
+    jars = ["SingleJar_deploy.jar"],
+)
+
+java_binary(
+    name = "SingleJar_binary",
+    main_class = "com.google.devtools.build.singlejar.SingleJar",
+    runtime_deps = [":SingleJar"],
+)
