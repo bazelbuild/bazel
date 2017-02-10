@@ -15,9 +15,15 @@
 #include <string.h>
 #include <windows.h>
 
+#include <algorithm>
+#include <memory>
+#include <string>
+
+#include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "gtest/gtest.h"
+#include "src/main/native/windows_util.h"
+#include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
 #error("This test should only be run on Windows")
@@ -26,12 +32,18 @@
 namespace blaze_util {
 
 using std::string;
+using std::unique_ptr;
 using std::wstring;
 
 // Methods defined in file_windows.cc that are only visible for testing.
 bool AsWindowsPath(const string& path, wstring* result);
 void ResetMsysRootForTesting();
 string NormalizeWindowsPath(string path);
+
+class FileWindowsTest : public ::testing::Test {
+ public:
+  void TearDown() override { DeleteAllUnder(GetTestTmpDirW()); }
+};
 
 // This is a macro so the assertions will have the correct line number.
 #define GET_TEST_TMPDIR(/* string& */ result)                            \
@@ -42,7 +54,31 @@ string NormalizeWindowsPath(string path);
     ASSERT_GT(result.size(), 0);                                         \
   }
 
-TEST(FileTest, TestNormalizeWindowsPath) {
+// Asserts that dir1 can be created with some content, and dir2 doesn't exist.
+static void AssertTearDown(const WCHAR* dir1, const WCHAR* dir2) {
+  wstring wtmpdir(GetTestTmpDirW());
+  wstring dir1str(wtmpdir + L"\\" + dir1);
+  wstring subdir(dir1str + L"\\subdir");
+  wstring wfile(subdir + L"\\hello.txt");
+  EXPECT_TRUE(::CreateDirectoryW(dir1str.c_str(), NULL));
+  EXPECT_TRUE(::CreateDirectoryW(subdir.c_str(), NULL));
+  EXPECT_TRUE(CreateDummyFile(wfile));
+  EXPECT_NE(::GetFileAttributesW(wfile.c_str()), INVALID_FILE_ATTRIBUTES);
+  ASSERT_EQ(::GetFileAttributesW((wtmpdir + L"\\" + dir2).c_str()),
+            INVALID_FILE_ATTRIBUTES);
+}
+
+// One half of the teardown test: assert that test.teardown.b was cleaned up.
+TEST_F(FileWindowsTest, TestTearDownA) {
+  AssertTearDown(L"test.teardown.a", L"test.teardown.b");
+}
+
+// Other half of the teardown test: assert that test.teardown.a was cleaned up.
+TEST_F(FileWindowsTest, TestTearDownB) {
+  AssertTearDown(L"test.teardown.b", L"test.teardown.a");
+}
+
+TEST_F(FileWindowsTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string(""), NormalizeWindowsPath(""));
   ASSERT_EQ(string(""), NormalizeWindowsPath("."));
   ASSERT_EQ(string("foo"), NormalizeWindowsPath("foo"));
@@ -56,7 +92,7 @@ TEST(FileTest, TestNormalizeWindowsPath) {
   ASSERT_EQ(string("c:\\foo\\bar"), NormalizeWindowsPath("c:\\..//foo/./bar/"));
 }
 
-TEST(FileTest, TestDirname) {
+TEST_F(FileWindowsTest, TestDirname) {
   ASSERT_EQ("", Dirname(""));
   ASSERT_EQ("/", Dirname("/"));
   ASSERT_EQ("", Dirname("foo"));
@@ -77,7 +113,7 @@ TEST(FileTest, TestDirname) {
   ASSERT_EQ("\\\\?\\c:\\", Dirname("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, TestBasename) {
+TEST_F(FileWindowsTest, TestBasename) {
   ASSERT_EQ("", Basename(""));
   ASSERT_EQ("", Basename("/"));
   ASSERT_EQ("foo", Basename("foo"));
@@ -98,7 +134,7 @@ TEST(FileTest, TestBasename) {
   ASSERT_EQ("foo", Basename("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, IsAbsolute) {
+TEST_F(FileWindowsTest, IsAbsolute) {
   ASSERT_FALSE(IsAbsolute(""));
   ASSERT_TRUE(IsAbsolute("/"));
   ASSERT_TRUE(IsAbsolute("/foo"));
@@ -112,7 +148,7 @@ TEST(FileTest, IsAbsolute) {
   ASSERT_TRUE(IsAbsolute("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, IsRootDirectory) {
+TEST_F(FileWindowsTest, IsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory(""));
   ASSERT_TRUE(IsRootDirectory("/"));
   ASSERT_FALSE(IsRootDirectory("/foo"));
@@ -126,7 +162,7 @@ TEST(FileTest, IsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, TestAsWindowsPath) {
+TEST_F(FileWindowsTest, TestAsWindowsPath) {
   SetEnvironmentVariableA("BAZEL_SH", "c:\\msys\\some\\long\\path\\bash.exe");
   ResetMsysRootForTesting();
   wstring actual;
@@ -188,7 +224,7 @@ TEST(FileTest, TestAsWindowsPath) {
   ASSERT_EQ(wlongpath, actual);
 }
 
-TEST(FileTest, TestAsShortWindowsPath) {
+TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
   string actual;
   ASSERT_TRUE(AsShortWindowsPath("/dev/null", &actual));
   ASSERT_EQ(string("NUL"), actual);
@@ -212,7 +248,7 @@ TEST(FileTest, TestAsShortWindowsPath) {
   ASSERT_EQ(0, rmdir(dirname.c_str()));
 }
 
-TEST(FileTest, TestMsysRootRetrieval) {
+TEST_F(FileWindowsTest, TestMsysRootRetrieval) {
   wstring actual;
 
   SetEnvironmentVariableA("BAZEL_SH", "c:/foo/msys/bar/qux.exe");
@@ -262,7 +298,7 @@ static void RunCommand(const string& cmdline) {
   ASSERT_EQ(0, exit_code);
 }
 
-TEST(FileTest, TestPathExistsWindows) {
+TEST_F(FileWindowsTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(""));
   ASSERT_TRUE(PathExists("."));
   ASSERT_FALSE(PathExists("non.existent"));
@@ -307,7 +343,7 @@ TEST(FileTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
 
-TEST(FileTest, TestIsDirectory) {
+TEST_F(FileWindowsTest, TestIsDirectory) {
   ASSERT_FALSE(IsDirectory(""));
   ASSERT_FALSE(IsDirectory("/dev/null"));
   ASSERT_FALSE(IsDirectory("Nul"));
@@ -345,7 +381,7 @@ TEST(FileTest, TestIsDirectory) {
   ASSERT_EQ(0, rmdir(junc1.c_str()));
 }
 
-TEST(FileTest, TestUnlinkPath) {
+TEST_F(FileWindowsTest, TestUnlinkPath) {
   ASSERT_FALSE(UnlinkPath("/dev/null"));
   ASSERT_FALSE(UnlinkPath("Nul"));
 
@@ -378,7 +414,7 @@ TEST(FileTest, TestUnlinkPath) {
   ASSERT_EQ(0, rmdir(dir1.c_str()));
 }
 
-TEST(FileTest, TestMakeDirectories) {
+TEST_F(FileWindowsTest, TestMakeDirectories) {
   string tmpdir;
   GET_TEST_TMPDIR(tmpdir);
   ASSERT_LT(0, tmpdir.size());
@@ -411,7 +447,7 @@ TEST(FileTest, TestMakeDirectories) {
   ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4").c_str()));
 }
 
-TEST(FileTest, CanAccess) {
+TEST_F(FileWindowsTest, CanAccess) {
   ASSERT_FALSE(CanReadFile("C:/windows/this/should/not/exist/mkay"));
   ASSERT_FALSE(CanExecuteFile("C:/this/should/not/exist/mkay"));
   ASSERT_FALSE(CanAccessDirectory("C:/this/should/not/exist/mkay"));

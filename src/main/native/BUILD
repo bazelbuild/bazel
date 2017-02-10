@@ -68,6 +68,7 @@ cc_library(
     hdrs = ["windows_util.h"],
     visibility = [
         "//src/main/cpp:__subpackages__",
+        "//src/test/cpp:__subpackages__",
         "//src/test/native:__pkg__",
     ],
 )

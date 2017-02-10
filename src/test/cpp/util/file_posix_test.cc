@@ -45,7 +45,7 @@ static bool CreateEmptyFile(const string& path) {
   return close(fd) == 0;
 }
 
-TEST(FileTest, TestDirname) {
+TEST(FilePosixTest, TestDirname) {
   // The Posix version of SplitPath (thus Dirname too, which is implemented on
   // top of it) is not aware of Windows paths.
   ASSERT_EQ("", Dirname(""));
@@ -68,7 +68,7 @@ TEST(FileTest, TestDirname) {
   ASSERT_EQ("", Dirname("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, TestBasename) {
+TEST(FilePosixTest, TestBasename) {
   // The Posix version of SplitPath (thus Basename too, which is implemented on
   // top of it) is not aware of Windows paths.
   ASSERT_EQ("", Basename(""));
@@ -92,7 +92,7 @@ TEST(FileTest, TestBasename) {
   ASSERT_EQ("\\\\?\\c:\\foo", Basename("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, JoinPath) {
+TEST(FilePosixTest, JoinPath) {
   std::string path = JoinPath("", "");
   ASSERT_EQ("", path);
 
@@ -132,7 +132,7 @@ void MockDirectoryListingFunction(const string& path,
   }
 }
 
-TEST(FileTest, GetAllFilesUnder) {
+TEST(FilePosixTest, GetAllFilesUnder) {
   vector<string> result;
   _GetAllFilesUnder("root", &result, &MockDirectoryListingFunction);
   std::sort(result.begin(), result.end());
@@ -142,7 +142,7 @@ TEST(FileTest, GetAllFilesUnder) {
   ASSERT_EQ(expected, result);
 }
 
-TEST(FileTest, MakeDirectories) {
+TEST(FilePosixTest, MakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, NULL);
   const char* test_src_dir = getenv("TEST_SRCDIR");
@@ -203,7 +203,7 @@ TEST(FileTest, MakeDirectories) {
   ASSERT_EQ(EACCES, errno);
 }
 
-TEST(FileTest, HammerMakeDirectories) {
+TEST(FilePosixTest, HammerMakeDirectories) {
   const char* tmp_dir = getenv("TEST_TMPDIR");
   ASSERT_STRNE(tmp_dir, NULL);
 
@@ -402,7 +402,7 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   rmdir(root.c_str());
 }
 
-TEST(FileTest, IsAbsolute) {
+TEST(FilePosixTest, IsAbsolute) {
   ASSERT_FALSE(IsAbsolute(""));
   ASSERT_TRUE(IsAbsolute("/"));
   ASSERT_TRUE(IsAbsolute("/foo"));
@@ -416,7 +416,7 @@ TEST(FileTest, IsAbsolute) {
   ASSERT_FALSE(IsAbsolute("\\\\?\\c:\\foo"));
 }
 
-TEST(FileTest, IsRootDirectory) {
+TEST(FilePosixTest, IsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory(""));
   ASSERT_TRUE(IsRootDirectory("/"));
   ASSERT_FALSE(IsRootDirectory("/foo"));

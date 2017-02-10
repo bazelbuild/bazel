@@ -20,6 +20,7 @@ cc_test(
 
 cc_test(
     name = "file_test",
+    size = "small",
     srcs = ["file_test.cc"] + select({
         "//src:windows": [
             "file_posix_test.cc",
@@ -36,7 +37,17 @@ cc_test(
     deps = [
         "//src/main/cpp/util:file",
         "//third_party:gtest",
-    ],
+    ] + select({
+        "//src:windows": [
+            "//src/main/native:windows_jni_lib",
+            ":windows_test_util",
+        ],
+        "//src:windows_msvc": [
+            "//src/main/native:windows_jni_lib",
+            ":windows_test_util",
+        ],
+        "//conditions:default": [],
+    }),
 )
 
 cc_test(
@@ -67,6 +78,32 @@ cc_test(
         "//src/main/cpp/util:strings",
         "//third_party:gtest",
     ],
+)
+
+cc_library(
+    name = "windows_test_util",
+    testonly = 1,
+    srcs = select({
+        "//src:windows": ["windows_test_util.cc"],
+        "//src:windows_msvc": ["windows_test_util.cc"],
+        "//conditions:default": [],
+    }),
+    deps = ["//third_party:gtest"],
+)
+
+cc_test(
+    name = "windows_test_util_test",
+    size = "small",
+    srcs = select({
+        "//src:windows": ["windows_test_util.cc"],
+        "//src:windows_msvc": ["windows_test_util.cc"],
+        "//conditions:default": ["dummy_test.cc"],
+    }),
+    deps = select({
+        "//src:windows": ["//third_party:gtest"],
+        "//src:windows_msvc": ["//third_party:gtest"],
+        "//conditions:default": [],
+    }),
 )
 
 test_suite(name = "all_tests")
