@@ -125,6 +125,7 @@ import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleBinaryRule;
+import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsProvider;
 import com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleStaticLibraryRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule;
@@ -606,6 +607,9 @@ public class BazelRuleClassProvider {
               ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME, ObjcProvider.class);
           builder.registerSkylarkProvider(
               XcTestAppProvider.XCTEST_APP_SKYLARK_PROVIDER_NAME, XcTestAppProvider.class);
+          builder.registerSkylarkProvider(
+              AppleDebugOutputsProvider.SKYLARK_PROVIDER.getName(),
+              AppleDebugOutputsProvider.class);
           builder.addSkylarkAccessibleTopLevels("apple_common", new AppleSkylarkCommon());
 
           builder.addConfig(ObjcCommandLineOptions.class, new ObjcConfigurationLoader());

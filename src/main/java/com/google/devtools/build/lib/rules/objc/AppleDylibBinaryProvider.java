@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,45 +22,41 @@ import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
- * the 'executable' type.  This provider contains:
+ * the 'dylib' type. This provider contains:
  * <ul>
  *   <li>'binary': The dylib artifact output by apple_binary</li>
  *   <li>'objc': An {@link ObjcProvider} which contains information about the transitive
- *     dependencies linked into the binary, (intended so that bundle loaders depending on this
- *     executable may avoid relinking symbols included in the loadable binary</li>
+ *     dependencies linked into the dylib, (intended so that binaries depending on this dylib may
+ *     avoid relinking symbols included in the dylib</li>
  * </ul> 
  */
-public final class AppleExecutableBinaryProvider extends SkylarkClassObject
+public final class AppleDylibBinaryProvider extends SkylarkClassObject
     implements TransitiveInfoProvider {
 
-  /** Skylark name for the AppleExecutableBinaryProvider. */
-  public static final String SKYLARK_NAME = "AppleExecutableBinary";
+  /** Skylark name for the AppleDylibBinaryProvider. */
+  public static final String SKYLARK_NAME = "AppleDylibBinary";
 
- /** Skylark constructor and identifier for AppleExecutableBinaryProvider. */
+ /** Skylark constructor and identifier for AppleDylibBinaryProvider. */
   public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
       SkylarkClassObjectConstructor.createNative(SKYLARK_NAME);
 
-  private final Artifact appleExecutableBinary;
+  private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;
 
-  /**
-   * Creates a new AppleExecutableBinaryProvider provider that propagates the given apple_binary
-   * configured as an executable.
-   */
-  public AppleExecutableBinaryProvider(Artifact appleExecutableBinary,
+  public AppleDylibBinaryProvider(Artifact dylibBinary,
       ObjcProvider depsObjcProvider) {
     super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of(
-        "binary", appleExecutableBinary,
+        "binary", dylibBinary,
         "objc", depsObjcProvider));
-    this.appleExecutableBinary = appleExecutableBinary;
+    this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
   }
 
   /**
-   * Returns the multi-architecture executable binary that apple_binary created.
+   * Returns the multi-architecture dylib binary that apple_binary created.
    */
-  public Artifact getAppleExecutableBinary() {
-    return appleExecutableBinary;
+  public Artifact getAppleDylibBinary() {
+    return dylibBinary;
   }
 
   /**

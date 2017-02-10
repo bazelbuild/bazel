@@ -24,12 +24,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
@@ -121,9 +121,10 @@ public class AppleBinaryRule implements RuleDefinition {
         .add(
             attr(BUNDLE_LOADER_ATTR_NAME, LABEL)
                 .direct_compile_time_input()
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        AppleExecutableBinaryProvider.class))
+                .mandatoryProviders(
+                    ImmutableList.of(
+                        SkylarkProviderIdentifier.forKey(
+                            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey())))
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))

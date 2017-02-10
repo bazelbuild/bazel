@@ -152,11 +152,22 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
     objcProviderBuilder.add(MULTI_ARCH_LINKED_BINARIES, outputArtifact);
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
+    // TODO(cparsons): Stop propagating ObjcProvider directly from this rule.
     targetBuilder.addProvider(ObjcProvider.class, objcProvider);
 
-    if (getBinaryType(ruleContext) == BinaryType.EXECUTABLE) {
-      targetBuilder.addProvider(
-          AppleExecutableBinaryProvider.class, new AppleExecutableBinaryProvider(outputArtifact));
+    switch (getBinaryType(ruleContext)) {
+      case EXECUTABLE:
+        targetBuilder.addNativeDeclaredProvider(
+            new AppleExecutableBinaryProvider(outputArtifact, objcProvider));
+        break;
+      case DYLIB:
+        targetBuilder.addNativeDeclaredProvider(
+            new AppleDylibBinaryProvider(outputArtifact, objcProvider));
+        break;
+      case LOADABLE_BUNDLE:
+        targetBuilder.addNativeDeclaredProvider(
+            new AppleLoadableBundleBinaryProvider(outputArtifact));
+        break;
     }
 
     AppleDebugOutputsProvider.Builder builder = AppleDebugOutputsProvider.Builder.create();
@@ -195,8 +206,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
         extraLinkArgs.add("-bundle");
         if (didProvideBundleLoader) {
           AppleExecutableBinaryProvider executableProvider =
-              ruleContext.getPrerequisite(
-                  BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, AppleExecutableBinaryProvider.class);
+              (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+                  BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
+                  AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
           extraLinkArgs.add(
               "-bundle_loader", executableProvider.getAppleExecutableBinary().getExecPathString());
           extraLinkArgs.add("-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
@@ -241,8 +253,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
   private static Iterable<Artifact> getExtraLinkInputs(RuleContext ruleContext) {
     AppleExecutableBinaryProvider executableProvider =
-        ruleContext.getPrerequisite(
-            BUNDLE_LOADER_ATTR_NAME, Mode.TARGET, AppleExecutableBinaryProvider.class);
+        (AppleExecutableBinaryProvider) ruleContext.getPrerequisite(
+            BUNDLE_LOADER_ATTR_NAME, Mode.TARGET,
+            AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR.getKey());
     if (executableProvider != null) {
       return ImmutableSet.<Artifact>of(executableProvider.getAppleExecutableBinary());
     }

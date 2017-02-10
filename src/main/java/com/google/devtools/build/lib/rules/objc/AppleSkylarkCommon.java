@@ -120,6 +120,39 @@ public class AppleSkylarkCommon {
     return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
   }
 
+  @SkylarkCallable(
+    name = AppleDylibBinaryProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for AppleDylibBinary. If a target propagates "
+            + "the AppleDylibBinary provider, use this as the key with which to retrieve it.",
+    structField = true
+  )
+  public SkylarkClassObjectConstructor getAppleDylibBinaryConstructor() {
+    return AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+    name = AppleExecutableBinaryProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for AppleExecutableBinary. If a target propagates "
+            + "the AppleExecutableBinary provider, use this as the key with which to retrieve it.",
+    structField = true
+  )
+  public SkylarkClassObjectConstructor getAppleExecutableBinaryConstructor() {
+    return AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
+    name = AppleLoadableBundleBinaryProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for AppleLoadableBundleBinaryProvider. If a target "
+            + "propagates the AppleLoadableBundleBinaryProvider provider, use this as the key "
+            + "with which to retrieve it.",
+    structField = true
+  )
+  public SkylarkClassObjectConstructor getAppleLoadableBundleBinaryConstructor() {
+    return AppleLoadableBundleBinaryProvider.SKYLARK_CONSTRUCTOR;
+  }
 
   @SkylarkCallable(
     name = IosDeviceProvider.SKYLARK_NAME,
