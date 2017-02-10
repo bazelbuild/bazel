@@ -768,6 +768,7 @@ java_library(
         "rules/java/JavaToolchainRule.java",
         "rules/java/JavaToolchainSkylarkApiProvider.java",
         "rules/java/JvmConfigurationLoader.java",
+        "rules/java/OneVersionCheckActionBuilder.java",
         "rules/java/ProguardHelper.java",
         "rules/java/ProguardLibrary.java",
         "rules/java/ProguardLibraryRule.java",

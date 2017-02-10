@@ -340,6 +340,16 @@ public class JavaOptions extends FragmentOptions {
   )
   public boolean headerCompilationDirectClasspathFallbackError;
 
+  @Option(
+    name = "experimental_one_version_enforcement",
+    defaultValue = "false",
+    category = "undocumented",
+    help =
+        "When enabled, enforce that a java_binary rule can't contain more than one version "
+            + "of the same class file on the classpath"
+  )
+  public boolean enforceOneVersion;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();
@@ -364,6 +374,8 @@ public class JavaOptions extends FragmentOptions {
     host.javaClasspath = javaClasspath;
 
     host.strictJavaDeps = strictJavaDeps;
+
+    host.enforceOneVersion = enforceOneVersion;
 
     return host;
   }

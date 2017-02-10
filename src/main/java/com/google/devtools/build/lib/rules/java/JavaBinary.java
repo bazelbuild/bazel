@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.COMPRESSED;
 import static com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression.UNCOMPRESSED;
+import static com.google.devtools.build.lib.vfs.FileSystemUtils.replaceExtension;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -275,6 +276,22 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     boolean runProguard = applyProguardIfRequested(
         ruleContext, deployJar, common.getBootClasspath(), mainClass, semantics, filesBuilder);
 
+    if (javaConfig.isEnforceOneVersion()) {
+      Artifact oneVersionOutput =
+          ruleContext
+              .getAnalysisEnvironment()
+              .getDerivedArtifact(
+                  replaceExtension(classJar.getRootRelativePath(), "-one-version.txt"),
+                  classJar.getRoot());
+      filesBuilder.add(oneVersionOutput);
+
+      NestedSet<Artifact> transitiveDependencies =
+          NestedSetBuilder.fromNestedSet(attributes.getRuntimeClassPath()).add(classJar).build();
+      OneVersionCheckActionBuilder.build(
+          ruleContext,
+          transitiveDependencies,
+          oneVersionOutput);
+    }
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
 
     // Need not include normal runtime classpath in runfiles if Proguard is used because _deploy.jar

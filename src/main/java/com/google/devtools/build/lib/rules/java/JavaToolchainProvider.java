@@ -50,6 +50,8 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       @Nullable Artifact headerCompiler,
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
+      Artifact oneVersion,
+      Artifact oneVersionWhitelist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
       FilesToRunProvider ijar,
@@ -66,6 +68,8 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         headerCompiler,
         forciblyDisableHeaderCompilation,
         singleJar,
+        oneVersion,
+        oneVersionWhitelist,
         genClass,
         resourceJarBuilder,
         ijar,
@@ -115,6 +119,17 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
 
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
   public abstract Artifact getSingleJar();
+
+  /**
+   * Return the {@link Artifact} of the binary that enforces one-version compliance of java
+   * binaries.
+   */
+  @Nullable
+  public abstract Artifact getOneVersionBinary();
+
+  /** Return the {@link Artifact} of the whitelist used by the one-version compliance checker. */
+  @Nullable
+  public abstract Artifact getOneVersionWhitelist();
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */
   public abstract Artifact getGenClass();
