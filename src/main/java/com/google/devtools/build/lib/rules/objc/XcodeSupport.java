@@ -87,7 +87,10 @@ public final class XcodeSupport {
    */
   XcodeSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
       throws InterruptedException {
-    filesToBuild.add(ruleContext.getImplicitOutputArtifact(PBXPROJ));
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateXcodeProject()) {
+      filesToBuild.add(ruleContext.getImplicitOutputArtifact(PBXPROJ));
+    }
+
     return this;
   }
 
