@@ -266,7 +266,7 @@ public class SkylarkRuleClassFunctions {
                       + "implicitly added and must not be specified. Attributes "
                       + "<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, "
                       + "<code>testonly</code>, and <code>features</code> are implicitly added and "
-                      + "might be overriden."
+                      + "cannot be overriden."
           ),
           // TODO(bazel-team): need to give the types of these builtin attributes
           @Param(
