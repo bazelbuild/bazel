@@ -32,7 +32,7 @@ public class ResourceJarOptions {
       ImmutableList<String> resources,
       ImmutableList<String> resourceJars,
       ImmutableList<String> classpathResources) {
-    this.output = checkNotNull(output);
+    this.output = output;
     this.messages = messages;
     this.resources = resources;
     this.resourceJars = resourceJars;

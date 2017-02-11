@@ -1,7 +1,7 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/java_tools/buildjar:__pkg__"],
+    visibility = ["//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:__pkg__"],
 )
 
 java_test(

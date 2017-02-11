@@ -7,10 +7,17 @@ java_binary(
     runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar"],
 )
 
+java_binary(
+    name = "VanillaJavaBuilder",
+    main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    visibility = ["//visibility:public"],
+    runtime_deps = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:vanilla_java_builder"],
+)
+
 filegroup(
     name = "JavaBuilderDeploy",
     srcs = select({
-        "//tools/jdk:jdk7": ["//third_party/java/jdk/javabuilder:JavaBuilder_0.1.0"],
+        "//tools/jdk:jdk7": [":VanillaJavaBuilder_deploy.jar"],
         "//conditions:default": [":JavaBuilder_deploy.jar"],
     }),
 )
@@ -18,6 +25,12 @@ filegroup(
 filegroup(
     name = "bootstrap_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_deploy.jar"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "bootstrap_VanillaJavaBuilder_deploy.jar",
+    srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_VanillaJavaBuilder_deploy.jar"],
     visibility = ["//visibility:public"],
 )
 
@@ -43,7 +56,7 @@ filegroup(
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/bazel:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
-        "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar/resourcejar:srcs",
+        "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
     ],
     visibility = ["//src:__pkg__"],
 )
@@ -74,7 +87,7 @@ java_toolchain(
     extclasspath = ["//tools/jdk:extdir"],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
-    javabuilder = ["//third_party/java/jdk/javabuilder:JavaBuilder_0.1.0"],
+    javabuilder = [":bootstrap_VanillaJavaBuilder_deploy.jar"],
     javac = ["//third_party/java/jdk/langtools:javac7_jar"],
     jvm_opts = [
         "-XX:+TieredCompilation",

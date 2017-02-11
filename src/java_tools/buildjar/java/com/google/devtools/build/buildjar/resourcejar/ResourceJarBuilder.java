@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.buildjar.resourcejar;
 
+import static java.util.Objects.requireNonNull;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
@@ -52,12 +54,18 @@ public class ResourceJarBuilder implements Closeable {
 
   private final ResourceJarOptions options;
 
-  private ResourceJarBuilder(ResourceJarOptions options) {
+  public ResourceJarBuilder(ResourceJarOptions options) {
     this.options = options;
   }
 
   public void build() throws IOException {
+    requireNonNull(options.output());
     final JarCreator jar = new JarCreator(options.output());
+    build(jar);
+    jar.execute();
+  }
+
+  public void build(JarCreator jar) throws IOException {
     jar.setNormalize(true);
     jar.setCompression(true);
 
@@ -65,8 +73,6 @@ public class ResourceJarBuilder implements Closeable {
     jar.addRootEntries(options.classpathResources());
     addResourceEntries(jar, options.resources());
     addMessageEntries(jar, options.messages());
-
-    jar.execute();
   }
 
   private void addResourceJars(final JarCreator jar, ImmutableList<String> resourceJars)

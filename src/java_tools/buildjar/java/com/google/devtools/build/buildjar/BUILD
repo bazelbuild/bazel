@@ -55,6 +55,7 @@ java_library(
         exclude = [
             "InvalidCommandLineException.java",
             "JarOwner.java",
+            "VanillaJavaBuilder.java",
         ],
     ),
     deps = [
@@ -154,6 +155,7 @@ bootstrap_java_binary(
         exclude = [
             "java/com/google/devtools/build/buildjar/javac/testing/**",
             "JarOwner.java",
+            "VanillaJavaBuilder.java",
         ],
     ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
@@ -171,6 +173,42 @@ bootstrap_java_library(
         "//third_party:jsr305-jars",
         "//third_party:auto_value-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
+    ],
+)
+
+bootstrap_java_binary(
+    name = "bootstrap_VanillaJavaBuilder",
+    srcs = [
+        "InvalidCommandLineException.java",
+        "JarOwner.java",
+        "OptionsParser.java",
+        "VanillaJavaBuilder.java",
+    ],
+    main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    deps = [
+        ":skylark-deps",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar:bootstrap_resourcejar",
+    ],
+)
+
+java_binary(
+    name = "VanillaJavaBuilder",
+    main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
+    runtime_deps = [":vanilla_java_builder"],
+)
+
+java_library(
+    name = "vanilla_java_builder",
+    srcs = ["VanillaJavaBuilder.java"],
+    deps = [
+        ":optionsparser",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar",
+        "//src/main/protobuf:deps_java_proto",
+        "//src/main/protobuf:java_compilation_java_proto",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
     ],
 )
 
