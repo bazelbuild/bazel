@@ -58,9 +58,9 @@ public class ProxyHelper {
     String[] noProxyUrlArray = noProxyUrl.split(",");
     URL url = new URL(requestedUrl);
     String requestedHost = url.getHost();
-    for(int i=0;i<noProxyUrlArray.length;i++){
-      if (requestedHost.contains(noProxyUrlArray[i])){
-      return createProxy(proxyAddress);
+    for (int i = 0; i < noProxyUrlArray.length; i++) {
+      if (requestedHost.endsWith(noProxyUrlArray[i])) {
+        return createProxy(proxyAddress);
       }
     }
     if (HttpUtils.isProtocol(requestedUrl, "https")) {
