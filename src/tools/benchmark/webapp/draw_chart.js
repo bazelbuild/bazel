@@ -2,10 +2,10 @@ google.charts.load('current', {packages: ['corechart']});
 google.charts.setOnLoadCallback(drawAllChart);
 
 /**
- * Get data from /data.json and draw charts from it.
+ * Get data from /data/*.json and draw charts from it.
  */
 function drawAllChart() {
-  $.getJSON('data.json', function(data) {
+  $.get('file_list', function(data) {
     /** @type {!Array<LineChart>} */
     const chart = [];
     const options = [];
@@ -13,49 +13,98 @@ function drawAllChart() {
     const tableData = [];
     /** @type {!Array<Column>} */
     const columns = [];
-    const buildTargetResultsLen = data.buildTargetResults.length;
+    /** @type {!boolean} */
+    let chartInit = false;
+    /** @type {!number} */
+    let targetNum = 0;
+
+    /** @type {!Array<string>} */
+    const filenames = data.trim().split('\n');
+
+    // Make sure the length of the deffered object array is always > 1
+    $.when.apply($, [0].concat(filenames.map(function(filename) {
+      return $.getJSON("data/" + filename);
+    }))).then(function(){
+      /** @type {!Array<Object>} */
+      let responses = [].slice.call(arguments, 1);
+      for (let response of responses) {
+        let data = response[0];
+
+        if (!chartInit) {
+          targetNum = data.buildTargetResults.length;
+          initChartData(data.buildTargetResults, chart, tableData, options);
+          chartInit = true;
+        }
+
+        // Add rows for chart (including data)
+        for (let i = 0; i < targetNum; ++i) {
+          addRowsFromData(tableData[i], data.buildTargetResults[i].buildEnvResults);
+        }
+      }
+      afterChartData(targetNum, chart, columns, tableData, options);
+    });
+  });
+}
+
+/**
+ * Initialize all the chart data (columns, options, divs and chart objects)
+ * @param {!Array<Object>} buildTargetResults results for all build targets
+ * @param {!Array<LineChart>} chart all charts
+ * @param {!Array<DataTable>} tableData data for all charts
+ * @param {!Array<Object>} options options for all charts
+ */
+function initChartData (buildTargetResults, chart, tableData, options) {
+  for (let i = 0; i < buildTargetResults.length; ++i) {
+    const buildEnvResults = buildTargetResults[i].buildEnvResults;
 
     // add divs to #content
-    for (let i = 0; i < buildTargetResultsLen; ++i) {
-      $('<div id="target' + i + '" style="width: 100%; height: 600px"></div>')
-          .appendTo('#content');
+    $('<div id="target' + i + '" style="width: 100%; height: 600px"></div>')
+        .appendTo('#content');
+
+    // Options for each chart (including title)
+    options[i] = {
+      title: buildTargetResults[i].buildTargetConfig.description,
+      tooltip: { isHtml: true, trigger: 'both' },
+      intervals: { style: 'bars' },
+      chartArea: {  width: '70%' }
+    };
+
+    // Create data table & add columns(line options)
+    tableData[i] = new google.visualization.DataTable();
+    addColumnsFromBuildEnv(tableData[i], buildEnvResults);
+
+    // Create chart objects
+    chart[i] = new google.visualization.LineChart(
+        document.getElementById('target' + i));
+  }
+}
+
+/**
+ * Called after getting and filling chart data, draw all charts
+ * @param {!number} targetNum number of target configs (charts)
+ * @param {!Array<LineChart>} chart all charts
+ * @param {!Array<Column>} columns columns of all charts
+ * @param {!Array<DataTable>} tableData data for all charts
+ * @param {!Array<Object>} options options for all charts
+ */
+function afterChartData (targetNum, chart, columns, tableData, options) {
+  // final steps to draw charts
+  for (let i = 0; i < targetNum; ++i) {
+    chart[i].draw(tableData[i], options[i]);
+
+    // event
+    columns[i] = [];
+    for (let j = 0; j < tableData[i].getNumberOfColumns(); j++) {
+      columns[i].push(j);
     }
 
-    // draw chart for every BuildTargetResult
-    for (let i = 0; i < buildTargetResultsLen; ++i) {
-      const buildEnvResults = data.buildTargetResults[i].buildEnvResults;
-
-      // Add columns and rows for chart
-      tableData[i] = new google.visualization.DataTable();
-      addColumnsFromBuildEnv(tableData[i], buildEnvResults);
-      addRowsFromData(tableData[i], buildEnvResults);
-
-      options[i] = {
-        title: data.buildTargetResults[i].buildTargetConfig.description,
-        tooltip: { isHtml: true, trigger: 'both'},
-        intervals: { style: 'bars' },
-        chartArea: {  width: '70%' }
-      };
-
-      chart[i] = new google.visualization.LineChart(
-          document.getElementById('target' + i));
-      chart[i].draw(tableData[i], options[i]);
-
-      // ---------------------------------- event
-
-      columns[i] = [];
-      for (let j = 0; j < tableData[i].getNumberOfColumns(); j++) {
-        columns[i].push(j);
-      }
-
-      google.visualization.events.addListener(
-          chart[i], 'select', (function (x) {
-            return function () {
-              hideOrShow(chart[x], columns[x], tableData[x], options[x]);
-            };
-          })(i));
-    }
-  });
+    google.visualization.events.addListener(
+        chart[i], 'select', (function (x) {
+          return function () {
+            hideOrShow(chart[x], columns[x], tableData[x], options[x]);
+          };
+        })(i));
+  }
 }
 
 /**
