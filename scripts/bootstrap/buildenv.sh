@@ -58,6 +58,7 @@ if [ "${MACHINE_TYPE}" = 'ppc64' -o "${MACHINE_TYPE}" = 'ppc64le' ]; then
   MACHINE_IS_64BIT='yes'
 fi
 
+PATHSEP=":"
 case "${PLATFORM}" in
 linux)
   # JAVA_HOME must point to a Java installation.
@@ -82,6 +83,8 @@ msys*|mingw*)
   PATHSEP=";"
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
+  # Replace backslashes with forward slashes.
+  JAVA_HOME="${JAVA_HOME//\\//}"
 esac
 
 EXE_EXT=""
@@ -150,7 +153,7 @@ function tempdir() {
   local DIR="$(mktemp -d "${tmp%%/}/bazel_XXXXXXXX")"
   mkdir -p "${DIR}"
   local DIRBASE=$(basename "${DIR}")
-  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}'; }"
+  eval "cleanup_tempdir_${DIRBASE}() { rm -rf '${DIR}' >&/dev/null || true ; }"
   atexit cleanup_tempdir_${DIRBASE}
   NEW_TMPDIR="${DIR}"
 }

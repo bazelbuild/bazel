@@ -57,7 +57,6 @@ unset _JAVA_OPTIONS
 LDFLAGS=${LDFLAGS:-""}
 
 MSYS_DLLS=""
-PATHSEP=":"
 
 # Check that javac -version returns a upper version than $JAVA_VERSION.
 get_java_version

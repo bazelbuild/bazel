@@ -31,51 +31,48 @@ fi
 : ${JAVA_VERSION:="1.8"}
 
 if [ "${JAVA_VERSION}" = "1.7" ]; then
-  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
-        --javabase=$JAVA_HOME \
-        --host_javabase=$JAVA_HOME \
         --spawn_strategy=standalone \
         --nojava_header_compilation \
         --define JAVA_VERSION=1.7 --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
-        "${EXTRA_BAZEL_ARGS:-}"}
+        ${EXTRA_BAZEL_ARGS:-}"
 else
-  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+  _BAZEL_ARGS="--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
         --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-        --javabase=$JAVA_HOME \
-        --host_javabase=$JAVA_HOME \
         --spawn_strategy=standalone \
         --nojava_header_compilation \
         --strategy=Javac=worker --worker_quit_after_build --ignore_unsupported_sandboxing \
         --compilation_mode=opt \
-        "${EXTRA_BAZEL_ARGS:-}"}
+        ${EXTRA_BAZEL_ARGS:-}"
 fi
 
 if [ -z "${BAZEL-}" ]; then
-  function run_bootstrapping_bazel() {
+  function _run_bootstrapping_bazel() {
     local command=$1
     shift
     run_bazel_jar $command \
-        ${BAZEL_ARGS-} --verbose_failures \
+        ${_BAZEL_ARGS} --verbose_failures \
+        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 else
-  function run_bootstrapping_bazel() {
-    local command=$1
+  function _run_bootstrapping_bazel() { local command=$1
     shift
     ${BAZEL} --bazelrc=${BAZELRC} ${BAZEL_DIR_STARTUP_OPTIONS} $command \
-        ${BAZEL_ARGS-} --verbose_failures \
+        ${_BAZEL_ARGS} --verbose_failures \
+        "--javabase=${JAVA_HOME}" "--host_javabase=${JAVA_HOME}" \
         --javacopt="-g -source ${JAVA_VERSION} -target ${JAVA_VERSION}" "${@}"
   }
 fi
 
 function bazel_build() {
-  run_bootstrapping_bazel build "${EMBED_LABEL_ARG[@]}" "$@"
+  _run_bootstrapping_bazel build "${EMBED_LABEL_ARG[@]}" "$@"
 }
 
 function get_bazel_bin_path() {
-  run_bootstrapping_bazel info "bazel-bin" || echo "bazel-bin"
+  _run_bootstrapping_bazel info "bazel-bin" || echo "bazel-bin"
 }
 
 function md5_outputs() {
