@@ -48,14 +48,22 @@ public class TestCaseNodeTest {
   }
 
   @Test
-  public void assertIsSkippedIfNotStarted() {
+  public void assertIsFilteredIfNeverPending() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
-    assertStatusWithoutTiming(testCaseNode, TestResult.Status.SKIPPED);
+    assertStatusWithoutTiming(testCaseNode, TestResult.Status.FILTERED);
+  }
+
+  @Test
+  public void assertIsCancelledIfNotStarted() {
+    TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
+    assertStatusWithoutTiming(testCaseNode, TestResult.Status.CANCELLED);
   }
 
   @Test
   public void assertIsCancelledIfInterruptedBeforeStart() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.testInterrupted(NOW);
     assertStatusAndTiming(testCaseNode, TestResult.Status.CANCELLED, NOW, 0);
   }
@@ -63,6 +71,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertIsCompletedIfFailedBeforeStart() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.testFailure(new Exception(), NOW);
     assertStatusAndTiming(testCaseNode, TestResult.Status.COMPLETED, NOW, 0);
   }
@@ -70,6 +79,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertInterruptedIfStartedAndNotFinished() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     assertStatusAndTiming(testCaseNode, TestResult.Status.INTERRUPTED, NOW, 0);
     // Notice: This is an unexpected ending state, as even interrupted test executions should go
@@ -79,6 +89,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertInterruptedIfStartedAndInterrupted() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     testCaseNode.testInterrupted(NOW + 1);
     assertStatusAndTiming(testCaseNode, TestResult.Status.INTERRUPTED, NOW, 1);
@@ -87,6 +98,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertSkippedIfStartedAndSkipped() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     testCaseNode.testSkipped(NOW + 1);
     assertStatusAndTiming(testCaseNode, TestResult.Status.SKIPPED, NOW, 1);
@@ -95,6 +107,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertCompletedIfStartedAndFinished() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     testCaseNode.finished(NOW + 1);
     assertStatusAndTiming(testCaseNode, TestResult.Status.COMPLETED, NOW, 1);
@@ -103,6 +116,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertCompletedIfStartedAndFailedAndFinished() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     testCaseNode.testFailure(new Exception(), NOW + 1);
     testCaseNode.finished(NOW + 2);
@@ -112,6 +126,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertInterruptedIfStartedAndFailedAndInterrupted() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.started(NOW);
     testCaseNode.testFailure(new Exception(), NOW + 1);
     testCaseNode.testInterrupted(NOW + 2);
@@ -121,6 +136,7 @@ public class TestCaseNodeTest {
   @Test
   public void assertTestSuppressedIfNotStartedAndSuppressed() {
     TestCaseNode testCaseNode = new TestCaseNode(testCase, new TestSuiteNode(suite));
+    testCaseNode.pending();
     testCaseNode.testSuppressed(NOW);
     assertStatusAndTiming(testCaseNode, TestResult.Status.SUPPRESSED, NOW, 0);
   }

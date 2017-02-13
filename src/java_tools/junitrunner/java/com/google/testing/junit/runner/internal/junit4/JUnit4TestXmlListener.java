@@ -57,6 +57,13 @@ public class JUnit4TestXmlListener extends RunListener  {
   @Override
   public void testRunStarted(Description description) throws Exception {
     model = modelSupplier.get();
+
+    /*
+     * At this point, command line filtering has been applied. Mark all remaining tests as
+     * "pending"; any other tests will be considered "filtered".
+     */
+    model.testRunStarted(description);
+
     signalHandlers.installHandler(new Signal("TERM"), new WriteXmlSignalHandler());
   }
 
