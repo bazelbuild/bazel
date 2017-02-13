@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +43,7 @@ public class SkylarkAspect implements SkylarkExportable {
   private final ImmutableList<String> attributeAspects;
   private final ImmutableList<Attribute> attributes;
   private final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders;
+  private final ImmutableList<String> provides;
   private final ImmutableSet<String> paramAttributes;
   private final ImmutableSet<String> fragments;
   private final ImmutableSet<String> hostFragments;
@@ -55,6 +55,7 @@ public class SkylarkAspect implements SkylarkExportable {
       ImmutableList<String> attributeAspects,
       ImmutableList<Attribute> attributes,
       ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredAspectProviders,
+      ImmutableList<String> provides,
       ImmutableSet<String> paramAttributes,
       ImmutableSet<String> fragments,
       ImmutableSet<String> hostFragments,
@@ -63,11 +64,11 @@ public class SkylarkAspect implements SkylarkExportable {
     this.attributeAspects = attributeAspects;
     this.attributes = attributes;
     this.requiredAspectProviders = requiredAspectProviders;
+    this.provides = provides;
     this.paramAttributes = paramAttributes;
     this.fragments = fragments;
     this.hostFragments = hostFragments;
     this.funcallEnv = funcallEnv;
-    ImmutableList.Builder<Pair<String, Attribute>> builder = ImmutableList.builder();
   }
 
   public BaseFunction getImplementation() {
@@ -144,6 +145,12 @@ public class SkylarkAspect implements SkylarkExportable {
       builder.add(attr);
     }
     builder.requireAspectsWithProviders(requiredAspectProviders);
+    ImmutableList.Builder<SkylarkProviderIdentifier> advertisedSkylarkProviders =
+        ImmutableList.builder();
+    for (String provider : provides) {
+      advertisedSkylarkProviders.add(SkylarkProviderIdentifier.forLegacy(provider));
+    }
+    builder.advertiseProvider(advertisedSkylarkProviders.build());
     builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
     builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
     return builder.build();

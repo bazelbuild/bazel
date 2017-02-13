@@ -1744,6 +1744,32 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(analysisResult.hasError()).isFalse();
   }
 
+  @Test
+  public void aspectAdvertisingProviders() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "my_aspect = aspect(_impl, provides = ['foo'])",
+        "a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }"
+    );
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult analysisResult = update(
+          ImmutableList.of("//test:aspect.bzl%my_aspect"),
+          "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(analysisResult.hasError()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expect exception
+    }
+    assertContainsEvent(
+        "Aspect '//test:aspect.bzl%my_aspect', applied to '//test:xxx', "
+        + "does not provide advertised provider 'foo'");
+  }
+
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
     @Override
