@@ -150,6 +150,7 @@ function bazel_build() {
       cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
     fi
     cp bazel-genfiles/site/jekyll-tree.tar $1/www.bazel.build.tar
+    cp bazel-bin/src/tools/benchmark/webapp/site.tar $1/perf.bazel.build.tar.nobuild
     cp bazel-genfiles/scripts/packages/README.md $1/README.md
   fi
 }
@@ -486,6 +487,7 @@ function bazel_release() {
 # Use jekyll build to build the site and then gsutil to copy it to GCS
 # Input: $1 tarball to the jekyll site
 #        $2 name of the bucket to deploy the site to
+#        $3 "nobuild" if only publish without build
 # It requires to have gsutil installed. You can force the path to gsutil
 # by setting the GSUTIL environment variable
 function build_and_publish_site() {
@@ -494,17 +496,23 @@ function build_and_publish_site() {
   local gs="$(get_gsutil)"
   local site="$1"
   local bucket="$2"
+  local nobuild="$3"
 
   if [ ! -f "${site}" ] || [ -z "${bucket}" ]; then
     echo "Usage: build_and_publish_site <site-tarball> <bucket>" >&2
     return 1
   fi
-  tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
-  jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
+  local prod_dir="${tmpdir}"
+  if [ "$nobuild" != "nobuild" ]; then
+    tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
+    jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
+    prod_dir="${tmpdir}/production"
+  fi
+
   # Rsync:
   #   -r: recursive
   #   -c: compute checksum even though the input is from the filesystem
-  "${gs}" rsync -r -c "${tmpdir}/production" "gs://${bucket}"
+  "${gs}" rsync -r -c "${prod_dir}" "gs://${bucket}"
   "${gs}" web set -m index.html -e 404.html "gs://${bucket}"
   "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
 }
