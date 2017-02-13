@@ -216,11 +216,11 @@ public class CppHelper {
     return false;
   }
 
-  @Nullable public static FdoSupport getFdoSupport(RuleContext ruleContext) {
+  @Nullable public static FdoSupportProvider getFdoSupport(RuleContext ruleContext,
+      String ccToolchainAttribute) {
     return ruleContext
-        .getPrerequisite(":cc_toolchain", Mode.TARGET)
-        .getProvider(FdoSupportProvider.class)
-        .getFdoSupport();
+        .getPrerequisite(ccToolchainAttribute, Mode.TARGET)
+        .getProvider(FdoSupportProvider.class);
   }
 
   public static NestedSet<Pair<String, String>> getCoverageEnvironmentIfNeeded(
@@ -507,9 +507,9 @@ public class CppHelper {
   /**
    * Returns the FDO build subtype.
    */
-  public static String getFdoBuildStamp(RuleContext ruleContext) {
+  public static String getFdoBuildStamp(RuleContext ruleContext, FdoSupport fdoSupport) {
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
-    if (getFdoSupport(ruleContext).isAutoFdoEnabled()) {
+    if (fdoSupport.isAutoFdoEnabled()) {
       return (cppConfiguration.getLipoMode() == LipoMode.BINARY) ? "ALIPO" : "AFDO";
     }
     if (cppConfiguration.isFdo()) {

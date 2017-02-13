@@ -109,6 +109,7 @@ public final class LTOBackendArtifacts {
       RuleContext ruleContext,
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
       boolean usePic,
       boolean generateDwo) {
     LTOBackendAction.Builder builder = new LTOBackendAction.Builder();
@@ -138,8 +139,8 @@ public final class LTOBackendArtifacts {
     // The input to the LTO backend step is the bitcode file.
     buildVariablesBuilder.addStringVariable(
         "thinlto_input_bitcode_file", bitcodeFile.getExecPath().toString());
-    Artifact autoFdoProfile = CppHelper.getFdoSupport(ruleContext).buildProfileForLtoBackend(
-        featureConfiguration, buildVariablesBuilder, ruleContext);
+    Artifact autoFdoProfile = fdoSupport.getFdoSupport().buildProfileForLtoBackend(
+        fdoSupport, featureConfiguration, buildVariablesBuilder, ruleContext);
     if (autoFdoProfile != null) {
       builder.addInput(autoFdoProfile);
     }

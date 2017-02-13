@@ -657,6 +657,7 @@ public final class LinkCommandLine extends CommandLine {
     private boolean useTestOnlyFlags;
     @Nullable private Artifact paramFile;
     @Nullable private CcToolchainProvider toolchain;
+    private FdoSupport fdoSupport;
     private Variables variables;
     private FeatureConfiguration featureConfiguration;
 
@@ -705,6 +706,10 @@ public final class LinkCommandLine extends CommandLine {
             featureConfiguration = CcCommon.configureFeatures(ruleContext, ccToolchain);
           }
         }
+
+        if (fdoSupport == null) {
+          fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport();
+        }
       }
       
       if (variables == null) {
@@ -728,7 +733,7 @@ public final class LinkCommandLine extends CommandLine {
           features,
           linkstamps,
           actualLinkstampCompileOptions,
-          CppHelper.getFdoBuildStamp(ruleContext),
+          CppHelper.getFdoBuildStamp(ruleContext, fdoSupport),
           runtimeSolibDir,
           nativeDeps,
           useTestOnlyFlags,
@@ -743,6 +748,11 @@ public final class LinkCommandLine extends CommandLine {
      */
     public Builder setToolchain(CcToolchainProvider toolchain) {
       this.toolchain = toolchain;
+      return this;
+    }
+
+    public Builder setFdoSupport(FdoSupport fdoSupport) {
+      this.fdoSupport = fdoSupport;
       return this;
     }
 

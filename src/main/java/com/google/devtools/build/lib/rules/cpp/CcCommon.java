@@ -97,11 +97,15 @@ public final class CcCommon {
 
   private final CcToolchainProvider ccToolchain;
 
+  private final FdoSupportProvider fdoSupport;
+
   public CcCommon(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.ccToolchain =
         Preconditions.checkNotNull(CppHelper.getToolchain(ruleContext, ":cc_toolchain"));
+    this.fdoSupport =
+        Preconditions.checkNotNull(CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"));
   }
 
   /**
@@ -194,7 +198,7 @@ public final class CcCommon {
   }
 
   public TransitiveLipoInfoProvider collectTransitiveLipoLabels(CcCompilationOutputs outputs) {
-    if (CppHelper.getFdoSupport(ruleContext).getFdoRoot() == null
+    if (fdoSupport.getFdoSupport().getFdoRoot() == null
         || !cppConfiguration.isLipoContextCollector()) {
       return TransitiveLipoInfoProvider.EMPTY;
     }
@@ -280,6 +284,13 @@ public final class CcCommon {
    */
   public CcToolchainProvider getToolchain() {
     return ccToolchain;
+  }
+
+  /**
+   * Returns the C++ FDO optimization support provider.
+   */
+  public FdoSupportProvider getFdoSupport() {
+    return fdoSupport;
   }
 
   /**

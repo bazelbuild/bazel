@@ -83,7 +83,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         },
         masterConfig);
   }
-  
+
   private final FeatureConfiguration getMockFeatureConfiguration() throws Exception {
     return CcToolchainFeaturesTest.buildFeatures(
             CppLinkActionConfigs.getCppLinkActionConfigs(
@@ -185,7 +185,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     RunfilesProvider runfilesProvider = configuredTarget.getProvider(RunfilesProvider.class);
     assertThat(artifactsToStrings(runfilesProvider.getDefaultRunfiles().getArtifacts()))
         .contains("bin _solib_" + cpu + "/libx_Sliba.so");
-    
+
     configuredTarget = getConfiguredTarget("//x:b");
     linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/b" + extension);
     assertThat(artifactsToStrings(linkAction.getInputs())).contains("bin x/_objs/b/x/a.pic.o");
@@ -217,7 +217,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .build();
     assertThat(linkAction.getEnvironment()).containsEntry("foo", "bar");
   }
-  
+
   /**
    * This mainly checks that non-static links don't have identical keys. Many options are only
    * allowed on non-static links, and we test several of them here.
@@ -244,7 +244,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 new CppLinkActionBuilder(
                     ruleContext,
                     (i & 2) == 0 ? dynamicOutputFile : staticOutputFile,
-                    CppHelper.getToolchain(ruleContext, ":cc_toolchain")) {
+                    CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
+                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
                   @Override
                   protected Artifact getInterfaceSoBuilder() {
                     return interfaceSoBuilder;
@@ -296,7 +297,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 new CppLinkActionBuilder(
                     ruleContext,
                     (i & 2) == 0 ? staticOutputFile : dynamicOutputFile,
-                    CppHelper.getToolchain(ruleContext, ":cc_toolchain")) {
+                    CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
+                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
                   @Override
                   protected Artifact getInterfaceSoBuilder() {
                     return interfaceSoBuilder;
@@ -325,7 +327,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
             RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CppLinkActionBuilder builder = new CppLinkActionBuilder(
-        ruleContext, output, CppHelper.getToolchain(ruleContext, ":cc_toolchain"));
+        ruleContext, output, CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
+        CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport());
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertTrue(builder.canSplitCommandLine());
 
@@ -413,7 +416,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     getTargetConfiguration()
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
-                CppHelper.getToolchain(ruleContext, ":cc_toolchain"))
+                CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
+                CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport())
             .addObjectFiles(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
@@ -425,7 +429,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             .setFeatureConfiguration(featureConfiguration);
     return builder;
   }
-  
+
   private CppLinkActionBuilder createLinkBuilder(Link.LinkTargetType type) throws Exception {
     PathFragment output = new PathFragment("dummyRuleContext/output/path.a");
     return createLinkBuilder(

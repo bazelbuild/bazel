@@ -143,6 +143,7 @@ public class CppLinkActionBuilder {
 
   // can be null for CppLinkAction.createTestBuilder()
   @Nullable private final CcToolchainProvider toolchain;
+  private final FdoSupport fdoSupport;
   private Artifact interfaceOutput;
   private Artifact symbolCounts;
   private PathFragment runtimeSolibDir;
@@ -186,15 +187,17 @@ public class CppLinkActionBuilder {
    * @param ruleContext the rule that owns the action
    * @param output the output artifact
    * @param toolchain the C++ toolchain provider
+   * @param the C++ FDO optimization support
    */
   public CppLinkActionBuilder(RuleContext ruleContext, Artifact output,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain, FdoSupport fdoSupport) {
     this(
         ruleContext,
         output,
         ruleContext.getConfiguration(),
         ruleContext.getAnalysisEnvironment(),
-        toolchain);
+        toolchain,
+        fdoSupport);
   }
 
   /**
@@ -204,13 +207,16 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param configuration build configuration
    * @param toolchain C++ toolchain provider
+   * @param the C++ FDO optimization support
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
       Artifact output,
       BuildConfiguration configuration,
-      CcToolchainProvider toolchain) {
-    this(ruleContext, output, configuration, ruleContext.getAnalysisEnvironment(), toolchain);
+      CcToolchainProvider toolchain,
+      FdoSupport fdoSupport) {
+    this(ruleContext, output, configuration, ruleContext.getAnalysisEnvironment(), toolchain,
+        fdoSupport);
   }
 
   /**
@@ -220,19 +226,23 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param configuration the configuration used to determine the tool chain and the default link
    *     options
+   * @param toolchain the C++ toolchain provider
+   * @param the C++ FDO optimization support
    */
   private CppLinkActionBuilder(
       @Nullable RuleContext ruleContext,
       Artifact output,
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      FdoSupport fdoSupport) {
     this.ruleContext = ruleContext;
     this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
     this.output = Preconditions.checkNotNull(output);
     this.configuration = Preconditions.checkNotNull(configuration);
     this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.toolchain = toolchain;
+    this.fdoSupport = fdoSupport;
     if (cppConfiguration.supportsEmbeddedRuntimes() && toolchain != null) {
       runtimeSolibDir = toolchain.getDynamicRuntimeSolibDir();
     }
@@ -247,13 +257,15 @@ public class CppLinkActionBuilder {
    * @param linkContext an immutable CppLinkAction.Context from the original builder
    * @param configuration build configuration
    * @param toolchain the C++ toolchain provider
+   * @param the C++ FDO optimization support
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
       Artifact output,
       Context linkContext,
       BuildConfiguration configuration,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      FdoSupport fdoSupport) {
     // These Builder-only fields get set in the constructor:
     //   ruleContext, analysisEnvironment, outputPath, configuration, runtimeSolibDir
     this(
@@ -261,7 +273,8 @@ public class CppLinkActionBuilder {
         output,
         configuration,
         ruleContext.getAnalysisEnvironment(),
-        toolchain);
+        toolchain,
+        fdoSupport);
     Preconditions.checkNotNull(linkContext);
 
     // All linkContext fields should be transferred to this Builder.
@@ -655,6 +668,7 @@ public class CppLinkActionBuilder {
             .setUseTestOnlyFlags(useTestOnlyFlags)
             .setParamFile(paramFile)
             .setToolchain(toolchain)
+            .setFdoSupport(fdoSupport)
             .setBuildVariables(buildVariables)
             .setToolPath(getToolPath())
             .setFeatureConfiguration(featureConfiguration);
@@ -1405,7 +1419,7 @@ public class CppLinkActionBuilder {
       buildVariables
           .addAllStringVariables(toolchain.getBuildVariables())
           .build();
-      CppHelper.getFdoSupport(ruleContext).getLinkOptions(featureConfiguration, buildVariables);
+      fdoSupport.getLinkOptions(featureConfiguration, buildVariables);
     }
 
     private boolean isLTOIndexing() {

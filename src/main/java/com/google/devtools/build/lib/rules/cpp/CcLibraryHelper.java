@@ -294,6 +294,7 @@ public final class CcLibraryHelper {
 
   private final FeatureConfiguration featureConfiguration;
   private CcToolchainProvider ccToolchain;
+  private final FdoSupportProvider fdoSupport;
 
   /**
    * Creates a CcLibraryHelper.
@@ -303,18 +304,21 @@ public final class CcLibraryHelper {
    * @param featureConfiguration  activated features and action configs for the build
    * @param sourceCatagory  the candidate source types for the build
    * @param ccToolchain the C++ toolchain provider for the build
+   * @param fdoSupport the C++ FDO optimization support provider for the build
    */
   public CcLibraryHelper(
       RuleContext ruleContext,
       CppSemantics semantics,
       FeatureConfiguration featureConfiguration,
       SourceCategory sourceCatagory,
-      CcToolchainProvider ccToolchain) {
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
+    this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
   }
 
   /**
@@ -324,11 +328,12 @@ public final class CcLibraryHelper {
    * @param semantics CppSemantics for the build
    * @param featureConfiguration activated features and action configs for the build
    * @param ccToolchain the C++ toolchain provider for the build
+   * @param fdoSupport the C++ FDO optimization support provider for the build
    */
   public CcLibraryHelper(
       RuleContext ruleContext, CppSemantics semantics, FeatureConfiguration featureConfiguration,
-      CcToolchainProvider ccToolchain) {
-    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain);
+      CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport) {
+    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC, ccToolchain, fdoSupport);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -1067,7 +1072,7 @@ public final class CcLibraryHelper {
    * Creates the C/C++ compilation action creator.
    */
   private CppModel initializeCppModel() {
-    return new CppModel(ruleContext, semantics, ccToolchain)
+    return new CppModel(ruleContext, semantics, ccToolchain, fdoSupport)
         .addCompilationUnitSources(compilationUnitSources)
         .addCopts(copts)
         .setLinkTargetType(linkType)
@@ -1384,7 +1389,7 @@ public final class CcLibraryHelper {
   }
 
   private TransitiveLipoInfoProvider collectTransitiveLipoInfo(CcCompilationOutputs outputs) {
-    if (CppHelper.getFdoSupport(ruleContext).getFdoRoot() == null) {
+    if (fdoSupport.getFdoSupport().getFdoRoot() == null) {
       return TransitiveLipoInfoProvider.EMPTY;
     }
     NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();

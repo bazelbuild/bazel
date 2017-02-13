@@ -163,6 +163,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     ruleContext.checkSrcsSamePackage(true);
     CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
+    FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, ccToolchain);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
@@ -185,7 +186,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             && linkStaticness == LinkStaticness.DYNAMIC;
 
     CcLibraryHelper helper =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain)
+        new CcLibraryHelper(
+                ruleContext,
+                semantics,
+                featureConfiguration,
+                ccToolchain,
+                fdoSupport)
             .fromCommon(common)
             .addSources(common.getSources())
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
@@ -230,6 +236,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         determineLinkerArguments(
             ruleContext,
             ccToolchain,
+            fdoSupport.getFdoSupport(),
             common,
             precompiledFiles,
             info,
@@ -289,6 +296,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             ruleContext,
             featureConfiguration,
             ccToolchain,
+            fdoSupport,
             usePic,
             /*generateDwo=*/ cppConfiguration.useFission());
       }
@@ -436,6 +444,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CppLinkActionBuilder determineLinkerArguments(
       RuleContext context,
       CcToolchainProvider toolchain,
+      FdoSupport fdoSupport,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcLibraryHelper.Info info,
@@ -447,7 +456,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean linkCompileOutputSeparately)
       throws InterruptedException {
     CppLinkActionBuilder builder =
-        new CppLinkActionBuilder(context, binary, toolchain)
+        new CppLinkActionBuilder(context, binary, toolchain, fdoSupport)
             .setCrosstoolInputs(toolchain.getLink())
             .addNonCodeInputs(compilationPrerequisites);
 

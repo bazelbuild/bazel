@@ -109,6 +109,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       throws RuleErrorException, InterruptedException {
     final CcCommon common = new CcCommon(ruleContext);
     CcToolchainProvider ccToolchain = common.getToolchain();
+    FdoSupportProvider fdoSupport = common.getFdoSupport();
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeatures(ruleContext, ccToolchain);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
@@ -119,7 +120,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     CcLibraryHelper helper =
-        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain)
+        new CcLibraryHelper(ruleContext, semantics, featureConfiguration, ccToolchain, fdoSupport)
             .fromCommon(common)
             .addLinkopts(common.getLinkopts())
             .addSources(common.getSources())
