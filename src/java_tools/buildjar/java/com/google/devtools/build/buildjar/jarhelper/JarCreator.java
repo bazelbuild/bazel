@@ -55,6 +55,13 @@ public class JarCreator extends JarHelper {
   public boolean addEntry(String entryName, Path path) {
     if (entryName.startsWith("/")) {
       entryName = entryName.substring(1);
+    } else if (entryName.length() >= 3
+        && Character.isLetter(entryName.charAt(0))
+        && entryName.charAt(1) == ':'
+        && (entryName.charAt(2) == '\\' || entryName.charAt(2) == '/')) {
+      // Windows absolute path, e.g. "D:\foo" or "e:/blah".
+      // Windows paths are case-insensitive, and support both backslashes and forward slashes.
+      entryName = entryName.substring(3);
     } else if (entryName.startsWith("./")) {
       entryName = entryName.substring(2);
     }
