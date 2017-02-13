@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.DependencyFilter.AttributeInfoProvider;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
 /**
@@ -39,8 +38,8 @@ public abstract class DependencyFilter
       new DependencyFilter() {
     @Override
     public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-      // getConfigurationTransition() is only defined for labels which introduce a dependency.
-      if (attribute.getType().getLabelClass() != LabelClass.DEPENDENCY) {
+      // isHostConfiguration() is only defined for labels and label lists.
+      if (attribute.getType() != BuildType.LABEL && attribute.getType() != BuildType.LABEL_LIST) {
         return true;
       }
 
@@ -63,7 +62,8 @@ public abstract class DependencyFilter
       new DependencyFilter() {
     @Override
     public boolean apply(AttributeInfoProvider infoProvider, Attribute attribute) {
-      return attribute.getType().getLabelClass() != LabelClass.NONDEP_REFERENCE;
+      return attribute.getType() != BuildType.NODEP_LABEL
+          && attribute.getType() != BuildType.NODEP_LABEL_LIST;
     }
   };
   /**

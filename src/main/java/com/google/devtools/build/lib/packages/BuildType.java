@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.DictType;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.syntax.Type.ListType;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -48,7 +47,7 @@ public final class BuildType {
    * attributes that it's worth treating them specially (and providing support
    * for resolution of relative-labels in the <code>convert()</code> method).
    */
-  public static final Type<Label> LABEL = new LabelType(LabelClass.DEPENDENCY);
+  public static final Type<Label> LABEL = new LabelType();
   /**
    * The type of a dictionary of {@linkplain #LABEL labels}.
    */
@@ -63,7 +62,7 @@ public final class BuildType {
    * certain rules want to verify the type of a target referenced by one of their attributes, but
    * if there was a dependency edge there, it would be a circular dependency.
    */
-  public static final Type<Label> NODEP_LABEL = new LabelType(LabelClass.NONDEP_REFERENCE);
+  public static final Type<Label> NODEP_LABEL = new LabelType();
   /**
    *  The type of a list of {@linkplain #NODEP_LABEL labels} that do not cause
    *  dependencies.
@@ -137,7 +136,8 @@ public final class BuildType {
    * Returns whether the specified type is a label type or not.
    */
   public static boolean isLabelType(Type<?> type) {
-    return type.getLabelClass() != LabelClass.NONE;
+    return type == LABEL || type == LABEL_LIST || type == LABEL_DICT_UNARY
+        || type == NODEP_LABEL || type == NODEP_LABEL_LIST || type == FILESET_ENTRY_LIST;
   }
 
   /**
@@ -182,11 +182,6 @@ public final class BuildType {
     }
 
     @Override
-    public LabelClass getLabelClass() {
-      return LabelClass.FILESET_ENTRY;
-    }
-
-    @Override
     public FilesetEntry getDefaultValue() {
       return null;
     }
@@ -200,12 +195,6 @@ public final class BuildType {
   }
 
   private static class LabelType extends Type<Label> {
-    private final LabelClass labelClass;
-
-    LabelType(LabelClass labelClass) {
-      this.labelClass = labelClass;
-    }
-
     @Override
     public Label cast(Object value) {
       return (Label) value;
@@ -224,11 +213,6 @@ public final class BuildType {
     @Override
     public String toString() {
       return "label";
-    }
-
-    @Override
-    public LabelClass getLabelClass() {
-      return labelClass;
     }
 
     @Override
@@ -340,11 +324,6 @@ public final class BuildType {
     @Override
     public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
       visitor.visit(cast(value));
-    }
-
-    @Override
-    public LabelClass getLabelClass() {
-      return LabelClass.OUTPUT;
     }
 
     @Override

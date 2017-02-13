@@ -36,8 +36,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -741,7 +739,7 @@ public class ConstraintSemantics {
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : attributes.getAttributeNames()) {
       Attribute attrDef = attributes.getAttributeDefinition(attr);
-      if (attrDef.getType().getLabelClass() != LabelClass.DEPENDENCY
+      if ((attrDef.getType() != BuildType.LABEL && attrDef.getType() != BuildType.LABEL_LIST)
           || attrDef.skipConstraintsOverride()) {
         continue;
       }
@@ -821,22 +819,21 @@ public class ConstraintSemantics {
    * Adds all label values from the given select to the given set. Automatically handles different
    * value types (e.g. labels vs. label lists).
    */
-  private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
+  private static void addSelectValuesToSet(BuildType.Selector<?> select, Set<Label> set) {
     Type<?> type = select.getOriginalType();
-    LabelVisitor visitor = new LabelVisitor() {
-      @Override
-      public void visit(Label label) {
-        set.add(label);
+    if (type == BuildType.LABEL || type == BuildType.NODEP_LABEL) {
+      set.addAll(((BuildType.Selector<Label>) select).getEntries().values());
+    } else if (type == BuildType.LABEL_LIST ||  type == BuildType.NODEP_LABEL_LIST) {
+      for (List<Label> labels : ((BuildType.Selector<List<Label>>) select).getEntries().values()) {
+        set.addAll(labels);
       }
-    };
-    for (Object value : select.getEntries().values()) {
-      try {
-        type.visitLabels(visitor, value);
-      } catch (InterruptedException ex) {
-        // Because the LabelVisitor does not throw InterruptedException, it should not be thrown
-        // by visitLabels here.
-        throw new AssertionError(ex);
+    } else if (type == BuildType.LABEL_DICT_UNARY) {
+      for (Map<String, Label> mapEntry :
+          ((BuildType.Selector<Map<String, Label>>) select).getEntries().values()) {
+        set.addAll(mapEntry.values());
       }
+    } else {
+      throw new IllegalStateException("Expected a label-based type for this select");
     }
   }
 }

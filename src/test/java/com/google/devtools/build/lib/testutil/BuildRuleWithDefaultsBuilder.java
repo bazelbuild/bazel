@@ -20,8 +20,6 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
-import com.google.devtools.build.lib.syntax.Type.ListType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -59,8 +57,8 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
    */
   private String getDummyFileLabel(String rulePkg, String filePkg, String extension,
       Type<?> attrType) {
-    boolean isOutput = attrType.getLabelClass() == LabelClass.OUTPUT;
-    String fileName = (isOutput ? "dummy_output" : "dummy_input") + extension;
+    boolean isInput = (attrType == BuildType.LABEL || attrType == BuildType.LABEL_LIST);
+    String fileName = (isInput ? "dummy_input" : "dummy_output") + extension;
     generateFiles.add(filePkg + "/" + fileName);
     if (rulePkg.equals(filePkg)) {
       return ":" + fileName;
@@ -124,7 +122,7 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
       }
     }
     if (label != null) {
-      if (attrType instanceof ListType<?>) {
+      if (attrType == BuildType.LABEL_LIST || attrType == BuildType.OUTPUT_LIST) {
         addMultiValueAttributes(attribute.getName(), label);
       } else {
         setSingleValueAttribute(attribute.getName(), label);
@@ -177,10 +175,17 @@ public class BuildRuleWithDefaultsBuilder extends BuildRuleBuilder {
   public BuildRuleWithDefaultsBuilder populateAttributes(String rulePkg, boolean heuristics) {
     for (Attribute attribute : ruleClass.getAttributes()) {
       if (attribute.isMandatory()) {
-        if (BuildType.isLabelType(attribute.getType())) {
-          // TODO(bazel-team): actually an empty list would be fine in the case where
-          // attribute instanceof ListType && !attribute.isNonEmpty(), but BuildRuleBuilder
-          // doesn't support that, and it makes little sense anyway
+        if (attribute.getType() == BuildType.LABEL_LIST
+            || attribute.getType() == BuildType.OUTPUT_LIST) {
+          if (attribute.isNonEmpty()) {
+            populateLabelAttribute(rulePkg, attribute);
+          } else {
+            // TODO(bazel-team): actually here an empty list would be fine, but BuildRuleBuilder
+            // doesn't support that, and it makes little sense anyway
+            populateLabelAttribute(rulePkg, attribute);
+          }
+        } else if (attribute.getType() == BuildType.LABEL
+            || attribute.getType() == BuildType.OUTPUT) {
           populateLabelAttribute(rulePkg, attribute);
         } else {
           // Non label type attributes

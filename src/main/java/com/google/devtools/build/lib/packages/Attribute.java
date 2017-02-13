@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -508,7 +507,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Makes the built attribute producing a single artifact.
      */
     public Builder<TYPE> singleArtifact() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "attribute '%s' must be a label-valued type", name);
       return setPropertyFlag(PropertyFlag.SINGLE_ARTIFACT, "single_artifact");
     }
@@ -518,7 +517,7 @@ public final class Attribute implements Comparable<Attribute> {
      * This flag is introduced to handle plugins, do not use it in other cases.
      */
     public Builder<TYPE> silentRuleClassFilter() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       return setPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER, "silent_ruleclass_filter");
     }
@@ -527,7 +526,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Skip analysis time filetype check. Don't use it if avoidable.
      */
     public Builder<TYPE> skipAnalysisTimeFileTypeCheck() {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       return setPropertyFlag(PropertyFlag.SKIP_ANALYSIS_TIME_FILETYPE_CHECK,
           "skip_analysis_time_filetype_check");
@@ -802,7 +801,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClasses(Predicate<RuleClass> allowedRuleClasses) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabels = allowedRuleClasses;
@@ -832,7 +831,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedFileTypes(FileTypeSet allowedFileTypes) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedFileTypesForLabels = Preconditions.checkNotNull(allowedFileTypes);
@@ -887,7 +886,7 @@ public final class Attribute implements Comparable<Attribute> {
      * other words, it works for 'deps' attributes, but not 'srcs' attributes.
      */
     public Builder<TYPE> allowedRuleClassesWithWarning(Predicate<RuleClass> allowedRuleClasses) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       propertyFlags.add(PropertyFlag.STRICT_LABEL_CHECKING);
       allowedRuleClassesForLabelsWarning = allowedRuleClasses;
@@ -915,7 +914,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public final Builder<TYPE> mandatoryNativeProvidersList(
         Iterable<? extends Iterable<Class<? extends TransitiveInfoProvider>>> providersList) {
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       ImmutableList.Builder<ImmutableList<Class<? extends TransitiveInfoProvider>>> listBuilder
           = ImmutableList.builder();
@@ -942,7 +941,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public Builder<TYPE> mandatoryProvidersList(
         Iterable<? extends Iterable<SkylarkProviderIdentifier>> providersList){
-      Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
+      Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
       ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> listBuilder
           = ImmutableList.builder();
@@ -1087,13 +1086,13 @@ public final class Attribute implements Comparable<Attribute> {
 
       // do not modify this.allowedFileTypesForLabels, instead create a copy.
       FileTypeSet allowedFileTypesForLabels = this.allowedFileTypesForLabels;
-      if (type.getLabelClass() == LabelClass.DEPENDENCY) {
+      if ((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST)) {
         if (isPrivateAttribute(name) && allowedFileTypesForLabels == null) {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
         Preconditions.checkNotNull(
             allowedFileTypesForLabels, "allowedFileTypesForLabels not set for %s", name);
-      } else if (type.getLabelClass() == LabelClass.OUTPUT) {
+      } else if ((type == BuildType.OUTPUT) || (type == BuildType.OUTPUT_LIST)) {
         // TODO(bazel-team): Set the default to no file type and make explicit calls instead.
         if (allowedFileTypesForLabels == null) {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
@@ -1770,8 +1769,8 @@ public final class Attribute implements Comparable<Attribute> {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
         (configTransition == ConfigurationTransition.NONE && configurator == null)
-        || type.getLabelClass() == LabelClass.DEPENDENCY
-        || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
+        || type == BuildType.LABEL || type == BuildType.LABEL_LIST
+        || type == BuildType.NODEP_LABEL || type == BuildType.NODEP_LABEL_LIST,
         "Configuration transitions can only be specified for label or label list attributes");
     Preconditions.checkArgument(
         isLateBound(name) == (defaultValue instanceof LateBoundDefault),
@@ -1976,8 +1975,8 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns true if this attribute's value can be influenced by the build configuration.
    */
   public boolean isConfigurable() {
-    // Output types are excluded because of Rule#populateExplicitOutputFiles.
-    return !(type.getLabelClass() == LabelClass.OUTPUT
+    return !(type == BuildType.OUTPUT      // Excluded because of Rule#populateExplicitOutputFiles.
+        || type == BuildType.OUTPUT_LIST
         || getPropertyFlag(PropertyFlag.NONCONFIGURABLE));
   }
 
