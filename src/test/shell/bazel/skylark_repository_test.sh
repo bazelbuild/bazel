@@ -253,6 +253,34 @@ EOF
   expect_log "Maybe repository 'foo' was defined later in your WORKSPACE file?"
 }
 
+function test_load_nonexistent_with_subworkspace() {
+  mkdir ws2
+  cat >ws2/WORKSPACE
+
+  cat <<'EOF' >WORKSPACE
+load("@does_not_exist//:random.bzl", "random")
+EOF
+  cat >BUILD
+
+  # Test build //...
+  bazel clean --expunge
+  bazel build //... >& $TEST_log || exitCode=$?
+  [ $exitCode != 0 ] || fail "building //... succeed while expected failure"
+
+  expect_not_log "PACKAGE"
+  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
+
+  # Retest with query //...
+  bazel clean --expunge
+  bazel query //... >& $TEST_log || exitCode=$?
+  [ $exitCode != 0 ] || fail "querying //... succeed while expected failure"
+
+  expect_not_log "PACKAGE"
+  expect_log "Failed to load Skylark extension '@does_not_exist//:random.bzl'"
+  expect_log "Maybe repository 'does_not_exist' was defined later in your WORKSPACE file?"
+}
+
 function test_skylark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
