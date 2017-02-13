@@ -88,6 +88,11 @@ public abstract class AnalysisMock extends LoadingMock {
   public abstract void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException;
 
   /**
+   * Returns the contents of WORKSPACE.
+   */
+  public abstract List<String> getWorkspaceContents(MockToolsConfig config);
+
+  /**
    * This is called from test setup to create any necessary mock workspace files in the
    * <code>_embedded_binaries</code> directory.
    */
@@ -138,6 +143,11 @@ public abstract class AnalysisMock extends LoadingMock {
     @Override
     public void setupMockClient(MockToolsConfig mockToolsConfig) throws IOException {
       delegate.setupMockClient(mockToolsConfig);
+    }
+
+    @Override
+    public List<String> getWorkspaceContents(MockToolsConfig mockToolsConfig) {
+      return delegate.getWorkspaceContents(mockToolsConfig);
     }
 
     @Override

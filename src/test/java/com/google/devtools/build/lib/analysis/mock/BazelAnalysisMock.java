@@ -58,24 +58,27 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
-  public void setupMockClient(MockToolsConfig config) throws IOException {
+  public List<String> getWorkspaceContents(MockToolsConfig config) {
     String bazelToolWorkspace = config.getPath("/bazel_tools_workspace").getPathString();
-    ArrayList<String> workspaceContents =
-        new ArrayList<>(
-            ImmutableList.of(
-                "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
-                "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
-                "bind(",
-                "  name = 'objc_proto_lib',",
-                "  actual = '//objcproto:ProtocolBuffers_lib',",
-                ")",
-                "bind(",
-                "  name = 'objc_protobuf_lib',",
-                "  actual = '//objcproto:protobuf_lib',",
-                ")",
-                "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
-                "bind(name = 'tools/python', actual='//tools/python')"));
+    return new ArrayList<>(
+        ImmutableList.of(
+            "local_repository(name = 'bazel_tools', path = '" + bazelToolWorkspace + "')",
+            "local_repository(name = 'local_config_xcode', path = '/local_config_xcode')",
+            "bind(",
+            "  name = 'objc_proto_lib',",
+            "  actual = '//objcproto:ProtocolBuffers_lib',",
+            ")",
+            "bind(",
+            "  name = 'objc_protobuf_lib',",
+            "  actual = '//objcproto:protobuf_lib',",
+            ")",
+            "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
+            "bind(name = 'tools/python', actual='//tools/python')"));
+  }
 
+  @Override
+  public void setupMockClient(MockToolsConfig config) throws IOException {
+    List<String> workspaceContents = getWorkspaceContents(config);
     config.create(
         "/local_config_xcode/BUILD", "xcode_config(name = 'host_xcodes')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
