@@ -225,6 +225,10 @@ public final class AspectDefinition {
     }
   }
 
+  public static Builder builder(AspectClass aspectClass) {
+    return new Builder(aspectClass);
+  }
+
   /**
    * Builder class for {@link AspectDefinition}.
    */
