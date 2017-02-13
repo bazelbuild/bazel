@@ -1641,7 +1641,16 @@ unsigned int GrpcBlazeServer::Communicate() {
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   bool pipe_broken = false;
+  int exit_code = -1;
+  bool finished = false;
+  bool finished_warning_emitted = false;
+
   while (reader->Read(&response)) {
+    if (finished && !finished_warning_emitted) {
+      fprintf(stderr, "\nServer returned messages after reporting exit code\n");
+      finished_warning_emitted = true;
+    }
+
     if (response.cookie() != response_cookie_) {
       fprintf(stderr, "\nServer response cookie invalid, exiting\n");
       return blaze_exit_code::INTERNAL_ERROR;
@@ -1649,6 +1658,11 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     bool pipe_broken_now = false;
     const char* broken_pipe_name;
+
+    if (response.finished()) {
+      exit_code = response.exit_code();
+      finished = true;
+    }
 
     if (!response.standard_output().empty()) {
       size_t size = response.standard_output().size();
@@ -1685,7 +1699,14 @@ unsigned int GrpcBlazeServer::Communicate() {
   SendAction(CancelThreadAction::JOIN);
   cancel_thread.join();
 
-  if (!response.finished()) {
+  grpc::Status status = reader->Finish();
+  if (!status.ok()) {
+    fprintf(stderr, "\nServer terminated abruptly "
+            "(error code: %d, error message: '%s', log file: '%s')\n\n",
+            status.error_code(), status.error_message().c_str(),
+            globals->jvm_log_file.c_str());
+    return GetExitCodeForAbruptExit(*globals);
+  } else if (!finished) {
     fprintf(stderr, "\nServer finished RPC without an explicit exit code "
             "(log file: '%s')\n\n", globals->jvm_log_file.c_str());
     return GetExitCodeForAbruptExit(*globals);
@@ -1694,7 +1715,7 @@ unsigned int GrpcBlazeServer::Communicate() {
   // We'll exit with exit code SIGPIPE on Unixes due to PropagateSignalOnExit()
   return pipe_broken
       ? blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR
-      : response.exit_code();
+      : exit_code;
 }
 
 void GrpcBlazeServer::Disconnect() {
