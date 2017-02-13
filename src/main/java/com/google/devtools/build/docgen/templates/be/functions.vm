@@ -62,7 +62,9 @@ load(":build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
   file is sufficient) The name of the file must have the suffix
   <code>.bzl</code>. If the specified label is in the relative label syntax
   (<code>:a/b.bzl</code>), it will be resolved relative to the package of the
-  file the <code>load</code> statement is in.
+  file the <code>load</code> statement is in. <code>load</code> statements
+  don't respect visibility: there is no need to use <code>exports_files</code>
+  to make the <code>.bzl</code> file visible.
 </p>
 
 <p>
