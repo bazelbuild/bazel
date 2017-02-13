@@ -292,7 +292,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * certificate was specified.
    */
   @Nullable
-  @SkylarkCallable(name = "signing_certificate_name", structField = true,
+  @SkylarkCallable(name = "signing_certificate_name", structField = true, allowReturnNones = true,
       doc = "Returns the flag-supplied certificate name to be used in signing, or None if no such "
       + "certificate was specified.")
   public String getSigningCertName() {
