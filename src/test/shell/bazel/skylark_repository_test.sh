@@ -451,6 +451,169 @@ EOF
   expect_log "BOZ"
 }
 
+function write_environ_skylark() {
+  local execution_file="$1"
+  local environ="$2"
+  cat >test.bzl <<EOF
+def _environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+
+def _impl(repository_ctx):
+  # Symlink so a repository is created, do it at first to avoid errors
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+
+  exe_result = repository_ctx.execute(["cat", "${execution_file}"]);
+  execution = int(exe_result.stdout.strip()) + 1
+  repository_ctx.execute(["bash", "-c", "echo %s >${execution_file}" % execution])
+  print("<%s> FOO=%s BAR=%s BAZ=%s" % (
+        execution,
+        _environ(repository_ctx, "FOO"),
+        _environ(repository_ctx, "BAR"),
+        _environ(repository_ctx, "BAZ")))
+
+repo = repository_rule(implementation=_impl, environ=[${environ}])
+EOF
+}
+
+function environ_invalidation_test_template() {
+  local startup_flag="${1-}"
+  setup_skylark_repository
+
+  # We use a counter to avoid other invalidation to hide repository
+  # invalidation (e.g., --action_env will cause all action to re-run).
+  local execution_file="${TEST_TMPDIR}/execution"
+
+  # Our custom repository rule
+  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+
+  bazel ${startup_flag} clean --expunge
+  echo 0 >"${execution_file}"
+
+  FOO=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+     || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=undefined BAZ=undefined"
+  assert_equals 1 $(cat "${execution_file}")
+  FOO=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Test that changing FOO is causing a refetch
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<2> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 2 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+
+  # Test that changing BAR is causing a refetch
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<3> FOO=BAZ BAR=FOO BAZ=undefined"
+  assert_equals 3 $(cat "${execution_file}")
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that changing BAZ is not causing a refetch
+  FOO=BAZ BAR=FOO BAZ=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test more change in the environment
+  FOO=BAZ BAR=FOO BEZ=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that removing BEZ is not causing a refetch
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+
+  # Test that removing BAR is causing a refetch
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<4> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 4 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 4 $(cat "${execution_file}")
+
+  # Now try to depends on more variables
+  write_environ_skylark "${execution_file}" '"FOO", "BAR", "BAZ"'
+
+  # The skylark rule has changed, so a rebuild should happen
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<5> FOO=BAZ BAR=undefined BAZ=undefined"
+  assert_equals 5 $(cat "${execution_file}")
+  FOO=BAZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 5 $(cat "${execution_file}")
+
+  # Now a change to BAZ should trigger a rebuild
+  FOO=BAZ BAZ=BEZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<6> FOO=BAZ BAR=undefined BAZ=BEZ"
+  assert_equals 6 $(cat "${execution_file}")
+  FOO=BAZ BAZ=BEZ bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  assert_equals 6 $(cat "${execution_file}")
+}
+
+function environ_invalidation_action_env_test_template() {
+  local startup_flag="${1-}"
+  setup_skylark_repository
+
+  # We use a counter to avoid other invalidation to hide repository
+  # invalidation (e.g., --action_env will cause all action to re-run).
+  local execution_file="${TEST_TMPDIR}/execution"
+
+  # Our custom repository rule
+  write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+
+  bazel ${startup_flag} clean --expunge
+  echo 0 >"${execution_file}"
+
+  # Set to FOO=BAZ BAR=FOO
+  FOO=BAZ BAR=FOO bazel ${startup_flag} build @foo//:bar >& $TEST_log \
+      || fail "Failed to build"
+  expect_log "<1> FOO=BAZ BAR=FOO BAZ=undefined"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Test with changing using --action_env
+  bazel ${startup_flag} build \
+      --action_env FOO=BAZ --action_env BAR=FOO  --action_env BEZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  bazel ${startup_flag} build \
+      --action_env FOO=BAZ --action_env BAR=FOO --action_env BAZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+  bazel ${startup_flag} build \
+      --action_env FOO=BAR --action_env BAR=FOO --action_env BAZ=BAR \
+      @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=FOO BAZ=BAR"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_environ_invalidation() {
+  environ_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_environ_invalidation_batch() {
+  environ_invalidation_test_template --batch
+}
+
+function test_skylark_repository_environ_invalidation_action_env() {
+  environ_invalidation_action_env_test_template
+}
+
+function test_skylark_repository_environ_invalidation_action_env_batch() {
+  environ_invalidation_action_env_test_template --batch
+}
+
 function test_skylark_repository_executable_flag() {
   setup_skylark_repository
 

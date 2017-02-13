@@ -72,6 +72,9 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
     BaseFunction function = rule.getRuleClassObject().getConfiguredTargetFunction();
+    if (declareEnvironmentDependencies(markerData, env, getEnviron(rule)) == null) {
+      return null;
+    }
     try (Mutability mutability = Mutability.create("skylark repository")) {
       com.google.devtools.build.lib.syntax.Environment buildEnv =
           com.google.devtools.build.lib.syntax.Environment.builder(mutability)
@@ -126,6 +129,17 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
     }
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Iterable<String> getEnviron(Rule rule) {
+    return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+  }
+
+  @Override
+  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    return verifyEnvironMarkerData(markerData, env, getEnviron(rule));
   }
 
   @Override

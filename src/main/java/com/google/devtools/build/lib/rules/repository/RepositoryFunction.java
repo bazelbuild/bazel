@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
@@ -47,6 +48,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.Map;
+import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -160,6 +162,59 @@ public abstract class RepositoryFunction {
   @Nullable
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException {
+    return true;
+  }
+
+  /**
+   * A method that can be called from a implementation of
+   * {@link #fetch(Rule, Path, BlazeDirectories, Environment, Map)} to declare a list of Skyframe
+   * dependencies on environment variable. It also add the information to the marker file. It
+   * returns the list of environment variable on which the function depends, or null if the skyframe
+   * function needs to be restarted.
+   */
+  protected Map<String, String> declareEnvironmentDependencies(Map<String, String> markerData,
+      Environment env, Iterable<String> keys) throws InterruptedException {
+    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+
+    // Returns true if there is a null value and we need to wait for some dependencies.
+    if (environ == null) {
+      return null;
+    }
+    // Add the dependencies to the marker file
+    for (Map.Entry<String, String> value : environ.entrySet()) {
+      markerData.put("ENV:" + value.getKey(), value.getValue());
+    }
+    return environ;
+  }
+
+  /**
+   * Verify marker data previously saved by
+   * {@link #declareEnvironmentDependencies(Map, Environment, Iterable)}. This function is to be
+   * called from a {@link #verifyMarkerData(Rule, Map, Environment)} function to verify the values
+   * for environment variables.
+   */
+  protected boolean verifyEnvironMarkerData(Map<String, String> markerData, Environment env,
+      Iterable<String> keys) throws InterruptedException {
+    Map<String, String> environ = ActionEnvironmentFunction.getEnvironmentView(env, keys);
+    if (env.valuesMissing()) {
+      return false; // Returns false so caller knows to return immediately
+    }
+    // Verify that all environment variable in the marker file are also in keys
+    for (String key : markerData.keySet()) {
+      if (key.startsWith("ENV:") && !environ.containsKey(key.substring(4))) {
+        return false;
+      }
+    }
+    // Now verify the values of the marker data
+    for (Map.Entry<String, String> value : environ.entrySet()) {
+      if (!markerData.containsKey("ENV:" + value.getKey())) {
+        return false;
+      }
+      String markerValue = markerData.get("ENV:" + value.getKey());
+      if (!Objects.equals(markerValue, value.getValue())) {
+        return false;
+      }
+    }
     return true;
   }
 
