@@ -909,6 +909,7 @@ java_library(
         ":java-rules",
         ":nativedeps-rules",
         ":packages-internal",
+        ":proto-rules",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
