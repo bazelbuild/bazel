@@ -3455,10 +3455,9 @@ adb -s deadbeef install ...
 <p>
  Selects additional config section from the rc files; for the current
  <code>command</code>, it also pulls in the options from
- <code>command:name</code> if such a section exists. Note that it is currently
- only possible to provide these options on the command line, not in the rc
- files. Can be specified multiple times to add flags from several
- config sections.
+ <code>command:name</code> if such a section exists. Can be specified multiple
+ times to add flags from several config sections.  Expansions can refer to other
+ definitions (i.e. expansions can be chained).
 </p>
 
 <h4 id='flag--curses'><code class='flag'>--curses (yes|no|auto)</code></h4>
