@@ -902,7 +902,7 @@ public final class BuildConfiguration {
     }
 
     @Option(name = "experimental_dynamic_configs",
-        defaultValue = "off",
+        defaultValue = "notrim_partial",
         category = "undocumented",
         converter = DynamicConfigsConverter.class,
         help = "Dynamically instantiates build configurations instead of using the default "
