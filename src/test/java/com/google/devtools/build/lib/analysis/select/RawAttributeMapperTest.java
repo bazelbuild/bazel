@@ -27,13 +27,11 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.List;
 
 /**
  * Unit tests for {@link RawAttributeMapper}.
@@ -89,8 +87,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   @Test
   public void testConfigurabilityCheck() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    assertFalse(rawMapper.isConfigurable("data", BuildType.LABEL_LIST));
-    assertTrue(rawMapper.isConfigurable("srcs", BuildType.LABEL_LIST));
+    assertFalse(rawMapper.isConfigurable("data"));
+    assertTrue(rawMapper.isConfigurable("srcs"));
   }
 
   /**

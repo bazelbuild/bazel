@@ -122,7 +122,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
           NoSuchTargetException {
 
     RawAttributeMapper javaHomeAttributes = RawAttributeMapper.of((Rule) javaHomeTarget);
-    if (javaHomeAttributes.isConfigurable("srcs", BuildType.LABEL_LIST)) {
+    if (javaHomeAttributes.isConfigurable("srcs")) {
       throw new InvalidConfigurationException(
           String.format(
               "\"srcs\" in %s is configurable. JAVABASE targets don't support configurable"
@@ -170,7 +170,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
 
       if ((jvmTarget instanceof Rule) && "filegroup".equals(((Rule) jvmTarget).getRuleClass())) {
         RawAttributeMapper jvmTargetAttributes = RawAttributeMapper.of((Rule) jvmTarget);
-        if (jvmTargetAttributes.isConfigurable("path", Type.STRING)) {
+        if (jvmTargetAttributes.isConfigurable("path")) {
           throw new InvalidConfigurationException(
               String.format(
                   "\"path\" in %s is configurable. JVM targets don't support configurable"

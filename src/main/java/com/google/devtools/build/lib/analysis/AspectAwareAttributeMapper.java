@@ -86,12 +86,8 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public <T> boolean isConfigurable(String attributeName, Type<T> type) {
-    if (ruleAttributes.has(attributeName, type)) {
-      return ruleAttributes.isConfigurable(attributeName, type);
-    }
-    // Any scenario aside from a "select(...)" in a BUILD file is not configurable.
-    return false;
+  public boolean isConfigurable(String attributeName) {
+    return ruleAttributes.isConfigurable(attributeName);
   }
 
   @Override
@@ -154,7 +150,16 @@ class AspectAwareAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public boolean has(String attrName, Type<?> type) {
+  public boolean has(String attrName) {
+    if (ruleAttributes.has(attrName)) {
+      return true;
+    } else {
+      return aspectAttributes.containsKey(attrName);
+    }
+  }
+
+  @Override
+  public <T> boolean has(String attrName, Type<T> type) {
     if (ruleAttributes.has(attrName, type)) {
       return true;
     } else {

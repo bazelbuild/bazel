@@ -166,8 +166,9 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public final <T> boolean isConfigurable(String attributeName, Type<T> type) {
-    return getSelectorList(attributeName, type) != null;
+  public final boolean isConfigurable(String attributeName) {
+    Attribute attrDef = getAttributeDefinition(attributeName);
+    return attrDef == null ? false : getSelectorList(attributeName, attrDef.getType()) != null;
   }
 
   public static <T> boolean isConfigurable(Rule rule, String attributeName, Type<T> type) {
@@ -244,8 +245,13 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public boolean has(String attrName, Type<?> type) {
+  public boolean has(String attrName) {
     Attribute attribute = ruleClass.getAttributeByNameMaybe(attrName);
-    return attribute != null && attribute.getType() == type;
+    return attribute != null;
+  }
+
+  @Override
+  public <T> boolean has(String attrName, Type<T> type) {
+    return getAttributeType(attrName) == type;
   }
 }

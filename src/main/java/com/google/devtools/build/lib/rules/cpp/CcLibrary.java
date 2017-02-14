@@ -128,9 +128,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .enableCcNativeLibrariesProvider()
             .enableCompileProviders()
             .enableInterfaceSharedObjects()
-            // Generate .a and .so outputs even without object files to fulfill the rule class contract
-            // wrt. implicit output files, if the contract says so. Behavior here differs between Bazel
-            // and Blaze.
+            // Generate .a and .so outputs even without object files to fulfill the rule class
+            // contract wrt. implicit output files, if the contract says so. Behavior here differs
+            // between Bazel and Blaze.
             .setGenerateLinkActionsIfEmpty(
                 ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE)
             .setLinkType(linkType)
@@ -188,7 +188,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       ruleContext.registerAction(new FailAction(ruleContext.getActionOwner(),
           ImmutableList.of(solibArtifact), "Toolchain does not support dynamic linking"));
     } else if (!createDynamicLibrary
-        && ruleContext.attributes().isConfigurable("srcs", BuildType.LABEL_LIST)) {
+        && ruleContext.attributes().isConfigurable("srcs")) {
       // If "srcs" is configurable, the .so output is always declared because the logic that
       // determines implicit outs doesn't know which value of "srcs" will ultimately get chosen.
       // Here, where we *do* have the correct value, it may not contain any source files to
@@ -375,7 +375,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
    * name of a genrule that generates a source file.
    */
   public static boolean appearsToHaveObjectFiles(AttributeMap rule) {
-    if ((rule instanceof RawAttributeMapper) && rule.isConfigurable("srcs", BuildType.LABEL_LIST)) {
+    if ((rule instanceof RawAttributeMapper) && rule.isConfigurable("srcs")) {
       // Since this method gets called by loading phase logic (e.g. the cc_library implicit outputs
       // function), the attribute mapper may not be able to resolve configurable attributes. When
       // that's the case, there's no way to know which value a configurable "srcs" will take, so

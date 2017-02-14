@@ -424,7 +424,7 @@ public abstract class OutputFormatter implements Serializable {
             if ("name".equals(attr.getName())) {
               continue;
             }
-            if (attributeMap.isConfigurable(attr.getName(), attr.getType())) {
+            if (attributeMap.isConfigurable(attr.getName())) {
               continue; // TODO(bazel-team): handle configurable attributes.
             }
             PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
@@ -728,7 +728,7 @@ public abstract class OutputFormatter implements Serializable {
 
     AggregatingAttributeMapper attributeMap = AggregatingAttributeMapper.of(rule);
     if (attr.getType().equals(BuildType.LABEL_LIST)
-        && attributeMap.isConfigurable(attr.getName(), attr.getType())) {
+        && attributeMap.isConfigurable(attr.getName())) {
       // TODO(gregce): Expand this to all collection types (we don't do this for scalars because
       // there's currently no syntax for expressing multiple scalar values). This unfortunately
       // isn't trivial because Bazel's label visitation logic includes special methods built

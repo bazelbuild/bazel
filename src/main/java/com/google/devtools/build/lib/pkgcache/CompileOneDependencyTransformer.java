@@ -168,8 +168,8 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
-      if (attributes.isConfigurable("deps", BuildType.LABEL_LIST)
-          || attributes.isConfigurable("srcs", BuildType.LABEL_LIST)) {
+      if (attributes.isConfigurable("deps")
+          || attributes.isConfigurable("srcs")) {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
