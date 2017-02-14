@@ -864,6 +864,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // information here, so we compute it ourselves.
     // TODO(bazel-team): Fancy filesystems could provide it with a hypothetically modified
     // DiffAwareness interface.
+    LOG.info("About to recompute filesystem nodes corresponding to files that are known to have "
+        + "changed");
     FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
     Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
     Differencer.DiffWithDelta diff =

@@ -459,6 +459,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     EnumSet<FileType> fileTypesToCheck = checkOutputFiles
         ? EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.OUTPUT)
         : EnumSet.of(FileType.EXTERNAL, FileType.EXTERNAL_REPO);
+    LOG.info("About to scan skyframe graph checking for filesystem nodes of types "
+        + Iterables.toString(fileTypesToCheck));
     Differencer.Diff diff =
         fsvc.getDirtyKeys(
             memoizingEvaluator.getValues(),
@@ -505,8 +507,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     int numModified = changedWithNewValue.size() + changedWithoutNewValue.size();
     StringBuilder result = new StringBuilder("DiffAwareness found ")
         .append(numModified)
-        .append(" modified source files and directory listings for ")
-        .append(Joiner.on(", ").join(pathEntries));
+        .append(" modified source files and directory listings");
+    if (!Iterables.isEmpty(pathEntries)) {
+      result.append(" for ");
+      result.append(Joiner.on(", ").join(pathEntries));
+    }
 
     if (numModified > 0) {
       Iterable<SkyKey> allModifiedKeys = Iterables.concat(changedWithoutNewValue,
