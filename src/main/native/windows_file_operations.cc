@@ -47,4 +47,17 @@ bool GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   return true;
 }
 
+HANDLE OpenDirectory(const WCHAR* path, bool read_write) {
+  return ::CreateFileW(
+      /* lpFileName */ path,
+      /* dwDesiredAccess */
+      read_write ? (GENERIC_READ | GENERIC_WRITE) : GENERIC_READ,
+      /* dwShareMode */ 0,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
+          FILE_FLAG_BACKUP_SEMANTICS,
+      /* hTemplateFile */ NULL);
+}
+
 }  // namespace windows_util

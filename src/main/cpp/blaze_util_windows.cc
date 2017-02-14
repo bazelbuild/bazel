@@ -51,12 +51,8 @@
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows_file_operations.h"
 #include "src/main/native/windows_util.h"
-
-// Defined by file_windows.cc
-namespace blaze_util {
-HANDLE OpenDirectory(const WCHAR* path, bool read_write);
-}
 
 namespace blaze {
 
@@ -879,7 +875,7 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
     return false;
   }
 
-  HANDLE directory = blaze_util::OpenDirectory(wname.c_str(), true);
+  HANDLE directory = windows_util::OpenDirectory(wname.c_str(), true);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }
@@ -959,7 +955,7 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
     return false;
   }
 
-  HANDLE directory = blaze_util::OpenDirectory(wname.c_str(), false);
+  HANDLE directory = windows_util::OpenDirectory(wname.c_str(), false);
   if (directory == INVALID_HANDLE_VALUE) {
     return false;
   }

@@ -25,6 +25,7 @@
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
+#include "src/main/native/windows_file_operations.h"
 #include "src/main/native/windows_util.h"
 
 namespace blaze_util {
@@ -647,19 +648,6 @@ bool UnlinkPath(const string& file_path) {
   return UnlinkPathW(wpath);
 }
 
-HANDLE OpenDirectory(const WCHAR* path, bool read_write) {
-  return ::CreateFileW(
-      /* lpFileName */ path,
-      /* dwDesiredAccess */ read_write ? (GENERIC_READ | GENERIC_WRITE)
-                                       : GENERIC_READ,
-      /* dwShareMode */ 0,
-      /* lpSecurityAttributes */ NULL,
-      /* dwCreationDisposition */ OPEN_EXISTING,
-      /* dwFlagsAndAttributes */ FILE_FLAG_OPEN_REPARSE_POINT |
-          FILE_FLAG_BACKUP_SEMANTICS,
-      /* hTemplateFile */ NULL);
-}
-
 class JunctionResolver {
  public:
   JunctionResolver();
@@ -748,7 +736,7 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result,
       }
       // Get a handle to the directory.
       windows_util::AutoHandle handle(
-          OpenDirectory(path, /* read_write */ false));
+          windows_util::OpenDirectory(path, /* read_write */ false));
       if (!handle.IsValid()) {
         // Opening the junction failed for whatever reason. For all intents and
         // purposes we can treat this file as if it didn't exist.

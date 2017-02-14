@@ -22,7 +22,6 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
-#include "src/main/native/windows_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)

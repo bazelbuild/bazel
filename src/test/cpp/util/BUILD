@@ -38,14 +38,8 @@ cc_test(
         "//src/main/cpp/util:file",
         "//third_party:gtest",
     ] + select({
-        "//src:windows": [
-            "//src/main/native:windows_jni_lib",
-            ":windows_test_util",
-        ],
-        "//src:windows_msvc": [
-            "//src/main/native:windows_jni_lib",
-            ":windows_test_util",
-        ],
+        "//src:windows": [":windows_test_util"],
+        "//src:windows_msvc": [":windows_test_util"],
         "//conditions:default": [],
     }),
 )

@@ -50,10 +50,16 @@ int IsJunctionOrDirectorySymlink(const WCHAR* path);
 // Computes the long version of `path` if it has any 8dot3 style components.
 // Returns true upon success and sets `result` to point to the buffer.
 // `path` must be an absolute, normalized, Windows style path, with a "\\?\"
-// prefix if its longer than MAX_PATH. The result will have a "\\?\" prefix if
+// prefix if it's longer than MAX_PATH. The result will have a "\\?\" prefix if
 // and only if `path` had one as well. (It's the caller's responsibility to keep
 // or remove this prefix.)
 bool GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
+
+// Opens a directory using CreateFileW.
+// `path` must be a valid Windows path, with "\\?\" prefix if it's long.
+// If `read_write` is true then the directory is opened for reading and writing,
+// otherwise only for reading.
+HANDLE OpenDirectory(const WCHAR* path, bool read_write);
 
 }  // namespace windows_util
 
