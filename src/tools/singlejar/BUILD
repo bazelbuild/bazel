@@ -78,8 +78,8 @@ cc_test(
     ],
     copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
     data = [
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk",
     ],
     # Timing out, see https://github.com/bazelbuild/bazel/issues/1555
     tags = ["manual"],
@@ -158,8 +158,8 @@ cc_test(
         ":stored_jar",
         ":test1",
         ":test2",
-        "//external:jar",
-        "//external:jdk-default",
+        "@local_jdk//:jar",
+        "@local_jdk//:jdk-default",
     ],
     deps = [
         ":input_jar",
@@ -230,12 +230,12 @@ sh_test(
     args = [
         "src/test/shell",
         "$(location :singlejar)",
-        "$(location //external:jar)",
+        "$(location @local_jdk//:jar)",
     ],
     data = [
         ":singlejar",
-        "//external:jar",
         "//tools/defaults:jdk",
+        "@local_jdk//:jar",
     ],
     deps = ["//src/test/shell:bashunit"],
 )
@@ -375,6 +375,6 @@ genrule(
         "//tools/defaults:jdk",
     ],
     outs = ["stored.jar"],
-    cmd = "$(location //external:jar) -0cf \"$@\" $(location :output_jar.cc)",
-    tools = ["//external:jar"],
+    cmd = "$(location @local_jdk//:jar) -0cf \"$@\" $(location :output_jar.cc)",
+    tools = ["@local_jdk//:jar"],
 )

@@ -22,37 +22,37 @@ filegroup(
 
 alias(
     name = "jni_header",
-    actual = "//external:jni_header",
+    actual = "@local_jdk//:jni_header",
 )
 
 alias(
     name = "jni_md_header-darwin",
-    actual = "//external:jni_md_header-darwin",
+    actual = "@local_jdk//:jni_md_header-darwin",
 )
 
 alias(
     name = "jni_md_header-linux",
-    actual = "//external:jni_md_header-linux",
+    actual = "@local_jdk//:jni_md_header-linux",
 )
 
 alias(
     name = "jni_md_header-freebsd",
-    actual = "//external:jni_md_header-freebsd",
+    actual = "@local_jdk//:jni_md_header-freebsd",
 )
 
 alias(
     name = "java",
-    actual = "//external:java",
+    actual = "@local_jdk//:java",
 )
 
 alias(
     name = "jar",
-    actual = "//external:jar",
+    actual = "@local_jdk//:jar",
 )
 
 alias(
     name = "javac",
-    actual = "//external:javac",
+    actual = "@local_jdk//:javac",
 )
 
 # On Windows, executables end in ".exe", but the label we reach it through
@@ -73,12 +73,12 @@ BOOTCLASS_JARS = [
 
 alias(
     name = "bootclasspath",
-    actual = "//external:bootclasspath",
+    actual = "@local_jdk//:bootclasspath",
 )
 
 alias(
     name = "extdir",
-    actual = "//external:extdir",
+    actual = "@local_jdk//:extdir",
 )
 
 filegroup(
@@ -94,12 +94,12 @@ java_import(
 
 alias(
     name = "jre",
-    actual = "//external:jre",
+    actual = "@local_jdk//:jre",
 )
 
 alias(
     name = "jdk",
-    actual = "//external:jdk",
+    actual = "@local_jdk//:jdk",
 )
 
 java_toolchain(
