@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Style guide for bzl files
+---
 
 # .bzl file style guide
 
