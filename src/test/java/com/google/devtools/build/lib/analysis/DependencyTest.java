@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import java.util.LinkedHashSet;
-import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,8 +44,7 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(nullDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
     assertThat(nullDep.hasStaticConfiguration()).isTrue();
     assertThat(nullDep.getConfiguration()).isNull();
-    assertThat(nullDep.getAspects()).isEmpty();
-    assertThat(nullDep.getAspectConfigurations()).isEmpty();
+    assertThat(nullDep.getAspects().getAllAspects()).isEmpty();
 
     try {
       nullDep.getTransition();
@@ -66,8 +63,7 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
     assertThat(targetDep.hasStaticConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspects()).isEmpty();
-    assertThat(targetDep.getAspectConfigurations()).isEmpty();
+    assertThat(targetDep.getAspects().getAllAspects()).isEmpty();
 
     try {
       targetDep.getTransition();
@@ -82,7 +78,8 @@ public class DependencyTest extends AnalysisTestCase {
     update();
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
-    ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
+    AspectCollection twoAspects = AspectCollection.createForTests(
+        ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency targetDep =
         Dependency.withConfigurationAndAspects(
             Label.parseAbsolute("//a"), getTargetConfiguration(), twoAspects);
@@ -90,12 +87,10 @@ public class DependencyTest extends AnalysisTestCase {
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
     assertThat(targetDep.hasStaticConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspects()).containsExactlyElementsIn(twoAspects);
-    assertThat(targetDep.getAspectConfigurations())
-        .containsExactlyEntriesIn(
-            ImmutableMap.of(
-                simpleAspect, getTargetConfiguration(),
-                attributeAspect, getTargetConfiguration()));
+    assertThat(targetDep.getAspects()).isEqualTo(twoAspects);
+    assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
+    assertThat(targetDep.getAspectConfiguration(attributeAspect))
+        .isEqualTo(getTargetConfiguration());
 
     try {
       targetDep.getTransition();
@@ -106,27 +101,12 @@ public class DependencyTest extends AnalysisTestCase {
   }
 
   @Test
-  public void withConfigurationAndAspects_RejectsNullAspectsWithNPE() throws Exception {
-    update();
-    Set<AspectDescriptor> nullSet = new LinkedHashSet<>();
-    nullSet.add(null);
-
-    try {
-      Dependency.withConfigurationAndAspects(
-          Label.parseAbsolute("//a"), getTargetConfiguration(), nullSet);
-      fail("should not be allowed to create a dependency with a null aspect");
-    } catch (NullPointerException expected) {
-      // good. just as planned.
-    }
-  }
-
-  @Test
   public void withConfigurationAndAspects_RejectsNullConfigWithNPE() throws Exception {
     // Although the NullPointerTester should check this, this test invokes a different code path,
     // because it includes aspects (which the NPT test will not).
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
-    ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
+    AspectCollection twoAspects = AspectCollection.createForTests(simpleAspect, attributeAspect);
 
     try {
       Dependency.withConfigurationAndAspects(Label.parseAbsolute("//a"), null, twoAspects);
@@ -143,10 +123,9 @@ public class DependencyTest extends AnalysisTestCase {
         Dependency.withConfigurationAndAspects(
             Label.parseAbsolute("//a"),
             getTargetConfiguration(),
-            ImmutableSet.<AspectDescriptor>of());
+            AspectCollection.EMPTY);
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects()).isEmpty();
-    assertThat(dep.getAspectConfigurations()).isEmpty();
+    assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
 
   @Test
@@ -154,18 +133,22 @@ public class DependencyTest extends AnalysisTestCase {
     update();
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
+    AspectCollection aspects =
+        AspectCollection.createForTests(ImmutableSet.of(simpleAspect, attributeAspect));
     ImmutableMap<AspectDescriptor, BuildConfiguration> twoAspectMap = ImmutableMap.of(
         simpleAspect, getTargetConfiguration(), attributeAspect, getHostConfiguration());
     Dependency targetDep =
         Dependency.withConfiguredAspects(
-            Label.parseAbsolute("//a"), getTargetConfiguration(), twoAspectMap);
+            Label.parseAbsolute("//a"), getTargetConfiguration(), aspects, twoAspectMap);
 
     assertThat(targetDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
     assertThat(targetDep.hasStaticConfiguration()).isTrue();
     assertThat(targetDep.getConfiguration()).isEqualTo(getTargetConfiguration());
-    assertThat(targetDep.getAspects())
+    assertThat(targetDep.getAspects().getAllAspects())
         .containsExactlyElementsIn(ImmutableSet.of(simpleAspect, attributeAspect));
-    assertThat(targetDep.getAspectConfigurations()).containsExactlyEntriesIn(twoAspectMap);
+    assertThat(targetDep.getAspectConfiguration(simpleAspect)).isEqualTo(getTargetConfiguration());
+    assertThat(targetDep.getAspectConfiguration(attributeAspect))
+        .isEqualTo(getHostConfiguration());
 
     try {
       targetDep.getTransition();
@@ -182,24 +165,26 @@ public class DependencyTest extends AnalysisTestCase {
     Dependency dep =
         Dependency.withConfiguredAspects(
             Label.parseAbsolute("//a"), getTargetConfiguration(),
+            AspectCollection.EMPTY,
             ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects()).isEmpty();
-    assertThat(dep.getAspectConfigurations()).isEmpty();
+    assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
 
   @Test
   public void withTransitionAndAspects_BasicAccessors() throws Exception {
     AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
-    ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
+    AspectCollection twoAspects = AspectCollection.createForTests(
+        ImmutableSet.of(simpleAspect, attributeAspect));
     Dependency hostDep =
         Dependency.withTransitionAndAspects(
             Label.parseAbsolute("//a"), ConfigurationTransition.HOST, twoAspects);
 
     assertThat(hostDep.getLabel()).isEqualTo(Label.parseAbsolute("//a"));
     assertThat(hostDep.hasStaticConfiguration()).isFalse();
-    assertThat(hostDep.getAspects()).containsExactlyElementsIn(twoAspects);
+    assertThat(hostDep.getAspects().getAllAspects())
+        .containsExactlyElementsIn(twoAspects.getAllAspects());
     assertThat(hostDep.getTransition()).isEqualTo(ConfigurationTransition.HOST);
 
     try {
@@ -210,9 +195,17 @@ public class DependencyTest extends AnalysisTestCase {
     }
 
     try {
-      hostDep.getAspectConfigurations();
+      hostDep.getAspectConfiguration(simpleAspect);
       fail("withTransitionAndAspects-created Dependencies should throw ISE on "
-          + "getAspectConfigurations()");
+          + "getAspectConfiguration()");
+    } catch (IllegalStateException ex) {
+      // good. you're so predictable.
+    }
+
+    try {
+      hostDep.getAspectConfiguration(attributeAspect);
+      fail("withTransitionAndAspects-created Dependencies should throw ISE on "
+          + "getAspectConfiguration()");
     } catch (IllegalStateException ex) {
       // good. you're so predictable.
     }
@@ -224,9 +217,9 @@ public class DependencyTest extends AnalysisTestCase {
     Dependency dep =
         Dependency.withTransitionAndAspects(
             Label.parseAbsolute("//a"), ConfigurationTransition.HOST,
-            ImmutableSet.<AspectDescriptor>of());
+            AspectCollection.EMPTY);
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
-    assertThat(dep.getAspects()).isEmpty();
+    assertThat(dep.getAspects().getAllAspects()).isEmpty();
   }
 
   @Test
@@ -254,10 +247,13 @@ public class DependencyTest extends AnalysisTestCase {
     AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     AspectDescriptor errorAspect = new AspectDescriptor(TestAspects.ERROR_ASPECT);
 
-    ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
-    ImmutableSet<AspectDescriptor> inverseAspects = ImmutableSet.of(attributeAspect, simpleAspect);
-    ImmutableSet<AspectDescriptor> differentAspects = ImmutableSet.of(attributeAspect, errorAspect);
-    ImmutableSet<AspectDescriptor> noAspects = ImmutableSet.<AspectDescriptor>of();
+    AspectCollection twoAspects =
+        AspectCollection.createForTests(simpleAspect, attributeAspect);
+    AspectCollection inverseAspects =
+        AspectCollection.createForTests(attributeAspect, simpleAspect);
+    AspectCollection differentAspects =
+        AspectCollection.createForTests(attributeAspect, errorAspect);
+    AspectCollection noAspects = AspectCollection.EMPTY;
 
     ImmutableMap<AspectDescriptor, BuildConfiguration> twoAspectsHostMap =
         ImmutableMap.of(simpleAspect, host, attributeAspect, host);
@@ -277,21 +273,21 @@ public class DependencyTest extends AnalysisTestCase {
             Dependency.withConfigurationAndAspects(aExplicit, host, twoAspects),
             Dependency.withConfigurationAndAspects(a, host, inverseAspects),
             Dependency.withConfigurationAndAspects(aExplicit, host, inverseAspects),
-            Dependency.withConfiguredAspects(a, host, twoAspectsHostMap),
-            Dependency.withConfiguredAspects(aExplicit, host, twoAspectsHostMap))
+            Dependency.withConfiguredAspects(a, host, twoAspects, twoAspectsHostMap),
+            Dependency.withConfiguredAspects(aExplicit, host, twoAspects, twoAspectsHostMap))
         .addEqualityGroup(
             // base set but with label //b
             Dependency.withConfigurationAndAspects(b, host, twoAspects),
             Dependency.withConfigurationAndAspects(b, host, inverseAspects),
-            Dependency.withConfiguredAspects(b, host, twoAspectsHostMap))
+            Dependency.withConfiguredAspects(b, host, twoAspects, twoAspectsHostMap))
         .addEqualityGroup(
             // base set but with target configuration
             Dependency.withConfigurationAndAspects(a, target, twoAspects),
             Dependency.withConfigurationAndAspects(aExplicit, target, twoAspects),
             Dependency.withConfigurationAndAspects(a, target, inverseAspects),
             Dependency.withConfigurationAndAspects(aExplicit, target, inverseAspects),
-            Dependency.withConfiguredAspects(a, target, twoAspectsTargetMap),
-            Dependency.withConfiguredAspects(aExplicit, target, twoAspectsTargetMap))
+            Dependency.withConfiguredAspects(a, target, twoAspects, twoAspectsTargetMap),
+            Dependency.withConfiguredAspects(aExplicit, target, twoAspects, twoAspectsTargetMap))
         .addEqualityGroup(
             // base set but with null configuration
             Dependency.withNullConfiguration(a),
@@ -300,56 +296,63 @@ public class DependencyTest extends AnalysisTestCase {
             // base set but with different aspects
             Dependency.withConfigurationAndAspects(a, host, differentAspects),
             Dependency.withConfigurationAndAspects(aExplicit, host, differentAspects),
-            Dependency.withConfiguredAspects(a, host, differentAspectsHostMap),
-            Dependency.withConfiguredAspects(aExplicit, host, differentAspectsHostMap))
+            Dependency.withConfiguredAspects(
+                a, host, differentAspects, differentAspectsHostMap),
+            Dependency.withConfiguredAspects(
+                aExplicit, host, differentAspects, differentAspectsHostMap))
         .addEqualityGroup(
             // base set but with label //b and target configuration
             Dependency.withConfigurationAndAspects(b, target, twoAspects),
             Dependency.withConfigurationAndAspects(b, target, inverseAspects),
-            Dependency.withConfiguredAspects(b, target, twoAspectsTargetMap))
+            Dependency.withConfiguredAspects(b, target,
+                twoAspects, twoAspectsTargetMap))
         .addEqualityGroup(
             // base set but with label //b and null configuration
             Dependency.withNullConfiguration(b))
         .addEqualityGroup(
             // base set but with label //b and different aspects
             Dependency.withConfigurationAndAspects(b, host, differentAspects),
-            Dependency.withConfiguredAspects(b, host, differentAspectsHostMap))
+            Dependency.withConfiguredAspects(
+                b, host, differentAspects, differentAspectsHostMap))
         .addEqualityGroup(
             // base set but with target configuration and different aspects
             Dependency.withConfigurationAndAspects(a, target, differentAspects),
             Dependency.withConfigurationAndAspects(aExplicit, target, differentAspects),
-            Dependency.withConfiguredAspects(a, target, differentAspectsTargetMap),
-            Dependency.withConfiguredAspects(aExplicit, target, differentAspectsTargetMap))
+            Dependency.withConfiguredAspects(
+                a, target, differentAspects, differentAspectsTargetMap),
+            Dependency.withConfiguredAspects(
+                aExplicit, target, differentAspects, differentAspectsTargetMap))
         .addEqualityGroup(
             // inverse of base set: //b, target configuration, different aspects
             Dependency.withConfigurationAndAspects(b, target, differentAspects),
-            Dependency.withConfiguredAspects(b, target, differentAspectsTargetMap))
+            Dependency.withConfiguredAspects(
+                b, target, differentAspects, differentAspectsTargetMap))
         .addEqualityGroup(
             // base set but with no aspects
             Dependency.withConfiguration(a, host),
             Dependency.withConfiguration(aExplicit, host),
             Dependency.withConfigurationAndAspects(a, host, noAspects),
             Dependency.withConfigurationAndAspects(aExplicit, host, noAspects),
-            Dependency.withConfiguredAspects(a, host, noAspectsMap),
-            Dependency.withConfiguredAspects(aExplicit, host, noAspectsMap))
+            Dependency.withConfiguredAspects(a, host, noAspects, noAspectsMap),
+            Dependency.withConfiguredAspects(aExplicit, host, noAspects, noAspectsMap))
         .addEqualityGroup(
             // base set but with label //b and no aspects
             Dependency.withConfiguration(b, host),
             Dependency.withConfigurationAndAspects(b, host, noAspects),
-            Dependency.withConfiguredAspects(b, host, noAspectsMap))
+            Dependency.withConfiguredAspects(b, host, noAspects, noAspectsMap))
         .addEqualityGroup(
             // base set but with target configuration and no aspects
             Dependency.withConfiguration(a, target),
             Dependency.withConfiguration(aExplicit, target),
             Dependency.withConfigurationAndAspects(a, target, noAspects),
             Dependency.withConfigurationAndAspects(aExplicit, target, noAspects),
-            Dependency.withConfiguredAspects(a, target, noAspectsMap),
-            Dependency.withConfiguredAspects(aExplicit, target, noAspectsMap))
+            Dependency.withConfiguredAspects(a, target, noAspects, noAspectsMap),
+            Dependency.withConfiguredAspects(aExplicit, target, noAspects, noAspectsMap))
         .addEqualityGroup(
             // inverse of base set: //b, target configuration, no aspects
             Dependency.withConfiguration(b, target),
             Dependency.withConfigurationAndAspects(b, target, noAspects),
-            Dependency.withConfiguredAspects(b, target, noAspectsMap))
+            Dependency.withConfiguredAspects(b, target, noAspects, noAspectsMap))
         .addEqualityGroup(
             // base set but with transition HOST
             Dependency.withTransitionAndAspects(a, ConfigurationTransition.HOST, twoAspects),

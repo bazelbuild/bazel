@@ -280,10 +280,8 @@ public final class AspectDefinition {
     }
 
     public Builder requireAspectsWithNativeProviders(
-        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
-      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
-        requiredAspectProviders.addSkylarkSet(providerSet);
-      }
+        Class<?>... providers) {
+      requiredAspectProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }
 

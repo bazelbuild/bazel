@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -234,7 +235,8 @@ public class AspectValueTest extends AnalysisTestCase {
     AspectKey baseKey = AspectValue.createAspectKey(label, baseConfiguration,
         new AspectDescriptor(aspectClass1, parameters1), aspectConfiguration1);
     return ActionLookupValue.key(AspectValue.createAspectKey(
-        baseKey, new AspectDescriptor(aspectClass2, parameters2),
+        label, baseConfiguration,
+        ImmutableList.of(baseKey), new AspectDescriptor(aspectClass2, parameters2),
         aspectConfiguration2
     ));
   }

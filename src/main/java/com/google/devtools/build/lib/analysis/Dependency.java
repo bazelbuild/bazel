@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -62,7 +61,9 @@ public abstract class Dependency {
    */
   public static Dependency withConfiguration(Label label, BuildConfiguration configuration) {
     return new StaticConfigurationDependency(
-        label, configuration, ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
+        label, configuration,
+        AspectCollection.EMPTY,
+        ImmutableMap.<AspectDescriptor, BuildConfiguration>of());
   }
 
   /**
@@ -72,13 +73,13 @@ public abstract class Dependency {
    * <p>The configuration and aspects must not be {@code null}.
    */
   public static Dependency withConfigurationAndAspects(
-      Label label, BuildConfiguration configuration, Iterable<AspectDescriptor> aspects) {
+      Label label, BuildConfiguration configuration, AspectCollection aspects) {
     ImmutableMap.Builder<AspectDescriptor, BuildConfiguration> aspectBuilder =
         new ImmutableMap.Builder<>();
-    for (AspectDescriptor aspect : aspects) {
+    for (AspectDescriptor aspect : aspects.getAllAspects()) {
       aspectBuilder.put(aspect, configuration);
     }
-    return new StaticConfigurationDependency(label, configuration, aspectBuilder.build());
+    return new StaticConfigurationDependency(label, configuration, aspects, aspectBuilder.build());
   }
 
   /**
@@ -90,9 +91,10 @@ public abstract class Dependency {
    */
   public static Dependency withConfiguredAspects(
       Label label, BuildConfiguration configuration,
+      AspectCollection aspects,
       Map<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
     return new StaticConfigurationDependency(
-        label, configuration, ImmutableMap.copyOf(aspectConfigurations));
+        label, configuration, aspects, ImmutableMap.copyOf(aspectConfigurations));
   }
 
   /**
@@ -100,8 +102,8 @@ public abstract class Dependency {
    * configuration builds.
    */
   public static Dependency withTransitionAndAspects(
-      Label label, Attribute.Transition transition, Iterable<AspectDescriptor> aspects) {
-    return new DynamicConfigurationDependency(label, transition, ImmutableSet.copyOf(aspects));
+      Label label, Attribute.Transition transition, AspectCollection aspects) {
+    return new DynamicConfigurationDependency(label, transition, aspects);
   }
 
   protected final Label label;
@@ -144,18 +146,16 @@ public abstract class Dependency {
    * Returns the set of aspects which should be evaluated and combined with the configured target
    * pointed to by this dependency.
    *
-   * @see #getAspectConfigurations()
+   * @see #getAspectConfiguration(AspectDescriptor)
    */
-  public abstract ImmutableSet<AspectDescriptor> getAspects();
+  public abstract AspectCollection getAspects();
 
   /**
-   * Returns the mapping from aspects to the static configurations they should be evaluated with.
-   *
-   * <p>The {@link Map#keySet()} of this map is equal to that returned by {@link #getAspects()}.
-   *
+   * Returns the the static configuration an aspect should be evaluated with
+   **
    * @throws IllegalStateException if {@link #hasStaticConfiguration()} returns false.
    */
-  public abstract ImmutableMap<AspectDescriptor, BuildConfiguration> getAspectConfigurations();
+  public abstract BuildConfiguration getAspectConfiguration(AspectDescriptor aspect);
 
   /**
    * Implementation of a dependency with no configuration, suitable for static configuration
@@ -184,13 +184,13 @@ public abstract class Dependency {
     }
 
     @Override
-    public ImmutableSet<AspectDescriptor> getAspects() {
-      return ImmutableSet.of();
+    public AspectCollection getAspects() {
+      return AspectCollection.EMPTY;
     }
 
     @Override
-    public ImmutableMap<AspectDescriptor, BuildConfiguration> getAspectConfigurations() {
-      return ImmutableMap.of();
+    public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
+      return null;
     }
 
     @Override
@@ -219,14 +219,17 @@ public abstract class Dependency {
    */
   private static final class StaticConfigurationDependency extends Dependency {
     private final BuildConfiguration configuration;
+    private final AspectCollection aspects;
     private final ImmutableMap<AspectDescriptor, BuildConfiguration> aspectConfigurations;
 
     public StaticConfigurationDependency(
         Label label, BuildConfiguration configuration,
-        ImmutableMap<AspectDescriptor, BuildConfiguration> aspects) {
+        AspectCollection aspects,
+        ImmutableMap<AspectDescriptor, BuildConfiguration> aspectConfigurations) {
       super(label);
       this.configuration = Preconditions.checkNotNull(configuration);
-      this.aspectConfigurations = Preconditions.checkNotNull(aspects);
+      this.aspects = Preconditions.checkNotNull(aspects);
+      this.aspectConfigurations = Preconditions.checkNotNull(aspectConfigurations);
     }
 
     @Override
@@ -246,13 +249,13 @@ public abstract class Dependency {
     }
 
     @Override
-    public ImmutableSet<AspectDescriptor> getAspects() {
-      return aspectConfigurations.keySet();
+    public AspectCollection getAspects() {
+      return aspects;
     }
 
     @Override
-    public ImmutableMap<AspectDescriptor, BuildConfiguration> getAspectConfigurations() {
-      return aspectConfigurations;
+    public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
+      return aspectConfigurations.get(aspect);
     }
 
     @Override
@@ -268,6 +271,7 @@ public abstract class Dependency {
       StaticConfigurationDependency otherDep = (StaticConfigurationDependency) other;
       return label.equals(otherDep.label)
           && configuration.equals(otherDep.configuration)
+          && aspects.equals(otherDep.aspects)
           && aspectConfigurations.equals(otherDep.aspectConfigurations);
     }
 
@@ -285,10 +289,10 @@ public abstract class Dependency {
    */
   private static final class DynamicConfigurationDependency extends Dependency {
     private final Attribute.Transition transition;
-    private final ImmutableSet<AspectDescriptor> aspects;
+    private final AspectCollection aspects;
 
     public DynamicConfigurationDependency(
-        Label label, Attribute.Transition transition, ImmutableSet<AspectDescriptor> aspects) {
+        Label label, Attribute.Transition transition, AspectCollection aspects) {
       super(label);
       this.transition = Preconditions.checkNotNull(transition);
       this.aspects = Preconditions.checkNotNull(aspects);
@@ -311,15 +315,15 @@ public abstract class Dependency {
     }
 
     @Override
-    public ImmutableSet<AspectDescriptor> getAspects() {
+    public AspectCollection getAspects() {
       return aspects;
     }
 
     @Override
-    public ImmutableMap<AspectDescriptor, BuildConfiguration> getAspectConfigurations() {
+    public BuildConfiguration getAspectConfiguration(AspectDescriptor aspect) {
       throw new IllegalStateException(
           "A dependency with a dynamic configuration transition does not have aspect "
-          + "configurations.");
+              + "configurations.");
     }
 
     @Override

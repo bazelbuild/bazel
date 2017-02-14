@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -60,6 +61,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -218,16 +220,18 @@ public final class AspectFunction implements SkyFunction {
 
     ImmutableList.Builder<Aspect> aspectPathBuilder = ImmutableList.builder();
 
-    if (key.getBaseKey() != null) {
-      ImmutableList<SkyKey> aspectKeys = getSkyKeysForAspects(key.getBaseKey());
+    if (!key.getBaseKeys().isEmpty()) {
+      // We transitively collect all required aspects to reduce the number of restarts.
+      // Semantically it is enough to just request key.getBaseKeys().
+      ImmutableMap<AspectDescriptor, SkyKey> aspectKeys = getSkyKeysForAspects(key.getBaseKeys());
 
-      Map<SkyKey, SkyValue> values = env.getValues(aspectKeys);
+      Map<SkyKey, SkyValue> values = env.getValues(aspectKeys.values());
       if (env.valuesMissing()) {
         return null;
       }
       try {
         associatedTarget = getBaseTargetAndCollectPath(
-            associatedTarget, aspectKeys, values, aspectPathBuilder);
+            associatedTarget, key.getBaseKeys(), values, aspectPathBuilder);
       } catch (DuplicateException e) {
         env.getListener().handle(
             Event.error(associatedTarget.getTarget().getLocation(), e.getMessage()));
@@ -321,11 +325,13 @@ public final class AspectFunction implements SkyFunction {
    * @throws DuplicateException if there is a duplicate provider provided by aspects.
    */
   private ConfiguredTarget getBaseTargetAndCollectPath(ConfiguredTarget target,
-      ImmutableList<SkyKey> aspectKeys, Map<SkyKey, SkyValue> values,
+      ImmutableList<AspectKey> aspectKeys,
+      Map<SkyKey, SkyValue> values,
       ImmutableList.Builder<Aspect> aspectPath)
       throws DuplicateException {
     ArrayList<ConfiguredAspect> aspectValues = new ArrayList<>();
-    for (SkyKey skyAspectKey : aspectKeys) {
+    for (AspectKey aspectKey : aspectKeys) {
+      SkyKey skyAspectKey = aspectKey.getSkyKey();
       AspectValue aspectValue = (AspectValue) values.get(skyAspectKey);
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       aspectValues.add(configuredAspect);
@@ -335,19 +341,28 @@ public final class AspectFunction implements SkyFunction {
   }
 
   /**
-   *  Returns a list of SkyKeys for all aspects the given aspect key depends on.
-   *  The order corresponds to the order the aspects should be merged into a configured target.
+   *  Collect all SkyKeys that are needed for a given list of AspectKeys,
+   *  including transitive dependencies.
    */
-  private ImmutableList<SkyKey> getSkyKeysForAspects(AspectKey key) {
-    ImmutableList.Builder<SkyKey> aspectKeysBuilder = ImmutableList.builder();
-    AspectKey baseKey = key;
-    while (baseKey != null) {
-      aspectKeysBuilder.add(baseKey.getSkyKey());
-      baseKey = baseKey.getBaseKey();
+  private ImmutableMap<AspectDescriptor, SkyKey> getSkyKeysForAspects(
+      ImmutableList<AspectKey> keys) {
+    HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
+    for (AspectKey key : keys) {
+      buildSkyKeys(key, result);
     }
-    return aspectKeysBuilder.build().reverse();
+    return ImmutableMap.copyOf(result);
   }
 
+  private void buildSkyKeys(AspectKey key, HashMap<AspectDescriptor, SkyKey> result) {
+    if (result.containsKey(key.getAspectDescriptor())) {
+      return;
+    }
+    ImmutableList<AspectKey> baseKeys = key.getBaseKeys();
+    result.put(key.getAspectDescriptor(), key.getSkyKey());
+    for (AspectKey baseKey : baseKeys) {
+      buildSkyKeys(baseKey, result);
+    }
+  }
   private static SkyValue createAliasAspect(
       Environment env,
       Target originalTarget,

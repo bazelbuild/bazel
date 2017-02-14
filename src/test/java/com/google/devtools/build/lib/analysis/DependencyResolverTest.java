@@ -135,7 +135,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     }
 
     assertNotNull("Dependency '" + dep + "' on attribute '" + attrName + "' not found", dependency);
-    assertThat(dependency.getAspects()).containsExactly((Object[]) aspects);
+    assertThat(dependency.getAspects().getAllAspects()).containsExactly((Object[]) aspects);
     return dependency;
   }
 

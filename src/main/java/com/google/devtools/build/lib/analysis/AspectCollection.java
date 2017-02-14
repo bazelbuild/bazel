@@ -213,6 +213,10 @@ public final class AspectCollection {
     }
   }
 
+  public static AspectCollection createForTests(AspectDescriptor... descriptors) {
+    return createForTests(ImmutableSet.copyOf(descriptors));
+  }
+
   public static AspectCollection createForTests(ImmutableSet<AspectDescriptor> descriptors) {
     ImmutableSet.Builder<AspectDeps> depsBuilder = ImmutableSet.builder();
     for (AspectDescriptor descriptor : descriptors) {

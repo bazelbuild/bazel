@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AspectCollection;
+import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -82,6 +84,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -849,18 +852,14 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException, InterruptedException {
     OrderedSetMultimap<SkyKey, ConfiguredAspect> result = OrderedSetMultimap.create();
-    Set<SkyKey> aspectKeys = new HashSet<>();
+    Set<SkyKey> allAspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
-      AspectKey key = null;
-      for (Entry<AspectDescriptor, BuildConfiguration> depAspect
-          : dep.getAspectConfigurations().entrySet()) {
-        key = getNextAspectKey(key, dep, depAspect);
-        aspectKeys.add(key.getSkyKey());
-      }
+      allAspectKeys.addAll(getAspectKeys(dep).values());
     }
 
     Map<SkyKey, ValueOrException2<AspectCreationException, NoSuchThingException>> depAspects =
-        env.getValuesOrThrow(aspectKeys, AspectCreationException.class, NoSuchThingException.class);
+        env.getValuesOrThrow(allAspectKeys,
+            AspectCreationException.class, NoSuchThingException.class);
 
     for (Dependency dep : deps) {
       SkyKey depKey = TO_KEYS.apply(dep);
@@ -869,12 +868,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (result.containsKey(depKey)) {
         continue;
       }
-      AspectKey key = null;
+      Map<AspectDescriptor, SkyKey> aspectToKeys = getAspectKeys(dep);
+
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
-      for (Entry<AspectDescriptor, BuildConfiguration> depAspect
-          : dep.getAspectConfigurations().entrySet()) {
-        key = getNextAspectKey(key, dep, depAspect);
-        SkyKey aspectKey = key.getSkyKey();
+      for (AspectDeps depAspect : dep.getAspects().getVisibleAspects()) {
+        SkyKey aspectKey = aspectToKeys.get(depAspect.getAspect());
+
         AspectValue aspectValue;
         try {
           // TODO(ulfjack): Catch all thrown AspectCreationException and NoSuchThingException
@@ -884,7 +883,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           throw new AspectCreationException(
               String.format(
                   "Evaluation of aspect %s on %s failed: %s",
-                  depAspect.getKey().getAspectClass().getName(),
+                  depAspect.getAspect().getAspectClass().getName(),
                   dep.getLabel(),
                   e.toString()));
         }
@@ -904,16 +903,32 @@ final class ConfiguredTargetFunction implements SkyFunction {
     return result;
   }
 
-  private static AspectKey getNextAspectKey(AspectKey key, Dependency dep,
-      Entry<AspectDescriptor, BuildConfiguration> depAspect) {
-    if (key == null) {
-      key = AspectValue.createAspectKey(dep.getLabel(),
-          dep.getConfiguration(), depAspect.getKey(), depAspect.getValue()
-      );
-    } else {
-      key = AspectValue.createAspectKey(key, depAspect.getKey(), depAspect.getValue());
+  private static Map<AspectDescriptor, SkyKey> getAspectKeys(Dependency dep) {
+    HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
+    AspectCollection aspects = dep.getAspects();
+    for (AspectDeps aspectDeps : aspects.getVisibleAspects()) {
+      buildAspectKey(aspectDeps, result, dep);
     }
-    return key;
+    return result;
+  }
+
+  private static AspectKey buildAspectKey(AspectDeps aspectDeps,
+      HashMap<AspectDescriptor, SkyKey> result, Dependency dep) {
+    if (result.containsKey(aspectDeps.getAspect())) {
+      return (AspectKey) result.get(aspectDeps.getAspect()).argument();
+    }
+
+    ImmutableList.Builder<AspectKey> dependentAspects = ImmutableList.builder();
+    for (AspectDeps path : aspectDeps.getDependentAspects()) {
+      dependentAspects.add(buildAspectKey(path, result, dep));
+    }
+    AspectKey aspectKey = AspectValue.createAspectKey(
+        dep.getLabel(), dep.getConfiguration(),
+        dependentAspects.build(),
+        aspectDeps.getAspect(),
+        dep.getAspectConfiguration(aspectDeps.getAspect()));
+    result.put(aspectKey.getAspectDescriptor(), aspectKey.getSkyKey());
+    return aspectKey;
   }
 
   private static boolean aspectMatchesConfiguredTarget(final ConfiguredTarget dep, Aspect aspect) {

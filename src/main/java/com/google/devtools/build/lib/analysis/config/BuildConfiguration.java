@@ -34,6 +34,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.Dependency;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.Configurator;
@@ -1612,7 +1612,7 @@ public final class BuildConfiguration {
      * for each configuration represented by this instance.
      * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
      */
-    Iterable<Dependency> getDependencies(Label label, ImmutableSet<AspectDescriptor> aspects);
+    Iterable<Dependency> getDependencies(Label label, AspectCollection aspects);
   }
 
   /**
@@ -1706,7 +1706,7 @@ public final class BuildConfiguration {
 
     @Override
     public Iterable<Dependency> getDependencies(
-        Label label, ImmutableSet<AspectDescriptor> aspects) {
+        Label label, AspectCollection aspects) {
       ImmutableList.Builder<Dependency> deps = ImmutableList.builder();
       for (BuildConfiguration config : toConfigurations) {
         deps.add(config != null
@@ -1829,7 +1829,7 @@ public final class BuildConfiguration {
 
     @Override
     public Iterable<Dependency> getDependencies(
-        Label label, ImmutableSet<AspectDescriptor> aspects) {
+        Label label, AspectCollection aspects) {
       return ImmutableList.of(
           isNull()
               // We can trivially set the final value for null-configured targets now. This saves

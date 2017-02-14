@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -43,7 +44,8 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "java";
   /** The name of the field in Skylark proto aspects used to access this class. */
-  public static final String PROTO_NAME = "proto_java";
+  public static final SkylarkProviderIdentifier PROTO_NAME =
+      SkylarkProviderIdentifier.forLegacy("proto_java");
 
   private final JavaRuleOutputJarsProvider ruleOutputJarsProvider;
   @Nullable private final JavaSourceJarsProvider sourceJarsProvider;

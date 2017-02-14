@@ -136,7 +136,8 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
             .allowedRuleClasses("android_sdk", "filegroup")
             .value(new AndroidRuleClasses.AndroidSdkLabel(
                 Label.parseAbsoluteUnchecked(toolsRepository + AndroidRuleClasses.DEFAULT_SDK))))
-        .requiresConfigurationFragments(AndroidConfiguration.class);
+        .requiresConfigurationFragments(AndroidConfiguration.class)
+        .requireAspectsWithNativeProviders(JavaCompilationArgsAspectProvider.class);
     if (TriState.valueOf(params.getOnlyValueOfAttribute("incremental_dexing")) != TriState.NO) {
       // Marginally improves "query2" precision for targets that disable incremental dexing
       result.add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()

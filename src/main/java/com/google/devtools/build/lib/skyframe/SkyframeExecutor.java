@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView.Options;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -1227,7 +1228,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       for (BuildConfiguration depConfig : configs.get(key)) {
         skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), depConfig));
-        for (AspectDescriptor aspectDescriptor : key.getAspects()) {
+        for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
           skyKeys.add(ActionLookupValue.key(AspectValue.createAspectKey(key.getLabel(), depConfig,
               aspectDescriptor, depConfig)));
         }
@@ -1260,7 +1261,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             ((ConfiguredTargetValue) result.get(configuredTargetKey)).getConfiguredTarget();
         List<ConfiguredAspect> configuredAspects = new ArrayList<>();
 
-        for (AspectDescriptor aspectDescriptor : key.getAspects()) {
+        for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
           SkyKey aspectKey = ActionLookupValue.key(AspectValue.createAspectKey(key.getLabel(),
               depConfig, aspectDescriptor, depConfig));
           if (result.get(aspectKey) == null) {
@@ -1450,7 +1451,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       dep = Dependency.withNullConfiguration(label);
     } else if (configuration.useDynamicConfigurations()) {
       dep = Dependency.withTransitionAndAspects(label, Attribute.ConfigurationTransition.NONE,
-          ImmutableSet.<AspectDescriptor>of());
+          AspectCollection.EMPTY);
     } else {
       dep = Dependency.withConfiguration(label, configuration);
     }

@@ -125,6 +125,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSourcesProvider.class)
+            .advertiseProvider(JavaCompilationArgsAspectProvider.class)
+            .advertiseProvider(ImmutableList.of(JavaSkylarkApiProvider.PROTO_NAME))
             .add(
                 attr(SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
                     // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
@@ -230,7 +232,8 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
 
       skylarkApiProvider.setCompilationArgsProvider(generatedCompilationArgsProvider);
       aspect
-          .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.PROTO_NAME, skylarkApiProvider.build())
+          .addSkylarkTransitiveInfo(
+              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), skylarkApiProvider.build())
           .addProviders(
               new JavaProtoLibraryTransitiveFilesToBuildProvider(transitiveOutputJars.build()),
               new JavaCompilationArgsAspectProvider(generatedCompilationArgsProvider));

@@ -857,7 +857,7 @@ public class BuildView {
                 targetAndConfig.getLabel(),
                 Attribute.ConfigurationTransition.NONE,
                 // TODO(bazel-team): support top-level aspects
-                ImmutableSet.<AspectDescriptor>of()));
+                AspectCollection.EMPTY));
       }
     }
 
@@ -1003,7 +1003,7 @@ public class BuildView {
           Iterable<BuildOptions> buildOptions) {
         Preconditions.checkArgument(ct.getConfiguration().fragmentClasses().equals(fragments));
         Dependency asDep = Dependency.withTransitionAndAspects(ct.getLabel(),
-            Attribute.ConfigurationTransition.NONE, ImmutableSet.<AspectDescriptor>of());
+            Attribute.ConfigurationTransition.NONE, AspectCollection.EMPTY);
         ImmutableList.Builder<BuildConfiguration> builder = ImmutableList.builder();
         for (BuildOptions options : buildOptions) {
           builder.add(Iterables.getOnlyElement(

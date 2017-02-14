@@ -1464,7 +1464,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "a1p = provider()",
         "def _a1_impl(target,ctx):",
         "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'])",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
         "a2p = provider()",
         "def _a2_impl(target,ctx):",
         "  value = []",
@@ -1475,7 +1475,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  else:",
         "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'])",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
         "def _r1_impl(ctx):",
         "  pass",
         "def _r2_impl(ctx):",
@@ -1499,7 +1499,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "//test:r0[\"//test:aspect.bzl%a1\"]=yes",
         "//test:r1[]=no");
   }
-
   /**
    * Diamond case.
    * rule r1 depends or r0 with aspect a1.
@@ -1515,11 +1514,11 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "test/aspect.bzl",
         "def _a1_impl(target,ctx):",
         "  return struct(a1p = 'text from a1')",
-        "a1 = aspect(_a1_impl, attr_aspects = ['deps'])",
+        "a1 = aspect(_a1_impl, attr_aspects = ['deps'], provides = ['a1p'])",
         "",
         "def _a2_impl(target,ctx):",
         "  return struct(a2p = 'text from a2')",
-        "a2 = aspect(_a2_impl, attr_aspects = ['deps'])",
+        "a2 = aspect(_a2_impl, attr_aspects = ['deps'], provides = ['a2p'])",
         "",
         "def _a3_impl(target,ctx):",
         "  value = []",
@@ -1535,7 +1534,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "     s += 'a2p'",
         "  value.append(s)",
         "  return struct(a3p = value)",
-        "a3 = aspect(_a3_impl, attr_aspects = ['deps'])",
+        "a3 = aspect(_a3_impl, attr_aspects = ['deps'],",
+        "            required_aspect_providers = [['a1p'], ['a2p']])",
         "def _r1_impl(ctx):",
         "  pass",
         "def _rcollect_impl(ctx):",
@@ -1572,6 +1572,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
    * r1 depends on r2_1 with aspect a1.
    * r2 depends on r1 with aspect a2.
    *
+   * a2 is not interested in a1.
    * There should be just one instance of aspect a2 on r0, and is should *not* see a1.
    */
   @Test
@@ -1581,7 +1582,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "a1p = provider()",
         "def _a1_impl(target,ctx):",
         "  return struct(a1p = 'a1p')",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'])",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
         "a2p = provider()",
         "def _a2_impl(target,ctx):",
         "  value = []",
@@ -1592,7 +1593,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  else:",
         "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'])",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [])",
         "def _r1_impl(ctx):",
         "  pass",
         "def _r2_impl(ctx):",
@@ -1614,7 +1615,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result).containsExactly("//test:r0[]=no",
         "//test:r1[]=no",
-        "//test:r2_1[\"//test:aspect.bzl%a1\"]=yes");
+        "//test:r2_1[]=no");
   }
 
   /**
@@ -1627,7 +1628,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "a1p = provider()",
         "def _a1_impl(target,ctx):",
         "  return struct(a1p = a1p(text = 'random'))",
-        "a1 = aspect(_a1_impl, attr_aspects = ['dep'])",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
         "a2p = provider()",
         "def _a2_impl(target,ctx):",
         "  value = []",
@@ -1638,7 +1639,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  else:",
         "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
-        "a2 = aspect(_a2_impl, attr_aspects = ['dep'])",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
         "def _r1_impl(ctx):",
         "  pass",
         "def _r2_impl(ctx):",
@@ -1664,10 +1665,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "//test:r1[]=no");
   }
 
-
-  /**
-   * Linear aspects-on-aspects with alias rule.
-   */
   @Test
   public void aspectDescriptions() throws Exception {
     scratch.file(

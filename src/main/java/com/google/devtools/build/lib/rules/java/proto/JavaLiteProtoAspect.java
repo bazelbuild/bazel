@@ -118,6 +118,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(JavaConfiguration.class, ProtoConfiguration.class)
             .requireProviders(ProtoSourcesProvider.class)
+            .advertiseProvider(JavaCompilationArgsAspectProvider.class)
+            .advertiseProvider(ImmutableList.of(JavaSkylarkApiProvider.PROTO_NAME))
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
                     .mandatoryNativeProviders(
@@ -218,7 +220,8 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       skylarkApiProvider.setCompilationArgsProvider(generatedCompilationArgsProvider);
 
       aspect
-          .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.PROTO_NAME, skylarkApiProvider.build())
+          .addSkylarkTransitiveInfo(
+              JavaSkylarkApiProvider.PROTO_NAME.getLegacyId(), skylarkApiProvider.build())
           .addProviders(
               new JavaProtoLibraryTransitiveFilesToBuildProvider(transitiveOutputJars.build()),
               new JavaCompilationArgsAspectProvider(generatedCompilationArgsProvider));
