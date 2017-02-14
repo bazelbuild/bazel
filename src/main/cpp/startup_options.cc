@@ -38,7 +38,7 @@ StartupOptions::StartupOptions(const WorkspaceLayout* workspace_layout)
     : StartupOptions("Bazel", workspace_layout) {}
 
 StartupOptions::StartupOptions(const string &product_name,
-                               const WorkspaceLayout* workspace_layout)
+                               const WorkspaceLayout *workspace_layout)
     : product_name(product_name),
       deep_execroot(true),
       block_for_lock(true),
@@ -57,7 +57,8 @@ StartupOptions::StartupOptions(const string &product_name,
       invocation_policy(NULL),
       client_debug(false),
       use_custom_exit_code_on_abrupt_exit(true),
-      java_logging_formatter("java.util.logging.SimpleFormatter") {
+      java_logging_formatter("java.util.logging.SimpleFormatter"),
+      use_action_cache(true) {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));
@@ -83,7 +84,8 @@ StartupOptions::StartupOptions(const string &product_name,
                      "write_command_log",
                      "watchfs",
                      "client_debug",
-                     "use_custom_exit_code_on_abrupt_exit"};
+                     "use_custom_exit_code_on_abrupt_exit",
+                     "use_action_cache"};
   unary_options = {"output_base", "install_base",
       "output_user_root", "host_jvm_profile", "host_javabase",
       "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
@@ -283,6 +285,12 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--nouse_custom_exit_code_on_abrupt_exit")) {
     use_custom_exit_code_on_abrupt_exit = false;
     option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nouse_action_cache")) {
+    use_action_cache = false;
+    option_sources["use_action_cache"] = rcfile;
+  } else if (GetNullaryOption(arg, "--use_action_cache")) {
+    use_action_cache = true;
+    option_sources["use_action_cache"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||

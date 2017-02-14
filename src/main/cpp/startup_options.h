@@ -215,6 +215,9 @@ class StartupOptions {
   // Value of the java.util.logging.FileHandler.formatter Java property.
   std::string java_logging_formatter;
 
+  // Whether to use the action cache.
+  bool use_action_cache;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

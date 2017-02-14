@@ -482,6 +482,11 @@ static vector<string> GetArgumentArray() {
   } else {
     result.push_back("--use_custom_exit_code_on_abrupt_exit=false");
   }
+  if (globals->options->use_action_cache) {
+    result.push_back("--use_action_cache=true");
+  } else {
+    result.push_back("--use_action_cache=false");
+  }
 
   // This is only for Blaze reporting purposes; the real interpretation of the
   // jvm flags occurs when we set up the java command line.
