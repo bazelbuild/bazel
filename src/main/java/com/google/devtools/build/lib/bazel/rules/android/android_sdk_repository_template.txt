@@ -48,6 +48,11 @@ filegroup(
     srcs = glob(["tools/lib64/**"]),
 )
 
+filegroup(
+    name = "sdk_path",
+    srcs = ["."],
+)
+
 create_android_device_rules(
     system_image_dirs = [
 %system_image_dirs%    ],

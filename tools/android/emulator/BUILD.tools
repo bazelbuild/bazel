@@ -34,6 +34,11 @@ filegroup(
     ],
 )
 
+alias(
+    name = "sdk_path",
+    actual = "@androidsdk//:sdk_path",
+)
+
 # Unified launcher is not included with Bazel or the Android SDK. Instead, it
 # comes from an external repository that must be set up in order for
 # android_device to work.
