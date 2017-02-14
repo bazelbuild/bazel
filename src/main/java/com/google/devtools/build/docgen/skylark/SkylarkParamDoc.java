@@ -55,8 +55,10 @@ public final class SkylarkParamDoc extends SkylarkDoc {
     }
     if (param.generic1().equals(Object.class)) {
       return getTypeAnchor(param.type());
-    } else {
+    } else if (param.generic2().equals(Object.class)) {
       return getTypeAnchor(param.type(), param.generic1());
+    } else {
+      return getTypeAnchor(param.type(), param.generic1(), param.generic2());
     }
   }
 
