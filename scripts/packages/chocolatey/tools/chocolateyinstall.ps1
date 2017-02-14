@@ -19,42 +19,15 @@ Install-ChocolateyZipPackage -PackageName "$packageName" `
   -UnzipLocation "$packageDir"
 
 write-host "Ensure that msys2 dll is present in PATH to allow bazel to be run from non-msys2 shells"
-
-# from docs: https://github.com/chocolatey/choco/wiki/How-To-Parse-PackageParameters-Argument
-$msys2Path = "c:\tools\msys64"
-if ($packageParameters)
-{
-  $match_pattern = "\/(?<option>([a-zA-Z]+)):(?<value>([`"'])?([a-zA-Z0-9- _\\:\.]+)([`"'])?)|\/(?<option>([a-zA-Z]+))"
-  $option_name = 'option'
-  $value_name = 'value'
-
-  if ($packageParameters -match $match_pattern)
-  {
-    $results = $packageParameters | Select-String $match_pattern -AllMatches
-    $results.matches | % {
-      $arguments.Add(
-        $_.Groups[$option_name].Value.Trim(),
-        $_.Groups[$value_name].Value.Trim())
-    }
-  }
-  else
-  {
-    Throw "Package Parameters were found but were invalid (REGEX Failure)"
-  }
-
-  if ($arguments.ContainsKey("msys2Path")) {
-    $msys2Path = $arguments["msys2Path"]
-    Write-Host "msys2Path Argument Found: $msys2Path"
-  }
-}
-Install-ChocolateyPath -PathToInstall "$msys2Path\usr\bin" -PathType "Machine"
+$pp = Get-PackageParameters $env:chocolateyPackageParameters
+Install-ChocolateyPath -PathToInstall "$($pp.msys2Path)\usr\bin" -PathType "Machine"
 
 $addToMsysPath = ($packageDir -replace '^([a-zA-Z]):\\(.*)','/$1/$2') -replace '\\','/'
 write-host @"
 bazel installed to $packageDir
 
 To use it in powershell or cmd, you should ensure your PATH environment variable contains
-  $($msys2Path)\usr\bin
+  $($pp.msys2Path)\usr\bin
 BEFORE both
   c:\windows\system32 (because bash-on-windows' bash.exe will be found here, if it's installed)
   any references to msysgit (like c:\program files (x86)\git\bin or c:\program files (x86)\git\cmd) (because git's vendored version of msys2 will interfere with the real msys2)
