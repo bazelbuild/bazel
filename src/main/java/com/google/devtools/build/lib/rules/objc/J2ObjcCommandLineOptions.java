@@ -45,7 +45,7 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
   public boolean removeDeadCode;
 
   @Option(name = "explicit_jre_deps",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "flags",
       help = "Requires JRE dependencies to be declared in j2objc_library's jre_deps attribute."
       )
