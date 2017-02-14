@@ -54,9 +54,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -186,6 +189,7 @@ public class ObjcCompileAction extends SpawnAction {
     return true;
   }
 
+  @Override
   public synchronized Iterable<Artifact> discoverInputs(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -203,25 +207,26 @@ public class ObjcCompileAction extends SpawnAction {
   private Iterable<Artifact> findRequiredHeaderInputs()
       throws ActionExecutionException, InterruptedException {
     try {
-      Map<PathFragment, Artifact> map = getAllowedDerivedInputsMap(false);
+      Map<PathFragment, Artifact> inputArtifactsMap = getAllowedDerivedInputsMap(false);
       ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
+      List<PathFragment> missing = new ArrayList<>();
       for (String line :
           FileSystemUtils.readLines(headersListFile.getPath(), StandardCharsets.UTF_8)) {
         if (line.isEmpty()) {
           continue;
         }
 
-        Artifact header = map.get(new PathFragment(line));
+        PathFragment headerPath = new PathFragment(line);
+        Artifact header = inputArtifactsMap.get(headerPath);
         if (header == null) {
-          throw new ActionExecutionException(
-              String.format(
-                  "Unable to map header file (%s) found during header scanning of %s."
-                      + " This is usually the result of a case mismatch.",
-                  line, sourceFile.getExecPathString()),
-              this,
-              true);
+          missing.add(headerPath);
+        } else {
+          includeBuilder.add(header);
         }
-        includeBuilder.add(header);
+      }
+
+      if (!missing.isEmpty()) {
+        includeBuilder.addAll(findRequiredHeaderInputsInTreeArtifacts(inputArtifactsMap, missing));
       }
       return includeBuilder.build();
     } catch (IOException ex) {
@@ -231,6 +236,53 @@ public class ObjcCompileAction extends SpawnAction {
           this,
           false);
     }
+  }
+
+  /**
+   * Headers inside a TreeArtifact will not have their ExecPath as a key in the map as they do not
+   * have their own Artifact object. These headers must be mapped to their containing TreeArtifact.
+   * We are unable to select individual files from within a TreeArtifact so must discover the entire
+   * TreeArtifact as an input.
+   */
+  private Iterable<Artifact> findRequiredHeaderInputsInTreeArtifacts(
+      Map<PathFragment, Artifact> inputArtifactsMap, List<PathFragment> missing)
+      throws ActionExecutionException {
+    ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
+    ImmutableList.Builder<PathFragment> treeArtifactPathsBuilder = ImmutableList.builder();
+    for (Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
+      if (inputEntry.getValue().isTreeArtifact()) {
+        treeArtifactPathsBuilder.add(inputEntry.getKey());
+      }
+    }
+
+    ImmutableList<PathFragment> treeArtifactPaths = treeArtifactPathsBuilder.build();
+    for (PathFragment missingPath : missing) {
+      includeBuilder.add(
+          findRequiredHeaderInputInTreeArtifacts(
+              treeArtifactPaths, inputArtifactsMap, missingPath));
+    }
+
+    return includeBuilder.build();
+  }
+
+  private Artifact findRequiredHeaderInputInTreeArtifacts(
+      ImmutableList<PathFragment> treeArtifactPaths,
+      Map<PathFragment, Artifact> inputArtifactsMap,
+      PathFragment missingPath)
+      throws ActionExecutionException {
+    for (PathFragment treeArtifactPath : treeArtifactPaths) {
+      if (missingPath.startsWith(treeArtifactPath)) {
+        return inputArtifactsMap.get(treeArtifactPath);
+      }
+    }
+
+    throw new ActionExecutionException(
+        String.format(
+            "Unable to map header file (%s) found during header scanning of %s."
+                + " This is usually the result of a case mismatch.",
+            missingPath, sourceFile.getExecPathString()),
+        this,
+        true);
   }
 
   @Override
