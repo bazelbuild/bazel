@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -497,6 +498,7 @@ public class TestAspects {
       return RuleDefinition.Metadata.builder()
           .name("base")
           .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRuleClasses.RootRule.class)
           .build();
     }
   }

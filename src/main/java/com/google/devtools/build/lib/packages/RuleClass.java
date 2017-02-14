@@ -1421,11 +1421,6 @@ public final class RuleClass {
       Rule rule, AttributeValuesMap attributeValues, EventHandler eventHandler) {
     BitSet definedAttrIndices = new BitSet();
     for (String attributeName : attributeValues.getAttributeNames()) {
-      // The attribute named "name" was handled in a special way already.
-      if (attributeName.equals("name")) {
-        continue;
-      }
-
       Object attributeValue = attributeValues.getAttributeValue(attributeName);
       // Ignore all None values.
       if (attributeValue == Runtime.NONE) {

@@ -418,6 +418,12 @@ public abstract class OutputFormatter implements Serializable {
 
           RawAttributeMapper attributeMap = RawAttributeMapper.of(rule);
           for (Attribute attr : rule.getAttributes()) {
+            // Ignore the "name" attribute here, as we already print it above.
+            // This is not strictly necessary, but convention has it that the
+            // name attribute is printed first.
+            if ("name".equals(attr.getName())) {
+              continue;
+            }
             if (attributeMap.isConfigurable(attr.getName(), attr.getType())) {
               continue; // TODO(bazel-team): handle configurable attributes.
             }

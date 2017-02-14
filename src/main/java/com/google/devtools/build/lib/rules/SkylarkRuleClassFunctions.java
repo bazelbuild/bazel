@@ -122,9 +122,10 @@ public class SkylarkRuleClassFunctions {
   /** Parent rule class for non-executable non-test Skylark rules. */
   public static final RuleClass baseRule =
       BaseRuleClasses.commonCoreAndSkylarkAttributes(
-          new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
-          .add(attr("expect_failure", STRING))
-          .build();
+          BaseRuleClasses.nameAttribute(
+            new RuleClass.Builder("$base_rule", RuleClassType.ABSTRACT, true))
+            .add(attr("expect_failure", STRING)))
+            .build();
 
   /** Parent rule class for executable non-test Skylark rules. */
   public static final RuleClass binaryBaseRule =

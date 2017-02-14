@@ -124,6 +124,7 @@ public class SkylarkRepositoryModule {
           builder.addOrOverrideAttribute(attr("$local", BOOLEAN).defaultValue(local).build());
           builder.addOrOverrideAttribute(attr("$environ", STRING_LIST)
               .defaultValue(environ).build());
+          BaseRuleClasses.nameAttribute(builder);
           BaseRuleClasses.commonCoreAndSkylarkAttributes(builder);
           builder.add(attr("expect_failure", STRING));
           if (attrs != Runtime.NONE) {
