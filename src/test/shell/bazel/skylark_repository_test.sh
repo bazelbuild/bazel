@@ -482,28 +482,31 @@ EOF
 function write_environ_skylark() {
   local execution_file="$1"
   local environ="$2"
+
   cat >test.bzl <<EOF
-def _environ(r_ctx, var):
-  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+load("//:environ.bzl", "environ")
 
 def _impl(repository_ctx):
-  # Symlink so a repository is created, do it at first to avoid errors
-  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
+  # This might cause a function restart, do it first
+  foo = environ(repository_ctx, "FOO")
+  bar = environ(repository_ctx, "BAR")
+  baz = environ(repository_ctx, "BAZ")
+  repository_ctx.template("bar.txt", Label("//:bar.tpl"), {
+      "%{FOO}": foo,
+      "%{BAR}": bar,
+      "%{BAZ}": baz}, False)
 
   exe_result = repository_ctx.execute(["cat", "${execution_file}"]);
   execution = int(exe_result.stdout.strip()) + 1
   repository_ctx.execute(["bash", "-c", "echo %s >${execution_file}" % execution])
-  print("<%s> FOO=%s BAR=%s BAZ=%s" % (
-        execution,
-        _environ(repository_ctx, "FOO"),
-        _environ(repository_ctx, "BAR"),
-        _environ(repository_ctx, "BAZ")))
+  print("<%s> FOO=%s BAR=%s BAZ=%s" % (execution, foo, bar, baz))
+  repository_ctx.file("BUILD", "filegroup(name='bar', srcs=['bar.txt'])")
 
 repo = repository_rule(implementation=_impl, environ=[${environ}])
 EOF
 }
 
-function environ_invalidation_test_template() {
+function setup_invalidation_test() {
   local startup_flag="${1-}"
   setup_skylark_repository
 
@@ -512,11 +515,26 @@ function environ_invalidation_test_template() {
   local execution_file="${TEST_TMPDIR}/execution"
 
   # Our custom repository rule
+  cat >environ.bzl <<EOF
+def environ(r_ctx, var):
+  return r_ctx.os.environ[var] if var in r_ctx.os.environ else "undefined"
+EOF
+
   write_environ_skylark "${execution_file}" '"FOO", "BAR"'
+
+  cat <<EOF >bar.tpl
+FOO=%{FOO} BAR=%{BAR} BAZ=%{BAZ}
+EOF
 
   bazel ${startup_flag} clean --expunge
   echo 0 >"${execution_file}"
+  echo "${execution_file}"
+}
 
+# Test invalidation based on environment variable
+function environ_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
   FOO=BAR bazel ${startup_flag} build @foo//:bar >& $TEST_log \
      || fail "Failed to build"
   expect_log "<1> FOO=BAR BAR=undefined BAZ=undefined"
@@ -640,6 +658,52 @@ function test_skylark_repository_environ_invalidation_action_env() {
 
 function test_skylark_repository_environ_invalidation_action_env_batch() {
   environ_invalidation_action_env_test_template --batch
+}
+
+# Test invalidation based on change to the bzl files
+function bzl_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Changing the skylark file cause a refetch
+  cat <<EOF >>test.bzl
+
+# Just add a comment
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+
+  # But also changing the environ.bzl file does a refetch
+  cat <<EOF >>environ.bzl
+
+# Just add a comment
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<3> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 3 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 3 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_bzl_invalidation() {
+  bzl_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_bzl_invalidation_batch() {
+  bzl_invalidation_test_template --batch
 }
 
 function test_skylark_repository_executable_flag() {
