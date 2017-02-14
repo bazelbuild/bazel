@@ -487,13 +487,22 @@ def _find_vc_path(repository_ctx):
     if not result.stderr:
       for line in result.stdout.split("\n"):
         line = line.strip()
-        if line.startswith("InstallDir"):
-          path_segments = [ seg for seg in line[len("InstallDir    REG_SZ    "):].split("\\") if seg ]
+        if line.startswith("InstallDir") and line.find("REG_SZ") != -1:
+          install_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
+          path_segments = [ seg for seg in install_dir.split("\\") if seg ]
           # Extract version number X from "Microsoft Visual Studio X.0"
           version_number = int(path_segments[-3].split(" ")[-1][:-len(".0")])
           if version_number > vs_version_number:
             vs_version_number = version_number
             vs_dir = "\\".join(path_segments[:-2])
+
+  # 4. Try to find Visual C++ build tools 2017
+  result = repository_ctx.execute([reg_binary, "query", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\VisualStudio\\SxS\\VS7", "/v", "15.0"])
+  if not result.stderr:
+    for line in result.stdout.split("\n"):
+      line = line.strip()
+      if line.startswith("15.0") and line.find("REG_SZ") != -1:
+        vs_dir = line[line.find("REG_SZ") + len("REG_SZ"):].strip()
 
   if not vs_dir:
     auto_configure_fail("Visual C++ build tools not found on your machine.")
@@ -501,13 +510,31 @@ def _find_vc_path(repository_ctx):
   auto_configure_warning("Visual C++ build tools found at %s" % vc_dir)
   return vc_dir
 
+def _is_vs_2017(vc_path):
+  """Check if the installed VS version is Visual Studio 2017."""
+  # In VS 2017, the location of VC is like:
+  # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\
+  # In VS 2015 or older version, it is like:
+  # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
+  return vc_path.find("2017") != -1
+
+def _find_vcvarsall_bat_script(repository_ctx, vc_path):
+  """Find vcvarsall.bat script."""
+  if _is_vs_2017(vc_path):
+    vcvarsall = vc_path + "\\Auxiliary\\Build\\VCVARSALL.BAT"
+  else:
+    vcvarsall = vc_path + "\\VCVARSALL.BAT"
+
+  if not repository_ctx.path(vcvarsall).exists:
+    auto_configure_fail("vcvarsall.bat doesn't exists, please check your VC++ installation")
+  return vcvarsall
 
 def _find_env_vars(repository_ctx, vc_path):
   """Get environment variables set by VCVARSALL.BAT."""
-  vsvars = vc_path + "/VCVARSALL.BAT"
+  vcvarsall = _find_vcvarsall_bat_script(repository_ctx, vc_path)
   repository_ctx.file("wrapper/get_env.bat",
                       "@echo off\n" +
-                      "call \"" + vsvars + "\" amd64 \n" +
+                      "call \"" + vcvarsall + "\" amd64 > NUL \n" +
                       "echo PATH=%PATH%,INCLUDE=%INCLUDE%,LIB=%LIB% \n", True)
   env = _add_system_root(repository_ctx, repository_ctx.os.environ)
   envs = _execute(repository_ctx, ["wrapper/get_env.bat"], environment=env).split(",")
@@ -518,12 +545,37 @@ def _find_env_vars(repository_ctx, vc_path):
   return env_map
 
 
-def _is_support_whole_archive(repository_ctx, vc_dir):
+def _find_msvc_tool(repository_ctx, vc_path, tool):
+  """Find the exact path of a specific build tool in MSVC."""
+  tool_path = ""
+  if _is_vs_2017(vc_path):
+    # For VS 2017, the tools are under a directory like:
+    # C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.10.24930\bin\HostX64\x64
+    dirs = repository_ctx.path(vc_path + "\\Tools\\MSVC").readdir()
+    if len(dirs) < 1:
+      auto_configure_fail("VC++ build tools directory not found under " + vc_path + "\\Tools\\MSVC")
+    # Normally there should be only one child directory under %VC_PATH%\TOOLS\MSVC,
+    # but iterate every directory to be more robust.
+    for path in dirs:
+      tool_path = str(path) + "\\bin\\HostX64\\x64\\" + tool
+      if repository_ctx.path(tool_path).exists:
+        break
+  else:
+    # For VS 2015 and older version, the tools are under:
+    # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
+    tool_path = vc_path + "\\bin\\amd64\\" + tool
+
+  if not repository_ctx.path(tool_path).exists:
+    auto_configure_fail(tool_path + " not found, please check your VC++ installation.")
+  return tool_path
+
+def _is_support_whole_archive(repository_ctx, vc_path):
   """Run MSVC linker alone to see if it supports /WHOLEARCHIVE."""
   env = repository_ctx.os.environ
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
-  result = _execute(repository_ctx, [vc_dir + "/BIN/amd64/link"])
+  linker = _find_msvc_tool(repository_ctx, vc_path, "link.exe")
+  result = _execute(repository_ctx, [linker])
   return result.find("/WHOLEARCHIVE") != -1
 
 
@@ -592,7 +644,7 @@ def _impl(repository_ctx):
     python_dir = python_binary[0:-10].replace("\\", "\\\\")
     include_paths = env["INCLUDE"] + (python_dir + "include")
     lib_paths = env["LIB"] + (python_dir + "libs")
-    lib_tool = vc_path.replace("\\", "\\\\") + "/bin/amd64/lib.exe"
+    lib_tool = _find_msvc_tool(repository_ctx, vc_path, "lib.exe").replace("\\", "\\\\")
     if _is_support_whole_archive(repository_ctx, vc_path):
       support_whole_archive = "True"
     else:
