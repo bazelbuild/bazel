@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.LabelClass;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -206,7 +207,7 @@ public final class SkylarkRuleContext {
       for (Attribute a : attributes) {
         String attrName = a.getName();
         Type<?> type = a.getType();
-        if (type != BuildType.OUTPUT && type != BuildType.OUTPUT_LIST) {
+        if (type.getLabelClass() != LabelClass.OUTPUT) {
           continue;
         }
         ImmutableList.Builder<Artifact> artifactsBuilder = ImmutableList.builder();
@@ -290,7 +291,10 @@ public final class SkylarkRuleContext {
     for (Attribute a : attributes) {
       Type<?> type = a.getType();
       Object val = attributeValueExtractor.apply(a);
-      if (type != BuildType.LABEL && type != BuildType.LABEL_LIST) {
+      // TODO(mstaib): Remove the LABEL_DICT_UNARY special case of this conditional
+      // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
+      // Skylark as a Map<String, Label>; this special case preserves that behavior temporarily.
+      if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
         attrBuilder.put(a.getPublicName(), val == null ? Runtime.NONE
             // Attribute values should be type safe
             : SkylarkType.convertToSkylark(val, null));
@@ -336,10 +340,26 @@ public final class SkylarkRuleContext {
           prereq = Runtime.NONE;
         }
         attrBuilder.put(skyname, prereq);
-      } else {
-        // Type.LABEL_LIST
+      } else if (type == BuildType.LABEL_LIST
+          || (type == BuildType.LABEL && a.hasSplitConfigurationTransition())) {
         List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
+      } else if (type == BuildType.LABEL_DICT_UNARY) {
+        Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
+        for (TransitiveInfoCollection target
+              : ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK)) {
+          prereqsByLabel.put(target.getLabel(), target);
+        }
+        ImmutableMap.Builder<String, TransitiveInfoCollection> attrValue =
+            new ImmutableMap.Builder<>();
+        for (Map.Entry<String, Label> entry : ((Map<String, Label>) val).entrySet()) {
+          attrValue.put(entry.getKey(), prereqsByLabel.get(entry.getValue()));
+        }
+        attrBuilder.put(skyname, attrValue.build());
+      } else {
+        throw new IllegalArgumentException(
+            "Can't transform attribute " + a.getName() + " of type " + type
+            + " to a Skylark object");
       }
     }
 
