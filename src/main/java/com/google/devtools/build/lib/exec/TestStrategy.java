@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.SearchPath;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -197,17 +196,6 @@ public abstract class TestStrategy implements TestActionContext {
       args.add("-c");
 
       String runUnderCommand = ShellEscaper.escapeString(execSettings.getRunUnder().getCommand());
-
-      Path fullySpecified =
-          SearchPath.which(
-              SearchPath.parse(
-                  testAction.getTestLog().getPath().getFileSystem(), clientEnv.get("PATH")),
-              runUnderCommand);
-
-      if (fullySpecified != null) {
-        runUnderCommand = fullySpecified.toString();
-      }
-
       args.add(
           runUnderCommand
               + ' '

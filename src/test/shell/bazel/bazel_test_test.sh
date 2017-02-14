@@ -192,14 +192,19 @@ echo "hello script!!!" "\$@"
 EOF
   chmod u+x scripts/hello
 
+  # We don't just use the local PATH, but use the test's PATH, which is more restrictive.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_output=all >& $TEST_log && fail "Expected failure"
+
+  # We need to forward the PATH to make it work.
+  PATH=$PATH:$PWD/scripts bazel test //testing:t1 -s --run_under=hello \
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! testing/t1'
 
   # Make sure it still works if --run_under includes an arg.
   PATH=$PATH:$PWD/scripts bazel test //testing:t1 \
     -s --run_under='hello "some_arg   with"          space' \
-    --test_output=all >& $TEST_log || fail "Expected success"
+    --test_env=PATH --test_output=all >& $TEST_log || fail "Expected success"
   expect_log 'hello script!!! some_arg   with space testing/t1'
 
   # Make sure absolute path works also
