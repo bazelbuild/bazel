@@ -126,7 +126,7 @@ function bazel_build() {
       xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
     ARGS="--define IPHONE_SDK=1"
   fi
-  local OPTIONAL_TARGETS="//site:jekyll-tree //scripts/packages //src/tools/benchmark/webapp:site"
+  local OPTIONAL_TARGETS="//site:jekyll-tree //scripts/packages"
   if [[ $PLATFORM =~ "freebsd" ]] ; then
       OPTIONAL_TARGETS=
   fi
