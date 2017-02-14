@@ -115,6 +115,11 @@ function test_build_and_run_hello_world_without_runfiles() {
 }
 
 function test_errorprone_error_fails_build_by_default() {
+  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+  if [ "${JAVA_VERSION}" = "1.7" ]; then
+    return 0
+  fi
+
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
@@ -133,6 +138,11 @@ EOF
 }
 
 function test_extrachecks_off_disables_errorprone() {
+  JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+  if [ "${JAVA_VERSION}" = "1.7" ]; then
+    return 0
+  fi
+
   write_hello_library_files
   # Trigger an error-prone error by comparing two arrays via #equals().
   cat >java/hello_library/HelloLibrary.java <<EOF
