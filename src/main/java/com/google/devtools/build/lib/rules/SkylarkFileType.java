@@ -53,7 +53,7 @@ public class SkylarkFileType {
   @SkylarkCallable(doc =
       "Returns a list created from the elements of the parameter containing all the "
     + "<a href=\"File.html\"><code>File</code></a>s that match the FileType. The parameter "
-    + "must be a <a href=\"set.html\"><code>set</code></a> or a "
+    + "must be a <a href=\"depset.html\"><code>depset</code></a> or a "
     + "<a href=\"list.html\"><code>list</code></a>.")
   // toIterablesStrict() will ensure the parameter is a SkylarkNestedSet or a java Iterable
   // (including SkylarkList). If it fails, the error location information will be inserted by the

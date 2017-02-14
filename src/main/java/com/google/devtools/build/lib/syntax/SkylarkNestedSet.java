@@ -109,6 +109,20 @@ public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
   @Nullable
   private final List<NestedSet> transitiveItems;
 
+  // Dummy class used to create a documentation for the deprecated `set` type
+  // TODO(bazel-team): remove before the end of 2017
+  @SkylarkModule(
+      name = "set",
+      category = SkylarkModuleCategory.BUILTIN,
+      doc = "A deprecated alias for <a href=\"depset.html\">depset</a>. "
+          + "Please use <a href=\"depset.html\">depset</a> instead. "
+          + "If you need a hash set that supports O(1) membership testing "
+          + "consider using a <a href=\"dict.html\">dict</a>."
+  )
+  static final class LegacySet {
+    private LegacySet() {}
+  }
+
   public SkylarkNestedSet(Order order, Object item, Location loc) throws EvalException {
     this(order, SkylarkType.TOP, item, loc, null);
   }

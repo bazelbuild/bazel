@@ -100,6 +100,7 @@ public class BazelLibrary {
   @SkylarkSignature(
     name = "set",
     returnType = SkylarkNestedSet.class,
+    documentationReturnType = SkylarkNestedSet.LegacySet.class,
     doc =
         "A temporary alias for <a href=\"#depset\">depset</a>. "
             + "Deprecated in favor of <code>depset</code>.",

@@ -86,7 +86,10 @@ final class SkylarkDocumentationCollector {
     for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
       // Check the return type for built-in functions, it can be a module previously not added.
       for (SkylarkBuiltinMethodDoc builtinMethod : builtinObject.getBuiltinMethods().values()) {
-        Class<?> type = builtinMethod.getAnnotation().returnType();
+        Class<?> type = builtinMethod.getAnnotation().documentationReturnType();
+        if (type == Object.class) {
+          type = builtinMethod.getAnnotation().returnType();
+        }
         if (type.isAnnotationPresent(SkylarkModule.class)) {
           collectJavaObjects(type.getAnnotation(SkylarkModule.class), type, modules);
         }

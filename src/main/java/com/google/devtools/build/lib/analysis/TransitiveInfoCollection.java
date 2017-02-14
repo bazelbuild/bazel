@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
     + "<li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\" "
     + "href=\"Label.html\">Label</a> Target.label</code><br>The identifier of the target.</li>"
     + "<li><h3 id=\"modules.Target.files\">files</h3><code><a class=\"anchor\" "
-    + "href=\"set.html\">set</a> Target.files </code><br>The set of <a class=\"anchor\" "
+    + "href=\"depset.html\">depset</a> Target.files </code><br>The set of <a class=\"anchor\" "
     + "href=\"File.html\">File</a>s produced directly by this target.</li>"
     + "<li><h3 id=\"modules.Target.aspect_ids\">aspect_ids</h3><code><a class=\"anchor\""
     + "href=\"list.html\">list</a> Target.aspect_ids </code><br>The list of <a class=\"anchor\" "
