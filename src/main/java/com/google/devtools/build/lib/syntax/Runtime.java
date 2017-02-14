@@ -96,16 +96,23 @@ public final class Runtime {
   public static final NoneType NONE = new NoneType();
 
   @SkylarkSignature(name = "PACKAGE_NAME", returnType = String.class,
-      doc = "The name of the package the rule or build extension is called from. "
+      doc = "The name of the package being evaluated. "
           + "For example, in the BUILD file <code>some/package/BUILD</code>, its value "
           + "will be <code>some/package</code>. "
-          + "This variable is special, because its value comes from outside of the extension "
-          + "module (it comes from the BUILD file), so it can only be accessed in functions "
-          + "(transitively) called from BUILD files. For example:<br>"
-          + "<pre class=language-python>def extension():\n"
+          + "If the BUILD file calls a function defined in a .bzl file, PACKAGE_NAME will "
+          + "match the caller BUILD file package. "
+          + "In .bzl files, do not access PACKAGE_NAME at the file-level (outside of functions), "
+          + "either directly or by calling a function at the file-level that accesses "
+          + "PACKAGE_NAME (PACKAGE_NAME is only defined during BUILD file evaluation)."
+          + "Here is an example of a .bzl file:<br>"
+          + "<pre class=language-python>"
+          + "# a = PACKAGE_NAME  # not allowed outside functions\n"
+          + "def extension():\n"
           + "  return PACKAGE_NAME</pre>"
-          + "In this case calling <code>extension()</code> works from the BUILD file (if the "
-          + "function is loaded), but not as a top level function call in the extension module.")
+          + "In this case, <code>extension()</code> can be called from a BUILD file (even "
+          + "indirectly), but not in a file-level expression in the .bzl file. "
+          + "When implementing a rule, use <a href=\"ctx.html#label>ctx.label</a> to know where "
+          + "the rule comes from. ")
   public static final String PKG_NAME = "PACKAGE_NAME";
 
   @SkylarkSignature(name = "REPOSITORY_NAME", returnType = String.class,
@@ -113,7 +120,8 @@ public final class Runtime {
           + "For example, in packages that are called into existence by the WORKSPACE stanza "
           + "<code>local_repository(name='local', path=...)</code> it will be set to "
           + "<code>@local</code>. In packages in the main repository, it will be empty. "
-          + "It can only be accessed in functions (transitively) called from BUILD files.")
+          + "It can only be accessed in functions (transitively) called from BUILD files, i.e. "
+          + "it follows the same restrictions as <a href=\"#PACKAGE_NAME\">PACKAGE_NAME</a>")
   public static final String REPOSITORY_NAME = "REPOSITORY_NAME";
 
   /**
