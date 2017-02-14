@@ -82,6 +82,16 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   }
 
   @SkylarkCallable(
+    name = "merged_manifest",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns a manifest file for this target after all processing, e.g.: merging, etc."
+  )
+  public Artifact getMergedManifest() {
+    return getIdeInfoProvider().getGeneratedManifest();
+  }
+
+  @SkylarkCallable(
       name = "apks_under_test",
       structField = true,
       allowReturnNones = true,
