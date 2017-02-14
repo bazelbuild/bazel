@@ -108,17 +108,26 @@ public class GrpcServerImpl implements RPCServer {
 
   private static final long NANOSECONDS_IN_MS = TimeUnit.MILLISECONDS.toNanos(1);
 
+  private static final long NANOS_PER_IDLE_CHECK =
+     TimeUnit.NANOSECONDS.convert(5, TimeUnit.SECONDS);
+
+
   private class RunningCommand implements AutoCloseable {
     private final Thread thread;
     private final String id;
 
-    private RunningCommand() {
+    private RunningCommand() throws InterruptedException {
       thread = Thread.currentThread();
       id = UUID.randomUUID().toString();
       synchronized (runningCommands) {
         if (runningCommands.isEmpty()) {
           busy();
         }
+
+        if (shuttingDown) {
+          throw new InterruptedException();
+        }
+
         runningCommands.put(id, this);
         runningCommands.notify();
       }
@@ -444,21 +453,56 @@ public class GrpcServerImpl implements RPCServer {
     }
   }
 
-  /**
-   * A thread that watches if the PID file changes and shuts down the server immediately if so.
-   */
-  private class PidFileWatcherThread extends Thread {
-    private boolean shuttingDown = false;
+  // The synchronized block is here so that if the "PID file deleted" timer or the idle shutdown
+  // mechanism kicks in during a regular shutdown, they don't race.
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  void signalShutdown() {
+    synchronized (runningCommands) {
+      shuttingDown = true;
+      server.shutdown();
+    }
+  }
 
-    private PidFileWatcherThread() {
-      super("pid-file-watcher");
+  /**
+   * A thread that shuts the server down under the following conditions:
+   * <ul>
+   *   <li>The PID file changes (in this case, *very* quickly)</li>
+   *   <li>The workspace directory is deleted</li>
+   *   <li>There is too much memory pressure on the host</li>
+   * </ul>
+   */
+  private class ShutdownWatcherThread extends Thread {
+    private long lastIdleCheckNanos;
+
+    private ShutdownWatcherThread() {
+      super("grpc-server-shutdown-watcher");
       setDaemon(true);
     }
 
-    // The synchronized block is here so that if the "PID file deleted" timer kicks in during a
-    // regular shutdown, they don't race.
-    private synchronized void signalShutdown() {
-      shuttingDown = true;
+    private void doIdleChecksMaybe() {
+      synchronized (runningCommands) {
+        if (!runningCommands.isEmpty()) {
+          lastIdleCheckNanos = -1;
+          return;
+        }
+
+        long currentNanos = BlazeClock.nanoTime();
+        if (lastIdleCheckNanos == -1) {
+          lastIdleCheckNanos = currentNanos;
+          return;
+        }
+
+        if (currentNanos - lastIdleCheckNanos < NANOS_PER_IDLE_CHECK) {
+          return;
+        }
+
+        if (!idleServerTasks.continueProcessing()) {
+          signalShutdown();
+          server.shutdown();
+        }
+
+        lastIdleCheckNanos = currentNanos;
+      }
     }
 
     @Override
@@ -474,8 +518,12 @@ public class GrpcServerImpl implements RPCServer {
           // Handled by virtue of ok not being set to true
         }
 
+        if (ok) {
+          doIdleChecksMaybe();
+        }
+
         if (!ok) {
-          synchronized (PidFileWatcherThread.this) {
+          synchronized (ShutdownWatcherThread.this) {
             if (shuttingDown) {
               log.warning("PID file deleted or overwritten but shutdown is already in progress");
               break;
@@ -511,14 +559,16 @@ public class GrpcServerImpl implements RPCServer {
   private final String responseCookie;
   private final AtomicLong interruptCounter = new AtomicLong(0);
   private final int maxIdleSeconds;
-  private final PidFileWatcherThread pidFileWatcherThread;
+  private final ShutdownWatcherThread shutdownWatcherThread;
   private final Path pidFile;
   private final String pidInFile;
 
   private Server server;
   private IdleServerTasks idleServerTasks;
   private final int port;
-  boolean serving;
+  private InetSocketAddress address;
+  private boolean serving;
+  private boolean shuttingDown = false;
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
       Path workspace, Path serverDirectory, int maxIdleSeconds) throws IOException {
@@ -549,10 +599,20 @@ public class GrpcServerImpl implements RPCServer {
     requestCookie = generateCookie(random, 16);
     responseCookie = generateCookie(random, 16);
 
-    pidFileWatcherThread = new PidFileWatcherThread();
-    pidFileWatcherThread.start();
+    shutdownWatcherThread = new ShutdownWatcherThread();
+    shutdownWatcherThread.start();
     idleServerTasks = new IdleServerTasks(workspace);
     idleServerTasks.idle();
+  }
+
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  String getRequestCookie() {
+    return requestCookie;
+  }
+
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  InetSocketAddress getAddress() {
+    return address;
   }
 
   private void idle() {
@@ -642,7 +702,7 @@ public class GrpcServerImpl implements RPCServer {
       }
     }
 
-    server.shutdown();
+    signalShutdown();
   }
 
   /**
@@ -668,7 +728,7 @@ public class GrpcServerImpl implements RPCServer {
   @Override
   public void prepareForAbruptShutdown() {
     disableShutdownHooks();
-    pidFileWatcherThread.signalShutdown();
+    signalShutdown();
   }
 
   @Override
@@ -723,7 +783,7 @@ public class GrpcServerImpl implements RPCServer {
       timeoutThread.start();
     }
     serving = true;
-
+    this.address = new InetSocketAddress(address.getAddress(), server.getPort());
     writeServerFile(
         PORT_FILE, InetAddresses.toUriString(address.getAddress()) + ":" + server.getPort());
     writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
@@ -783,7 +843,8 @@ public class GrpcServerImpl implements RPCServer {
     log.severe(err.toString());
   }
 
-  private void executeCommand(
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
+  void executeCommand(
       RunRequest request, StreamObserver<RunResponse> observer, GrpcSink sink) {
     sink.setCommandThread(Thread.currentThread());
 
@@ -878,8 +939,7 @@ public class GrpcServerImpl implements RPCServer {
     }
 
     if (commandExecutor.shutdown()) {
-      pidFileWatcherThread.signalShutdown();
-      server.shutdown();
+      signalShutdown();
     }
   }
 
@@ -912,6 +972,8 @@ public class GrpcServerImpl implements RPCServer {
 
             streamObserver.onNext(response.build());
             streamObserver.onCompleted();
+          } catch (InterruptedException e) {
+            // Ignore, we are shutting down anyway
           }
         }
 
@@ -959,6 +1021,8 @@ public class GrpcServerImpl implements RPCServer {
               log.info("Client cancelled RPC of cancellation request for "
                   + request.getCommandId());
             }
+          } catch (InterruptedException e) {
+            // Ignore, we are shutting down anyway
           }
         }
       };

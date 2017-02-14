@@ -737,6 +737,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:collect",
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:unix",
