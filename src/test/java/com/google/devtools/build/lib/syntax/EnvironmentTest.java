@@ -298,8 +298,8 @@ public class EnvironmentTest extends EvaluationTestCase {
     try {
       BuildFileAST.eval(env, "special_var = 41");
       throw new AssertionError("failed to fail");
-    } catch (IllegalArgumentException e) {
-      assertThat(e.getMessage()).contains("ERROR 1:1: Variable special_var is read only");
+    } catch (EvalException e) {
+      assertThat(e.getMessage()).contains("Variable special_var is read only");
     }
 
     try {

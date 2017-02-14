@@ -504,20 +504,14 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testPyStringJoin() throws Exception {
-    new BothModesTest().testStatement("'-'.join([ 'a', 'b', 'c' ])", "a-b-c");
+    new BothModesTest().testStatement("'-'.join(['a', 'b', 'c'])", "a-b-c");
   }
 
   @Test
   public void testPyStringGlobalJoin() throws Exception {
-    // TODO(bazel-team): BUILD and Skylark should use the same code path (and same error message).
-    new BuildTest()
-        .testIfErrorContains("name 'join' is not defined", "join(' ', [ 'a', 'b', 'c' ])");
-
-    new SkylarkTest()
-        .testIfErrorContains(
-            "ERROR 1:1: name 'join' is not defined", "join(' ', [ 'a', 'b', 'c' ])");
-
-    new BothModesTest().testStatement("' '.join([ 'a', 'b', 'c' ])", "a b c");
+    new BothModesTest()
+        .testIfErrorContains("name 'join' is not defined", "join(' ', ['a', 'b', 'c'])")
+        .testStatement("' '.join(['a', 'b', 'c'])", "a b c");
   }
 
   @Test

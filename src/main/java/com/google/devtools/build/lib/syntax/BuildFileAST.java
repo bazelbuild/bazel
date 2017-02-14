@@ -339,11 +339,17 @@ public class BuildFileAST extends ASTNode {
     return last;
   }
 
+  /**
+   * Evaluates the lines from input and return the value of the last statement if it's an
+   * Expression or else null. In case of error (either during validation or evaluation), it
+   * throws an EvalException.
+   */
+  @Nullable
   public static Object eval(Environment env, String... input)
       throws EvalException, InterruptedException {
     BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
     ValidationEnvironment valid = new ValidationEnvironment(env);
-    valid.validateAst(ast.getStatements(), env.getEventHandler());
+    valid.validateAst(ast.getStatements());
     return ast.eval(env);
   }
 

@@ -1230,9 +1230,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // can't reuse the same local variable twice(!)
     new SkylarkTest()
         .testIfErrorContains(
-            "ERROR 2:1: Variable x is read only",
-            "[x + y for x, y in (1, 2)]",
-            "[x + y for x, y in (1, 2)]");
+            "Variable x is read only", "[x + y for x, y in (1, 2)]", "[x + y for x, y in (1, 2)]");
 
     new SkylarkTest()
         .testIfErrorContains("type 'int' is not a collection", "[x2 + y2 for x2, y2 in (1, 2)]");
