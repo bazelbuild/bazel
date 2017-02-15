@@ -508,7 +508,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.28.jar"],
+    jars = ["truth/truth-0.31.jar"],
 )
 
 java_import(

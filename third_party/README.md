@@ -279,7 +279,7 @@ a minimal set of extra dependencies.
 
 ## [truth](http://google.github.io/truth/)
 
-* Version: 0.28
+* Version: 0.31
 * License: Apache License 2.0
 
 ## [xz](http://tukaani.org/xz/java.html)
