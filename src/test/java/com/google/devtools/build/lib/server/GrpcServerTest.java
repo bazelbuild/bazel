@@ -380,8 +380,8 @@ public class GrpcServerTest {
       boolean ok = false;
 
       // Wait until the server starts up. Should be reasonably quick.
-      for (int i = 0; i < 20; i++) {
-        Thread.sleep(100);
+      for (int i = 0; i < 50; i++) {
+        Thread.sleep(200);
         PingRequest request = PingRequest.newBuilder()
             .setCookie(impl.getRequestCookie())
             .build();
