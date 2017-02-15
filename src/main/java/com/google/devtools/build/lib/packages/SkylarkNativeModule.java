@@ -28,19 +28,20 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
-/**
- * A class for the Skylark native module.
- */
-@SkylarkModule(name = "native", namespace = true,
-    title = "Native Module",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
-    doc =
-    "A built-in module to support native rules and other package helper functions. "
-    + "All native rules appear as functions in this module, e.g. <code>native.cc_library</code>. "
-    + "Note that the native module is only available in the loading phase "
-    + "(i.e. for macros, not for rule implementations). Attributes will ignore <code>None</code> "
-    + "values, and treat them as if the attribute was unset.<br>"
-    + "The following functions are also available:")
+/** A class for the Skylark native module. */
+@SkylarkModule(
+  name = "native",
+  namespace = true,
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "A built-in module to support native rules and other package helper functions. "
+          + "All native rules appear as functions in this module, e.g. "
+          + "<code>native.cc_library</code>. "
+          + "Note that the native module is only available in the loading phase "
+          + "(i.e. for macros, not for rule implementations). Attributes will ignore "
+          + "<code>None</code> values, and treat them as if the attribute was unset.<br>"
+          + "The following functions are also available:"
+)
 public class SkylarkNativeModule {
 
   @SkylarkSignature(
