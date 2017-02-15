@@ -17,10 +17,14 @@ package com.google.devtools.build.lib.vfs;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertSame;
 
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
@@ -319,5 +323,47 @@ public class WindowsFileSystemTest {
     // r1 == r2 and q1 == q2, but r1 != q1, because the resolution of "longpa~1" changed over time.
     assertThat(r1).isNotEqualTo(q1);
     assertThat(r1).isNotSameAs(q1);
+  }
+
+  @Test
+  public void testCreateSymbolicLink() throws Exception {
+    // Create the `scratchRoot` directory.
+    assertThat(fs.getPath(scratchRoot).createDirectory()).isTrue();
+    // Create symlink with directory target, relative path.
+    Path link1 = fs.getPath(scratchRoot).getRelative("link1");
+    fs.createSymbolicLink(link1, new PathFragment(".."));
+    // Create symlink with directory target, absolute path.
+    Path link2 = fs.getPath(scratchRoot).getRelative("link2");
+    fs.createSymbolicLink(link2, fs.getPath(scratchRoot).getRelative("link1").asFragment());
+    // Create scratch files that'll be symlink targets.
+    testUtil.scratchFile("foo.txt", "hello");
+    testUtil.scratchFile("bar.txt", "hello");
+    // Create symlink with file target, relative path.
+    Path link3 = fs.getPath(scratchRoot).getRelative("link3");
+    fs.createSymbolicLink(link3, new PathFragment("foo.txt"));
+    // Create symlink with file target, absolute path.
+    Path link4 = fs.getPath(scratchRoot).getRelative("link4");
+    fs.createSymbolicLink(link4, fs.getPath(scratchRoot).getRelative("bar.txt").asFragment());
+    // Assert that link1 and link2 are true junctions and have the right contents.
+    for (Path p : ImmutableList.of(link1, link2)) {
+      assertThat(WindowsFileOperations.isJunction(p.getPathString())).isTrue();
+      assertThat(p.isSymbolicLink()).isTrue();
+      assertThat(
+              Iterables.transform(
+                  Arrays.asList(new File(p.getPathString()).listFiles()),
+                  new Function<File, String>() {
+                    @Override
+                    public String apply(File input) {
+                      return input.getName();
+                    }
+                  }))
+          .containsExactly("x");
+    }
+    // Assert that link3 and link4 are copies of files.
+    for (Path p : ImmutableList.of(link3, link4)) {
+      assertThat(WindowsFileOperations.isJunction(p.getPathString())).isFalse();
+      assertThat(p.isSymbolicLink()).isFalse();
+      assertThat(p.isFile()).isTrue();
+    }
   }
 }

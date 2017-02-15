@@ -21,13 +21,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.windows.WindowsFileOperations;
 import com.google.devtools.build.lib.windows.WindowsJniLoader;
 import com.google.devtools.build.lib.windows.WindowsRunfiles;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -55,31 +55,12 @@ public final class WindowsTestUtil {
    *
    * <p>Each value in the map is a directory or junction path, also relative to {@link
    * #scratchRoot}. These are the link targets.
-   *
-   * <p>This method creates all junctions in one invocation to "cmd.exe".
    */
-  // Do not use WindowsFileSystem.createDirectoryJunction but reimplement junction creation here.
-  // If that method were buggy, using it here would compromise the test.
   public void createJunctions(Map<String, String> links) throws Exception {
-    List<String> args = new ArrayList<>();
-    boolean first = true;
-
-    // Shell out to cmd.exe to create all junctions in one go.
-    // Running "cmd.exe /c command1 arg1 arg2 && command2 arg1 ... argN && ..." will run all
-    // commands within one cmd.exe invocation.
     for (Map.Entry<String, String> e : links.entrySet()) {
-      if (first) {
-        args.add("cmd.exe /c");
-        first = false;
-      } else {
-        args.add("&&");
-      }
-
-      args.add(
-          String.format(
-              "mklink /j \"%s/%s\" \"%s/%s\"", scratchRoot, e.getKey(), scratchRoot, e.getValue()));
+      WindowsFileOperations.createJunction(
+          scratchRoot + "/" + e.getKey(), scratchRoot + "/" + e.getValue());
     }
-    runCommand(args);
 
     for (Map.Entry<String, String> e : links.entrySet()) {
       assertWithMessage(

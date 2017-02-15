@@ -625,3 +625,16 @@ Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeGetLongPa
                      wcslen(result.get())));
   return JNI_TRUE;
 }
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_google_devtools_build_lib_windows_WindowsFileOperations_nativeCreateJunction(
+    JNIEnv* env, jclass clazz, jstring name, jstring target,
+    jobjectArray error_msg_holder) {
+  std::string error = windows_util::CreateJunction(GetJavaWstring(env, name),
+                                                   GetJavaWstring(env, target));
+  if (!error.empty()) {
+    MaybeReportLastError(error, env, error_msg_holder);
+    return JNI_FALSE;
+  }
+  return JNI_TRUE;
+}

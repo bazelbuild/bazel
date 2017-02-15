@@ -327,20 +327,17 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
-    // TODO(lberki): Add some JNI to create hard links/junctions instead of calling out to
-    // cmd.exe
-    File file = getIoFile(linkPath);
+    Path targetPath =
+        targetFragment.isAbsolute()
+            ? getPath(targetFragment)
+            : linkPath.getParentDirectory().getRelative(targetFragment);
     try {
-      File targetFile = new File(targetFragment.getPathString());
-      if (targetFile.isDirectory()) {
-        createDirectoryJunction(targetFile, file);
+      java.nio.file.Path link = getIoFile(linkPath).toPath();
+      java.nio.file.Path target = getIoFile(targetPath).toPath();
+      if (target.toFile().isDirectory()) {
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        if (targetFile.isAbsolute()) {
-          Files.copy(targetFile.toPath(), file.toPath());
-        } else {
-          // When targetFile is a relative path to linkPath, resolve it to an absolute path first.
-          Files.copy(file.toPath().getParent().resolve(targetFile.toPath()), file.toPath());
-        }
+        Files.copy(target, link);
       }
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS);
@@ -359,28 +356,6 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   @Override
   public boolean isFilePathCaseSensitive() {
     return false;
-  }
-
-  private void createDirectoryJunction(File sourceDirectory, File targetPath) throws IOException {
-    StringBuilder cl = new StringBuilder("cmd.exe /c ");
-    cl.append("mklink /J ");
-    cl.append('"');
-    cl.append(targetPath.getAbsolutePath());
-    cl.append('"');
-    cl.append(' ');
-    cl.append('"');
-    cl.append(sourceDirectory.getAbsolutePath());
-    cl.append('"');
-    Process process = Runtime.getRuntime().exec(cl.toString());
-    try {
-      process.waitFor();
-      if (process.exitValue() != 0) {
-        throw new IOException("Command failed " + cl);
-      }
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new IOException("Command failed ", e);
-    }
   }
 
   @Override

@@ -53,6 +53,8 @@ public class WindowsFileOperations {
 
   static native boolean nativeGetLongPath(String path, String[] result, String[] error);
 
+  static native boolean nativeCreateJunction(String name, String target, String[] error);
+
   /** Determines whether `path` is a junction point or directory symlink. */
   public static boolean isJunction(String path) throws IOException {
     WindowsJniLoader.loadJni();
@@ -100,5 +102,23 @@ public class WindowsFileOperations {
     return path.length() >= MAX_PATH && !path.startsWith("\\\\?\\")
         ? ("\\\\?\\" + path.replace('/', '\\'))
         : path;
+  }
+
+  /**
+   * Creates a junction at `name`, pointing to `target`.
+   *
+   * <p>Both `name` and `target` may be Unix-style Windows paths (i.e. use forward slashes), and
+   * they don't need to have a UNC prefix, not even if they are longer than `MAX_PATH`. The
+   * underlying logic will take care of adding the prefixes if necessary.
+   *
+   * @throws IOException if some error occurs
+   */
+  public static void createJunction(String name, String target) throws IOException {
+    WindowsJniLoader.loadJni();
+    String[] error = new String[] {null};
+    if (!nativeCreateJunction(name.replace('/', '\\'), target.replace('/', '\\'), error)) {
+      throw new IOException(
+          String.format("Cannot create junction (name=%s, target=%s): %s", name, target, error[0]));
+    }
   }
 }
