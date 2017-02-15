@@ -285,6 +285,8 @@ public class CppCompileActionBuilder {
       return CppCompileAction.PREPROCESS_ASSEMBLE;
     } else if (CppFileTypes.CLIF_INPUT_PROTO.matches(sourcePath)) {
       return CppCompileAction.CLIF_MATCH;
+    } else if (CppFileTypes.CPP_MODULE.matches(sourcePath)) {
+      return CppCompileAction.CPP_MODULE_CODEGEN;
     }
     // CcLibraryHelper ensures CppCompileAction only gets instantiated for supported file types.
     throw new IllegalStateException();

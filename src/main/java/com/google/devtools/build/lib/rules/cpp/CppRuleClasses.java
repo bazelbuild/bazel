@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
@@ -47,12 +46,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoM
  * Rule class definitions for C++ rules.
  */
 public class CppRuleClasses {
-
-  /** Returns true if this rule should create a dynamic library. */
-  public static boolean shouldCreateDynamicLibrary(AttributeMap rule) {
-    return !rule.get("linkstatic", Type.BOOLEAN) && CcLibrary.appearsToHaveObjectFiles(rule);
-  }
-
   /**
    * Implementation for the :lipo_context_collector attribute.
    */
@@ -197,6 +190,9 @@ public class CppRuleClasses {
 
   /** A string constant for the header_modules_compile feature. */
   public static final String HEADER_MODULE_COMPILE = "header_module_compile";
+  
+  /** A string constant for the header_module_codegen feature. */
+  public static final String HEADER_MODULE_CODEGEN = "header_module_codegen";
 
   /**
    * A string constant for the compile_all_modules feature.

@@ -483,9 +483,17 @@ public final class CppModel {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
 
     if (shouldProvideHeaderModules()) {
-      createModuleAction(result, context.getCppModuleMap(), /*addHeaderTokenFiles=*/ false);
+      Collection<Artifact> modules = createModuleAction(result, context.getCppModuleMap());
+      if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_CODEGEN)) {
+        for (Artifact module : modules) {
+          createModuleCodegenAction(result, module);
+        }
+      }
     } else if (context.getVerificationModuleMap() != null) {
-      createModuleAction(result, context.getVerificationModuleMap(), /*addHeaderTokenFiles=*/ true);
+      Collection<Artifact> modules = createModuleAction(result, context.getVerificationModuleMap());
+      for (Artifact module : modules) {
+        result.addHeaderTokenFile(module);
+      }
     }
 
     for (CppSource source : sourceFiles) {
@@ -525,8 +533,7 @@ public final class CppModel {
                 // info). In that case the LTOBackendAction will generate the dwo.
                 /*generateDwo=*/ cppConfiguration.useFission() && !bitcodeOutput,
                 CppFileTypes.mustProduceDotdFile(sourceArtifact),
-                source.getBuildVariables(), /*addHeaderTokenFile=*/
-                false);
+                source.getBuildVariables());
             break;
         }
       } else {
@@ -583,8 +590,70 @@ public final class CppModel {
     result.addHeaderTokenFile(tokenFile);
   }
 
-  private void createModuleAction(
-      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap, boolean addHeaderTokenFiles) {
+  private void createModuleCodegenAction(CcCompilationOutputs.Builder result, Artifact module) {
+    if (fake) {
+      // We can't currently foresee a situation where we'd want nocompile tests for module codegen.
+      // If we find one, support needs to be added here.
+      return;
+    }
+    String outputName = semantics.getEffectiveSourcePath(module).getPathString();
+    
+    // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
+    boolean pic = module.getFilename().contains(".pic.");
+
+    // TODO(djasper): Investigate whether we need to use a label separate from that of the module
+    // map. It is used for per-file-copts.
+    CppCompileActionBuilder builder =
+        initializeCompileAction(
+            module, Label.parseAbsoluteUnchecked(context.getCppModuleMap().getName()));
+    builder.setSemantics(semantics);
+    builder.setPicMode(pic);
+    builder.setOutputs(
+        ruleContext,
+        ArtifactCategory.OBJECT_FILE,
+        outputName,
+        CppFileTypes.mustProduceDotdFile(module));
+    PathFragment ccRelativeName = semantics.getEffectiveSourcePath(module);
+
+    String gcnoFileName =
+        CppHelper.getArtifactNameForCategory(
+            ruleContext, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+    // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
+    Artifact gcnoFile =
+        isCodeCoverageEnabled() && !cppConfiguration.isLipoOptimization()
+            ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName, configuration)
+            : null;
+
+    boolean generateDwo = cppConfiguration.useFission();
+    Artifact dwoFile = generateDwo ? getDwoFile(builder.getOutputFile()) : null;
+
+    setupCompileBuildVariables(
+        builder,
+        /*usePic=*/ pic,
+        ccRelativeName,
+        module.getExecPath(),
+        gcnoFile,
+        dwoFile,
+        builder.getContext().getCppModuleMap(),
+        ImmutableMap.<String, String>of());
+
+    builder.setGcnoFile(gcnoFile);
+    builder.setDwoFile(dwoFile);
+
+    semantics.finalizeCompileActionBuilder(ruleContext, builder);
+    CppCompileAction compileAction = builder.build();
+    AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
+    env.registerAction(compileAction);
+    Artifact objectFile = compileAction.getOutputFile();
+    if (pic) {
+      result.addPicObjectFile(objectFile);
+    } else {
+      result.addObjectFile(objectFile);
+    }
+  }
+
+  private Collection<Artifact> createModuleAction(
+      CcCompilationOutputs.Builder result, CppModuleMap cppModuleMap) {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     Label moduleMapLabel = Label.parseAbsoluteUnchecked(context.getCppModuleMap().getName());
     Artifact moduleMapArtifact = cppModuleMap.getArtifact();
@@ -595,7 +664,7 @@ public final class CppModel {
     // A header module compile action is just like a normal compile action, but:
     // - the compiled source file is the module map
     // - it creates a header module (.pcm file).
-    createSourceAction(
+    return createSourceAction(
         FileSystemUtils.removeExtension(semantics.getEffectiveSourcePath(moduleMapArtifact))
             .getPathString(),
         result,
@@ -608,8 +677,7 @@ public final class CppModel {
         /*enableCoverage=*/ false,
         /*generateDwo=*/ false,
         CppFileTypes.mustProduceDotdFile(moduleMapArtifact),
-        ImmutableMap.<String, String>of(), /*addHeaderTokenFile=*/
-        addHeaderTokenFiles);
+        ImmutableMap.<String, String>of());
   }
 
   private void createClifMatchAction(
@@ -637,7 +705,7 @@ public final class CppModel {
     result.addHeaderTokenFile(tokenFile);
   }
 
-  private void createSourceAction(
+  private Collection<Artifact> createSourceAction(
       String outputName,
       CcCompilationOutputs.Builder result,
       AnalysisEnvironment env,
@@ -649,8 +717,8 @@ public final class CppModel {
       boolean enableCoverage,
       boolean generateDwo,
       boolean generateDotd,
-      Map<String, String> sourceSpecificBuildVariables,
-      boolean addHeaderTokenFiles) {
+      Map<String, String> sourceSpecificBuildVariables) {
+    ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
     PathFragment ccRelativeName = semantics.getEffectiveSourcePath(sourceArtifact);
     if (cppConfiguration.isLipoOptimization()) {
       // TODO(bazel-team): we shouldn't be needing this, merging context with the binary
@@ -704,9 +772,7 @@ public final class CppModel {
         semantics.finalizeCompileActionBuilder(ruleContext, picBuilder);
         CppCompileAction picAction = picBuilder.buildAndValidate(ruleContext);
         env.registerAction(picAction);
-        if (addHeaderTokenFiles) {
-          result.addHeaderTokenFile(picAction.getOutputFile());
-        }
+        directOutputs.add(picAction.getOutputFile());
         if (addObject) {
           result.addPicObjectFile(picAction.getOutputFile());
 
@@ -770,9 +836,7 @@ public final class CppModel {
         CppCompileAction compileAction = builder.buildAndValidate(ruleContext);
         env.registerAction(compileAction);
         Artifact objectFile = compileAction.getOutputFile();
-        if (addHeaderTokenFiles) {
-          result.addHeaderTokenFile(objectFile);
-        }
+        directOutputs.add(objectFile);
         if (addObject) {
           result.addObjectFile(objectFile);
           if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)
@@ -789,6 +853,7 @@ public final class CppModel {
         }
       }
     }
+    return directOutputs.build();
   }
 
   private Artifact createCompileActionTemplate(AnalysisEnvironment env,

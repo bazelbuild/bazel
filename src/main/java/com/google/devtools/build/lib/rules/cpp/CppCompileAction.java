@@ -123,6 +123,9 @@ public class CppCompileAction extends AbstractAction
    * A string constant for the c++ compilation action.
    */
   public static final String CPP_COMPILE = "c++-compile";
+  
+  /** A string constant for the c++ module compile action. */
+  public static final String CPP_MODULE_CODEGEN = "c++-module-codegen";
 
   /**
    * A string constant for the objc compilation action.
@@ -167,6 +170,7 @@ public class CppCompileAction extends AbstractAction
   private final ImmutableMap<String, String> localShellEnvironment;
   private final boolean isCodeCoverageEnabled;
   protected final Artifact outputFile;
+  private final Artifact sourceFile;
   private final Label sourceLabel;
   private final Artifact optionalSourceFile;
   private final NestedSet<Artifact> mandatoryInputs;
@@ -317,6 +321,7 @@ public class CppCompileAction extends AbstractAction
     this.localShellEnvironment = localShellEnvironment;
     this.isCodeCoverageEnabled = isCodeCoverageEnabled;
     this.sourceLabel = sourceLabel;
+    this.sourceFile = sourceFile;
     this.outputFile = Preconditions.checkNotNull(outputFile);
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
@@ -436,7 +441,7 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Iterable<Artifact> initialResult;
-
+    
     actionExecutionContext
         .getExecutor()
         .getEventBus()
@@ -471,13 +476,18 @@ public class CppCompileAction extends AbstractAction
     Set<Artifact> initialResultSet = Sets.newLinkedHashSet(initialResult);
 
     if (shouldPruneModules) {
-      usedModules = Sets.newLinkedHashSet();
-      topLevelModules = null;
-      for (CppCompilationContext.TransitiveModuleHeaders usedModule :
-          context.getUsedModules(usePic, initialResultSet)) {
-        usedModules.add(usedModule.getModule());
+      if (CppFileTypes.CPP_MODULE.matches(sourceFile.getFilename())) {
+        usedModules = ImmutableSet.of(sourceFile);
+        initialResultSet.add(sourceFile);
+      } else {
+        usedModules = Sets.newLinkedHashSet();
+        topLevelModules = null;
+        for (CppCompilationContext.TransitiveModuleHeaders usedModule :
+            context.getUsedModules(usePic, initialResultSet)) {
+          usedModules.add(usedModule.getModule());
+        }
+        initialResultSet.addAll(usedModules);
       }
-      initialResultSet.addAll(usedModules);
     }
 
     initialResult = initialResultSet;
