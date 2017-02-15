@@ -101,8 +101,9 @@ import javax.annotation.concurrent.Immutable;
  *     addition, "deps" may have rule-specific semantics.
  * </ul>
  */
+// Non-final only for mocking in tests. Do not subclass!
 @Immutable
-public final class RuleClass {
+public class RuleClass {
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
 
