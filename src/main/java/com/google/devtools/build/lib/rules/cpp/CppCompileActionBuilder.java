@@ -51,6 +51,7 @@ public class CppCompileActionBuilder {
   public static final UUID GUID = UUID.fromString("97493805-894f-493a-be66-9a698f45c31d");
 
   private final ActionOwner owner;
+  private final BuildConfiguration configuration;
   private final List<String> features = new ArrayList<>();
   private CcToolchainFeatures.FeatureConfiguration featureConfiguration;
   private CcToolchainFeatures.Variables variables;
@@ -95,24 +96,40 @@ public class CppCompileActionBuilder {
     this(
         ruleContext.getActionOwner(),
         sourceLabel,
-        ruleContext.getFragment(CppConfiguration.class),
         ruleContext.getConfiguration(),
         getLipoScannableMap(ruleContext),
         ruleContext.getFeatures(),
         ccToolchain);
   }
 
-  private CppCompileActionBuilder(
+  /**
+   * Creates a builder from a rule and configuration.
+   */
+  public CppCompileActionBuilder(RuleContext ruleContext, Label sourceLabel,
+      CcToolchainProvider ccToolchain, BuildConfiguration configuration) {
+    this(
+        ruleContext.getActionOwner(),
+        sourceLabel,
+        configuration,
+        getLipoScannableMap(ruleContext),
+        ruleContext.getFeatures(),
+        ccToolchain);
+  }
+
+  /**
+   * Creates a builder from a rule and configuration.
+   */
+  public CppCompileActionBuilder(
       ActionOwner actionOwner,
       Label sourceLabel,
-      CppConfiguration cppConfiguration,
       BuildConfiguration configuration,
       Map<Artifact, IncludeScannable> lipoScannableMap,
       Set<String> features,
       CcToolchainProvider ccToolchain) {
     this.owner = actionOwner;
     this.sourceLabel = sourceLabel;
-    this.cppConfiguration = cppConfiguration;
+    this.configuration = configuration;
+    this.cppConfiguration = configuration.getFragment(CppConfiguration.class);
     this.lipoScannableMap = ImmutableMap.copyOf(lipoScannableMap);
     this.features.addAll(features);
     this.mandatoryInputsBuilder = NestedSetBuilder.stableOrder();
@@ -164,6 +181,7 @@ public class CppCompileActionBuilder {
     this.actionClassId = other.actionClassId;
     this.actionContext = other.actionContext;
     this.cppConfiguration = other.cppConfiguration;
+    this.configuration = other.configuration;
     this.usePic = other.usePic;
     this.allowUsingHeaderModules = other.allowUsingHeaderModules;
     this.lipoScannableMap = other.lipoScannableMap;
@@ -561,7 +579,8 @@ public class CppCompileActionBuilder {
       boolean generateDotd) {
     this.outputFile = CppHelper.getCompileOutputArtifact(
         ruleContext,
-        CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName));
+        CppHelper.getArtifactNameForCategory(ruleContext, ccToolchain, outputCategory, outputName),
+        configuration);
     if (generateDotd) {
       String dotdFileName =
           CppHelper.getDotdFileName(ruleContext, ccToolchain, outputCategory, outputName);
@@ -573,7 +592,8 @@ public class CppCompileActionBuilder {
                 .getRelative(CppHelper.getObjDirectory(ruleContext.getLabel()))
                 .getRelative(dotdFileName));
       } else {
-        dotdFile = new DotdFile(CppHelper.getCompileOutputArtifact(ruleContext, dotdFileName));
+        dotdFile = new DotdFile(CppHelper.getCompileOutputArtifact(ruleContext, dotdFileName,
+            configuration));
       }
     } else {
       dotdFile = null;

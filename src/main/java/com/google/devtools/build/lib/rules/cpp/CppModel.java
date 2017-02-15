@@ -92,11 +92,17 @@ public final class CppModel {
 
   public CppModel(RuleContext ruleContext, CppSemantics semantics,
       CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport) {
+    this(ruleContext, semantics, ccToolchain, fdoSupport, ruleContext.getConfiguration());
+ }
+
+  public CppModel(RuleContext ruleContext, CppSemantics semantics,
+      CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport,
+      BuildConfiguration configuration) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = semantics;
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
-    configuration = ruleContext.getConfiguration();
+    this.configuration = configuration;
     cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
   }
 
@@ -672,7 +678,7 @@ public final class CppModel {
         String gcnoFileName = CppHelper.getArtifactNameForCategory(ruleContext,
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
         Artifact gcnoFile = enableCoverage
-            ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName)
+            ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName, configuration)
             : null;
         Artifact dwoFile = generateDwo ? getDwoFile(picBuilder.getOutputFile()) : null;
 
@@ -722,7 +728,8 @@ public final class CppModel {
         Artifact noPicOutputFile = CppHelper.getCompileOutputArtifact(
             ruleContext,
             CppHelper.getArtifactNameForCategory(
-                ruleContext, ccToolchain, outputCategory, outputName));
+                ruleContext, ccToolchain, outputCategory, outputName),
+            configuration);
         builder.setOutputs(ruleContext, outputCategory, outputName, generateDotd);
         String gcnoFileName = CppHelper.getArtifactNameForCategory(ruleContext,
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
@@ -730,7 +737,7 @@ public final class CppModel {
         // Create non-PIC compile actions
         Artifact gcnoFile =
             !cppConfiguration.isLipoOptimization() && enableCoverage
-                ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName)
+                ? CppHelper.getCompileOutputArtifact(ruleContext, gcnoFileName, configuration)
                 : null;
 
         Artifact noPicDwoFile = generateDwo ? getDwoFile(noPicOutputFile) : null;
@@ -884,7 +891,9 @@ public final class CppModel {
           ruleContext, ccToolchain, linkTargetType.getLinkerOutput(), maybePicName);
       PathFragment artifactFragment = new PathFragment(ruleContext.getLabel().getName())
           .getParentDirectory().getRelative(linkedName);
-      result = ruleContext.getBinArtifact(artifactFragment);
+
+      result = ruleContext.getPackageRelativeArtifact(
+          artifactFragment, configuration.getBinDirectory(ruleContext.getRule().getRepository()));
     } catch (ExpansionException e) {
       ruleContext.throwWithRuleError(e.getMessage());
     }
@@ -1124,7 +1133,8 @@ public final class CppModel {
    * inputs, output and dotd file names, compilation context and copts.
    */
   private CppCompileActionBuilder createCompileActionBuilder(Artifact source, Label label) {
-    CppCompileActionBuilder builder = new CppCompileActionBuilder(ruleContext, label, ccToolchain);
+    CppCompileActionBuilder builder =
+        new CppCompileActionBuilder(ruleContext, label, ccToolchain, configuration);
     builder.setSourceFile(source);
     builder.setContext(context).addCopts(copts);
     builder.addEnvironment(ccToolchain.getEnvironment());

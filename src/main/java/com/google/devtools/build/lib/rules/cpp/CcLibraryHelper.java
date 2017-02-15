@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -247,6 +248,7 @@ public final class CcLibraryHelper {
 
   private final RuleContext ruleContext;
   private final CppSemantics semantics;
+  private final BuildConfiguration configuration;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
   private final List<Artifact> nonModuleMapHeaders = new ArrayList<>();
@@ -313,12 +315,36 @@ public final class CcLibraryHelper {
       SourceCategory sourceCatagory,
       CcToolchainProvider ccToolchain,
       FdoSupportProvider fdoSupport) {
+    this(ruleContext, semantics, featureConfiguration, sourceCatagory, ccToolchain, fdoSupport,
+        ruleContext.getConfiguration());
+  }
+
+  /**
+   * Creates a CcLibraryHelper that outputs artifacts in a given configuration.
+   *
+   * @param ruleContext  the RuleContext for the rule being built
+   * @param semantics  CppSemantics for the build
+   * @param featureConfiguration  activated features and action configs for the build
+   * @param sourceCatagory  the candidate source types for the build
+   * @param ccToolchain the C++ toolchain provider for the build
+   * @param fdoSupport the C++ FDO optimization support provider for the build
+   * @param configuration the configuration that gives the directory of output artifacts
+   */
+  public CcLibraryHelper(
+      RuleContext ruleContext,
+      CppSemantics semantics,
+      FeatureConfiguration featureConfiguration,
+      SourceCategory sourceCatagory,
+      CcToolchainProvider ccToolchain,
+      FdoSupportProvider fdoSupport,
+      BuildConfiguration configuration) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCatagory);
     this.ccToolchain = Preconditions.checkNotNull(ccToolchain);
     this.fdoSupport = Preconditions.checkNotNull(fdoSupport);
+    this.configuration = Preconditions.checkNotNull(configuration);
   }
 
   /**
@@ -1072,7 +1098,7 @@ public final class CcLibraryHelper {
    * Creates the C/C++ compilation action creator.
    */
   private CppModel initializeCppModel() {
-    return new CppModel(ruleContext, semantics, ccToolchain, fdoSupport)
+    return new CppModel(ruleContext, semantics, ccToolchain, fdoSupport, configuration)
         .addCompilationUnitSources(compilationUnitSources)
         .addCopts(copts)
         .setLinkTargetType(linkType)
