@@ -49,6 +49,7 @@ class BuildFilesFunction implements QueryFunction {
       List<Argument> args,
       final Callback<T> callback)
       throws QueryException, InterruptedException {
+    final Uniquifier<T> uniquifier = env.createUniquifier();
     env.eval(
         args.get(0).getExpression(),
         context,
@@ -58,9 +59,9 @@ class BuildFilesFunction implements QueryFunction {
               throws QueryException, InterruptedException {
             Set<T> result = CompactHashSet.create();
             Iterables.addAll(result, partialResult);
-            callback.process(
+            callback.process(uniquifier.unique(
                 env.getBuildFiles(
-                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true));
+                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true)));
           }
         });
   }
