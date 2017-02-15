@@ -706,7 +706,15 @@ def _impl(repository_ctx):
     })
 
 
-cc_autoconf = repository_rule(implementation=_impl, local=True)
+cc_autoconf = repository_rule(
+    implementation=_impl,
+    environ = [
+        "CC",
+        "BAZEL_VC",
+        "BAZEL_VS",
+        "BAZEL_SH",
+        "BAZEL_PYTHON",
+        "CPLUS_INCLUDE_PATH"])
 
 
 def cc_configure():
