@@ -706,6 +706,40 @@ function test_skylark_repository_bzl_invalidation_batch() {
   bzl_invalidation_test_template --batch
 }
 
+# Test invalidation based on change to the bzl files
+function file_invalidation_test_template() {
+  local startup_flag="${1-}"
+  local execution_file="$(setup_invalidation_test)"
+  local flags="--action_env FOO=BAR --action_env BAR=BAZ --action_env BAZ=FOO"
+
+  local bazel_build="bazel ${startup_flag} build ${flags}"
+
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<1> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 1 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 1 $(cat "${execution_file}")
+
+  # Changing the skylark file cause a refetch
+  cat <<EOF >>bar.tpl
+Add more stuff
+EOF
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "<2> FOO=BAR BAR=BAZ BAZ=FOO"
+  assert_equals 2 $(cat "${execution_file}")
+  ${bazel_build} @foo//:bar >& $TEST_log || fail "Failed to build"
+  assert_equals 2 $(cat "${execution_file}")
+}
+
+function test_skylark_repository_file_invalidation() {
+  file_invalidation_test_template
+}
+
+# Same test as previous but with server restart between each invocation
+function test_skylark_repository_file_invalidation_batch() {
+  file_invalidation_test_template --batch
+}
+
 function test_skylark_repository_executable_flag() {
   setup_skylark_repository
 

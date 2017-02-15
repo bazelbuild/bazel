@@ -83,7 +83,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
           new SkylarkRepositoryContext(
-              rule, outputDirectory, env, clientEnvironment, httpDownloader);
+              rule, outputDirectory, env, clientEnvironment, httpDownloader, markerData);
 
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
@@ -139,7 +139,10 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
   @Override
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException {
-    return verifyEnvironMarkerData(markerData, env, getEnviron(rule));
+    if (verifyEnvironMarkerData(markerData, env, getEnviron(rule))) {
+      return SkylarkRepositoryContext.verifyMarkerDataForFiles(markerData, env);
+    }
+    return false;
   }
 
   @Override

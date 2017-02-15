@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
@@ -63,6 +64,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /** Skylark API for the repository_rule's context. */
 @SkylarkModule(
@@ -82,20 +84,21 @@ public class SkylarkRepositoryContext {
   private final SkylarkOS osObject;
   private final Environment env;
   private final HttpDownloader httpDownloader;
+  private final Map<String, String> markerData;
 
   /**
    * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
    * argument).
    */
-  SkylarkRepositoryContext(
-      Rule rule, Path outputDirectory, Environment environment,
-      Map<String, String> env, HttpDownloader httpDownloader)
+  SkylarkRepositoryContext(Rule rule, Path outputDirectory, Environment environment,
+      Map<String, String> env, HttpDownloader httpDownloader, Map<String, String> markerData)
       throws EvalException {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
     this.env = environment;
     this.osObject = new SkylarkOS(env);
     this.httpDownloader = httpDownloader;
+    this.markerData = markerData;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -154,11 +157,7 @@ public class SkylarkRepositoryContext {
           ? outputDirectory.getFileSystem().getPath(path.toString())
           : outputDirectory.getRelative(pathFragment));
     } else if (path instanceof Label) {
-      SkylarkPath result = getPathFromLabel((Label) path);
-      if (result == null) {
-        throw SkylarkRepositoryFunction.restart();
-      }
-      return result;
+      return getPathFromLabel((Label) path);
     } else if (path instanceof SkylarkPath) {
       return (SkylarkPath) path;
     } else {
@@ -679,52 +678,90 @@ public class SkylarkRepositoryContext {
     return "repository_ctx[" + rule.getLabel() + "]";
   }
 
-  // Resolve the label given by value into a file path.
-  private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+  private static RootedPath getRootedPathFromLabel(Label label, Environment env)
+      throws InterruptedException, EvalException {
     // Look for package.
     if (label.getPackageIdentifier().getRepository().isDefault()) {
       try {
-        label = Label.create(label.getPackageIdentifier().makeAbsolute(),
-            label.getName());
+        label = Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName());
       } catch (LabelSyntaxException e) {
-        throw new AssertionError(e);  // Can't happen because the input label is valid
+        throw new AssertionError(e); // Can't happen because the input label is valid
       }
     }
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {
-      return null;
+      throw SkylarkRepositoryFunction.restart();
     }
     if (!pkgLookupValue.packageExists()) {
-      throw new EvalException(
-          Location.BUILTIN, "Unable to load package for " + label + ": not found.");
+      throw new EvalException(Location.BUILTIN,
+          "Unable to load package for " + label + ": not found.");
     }
 
     // And now for the file
     Path packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, label.toPathFragment());
+    return RootedPath.toRootedPath(packageRoot, label.toPathFragment());
+  }
+
+  // Resolve the label given by value into a file path.
+  private SkylarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    RootedPath rootedPath = getRootedPathFromLabel(label, env);
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
-      fileValue =
-          (FileValue)
-              env.getValueOrThrow(
-                  fileSkyKey,
-                  IOException.class,
-                  FileSymlinkException.class,
-                  InconsistentFilesystemException.class);
+      fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new EvalException(Location.BUILTIN, e);
     }
 
     if (fileValue == null) {
-      return null;
+      throw SkylarkRepositoryFunction.restart();
     }
     if (!fileValue.isFile()) {
-      throw new EvalException(
-          Location.BUILTIN, "Not a file: " + rootedPath.asPath().getPathString());
+      throw new EvalException(Location.BUILTIN,
+          "Not a file: " + rootedPath.asPath().getPathString());
     }
 
+    // A label do not contains space so it safe to use as a key.
+    markerData.put("FILE:" + label, Integer.toString(fileValue.realFileStateValue().hashCode()));
     return new SkylarkPath(rootedPath.asPath());
+  }
+
+  private static boolean verifyLabelMarkerData(String key, String value, Environment env)
+      throws InterruptedException {
+    Preconditions.checkArgument(key.startsWith("FILE:"));
+    try {
+      Label label = Label.parseAbsolute(key.substring(5));
+      RootedPath rootedPath = getRootedPathFromLabel(label, env);
+      SkyKey fileSkyKey = FileValue.key(rootedPath);
+      FileValue fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class,
+          FileSymlinkException.class, InconsistentFilesystemException.class);
+
+      if (fileValue == null || !fileValue.isFile()) {
+        return false;
+      }
+
+      return Objects.equals(value, Integer.toString(fileValue.realFileStateValue().hashCode()));
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(
+          "Key " + key + " is not a correct file key (should be in form FILE:label)", e);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException
+        | EvalException e) {
+      // Consider those exception to be a cause for invalidation
+      return false;
+    }
+  }
+
+  static boolean verifyMarkerDataForFiles(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    for (Map.Entry<String, String> entry : markerData.entrySet()) {
+      if (entry.getKey().startsWith("FILE:")) {
+        if (!verifyLabelMarkerData(entry.getKey(), entry.getValue(), env)) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }

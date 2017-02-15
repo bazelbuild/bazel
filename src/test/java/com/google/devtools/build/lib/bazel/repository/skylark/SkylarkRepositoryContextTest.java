@@ -40,6 +40,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -95,7 +96,7 @@ public class SkylarkRepositoryContextTest {
             outputDirectory,
             Mockito.mock(SkyFunction.Environment.class),
             ImmutableMap.of("FOO", "BAR"),
-            downloader);
+            downloader, new HashMap<String, String>());
   }
 
   protected void setUpContexForRule(String name) throws Exception {
