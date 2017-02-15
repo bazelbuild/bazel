@@ -19,6 +19,7 @@
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/test/cpp/util/test_util.h"
 #include "gtest/gtest.h"
 
 namespace blaze_util {
@@ -59,10 +60,10 @@ TEST(FileTest, TestReadFile) {
   ASSERT_NE(0, tempdir[0]);
 
   std::string filename(JoinPath(tempdir, "test.readfile"));
-  FILE* fh = fopen(filename.c_str(), "wt");
-  ASSERT_NE(nullptr, fh);
+  AutoFileStream fh(fopen(filename.c_str(), "wt"));
+  EXPECT_TRUE(fh.IsOpen());
   ASSERT_EQ(11, fwrite("hello world", 1, 11, fh));
-  fclose(fh);
+  fh.Close();
 
   std::string actual;
   ASSERT_TRUE(ReadFile(filename, &actual));
@@ -85,19 +86,19 @@ TEST(FileTest, TestWriteFile) {
   ASSERT_TRUE(WriteFile("hello", 3, filename));
 
   char buf[6] = {0};
-  FILE* fh = fopen(filename.c_str(), "rt");
+  AutoFileStream fh(fopen(filename.c_str(), "rt"));
+  EXPECT_TRUE(fh.IsOpen());
   fflush(fh);
-  ASSERT_NE(nullptr, fh);
   ASSERT_EQ(3, fread(buf, 1, 5, fh));
-  fclose(fh);
+  fh.Close();
   ASSERT_EQ(std::string(buf), std::string("hel"));
 
   ASSERT_TRUE(WriteFile("hello", 5, filename));
   fh = fopen(filename.c_str(), "rt");
-  ASSERT_NE(nullptr, fh);
+  EXPECT_TRUE(fh.IsOpen());
   memset(buf, 0, 6);
   ASSERT_EQ(5, fread(buf, 1, 5, fh));
-  fclose(fh);
+  fh.Close();
   ASSERT_EQ(std::string(buf), std::string("hello"));
 
   ASSERT_TRUE(WriteFile("hello", 5, "/dev/null"));

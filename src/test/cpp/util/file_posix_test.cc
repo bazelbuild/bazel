@@ -19,6 +19,7 @@
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/test/cpp/util/test_util.h"
 #include "gtest/gtest.h"
 
 namespace blaze_util {
@@ -138,7 +139,8 @@ TEST(FilePosixTest, GetAllFilesUnder) {
   std::sort(result.begin(), result.end());
 
   vector<string> expected({"root/dir1/dir3/file4", "root/dir1/dir3/file5",
-                           "root/dir1/file2", "root/dir2/file3", "root/file1"});
+                           "root/dir1/file2", "root/dir2/file3",
+                           "root/file1"});
   ASSERT_EQ(expected, result);
 }
 
@@ -246,10 +248,10 @@ TEST(FilePosixTest, CanAccess) {
   ASSERT_TRUE(CanAccessDirectory(dir));
 
   string file(JoinPath(dir, "foo.txt"));
-  FILE* fh = fopen(file.c_str(), "wt");
-  ASSERT_NE(nullptr, fh);
+  AutoFileStream fh(fopen(file.c_str(), "wt"));
+  EXPECT_TRUE(fh.IsOpen());
   ASSERT_LT(0, fprintf(fh, "hello"));
-  fclose(fh);
+  fh.Close();
 
   ASSERT_TRUE(CanReadFile(file));
   ASSERT_FALSE(CanExecuteFile(file));
@@ -308,7 +310,7 @@ TEST(FilePosixTest, ChangeDirectory) {
 
 class MockDirectoryEntryConsumer : public DirectoryEntryConsumer {
  public:
-  void Consume(const std::string &name, bool is_directory) override {
+  void Consume(const std::string& name, bool is_directory) override {
     entries.push_back(pair<string, bool>(name, is_directory));
   }
 
@@ -338,18 +340,18 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   string subfile_through_sym = dir_sym + "/subfile";
 
   // Create mock directory, file, and symlinks.
-  int fd = open(file.c_str(), O_CREAT, 0700);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  AutoFd fd(open(file.c_str(), O_CREAT, 0700));
+  ASSERT_TRUE(fd.IsOpen());
+  fd.Close();
   ASSERT_EQ(0, mkdir(dir.c_str(), 0700));
   ASSERT_EQ(0, symlink("dir", dir_sym.c_str()));
   ASSERT_EQ(0, symlink("file", file_sym.c_str()));
   fd = open(subfile.c_str(), O_CREAT, 0700);
-  ASSERT_GT(fd, 0);
-  close(fd);
+  ASSERT_TRUE(fd.IsOpen());
+  fd.Close();
 
-  // Assert that stat'ing the symlinks (with following them) point to the right
-  // filesystem entry types.
+  // Assert that stat'ing the symlinks (with following them) point to the
+  // right filesystem entry types.
   struct stat stat_buf;
   ASSERT_EQ(0, stat(dir_sym.c_str(), &stat_buf));
   ASSERT_TRUE(S_ISDIR(stat_buf.st_mode));
@@ -363,7 +365,8 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
 
   // Sort the collected directory entries.
   struct {
-    bool operator()(const pair<string, bool> &a, const pair<string, bool> &b) {
+    bool operator()(const pair<string, bool>& a,
+                    const pair<string, bool>& b) {
       return a.first < b.first;
     }
   } sort_pairs;

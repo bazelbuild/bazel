@@ -31,22 +31,24 @@ void die(const int exit_status, const char *format, ...) {
 }
 
 void pdie(const int exit_status, const char *format, ...) {
+  const char *errormsg = GetLastErrorString().c_str();
   fprintf(stderr, "Error: ");
   va_list ap;
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
-  fprintf(stderr, ": %s\n", GetLastErrorString().c_str());
+  fprintf(stderr, ": %s\n", errormsg);
   exit(exit_status);
 }
 
 void PrintError(const char *format, ...) {
+  const char *errormsg = GetLastErrorString().c_str();
   fprintf(stderr, "Error: ");
   va_list ap;
   va_start(ap, format);
   vfprintf(stderr, format, ap);
   va_end(ap);
-  fprintf(stderr, ": %s\n", GetLastErrorString().c_str());
+  fprintf(stderr, ": %s\n", errormsg);
 }
 
 }  // namespace blaze_util

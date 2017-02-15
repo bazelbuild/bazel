@@ -35,6 +35,7 @@ cc_test(
     }),
     tags = ["manual"],
     deps = [
+        ":test_util",
         "//src/main/cpp/util:file",
         "//third_party:gtest",
     ] + select({
@@ -118,6 +119,13 @@ cc_test(
         ],
         "//conditions:default": [],
     }),
+)
+
+cc_library(
+    name = "test_util",
+    testonly = 1,
+    hdrs = ["test_util.h"],
+    visibility = ["//visibility:private"],
 )
 
 test_suite(name = "all_tests")

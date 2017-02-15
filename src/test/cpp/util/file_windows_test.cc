@@ -23,6 +23,7 @@
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/native/windows_file_operations.h"
+#include "src/test/cpp/util/test_util.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
@@ -359,10 +360,10 @@ TEST_F(FileWindowsTest, TestUnlinkPath) {
   // pointing to it.
   string dir1(JoinPath(tmpdir, "dir1"));
   ASSERT_EQ(0, mkdir(dir1.c_str()));
-  FILE* fh = fopen(JoinPath(dir1, "foo.txt").c_str(), "wt");
-  ASSERT_NE(nullptr, fh);
+  AutoFileStream fh(fopen(JoinPath(dir1, "foo.txt").c_str(), "wt"));
+  EXPECT_TRUE(fh.IsOpen());
   ASSERT_LT(0, fprintf(fh, "hello\n"));
-  fclose(fh);
+  fh.Close();
   string junc1(JoinPath(tmpdir, "junc1"));
   CREATE_JUNCTION(junc1, dir1);
   ASSERT_TRUE(PathExists(junc1));
@@ -427,10 +428,10 @@ TEST_F(FileWindowsTest, CanAccess) {
   ASSERT_TRUE(CanAccessDirectory(junc));
 
   string file(JoinPath(dir, "foo.txt"));
-  FILE* fh = fopen(file.c_str(), "wt");
-  ASSERT_NE(nullptr, fh);
+  AutoFileStream fh(fopen(file.c_str(), "wt"));
+  EXPECT_TRUE(fh.IsOpen());
   ASSERT_LT(0, fprintf(fh, "hello"));
-  fclose(fh);
+  fh.Close();
 
   ASSERT_TRUE(CanReadFile(file));
   ASSERT_FALSE(CanExecuteFile(file));

@@ -584,21 +584,19 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
 int RenameDirectory(const std::string& old_name, const std::string& new_name) {
   wstring wold_name;
   if (!AsWindowsPathWithUncPrefix(old_name, &wold_name)) {
-    std::ostringstream error;
-    error << "RenameDirectory(" << old_name << ", " << new_name
-          << "): AsWindowsPathWithUncPrefix failed for old_name: "
-          << GetLastErrorString() << "\n";
-    PrintError(error.str().c_str());
+    PrintError(
+        "RenameDirectory(%s, %s): AsWindowsPathWithUncPrefix failed for"
+        " old_name",
+        old_name.c_str(), new_name.c_str());
     return kRenameDirectoryFailureOtherError;
   }
 
   wstring wnew_name;
   if (!AsWindowsPathWithUncPrefix(new_name, &wnew_name)) {
-    std::ostringstream error;
-    error << "RenameDirectory(" << old_name << ", " << new_name
-          << "): AsWindowsPathWithUncPrefix failed for new_name: "
-          << GetLastErrorString() << "\n";
-    PrintError(error.str().c_str());
+    PrintError(
+        "RenameDirectory(%s, %s): AsWindowsPathWithUncPrefix failed for"
+        " new_name",
+        old_name.c_str(), new_name.c_str());
     return kRenameDirectoryFailureOtherError;
   }
 
