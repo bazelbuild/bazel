@@ -503,8 +503,8 @@ function build_and_publish_site() {
     return 1
   fi
   local prod_dir="${tmpdir}"
+  tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
   if [ "$nobuild" != "nobuild" ]; then
-    tar xf "${site}" --exclude=CNAME -C "${tmpdir}"
     jekyll build -s "${tmpdir}" -d "${tmpdir}/production"
     prod_dir="${tmpdir}/production"
   fi
