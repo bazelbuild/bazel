@@ -17,15 +17,8 @@ java_library(
     ],
 )
 
-exports_files([
-    "XmlOutputExercises.ant.xml",
-])
-
 filegroup(
     name = "srcs",
-    srcs = glob(["*.java"]) + [
-        "XmlOutputExercises.ant.xml",
-        "BUILD",
-    ],
+    srcs = glob(["*.java"]) + ["BUILD"],
     visibility = ["//src:__pkg__"],
 )

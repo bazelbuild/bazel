@@ -34,16 +34,6 @@ java_library(
     ],
 )
 
-java_binary(
-    name = "Testbed",
-    testonly = 1,
-    main_class = "com.google.testing.junit.runner.BazelTestRunner",
-    runtime_deps = [
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:test_runner",
-        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed",
-    ],
-)
-
 # Tests
 # =========================================================
 java_test(
@@ -54,81 +44,8 @@ java_test(
     runtime_deps = [":tests"],
 )
 
-# BazelTestRunner integration tests
-sh_library(
-    name = "testenv",
-    srcs = ["testenv.sh"],
-    deps = ["//src/test/shell:bashunit"],
-)
-
-sh_test(
-    name = "junit4_testbridge_integration_test",
-    size = "medium",
-    srcs = ["junit4_testbridge_integration_tests.sh"],
-    args = [
-        "$(location :Testbed)",
-        "bazel.test_suite",
-    ],
-    data = [":Testbed"],
-    shard_count = 0,
-    deps = [":testenv"],
-)
-
-sh_test(
-    name = "utf8_test_log_test",
-    size = "medium",
-    srcs = ["utf8_test_log_test.sh"],
-    args = [
-        "$(location :Testbed)",
-        "bazel.test_suite",
-    ],
-    data = [":Testbed"],
-    shard_count = 0,
-    deps = [":testenv"],
-)
-
-sh_test(
-    name = "antxmlresultwriter_integration_test",
-    size = "medium",
-    srcs = ["antxmlresultwriter_integration_test.sh"],
-    args = [
-        "$(location :Testbed)",
-        "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml)",
-        "bazel.test_suite",
-    ],
-    data = [
-        ":Testbed",
-        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml",
-    ],
-    shard_count = 0,
-    deps = [":testenv"],
-)
-
-sh_test(
-    name = "deploy_jar_integration_test",
-    size = "medium",
-    srcs = ["deploy_jar_integration_tests.sh"],
-    args = [
-        "$(JAVABASE)",
-        "$(location :Testbed_deploy.jar)",
-    ],
-    data = [
-        ":Testbed_deploy.jar",
-        "//tools/defaults:jdk",
-    ],
-    shard_count = 0,
-    deps = [":testenv"],
-)
-
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = ["//src:__pkg__"],
 )
-
-exports_files([
-    "stack_trace_integration_tests.sh",
-    "junit4_testbridge_integration_tests.sh",
-    "utf8_test_log_test.sh",
-    "deploy_jar_integration_tests.sh",
-])
