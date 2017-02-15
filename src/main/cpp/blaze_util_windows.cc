@@ -860,88 +860,25 @@ typedef struct {
 } REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
 
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
-  string target = ConvertPath(posix_target);
-  string name = ConvertPath(posix_name);
-  wstring wname;
-
-  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    PrintError("SymlinkDirectories: AsWindowsPathWithUncPrefix(" + name + ")");
+  wstring name;
+  wstring target;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(posix_name, &name)) {
+    PrintError("SymlinkDirectories: AsWindowsPathWithUncPrefix(" + posix_name +
+               ")");
     return false;
   }
-
-  // Junctions are directories, so create one
-  if (!::CreateDirectoryA(name.c_str(), NULL)) {
-    PrintError("CreateDirectory(" + name + ")");
+  if (!blaze_util::AsWindowsPathWithUncPrefix(posix_target, &target)) {
+    PrintError("SymlinkDirectories: AsWindowsPathWithUncPrefix(" +
+               posix_target + ")");
     return false;
   }
-
-  HANDLE directory = windows_util::OpenDirectory(wname.c_str(), true);
-  if (directory == INVALID_HANDLE_VALUE) {
+  string error(windows_util::CreateJunction(name, target));
+  if (!error.empty()) {
+    PrintError("SymlinkDirectories(name=" + posix_name +
+               ", target=" + posix_target + "): " + error);
     return false;
   }
-
-  char reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
-  REPARSE_MOUNTPOINT_DATA_BUFFER* reparse_buffer =
-      reinterpret_cast<REPARSE_MOUNTPOINT_DATA_BUFFER *>(reparse_buffer_bytes);
-  memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
-
-  // non-parsed path prefix. Required for junction targets.
-  string prefixed_target = "\\??\\" + target;
-  int prefixed_target_length = ::MultiByteToWideChar(
-      CP_ACP,
-      0,
-      prefixed_target.c_str(),
-      -1,
-      reparse_buffer->PathBuffer,
-      MAX_PATH);
-  if (prefixed_target_length == 0) {
-    PrintError("MultiByteToWideChar(" + prefixed_target + ")");
-    CloseHandle(directory);
-    return false;
-  }
-
-  // In addition to their target, junctions also have another string which
-  // tells which target to show to the user. mklink cuts of the \??\ part, so
-  // that's what we do, too.
-  int target_length = ::MultiByteToWideChar(
-      CP_UTF8,
-      0,
-      target.c_str(),
-      -1,
-      reparse_buffer->PathBuffer + prefixed_target_length,
-      MAX_PATH);
-  if (target_length == 0) {
-    PrintError("MultiByteToWideChar(" + target + ")");
-    CloseHandle(directory);
-    return false;
-  }
-
-  reparse_buffer->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
-  reparse_buffer->PrintNameOffset = prefixed_target_length * sizeof(WCHAR);
-  reparse_buffer->PrintNameLength = (target_length - 1) * sizeof(WCHAR);
-  reparse_buffer->SubstituteNameLength =
-      (prefixed_target_length - 1) * sizeof(WCHAR);
-  reparse_buffer->SubstituteNameOffset = 0;
-  reparse_buffer->Reserved = 0;
-  reparse_buffer->ReparseDataLength =
-       reparse_buffer->SubstituteNameLength +
-       reparse_buffer->PrintNameLength + 12;
-
-  DWORD bytes_returned;
-  bool result = ::DeviceIoControl(
-      directory,
-      FSCTL_SET_REPARSE_POINT,
-      reparse_buffer,
-      reparse_buffer->ReparseDataLength + REPARSE_MOUNTPOINT_HEADER_SIZE,
-      NULL,
-      0,
-      &bytes_returned,
-      NULL);
-  if (!result) {
-    PrintError("DeviceIoControl(FSCTL_SET_REPARSE_POINT, " + name + ")");
-  }
-  CloseHandle(directory);
-  return result;
+  return true;
 }
 
 // TODO(laszlocsomor): use JunctionResolver in file_windows.cc
