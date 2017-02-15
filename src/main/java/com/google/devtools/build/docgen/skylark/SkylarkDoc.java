@@ -47,7 +47,9 @@ abstract class SkylarkDoc {
 
   protected String getTypeAnchor(Class<?> type) {
     if (type.equals(Boolean.class) || type.equals(boolean.class)) {
-      return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#bool\">bool</a>";
+      return "<a class=\"anchor\" href=\"bool.html\">bool</a>";
+    } else if (type.equals(int.class) || type.equals(Integer.class)) {
+      return "<a class=\"anchor\" href=\"int.html\">int</a>";
     } else if (type.equals(String.class)) {
       return "<a class=\"anchor\" href=\"string.html\">string</a>";
     } else if (Map.class.isAssignableFrom(type)) {

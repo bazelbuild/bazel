@@ -2147,6 +2147,38 @@ public class MethodLibrary {
   )
   static final class StringModule {}
 
+  /** Skylark int type. */
+  @SkylarkModule(
+    name = "int",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A type to represent integers. It can represent any number between -2147483648 and "
+            + "2147483647 (included). "
+            + "Examples of int values:<br>"
+            + "<pre class=\"language-python\">"
+            + "153\n"
+            + "0x2A  # hexadecimal literal\n"
+            + "054  # octal literal\n"
+            + "23 * 2 + 5\n"
+            + "100 / -7\n"
+            + "100 % -7  # -5 (unlike in some other languages)\n"
+            + "int(\"18\")\n"
+            + "</pre>"
+  )
+  public static final class IntModule {}
+
+  /** Skylark bool type. */
+  @SkylarkModule(
+    name = "bool",
+    category = SkylarkModuleCategory.BUILTIN,
+    doc =
+        "A type to represent booleans. There are only two possible values: "
+            + "<a href=\"globals.html#True\">True</a> and "
+            + "<a href=\"globals.html#False\">False</a>. "
+            + "Any value can be converted to a boolean using the "
+            + "<a href=\"globals.html#bool\">bool</a> function."
+  )
+  public static final class BoolModule {}
 
   static final List<BaseFunction> defaultGlobalFunctions =
       ImmutableList.<BaseFunction>of(

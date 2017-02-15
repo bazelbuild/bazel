@@ -194,7 +194,11 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
     assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassD#test");
-    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassD.test(arg0:int, b, *, c, d=1)");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo(
+            "<a class=\"anchor\" href=\"int.html\">int</a> "
+                + "MockClassD.test(arg0:<a class=\"anchor\" href=\"int.html\">int</a>, "
+                + "b, *, c, d=1)");
     assertThat(methodDoc.getParams()).hasSize(3);
   }
 
@@ -208,7 +212,8 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
     assertThat(moduleDoc.getMethods()).hasSize(1);
     SkylarkMethodDoc methodDoc = moduleDoc.getMethods().iterator().next();
     assertThat(methodDoc.getDocumentation()).isEqualTo("MockClassA#get");
-    assertThat(methodDoc.getSignature()).isEqualTo("int MockClassE.get()");
+    assertThat(methodDoc.getSignature())
+        .isEqualTo("<a class=\"anchor\" href=\"int.html\">int</a> MockClassE.get()");
   }
 
   private Iterable<Method> extractMethods(Collection<SkylarkJavaMethodDoc> methods) {

@@ -193,6 +193,9 @@ final class SkylarkDocumentationCollector {
 
   private static Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects(String ...clazz) {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
+    collectBuiltinModule(modules, MethodLibrary.BoolModule.class);
+    collectBuiltinModule(modules, MethodLibrary.IntModule.class);
+
     collectBuiltinModule(modules, SkylarkRuleContext.class);
     collectBuiltinModule(modules, TransitiveInfoCollection.class);
 
