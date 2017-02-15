@@ -59,6 +59,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
 
+  private static final Iterable<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  
   private static final class CrosstoolStlPair {
 
     private final CrosstoolRelease crosstoolRelease;
@@ -75,10 +77,22 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     return true;
   }
 
+
+  @Override
+  public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
+    if (attributes.isAttributeValueExplicitlySpecified("path")) {
+      return true;
+    }
+    return super.verifyEnvironMarkerData(markerData, env, PATH_ENV_VAR_AS_LIST);
+  }
+
   @Override
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
+    declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
