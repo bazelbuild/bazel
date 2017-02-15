@@ -244,7 +244,6 @@ TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
 
   ASSERT_TRUE(AsShortWindowsPath(dirname, &actual));
   ASSERT_EQ(short_tmpdir + "\\longpa~1", actual);
-  ASSERT_EQ(0, rmdir(dirname.c_str()));
 }
 
 TEST_F(FileWindowsTest, TestMsysRootRetrieval) {
@@ -333,13 +332,6 @@ TEST_F(FileWindowsTest, TestPathExistsWindows) {
              fake_msys_root + "/i.dont.exist\" >NUL 2>NUL");
   ASSERT_FALSE(PathExists(JoinPath(fake_msys_root, "i.dont.exist")));
   ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
-
-  // Clean up.
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "junc1").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "junc2").c_str()));
-  ASSERT_EQ(0, rmdir(fake_msys_root.c_str()));
-  ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc1")));
-  ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
 
 TEST_F(FileWindowsTest, TestIsDirectory) {
@@ -376,8 +368,6 @@ TEST_F(FileWindowsTest, TestIsDirectory) {
   ASSERT_EQ(0, rmdir(dir1.c_str()));
   ASSERT_FALSE(IsDirectory(dir1));
   ASSERT_FALSE(IsDirectory(junc1));
-
-  ASSERT_EQ(0, rmdir(junc1.c_str()));
 }
 
 TEST_F(FileWindowsTest, TestUnlinkPath) {
@@ -409,8 +399,6 @@ TEST_F(FileWindowsTest, TestUnlinkPath) {
   ASSERT_TRUE(UnlinkPath(JoinPath(junc1, "foo.txt")));
   // Files can be unlinked.
   ASSERT_TRUE(UnlinkPath(junc1));
-  // Clean up the now empty directory.
-  ASSERT_EQ(0, rmdir(dir1.c_str()));
 }
 
 TEST_F(FileWindowsTest, TestMakeDirectories) {
@@ -435,15 +423,6 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   ASSERT_TRUE(MakeDirectories(tmpdir, 0777));
   ASSERT_TRUE(MakeDirectories(JoinPath(tmpdir, "dir1/dir2/dir3"), 0777));
   ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + tmpdir + "/dir4/dir5", 0777));
-
-  // Clean up.
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "fake_msys/foo").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "fake_msys").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1/dir2/dir3").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1/dir2").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir1").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4/dir5").c_str()));
-  ASSERT_EQ(0, rmdir(JoinPath(tmpdir, "dir4").c_str()));
 }
 
 TEST_F(FileWindowsTest, CanAccess) {
@@ -490,10 +469,6 @@ TEST_F(FileWindowsTest, CanAccess) {
   ASSERT_TRUE(CanReadFile(file2));
   ASSERT_TRUE(CanExecuteFile(file2));
   ASSERT_FALSE(CanAccessDirectory(file2));
-
-  ASSERT_EQ(0, unlink(file2.c_str()));
-  ASSERT_EQ(0, rmdir(junc.c_str()));
-  ASSERT_EQ(0, rmdir(dir.c_str()));
 }
 
 }  // namespace blaze_util
