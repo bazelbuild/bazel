@@ -34,6 +34,9 @@ wstring GetTestTmpDirW() {
   ::GetEnvironmentVariableW(L"TEST_TMPDIR", buf.get(), size);
   wstring result(buf.get());
   std::replace(result.begin(), result.end(), '/', '\\');
+  if (result.back() == '\\') {
+    result.pop_back();
+  }
   return result;
 }
 

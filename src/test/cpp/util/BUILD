@@ -82,20 +82,34 @@ cc_library(
         "//src:windows_msvc": ["windows_test_util.cc"],
         "//conditions:default": [],
     }),
-    deps = ["//third_party:gtest"],
+    hdrs = select({
+        "//src:windows": ["windows_test_util.h"],
+        "//src:windows_msvc": ["windows_test_util.h"],
+        "//conditions:default": [],
+    }),
+    visibility = [
+        "//src/test/cpp:__subpackages__",
+        "//src/test/native:__subpackages__",
+    ],
 )
 
 cc_test(
     name = "windows_test_util_test",
     size = "small",
     srcs = select({
-        "//src:windows": ["windows_test_util.cc"],
-        "//src:windows_msvc": ["windows_test_util.cc"],
+        "//src:windows": ["windows_test_util_test.cc"],
+        "//src:windows_msvc": ["windows_test_util_test.cc"],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
-        "//src:windows": ["//third_party:gtest"],
-        "//src:windows_msvc": ["//third_party:gtest"],
+        "//src:windows": [
+            ":windows_test_util",
+            "//third_party:gtest",
+        ],
+        "//src:windows_msvc": [
+            ":windows_test_util",
+            "//third_party:gtest",
+        ],
         "//conditions:default": [],
     }),
 )

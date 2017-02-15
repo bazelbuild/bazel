@@ -35,6 +35,7 @@ using std::pair;
 using std::string;
 using std::unique_ptr;
 using std::wstring;
+using windows_util::HasUncPrefix;
 
 // Returns the current working directory as a Windows path.
 // The result may have a UNC prefix.
@@ -99,12 +100,6 @@ static bool IsPathSeparator(char_type ch) {
 template <typename char_type>
 static bool HasDriveSpecifierPrefix(const char_type* ch) {
   return CharTraits<char_type>::IsAlpha(ch[0]) && ch[1] == ':';
-}
-
-template <typename char_type>
-static bool HasUncPrefix(const char_type* path) {
-  return path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
-         (path[2] == '.' || path[2] == '?') && path[3] == '\\';
 }
 
 static void AddUncPrefixMaybe(wstring* path) {

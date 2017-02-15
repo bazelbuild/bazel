@@ -21,7 +21,8 @@ namespace blaze_util {
 using std::wstring;
 
 // Returns $TEST_TMPDIR as a wstring.
-// The result will have backslashes as directory separators (but no UNC prefix).
+// The result will have backslashes as directory separators, but no UNC prefix.
+// The result will also not have a trailing backslash.
 wstring GetTestTmpDirW();
 
 // Deletes all files and directories under `path`.

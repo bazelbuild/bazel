@@ -17,10 +17,19 @@
 #include <windows.h>
 
 #include <memory>
+#include <string>
 
 namespace windows_util {
 
+using std::string;
 using std::unique_ptr;
+using std::wstring;
+
+template <typename char_type>
+bool HasUncPrefix(const char_type* path) {
+  return path[0] == '\\' && (path[1] == '\\' || path[1] == '?') &&
+         (path[2] == '.' || path[2] == '?') && path[3] == '\\';
+}
 
 // Keep in sync with j.c.g.devtools.build.lib.windows.WindowsFileOperations
 enum {
@@ -60,6 +69,15 @@ bool GetLongPath(const WCHAR* path, unique_ptr<WCHAR[]>* result);
 // If `read_write` is true then the directory is opened for reading and writing,
 // otherwise only for reading.
 HANDLE OpenDirectory(const WCHAR* path, bool read_write);
+
+// Creates a junction at `name`, pointing to `target`.
+// Returns the empty string upon success, or a human-readable error message upon
+// failure.
+// Neither `junction_name` nor `junction_target` needs to have a "\\?\" prefix,
+// not even if they are longer than MAX_PATH, though it's okay if they do. This
+// function will add the right prefixes as necessary.
+string CreateJunction(const wstring& junction_name,
+                      const wstring& junction_target);
 
 }  // namespace windows_util
 
