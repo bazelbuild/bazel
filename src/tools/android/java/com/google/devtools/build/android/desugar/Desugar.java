@@ -177,8 +177,6 @@ class Desugar {
       Map<Path, LambdaInfo> leftBehind = lambdas.drain();
       checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
     }
-    // Use input's timestamp for output file so the output file is stable.
-    Files.setLastModifiedTime(options.outputJar, Files.getLastModifiedTime(options.inputJar));
   }
 
   private static void writeStoredEntry(ZipOutputStream out, String filename, byte[] content)
