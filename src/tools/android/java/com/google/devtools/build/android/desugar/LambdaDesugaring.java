@@ -148,9 +148,32 @@ class LambdaDesugaring extends ClassVisitor {
         // Method was private so it can be final, which should help VMs perform dispatch.
         access |= Opcodes.ACC_FINAL;
       }
+      // Guarantee unique lambda body method name to avoid accidental overriding. This wouldn't be
+      // be necessary for static methods but in visitOuterClass we don't know whether a potential
+      // outer lambda$ method is static or not, so we just always do it.
+      name = uniqueInPackage(internalName, name);
     }
     MethodVisitor dest = super.visitMethod(access, name, desc, signature, exceptions);
     return new InvokedynamicRewriter(dest);
+  }
+
+  @Override
+  public void visitOuterClass(String owner, String name, String desc) {
+    if (name != null && name.startsWith("lambda$")) {
+      // Reflect renaming of lambda$ methods.  Proguard gets grumpy if we leave this inconsistent.
+      name = uniqueInPackage(owner, name);
+    }
+    super.visitOuterClass(owner, name, desc);
+  }
+
+  static String uniqueInPackage(String owner, String name) {
+    String suffix = "$" + owner.substring(owner.lastIndexOf('/') + 1);
+    // For idempotency, we only attach the package-unique suffix if it isn't there already.  This
+    // prevents a cumulative effect when processing a class more than once (which can happen with
+    // Bazel, e.g., when re-importing a deploy.jar).  During reprocessing, invokedynamics are
+    // already removed, so lambda$ methods have regular call sites that we would also have to re-
+    // adjust if we just blindly appended something to lambda$ method names every time we see them.
+    return name.endsWith(suffix) ? name : name + suffix;
   }
 
   /**

@@ -221,13 +221,16 @@ class LambdaClassFixer extends ClassVisitor {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
       String method = owner + "#" + name;
-      // Rewrite invocations of lambda methods in interfaces to anticipate the lambda method being
-      // moved into the lambda class (i.e., the class being visited here).
       if (interfaceLambdaMethods.contains(method)) {
+        // Rewrite invocations of lambda methods in interfaces to anticipate the lambda method being
+        // moved into the lambda class (i.e., the class being visited here).
         checkArgument(opcode == Opcodes.INVOKESTATIC, "Cannot move instance method %s", method);
         owner = internalName;
         itf = false; // owner was interface but is now a class
         methodsToMoveIn.add(method);
+      } else if (name.startsWith("lambda$")) {
+        // Reflect renaming of lambda$ instance methods to avoid accidental overrides
+        name = LambdaDesugaring.uniqueInPackage(owner, name);
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
     }
