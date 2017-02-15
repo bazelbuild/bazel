@@ -431,19 +431,26 @@ public class FdoSupport {
     ImmutableMultimap.Builder<PathFragment, PathFragment> importBuilder =
         ImmutableMultimap.builder();
     for (String line : FileSystemUtils.iterateLinesAsLatin1(importsFile)) {
-      if (!line.isEmpty()) {
-        PathFragment key = new PathFragment(line.substring(0, line.indexOf(':')));
-        if (key.isAbsolute()) {
-          throw new FdoException("Absolute paths not allowed in afdo imports file " + importsFile
-              + ": " + key);
-        }
-        for (String auxFile : line.substring(line.indexOf(':') + 1).split(" ")) {
-          if (auxFile.length() == 0) {
-            continue;
-          }
+      line = line.trim();
+      if (line.isEmpty()) {
+        continue;
+      }
 
-          importBuilder.put(key, new PathFragment(auxFile));
+      int colonIndex = line.indexOf(':');
+      if (colonIndex < 0) {
+        continue;
+      }
+      PathFragment key = new PathFragment(line.substring(0, colonIndex));
+      if (key.isAbsolute()) {
+        throw new FdoException("Absolute paths not allowed in afdo imports file " + importsFile
+            + ": " + key);
+      }
+      for (String auxFile : line.substring(colonIndex + 1).split(" ")) {
+        if (auxFile.length() == 0) {
+          continue;
         }
+
+        importBuilder.put(key, new PathFragment(auxFile));
       }
     }
     return importBuilder.build();
