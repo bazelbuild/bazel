@@ -15,7 +15,7 @@ stylistic, refactoring, or "cleanup" changes). Please check with us on the
 [dev list](https://groups.google.com/forum/#!forum/bazel-dev) before investing
 a lot of time in a patch.
 
-## Patch Acceptance Process
+### Patch Acceptance Process
 
 <!-- Our markdown parser doesn't support nested lists. -->
 <ol>
@@ -59,21 +59,45 @@ a lot of time in a patch.
 For now we have support for IntelliJ, and partial support for the Eclipse IDE
 for Java. We don't have IDE support for other languages in Bazel right now.
 
+### Preparations
+
+* [Install Bazel](https://bazel.build/versions/master/docs/install.html) on your system.
+* Clone Bazel's Git repository from Gerrit:
+  * `git clone https://bazel.googlesource.com/bazel`
+* Try to build Bazel:
+  * `cd bazel && bazel build //src:bazel`
+* This should produce a working Bazel binary in `bazel-bin/src/bazel`.
+
+If everything works fine, feel free to configure your favorite IDE in the following steps.
+
 ### Creating an IntelliJ project
 
-To work with IntelliJ, follow the instructions at
-[ij.bazel.build](https://ij.bazel.build).
+To work with IntelliJ:
+
+* Install Bazel's [IntelliJ plug-in](https://ij.bazel.build).
+* Set the path to the Bazel binary in the plugin preferences (`Preferences` > `Other Settings` > `Bazel Settings`).
+* Import the Bazel workspace as a Bazel project (`File` > `Import Bazel Project...`)
+  with the following settings:
+  * Use existing bazel workspace: choose your cloned Git repository.
+  * Select `Import from workspace` and choose the `scripts/ij.bazelbuild` file as the `Project view`.
+* Download [Google's Java Code Style Scheme file for IntelliJ](https://github.com/google/styleguide/blob/gh-pages/intellij-java-google-style.xml),
+  import it (go to `Preferences` > `Editor` > `Code Style` > `Java`, click `Manage`, then `Import`)
+  and use it when working on Bazel's code.
 
 ### Creating an Eclipse project
 
 To work with Eclipse:
 
+* [Install Bazel](https://bazel.build/versions/master/docs/install.html) on your system.
+* Clone Bazel's Git repository from Gerrit:
+  * `git clone https://bazel.googlesource.com/bazel`
 * Install the [e4b](https://github.com/bazelbuild/e4b) plugin.
 * Change the path to the Bazel binary in the plugin preferences.
 * Import the Bazel workspace as a Bazel project (`File` > `New` > `Other` >
   `Import Bazel Workspace`).
 * Select `src > main > java` and `src > test > java` as directories and add
   `//src/main/java/...` and `//src/test/java/...` as targets.
+* Download [Google's Java Code Style Scheme file for Eclipse](https://github.com/google/styleguide/blob/gh-pages/eclipse-java-google-style.xml) and use it when working on Bazel's code.
 
 <a name="compile-bazel"></a>
 ### Compiling Bazel
