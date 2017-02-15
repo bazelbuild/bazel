@@ -5,7 +5,7 @@ title: Invalidation of remote repositories
 
 # Invalidation of remote repositories
 
-**Status**: Implementing
+**Status**: Implemented
 
 **Author**: [Damien Martin-Guillerez](dmarting@google.com)
 
