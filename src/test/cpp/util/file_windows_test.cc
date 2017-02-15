@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
+#include "src/main/native/windows_file_operations.h"
 #include "src/test/cpp/util/windows_test_util.h"
 
 #if !defined(COMPILER_MSVC) && !defined(__CYGWIN__)
@@ -51,6 +52,15 @@ class FileWindowsTest : public ::testing::Test {
     DWORD len = ::GetEnvironmentVariableA("TEST_TMPDIR", buf, MAX_PATH); \
     result = buf;                                                        \
     ASSERT_GT(result.size(), 0);                                         \
+  }
+
+#define CREATE_JUNCTION(/* const string& */ name, /* const string& */ target) \
+  {                                                                           \
+    wstring wname;                                                            \
+    wstring wtarget;                                                          \
+    EXPECT_TRUE(AsWindowsPath(name, &wname));                                 \
+    EXPECT_TRUE(AsWindowsPath(target, &wtarget));                             \
+    EXPECT_EQ("", windows_util::CreateJunction(wname, wtarget));              \
   }
 
 // Asserts that dir1 can be created with some content, and dir2 doesn't exist.
@@ -267,35 +277,6 @@ TEST_F(FileWindowsTest, TestMsysRootRetrieval) {
   ResetMsysRootForTesting();
 }
 
-static void RunCommand(const string& cmdline) {
-  STARTUPINFOA startupInfo = {sizeof(STARTUPINFO)};
-  PROCESS_INFORMATION processInfo;
-  // command line maximum size is 32K
-  // Source (on 2017-01-04):
-  // https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
-  char mutable_cmdline[0x8000];
-  strncpy(mutable_cmdline, cmdline.c_str(), 0x8000);
-  BOOL ok = CreateProcessA(
-      /* lpApplicationName */ NULL,
-      /* lpCommandLine */ mutable_cmdline,
-      /* lpProcessAttributes */ NULL,
-      /* lpThreadAttributes */ NULL,
-      /* bInheritHandles */ TRUE,
-      /* dwCreationFlags */ 0,
-      /* lpEnvironment */ NULL,
-      /* lpCurrentDirectory */ NULL,
-      /* lpStartupInfo */ &startupInfo,
-      /* lpProcessInformation */ &processInfo);
-  ASSERT_TRUE(ok);
-
-  // Wait 1 second for the process to finish.
-  ASSERT_EQ(WAIT_OBJECT_0, WaitForSingleObject(processInfo.hProcess, 1000));
-
-  DWORD exit_code = 1;
-  ASSERT_TRUE(GetExitCodeProcess(processInfo.hProcess, &exit_code));
-  ASSERT_EQ(0, exit_code);
-}
-
 TEST_F(FileWindowsTest, TestPathExistsWindows) {
   ASSERT_FALSE(PathExists(""));
   ASSERT_TRUE(PathExists("."));
@@ -322,14 +303,12 @@ TEST_F(FileWindowsTest, TestPathExistsWindows) {
   ASSERT_TRUE(PathExists("/"));
 
   // Create a junction pointing to an existing directory.
-  RunCommand(string("cmd.exe /C mklink /J \"") + tmpdir + "/junc1\" \"" +
-             fake_msys_root + "\" >NUL 2>NUL");
+  CREATE_JUNCTION(tmpdir + "/junc1", fake_msys_root);
   ASSERT_TRUE(PathExists(fake_msys_root));
   ASSERT_TRUE(PathExists(JoinPath(tmpdir, "junc1")));
 
   // Create a junction pointing to a non-existent directory.
-  RunCommand(string("cmd.exe /C mklink /J \"") + tmpdir + "/junc2\" \"" +
-             fake_msys_root + "/i.dont.exist\" >NUL 2>NUL");
+  CREATE_JUNCTION(tmpdir + "/junc2", fake_msys_root + "/i.dont.exist");
   ASSERT_FALSE(PathExists(JoinPath(fake_msys_root, "i.dont.exist")));
   ASSERT_FALSE(PathExists(JoinPath(tmpdir, "junc2")));
 }
@@ -361,8 +340,7 @@ TEST_F(FileWindowsTest, TestIsDirectory) {
 
   // Verify that IsDirectory works for a junction.
   string junc1(JoinPath(tmpdir, "junc1"));
-  RunCommand(string("cmd.exe /C mklink /J \"") + junc1 + "\" \"" + dir1 +
-             "\" >NUL 2>NUL");
+  CREATE_JUNCTION(junc1, dir1);
   ASSERT_TRUE(IsDirectory(junc1));
 
   ASSERT_EQ(0, rmdir(dir1.c_str()));
@@ -386,8 +364,7 @@ TEST_F(FileWindowsTest, TestUnlinkPath) {
   ASSERT_LT(0, fprintf(fh, "hello\n"));
   fclose(fh);
   string junc1(JoinPath(tmpdir, "junc1"));
-  RunCommand(string("cmd.exe /C mklink /J \"") + junc1 + "\" \"" + dir1 +
-             "\" >NUL 2>NUL");
+  CREATE_JUNCTION(junc1, dir1);
   ASSERT_TRUE(PathExists(junc1));
   ASSERT_TRUE(PathExists(JoinPath(junc1, "foo.txt")));
 
@@ -444,8 +421,7 @@ TEST_F(FileWindowsTest, CanAccess) {
   ASSERT_TRUE(CanAccessDirectory(dir));
 
   string junc(JoinPath(tmpdir, "junc1"));
-  RunCommand(string("cmd.exe /C mklink /J \"") + junc + "\" \"" + dir +
-             "\" >NUL 2>NUL");
+  CREATE_JUNCTION(junc, dir);
   ASSERT_FALSE(CanReadFile(junc));
   ASSERT_FALSE(CanExecuteFile(junc));
   ASSERT_TRUE(CanAccessDirectory(junc));
