@@ -310,10 +310,10 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_check_api-2.0.15.jar",
-        "error_prone/error_prone_core-2.0.15.jar",
-        "error_prone/error_prone_annotations-2.0.15.jar",
-        "error_prone/error_prone_annotation-2.0.15.jar",
+        "error_prone/error_prone_check_api-2.0.16.jar",
+        "error_prone/error_prone_core-2.0.16.jar",
+        "error_prone/error_prone_annotations-2.0.16.jar",
+        "error_prone/error_prone_annotation-2.0.16.jar",
     ],
     exports = [
         ":guava",
@@ -343,16 +343,16 @@ filegroup(
     name = "guava_and_error_prone-jars",
     srcs = [
         "guava/guava-21.0-20161101.jar",
-        "error_prone/error_prone_annotation-2.0.15.jar",
-        "error_prone/error_prone_annotations-2.0.15.jar",
-        "error_prone/error_prone_check_api-2.0.15.jar",
+        "error_prone/error_prone_annotation-2.0.16.jar",
+        "error_prone/error_prone_annotations-2.0.16.jar",
+        "error_prone/error_prone_check_api-2.0.16.jar",
         # error_prone_core contains a copy of an earlier version of guava, so
         # it's very important that it occur *after* the guava jar in the
         # -classpath arg for both 'javac' and 'java'. The latter is especially
         # important when dealing with pre-built jars that themselves assume
         # they'll be provided guava classes at runtime via -classpath (e.g.
         # guava-testlib uses stuff from guava).
-        "error_prone/error_prone_core-2.0.15.jar",
+        "error_prone/error_prone_core-2.0.16.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
@@ -366,12 +366,12 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "guava/guava-21.0-20161101.jar",
-        "error_prone/error_prone_annotation-2.0.15.jar",
-        "error_prone/error_prone_annotations-2.0.15.jar",
-        "error_prone/error_prone_check_api-2.0.15.jar",
+        "error_prone/error_prone_annotation-2.0.16.jar",
+        "error_prone/error_prone_annotations-2.0.16.jar",
+        "error_prone/error_prone_check_api-2.0.16.jar",
         # See the comment about error_prone_core in 'guava_and_error_prone-jars'
         # above.
-        "error_prone/error_prone_core-2.0.15.jar",
+        "error_prone/error_prone_core-2.0.16.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jsr305/jsr-305.jar",
         "pcollections/pcollections-2.1.2.jar",
