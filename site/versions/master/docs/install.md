@@ -158,7 +158,9 @@ DMG image with an install wizard.
 
 `$ brew install bazel`
 
-You are all set. You can confirm Bazel is install successfully by running `$ bazel`.
+You are all set. You can confirm Bazel is installed successfully by running `bazel version`.
+
+You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
 
 ### <a name="install-with-installer-mac-os-x"></a>Install with installer
 
@@ -220,7 +222,7 @@ $ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
-You are all set. You can confirm Bazel is install successfully by running `$ bazel`.
+You are all set. You can confirm Bazel is installed successfully by running `bazel version`.
 
 ## <a name="windows"></a>Windows
 
