@@ -83,7 +83,7 @@ public class BazelCppSemantics implements CppSemantics {
 
   @Override
   public boolean needsDotdInputPruning() {
-    return true;
+    return false;
   }
   
   @Override
