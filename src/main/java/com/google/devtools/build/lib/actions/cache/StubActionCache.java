@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import java.io.PrintStream;
+import java.util.Map;
 
 /** An {@link ActionCache} which does not store entries. */
 public class StubActionCache implements ActionCache {
@@ -37,4 +38,9 @@ public class StubActionCache implements ActionCache {
 
   @Override
   public void dump(PrintStream out) {}
+  
+  @Override
+  public Entry newEntry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
+    return null;
+  }
 }

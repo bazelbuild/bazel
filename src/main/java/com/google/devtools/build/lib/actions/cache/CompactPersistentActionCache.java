@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.Clock;
@@ -335,6 +336,11 @@ public class CompactPersistentActionCache implements ActionCache {
       out.println(entry.getKey() + ", " + indexer.getStringForIndex(entry.getKey()) + ":\n"
           +  content + "\n      packed_len = " + entry.getValue().length + "\n");
     }
+  }
+
+  @Override
+  public Entry newEntry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
+    return new Entry(key, usedClientEnv, discoversInputs);
   }
 
   /**
