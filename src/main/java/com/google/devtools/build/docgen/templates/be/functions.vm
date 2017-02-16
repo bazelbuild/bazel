@@ -94,7 +94,7 @@ package(default_deprecation, default_testonly, default_visibility, features)
 <p>This function declares metadata that applies to every subsequent rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
-<p>It is recommended that the package function is called at the top of the
+<p>The package() function should be called right after all the load() statements at the top of the
 file, before any rule.</p>
 
 <h3 id="package_args">Arguments</h3>
