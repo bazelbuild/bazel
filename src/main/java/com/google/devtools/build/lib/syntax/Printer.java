@@ -171,7 +171,9 @@ public final class Printer {
    */
   private static <K, V> Set<Map.Entry<K, V>> getSortedEntrySet(Map<K, V> dict) {
     if (!(dict instanceof SortedMap<?, ?>)) {
-      Map<K, V> tmp = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
+      // TODO(bazel-team): Dict keys should not be sorted, because comparison of objects of
+      // potentially different types is not supported anymore in Skylark.
+      Map<K, V> tmp = new TreeMap<>(EvalUtils.SAFE_SKYLARK_COMPARATOR);
       tmp.putAll(dict);
       dict = tmp;
     }

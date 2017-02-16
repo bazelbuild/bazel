@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -992,15 +993,20 @@ public class MethodLibrary {
         "Returns the smallest one of all given arguments. "
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
-      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+        @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true
   )
-  private static final BuiltinFunction min = new BuiltinFunction("min") {
-    @SuppressWarnings("unused") // Accessed via Reflection.
-    public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
-    }
-  };
+  private static final BuiltinFunction min =
+      new BuiltinFunction("min") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+          try {
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
+          } catch (ComparisonException e) {
+            throw new EvalException(loc, e);
+          }
+        }
+      };
 
   @SkylarkSignature(
     name = "max",
@@ -1009,15 +1015,20 @@ public class MethodLibrary {
         "Returns the largest one of all given arguments. "
             + "If only one argument is provided, it must be a non-empty iterable.",
     extraPositionals =
-      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
+        @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked."),
     useLocation = true
   )
-  private static final BuiltinFunction max = new BuiltinFunction("max") {
-    @SuppressWarnings("unused") // Accessed via Reflection.
-    public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
-    }
-  };
+  private static final BuiltinFunction max =
+      new BuiltinFunction("max") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
+          try {
+            return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
+          } catch (ComparisonException e) {
+            throw new EvalException(loc, e);
+          }
+        }
+      };
 
   /**
    * Returns the maximum element from this list, as determined by maxOrdering.
@@ -1084,8 +1095,8 @@ public class MethodLibrary {
     name = "sorted",
     returnType = MutableList.class,
     doc =
-        "Sort a collection. Elements are sorted first by their type, "
-            + "then by their value (in ascending order).",
+        "Sort a collection. Elements should all belong to the same orderable type, they are sorted "
+            + "by their value (in ascending order).",
     parameters = {@Param(name = "self", type = Object.class, doc = "This collection.")},
     useLocation = true,
     useEnvironment = true

@@ -72,20 +72,44 @@ public final class EvalUtils {
           o1 = SkylarkType.convertToSkylark(o1, /*env=*/ null);
           o2 = SkylarkType.convertToSkylark(o2, /*env=*/ null);
 
-          if (o1 instanceof ClassObject && o2 instanceof ClassObject) {
-            throw new ComparisonException("Cannot compare structs");
-          }
-          if (o1 instanceof SkylarkNestedSet && o2 instanceof SkylarkNestedSet) {
-            throw new ComparisonException("Cannot compare depsets");
-          }
           if (o1 instanceof SkylarkList
               && o2 instanceof SkylarkList
               && ((SkylarkList) o1).isTuple() == ((SkylarkList) o2).isTuple()) {
             return compareLists((SkylarkList) o1, (SkylarkList) o2);
           }
+          if (!o1.getClass().equals(o2.getClass())) {
+            throw new ComparisonException(
+                "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
+          }
+
+          if (o1 instanceof ClassObject) {
+            throw new ComparisonException("Cannot compare structs");
+          }
+          if (o1 instanceof SkylarkNestedSet) {
+            throw new ComparisonException("Cannot compare depsets");
+          }
           try {
             return ((Comparable<Object>) o1).compareTo(o2);
           } catch (ClassCastException e) {
+            throw new ComparisonException(
+                "Cannot compare " + getDataTypeName(o1) + " with " + getDataTypeName(o2));
+          }
+        }
+      };
+
+  /**
+   * Legacy Skylark comparator.
+   *
+   * <p>Falls back to comparing by class if objects are not comparable otherwise.
+   */
+  public static final Ordering<Object> SAFE_SKYLARK_COMPARATOR =
+      new Ordering<Object>() {
+        @Override
+        @SuppressWarnings("unchecked")
+        public int compare(Object o1, Object o2) {
+          try {
+            return SKYLARK_COMPARATOR.compare(o1, o2);
+          } catch (ComparisonException e) {
             return compareByClass(o1, o2);
           }
         }

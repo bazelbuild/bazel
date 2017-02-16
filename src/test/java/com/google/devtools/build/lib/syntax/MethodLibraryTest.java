@@ -89,9 +89,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testMinWithDifferentTypes() throws Exception {
     new BothModesTest()
-        .testStatement("min(1, '2', True)", true)
-        .testStatement("min([1, '2', True])", true)
-        .testStatement("min(None, 1, 'test')", Runtime.NONE);
+        .testIfExactError("Cannot compare int with string", "min(1, '2', True)")
+        .testIfExactError("Cannot compare int with string", "min([1, '2', True])");
   }
 
   @Test
@@ -143,9 +142,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testMaxWithDifferentTypes() throws Exception {
     new BothModesTest()
-        .testStatement("max(1, '2', True)", "2")
-        .testStatement("max([1, '2', True])", "2")
-        .testStatement("max(None, 1, 'test')", "test");
+        .testIfExactError("Cannot compare int with string", "max(1, '2', True)")
+        .testIfExactError("Cannot compare int with string", "max([1, '2', True])");
   }
 
   @Test
@@ -1105,9 +1103,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("sorted([[1], [], [2], [1, 2]])", "[[], [1], [1, 2], [2]]")
         .testEval("sorted([True, False, True])", "[False, True, True]")
         .testEval("sorted(['a','x','b','z'])", "[\"a\", \"b\", \"x\", \"z\"]")
-        .testEval("sorted([sorted, sorted])", "[sorted, sorted]")
         .testEval("sorted({1: True, 5: True, 4: False})", "[1, 4, 5]")
-        .testEval("sorted(depset([1, 5, 4]))", "[1, 4, 5]");
+        .testEval("sorted(depset([1, 5, 4]))", "[1, 4, 5]")
+        .testIfExactError("Cannot compare function with function", "sorted([sorted, sorted])");
   }
 
   @Test

@@ -22,11 +22,13 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
-import java.util.TreeMap;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -115,21 +117,43 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
-    TreeMap<Object, Object> map = new TreeMap<>(EvalUtils.SKYLARK_COMPARATOR);
-    map.put(2, 3);
-    map.put("1", 5);
-    map.put(42, 4);
-    map.put("test", 7);
-    map.put(-1, 2);
-    map.put("4", 6);
-    map.put(true, 1);
-    map.put(Runtime.NONE, 0);
+    Object[] objects = {
+        "1",
+        2,
+        true,
+        Runtime.NONE,
+        SkylarkList.Tuple.of(1, 2, 3),
+        SkylarkList.Tuple.of("1", "2", "3"),
+        SkylarkList.MutableList.of(env, 1, 2, 3),
+        SkylarkList.MutableList.of(env, "1", "2", "3"),
+        SkylarkDict.of(env, "key", 123),
+        SkylarkDict.of(env, 123, "value"),
+        NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
+        SkylarkClassObjectConstructor.STRUCT.create(
+            ImmutableMap.of("key", (Object) "value"), "no field %s"),
+    };
 
-    int expected = 0;
-    // Expected order of keys is NoneType -> Double -> Integers -> Strings
-    for (Object obj : map.values()) {
-      assertThat(obj).isEqualTo(expected);
-      ++expected;
+    for (int i = 0; i < objects.length; ++i) {
+      for (int j = 0; j < objects.length; ++j) {
+        if (i != j) {
+          try {
+            EvalUtils.SKYLARK_COMPARATOR.compare(objects[i], objects[j]);
+            Assert.fail("Shouldn't have compared different types");
+          } catch (ComparisonException e) {
+            // expected
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testComparatorWithNones() throws Exception {
+    try {
+      EvalUtils.SKYLARK_COMPARATOR.compare(Runtime.NONE, Runtime.NONE);
+      Assert.fail("Shouldn't have compared nones");
+    } catch (ComparisonException e) {
+      // expected
     }
   }
 }

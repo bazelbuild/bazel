@@ -199,6 +199,12 @@ Python:
   declaration. However, it is fine to define `f()` before `g()`, even if `f()`
   calls `g()`.
 
+* The order comparison operators (<, <=, >=, >) are not defined across different
+  types of values, e.g., you can't compare `5 < 'foo'` (however you still can
+  compare them using == or !=). This is a difference with Python 2, but
+  consistent with Python 3. Note that this means you are unable to sort lists
+  that contain mixed types of values.
+
 The following Python features are not supported:
 
 * `class` (see [`struct`](lib/globals.html#struct) function)
@@ -243,11 +249,6 @@ The following items are upcoming changes.
 
 *   The `|` operator is defined for depsets as a synonym for `+`. This will be
     going away; use `+` instead.
-
-*   The order comparison operators (<, <=, >=, >) are currently defined across
-    different types of values, e.g., you can write `5 < 'foo'`. This will be an
-    error, just like in Python 3. Note that this means you will be unable to
-    sort lists that contain mixed types of values.
 
 *   The structure of the set that you get back from using the `+` or `|`
     operator is changing. Previously `a + b`, where `a` is a set, would include

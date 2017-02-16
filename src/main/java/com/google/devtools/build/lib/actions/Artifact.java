@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -135,7 +136,7 @@ public class Artifact
     if (o instanceof Artifact) {
       return EXEC_PATH_COMPARATOR.compare(this, (Artifact) o);
     }
-    return EvalUtils.compareByClass(this, o);
+    throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
 
