@@ -60,7 +60,7 @@ public class ProxyHelper {
     String requestedHost = url.getHost();
     for (int i = 0; i < noProxyUrlArray.length; i++) {
       if (requestedHost.endsWith(noProxyUrlArray[i])) {
-        return createProxy(proxyAddress);
+        return Proxy.NO_PROXY;
       }
     }
     if (HttpUtils.isProtocol(requestedUrl, "https")) {
