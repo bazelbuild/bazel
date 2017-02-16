@@ -76,6 +76,12 @@ class Desugar {
             + "bootclasspath is used.")
     public List<Path> bootclasspath;
 
+    @Option(name = "allow_empty_bootclasspath",
+        defaultValue = "false",
+        category = "misc",
+        help = "Don't use the tool's bootclasspath if no bootclasspath is given.")
+    public boolean allowEmptyBootclasspath;
+
     @Option(name = "output",
         defaultValue = "null",
         category = "output",
@@ -115,8 +121,18 @@ class Desugar {
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
+
+    ClassLoader parent;
+    if (options.bootclasspath.isEmpty() && !options.allowEmptyBootclasspath) {
+      // TODO(b/31547323): Require bootclasspath once Bazel always provides it.  Using the tool's
+      // bootclasspath as a fallback is iffy at best and produces wrong results at worst.
+      parent = ClassLoader.getSystemClassLoader();
+    } else {
+      parent = new ThrowingClassLoader();
+    }
+
     ClassLoader loader =
-        createClassLoader(options.bootclasspath, options.inputJar, options.classpath);
+        createClassLoader(options.bootclasspath, options.inputJar, options.classpath, parent);
     try (ZipFile in = new ZipFile(options.inputJar.toFile());
         ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(
             Files.newOutputStream(options.outputJar)))) {
@@ -199,32 +215,30 @@ class Desugar {
   }
 
   private static ClassLoader createClassLoader(List<Path> bootclasspath, Path inputJar,
-      List<Path> classpath) throws IOException {
+      List<Path> classpath, ClassLoader parent) throws IOException {
     // Prepend classpath with input jar itself so LambdaDesugaring can load classes with lambdas.
     // Note that inputJar and classpath need to be in the same classloader because we typically get
     // the header Jar for inputJar on the classpath and having the header Jar in a parent loader
     // means the header version is preferred over the real thing.
     classpath = ImmutableList.<Path>builder().add(inputJar).addAll(classpath).build();
-    if (bootclasspath.isEmpty()) {
-      // TODO(b/31547323): Require bootclasspath once Bazel always provides it.  Using the tool's
-      // bootclasspath as a fallback is iffy at best and produces wrong results at worst.
-      return HeaderClassLoader.fromClassPath(classpath);
-    }
     // Use a classloader that as much as possible uses the provided bootclasspath instead of
     // the tool's system classloader.  Unfortunately we can't do that for java. classes.
-    return HeaderClassLoader.fromClassPath(classpath,
-        HeaderClassLoader.fromClassPath(bootclasspath,
-            new ClassLoader() {
-              @Override
-              protected Class<?> loadClass(String name, boolean resolve)
-                  throws ClassNotFoundException {
-                if (name.startsWith("java.")) {
-                  // Use system class loader for java. classes, since ClassLoader.defineClass gets
-                  // grumpy when those don't come from the standard place.
-                  return super.loadClass(name, resolve);
-                }
-                throw new ClassNotFoundException();
-              }
-            }));
+    if (!bootclasspath.isEmpty()) {
+      parent = HeaderClassLoader.fromClassPath(bootclasspath, parent);
+    }
+    return HeaderClassLoader.fromClassPath(classpath, parent);
+  }
+
+  private static class ThrowingClassLoader extends ClassLoader {
+    @Override
+    protected Class<?> loadClass(String name, boolean resolve)
+        throws ClassNotFoundException {
+      if (name.startsWith("java.")) {
+        // Use system class loader for java. classes, since ClassLoader.defineClass gets
+        // grumpy when those don't come from the standard place.
+        return super.loadClass(name, resolve);
+      }
+      throw new ClassNotFoundException();
+    }
   }
 }

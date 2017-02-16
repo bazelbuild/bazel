@@ -43,11 +43,6 @@ class HeaderClassLoader extends ClassLoader {
 
   private final Map<String, JarFile> jarfiles;
 
-  /** Creates a classloader from the given classpath with the system classloader as its parent. */
-  public static HeaderClassLoader fromClassPath(List<Path> classpath) throws IOException {
-    return new HeaderClassLoader(indexJars(classpath));
-  }
-
   /** Creates a classloader from the given classpath with the given parent. */
   public static HeaderClassLoader fromClassPath(List<Path> classpath, ClassLoader parent)
       throws IOException {
@@ -70,11 +65,6 @@ class HeaderClassLoader extends ClassLoader {
       }
     }
     return result;
-  }
-
-  private HeaderClassLoader(Map<String, JarFile> jarfiles) {
-    super();
-    this.jarfiles = jarfiles;
   }
 
   private HeaderClassLoader(Map<String, JarFile> jarfiles, ClassLoader parent) {
