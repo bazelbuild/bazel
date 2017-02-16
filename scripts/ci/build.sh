@@ -516,3 +516,31 @@ function build_and_publish_site() {
   "${gs}" web set -m index.html -e 404.html "gs://${bucket}"
   "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
 }
+
+# Push json file to perf site, also add to file_list
+# Input: $1 json file
+#        $2 name of the bucket to deploy the site to
+function push_benchmark_output_to_site() {
+  tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
+  trap 'rm -fr ${tmpdir}' EXIT
+  local gs="$(get_gsutil)"
+  local filename="$1"
+  local bucket="$2"
+
+  if [ ! -f "${site}"] || [ -z "${bucket}" ]; then
+    echo "Usage: push_benchmark_output_to_site <json-file-name> <bucket>" >&2
+    return 1
+  fi
+
+  # Upload json file
+  "${gs}" cp "${filename}" "gs://${bucket}/data/"
+
+  # Download file_list (it might not exist)
+  "${gs}" cp "gs://${bucket}/file_list" "${tmpdir}" || true
+  # Update file_list
+  local list_file="${tmpdir}/file_list"
+  echo "${filename}" >> "${list_file}"
+  "${gs}" cp "${list_file}" "gs://${bucket}/file_list"
+
+  "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
+}
