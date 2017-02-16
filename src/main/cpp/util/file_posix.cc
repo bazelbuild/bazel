@@ -224,7 +224,6 @@ bool UnlinkPath(const string &file_path) {
 bool PathExists(const string& path) {
   return access(path.c_str(), F_OK) == 0;
 }
-#endif  // not __CYGWIN__
 
 string MakeCanonical(const char *path) {
   char *resolved_path = realpath(path, NULL);
@@ -237,7 +236,6 @@ string MakeCanonical(const char *path) {
   }
 }
 
-#ifndef __CYGWIN__
 static bool CanAccess(const string &path, bool read, bool write, bool exec) {
   int mode = 0;
   if (read) {

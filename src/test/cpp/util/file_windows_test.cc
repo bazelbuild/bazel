@@ -38,6 +38,7 @@ using std::wstring;
 
 // Methods defined in file_windows.cc that are only visible for testing.
 bool AsWindowsPath(const string& path, wstring* result);
+bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
 void ResetMsysRootForTesting();
 string NormalizeWindowsPath(string path);
 
@@ -144,7 +145,7 @@ TEST_F(FileWindowsTest, TestBasename) {
   ASSERT_EQ("foo", Basename("\\\\?\\c:\\foo"));
 }
 
-TEST_F(FileWindowsTest, IsAbsolute) {
+TEST_F(FileWindowsTest, TestIsAbsolute) {
   ASSERT_FALSE(IsAbsolute(""));
   ASSERT_TRUE(IsAbsolute("/"));
   ASSERT_TRUE(IsAbsolute("/foo"));
@@ -158,7 +159,7 @@ TEST_F(FileWindowsTest, IsAbsolute) {
   ASSERT_TRUE(IsAbsolute("\\\\?\\c:\\foo"));
 }
 
-TEST_F(FileWindowsTest, IsRootDirectory) {
+TEST_F(FileWindowsTest, TestIsRootDirectory) {
   ASSERT_FALSE(IsRootDirectory(""));
   ASSERT_TRUE(IsRootDirectory("/"));
   ASSERT_FALSE(IsRootDirectory("/foo"));
@@ -403,7 +404,7 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   ASSERT_TRUE(MakeDirectories(string("\\\\?\\") + tmpdir + "/dir4/dir5", 0777));
 }
 
-TEST_F(FileWindowsTest, CanAccess) {
+TEST_F(FileWindowsTest, TestCanAccess) {
   ASSERT_FALSE(CanReadFile("C:/windows/this/should/not/exist/mkay"));
   ASSERT_FALSE(CanExecuteFile("C:/this/should/not/exist/mkay"));
   ASSERT_FALSE(CanAccessDirectory("C:/this/should/not/exist/mkay"));
@@ -446,6 +447,44 @@ TEST_F(FileWindowsTest, CanAccess) {
   ASSERT_TRUE(CanReadFile(file2));
   ASSERT_TRUE(CanExecuteFile(file2));
   ASSERT_FALSE(CanAccessDirectory(file2));
+}
+
+TEST_F(FileWindowsTest, TestMakeCanonical) {
+  string tmpdir;
+  GET_TEST_TMPDIR(tmpdir);
+  // Create some scratch directories: $TEST_TMPDIR/directory/subdirectory
+  string dir1(JoinPath(tmpdir, "directory"));
+  string dir2(JoinPath(dir1, "subdirectory"));
+  EXPECT_TRUE(MakeDirectories(dir2, 0700));
+  // Create a dummy file: $TEST_TMPDIR/directory/subdirectory/foo.txt
+  string foo(JoinPath(dir2, "foo.txt"));
+  wstring wfoo;
+  EXPECT_TRUE(AsWindowsPathWithUncPrefix(foo, &wfoo));
+  EXPECT_TRUE(CreateDummyFile(wfoo));
+  EXPECT_TRUE(CanReadFile(foo));
+  // Create junctions next to directory and subdirectory, pointing to them.
+  // Use short paths and mixed casing to test that the canonicalization can
+  // resolve these.
+  //   $TEST_TMPDIR/junc12345 -> $TEST_TMPDIR/DIRECT~1
+  //   $TEST_TMPDIR/junc12~1/junc67890 -> $TEST_TMPDIR/JUNC12~1/SubDir~1
+  string sym1(JoinPath(tmpdir, "junc12345"));
+  string sym2(JoinPath(JoinPath(tmpdir, "junc12~1"), "junc67890"));
+  string sym1value(JoinPath(tmpdir, "DIRECT~1"));
+  string sym2value(JoinPath(JoinPath(tmpdir, "JUNC12~1"), "SubDir~1"));
+  CREATE_JUNCTION(sym1, sym1value);
+  CREATE_JUNCTION(sym2, sym2value);
+  // Expect that $TEST_TMPDIR/sym1/sym2/foo.txt is readable.
+  string symfoo(JoinPath(sym2, "foo.txt"));
+  EXPECT_TRUE(CanReadFile(symfoo));
+  // Assert the canonical path of foo.txt via the real path and via sym2.
+  // The latter contains at least two junction components, shortened paths, and
+  // mixed casing.
+  string dircanon(MakeCanonical(foo.c_str()));
+  string symcanon(MakeCanonical(symfoo.c_str()));
+  string expected("directory\\subdirectory\\foo.txt");
+  ASSERT_NE(symcanon, "");
+  ASSERT_EQ(symcanon.find(expected), symcanon.size() - expected.size());
+  ASSERT_EQ(dircanon, symcanon);
 }
 
 }  // namespace blaze_util

@@ -14,6 +14,7 @@
 #include "src/main/cpp/util/file_platform.h"
 
 #include <ctype.h>  // isalpha
+#include <wchar.h>  // wcslen
 #include <wctype.h>  // iswalpha
 #include <windows.h>
 
@@ -307,15 +308,18 @@ static bool IsRootOrAbsolute(const basic_string<char_type>& path,
        HasDriveSpecifierPrefix(path.c_str() + 4) && IsPathSeparator(path[6]));
 }
 
-pair<string, string> SplitPath(const string& path) {
+template <typename char_type>
+static pair<basic_string<char_type>, basic_string<char_type> > SplitPathImpl(
+    const basic_string<char_type>& path) {
   if (path.empty()) {
-    return std::make_pair("", "");
+    return std::make_pair(basic_string<char_type>(), basic_string<char_type>());
   }
 
   size_t pos = path.size() - 1;
   for (auto it = path.crbegin(); it != path.crend(); ++it, --pos) {
     if (IsPathSeparator(*it)) {
-      if ((pos == 2 || pos == 6) && IsRootDirectory(path.substr(0, pos + 1))) {
+      if ((pos == 2 || pos == 6) &&
+          IsRootOrAbsolute(path.substr(0, pos + 1), /* must_be_root */ true)) {
         // Windows path, top-level directory, e.g. "c:\foo",
         // result is ("c:\", "foo").
         // Or UNC path, top-level directory, e.g. "\\?\c:\foo"
@@ -332,12 +336,21 @@ pair<string, string> SplitPath(const string& path) {
             pos == 0 ? path.substr(0, 1) : path.substr(0, pos),
             // If the rightmost "/" is the tail, then the second pair element
             // should be empty.
-            pos == path.size() - 1 ? "" : path.substr(pos + 1));
+            pos == path.size() - 1 ? basic_string<char_type>()
+                                   : path.substr(pos + 1));
       }
     }
   }
   // Handle the case with no '/' or '\' in `path`.
-  return std::make_pair("", path);
+  return std::make_pair(basic_string<char_type>(), path);
+}
+
+pair<string, string> SplitPath(const string& path) {
+  return SplitPathImpl(path);
+}
+
+pair<wstring, wstring> SplitPathW(const wstring& path) {
+  return SplitPathImpl(path);
 }
 
 class MsysRoot {
@@ -780,13 +793,96 @@ bool PathExists(const string& path) {
   return JunctionResolver().Resolve(wpath.c_str(), nullptr);
 }
 
-#ifdef COMPILER_MSVC
 string MakeCanonical(const char* path) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::MakeCanonical is not implemented on Windows");
-  return "";
+  if (IsDevNull(path)) {
+    return "NUL";
+  }
+  wstring wpath;
+  if (path == nullptr || path[0] == 0 ||
+      !AsWindowsPathWithUncPrefix(path, &wpath)) {
+    if (path != nullptr && path[0] != 0) {
+      PrintError("MakeCanonical(%s): AsWindowsPathWithUncPrefix failed", path);
+    }
+    return "";
+  }
+
+  // Resolve all segments of the path. Do this from leaf to root, so we always
+  // know that the path's tail is resolved and junctions may be found only in
+  // its head.
+  std::vector<wstring> realpath_reversed;
+  while (true) {
+    // Resolve the last segment.
+    unique_ptr<WCHAR[]> realpath;
+    if (!JunctionResolver().Resolve(wpath.c_str(), &realpath)) {
+      // The path doesn't exist or there are too many levels of indirection,
+      // so just give up.
+      return "";
+    }
+    // The last segment is surely not a junction anymore. Split it off the path
+    // and keep resolving its ancestors until we reach the root directory.
+    pair<wstring, wstring> split(SplitPathW(realpath.get()));
+    if (split.second.empty()) {
+      // `wpath` was a root directory, we're done.
+      realpath_reversed.push_back(split.first);
+      break;
+    } else {
+      // `wpath` was not yet a root directory, split off the last segment and
+      // store it in the stack, keep resolving the rest.
+      realpath_reversed.push_back(split.second);
+      wpath = split.first;
+    }
+  }
+
+  // Concatenate the segments in reverse order.
+  int segment_cnt = 0;
+  std::wstringstream builder;
+  for (auto segment = realpath_reversed.crbegin();
+       segment != realpath_reversed.crend(); ++segment) {
+    if (segment_cnt < 2) {
+      segment_cnt++;
+    } else {
+      // Start appending '\' separator after not the first but the second
+      // segment, since the first segment is a drive name "c:\" and already
+      // has the separator.
+      builder << L"\\";
+    }
+    builder << *segment;
+  }
+  wstring realpath(builder.str());
+  if (windows_util::HasUncPrefix(realpath.c_str())) {
+    // `realpath` has an UNC prefix if `path` did, or if `path` contained
+    // junctions.
+    // In the first case, the UNC prefix is the usual "\\?\", but in the second
+    // case it is "\??\", because that's what the junction resolution yields,
+    // because that's the prefix the filesystem uses for storing junction
+    // values.
+    // Since "\??\" is only meaningful for the kernel and not for usermode
+    // Win32 API functions, we need to replace this prefix with the usual "\\?\"
+    // one.
+    realpath[1] = L'\\';
+  }
+
+  // Resolve all 8dot3 style segments of the path, if any. The input path may
+  // have had some. Junctions may also refer to 8dot3 names.
+  unique_ptr<WCHAR[]> long_realpath;
+  if (!windows_util::GetLongPath(realpath.c_str(), &long_realpath)) {
+    return "";
+  }
+
+  // Convert the path to lower-case.
+  size_t size = wcslen(long_realpath.get()) -
+                (windows_util::HasUncPrefix(long_realpath.get()) ? 4 : 0);
+  unique_ptr<WCHAR[]> lcase_realpath(new WCHAR[size + 1]);
+  const WCHAR* p_from =
+      long_realpath.get() +
+      (windows_util::HasUncPrefix(long_realpath.get()) ? 4 : 0);
+  WCHAR* p_to = lcase_realpath.get();
+  while (size-- > 0) {
+    *p_to++ = towlower(*p_from++);
+  }
+  *p_to = 0;
+  return string(WstringToCstring(lcase_realpath.get()).get());
 }
-#endif  // COMPILER_MSVC
 
 static bool CanReadFileW(const wstring& path) {
   DWORD attrs = ::GetFileAttributesW(path.c_str());
