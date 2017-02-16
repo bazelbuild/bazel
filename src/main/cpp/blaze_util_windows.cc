@@ -799,9 +799,10 @@ string ListSeparator() { return ";"; }
 
 string ConvertPath(const string& path) {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze::ConvertPath is not implemented on Windows");
-  return "";
+  // This isn't needed when the binary isn't linked against msys-2.0.dll (when
+  // we build with MSVC): MSYS converts all Unix paths to Windows paths for such
+  // binaries.
+  return path;
 #else  // not COMPILER_MSVC
   // If the path looks like %USERPROFILE%/foo/bar, don't convert.
   if (path.empty() || path[0] == '%') {
