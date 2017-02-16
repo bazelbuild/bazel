@@ -535,9 +535,21 @@ public final class Lexer {
     keywordMap.put("yield", TokenKind.YIELD);
   }
 
-  private TokenKind getTokenKindForIdentfier(String id) {
+  /**
+   * Scans an identifier or keyword.
+   *
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the identifier.
+   * ON EXIT: 'pos' is 1 + the index of the last char in the identifier.
+   *
+   * @return the identifier or keyword token.
+   */
+  private Token identifierOrKeyword() {
+    int oldPos = pos - 1;
+    String id = scanIdentifier();
     TokenKind kind = keywordMap.get(id);
-    return kind == null ? TokenKind.IDENTIFIER : kind;
+    return (kind == null)
+        ? new Token(TokenKind.IDENTIFIER, oldPos, pos, id)
+        : new Token(kind, oldPos, pos, null);
   }
 
   private String scanIdentifier() {
@@ -564,22 +576,6 @@ public final class Lexer {
       }
     }
     return bufferSlice(oldPos, pos);
-  }
-
-  /**
-   * Scans an identifier or keyword.
-   *
-   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the identifier.
-   * ON EXIT: 'pos' is 1 + the index of the last char in the identifier.
-   *
-   * @return the identifier or keyword token.
-   */
-  private Token identifierOrKeyword() {
-    int oldPos = pos - 1;
-    String id = scanIdentifier();
-    TokenKind kind = getTokenKindForIdentfier(id);
-    return new Token(kind, oldPos, pos,
-        (kind == TokenKind.IDENTIFIER) ? id : null);
   }
 
   private String scanInteger() {
