@@ -27,10 +27,6 @@ cc_library(
     name = "file",
     srcs = ["file.cc"] + select({
         "//src:windows": [
-            # TODO(bazel-team): implement functions in file_windows.cc and use
-            # more and more of them under MSYS until we can completely stop
-            # using file_posix.cc at which point remove it from this list.
-            "file_posix.cc",
             "file_windows.cc",
         ],
         "//src:windows_msvc": [

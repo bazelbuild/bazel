@@ -1074,14 +1074,44 @@ bool ChangeDirectory(const string& path) {
   return true;
 }
 
-#ifdef COMPILER_MSVC
 void ForEachDirectoryEntry(const string &path,
                            DirectoryEntryConsumer *consume) {
-  // TODO(bazel-team): implement this.
-  pdie(255, "blaze_util::ForEachDirectoryEntry is not implemented on Windows");
+  wstring wpath;
+  if (path.empty() || IsDevNull(path)) {
+    return;
+  }
+  if (!AsWindowsPath(path, &wpath)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "ForEachDirectoryEntry(%s): AsWindowsPath failed", path.c_str());
+  }
+
+  static const wstring kUncPrefix(L"\\\\?\\");
+  static const wstring kDot(L".");
+  static const wstring kDotDot(L"..");
+  // Always add an UNC prefix to ensure we can work with long paths.
+  if (!windows_util::HasUncPrefix(wpath.c_str())) {
+    wpath = kUncPrefix + wpath;
+  }
+  // Unconditionally add a trailing backslash. We know `wpath` has no trailing
+  // backslash because it comes from AsWindowsPath whose output is always
+  // normalized (see NormalizeWindowsPath).
+  wpath.append(L"\\");
+  WIN32_FIND_DATAW metadata;
+  HANDLE handle = ::FindFirstFileW((wpath + L"*").c_str(), &metadata);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return;  // directory does not exist or is empty
+  }
+
+  do {
+    if (kDot != metadata.cFileName && kDotDot != metadata.cFileName) {
+      wstring wname = wpath + metadata.cFileName;
+      string name(WstringToCstring(/* omit prefix */ 4 + wname.c_str()).get());
+      bool is_dir = (metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+      consume->Consume(name, is_dir);
+    }
+  } while (::FindNextFileW(handle, &metadata));
+  ::FindClose(handle);
 }
-#else   // not COMPILER_MSVC
-#endif  // COMPILER_MSVC
 
 string NormalizeWindowsPath(string path) {
   if (path.empty()) {

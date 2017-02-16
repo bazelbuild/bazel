@@ -14,8 +14,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <algorithm>
+#include <map>
 #include <memory>  // unique_ptr
 #include <thread>  // NOLINT (to silence Google-internal linter)
+#include <vector>
 
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
@@ -162,6 +165,56 @@ TEST(FileTest, TestRenameDirectory) {
   EXPECT_TRUE(MakeDirectories(dir1, 0700));
   EXPECT_TRUE(WriteFile("hello", 5, file1));
   ASSERT_EQ(RenameDirectory(dir2, dir1), kRenameDirectoryFailureNotEmpty);
+}
+
+class CollectingDirectoryEntryConsumer : public DirectoryEntryConsumer {
+ public:
+  CollectingDirectoryEntryConsumer(const string& _rootname)
+      : rootname(_rootname) {}
+
+  void Consume(const string& name, bool is_directory) override {
+    // Strip the path prefix up to the `rootname` to ease testing on all
+    // platforms.
+    int index = name.rfind(rootname);
+    string key = (index == string::npos) ? name : name.substr(index);
+    // Replace backslashes with forward slashes (necessary on Windows only).
+    std::replace(key.begin(), key.end(), '\\', '/');
+    entries[key] = is_directory;
+  }
+
+  const string rootname;
+  std::map<string, bool> entries;
+};
+
+TEST(FileTest, ForEachDirectoryEntryTest) {
+  string tmpdir(getenv("TEST_TMPDIR"));
+  EXPECT_FALSE(tmpdir.empty());
+  // Create a directory structure:
+  //   $TEST_TMPDIR/
+  //      foo/
+  //        bar/
+  //          file3.txt
+  //        file1.txt
+  //        file2.txt
+  string rootdir(JoinPath(tmpdir, "foo"));
+  string file1(JoinPath(rootdir, "file1.txt"));
+  string file2(JoinPath(rootdir, "file2.txt"));
+  string subdir(JoinPath(rootdir, "bar"));
+  string file3(JoinPath(subdir, "file3.txt"));
+
+  EXPECT_TRUE(MakeDirectories(subdir, 0700));
+  EXPECT_TRUE(WriteFile("hello", 5, file1));
+  EXPECT_TRUE(WriteFile("hello", 5, file2));
+  EXPECT_TRUE(WriteFile("hello", 5, file3));
+
+  std::map<string, bool> expected;
+  expected["foo/file1.txt"] = false;
+  expected["foo/file2.txt"] = false;
+  expected["foo/bar"] = true;
+
+  CollectingDirectoryEntryConsumer consumer("foo");
+  ForEachDirectoryEntry(rootdir, &consumer);
+  ASSERT_EQ(consumer.entries, expected);
 }
 
 }  // namespace blaze_util

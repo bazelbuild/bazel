@@ -34,11 +34,6 @@ namespace blaze_util {
 using std::pair;
 using std::string;
 
-// TODO(bazel-team): implement all functions in file_windows.cc, use them from
-// MSYS, remove file_posix.cc from the `srcs` of
-// //src/main/cpp/util:file when building for MSYS, and remove all
-// #ifndef __CYGWIN__ directives.
-#ifndef __CYGWIN__
 // Runs "stat" on `path`. Returns -1 and sets errno if stat fails or
 // `path` isn't a directory. If check_perms is true, this will also
 // make sure that `path` is owned by the current user and has `mode`
@@ -371,7 +366,6 @@ string GetCwd() {
 bool ChangeDirectory(const string& path) {
   return chdir(path.c_str()) == 0;
 }
-#endif  // not __CYGWIN__
 
 void ForEachDirectoryEntry(const string &path,
                            DirectoryEntryConsumer *consume) {
