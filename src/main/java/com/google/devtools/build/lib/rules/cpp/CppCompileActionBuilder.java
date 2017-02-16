@@ -119,7 +119,7 @@ public class CppCompileActionBuilder {
   /**
    * Creates a builder from a rule and configuration.
    */
-  public CppCompileActionBuilder(
+  private CppCompileActionBuilder(
       ActionOwner actionOwner,
       Label sourceLabel,
       BuildConfiguration configuration,
@@ -238,7 +238,7 @@ public class CppCompileActionBuilder {
   private Iterable<IncludeScannable> getLipoScannables(NestedSet<Artifact> realMandatoryInputs) {
     boolean fake = tempOutputFile != null;
 
-    return lipoScannableMap == null || fake
+    return lipoScannableMap.isEmpty() || fake
         ? ImmutableList.<IncludeScannable>of()
         : Iterables.filter(
             Iterables.transform(
