@@ -59,12 +59,8 @@ public final class BinaryOperatorExpression extends Expression {
     return lhs + " " + operator + " " + rhs;
   }
 
-  /**
-   * Implements comparison operators.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static int compare(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements comparison operators.  */
+  private static int compare(Object lval, Object rval, Location location) throws EvalException {
     try {
       return EvalUtils.SKYLARK_COMPARATOR.compare(lval, rval);
     } catch (EvalUtils.ComparisonException e) {
@@ -72,12 +68,8 @@ public final class BinaryOperatorExpression extends Expression {
     }
   }
 
-  /**
-   * Implements the "in" operator.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static boolean in(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements the "in" operator. */
+  private static boolean in(Object lval, Object rval, Location location) throws EvalException {
     if (rval instanceof SkylarkQueryable) {
       return ((SkylarkQueryable) rval).containsKey(lval, location);
     } else if (rval instanceof String) {
@@ -185,12 +177,8 @@ public final class BinaryOperatorExpression extends Expression {
     rhs.validate(env);
   }
 
-  /**
-   * Implements Operator.PLUS.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object plus(Object lval, Object rval, Environment env, Location location)
+  /** Implements Operator.PLUS. */
+  private static Object plus(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
     // int + int
     if (lval instanceof Integer && rval instanceof Integer) {
@@ -238,36 +226,24 @@ public final class BinaryOperatorExpression extends Expression {
     throw typeException(lval, rval, Operator.PLUS, location);
   }
 
-  /**
-   * Implements Operator.PIPE.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object pipe(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements Operator.PIPE. */
+  private static Object pipe(Object lval, Object rval, Location location) throws EvalException {
     if (lval instanceof SkylarkNestedSet) {
       return new SkylarkNestedSet((SkylarkNestedSet) lval, rval, location);
     }
     throw typeException(lval, rval, Operator.PIPE, location);
   }
 
-  /**
-   * Implements Operator.MINUS.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object minus(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements Operator.MINUS. */
+  private static Object minus(Object lval, Object rval, Location location) throws EvalException {
     if (lval instanceof Integer && rval instanceof Integer) {
       return ((Integer) lval).intValue() - ((Integer) rval).intValue();
     }
     throw typeException(lval, rval, Operator.MINUS, location);
   }
 
-  /**
-   * Implements Operator.MULT.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object mult(Object lval, Object rval, Environment env, Location location)
+  /** Implements Operator.MULT. */
+  private static Object mult(Object lval, Object rval, Environment env, Location location)
       throws EvalException {
     Integer number = null;
     Object otherFactor = null;
@@ -295,12 +271,8 @@ public final class BinaryOperatorExpression extends Expression {
     throw typeException(lval, rval, Operator.MULT, location);
   }
 
-  /**
-   * Implements Operator.DIVIDE.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object divide(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements Operator.DIVIDE. */
+  private static Object divide(Object lval, Object rval, Location location) throws EvalException {
     // int / int
     if (lval instanceof Integer && rval instanceof Integer) {
       if (rval.equals(0)) {
@@ -316,12 +288,8 @@ public final class BinaryOperatorExpression extends Expression {
     throw typeException(lval, rval, Operator.DIVIDE, location);
   }
 
-  /**
-   * Implements Operator.PERCENT.
-   *
-   * <p>Publicly accessible for reflection and compiled Skylark code.
-   */
-  public static Object percent(Object lval, Object rval, Location location) throws EvalException {
+  /** Implements Operator.PERCENT. */
+  private static Object percent(Object lval, Object rval, Location location) throws EvalException {
     // int % int
     if (lval instanceof Integer && rval instanceof Integer) {
       if (rval.equals(0)) {
