@@ -102,7 +102,7 @@ final class HttpParser {
             throw new HttpParserError("Line folding unacceptable");  // RFC7230 § 3.2.4
           }
           state = State.HKEY;
-          // epsilon transition
+          // fall through
         case HKEY:
           if (c == ':') {
             key = builder.toString();
@@ -117,7 +117,7 @@ final class HttpParser {
             break;
           }
           state = State.HVAL;
-          // epsilon transition
+          // fall through
         case HVAL:
           if (c == '\r' || c == '\n') {
             output.put(key, builder.toString());
