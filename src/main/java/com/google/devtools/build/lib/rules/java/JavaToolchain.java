@@ -61,6 +61,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     Artifact oneVersionWhitelist = getArtifact("oneversion_whitelist", ruleContext);
     Artifact genClass = getArtifact("genclass", ruleContext);
     Artifact resourceJarBuilder = getArtifact("resourcejar", ruleContext);
+    Artifact timezoneData = getArtifact("timezone_data", ruleContext);
     FilesToRunProvider ijar = ruleContext.getExecutablePrerequisite("ijar", Mode.HOST);
     ImmutableListMultimap<String, String> compatibleJavacOptions =
         getCompatibleJavacOptions(ruleContext);
@@ -93,6 +94,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             oneVersionWhitelist,
             genClass,
             resourceJarBuilder,
+            timezoneData,
             ijar,
             compatibleJavacOptions);
     RuleConfiguredTargetBuilder builder =

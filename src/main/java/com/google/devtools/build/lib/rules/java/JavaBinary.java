@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -76,6 +77,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
     attributesBuilder.addClassPathResources(
         ruleContext.getPrerequisiteArtifacts("classpath_resources", Mode.TARGET).list());
+
+    // Add Java8 timezone resource data
+    addTimezoneResourceForJavaBinaries(ruleContext, attributesBuilder);
 
     List<String> userJvmFlags = JavaCommon.getJvmFlags(ruleContext);
 
@@ -427,6 +431,16 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       builder.add("Coverage-Main-Class: " + originalMainClass);
     }
     return builder.build();
+  }
+
+  /** Add Java8 timezone resource jar to java binary, if specified in tool chain. */
+  private void addTimezoneResourceForJavaBinaries(
+      RuleContext ruleContext, JavaTargetAttributes.Builder attributesBuilder) {
+    JavaToolchainProvider toolchainProvider = JavaToolchainProvider.fromRuleContext(ruleContext);
+    if (toolchainProvider.getTimezoneData() != null) {
+      attributesBuilder.addResourceJars(
+          NestedSetBuilder.create(Order.STABLE_ORDER, toolchainProvider.getTimezoneData()));
+    }
   }
 
   private void collectDefaultRunfiles(Runfiles.Builder builder, RuleContext ruleContext,

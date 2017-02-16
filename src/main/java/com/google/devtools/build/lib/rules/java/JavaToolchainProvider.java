@@ -54,6 +54,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
       Artifact oneVersionWhitelist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
+      @Nullable Artifact timezoneData,
       FilesToRunProvider ijar,
       ImmutableListMultimap<String, String> compatibleJavacOptions) {
     return new AutoValue_JavaToolchainProvider(
@@ -72,6 +73,7 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
         oneVersionWhitelist,
         genClass,
         resourceJarBuilder,
+        timezoneData,
         ijar,
         compatibleJavacOptions,
         // merges the defaultJavacFlags from
@@ -136,6 +138,13 @@ public abstract class JavaToolchainProvider implements TransitiveInfoProvider {
 
   @Nullable
   public abstract Artifact getResourceJarBuilder();
+
+  /**
+   * Returns the {@link Artifact} of the latest timezone data resource jar that can be loaded by
+   * Java 8 binaries.
+   */
+  @Nullable
+  public abstract Artifact getTimezoneData();
 
   /** Returns the ijar executable */
   public abstract FilesToRunProvider getIjar();
