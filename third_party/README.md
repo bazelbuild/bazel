@@ -97,7 +97,7 @@ a minimal set of extra dependencies.
 
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.0.15
+* Version: 2.0.18-20170224
 * License: Apache License 2.0
 
 
@@ -158,9 +158,9 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
-## [guava](https://code.google.com/p/guava-libraries/)
+## [guava](https://github.com/google/guava)
 
-* Version: 19.0
+* Version: 21.0
 * License: Apache License 2.0
 
 
