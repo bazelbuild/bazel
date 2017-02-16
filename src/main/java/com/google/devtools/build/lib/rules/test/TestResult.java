@@ -14,15 +14,18 @@
 
 package com.google.devtools.build.lib.rules.test;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
+import java.util.Collection;
 
 /**
  * This is the event passed from the various test strategies to the {@code RecordingTestListener}
@@ -129,5 +132,17 @@ public class TestResult {
 
   public TestResultData getData() {
     return data;
+  }
+
+  /**
+   * @return Collection of files created by the test, tagged by their name indicating usage (e.g.,
+   *     "test.log").
+   */
+  public Collection<Pair<String, Path>> getFiles() {
+    ImmutableList.Builder<Pair<String, Path>> builder = new ImmutableList.Builder<>();
+    if (testAction.getTestLog().getPath().exists()) {
+      builder.add(Pair.of("test.log", testAction.getTestLog().getPath()));
+    }
+    return builder.build();
   }
 }

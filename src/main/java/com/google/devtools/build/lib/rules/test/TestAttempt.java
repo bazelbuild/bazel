@@ -60,6 +60,11 @@ public class TestAttempt implements BuildEvent {
     this(testAction, attempt, success, files, false);
   }
 
+  public static TestAttempt fromCachedTestResult(TestResult result) {
+    return new TestAttempt(
+        result.getTestAction(), 1, result.getData().getTestPassed(), result.getFiles(), true);
+  }
+
   @Override
   public BuildEventId getEventId() {
     return BuildEventId.testResult(

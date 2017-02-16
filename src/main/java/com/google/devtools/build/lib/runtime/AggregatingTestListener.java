@@ -36,11 +36,11 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.ExceptionListener;
+import com.google.devtools.build.lib.rules.test.TestAttempt;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -122,6 +122,12 @@ public class AggregatingTestListener {
     ActionOwner testOwner = result.getTestAction().getOwner();
     LabelAndConfiguration targetLabel = LabelAndConfiguration.of(
         testOwner.getLabel(), result.getTestAction().getConfiguration());
+
+    // If a test result was cached, then no attempts for that test were actually
+    // executed. Hence report that fact as a cached attempt.
+    if (result.isCached()) {
+      eventBus.post(TestAttempt.fromCachedTestResult(result));
+    }
 
     TestSummary finalTestSummary = null;
     synchronized (summaryLock) {
