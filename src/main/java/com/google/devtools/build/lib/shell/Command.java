@@ -698,7 +698,7 @@ public final class Command {
       final Consumers.OutErrConsumers outErrConsumers,
       final boolean killSubprocessOnInterrupt,
       final boolean closeOutputStreams)
-      throws CommandException {
+      throws ExecFailedException {
 
     logCommand();
 
