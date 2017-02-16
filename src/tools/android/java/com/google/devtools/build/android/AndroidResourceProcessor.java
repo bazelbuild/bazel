@@ -603,7 +603,7 @@ public class AndroidResourceProcessor {
    *
    * <p>Returns the resources directory that aapt should read.
    */
-  private Path processDataBindings(Path resourceDir, Path dataBindingInfoOut,
+  static Path processDataBindings(Path resourceDir, Path dataBindingInfoOut,
       VariantType variantType, String packagePath, Path androidManifest)
       throws IOException {
 

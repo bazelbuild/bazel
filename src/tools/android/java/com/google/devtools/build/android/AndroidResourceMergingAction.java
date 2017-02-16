@@ -146,6 +146,13 @@ public class AndroidResourceMergingAction {
       help = "Path to write the merged symbols binary."
     )
     public Path symbolsBinOut;
+
+    @Option(name = "dataBindingInfoOut",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        help = "Path to where data binding's layout info output should be written.")
+    public Path dataBindingInfoOut;
   }
 
   public static void main(String[] args) throws Exception {
@@ -218,10 +225,18 @@ public class AndroidResourceMergingAction {
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.resourcesOutput != null) {
+        Path resourcesDir =
+            AndroidResourceProcessor.processDataBindings(
+                mergedData.getResourceDir(),
+                options.dataBindingInfoOut,
+                packageType,
+                options.packageForR,
+                options.primaryManifest);
+
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
         resourceProcessor.createResourcesZip(
-            mergedData.getResourceDir(),
+            resourcesDir,
             mergedData.getAssetDir(),
             options.resourcesOutput,
             true /* compress */);

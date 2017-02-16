@@ -61,6 +61,7 @@ public class AndroidResourceMergingActionBuilder {
   private Artifact mergedResourcesOut;
   private Artifact classJarOut;
   private Artifact manifestOut;
+  private Artifact dataBindingInfoZip;
 
   // Flags
   private String customJavaPackage;
@@ -97,6 +98,16 @@ public class AndroidResourceMergingActionBuilder {
 
   public AndroidResourceMergingActionBuilder setManifestOut(Artifact manifestOut) {
     this.manifestOut = manifestOut;
+    return this;
+  }
+
+  /**
+   * The output zip for resource-processed data binding expressions (i.e. a zip of .xml files).
+   * If null, data binding processing is skipped (and data binding expressions aren't allowed in
+   * layout resources).
+   */
+  public AndroidResourceMergingActionBuilder setDataBindingInfoZip(Artifact zip) {
+    this.dataBindingInfoZip = zip;
     return this;
   }
 
@@ -154,6 +165,11 @@ public class AndroidResourceMergingActionBuilder {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
       builder.add("--packageForR").add(customJavaPackage);
+    }
+
+    if (dataBindingInfoZip != null) {
+      builder.addExecPath("--dataBindingInfoOut", dataBindingInfoZip);
+      outs.add(dataBindingInfoZip);
     }
 
     SpawnAction.Builder spawnActionBuilder = new SpawnAction.Builder();

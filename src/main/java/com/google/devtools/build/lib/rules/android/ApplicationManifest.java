@@ -466,7 +466,8 @@ public final class ApplicationManifest {
               .withDependencies(resourceDeps)
               .setMergedResourcesOut(mergedResources)
               .setManifestOut(manifestOut)
-              .setClassJarOut(rJavaClassJar);
+              .setClassJarOut(rJavaClassJar)
+              .setDataBindingInfoZip(dataBindingInfoZip);
       ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
 
       AndroidResourceValidatorActionBuilder validatorBuilder =
