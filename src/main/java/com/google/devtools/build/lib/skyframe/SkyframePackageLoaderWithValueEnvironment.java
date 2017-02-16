@@ -75,7 +75,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   public void addDependency(Package pkg, String fileName)
       throws LabelSyntaxException, IOException, InterruptedException {
     RootedPath fileRootedPath = RootedPath.toRootedPath(pkg.getSourceRoot(),
-        pkg.getPackageIdentifier().getSourceRoot().getRelative(fileName));
+        pkg.getPackageIdentifier().getPackageFragment().getRelative(fileName));
     FileValue result = (FileValue) env.getValue(FileValue.key(fileRootedPath));
     if (result != null && !result.exists()) {
       throw new IOException();

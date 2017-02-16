@@ -111,9 +111,9 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
         androidDevicesFilegroupTarget.getProvider(FilesToRunProvider.class).getFilesToRun();
     assertThat(artifactsToStrings(systemImagesDirectories))
         .containsExactly(
-            "src external/androidsdk/system-images/android-25/default/armeabi-v7a",
-            "src external/androidsdk/system-images/android-24/google_apis/x86",
-            "src external/androidsdk/system-images/android-24/google_apis/x86_64");
+            "src system-images/android-25/default/armeabi-v7a",
+            "src system-images/android-24/google_apis/x86",
+            "src system-images/android-24/google_apis/x86_64");
   }
 
   @Test

@@ -1443,7 +1443,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       EventHandler eventHandler, Label label, BuildConfiguration configuration) {
     if (memoizingEvaluator.getExistingValueForTesting(
         PrecomputedValue.WORKSPACE_STATUS_KEY.getKeyForTesting()) == null) {
-      injectWorkspaceStatusData(label.getWorkspaceRoot());
+      injectWorkspaceStatusData(label.getPackageIdentifier().getRepository().strippedName());
     }
 
     Dependency dep;

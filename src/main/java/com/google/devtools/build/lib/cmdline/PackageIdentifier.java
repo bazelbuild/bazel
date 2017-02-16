@@ -20,10 +20,8 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -125,14 +123,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   public PathFragment getPathUnderExecRoot() {
     return repository.getPathUnderExecRoot().getRelative(pkgName);
-  }
-
-  /**
-   * Returns the runfiles/execRoot path for this repository (relative to the x.runfiles/main-repo/
-   * directory).
-   */
-  public PathFragment getRunfilesPath() {
-    return repository.getRunfilesPath().getRelative(pkgName);
   }
 
   public PackageIdentifier makeAbsolute() {

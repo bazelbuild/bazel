@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -99,10 +100,10 @@ public class HeaderDiscovery {
       return inputs.build();
     }
     List<Path> systemIncludePrefixes = permittedSystemIncludePrefixes;
-
     // Check inclusions.
     IncludeProblems problems = new IncludeProblems();
     for (Path execPath : depSet.getDependencies()) {
+      RepositoryName repositoryName = RepositoryName.MAIN;
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
         // Absolute includes from system paths are ignored.
@@ -114,15 +115,24 @@ public class HeaderDiscovery {
         // are, it's probably due to a non-hermetic #include, & we should stop
         // the build with an error.
         if (execPath.startsWith(execRoot)) {
-          execPathFragment = execPath.relativeTo(execRoot); // funky but tolerable path
-        } else {
-          problems.add(execPathFragment.getPathString());
-          continue;
+          // Funky but tolerable path.
+          execPathFragment = execPath.relativeTo(execRoot);
+        } else if (execPath.startsWith(execRoot.getParentDirectory())) {
+          // External repository.
+          execPathFragment = execPath.relativeTo(execRoot.getParentDirectory());
+          String workspace = execPathFragment.getSegment(0);
+          execPathFragment = execPathFragment.relativeTo(workspace);
+          try {
+            repositoryName = RepositoryName.create("@" + workspace);
+          } catch (LabelSyntaxException e) {
+            throw new IllegalStateException(workspace + " is not a valid repository name");
+          }
         }
       }
-      Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
+      Artifact artifact = allowedDerivedInputsMap.get(
+          repositoryName.getPathUnderExecRoot().getRelative(execPathFragment));
       if (artifact == null) {
-        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, RepositoryName.MAIN);
+        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repositoryName);
       }
       if (artifact != null) {
         inputs.add(artifact);

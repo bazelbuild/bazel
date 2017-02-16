@@ -504,7 +504,7 @@ public class JavaCommon {
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getRunfilesJavaExecutable();
+      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
     }
 
     if (!javaExecutable.isAbsolute()) {

@@ -280,18 +280,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
     }
 
     private void createProtoCompileAction(SupportData supportData, Collection<Artifact> outputs) {
-      String genfilesPath =
-          ruleContext
-              .getConfiguration()
-              .getGenfilesFragment()
-              .getRelative(
-                  ruleContext
-                      .getLabel()
-                      .getPackageIdentifier()
-                      .getRepository()
-                      .getPathUnderExecRoot())
-              .getPathString();
-
+      String genfilesPath = ruleContext.getBinOrGenfilesDirectory().getExecPathString();
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation("C++", checkNotNull(getProtoToolchainProvider()), genfilesPath));

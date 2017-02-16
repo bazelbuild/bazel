@@ -69,7 +69,12 @@ public final class Jvm extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "java_executable", structField = true,
       doc = "The java executable, i.e. bin/java relative to the Java home.")
   public PathFragment getJavaExecutable() {
-    return java;
+    if (jvmLabel == null || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
+      return java;
+    } else {
+      return jvmLabel.getPackageIdentifier().getRepository().getPathUnderExecRoot()
+          .getRelative(BIN_JAVA);
+    }
   }
 
   /**
@@ -81,17 +86,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
    */
   public Label getJvmLabel() {
     return jvmLabel;
-  }
-
-  /**
-   * If possible, resolves java relative to the jvmLabel's repository. Otherwise, returns the
-   * same thing as getJavaExecutable().
-   */
-  public PathFragment getRunfilesJavaExecutable() {
-    if (jvmLabel == null || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
-      return getJavaExecutable();
-    }
-    return jvmLabel.getPackageIdentifier().getRepository().getRunfilesPath().getRelative(BIN_JAVA);
   }
 
   @Override

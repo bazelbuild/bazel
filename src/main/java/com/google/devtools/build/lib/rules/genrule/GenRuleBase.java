@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -336,9 +337,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
           } else {
             dir = ruleContext.getConfiguration().getGenfilesFragment();
           }
-          PathFragment relPath =
-              ruleContext.getRule().getLabel().getPackageIdentifier().getSourceRoot();
-          return dir.getRelative(relPath).getPathString();
+          PackageIdentifier pkgId = ruleContext.getRule().getLabel().getPackageIdentifier();
+          return pkgId.getRepository().getPathUnderExecRoot().getRelative(dir)
+              .getRelative(pkgId.getPackageFragment()).getPathString();
         }
       } else if (JDK_MAKE_VARIABLE.matcher("$(" + name + ")").find()) {
         return new ConfigurationMakeVariableContext(

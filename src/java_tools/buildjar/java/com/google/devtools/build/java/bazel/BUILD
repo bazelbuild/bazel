@@ -12,7 +12,7 @@ genrule(
     name = "javac-bootclasspath-locations",
     srcs = ["@bazel_tools//tools/jdk:bootclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
-    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) '' $(SRCS)",
+    cmd = "$(location javac-bootclasspath-locations.sh) $@ $(GENDIR) 'bazel_tools/' $(SRCS)",
     tools = ["javac-bootclasspath-locations.sh"],
 )
 

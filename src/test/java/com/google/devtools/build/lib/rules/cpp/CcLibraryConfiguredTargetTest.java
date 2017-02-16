@@ -1050,8 +1050,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testSystemIncludePathsOutsideExecutionRoot() throws Exception {
     checkError("root", "a",
-        "The include path '../system' references a path outside of the execution root.",
-        "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../system'])");
+        "The include path '../../system' references a path outside of the execution root.",
+        "cc_library(name='a', srcs=['a.cc'], copts=['-isystem../../system'])");
   }
 
   @Test

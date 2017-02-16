@@ -149,9 +149,7 @@ public final class ConfiguredTargetFactory {
         : configuration.getGenfilesDirectory(rule.getRepository());
     ArtifactOwner owner =
         new ConfiguredTargetKey(rule.getLabel(), configuration.getArtifactOwnerConfiguration());
-    PathFragment rootRelativePath =
-        outputFile.getLabel().getPackageIdentifier().getSourceRoot().getRelative(
-            outputFile.getLabel().getName());
+    PathFragment rootRelativePath = outputFile.getLabel().toPathFragment();
     Artifact result = isFileset
         ? artifactFactory.getFilesetArtifact(rootRelativePath, root, owner)
         : artifactFactory.getDerivedArtifact(rootRelativePath, root, owner);
@@ -202,7 +200,7 @@ public final class ConfiguredTargetFactory {
     } else if (target instanceof InputFile) {
       InputFile inputFile = (InputFile) target;
       Artifact artifact = artifactFactory.getSourceArtifact(
-          inputFile.getExecPath(),
+          inputFile.getLabel().toPathFragment(),
           Root.asSourceRoot(inputFile.getPackage().getSourceRoot(),
               inputFile.getPackage().getPackageIdentifier().getRepository().isMain()),
           new ConfiguredTargetKey(target.getLabel(), config));

@@ -1814,7 +1814,9 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   public void testExternalRootCorrectlyIdentified() throws Exception {
     ArtifactLocation location =
         AndroidStudioInfoAspect.makeArtifactLocation(
-            Root.asSourceRoot(outputBase, false), new PathFragment("external/foo/bar.jar"), true);
+            Root.asSourceRoot(outputBase.getRelative("external/foo"), false),
+            new PathFragment("bar.jar"),
+            true);
     assertThat(location.getIsExternal()).isTrue();
   }
 
@@ -1853,13 +1855,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     TargetIdeInfo targetInfo = getTargetIdeInfoAndVerifyLabel("@r//:junit", targetIdeInfos);
     assertThat(targetInfo.getBuildFileArtifactLocation().getIsExternal()).isTrue();
-    assertThat(targetInfo.getBuildFileArtifactLocation().getRelativePath()).startsWith("external");
+    assertThat(targetInfo.getBuildFileArtifactLocation().getRelativePath()).isEqualTo("BUILD");
 
     JavaIdeInfo javaInfo = targetInfo.getJavaIdeInfo();
     assertThat(javaInfo.getJarsList()).hasSize(1);
     ArtifactLocation jar = javaInfo.getJars(0).getJar();
     assertThat(jar.getIsSource()).isTrue();
     assertThat(jar.getIsExternal()).isTrue();
-    assertThat(jar.getRelativePath()).isEqualTo("external/r/junit.jar");
+    assertThat(jar.getRelativePath()).isEqualTo("junit.jar");
   }
 }

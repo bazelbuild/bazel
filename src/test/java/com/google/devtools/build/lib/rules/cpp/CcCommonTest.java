@@ -708,7 +708,7 @@ public class CcCommonTest extends BuildViewTestCase {
     checkError(
         "test",
         "bad_relative_include",
-        "Path references a path above the execution root.",
+        "../.. references a path above the execution root (..).",
         "cc_library(name='bad_relative_include', srcs=[], includes=['../..'])");
   }
 

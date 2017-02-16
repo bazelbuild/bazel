@@ -139,7 +139,6 @@ public class Artifact
     throw new ComparisonException("Cannot compare artifact with " + EvalUtils.getDataTypeName(o));
   }
 
-
   /** An object that can expand middleman artifacts. */
   public interface ArtifactExpander {
 
@@ -211,7 +210,6 @@ public class Artifact
     this.hashCode = path.hashCode();
     this.path = path;
     this.root = root;
-    this.execPath = execPath;
     // These two lines establish the invariant that
     // execPath == rootRelativePath <=> execPath.equals(rootRelativePath)
     // This is important for isSourceArtifact.
@@ -221,6 +219,7 @@ public class Artifact
           + rootRel + " at " + path + " with root " + root);
     }
     this.rootRelativePath = rootRel.equals(execPath) ? execPath : rootRel;
+    this.execPath = externalfy(execPath);
     this.owner = Preconditions.checkNotNull(owner, path);
   }
 
@@ -369,7 +368,12 @@ public class Artifact
     doc = "Returns true if this is a source file, i.e. it is not generated."
   )
   public final boolean isSourceArtifact() {
-    return execPath == rootRelativePath;
+     // All source roots should, you know, point to sources. However, for embedded binaries, they
+     // are actually created as derived artifacts, so we have to special-case isSourceArtifact to
+     // treat derived roots in the main repo where execPath==rootRelPath as source roots.
+     // Source artifacts have reference-identical execPaths and rootRelativePaths, so use
+     // of == instead of .equals() is intentional here.
+    return execPath == rootRelativePath || root.isSourceRoot();
   }
 
   /**
@@ -540,15 +544,9 @@ public class Artifact
    * For targets in external repositories, this returns the path the artifact live at in the
    * runfiles tree. For local targets, it returns the rootRelativePath.
    */
+  // TODO(kchodorow): remove.
   public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = rootRelativePath;
-    if (relativePath.segmentCount() > 1
-        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
-      // Turn external/repo/foo into ../repo/foo.
-      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      relativePath = new PathFragment("..").getRelative(relativePath);
-    }
-    return relativePath;
+    return externalfy(rootRelativePath);
   }
 
   @SkylarkCallable(
@@ -582,7 +580,23 @@ public class Artifact
             + "runfiles of a binary."
   )
   public final String getExecPathString() {
-    return getExecPath().getPathString();
+    return getExecPath().toString();
+  }
+
+  private PathFragment externalfy(PathFragment relativePath) {
+    if (root.isMainRepo()) {
+      return relativePath;
+    }
+
+    PathFragment prefix;
+    if (root.isSourceRoot()) {
+      prefix = new PathFragment(Label.EXTERNAL_PATH_PREFIX)
+          .getRelative(root.getPath().getBaseName());
+    } else {
+      prefix = new PathFragment(Label.EXTERNAL_PATH_PREFIX)
+          .getRelative(root.getExecRoot().getBaseName());
+    }
+    return prefix.getRelative(relativePath);
   }
 
   /*

@@ -1001,7 +1001,7 @@ public final class BuildConfiguration {
   /**
    * Directories in the output tree.
    *
-   * <p>The computation of the output directory should be a non-injective mapping from
+   * <p>The computation of the output directories should be a non-injective mapping from
    * BuildConfiguration instances to strings. The result should identify the aspects of the
    * configuration that should be reflected in the output file names.  Furthermore the
    * returned string must not contain shell metacharacters.
@@ -1067,15 +1067,15 @@ public final class BuildConfiguration {
 
     Root getRoot(
         RepositoryName repositoryName, String outputDirName, BlazeDirectories directories) {
-      // e.g., execroot/repo1
-      Path execRoot = directories.getExecRoot();
-      // e.g., execroot/repo1/bazel-out/config/bin
+      // e.g., execroot/repo1/../repo2 -> execroot/repo2
+      Path execRoot = directories.getExecRoot().getRelative(repositoryName.getPathUnderExecRoot());
+      // e.g., execroot/repo2/bazel-out/config
       Path outputDir = execRoot.getRelative(directories.getRelativeOutputPath())
           .getRelative(outputDirName);
       if (middleman) {
         return INTERNER.intern(Root.middlemanRoot(execRoot, outputDir, repositoryName.isMain()));
       }
-      // e.g., [[execroot/repo1]/bazel-out/config/bin]
+      // e.g., [[execroot/repo2]/bazel-out/config/bin]
       return INTERNER.intern(
           Root.asDerivedRoot(execRoot, outputDir.getRelative(name), repositoryName.isMain()));
     }

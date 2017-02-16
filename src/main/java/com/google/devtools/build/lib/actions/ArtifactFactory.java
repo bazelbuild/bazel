@@ -337,7 +337,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       dir = repo.getSecond();
     }
 
-    while (dir != null && !dir.equals(baseExecPath)) {
+    while (packageRoots != null && dir != null && !dir.equals(baseExecPath)) {
       Root sourceRoot = packageRoots.get(PackageIdentifier.create(repositoryName, dir));
       if (sourceRoot != null) {
         return sourceRoot;

@@ -477,13 +477,14 @@ public class CppCompileActionBuilder {
         continue;
       }
       // One starting ../ is okay for getting to a sibling repository.
+      PathFragment originalInclude = include;
       if (include.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
         include = include.relativeTo(Label.EXTERNAL_PATH_PREFIX);
       }
-      if (include.isAbsolute()
-          || !PathFragment.EMPTY_FRAGMENT.getRelative(include).normalize().isNormalized()) {
+      if (include.isAbsolute() || !include.normalize().isNormalized()) {
         ruleContext.ruleError(
-            "The include path '" + include + "' references a path outside of the execution root.");
+            "The include path '" + originalInclude
+                + "' references a path outside of the execution root.");
       }
     }
   }

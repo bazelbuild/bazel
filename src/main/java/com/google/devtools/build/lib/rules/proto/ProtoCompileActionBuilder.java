@@ -340,18 +340,7 @@ public class ProtoCompileActionBuilder {
     public Iterable<String> argv() {
       ImmutableList.Builder<String> builder = ImmutableList.builder();
       for (Artifact artifact : transitiveImports) {
-        builder.add(
-            "-I"
-                + artifact
-                    .getRootRelativePath()
-                    .relativeTo(
-                        artifact
-                            .getOwnerLabel()
-                            .getPackageIdentifier()
-                            .getRepository()
-                            .getPathUnderExecRoot())
-                + "="
-                + artifact.getExecPathString());
+        builder.add("-I" + artifact.getRootRelativePath() + "=" + artifact.getExecPathString());
       }
       if (protosInDirectDependencies != null) {
         ArrayList<String> rootRelativePaths = new ArrayList<>();

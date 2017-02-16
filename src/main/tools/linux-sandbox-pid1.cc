@@ -297,7 +297,8 @@ static void MountFilesystems() {
 static bool ShouldBeWritable(char *mnt_dir) {
   mnt_dir += strlen(opt.sandbox_root_dir);
 
-  if (strcmp(mnt_dir, opt.working_dir) == 0) {
+  char *working_parent = dirname(strdupa(opt.working_dir));
+  if (strncmp(working_parent, mnt_dir, strlen(working_parent)) == 0) {
     return true;
   }
 

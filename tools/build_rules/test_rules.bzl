@@ -188,8 +188,11 @@ def _rule_test_impl(ctx):
     prefix_parts = []
 
     if rule_.label.workspace_root:
-      # Create a prefix that is correctly relative to the output of this rule.
-      prefix_parts = ["..", strip_prefix("external/", rule_.label.workspace_root)]
+      if rule_.label.workspace_root.startswith(".."):
+        prefix_parts = [rule_.label.workspace_root]
+      else:
+        # Create a prefix that is correctly relative to the output of this rule.
+        prefix_parts = ["..", strip_prefix("external/", rule_.label.workspace_root)]
 
     if rule_.label.package:
       prefix_parts.append(rule_.label.package)

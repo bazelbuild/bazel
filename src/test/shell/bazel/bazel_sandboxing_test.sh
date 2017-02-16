@@ -81,8 +81,8 @@ genrule(
    name = "tooldir",
    srcs = [],
    outs = ["tooldir.txt"],
-   cmd = "ls -l external/bazel_tools/tools/genrule | tee $@ >&2; " +
-       "cat external/bazel_tools/tools/genrule/genrule-setup.sh >&2",
+   cmd = "ls -l ../bazel_tools/tools/genrule | tee $@ >&2; " +
+       "cat ../bazel_tools/tools/genrule/genrule-setup.sh >&2",
 )
 
 genrule(
@@ -551,13 +551,14 @@ EOF
 
   # Replace the target_root_placeholder with the actual target_root
   sed -i "s|target_root_placeholder|$target_root|g" downloaded_toolchain/CROSSTOOL
+  sed -i "s|external/|../|g" downloaded_toolchain/CROSSTOOL
 
   # Prepare the bazel command flags
   flags="--crosstool_top=@x86_64_unknown_linux_gnu//:toolchain --verbose_failures --spawn_strategy=sandboxed"
   flags="${flags} --sandbox_add_mount_pair=${source}:${target}"
 
   # Execute the bazel build command without creating the target. Should fail.
-  bazel clean --expunge &> $TEST_log
+  rm -rf "$(dirname $target)"
   bazel build $flags //:hello-world &> $TEST_log && fail "Should fail"
   expect_log "Bazel only supports bind mounting on top of existing files/directories."
 

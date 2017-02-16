@@ -654,7 +654,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
   /** Returns whether this {@link Label} refers to an external repository. */
   private static boolean isExternal(Label label) {
-    return label.getWorkspaceRoot().startsWith("external");
+    return label.getWorkspaceRoot().startsWith(Label.EXTERNAL_PATH_PREFIX);
   }
 
   private JavaIdeInfo makeJavaIdeInfo(

@@ -636,6 +636,13 @@ java_binary(
         '--g=$(JAVABASE)',
     ],
 )
+
+genrule(
+    name = "javabase",
+    srcs = [],
+    cmd = "echo $(JAVABASE) > $@",
+    outs = ["javabase.out"],
+)
 EOF
 
   cat >$pkg/java/com/google/jvmflags/Foo.java <<EOF
@@ -643,8 +650,9 @@ package com.google.jvmflags;
 public class Foo { public static void main(String[] args) {} }
 EOF
 
-  bazel build //$pkg/java/com/google/jvmflags:foo || fail "build failed"
+  bazel build //$pkg/java/com/google/jvmflags:all || fail "build failed"
 
+  javabase="$(cat ${PRODUCT_NAME}-genfiles/$pkg/java/com/google/jvmflags/javabase.out)"
   STUBSCRIPT=${PRODUCT_NAME}-bin/$pkg/java/com/google/jvmflags/foo
   [ -e $STUBSCRIPT ] || fail "$STUBSCRIPT not found"
 
@@ -655,7 +663,7 @@ EOF
       " --d=\"double_double\" " \
       ' --e=no_quotes ' \
       ' --f=stuff$to"escape\\ ' \
-      " --g=${runfiles_relative_javabase}" \
+      " --g=${javabase}" \
       ; do
     # NOTE: don't test the full path of the JDK, it's architecture-dependent.
     assert_contains $flag $STUBSCRIPT

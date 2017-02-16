@@ -152,8 +152,8 @@ public final class SymlinkTreeHelper {
       args.add("--use_metadata");
     }
 
-    args.add(inputManifest.relativeTo(execRoot).getPathString());
-    args.add(symlinkTreeRoot.relativeTo(execRoot).getPathString());
+    args.add(inputManifest.getPathString());
+    args.add(symlinkTreeRoot.getPathString());
 
     return args;
   }

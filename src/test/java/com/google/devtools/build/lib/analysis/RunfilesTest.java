@@ -21,15 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -321,37 +318,36 @@ public class RunfilesTest extends FoundationTestCase {
 
   @Test
   public void testLegacyRunfilesStructure() {
-    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace/external/repo"));
     PathFragment workspaceName = new PathFragment("wsname");
-    PathFragment pathB = new PathFragment("external/repo/b");
+    PathFragment pathB = new PathFragment("b");
     Artifact artifactB = new Artifact(pathB, root);
 
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, true);
 
     Map<PathFragment, Artifact> inputManifest = Maps.newHashMap();
-    inputManifest.put(pathB, artifactB);
+    inputManifest.put(new PathFragment("../repo").getRelative(pathB), artifactB);
     Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
         Runfiles.ConflictPolicy.WARN, reporter, null);
     builder.addUnderWorkspace(inputManifest, checker);
 
     assertThat(builder.build().entrySet()).containsExactly(
-        Maps.immutableEntry(workspaceName.getRelative(pathB), artifactB),
+        Maps.immutableEntry(workspaceName.getRelative("external/repo/b"), artifactB),
         Maps.immutableEntry(new PathFragment("repo/b"), artifactB));
     assertNoEvents();
   }
 
   @Test
   public void testRunfileAdded() {
-    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace/external/repo"));
     PathFragment workspaceName = new PathFragment("wsname");
-    PathFragment pathB = new PathFragment("external/repo/b");
+    PathFragment pathB = new PathFragment("b");
     Artifact artifactB = new Artifact(pathB, root);
 
     Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, false);
 
-    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
-        .put(pathB, artifactB)
-        .build();
+    Map<PathFragment, Artifact> inputManifest = ImmutableMap.of(
+        new PathFragment("../repo").getRelative(pathB), artifactB);
     Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
         Runfiles.ConflictPolicy.WARN, reporter, null);
     builder.addUnderWorkspace(inputManifest, checker);
@@ -360,31 +356,6 @@ public class RunfilesTest extends FoundationTestCase {
         Maps.immutableEntry(workspaceName.getRelative(".runfile"), null),
         Maps.immutableEntry(new PathFragment("repo/b"), artifactB));
     assertNoEvents();
-  }
-
-  // TODO(kchodorow): remove this once the default workspace name is always set.
-  @Test
-  public void testConflictWithExternal() {
-    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
-    PathFragment pathB = new PathFragment("repo/b");
-    PathFragment externalPathB = Label.EXTERNAL_PACKAGE_NAME.getRelative(pathB);
-    Artifact artifactB = new Artifact(pathB, root);
-    Artifact artifactExternalB = new Artifact(externalPathB, root);
-
-    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(
-        PathFragment.EMPTY_FRAGMENT, false);
-
-    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
-        .put(pathB, artifactB)
-        .put(externalPathB, artifactExternalB)
-        .build();
-    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
-        Runfiles.ConflictPolicy.WARN, reporter, null);
-    builder.addUnderWorkspace(inputManifest, checker);
-
-    assertThat(builder.build().entrySet()).containsExactly(
-        Maps.immutableEntry(new PathFragment("repo/b"), artifactExternalB));
-    checkConflictWarning();
   }
 
   @Test

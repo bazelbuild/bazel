@@ -166,7 +166,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     assertThat(protoCompileAction.getArguments())
         .contains(
             String.format(
-                "--cpp_out=%s/external/bla",
+                "--cpp_out=../bla/%s",
                 getTargetConfiguration().getGenfilesFragment().toString()));
   }
 

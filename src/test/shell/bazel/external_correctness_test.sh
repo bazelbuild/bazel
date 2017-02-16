@@ -142,8 +142,8 @@ genrule(
 )
 EOF
   bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
-  assert_contains "bazel-out/local.*-fastbuild/genfiles/external/a/b/c" \
-    "bazel-genfiles/external/a/b/c/d"
+  assert_contains "a/bazel-out/local-fastbuild/genfiles/b/c" \
+    "$(bazel info execution_root)/../a/bazel-out/local-fastbuild/genfiles/b/c/d"
 }
 
 function test_package_group_in_external_repos() {
@@ -202,7 +202,8 @@ local_repository(
 EOF
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
-  assert_contains 1.0 bazel-genfiles/external/remote2/x.out
+  local execroot="$(bazel info execution_root)"
+  assert_contains 1.0 "$execroot/../remote2/bazel-out/local-fastbuild/genfiles/x.out"
 }
 
 function test_visibility_attributes_in_external_repos() {
@@ -277,16 +278,16 @@ config_setting(name = "four", values = { "define": "ARG=four" })
 EOF
 
   bazel build @r//a:gr || fail "build failed"
-  assert_contains "default" bazel-genfiles/external/r/a/gro
+  local execroot="$(bazel info execution_root)"
+  assert_contains "default" "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/gro"
   bazel build @r//a:gr --define=ARG=one|| fail "build failed"
-  assert_contains "one" bazel-genfiles/external/r/a/gro
+  assert_contains "one" "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/gro"
   bazel build @r//a:gr --define=ARG=two || fail "build failed"
-  assert_contains "two" bazel-genfiles/external/r/a/gro
+  assert_contains "two" "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/gro"
   bazel build @r//a:gr --define=ARG=three || fail "build failed"
-  assert_contains "three" bazel-genfiles/external/r/a/gro
+  assert_contains "three" "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/gro"
   bazel build @r//a:gr --define=ARG=four || fail "build failed"
-  assert_contains "four" bazel-genfiles/external/r/a/gro
-
+  assert_contains "four" "$execroot/../r/bazel-out/local-fastbuild/genfiles/a/gro"
 }
 
 function top_level_dir_changes_helper() {
@@ -308,16 +309,17 @@ genrule(
 )
 EOF
   cd m
+  local execroot="$(bazel info execution_root)"
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
   touch ../r/three
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/three" bazel-genfiles/external/r/fg.out
+  assert_contains "../r/three" "$execroot/../r/bazel-out/local-fastbuild/genfiles/fg.out"
   touch ../r/subdir/four
   bazel "$batch_flag" build @r//:fg &> $TEST_log || \
     fail "Expected build to succeed"
-  assert_contains "external/r/subdir/four" bazel-genfiles/external/r/fg.out
+  assert_contains "../r/subdir/four" "$execroot/../r/bazel-out/local-fastbuild/genfiles/fg.out"
 }
 
 function test_top_level_dir_changes_batch() {
