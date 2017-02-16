@@ -15,12 +15,3 @@ Read the [concepts](concepts.md) behind Skylark and try the
 [standard library](lib/globals.html).
 -->
 
-
-## How can I profile my code?
-
-```shell
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
-$ bazel analyze-profile /tmp/prof --html --html_details
-```
-
-Then, open the generated HTML file (`/tmp/prof.html` in the example).

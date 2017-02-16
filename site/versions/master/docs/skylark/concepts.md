@@ -123,7 +123,7 @@ fizz_buzz(20)
 Because evaluation of BUILD and .bzl files is performed in parallel, there are
 some restrictions in order to guarantee thread-safety and determinism. Two
 mutable data structures are available: [lists](lib/list.html) and
-[dicts](lib/dict.html). Unlike in Python, [sets](lib/set.html) are not mutable.
+[dicts](lib/dict.html).
 
 In a build, there are many "evaluation contexts": each `.bzl` file and each
 `BUILD` file is loaded in a different context. Each rule is also analyzed in a
@@ -174,19 +174,18 @@ it, even when the module has not yet been frozen.
 In addition to the mutability restrictions, there are also differences with
 Python:
 
-* All global variables cannot be reassigned.
+* Global variables cannot be reassigned.
 
 * `for` statements are not allowed at the top-level; factor them into functions
   instead.
 
-* Sets and dictionaries have a deterministic order of iteration (see
-  [documentation](lib/globals.html#set) for sets).
+* Dictionaries have a deterministic order of iteration.
 
 * Recursion is not allowed.
 
-* Sets have reference equality semantics and can be stored in other sets.
+* Int type is limited to 32-bit signed integers.
 
-* Lists and other mutable types may be stored in sets and in dictionary
+* Lists and other mutable types may be stored in dictionary
   keys once they are frozen.
 
 * Modifying a collection during iteration is an error. You can avoid the error
@@ -205,18 +204,23 @@ Python:
   consistent with Python 3. Note that this means you are unable to sort lists
   that contain mixed types of values.
 
+* Tuple syntax is more restrictive. You may use a trailing comma only when the
+  tuple is between parentheses, e.g. write `(1,)` instead of `1,`.
+
+* Strings are represented with double-quotes (e.g. when you
+  call [repr](lib/globals.html#repr)).
+
 The following Python features are not supported:
 
+* implicit string concatenation (use explicit `+` operator)
 * `class` (see [`struct`](lib/globals.html#struct) function)
 * `import` (see [`load`](#loading-a-skylark-extension) statement)
 * `while`, `yield`
-* set literals (`{2, 4, 6}`) and set comprehensions
-  (`{2*x for x in [1, 2, 3]}`). Instead, call `set` on lists (`set([2, 4, 6])`)
-  and list comprehensions (`set([2*x for x in [1, 2, 3]])`).
+* float and set types
 * `lambda` and nested functions
 * `is` (use `==` instead)
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
-  for fatal errors).
+  for fatal errors)
 * `global`, `nonlocal`
 * most builtin functions, most methods
 
@@ -277,5 +281,17 @@ These changes concern the `load()` syntax in particular.
   At some point this will change. In order to load a .bzl from another package
   it will need to be exported, such as by using an `exports_files` declaration.
   The exact syntax has not yet been decided.
+
+
+## Profiling the code
+
+To profile your code and analyze the performance, use the `--profile` flag:
+
+```shell
+$ bazel build --nobuild --profile=/tmp/prof //path/to:target
+$ bazel analyze-profile /tmp/prof --html --html_details
+```
+
+Then, open the generated HTML file (`/tmp/prof.html` in the example).
 
 
