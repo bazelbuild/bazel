@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 
 import java.util.Map;
 
 /** A source file that is an input to a c++ compilation. */
-@AutoValue
 public abstract class CppSource {
+  private final Artifact source;
+  private final Label label;
+  private final Map<String, String> buildVariables;
 
   /**
    * Types of sources.
@@ -33,9 +34,76 @@ public abstract class CppSource {
     CLIF_INPUT_PROTO,
   }
 
+  public CppSource(Artifact source, Label label, Map<String, String> buildVariables) {
+    this.source = source;
+    this.label = label;
+    this.buildVariables = buildVariables;
+  }
+
+  /**
+   * Returns the actual source file.
+   */
+  public Artifact getSource() {
+    return source;
+  }
+
+  /**
+   * Returns the label from which this source arises in the build graph.
+   */
+  public Label getLabel() {
+    return label;
+  }
+
+  /**
+   * Returns build variables to be used specifically in the compilation of this source.
+   */
+  public Map<String, String> getBuildVariables() {
+    return buildVariables;
+  }
+
+  /**
+   * Returns the type of this source.
+   */
+  abstract Type getType();
+
+  private static class SourceCppSource extends CppSource {
+
+    protected SourceCppSource(Artifact source, Label label, Map<String, String> buildVariables) {
+      super(source, label, buildVariables);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.SOURCE;
+    }
+  }
+
+  private static class HeaderCppSource extends CppSource {
+    protected HeaderCppSource(Artifact source, Label label, Map<String, String> buildVariables) {
+      super(source, label, buildVariables);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.HEADER;
+    }
+  }
+
+  private static class ClifProtoCppSource extends CppSource {
+    protected ClifProtoCppSource(Artifact source, Label label, Map<String, String> buildVariables) {
+      super(source, label, buildVariables);
+    }
+
+    @Override
+    public Type getType() {
+      return Type.CLIF_INPUT_PROTO;
+    }
+  }
+
+
+
   /**
    * Creates a {@code CppSource}.
-   * 
    * @param source  the actual source file
    * @param label  the label from which this source arises in the build graph
    * @param buildVariables  build variables that should be used specifically in the compilation
@@ -44,26 +112,15 @@ public abstract class CppSource {
    */
   static CppSource create(Artifact source, Label label, Map<String, String> buildVariables,
       Type type) {
-    return new AutoValue_CppSource(source, label, buildVariables, type);
+    switch (type) {
+        case SOURCE:
+            return new SourceCppSource(source, label, buildVariables);
+        case HEADER:
+           return new HeaderCppSource(source, label, buildVariables);
+        case CLIF_INPUT_PROTO:
+           return new ClifProtoCppSource(source, label, buildVariables);
+        default:
+           throw new IllegalStateException("Unhandled CppSource type: " + type);
+    }
   }
-
-  /**
-   * Returns the actual source file.
-   */
-  abstract Artifact getSource();
-
-  /**
-   * Returns the label from which this source arises in the build graph.
-   */
-  abstract Label getLabel();
-
-  /**
-   * Returns build variables to be used specifically in the compilation of this source.
-   */
-  abstract Map<String, String> getBuildVariables();
-
-  /**
-   * Returns the type of this source.
-   */
-  abstract Type getType();
 }
