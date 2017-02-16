@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.profiler;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
-
 import javax.annotation.Nullable;
 
 /**
@@ -263,40 +261,26 @@ public class AutoProfiler implements AutoCloseable {
     }
   }
 
-  /**
-   * {@link ElapsedTimeReceiver} that logs a message in {@link #accept} if the elapsed time is at
-   * least a given threshold.
-   */
-  public static class LoggingElapsedTimeReceiver implements ElapsedTimeReceiver {
-    private static final LoggingElapsedTimeReceiverFactory FACTORY =
-        new LoggingElapsedTimeReceiverFactory() {
-          @Override
-          public ElapsedTimeReceiver create(
-              String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit) {
-            return new LoggingElapsedTimeReceiver(
-                taskDescription, logger, minTimeForLogging, timeUnit);
-          }
-        };
-
+  /** {@link ElapsedTimeReceiver} that will not log a message if the time elapsed is too small. */
+  public abstract static class FilteringElapsedTimeReceiver implements ElapsedTimeReceiver {
     private final String taskDescription;
-    protected final Logger logger;
     private final TimeUnit timeUnit;
     private final long minNanosForLogging;
 
-    protected LoggingElapsedTimeReceiver(
-        String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit) {
+    protected FilteringElapsedTimeReceiver(
+        String taskDescription, long minTimeForLogging, TimeUnit timeUnit) {
       this.taskDescription = taskDescription;
-      this.logger = logger;
       this.timeUnit = timeUnit;
       this.minNanosForLogging = timeUnit.toNanos(minTimeForLogging);
     }
 
+    protected abstract void log(String logMessage);
     /**
      * Returns a message about the amount of time spent doing a task if {@code elapsedTimeNanos} is
      * at least {@link #minNanosForLogging} and null otherwise.
      */
     @Nullable
-    protected String loggingMessage(long elapsedTimeNanos) {
+    private String loggingMessage(long elapsedTimeNanos) {
       if (elapsedTimeNanos >= minNanosForLogging) {
         return String.format(
             "Spent %d %s doing %s",
@@ -309,11 +293,40 @@ public class AutoProfiler implements AutoCloseable {
     }
 
     @Override
-    public void accept(long elapsedTimeNanos) {
+    public final void accept(long elapsedTimeNanos) {
       String logMessage = loggingMessage(elapsedTimeNanos);
       if (logMessage != null) {
-        logger.info(logMessage);
+        log(logMessage);
       }
+    }
+  }
+
+  /**
+   * {@link ElapsedTimeReceiver} that logs a message in {@link #accept} if the elapsed time is at
+   * least a given threshold.
+   */
+  public static class LoggingElapsedTimeReceiver extends FilteringElapsedTimeReceiver {
+    private static final LoggingElapsedTimeReceiverFactory FACTORY =
+        new LoggingElapsedTimeReceiverFactory() {
+          @Override
+          public ElapsedTimeReceiver create(
+              String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit) {
+            return new LoggingElapsedTimeReceiver(
+                taskDescription, logger, minTimeForLogging, timeUnit);
+          }
+        };
+
+    protected final Logger logger;
+
+    protected LoggingElapsedTimeReceiver(
+        String taskDescription, Logger logger, long minTimeForLogging, TimeUnit timeUnit) {
+      super(taskDescription, minTimeForLogging, timeUnit);
+      this.logger = logger;
+    }
+
+    @Override
+    protected void log(String logMessage) {
+      logger.info(logMessage);
     }
   }
 
