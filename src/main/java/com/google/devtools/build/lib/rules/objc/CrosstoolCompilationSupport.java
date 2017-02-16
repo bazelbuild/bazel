@@ -327,7 +327,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .add(CppRuleClasses.ONLY_DOTH_HEADERS_IN_MODULE_MAPS)
             .add(CppRuleClasses.COMPILE_ACTION_FLAGS_IN_FLAG_SET)
             .add(CppRuleClasses.DEPENDENCY_FILE)
-            .add(CppRuleClasses.INCLUDE_PATHS);
+            .add(CppRuleClasses.INCLUDE_PATHS)
+            .add(configuration.getCompilationMode().toString());
 
     if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
       activatedCrosstoolSelectables.add(OBJC_MODULE_FEATURE_NAME);
