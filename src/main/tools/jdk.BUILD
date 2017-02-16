@@ -126,15 +126,13 @@ filegroup(
         ]),
 )
 
-# Bazel looks for a label ending in -<cpu>, or -default if it can't find one.
-filegroup(
+java_runtime_suite(
     name = "jdk",
-    srcs = [
-        ":jdk-default",
-    ],
+    runtimes = {},
+    default = ":jdk-default",
 )
 
-filegroup(
+java_runtime(
     name = "jdk-default",
     srcs = [
         ":jdk-bin",
