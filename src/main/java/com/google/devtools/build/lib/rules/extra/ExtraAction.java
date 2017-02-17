@@ -114,15 +114,18 @@ public final class ExtraAction extends SpawnAction {
 
   @Nullable
   @Override
-  public synchronized Iterable<Artifact> discoverInputs(
-      ActionExecutionContext actionExecutionContext)
+  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Preconditions.checkState(discoversInputs(), this);
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
-    Iterable<Artifact> additionalInputs = shadowedAction.discoverInputs(actionExecutionContext);
-    updateInputs(createInputs(additionalInputs, extraActionInputs, runfilesSupplier));
-    return additionalInputs;
+    if (shadowedAction.discoversInputs() && shadowedAction instanceof AbstractAction) {
+      Iterable<Artifact> additionalInputs =
+          ((AbstractAction) shadowedAction).getInputFilesForExtraAction(actionExecutionContext);
+      updateInputs(createInputs(additionalInputs, extraActionInputs, runfilesSupplier));
+      return ImmutableSet.copyOf(additionalInputs);
+    }
+    return null;
   }
 
   @Override
