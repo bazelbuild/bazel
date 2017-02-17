@@ -161,7 +161,6 @@ public class CppCompileActionBuilder {
     this.owner = other.owner;
     this.features.addAll(other.features);
     this.featureConfiguration = other.featureConfiguration;
-    this.variables = other.variables;
     this.sourceFile = other.sourceFile;
     this.sourceLabel = other.sourceLabel;
     this.mandatoryInputsBuilder = NestedSetBuilder.<Artifact>stableOrder()
@@ -334,7 +333,7 @@ public class CppCompileActionBuilder {
     }
 
     NestedSet<Artifact> realMandatoryInputs = buildMandatoryInputs();
-    NestedSet<Artifact> allInputs = buildAllInputs();
+    NestedSet<Artifact> allInputs = buildAllInputs(realMandatoryInputs);
 
     NestedSetBuilder<Artifact> prunableInputBuilder = NestedSetBuilder.stableOrder();
     prunableInputBuilder.addTransitive(context.getDeclaredIncludeSrcs());
@@ -429,8 +428,7 @@ public class CppCompileActionBuilder {
   /**
    * Returns the list of all inputs for the {@link CppCompileAction} as configured.
    */
-  NestedSet<Artifact> buildAllInputs() {
-    NestedSet<Artifact> mandatoryInputs = buildMandatoryInputs();
+  NestedSet<Artifact> buildAllInputs(NestedSet<Artifact> mandatoryInputs) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (optionalSourceFile != null) {
       builder.add(optionalSourceFile);

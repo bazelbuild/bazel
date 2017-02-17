@@ -67,7 +67,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     this.categories = categories;
     this.actionOwner = actionOwner;
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
-    this.allInputs = cppCompileActionBuilder.buildAllInputs();
+    this.allInputs = cppCompileActionBuilder.buildAllInputs(this.mandatoryInputs);
   }
 
   @Override
@@ -94,7 +94,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
     builder.setOutputs(outputTreeFileArtifact, null);
 
     CcToolchainFeatures.Variables.Builder buildVariables =
-        new CcToolchainFeatures.Variables.Builder(builder.getVariables());
+        new CcToolchainFeatures.Variables.Builder(cppCompileActionBuilder.getVariables());
     buildVariables.overrideStringVariable(
         "source_file", sourceTreeFileArtifact.getExecPathString());
     buildVariables.overrideStringVariable(
