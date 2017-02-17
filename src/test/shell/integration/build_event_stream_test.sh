@@ -161,12 +161,14 @@ function test_cached_test_results() {
     || fail "Clean testing pkg:true failed"
   expect_log '^test_result'
   expect_log 'name:.*test.log'
+  expect_log 'name:.*test.xml'
   expect_log_once '^progress '
   expect_not_log 'aborted'
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "Second testing of pkg:true failed"
   expect_log '^test_result'
   expect_log 'name:.*test.log'
+  expect_log 'name:.*test.xml'
   expect_log_once '^progress '
   expect_not_log 'aborted'
 }

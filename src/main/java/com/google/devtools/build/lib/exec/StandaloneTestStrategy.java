@@ -406,6 +406,6 @@ public class StandaloneTestStrategy extends TestStrategy {
   @Override
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData data) {
-    return new TestResult(action, data, /*cached*/ true);
+    return new TestResult(action, data, /*cached*/ true, execRoot);
   }
 }
