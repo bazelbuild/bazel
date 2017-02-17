@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closeables;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.rules.test.TestTargetExecutionSettings;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileWatcher;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -49,7 +47,6 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -159,10 +156,14 @@ public abstract class TestStrategy implements TestActionContext {
    *     collect coverage data. If this is an empty string, it is ignored.
    * @param testAction The test action.
    * @return the command line as string list.
+   * @throws ExecException 
    */
   protected List<String> getArgs(String coverageScript, TestRunnerAction testAction)
       throws ExecException {
     List<String> args = Lists.newArrayList();
+    // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
+    // configuration, not the machine Bazel happens to run on. Change this to something like:
+    // testAction.getConfiguration().getTargetOS() == OS.WINDOWS
     if (OS.getCurrent() == OS.WINDOWS) {
       args.add(testAction.getShExecutable().getPathString());
       args.add("-c");
@@ -170,39 +171,44 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     Artifact testSetup = testAction.getRuntimeArtifact(TEST_SETUP_BASENAME);
-    args.add(testSetup.getExecPathString());
+    args.add(testSetup.getExecPath().getCallablePathString());
+
+    if (testAction.isCoverageMode()) {
+      args.add(coverageScript);
+    }
+
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
 
-    List<String> execArgs = new ArrayList<>();
-    if (!coverageScript.isEmpty() && testAction.isCoverageMode()) {
-      execArgs.add(coverageScript);
+    // Insert the command prefix specified by the "--run_under=<command-prefix>" option, if any.
+    if (execSettings.getRunUnder() != null) {
+      addRunUnderArgs(testAction, args);
     }
 
-    // Execute the test using the alias in the runfiles tree, as mandated by
-    // the Test Encyclopedia.
-    execArgs.add(execSettings.getExecutable().getRootRelativePath().getPathString());
-    execArgs.addAll(execSettings.getArgs());
-
-    // Insert the command prefix specified by the "--run_under=<command-prefix>" option,
-    // if any.
-    if (execSettings.getRunUnder() == null) {
-      args.addAll(execArgs);
-    } else if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getPathString());
-      args.addAll(execSettings.getRunUnder().getOptions());
-      args.addAll(execArgs);
-    } else {
-      args.add(testAction.getConfiguration().getShellExecutable().getPathString());
-      args.add("-c");
-
-      String runUnderCommand = ShellEscaper.escapeString(execSettings.getRunUnder().getCommand());
-      args.add(
-          runUnderCommand
-              + ' '
-              + ShellEscaper.escapeJoinAll(
-                  Iterables.concat(execSettings.getRunUnder().getOptions(), execArgs)));
-    }
+    // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
+    args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
+    args.addAll(execSettings.getArgs());
     return args;
+  }
+
+  private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
+    TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    if (execSettings.getRunUnderExecutable() != null) {
+      args.add(execSettings.getRunUnderExecutable().getRootRelativePath().getCallablePathString());
+    } else {
+      String command = execSettings.getRunUnder().getCommand();
+      // --run_under commands that do not contain '/' are either shell built-ins or need to be
+      // located on the PATH env, so we wrap them in a shell invocation. Note that we shell tokenize
+      // the --run_under parameter and getCommand only returns the first such token.
+      boolean needsShell = !command.contains("/");
+      if (needsShell) {
+        args.add(testAction.getConfiguration().getShellExecutable().getPathString());
+        args.add("-c");
+        args.add("\"$@\"");
+        args.add("/bin/sh"); // Sets $0.
+      }
+      args.add(command);
+    }
+    args.addAll(testAction.getExecutionSettings().getRunUnder().getOptions());
   }
 
   /**
