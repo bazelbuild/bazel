@@ -384,13 +384,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       // TODO(bazel-team): implement dynamic linking with LIPO
       this.dynamicMode = DynamicMode.OFF;
     } else {
-      switch (cppOptions.dynamicMode) {
-        case DEFAULT:
-          this.dynamicMode = DynamicMode.DEFAULT; break;
-        case OFF: this.dynamicMode = DynamicMode.OFF; break;
-        case FULLY: this.dynamicMode = DynamicMode.FULLY; break;
-        default: throw new IllegalStateException("Invalid dynamicMode.");
-      }
+      this.dynamicMode = cppOptions.dynamicMode;
     }
 
     this.fdoZip = params.fdoZip;

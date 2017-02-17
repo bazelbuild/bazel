@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.LibcTop;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -69,21 +70,11 @@ public class CppOptions extends FragmentOptions {
   }
 
   /**
-   * The same as DynamicMode, but on command-line we also allow AUTO.
+   * Converter for {@link DynamicMode}
    */
-  public enum DynamicModeFlag {
-    OFF,
-    DEFAULT,
-    FULLY,
-    AUTO
-  }
-
-  /**
-   * Converter for DynamicModeFlag
-   */
-  public static class DynamicModeConverter extends EnumConverter<DynamicModeFlag> {
+  public static class DynamicModeConverter extends EnumConverter<DynamicMode> {
     public DynamicModeConverter() {
-      super(DynamicModeFlag.class, "dynamic mode");
+      super(DynamicMode.class, "dynamic mode");
     }
   }
 
@@ -226,7 +217,7 @@ public class CppOptions extends FragmentOptions {
             + "will be linked dynamically. 'off' means that all libraries will be linked "
             + "in mostly static mode."
   )
-  public DynamicModeFlag dynamicMode;
+  public DynamicMode dynamicMode;
 
   @Option(
     name = "experimental_link_compile_output_separately",
