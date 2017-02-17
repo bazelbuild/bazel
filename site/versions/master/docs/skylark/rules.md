@@ -7,15 +7,19 @@ title: Rules
 **Status: Experimental**. We may make breaking changes to the API, but we will
   help you update your code.
 
-A rule defines a series of actions that Bazel should perform on inputs to get a
-set of outputs.  For example, a C++ binary rule might take a set of .cpp
-files (the inputs), run `g++` on them (the action), and return an executable
-file (the output).
+A rule defines a series of [actions](#actions) that Bazel should perform on
+inputs to get a set of outputs. For example, a C++ binary rule might take a set
+of .cpp files (the inputs), run `g++` on them (the action), and return an
+executable file (the output).
 
 Note that, from Bazel's perspective, `g++` and the standard C++ libraries are
 also inputs to this rule. As a rule writer, you must consider not only the
 user-provided inputs to a rule, but also all of the tools and libraries required
 to execute the actions (called _implicit inputs_).
+
+Before creating or modifying any rule, make sure you are familiar with the
+[extensibility model](concepts.md) (understand the three phases and the
+differences between macros and rules).
 
 ## Rule creation
 
@@ -40,8 +44,9 @@ attribute, you can refer to it with a label, and you can see it in
 The rule is analyzed when you explicitly build it, or if it is a dependency of
 the build. In this case, Bazel will execute its `implementation` function. This
 function decides what the outputs of the rule are and how to build them (using
-`actions`). During analysis, no external command can be executed: actions will
-be run in the execution phase.
+[actions](#actions)). During the [analysis phase](concepts.md#evaluation-model),
+no external command can be executed. Instead, actions are registered and
+will be run in the execution phase, if their output is needed for the build.
 
 ## Attributes
 
@@ -93,13 +98,14 @@ metal_compile = rule(
 
 ## Implementation function
 
-Every rule requires an `implementation` function. It contains the actual
-logic of the rule and is executed strictly in the Analysis Phase. The function
-has exactly one input parameter, `ctx`, and it may return
-the [runfiles](#runfiles) and [providers](#providers)
-of the rule. The input parameter `ctx` can be used to access attribute values,
-outputs and dependent targets, and files. It also has some helper functions.
-See [the library](lib/ctx.html) for more context. Example:
+Every rule requires an `implementation` function. It contains the actual logic
+of the rule and is executed strictly in the
+[analysis phase](concepts.md#evaluation-model). The function has exactly one
+input parameter, `ctx`, and it may return the [runfiles](#runfiles)
+and [providers](#providers) of the rule. The input parameter `ctx` can be used
+to access attribute values, outputs and dependent targets, and files. It also
+has some helper functions. See [the library](lib/ctx.html) for more context.
+Example:
 
 ```python
 def impl(ctx):
@@ -215,15 +221,16 @@ There are three ways to create actions:
 
 Actions take a set (which can be empty) of input files and generate a (non-empty)
 set of output files.
-The set of input and output files must be known during the analysis phase. It
-might depend on the value of attributes and information from dependencies, but
-it cannot depend on the result of the execution. For example, if your action
-runs the unzip command, you must specify which files you expect to be inflated
-(before running unzip).
+The set of input and output files must be known during the
+[analysis phase](concepts.md#evaluation-model). It might depend on the value
+of attributes and information from dependencies, but it cannot depend on the
+result of the execution. For example, if your action runs the unzip command, you
+must specify which files you expect to be inflated (before running unzip).
 
 Actions are comparable to pure functions: They should depend only on the
 provided inputs, and avoid accessing computer information, username, clock,
-network, or I/O devices (except for reading inputs and writing outputs).
+network, or I/O devices (except for reading inputs and writing outputs). This is
+important because the output will be cached and reused.
 
 **If an action generates a file that is not listed in its outputs**: This is
 fine, but the file will be ignored and cannot be used by other rules.
@@ -473,8 +480,8 @@ if ctx.config.coverage_enabled:
 An executable rule is a rule that users can run using `bazel run`.
 
 To make a rule executable, set `executable=True` in the
-[rule function](lib/globals.html#rule). During the analysis
-phase, the rule must generate the output file `ctx.outputs.executable`.
+[rule function](lib/globals.html#rule). The `implementation` function of the
+rule must generate the output file `ctx.outputs.executable`.
 [See example](cookbook.md#outputs-executable)
 
 ## Test rules
@@ -483,8 +490,9 @@ Test rules are run using `bazel test`.
 
 To create a test rule, set `test=True` in the
 [rule function](lib/globals.html#rule). The name of the rule must
-also end with `_test`. Test rules are implicitly executable, which means they
-must generate the output file `ctx.outputs.executable`.
+also end with `_test`. Test rules are implicitly executable, which means that
+the `implementation` function of the rule must generate the output file
+`ctx.outputs.executable`.
 
 Test rules inherit the following attributes: `args`, `flaky`, `local`,
 `shard_count`, `size`, `timeout`.
