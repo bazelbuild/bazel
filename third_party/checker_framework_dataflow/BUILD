@@ -10,6 +10,7 @@ filegroup(
 java_library(
     name = "checker_framework_dataflow",
     srcs = glob(["java/**"]),
+    javacopts = ["-Xep:MissingCasesInEnumSwitch:OFF"],
     deps = [
         "//third_party/checker_framework_javacutil",
         "@local_jdk//:langtools-neverlink",
