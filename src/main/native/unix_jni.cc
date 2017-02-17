@@ -137,10 +137,12 @@ void PostException(JNIEnv *env, int error_number, const std::string& message) {
       exception_classname = "java/io/FileNotFoundException";
       break;
     case EACCES:  // Permission denied
-      exception_classname = "com/google/devtools/build/lib/unix/FileAccessException";
+      exception_classname =
+          "com/google/devtools/build/lib/vfs/FileAccessException";
       break;
     case EPERM:   // Operation not permitted
-      exception_classname = "com/google/devtools/build/lib/unix/FilePermissionException";
+      exception_classname =
+          "com/google/devtools/build/lib/unix/FilePermissionException";
       break;
     case EINTR:   // Interrupted system call
       exception_classname = "java/io/InterruptedIOException";

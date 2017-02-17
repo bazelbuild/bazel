@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.unix;
+package com.google.devtools.build.lib.vfs;
 
 import java.io.IOException;
 
 /**
- * An IOException subclass that is thrown when a POSIX filesystem call returns
- * an EACCES errno. The message is generally "Permission denied".
+ * An IOException subclass that is thrown when a file system access is denied. The message is
+ * generally "Permission denied".
  */
 public class FileAccessException extends IOException {
   /**

@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.unix.FileAccessException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.JavaClock;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;

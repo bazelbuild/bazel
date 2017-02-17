@@ -24,7 +24,6 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
-import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.FileNotFoundException;
