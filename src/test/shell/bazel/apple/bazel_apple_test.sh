@@ -541,11 +541,11 @@ EOF
 }
 
 function test_host_xcodes() {
-  XCODE_VERSION=$(xcodebuild -version | grep "Xcode" \
+  XCODE_VERSION=$(env -i xcodebuild -version | grep "Xcode" \
       | sed -E "s/Xcode (([0-9]|.)+).*/\1/")
-  IOS_SDK=$(xcodebuild -version -sdk | grep iphoneos \
+  IOS_SDK=$(env -i xcodebuild -version -sdk | grep iphoneos \
       | sed -E "s/.*\(iphoneos(([0-9]|.)+)\).*/\1/")
-  MACOSX_SDK=$(xcodebuild -version -sdk | grep macosx \
+  MACOSX_SDK=$(env -i xcodebuild -version -sdk | grep macosx \
       | sed -E "s/.*\(macosx(([0-9]|.)+)\).*/\1/" | head -n 1)
 
   # Unfortunately xcodebuild -version doesn't always pad with trailing .0, so,
