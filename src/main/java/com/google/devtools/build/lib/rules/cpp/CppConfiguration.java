@@ -519,6 +519,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     PathFragment defaultSysroot = toolchain.getBuiltinSysroot().length() == 0
         ? null
         : new PathFragment(toolchain.getBuiltinSysroot());
+    if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
+      throw new IllegalArgumentException("The built-in sysroot '" + defaultSysroot
+          + "' is not normalized.");
+    }
 
     if ((cppOptions.libcTop != null) && (defaultSysroot == null)) {
       throw new InvalidConfigurationException("The selected toolchain " + toolchainIdentifier
@@ -1061,7 +1065,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
       String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
       try {
-        pathPrefix = PackageIdentifier.parse(packageString).getPathUnderExecRoot();
+        pathPrefix = PackageIdentifier.parse(packageString).getSourceRoot();
       } catch (LabelSyntaxException e) {
         throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
       }

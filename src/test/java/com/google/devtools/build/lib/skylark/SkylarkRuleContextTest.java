@@ -348,7 +348,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
-        "/r/BUILD:2:10: Label '@r//:sub/my_sub_lib.h' crosses boundary of "
+        "/external/r/BUILD:2:10: Label '@r//:sub/my_sub_lib.h' crosses boundary of "
             + "subpackage '@r//sub' (perhaps you meant to put the colon here: "
             + "'@r//sub:my_sub_lib.h'?)");
   }

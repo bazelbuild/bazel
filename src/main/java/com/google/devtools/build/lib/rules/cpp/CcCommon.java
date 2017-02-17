@@ -414,7 +414,7 @@ public final class CcCommon {
   List<PathFragment> getSystemIncludeDirs() {
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment pathUnderExecRoot = packageIdentifier.getPathUnderExecRoot();
+    PathFragment packageFragment = packageIdentifier.getPathUnderExecRoot();
     for (String includesAttr : ruleContext.attributes().get("includes", Type.STRING_LIST)) {
       includesAttr = ruleContext.expandMakeVariables("includes", includesAttr);
       if (includesAttr.startsWith("/")) {
@@ -422,14 +422,10 @@ public final class CcCommon {
             "ignoring invalid absolute path '" + includesAttr + "'");
         continue;
       }
-      PathFragment includesPath = pathUnderExecRoot.getRelative(includesAttr).normalize();
-      // It's okay for the includes path to start with ../workspace-name for external repos.
-      if ((packageIdentifier.getRepository().isMain() && !includesPath.isNormalized())
-          || (!packageIdentifier.getRepository().isMain()
-              && !includesPath.startsWith(
-                  packageIdentifier.getRepository().getPathUnderExecRoot()))) {
+      PathFragment includesPath = packageFragment.getRelative(includesAttr).normalize();
+      if (!includesPath.isNormalized()) {
         ruleContext.attributeError("includes",
-            includesAttr + " references a path above the execution root (" + includesPath + ").");
+            "Path references a path above the execution root.");
       }
       if (includesPath.segmentCount() == 0) {
         ruleContext.attributeError(
@@ -439,7 +435,7 @@ public final class CcCommon {
                 + "' resolves to the workspace root, which would allow this rule and all of its "
                 + "transitive dependents to include any file in your workspace. Please include only"
                 + " what you need");
-      } else if (!includesPath.startsWith(pathUnderExecRoot)) {
+      } else if (!includesPath.startsWith(packageFragment)) {
         ruleContext.attributeWarning(
             "includes",
             "'"
@@ -447,14 +443,11 @@ public final class CcCommon {
                 + "' resolves to '"
                 + includesPath
                 + "' not below the relative path of its package '"
-                + pathUnderExecRoot
+                + packageFragment
                 + "'. This will be an error in the future");
       }
       result.add(includesPath);
-      result.add(packageIdentifier.getRepository().getPathUnderExecRoot()
-          .getRelative(ruleContext.getConfiguration().getGenfilesFragment())
-          .getRelative(packageIdentifier.getPackageFragment())
-          .getRelative(includesAttr));
+      result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
     }
     return result;
   }

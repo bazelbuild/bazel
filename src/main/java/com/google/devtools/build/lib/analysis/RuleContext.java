@@ -87,7 +87,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -593,19 +592,6 @@ public final class RuleContext extends TargetContext
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(PathFragment relative, Root root) {
-    // TODO: other root types, is this never a main repo?
-    if (relative.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
-      // This is an external path, use a different root.
-      if (root.isSourceRoot()) {
-        root = Root.asSourceRoot(root.getPath().getRelative(relative.subFragment(0, 2)));
-      } else {
-        boolean isMainRepo = false;
-        Path newExecRoot = root.getExecRoot().getRelative(relative.subFragment(0, 2));
-        root = Root.asDerivedRoot(
-            newExecRoot, newExecRoot.getRelative(root.getExecPath()), isMainRepo);
-      }
-      relative = relative.subFragment(2, relative.segmentCount());
-    }
     return getDerivedArtifact(getPackageDirectory().getRelative(relative), root);
   }
 
@@ -624,7 +610,7 @@ public final class RuleContext extends TargetContext
    * {@link #getUniqueDirectoryArtifact(String, PathFragment, Root)}) ensures that this is the case.
    */
   public PathFragment getPackageDirectory() {
-    return getLabel().getPackageIdentifier().getPackageFragment();
+    return getLabel().getPackageIdentifier().getSourceRoot();
   }
 
   /**

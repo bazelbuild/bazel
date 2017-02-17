@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.Serializable;
 import java.util.Objects;
+
 import javax.annotation.Nullable;
 
 /**
@@ -147,11 +148,7 @@ public final class Root implements Comparable<Root>, Serializable {
    * the empty fragment.
    */
   public PathFragment getExecPath() {
-    if (isMainRepo || isSourceRoot()) {
-      return execPath;
-    }
-    return new PathFragment(Label.EXTERNAL_PATH_PREFIX)
-        .getRelative(execRoot.getBaseName()).getRelative(execPath);
+    return execPath;
   }
 
   @SkylarkCallable(name = "path", structField = true,

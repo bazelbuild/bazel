@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.Staticness;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1541,9 +1540,8 @@ public class CppLinkActionBuilder {
       for (LinkerInput input : linkerInputs) {
         if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY) {
           PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-          Path rootPath = input.getArtifact().getRoot().getExecRoot();
           Preconditions.checkState(
-              rootPath.getRelative(libDir).startsWith(rootPath.getRelative(solibDir)),
+              libDir.startsWith(solibDir),
               "Artifact '%s' is not under directory '%s'.",
               input.getArtifact(),
               solibDir);

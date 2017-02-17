@@ -149,7 +149,7 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
     if (javaBase.getPackageIdentifier().getRepository().isDefault()) {
       return javaBase.getPackageFragment();
     }
-    return javaBase.getPackageIdentifier().getPathUnderExecRoot();
+    return javaBase.getPackageIdentifier().getSourceRoot();
   }
 
   private static Jvm createLegacy(String javaHome) throws InvalidConfigurationException {

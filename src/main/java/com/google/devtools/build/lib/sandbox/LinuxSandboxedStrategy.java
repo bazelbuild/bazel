@@ -112,9 +112,10 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
     Path sandboxTempDir = sandboxPath.getRelative("tmp");
 
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
+
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs);
     try {
       symlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
@@ -123,8 +124,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    SandboxRunner runner = getSandboxRunner(
-        spawn, sandboxPath, sandboxExecRoot, sandboxTempDir, outputs);
+    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot, sandboxTempDir);
     try {
       runSpawn(
           spawn,
@@ -152,8 +152,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
   }
 
   private SandboxRunner getSandboxRunner(
-      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Path sandboxTempDir,
-      ImmutableSet<PathFragment> outputs)
+      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Path sandboxTempDir)
       throws UserExecException {
     if (fullySupported) {
       return new LinuxSandboxRunner(
@@ -161,7 +160,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
           sandboxPath,
           sandboxExecRoot,
           sandboxTempDir,
-          getWritableDirs(sandboxExecRoot, spawn.getEnvironment(), outputs),
+          getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
           getInaccessiblePaths(),
           getTmpfsPaths(),
           getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),

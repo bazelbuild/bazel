@@ -27,8 +27,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # Unpacks the test Git repositories in the test temporary directory.
 function set_up() {
   bazel clean --expunge
-  execroot=$(bazel info execution_root)
-  genfiles=$execroot/../g/bazel-out/local-fastbuild/genfiles
   local repos_dir=$TEST_TMPDIR/repos
   if [ -e "$repos_dir" ]; then
     rm -rf $repos_dir
@@ -270,17 +268,17 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" "$genfiles/go"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 1" "$genfiles/go"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
   cat > WORKSPACE <<EOF
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
 EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" "$genfiles/go"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
 
   cat > WORKSPACE <<EOF
 # This comment line is to change the line numbers, which should not cause Bazel
@@ -290,7 +288,7 @@ EOF
 
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_not_log "Cloning"
-  assert_contains "GIT 2" "$genfiles/go"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
 
 }
 
@@ -303,10 +301,9 @@ function test_git_repository_refetched_when_commit_changes() {
 git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
 EOF
 
-  execroot=$(bazel info execution_root)
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 1" "$genfiles/go"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   cat > WORKSPACE <<EOF
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
@@ -315,7 +312,7 @@ EOF
 
   bazel build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
-  assert_contains "GIT 2" "$genfiles/go"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
 
 function test_git_repository_and_nofetch() {
@@ -326,11 +323,10 @@ function test_git_repository_and_nofetch() {
 git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
 EOF
 
-  execroot=$(bazel info execution_root)
   bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
   expect_log "fetching repositories is disabled"
   bazel build @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 1" "$genfiles/go"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
 
   cat > WORKSPACE <<EOF
 git_repository(name='g', remote='$repo_dir', commit='62777acc')
@@ -339,9 +335,9 @@ EOF
 
   bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
   expect_log "External repository 'g' is not up-to-date"
-  assert_contains "GIT 1" "$genfiles/go"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
   bazel build  @g//:g >& $TEST_log || fail "Build failed"
-  assert_contains "GIT 2" "$genfiles/go"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
 }
 
 # Helper function for setting up the workspace as follows
@@ -356,7 +352,7 @@ function setup_error_test() {
   mkdir -p planets
   cat > planets/planet_info.sh <<EOF
 #!/bin/bash
-cat ../pluto/info
+cat external/pluto/info
 EOF
 
   cat > planets/BUILD <<EOF

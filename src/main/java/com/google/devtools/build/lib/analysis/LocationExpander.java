@@ -332,7 +332,7 @@ public class LocationExpander {
 
     for (Artifact artifact : artifacts) {
       PathFragment execPath =
-          takeExecPath ? artifact.getExecPath() : artifact.getRunfilesPath();
+          takeExecPath ? artifact.getExecPath() : artifact.getRootRelativePath();
       if (execPath != null) {  // omit middlemen etc
         paths.add(execPath.getCallablePathString());
       }

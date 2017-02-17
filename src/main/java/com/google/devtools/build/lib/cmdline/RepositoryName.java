@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -213,13 +214,22 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
-   * Returns the runfiles/execRoot path for this repository: ../reponame. If we don't know the name
-   * of this repo (i.e., it is in the main repository), return an empty path fragment.
+   * Returns the runfiles/execRoot path for this repository. If we don't know the name of this repo
+   * (i.e., it is in the main repository), return an empty path fragment.
    */
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
         : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
+  }
+
+  /**
+   * Returns the runfiles path relative to the x.runfiles/main-repo directory.
+   */
+  // TODO(kchodorow): remove once execroot is reorg-ed.
+  public PathFragment getRunfilesPath() {
+    return isDefault() || isMain()
+        ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
   }
 
   /**

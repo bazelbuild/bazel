@@ -290,10 +290,9 @@ public class Package {
     this.filename = builder.getFilename();
     this.packageDirectory = filename.getParentDirectory();
 
-    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getPackageFragment());
+    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
     if ((sourceRoot == null
-        || !sourceRoot.getRelative(packageIdentifier.getPackageFragment())
-            .equals(packageDirectory))
+        || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
         && !filename.getBaseName().equals("WORKSPACE")) {
       throw new IllegalArgumentException(
           "Invalid BUILD file name for package '" + packageIdentifier + "': " + filename);

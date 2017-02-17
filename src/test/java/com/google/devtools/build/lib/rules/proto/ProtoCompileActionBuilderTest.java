@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ProtoCommandLineArgv;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
 import com.google.devtools.build.lib.util.LazyString;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -303,24 +302,12 @@ public class ProtoCompileActionBuilderTest {
    */
   @Test
   public void testIncludeMapsOfExternalFiles() throws Exception {
-    Label externalLabel = Label.parseAbsolute("@bla//foo:bar");
-    Root externalRoot = Root.asSourceRoot(
-        root.getPath().getRelative(
-            externalLabel.getPackageIdentifier().getRepository().getSourceRoot()),
-        false);
-    PathFragment externalPath = new PathFragment("foo/bar.proto");
-    System.out.println("Root: " + externalRoot + " path: " + externalPath);
-    Artifact externalArtifact = new Artifact(
-        externalRoot.getPath().getRelative(externalPath),
-        externalRoot,
-        externalRoot.getExecPath().getRelative(externalPath),
-        new LabelArtifactOwner(externalLabel));
     assertThat(
             new ProtoCommandLineArgv(
                     null /* protosInDirectoDependencies */,
-                    ImmutableList.of(externalArtifact))
+                    ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto")))
                 .argv())
-        .containsExactly("-Ifoo/bar.proto=../bla/foo/bar.proto");
+        .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
   private Artifact artifact(String ownerLabel, String path) {
