@@ -42,7 +42,7 @@ This is a nuspec. It mostly adheres to https://docs.nuget.org/create/Nuspec-Refe
     <iconUrl>https://cdn.rawgit.com/bazelbuild/bazel/master/site/images/bazel-logo.png</iconUrl>
     <copyright>Copyright 2016 The Bazel Authors. All rights reserved.</copyright>
     <!-- If there is a license Url available, it is is required for the community feed -->
-    <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE.txt</licenseUrl>
+    <licenseUrl>https://github.com/bazelbuild/bazel/tree/master/LICENSE</licenseUrl>
     <requireLicenseAcceptance>true</requireLicenseAcceptance>
     <projectSourceUrl>https://github.com/bazelbuild/bazel.git</projectSourceUrl>
     <docsUrl>https://www.bazel.build/versions/master/docs/getting-started.html</docsUrl>

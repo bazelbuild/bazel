@@ -31,7 +31,7 @@ if ($fixPackage -eq $true) {
 }
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
-rm -force -ErrorAction SilentlyContinue ./tools/LICENSE.txt
+rm -force -ErrorAction SilentlyContinue ./tools/LICENSE
 rm -force -ErrorAction SilentlyContinue ./tools/params.json
 rm -force -ErrorAction SilentlyContinue ./tools/*.orig
 if ($checksum -eq "") {
@@ -55,13 +55,13 @@ $nuspecTemplate = get-content "bazel.nuspec.template" | out-string
 $nuspecExpanded = $ExecutionContext.InvokeCommand.ExpandString($nuspecTemplate)
 add-content -value $nuspecExpanded -path bazel.nuspec
 
-write-host "Copying LICENSE.txt from repo-root to tools directory"
+write-host "Copying LICENSE from repo-root to tools directory"
 $licenseHeader = @"
-From: https://github.com/bazelbuild/bazel/blob/master/LICENSE.txt
+From: https://github.com/bazelbuild/bazel/blob/master/LICENSE
 
 "@
-add-content -value $licenseHeader -path "./tools/LICENSE.txt"
-add-content -value (get-content "../../../LICENSE.txt") -path "./tools/LICENSE.txt"
+add-content -value $licenseHeader -path "./tools/LICENSE"
+add-content -value (get-content "../../../LICENSE") -path "./tools/LICENSE"
 
 $params = @{
   package = @{

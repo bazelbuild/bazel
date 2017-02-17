@@ -2,5 +2,5 @@
 *.zip
 bazel.nuspec
 tools/*.exe
-tools/LICENSE.txt
+tools/LICENSE
 tools/params.json
