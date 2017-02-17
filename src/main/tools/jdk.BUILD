@@ -68,8 +68,14 @@ filegroup(
     srcs = ["jre/lib/%s" % jar for jar in BOOTCLASS_JARS],
 )
 
+# TODO(cushon): migrate to extclasspath and delete
 filegroup(
     name = "extdir",
+    srcs = glob(["jre/lib/ext/*.jar"]),
+)
+
+filegroup(
+    name = "extclasspath",
     srcs = glob(["jre/lib/ext/*.jar"]),
 )
 

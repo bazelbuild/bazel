@@ -10,8 +10,13 @@ bind(
     name = "bootclasspath",
     actual = "@local_jdk//:bootclasspath",
 )
+# TODO(cushon): migrate to extclasspath and delete
 bind(
     name = "extdir",
+    actual = "@local_jdk//:extdir",
+)
+bind(
+    name = "extclasspath",
     actual = "@local_jdk//:extdir",
 )
 bind(

@@ -77,7 +77,7 @@ alias(
 )
 
 alias(
-    name = "extdir",
+    name = "extclasspath",
     actual = "@local_jdk//:extdir",
 )
 
@@ -106,7 +106,7 @@ java_toolchain(
     name = "toolchain",
     bootclasspath = [":bootclasspath"],
     encoding = "UTF-8",
-    extclasspath = [":extdir"],
+    extclasspath = [":extclasspath"],
     forcibly_disable_header_compilation = 0,
     genclass = ["//tools/jdk:GenClass_deploy.jar"],
     header_compiler = ["//tools/jdk:turbine_deploy.jar"],
