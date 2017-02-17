@@ -38,6 +38,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
 /**
@@ -96,6 +97,14 @@ class Desugar {
         abbrev = 'v',
         help = "Enables verbose debugging output.")
     public boolean verbose;
+
+    @Option(
+      name = "min_sdk_version",
+      defaultValue = "1",
+      category = "misc",
+      help = "Minimum targeted sdk version.  If >= 24, enables default methods in interfaces."
+    )
+    public int minSdkVersion;
   }
 
   public static void main(String[] args) throws Exception {
@@ -121,6 +130,8 @@ class Desugar {
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
+
+    boolean allowDefaultMethods = options.minSdkVersion >= 24;
 
     ClassLoader parent;
     if (options.bootclasspath.isEmpty() && !options.allowEmptyBootclasspath) {
@@ -150,12 +161,13 @@ class Desugar {
           if (entry.getName().endsWith(".class")) {
             ClassReader reader = new ClassReader(content);
             ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS /*for bridge methods*/);
+            ClassVisitor visitor = writer;
+            if (!allowDefaultMethods) {
+              visitor = new Java7Compatibility(visitor, readerFactory);
+            }
             reader.accept(
                 new LambdaDesugaring(
-                    new Java7Compatibility(writer, readerFactory),
-                    loader,
-                    lambdas,
-                    interfaceLambdaMethodCollector),
+                    visitor, loader, lambdas, interfaceLambdaMethodCollector, allowDefaultMethods),
                 0);
             writeStoredEntry(out, entry.getName(), writer.toByteArray());
           } else {
@@ -169,23 +181,34 @@ class Desugar {
         }
       }
 
-      // Write out the lambda classes we generated along the way
       ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
+      if (allowDefaultMethods) {
+        checkState(interfaceLambdaMethods.isEmpty(),
+            "Desugaring with default methods enabled moved interface lambdas");
+      }
+
+      // Write out the lambda classes we generated along the way
       for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdas.drain().entrySet()) {
         try (InputStream bytecode =
             Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
           ClassReader reader = new ClassReader(bytecode);
           ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
+          ClassVisitor visitor = writer;
+          if (!allowDefaultMethods) {
+            // null ClassReaderFactory b/c we don't expect to need it for lambda classes
+            visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
+          }
           LambdaClassFixer lambdaFixer =
               new LambdaClassFixer(
-                  // null ClassReaderFactory b/c we don't expect to need it for lambda classes
-                  new Java7Compatibility(writer, (ClassReaderFactory) null),
+                  visitor,
                   lambdaClass.getValue(),
                   readerFactory,
-                  interfaceLambdaMethods);
+                  interfaceLambdaMethods,
+                  allowDefaultMethods);
           // Send lambda classes through desugaring to make sure there's no invokedynamic
           // instructions in generated lambda classes (checkState below will fail)
-          reader.accept(new LambdaDesugaring(lambdaFixer, loader, lambdas, null), 0);
+          reader.accept(
+              new LambdaDesugaring(lambdaFixer, loader, lambdas, null, allowDefaultMethods), 0);
           writeStoredEntry(out, lambdaFixer.getInternalName() + ".class", writer.toByteArray());
         }
       }
