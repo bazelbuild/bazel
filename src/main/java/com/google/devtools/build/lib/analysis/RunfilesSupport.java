@@ -101,7 +101,7 @@ public final class RunfilesSupport {
           ruleContext.getPrerequisite(":run_under", Mode.DATA);
       runfiles = new Runfiles.Builder(
           ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-          .merge(getRunfiles(runUnderTarget))
+          .merge(getRunfiles(runUnderTarget, ruleContext.getWorkspaceName()))
           .merge(runfiles)
           .build();
     }
@@ -345,12 +345,14 @@ public final class RunfilesSupport {
    *
    * @return the Runfiles object
    */
-  private static Runfiles getRunfiles(TransitiveInfoCollection target) {
+  private static Runfiles getRunfiles(TransitiveInfoCollection target, String workspaceName) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {
       return runfilesProvider.getDefaultRunfiles();
     } else {
-      return Runfiles.EMPTY;
+      return new Runfiles.Builder(workspaceName)
+          .addArtifacts(target.getProvider(FilesToRunProvider.class).getFilesToRun())
+          .build();
     }
   }
 
