@@ -91,11 +91,6 @@ public interface AnalysisEnvironment extends ActionRegistry {
   Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root);
 
   /**
-   * Returns the artifact for the specified tool.
-   */
-  Artifact getEmbeddedToolArtifact(String embeddedPath);
-
-  /**
    * Returns the middleman factory associated with the build.
    */
   // TODO(bazel-team): remove this method and replace it with delegate methods.

@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -1083,14 +1082,14 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler,
-      BuildConfigurationCollection configurations, BinTools binTools)
+      BuildConfigurationCollection configurations)
           throws EvalException, InvalidConfigurationException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
             new ConfiguredTargetKey(target.getLabel(), targetConfig),
             /*isSystemEnv=*/false, targetConfig.extendedSanityChecks(), eventHandler,
-            /*skyframeEnv=*/null, targetConfig.isActionsEnabled(), binTools);
+            /*skyframeEnv=*/null, targetConfig.isActionsEnabled());
     return getRuleContextForTesting(eventHandler, target, env, configurations);
   }
 

@@ -1281,8 +1281,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns whether build_interface_so can build interface shared objects for this toolchain.
-   * Should be true if this toolchain generates ELF objects.
+   * Returns whether this toolchain supports interface shared objects.
+   *
+   * <p>Should be true if this toolchain generates ELF objects.
    */
   public boolean supportsInterfaceSharedObjects() {
     return supportsInterfaceSharedObjects;

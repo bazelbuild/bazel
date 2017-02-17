@@ -188,7 +188,7 @@ public class CppLinkActionBuilder {
    * @param ruleContext the rule that owns the action
    * @param output the output artifact
    * @param toolchain the C++ toolchain provider
-   * @param the C++ FDO optimization support
+   * @param fdoSupport the C++ FDO optimization support
    */
   public CppLinkActionBuilder(RuleContext ruleContext, Artifact output,
       CcToolchainProvider toolchain, FdoSupport fdoSupport) {
@@ -208,7 +208,7 @@ public class CppLinkActionBuilder {
    * @param output the output artifact
    * @param configuration build configuration
    * @param toolchain C++ toolchain provider
-   * @param the C++ FDO optimization support
+   * @param fdoSupport the C++ FDO optimization support
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
@@ -228,7 +228,7 @@ public class CppLinkActionBuilder {
    * @param configuration the configuration used to determine the tool chain and the default link
    *     options
    * @param toolchain the C++ toolchain provider
-   * @param the C++ FDO optimization support
+   * @param fdoSupport the C++ FDO optimization support
    */
   private CppLinkActionBuilder(
       @Nullable RuleContext ruleContext,
@@ -258,7 +258,7 @@ public class CppLinkActionBuilder {
    * @param linkContext an immutable CppLinkAction.Context from the original builder
    * @param configuration build configuration
    * @param toolchain the C++ toolchain provider
-   * @param the C++ FDO optimization support
+   * @param fdoSupport the C++ FDO optimization support
    */
   public CppLinkActionBuilder(
       RuleContext ruleContext,
@@ -362,10 +362,6 @@ public class CppLinkActionBuilder {
     return this.linkstampOptions;
   }
 
-  protected Artifact getInterfaceSoBuilder() {
-    return analysisEnvironment.getEmbeddedToolArtifact(CppRuleClasses.BUILD_INTERFACE_SO);
-  }
-  
   /**
    * Returns command line options for this link action.
    */
@@ -627,7 +623,7 @@ public class CppLinkActionBuilder {
                 paramFile,
                 thinltoParamFile,
                 PathFragment.EMPTY_FRAGMENT,
-                getInterfaceSoBuilder(),
+                toolchain.getInterfaceSoBuilder(),
                 interfaceOutput);
     variablesExtension.addVariables(buildVariablesBuilder);
     for (VariablesExtension extraVariablesExtension : variablesExtensions) {

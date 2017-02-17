@@ -199,8 +199,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
           "FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
     }
 
-    Artifact linkDynamicLibraryTool = getLinkDynamicLibraryTool(ruleContext);
-
     CcToolchainProvider provider =
         new CcToolchainProvider(
             cppConfiguration,
@@ -210,6 +208,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             strip,
             objcopy,
             fullInputsForLink(ruleContext, link),
+            ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST),
             dwp,
             libcLink,
             staticRuntimeLinkInputs,
@@ -223,7 +222,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             getBuildVariables(ruleContext),
             getBuiltinIncludes(ruleContext),
             coverageEnvironment.build(),
-            linkDynamicLibraryTool,
+            ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST),
             getEnvironment(ruleContext));
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
@@ -269,10 +268,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private Artifact getLinkDynamicLibraryTool(RuleContext ruleContext) {
-    return ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.TARGET);
-  }
-
   private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
     for (Artifact artifact : inputsForLibc(ruleContext)) {
@@ -308,11 +303,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
         .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
-        .add(getLinkDynamicLibraryTool(ruleContext))
-        .add(
-            ruleContext
-                .getAnalysisEnvironment()
-                .getEmbeddedToolArtifact(CppRuleClasses.BUILD_INTERFACE_SO))
+        .add(ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST))
+        .add(ruleContext.getPrerequisiteArtifact("$link_dynamic_library_tool", Mode.HOST))
         .build();
   }
 

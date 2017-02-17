@@ -71,11 +71,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-            return scratchArtifact("tools/interface_so_builder");
-          }
-
-          @Override
           public Artifact getDerivedArtifact(PathFragment rootRelativePath, Root root) {
             return CppLinkActionTest.this.getDerivedArtifact(
                 rootRelativePath, root, ActionsTestUtil.NULL_ARTIFACT_OWNER);
@@ -231,7 +226,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
     final Artifact oFile = getSourceArtifact("cc/a.o");
     final Artifact oFile2 = getSourceArtifact("cc/a2.o");
-    final Artifact interfaceSoBuilder = getBinArtifactWithNoOwner("foo/build_interface_so");
     final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
 
     ActionTester.runTest(
@@ -246,10 +240,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     (i & 2) == 0 ? dynamicOutputFile : staticOutputFile,
                     CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
                     CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
-                  @Override
-                  protected Artifact getInterfaceSoBuilder() {
-                    return interfaceSoBuilder;
-                  }
                 };
             builder.addCompilationInputs(
                 (i & 1) == 0 ? ImmutableList.of(oFile) : ImmutableList.of(oFile2));
@@ -284,7 +274,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
     final Artifact oFile = getSourceArtifact("cc/a.o");
     final Artifact oFile2 = getSourceArtifact("cc/a2.o");
-    final Artifact interfaceSoBuilder = getBinArtifactWithNoOwner("foo/build_interface_so");
     final FeatureConfiguration featureConfiguration = getMockFeatureConfiguration();
 
     ActionTester.runTest(
@@ -299,10 +288,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     (i & 2) == 0 ? staticOutputFile : dynamicOutputFile,
                     CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
                     CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
-                  @Override
-                  protected Artifact getInterfaceSoBuilder() {
-                    return interfaceSoBuilder;
-                  }
                 };
             builder.addCompilationInputs(
                 (i & 1) == 0 ? ImmutableList.of(oFile) : ImmutableList.of(oFile2));
@@ -533,7 +518,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(commandLine).hasSize(6);
     assertThat(commandLine.get(0)).endsWith("custom/crosstool/scripts/link_dynamic_library.sh");
     assertThat(commandLine.get(1)).isEqualTo("yes");
-    assertThat(commandLine.get(2)).isEqualTo("tools/interface_so_builder");
+    assertThat(commandLine.get(2)).endsWith("tools/cpp/build_interface_so");
     assertThat(commandLine.get(3)).endsWith("foo.so");
     assertThat(commandLine.get(4)).isEqualTo("FakeInterfaceOutput.ifso");
     assertThat(commandLine.get(5)).isEqualTo("dynamic_library_linker_tool");

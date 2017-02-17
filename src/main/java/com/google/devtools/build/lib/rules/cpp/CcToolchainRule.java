@@ -76,7 +76,14 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         .add(
+            attr("$interface_library_builder", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
+                .value(env.getToolsLabel("//tools/cpp:interface_library_builder")))
+        .add(
             attr("$link_dynamic_library_tool", LABEL)
+                .cfg(HOST)
+                .singleArtifact()
                 .value(env.getToolsLabel("//tools/cpp:link_dynamic_library")))
         // TODO(bazel-team): Should be using the TARGET configuration.
         .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))

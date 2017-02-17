@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -91,7 +90,6 @@ public final class SkyframeBuildView {
   private final ConfiguredTargetFactory factory;
   private final ArtifactFactory artifactFactory;
   private final SkyframeExecutor skyframeExecutor;
-  private final BinTools binTools;
   private boolean enableAnalysis = false;
 
   // This hack allows us to see when a configured target has been invalidated, and thus when the set
@@ -126,13 +124,11 @@ public final class SkyframeBuildView {
   private boolean skyframeAnalysisWasDiscarded;
 
   public SkyframeBuildView(BlazeDirectories directories,
-      SkyframeExecutor skyframeExecutor, BinTools binTools,
-      ConfiguredRuleClassProvider ruleClassProvider) {
+      SkyframeExecutor skyframeExecutor, ConfiguredRuleClassProvider ruleClassProvider) {
     this.factory = new ConfiguredTargetFactory(ruleClassProvider);
     this.artifactFactory = new ArtifactFactory(
         directories.getExecRoot().getParentDirectory(), directories.getRelativeOutputPath());
     this.skyframeExecutor = skyframeExecutor;
-    this.binTools = binTools;
     this.ruleClassProvider = ruleClassProvider;
   }
 
@@ -468,7 +464,7 @@ public final class SkyframeBuildView {
     boolean allowRegisteringActions = config == null || config.isActionsEnabled();
     return new CachingAnalysisEnvironment(
         artifactFactory, owner, isSystemEnv, extendedSanityChecks, eventHandler, env,
-        allowRegisteringActions, binTools);
+        allowRegisteringActions);
   }
 
   /**

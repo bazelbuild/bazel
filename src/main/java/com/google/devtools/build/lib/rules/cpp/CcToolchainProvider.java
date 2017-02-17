@@ -43,6 +43,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
@@ -66,6 +67,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> strip;
   private final NestedSet<Artifact> objCopy;
   private final NestedSet<Artifact> link;
+  private final Artifact interfaceSoBuilder;
   private final NestedSet<Artifact> dwp;
   private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
@@ -90,6 +92,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> strip,
       NestedSet<Artifact> objCopy,
       NestedSet<Artifact> link,
+      Artifact interfaceSoBuilder,
       NestedSet<Artifact> dwp,
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
@@ -112,6 +115,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.strip = Preconditions.checkNotNull(strip);
     this.objCopy = Preconditions.checkNotNull(objCopy);
     this.link = Preconditions.checkNotNull(link);
+    this.interfaceSoBuilder = interfaceSoBuilder;
     this.dwp = Preconditions.checkNotNull(dwp);
     this.libcLink = Preconditions.checkNotNull(libcLink);
     this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
@@ -290,5 +294,12 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public Artifact getLinkDynamicLibraryTool() {
     return linkDynamicLibraryTool;
+  }
+
+  /**
+   * Returns the tool that builds interface libraries from dynamic libraries.
+   */
+  public Artifact getInterfaceSoBuilder() {
+    return interfaceSoBuilder;
   }
 }

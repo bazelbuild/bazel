@@ -139,11 +139,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return original.getEmbeddedToolArtifact(embeddedPath);
-    }
-
-    @Override
     public MiddlemanFactory getMiddlemanFactory() {
       return original.getMiddlemanFactory();
     }
@@ -313,11 +308,6 @@ public final class AnalysisTestUtil {
     @Override
     public boolean hasErrors() {
       return false;
-    }
-
-    @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return null;
     }
 
     @Override

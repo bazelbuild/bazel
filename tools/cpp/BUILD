@@ -190,6 +190,12 @@ filegroup(
 )
 
 filegroup(
+    name = "interface_library_builder",
+    srcs = ["build_interface_so"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "link_dynamic_library",
     srcs = ["link_dynamic_library.sh"],
 )

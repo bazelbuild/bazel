@@ -139,6 +139,10 @@ public final class BazelMockCcSupport extends MockCcSupport {
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")",
         "filegroup(",
+        "    name = 'interface_library_builder',",
+        "    srcs = ['build_interface_so'],",
+        ")",
+        "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
         ")");

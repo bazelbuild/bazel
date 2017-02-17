@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -82,7 +81,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   private EventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   private Map<Artifact, String> artifacts;
-  private final BinTools binTools;
 
   /**
    * The list of actions registered by the configured target this analysis environment is
@@ -92,8 +90,8 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
       ArtifactOwner owner, boolean isSystemEnv, boolean extendedSanityChecks,
-      EventHandler errorEventListener, SkyFunction.Environment env, boolean allowRegisteringActions,
-      BinTools binTools) {
+      EventHandler errorEventListener, SkyFunction.Environment env,
+      boolean allowRegisteringActions) {
     this.artifactFactory = artifactFactory;
     this.owner = Preconditions.checkNotNull(owner);
     this.isSystemEnv = isSystemEnv;
@@ -101,7 +99,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     this.errorEventListener = errorEventListener;
     this.skyframeEnv = env;
     this.allowRegisteringActions = allowRegisteringActions;
-    this.binTools = Preconditions.checkNotNull(binTools);
     middlemanFactory = new MiddlemanFactory(artifactFactory, this);
     artifacts = new HashMap<>();
   }
@@ -247,12 +244,6 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   @Override
   public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root) {
     return artifactFactory.getConstantMetadataArtifact(rootRelativePath, root, getOwner());
-  }
-
-  @Override
-  public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-    Preconditions.checkState(enabled);
-    return binTools.getEmbeddedArtifact(embeddedPath, artifactFactory);
   }
 
   @Override

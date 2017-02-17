@@ -125,11 +125,6 @@ public class CppRuleClasses {
 
 
   /**
-   * Path of the build_interface_so script in the Blaze binary.
-   */
-  public static final String BUILD_INTERFACE_SO = "build_interface_so";
-
-  /**
    * A string constant for the parse_headers feature.
    */
   public static final String PARSE_HEADERS = "parse_headers";

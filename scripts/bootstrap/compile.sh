@@ -295,7 +295,6 @@ function build_jni() {
 
 build_jni "${ARCHIVE_DIR}/_embedded_binaries"
 
-cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
 cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
 cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
 

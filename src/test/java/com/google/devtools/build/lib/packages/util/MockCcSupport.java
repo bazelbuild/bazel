@@ -44,6 +44,7 @@ public abstract class MockCcSupport {
           String pathString = artifact.getExecPathString();
           return !pathString.startsWith("third_party/crosstool/")
               && !pathString.startsWith("tools/cpp/link_dynamic_library")
+              && !pathString.startsWith("tools/cpp/build_interface_so")
               && !(pathString.contains("/internal/_middlemen") && basename.contains("crosstool"))
               && !pathString.startsWith("_bin/build_interface_so")
               && !pathString.endsWith(".cppmap");
@@ -567,13 +568,19 @@ public abstract class MockCcSupport {
         "alias(name='toolchain', actual='//third_party/crosstool')",
         "cc_library(name = 'malloc')",
         "filegroup(",
+        "    name = 'interface_library_builder',",
+        "    srcs = ['build_interface_so'],",
+        ")",
+        "filegroup(",
         "    name = 'link_dynamic_library',",
         "    srcs = ['link_dynamic_library.sh'],",
         ")");
     if (config.isRealFileSystem()) {
       config.linkTool("tools/cpp/link_dynamic_library.sh");
+      config.linkTool("tools/cpp/build_interface_so");
     } else {
       config.create("tools/cpp/link_dynamic_library.sh", "");
+      config.create("tools/cpp/build_interface_so", "");
     }
   }
 

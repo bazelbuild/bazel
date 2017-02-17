@@ -467,7 +467,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected CachingAnalysisEnvironment getTestAnalysisEnvironment() {
     return new CachingAnalysisEnvironment(view.getArtifactFactory(),
         ArtifactOwner.NULL_OWNER, /*isSystemEnv=*/true, /*extendedSanityChecks*/false, reporter,
-        /*skyframeEnv=*/ null, /*actionsEnabled=*/true, binTools);
+        /*skyframeEnv=*/ null, /*actionsEnabled=*/true);
   }
 
   /**
@@ -567,7 +567,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         reporter.handle(e);
       }
     };
-    return view.getRuleContextForTesting(target, eventHandler, masterConfig, binTools);
+    return view.getRuleContextForTesting(target, eventHandler, masterConfig);
   }
 
   /**
@@ -1627,11 +1627,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public boolean hasErrors() {
       return false;
-    }
-
-    @Override
-    public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      return null;
     }
 
     @Override
