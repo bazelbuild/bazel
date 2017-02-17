@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.AndroidNdkCrosstools;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
@@ -58,6 +60,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
   private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
+  private static final PathFragment PLATFORMS_DIR = new PathFragment("platforms");
 
   private static final Iterable<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
   
@@ -131,16 +134,42 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    ApiLevel apiLevel;
-    try {
-      String apiLevelAttr = attributes.get("api_level", Type.INTEGER).toString();
-      apiLevel =
-          AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS
-              .get(ndkRelease.majorRevision)
-              .apiLevel(env.getListener(), ruleName, apiLevelAttr);
-    } catch (EvalException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    String apiLevelString;
+    if (attributes.isAttributeValueExplicitlySpecified("api_level")) {
+      try {
+        apiLevelString = attributes.get("api_level", Type.INTEGER).toString();
+      } catch (EvalException e) {
+        throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+      }
+    } else {
+      DirectoryListingValue platformsDirectoryValue =
+          AndroidRepositoryUtils.getDirectoryListing(ndkHome, PLATFORMS_DIR, env);
+      if (platformsDirectoryValue == null) {
+        return null;
+      }
+
+      ImmutableSortedSet<Integer> apiLevels =
+          AndroidRepositoryUtils.getApiLevels(platformsDirectoryValue.getDirents());
+      if (apiLevels.isEmpty()) {
+        // Every Android NDK to date ships with multiple api levels, so the only reason that this
+        // would be empty is if the user is not pointing to a standard NDK or has tinkered with it
+        // themselves.
+        throw new RepositoryFunctionException(
+            new EvalException(
+                rule.getLocation(),
+                "android_ndk_repository requires that at least one Android platform is present in "
+                    + "the Android NDK platforms directory. Please ensure that the path attribute "
+                    + "or the ANDROID_NDK_HOME environment variable points to a valid NDK."),
+            Transience.PERSISTENT);
+      }
+      apiLevelString = apiLevels.first().toString();
     }
+
+    ApiLevel apiLevel;
+    apiLevel =
+        AndroidNdkCrosstools.KNOWN_NDK_MAJOR_REVISIONS
+            .get(ndkRelease.majorRevision)
+            .apiLevel(env.getListener(), ruleName, apiLevelString);
 
     if (!ndkRelease.isValid) {
       env.getListener().handle(Event.warn(String.format(

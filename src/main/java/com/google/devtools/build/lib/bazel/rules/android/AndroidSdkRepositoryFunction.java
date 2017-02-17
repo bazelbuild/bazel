@@ -50,8 +50,6 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -61,7 +59,6 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   private static final PathFragment BUILD_TOOLS_DIR = new PathFragment("build-tools");
   private static final PathFragment PLATFORMS_DIR = new PathFragment("platforms");
   private static final PathFragment SYSTEM_IMAGES_DIR = new PathFragment("system-images");
-  private static final Pattern PLATFORMS_API_LEVEL_PATTERN = Pattern.compile("android-(\\d+)");
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
@@ -109,12 +106,13 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     DirectoryListingValue platformsDirectoryValue =
-        getDirectoryListing(androidSdkPath, PLATFORMS_DIR, env);
+        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, PLATFORMS_DIR, env);
     if (platformsDirectoryValue == null) {
       return null;
     }
 
-    ImmutableSortedSet<Integer> apiLevels = getApiLevels(platformsDirectoryValue.getDirents());
+    ImmutableSortedSet<Integer> apiLevels =
+        AndroidRepositoryUtils.getApiLevels(platformsDirectoryValue.getDirents());
     if (apiLevels.isEmpty()) {
       throw new RepositoryFunctionException(
           new EvalException(
@@ -149,7 +147,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       // If the build_tools_version attribute is not explicitly set, we select the highest version
       // installed in the SDK.
       DirectoryListingValue directoryValue =
-          getDirectoryListing(androidSdkPath, BUILD_TOOLS_DIR, env);
+          AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, BUILD_TOOLS_DIR, env);
       if (directoryValue == null) {
         return null;
       }
@@ -244,37 +242,6 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
-  }
-
-  /** Gets a DirectoryListingValue for {@code dirPath} or returns null. */
-  private static DirectoryListingValue getDirectoryListing(
-      Path root, PathFragment dirPath, Environment env)
-      throws RepositoryFunctionException, InterruptedException {
-    try {
-      return (DirectoryListingValue)
-          env.getValueOrThrow(
-              DirectoryListingValue.key(RootedPath.toRootedPath(root, dirPath)),
-              InconsistentFilesystemException.class);
-    } catch (InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(new IOException(e), Transience.PERSISTENT);
-    }
-  }
-
-  /**
-   * Gets the numeric api levels from the contents of the platforms directory in descending order.
-   */
-  private static ImmutableSortedSet<Integer> getApiLevels(Dirents platformsDirectories) {
-    ImmutableSortedSet.Builder<Integer> apiLevels = ImmutableSortedSet.reverseOrder();
-    for (Dirent platformDirectory : platformsDirectories) {
-      if (platformDirectory.getType() != Dirent.Type.DIRECTORY) {
-        continue;
-      }
-      Matcher matcher = PLATFORMS_API_LEVEL_PATTERN.matcher(platformDirectory.getName());
-      if (matcher.matches()) {
-        apiLevels.add(Integer.parseInt(matcher.group(1)));
-      }
-    }
-    return apiLevels.build();
   }
 
   /**
@@ -377,7 +344,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
       return ImmutableSortedSet.of();
     }
     DirectoryListingValue systemImagesDirectoryValue =
-        getDirectoryListing(androidSdkPath, SYSTEM_IMAGES_DIR, env);
+        AndroidRepositoryUtils.getDirectoryListing(androidSdkPath, SYSTEM_IMAGES_DIR, env);
     if (systemImagesDirectoryValue == null) {
       return null;
     }
