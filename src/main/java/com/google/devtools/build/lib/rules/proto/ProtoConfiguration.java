@@ -65,8 +65,8 @@ public class ProtoConfiguration extends Fragment {
 
     @Option(
       name = "proto_compiler",
-      defaultValue = "null",
-      category = "version",
+      defaultValue = "@com_google_protobuf//:protoc",
+      category = "flags",
       converter = BuildConfiguration.LabelConverter.class,
       help = "The label of the proto-compiler."
     )

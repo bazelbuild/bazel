@@ -34,7 +34,8 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    scratch.file("third_party/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc'])");
+    useConfiguration("--proto_compiler=//proto:compiler");
+    scratch.file("proto/BUILD", "licenses(['notice'])", "exports_files(['compiler'])");
   }
 
   @Test
@@ -180,7 +181,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testDescriptorSetOutput_strictDeps() throws Exception {
-    useConfiguration("--strict_proto_deps=error");
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=error");
     scratch.file(
         "x/BUILD",
         "proto_library(name='nodeps', srcs=['nodeps.proto'])",
@@ -210,7 +211,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
    */
   @Test
   public void testDescriptorSetOutput_strict_deps_multipleSrcs() throws Exception {
-    useConfiguration("--strict_proto_deps=error");
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=error");
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "x", "foo", "proto_library(name='foo', srcs=['foo.proto', 'bar.proto'])");
@@ -223,7 +224,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testDescriptorSetOutput_strictDeps_disabled() throws Exception {
-    useConfiguration("--strict_proto_deps=off");
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=off");
     scratch.file("x/BUILD", "proto_library(name='foo', srcs=['foo.proto'])");
 
     for (String arg :
@@ -238,7 +239,7 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
    */
   @Test
   public void strictCanDependOnNonStrict() throws Exception {
-    useConfiguration("--strict_proto_deps=strict");
+    useConfiguration("--proto_compiler=//proto:compiler", "--strict_proto_deps=strict");
     scratch.file(
         "x/BUILD",
         "proto_library(name = 'foo', deps = [':bar'], strict_proto_deps=1)",

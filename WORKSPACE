@@ -57,6 +57,12 @@ docker_repository()
 bind(name = "xcrunwrapper", actual = "@bazel_tools//tools/objc:xcrunwrapper")
 
 new_local_repository(
+    name = "com_google_protobuf",
+    path = "./third_party/protobuf/3.0.0/",
+    build_file = "./third_party/protobuf/3.0.0/BUILD",
+)
+
+new_local_repository(
     name = "com_google_protobuf_java",
     path = "./third_party/protobuf/3.0.0/",
     build_file = "./third_party/protobuf/3.0.0/com_google_protobuf_java.BUILD",

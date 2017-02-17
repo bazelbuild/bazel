@@ -39,7 +39,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
   private static final Attribute.LateBoundLabel<BuildConfiguration> PROTO_COMPILER =
       new Attribute.LateBoundLabel<BuildConfiguration>(
-          "//third_party/protobuf:protoc", ProtoConfiguration.class) {
+          "@com_google_protobuf//:protoc", ProtoConfiguration.class) {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           Label label = configuration.getFragment(ProtoConfiguration.class).protoCompiler();

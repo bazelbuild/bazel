@@ -34,10 +34,10 @@ import org.junit.runners.JUnit4;
 public class CcProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
-    scratch.file("third_party/protobuf/BUILD", "licenses(['notice'])", "exports_files(['protoc'])");
     scratch.file(
         "protobuf/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        "exports_files(['protoc'])",
         "proto_lang_toolchain(",
         "    name = 'cc_toolchain',",
         "    command_line = '--cpp_out=$(OUT)',",
@@ -48,6 +48,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
     mockToolsConfig.overwrite(
         "WORKSPACE",
+        "local_repository(name = 'com_google_protobuf', path = 'protobuf/')",
         "local_repository(name = 'com_google_protobuf_cc', path = 'protobuf/')",
         existingWorkspace);
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
