@@ -84,6 +84,18 @@ public class JavaProtoSkylarkCommon {
   }
 
   @SkylarkCallable(
+      name = "has_proto_sources",
+      doc = "Returns whether the given proto_library target contains proto sources. If there are no"
+          + " sources it means that the proto_library is an alias library, which exports its"
+          + " dependencies."
+  )
+  public static boolean hasProtoSources(ConfiguredTarget target) {
+    SupportData supportData =
+        checkNotNull(target.getProvider(ProtoSupportDataProvider.class).getSupportData());
+    return supportData.hasProtoSources();
+  }
+
+  @SkylarkCallable(
     name = "toolchain_deps",
     // This function is experimental for now.
     documented = false,

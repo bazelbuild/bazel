@@ -253,10 +253,8 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         prettyJarNames(
             getProvider(JavaCompilationArgsProvider.class, litepb2)
                 .getJavaCompilationArgs().getRuntimeJars());
-    // TODO(elenairina): Remove libalpha-lite.jar from directJars assertion after implementing
-    // a check for proto sources in Skylarkified java_lite_proto_library.
-    assertThat(directJars).containsExactly(
-        "cross/libbravo-lite.jar", "cross/libalpha-lite.jar", "protobuf/libjavalite_runtime.jar");
+    assertThat(directJars)
+        .containsExactly("cross/libbravo-lite.jar", "protobuf/libjavalite_runtime.jar");
   }
 
   @Test
@@ -486,9 +484,6 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    * behaves as if we depend directly on the aliased proto_library.
    */
   @Test
-  @Ignore
-  // TODO(bazel-team): Enable once alias protos are supported in the Skylark version of
-  //     java_lite_proto_library.
   public void jplCorrectlyDefinesDirectJars_strictDepsEnabled_aliasProto() throws Exception {
     scratch.file(
         "x/BUILD",

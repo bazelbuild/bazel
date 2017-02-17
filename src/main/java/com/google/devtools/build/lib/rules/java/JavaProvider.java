@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
@@ -120,7 +121,12 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   }
 
   private JavaProvider(TransitiveInfoProviderMap providers) {
-    super(JAVA_PROVIDER, ImmutableMap.<String, Object>of());
+    super(JAVA_PROVIDER, ImmutableMap.<String, Object>of(
+        "transitive_runtime_jars", SkylarkList.createImmutable(
+            providers.getProvider(JavaCompilationArgsProvider.class)
+                .getRecursiveJavaCompilationArgs()
+                .getRuntimeJars())
+    ));
     this.providers = providers;
   }
 
