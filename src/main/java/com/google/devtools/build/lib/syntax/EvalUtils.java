@@ -98,34 +98,6 @@ public final class EvalUtils {
       };
 
   /**
-   * Legacy Skylark comparator.
-   *
-   * <p>Falls back to comparing by class if objects are not comparable otherwise.
-   */
-  public static final Ordering<Object> SAFE_SKYLARK_COMPARATOR =
-      new Ordering<Object>() {
-        @Override
-        @SuppressWarnings("unchecked")
-        public int compare(Object o1, Object o2) {
-          try {
-            return SKYLARK_COMPARATOR.compare(o1, o2);
-          } catch (ComparisonException e) {
-            return compareByClass(o1, o2);
-          }
-        }
-      };
-
-  public static final int compareByClass(Object o1, Object o2) {
-    try {
-      // Different types -> let the class names decide
-      return o1.getClass().getName().compareTo(o2.getClass().getName());
-    } catch (NullPointerException ex) {
-      throw new ComparisonException(
-          "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
-    }
-  }
-
-  /**
    * Checks that an Object is a valid key for a Skylark dict.
    * @param o an Object to validate
    * @throws EvalException if o is not a valid key

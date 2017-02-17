@@ -25,12 +25,12 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
+import java.util.LinkedHashMap;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.LinkedList;
 import java.util.List;
@@ -94,14 +94,13 @@ public class PrinterTest {
   }
 
   @Test
-  public void testSortedOutputOfUnsortedMap() throws Exception {
-    Map<Integer, Integer> map = new HashMap<>();
-    int[] data = {5, 7, 3};
-
-    for (int current : data) {
-      map.put(current, current);
-    }
-    assertThat(Printer.str(map)).isEqualTo("{3: 3, 5: 5, 7: 7}");
+  public void testOutputOrderOfMap() throws Exception {
+    Map<Object, Object> map = new LinkedHashMap<>();
+    map.put(5, 5);
+    map.put(3, 3);
+    map.put("foo", 42);
+    map.put(7, "bar");
+    assertThat(Printer.str(map)).isEqualTo("{5: 5, 3: 3, \"foo\": 42, 7: \"bar\"}");
   }
 
   @Test

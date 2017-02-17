@@ -26,9 +26,6 @@ import java.util.Formatter;
 import java.util.List;
 import java.util.Map;
 import java.util.MissingFormatWidthException;
-import java.util.Set;
-import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -145,7 +142,7 @@ public final class Printer {
 
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> dict = (Map<?, ?>) o;
-      printList(buffer, getSortedEntrySet(dict), "{", ", ", "}", null, quotationMark);
+      printList(buffer, dict.entrySet(), "{", ", ", "}", null, quotationMark);
 
     } else if (o instanceof Map.Entry<?, ?>) {
       Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
@@ -164,21 +161,6 @@ public final class Printer {
     }
 
     return buffer;
-  }
-
-  /**
-   * Returns the sorted entry set of the given map
-   */
-  private static <K, V> Set<Map.Entry<K, V>> getSortedEntrySet(Map<K, V> dict) {
-    if (!(dict instanceof SortedMap<?, ?>)) {
-      // TODO(bazel-team): Dict keys should not be sorted, because comparison of objects of
-      // potentially different types is not supported anymore in Skylark.
-      Map<K, V> tmp = new TreeMap<>(EvalUtils.SAFE_SKYLARK_COMPARATOR);
-      tmp.putAll(dict);
-      dict = tmp;
-    }
-
-    return dict.entrySet();
   }
 
   public static Appendable write(Appendable buffer, Object o) {
