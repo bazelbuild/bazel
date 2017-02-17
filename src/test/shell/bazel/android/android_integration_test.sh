@@ -281,40 +281,6 @@ EOF
   bazel build :test
 }
 
-function test_android_sdk_repository_build_tools_version_detection() {
-  create_new_workspace
-  # android_sdk_repository ignores directories that are not valid revisions
-  # inside sdk/build-tools.
-  mkdir -p androidsdk/build-tools/{25.0.1,25.0.2,fish}
-  mkdir -p androidsdk/platforms/android-25
-  # android_sdk_repository ignores files inside sdk/build-tools.
-  touch androidsdk/build-tools/25.0.4
-  cat >> WORKSPACE <<EOF
-android_sdk_repository(
-    name = "androidsdk",
-    path = "$(pwd)/androidsdk",
-    api_level = 25,
-)
-EOF
-
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository picks the highest revision directory.
-  assert_contains "build_tools_version = \"25.0.2\"" output
-
-  mkdir -p androidsdk/build-tools/25.0.3
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository is rerun if a new build-tools directory is added.
-  assert_contains "build_tools_version = \"25.0.3\"" output
-
-  rm -rf androidsdk/build-tools/25.0.{2,3}
-  bazel build @androidsdk//:files
-  cat bazel-$(basename $(pwd))/external/androidsdk/BUILD.bazel > output
-  # android_sdk_repository is rerun if a build-tools directory is removed.
-  assert_contains "build_tools_version = \"25.0.1\"" output
-}
-
 function test_android_sdk_repository_path_from_environment() {
   create_new_workspace
   setup_android_sdk_support
@@ -367,36 +333,6 @@ android_ndk_repository(
 EOF
   bazel build @androidndk//:files >& $TEST_log && fail "Should have failed"
   expect_log "Either the path attribute of android_ndk_repository"
-}
-
-function test_multiple_android_sdk_targets() {
-  create_new_workspace
-  create_android_binary
-  cat > WORKSPACE <<EOF
-android_sdk_repository(
-    name = "a",
-)
-EOF
-  mkdir -p a/platforms/android-99998
-  mkdir -p a/platforms/android-99999
-  mkdir -p a/build-tools/25.0.1
-
-  # Check that if api_level is not explicitly specified, then the highest api
-  # level android_sdk is used by default.
-  ANDROID_HOME=$PWD/a bazel query "kind(android_sdk, deps(//java/bazel:bin))" \
-    >& $TEST_log
-  expect_log "@a//:sdk-99999"
-
-  cat > WORKSPACE <<EOF
-android_sdk_repository(
-    name = "a",
-    api_level = 99998,
-)
-EOF
-  # Check that if api_level is explicitly specified, then it is used by default.
-  ANDROID_HOME=$PWD/a bazel query "kind(android_sdk, deps(//java/bazel:bin))" \
-    >& $TEST_log
-  expect_log "@a//:sdk-99998"
 }
 
 # Check that the build succeeds if an android_sdk is specified with --android_sdk

@@ -118,6 +118,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "/bazel_tools_workspace/tools/android/BUILD",
         androidBuildContents.toArray(new String[androidBuildContents.size()]));
+    config.create(
+        "/bazel_tools_workspace/third_party/java/apkbuilder/BUILD",
+        "sh_binary(name = 'embedded_apkbuilder',",
+        "          srcs = ['embedded_apkbuilder.sh'])");
 
     config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
@@ -166,6 +170,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'desugar_java8', srcs = ['empty.sh'])")
         .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
         .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")

@@ -138,3 +138,6 @@ filegroup(
         ],
     ) + ["//tools/android/emulator:embedded_tools"],
 )
+
+# Exported for AndroidSdkRepositoryTest to use it instead of mocking it out.
+exports_files(["android_sdk_repository_template.bzl"])

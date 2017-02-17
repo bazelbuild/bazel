@@ -1004,7 +1004,9 @@ java_test(
     srcs = glob([
         "bazel/rules/**/*.java",
     ]),
-    resources = glob(["bazel/rules/**/*.txt"]),
+    resources = [
+        "//tools/android:android_sdk_repository_template.bzl",
+    ] + glob(["bazel/rules/**/*.txt"]),
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
