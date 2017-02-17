@@ -507,10 +507,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
-    // In J2ObjC, the jars you pass as dependencies must be precisely the same as the
-    // jars used to transpile those dependencies--we cannot use ijars here.
     NestedSet<Artifact> compileTimeJars =
-        compArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars();
+        compArgsProvider.getRecursiveJavaCompilationArgs().getCompileTimeJars();
     if (!compileTimeJars.isEmpty()) {
       argBuilder.addJoinExecPaths("-classpath", ":", compileTimeJars);
     }
