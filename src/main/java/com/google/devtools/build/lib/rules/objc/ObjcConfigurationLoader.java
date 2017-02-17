@@ -39,11 +39,10 @@ public class ObjcConfigurationLoader implements ConfigurationFragmentFactory {
 
   private static void validate(ObjcCommandLineOptions objcOptions)
       throws InvalidConfigurationException {
-    if (objcOptions.experimentalObjcHeaderThinning && objcOptions.useDotdPruning) {
+    if (objcOptions.experimentalObjcHeaderThinning && !objcOptions.useDotdPruning) {
       throw new InvalidConfigurationException(
-          "Cannot use Objective-C dotd pruning "
-              + "(--objc_use_dotd_pruning) and experimental Objective-C header thinning "
-              + "(--experimental_objc_header_thinning) at the same time.");
+          "Experimental Objective-C header thinning (--experimental_objc_header_thinning) requires "
+              + "Objective-C dotd pruning (--objc_use_dotd_pruning).");
     }
   }
 
