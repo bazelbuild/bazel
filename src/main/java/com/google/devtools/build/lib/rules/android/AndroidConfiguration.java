@@ -319,6 +319,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Kinds of binaries to incrementally dex if --incremental_dexing is true.")
     public Set<AndroidBinaryType> incrementalDexingBinaries;
 
+    /**
+     * Whether to look for incrementally dex protos built with java_lite_proto_library. Once this
+     * option works, we'll flip the default value in a config file, then once it is proven that it
+     * works, remove it from Bazel and said config file.
+     */
+    @Option(
+      name = "experimental_incremental_dexing_for_lite_protos",
+      defaultValue = "false",
+      category = "experimental",
+      help = "Do not use.")
+    public boolean incrementalDexingForLiteProtos;
+
     @Option(name = "non_incremental_per_target_dexopts",
         converter = Converters.CommaSeparatedOptionListConverter.class,
         defaultValue = "--no-locals",
@@ -423,6 +435,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.desugarJava8 = desugarJava8;
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingBinaries = incrementalDexingBinaries;
+      host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.manifestMerger = manifestMerger;
@@ -470,6 +483,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
+  private final boolean incrementalDexingForLiteProtos;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final boolean desugarJava8;
@@ -494,6 +508,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     } else {
       this.incrementalDexingBinaries = ImmutableSet.of();
     }
+    this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -543,6 +558,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public ImmutableSet<AndroidBinaryType> getIncrementalDexingBinaries() {
     return isJackUsedForDexing() ? ImmutableSet.<AndroidBinaryType>of() : incrementalDexingBinaries;
+  }
+
+  /**
+   * Returns whether to look for Jars produced by {@code JavaLiteProtoAspect}.
+   */
+  public boolean incrementalDexingForLiteProtos() {
+    return incrementalDexingForLiteProtos;
   }
 
   /**
