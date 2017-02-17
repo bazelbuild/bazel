@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.util.ArrayList;
@@ -101,25 +100,14 @@ public class BazelJavaSemantics implements JavaSemantics {
   public void checkProtoDeps(
       RuleContext ruleContext, Collection<? extends TransitiveInfoCollection> deps) {}
 
-  private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
-
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
     }
     String mainClass = ruleContext.attributes().get("main_class", Type.STRING);
 
-    // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
-    // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
-    if (mainClass.isEmpty()
-        && useLegacyJavaTest(ruleContext)
-        && "java_test".equals(ruleContext.getRule().getRuleClass())) {
-      mainClass = JUNIT4_RUNNER;
-    }
-
     if (mainClass.isEmpty()) {
-      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
-          && !useLegacyJavaTest(ruleContext)) {
+      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
         return "com.google.testing.junit.runner.BazelTestRunner";
       }
       mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
@@ -288,9 +276,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       return null;
     }
-    if (useLegacyJavaTest(ruleContext)) {
-      return null;
-    }
 
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
@@ -344,16 +329,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleConfiguredTargetBuilder ruleBuilder) {
   }
 
-  // TODO(dmarting): simplify that logic when we remove the legacy Bazel java_test behavior.
-  private String getPrimaryClassLegacy(RuleContext ruleContext, ImmutableList<Artifact> sources) {
-    boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
-    if (!createExecutable) {
-      return null;
-    }
-    return getMainClassInternal(ruleContext, sources);
-  }
-
-  private String getPrimaryClassNew(RuleContext ruleContext, ImmutableList<Artifact> sources) {
+  @Override
+  public String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
 
     if (!createExecutable) {
@@ -388,37 +365,28 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> sources) {
-    return useLegacyJavaTest(ruleContext)
-        ? getPrimaryClassLegacy(ruleContext, sources)
-        : getPrimaryClassNew(ruleContext, sources);
-  }
-
-  @Override
   public Iterable<String> getJvmFlags(
       RuleContext ruleContext, ImmutableList<Artifact> sources, List<String> userJvmFlags) {
     ImmutableList.Builder<String> jvmFlags = ImmutableList.builder();
     jvmFlags.addAll(userJvmFlags);
+    if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
+      String testClass =
+          ruleContext.getRule().isAttrDefined("test_class", Type.STRING)
+              ? ruleContext.attributes().get("test_class", Type.STRING)
+              : "";
+      if (testClass.isEmpty()) {
+        testClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
+      }
 
-    if (!useLegacyJavaTest(ruleContext)) {
-      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-        String testClass = ruleContext.getRule().isAttrDefined("test_class", Type.STRING)
-            ? ruleContext.attributes().get("test_class", Type.STRING) : "";
-        if (testClass.isEmpty()) {
-          testClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
-        }
-
-        if (testClass == null) {
-          ruleContext.ruleError("cannot determine test class");
-        } else {
-          // Always run junit tests with -ea (enable assertion)
-          jvmFlags.add("-ea");
-          // "suite" is a misnomer.
-          jvmFlags.add("-Dbazel.test_suite=" +  ShellEscaper.escapeString(testClass));
-        }
+      if (testClass == null) {
+        ruleContext.ruleError("cannot determine test class");
+      } else {
+        // Always run junit tests with -ea (enable assertion)
+        jvmFlags.add("-ea");
+        // "suite" is a misnomer.
+        jvmFlags.add("-Dbazel.test_suite=" + ShellEscaper.escapeString(testClass));
       }
     }
-
     return jvmFlags.build();
   }
 
@@ -536,28 +504,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources) {
-    if (ruleContext.getRule().getRuleClass().equals("java_test")) {
-      if (useLegacyJavaTest(ruleContext)) {
-        if (ruleContext.getConfiguration().getTestArguments().isEmpty()
-            && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
-          ImmutableList.Builder<String> builder = ImmutableList.builder();
-          for (Artifact artifact : sources) {
-            PathFragment path = artifact.getRootRelativePath();
-            String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
-            if (className != null) {
-              builder.add(className);
-            }
-          }
-          return builder.build();
-        }
-      }
-    }
-    return ImmutableList.<String>of();
-  }
-
-  private boolean useLegacyJavaTest(RuleContext ruleContext) {
-    return !ruleContext.attributes().isAttributeValueExplicitlySpecified("test_class")
-        && ruleContext.getFragment(JavaConfiguration.class).useLegacyBazelJavaTest();
+     return ImmutableList.of();
   }
 
   @Override

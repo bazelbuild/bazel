@@ -304,6 +304,7 @@ public class JavaOptions extends FragmentOptions {
       help = "Applies desired link-time optimizations to Java binaries and tests.")
   public JavaOptimizationMode javaOptimizationMode;
 
+  @Deprecated
   @Option(name = "legacy_bazel_java_test",
       defaultValue = "false",
       category = "undocumented",

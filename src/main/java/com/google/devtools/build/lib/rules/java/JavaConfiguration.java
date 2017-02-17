@@ -144,9 +144,6 @@ public final class JavaConfiguration extends Fragment {
   private final JavaOptimizationMode javaOptimizationMode;
   private final Label javaToolchain;
 
-  // TODO(dmarting): remove when we have rolled out the new behavior
-  private final boolean legacyBazelJavaTest;
-
   JavaConfiguration(
       boolean generateJavaDeps,
       List<String> defaultJvmFlags,
@@ -172,7 +169,6 @@ public final class JavaConfiguration extends Fragment {
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.javaToolchain = javaToolchain;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
-    this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
 
@@ -330,14 +326,6 @@ public final class JavaConfiguration extends Fragment {
    */
   public JavaOptimizationMode getJavaOptimizationMode() {
     return javaOptimizationMode;
-  }
-
-  /**
-   * Returns true if java_test in Bazel should behave in legacy mode that existed before we
-   * open-sourced our test runner.
-   */
-  public boolean useLegacyBazelJavaTest() {
-    return legacyBazelJavaTest;
   }
 
   /**
