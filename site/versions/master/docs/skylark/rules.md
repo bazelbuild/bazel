@@ -203,7 +203,7 @@ If left unspecified, it will contain all the declared outputs.
 ```python
 def _impl(ctx):
   # ...
-  return struct(files=set([file1, file2]))
+  return struct(files=depset([file1, file2]))
 ```
 
 This can be useful for exposing files generated with
@@ -330,7 +330,7 @@ Providers are created from the return value of the rule implementation function:
 def rule_implementation(ctx):
   ...
   return struct(
-    transitive_data=set(["a", "b", "c"])
+    transitive_data=depset(["a", "b", "c"])
   )
 ```
 
@@ -340,7 +340,7 @@ depended upon:
 ```python
 def dependent_rule_implementation(ctx):
   ...
-  s = set()
+  s = depset()
   for dep_target in ctx.attr.deps:
     # Use `print(dir(dep_target))` to see the list of providers.
     s += dep_target.transitive_data
@@ -367,7 +367,7 @@ transitively from the rule's dependencies:
 ```python
 def rule_implementation(ctx):
   ...
-  transitive_runfiles = set()
+  transitive_runfiles = depset()
   for dep in ctx.attr.special_dependencies:
      transitive_runfiles += dep.transitive_runtime_files
 

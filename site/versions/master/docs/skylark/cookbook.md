@@ -861,7 +861,7 @@ other rules. For example, if you need to compile C++ files, you can reuse
 ```python
 def _impl(ctx):
   # Aggregate the output files from the depending rules
-  files = set()
+  files = depset()
   files += ctx.attr.dep_rule_1.files
   files += ctx.attr.dep_rule_2.files
   return struct(files=files)
