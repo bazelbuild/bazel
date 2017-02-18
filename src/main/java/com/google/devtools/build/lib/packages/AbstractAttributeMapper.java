@@ -65,7 +65,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
       // getIndexWithTypeCheck checks the type is right, but unexpected configurable attributes
       // can still trigger cast exceptions.
       throw new IllegalArgumentException(
-          "wrong type for attribute \"" + attributeName + "\" in rule " + ruleLabel, e);
+          "wrong type for attribute \"" + attributeName + "\" in " + ruleClass
+          + " rule " + ruleLabel, e);
     }
   }
 
@@ -213,7 +214,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     }
     if (((SelectorList<?>) attrValue).getOriginalType() != type) {
       throw new IllegalArgumentException("Attribute " + attributeName
-          + " is not of type " + type + " in rule " + ruleLabel);
+          + " is not of type " + type + " in " + ruleClass + " rule " + ruleLabel);
     }
     return (SelectorList<T>) attrValue;
   }
@@ -226,12 +227,13 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Integer index = ruleClass.getAttributeIndex(attrName);
     if (index == null) {
       throw new IllegalArgumentException("No such attribute " + attrName
-          + " in rule " + ruleLabel.getName());
+          + " in " + ruleClass + " rule " + ruleLabel);
     }
     Attribute attr = ruleClass.getAttribute(index);
     if (attr.getType() != type) {
       throw new IllegalArgumentException("Attribute " + attrName
-          + " is of type " + attr.getType() + " and not of type " + type + " in rule " + ruleLabel);
+          + " is of type " + attr.getType() + " and not of type " + type
+          + " in " + ruleClass + " rule " + ruleLabel);
     }
     return index;
   }
