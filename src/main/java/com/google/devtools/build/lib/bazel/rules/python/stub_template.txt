@@ -12,6 +12,20 @@ import zipfile
 def IsWindows():
   return os.name == 'nt'
 
+def FixAbsWindowsPath(path):
+  """Changes the path, so that it uses unicode Windows paths"""
+  path = path.strip()
+
+  if not IsWindows():
+    return path # Not more to do for non-windows
+
+  # Lets start the unicode fun
+  unicode_prefix = "\\\\?\\"
+  if path.startswith(unicode_prefix):
+    return path
+
+  return unicode_prefix + os.path.normpath(path)
+
 PYTHON_BINARY = '%python_binary%'
 if IsWindows() and not PYTHON_BINARY.endswith('.exe'):
   PYTHON_BINARY = PYTHON_BINARY + '.exe'
@@ -77,7 +91,11 @@ def FindModuleSpace():
 def CreateModuleSpace():
   ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
-  zf = zipfile.ZipFile(os.path.dirname(__file__))
+  # mkdtemp return absolute name
+  temp_dir = FixAbsWindowsPath(temp_dir)
+  # __file__ will be either empty or the absolute path to this script
+  # Not handling empty, since it was not handled before
+  zf = zipfile.ZipFile(FixAbsWindowsPath(os.path.dirname(__file__)))
   zf.extractall(temp_dir)
   return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
 
@@ -103,12 +121,19 @@ def Main():
   if old_python_path:
     python_path += os.pathsep + old_python_path
 
+  if IsWindows():
+    python_path = python_path.replace("/", os.sep)
+
   new_env['PYTHONPATH'] = python_path
 
   # Now look for my main python source file.
   # The magic string percent-main-percent is replaced with the filename of the
   # main file of the Python binary in BazelPythonSemantics.java.
-  main_filename = os.path.join(module_space, '%main%')
+  rel_path = '%main%'
+  if IsWindows():
+    rel_path = rel_path.replace("/", os.sep)
+
+  main_filename = os.path.join(module_space, rel_path)
   assert os.path.exists(main_filename), \
          'Cannot exec() %r: file not found.' % main_filename
   assert os.access(main_filename, os.R_OK), \
