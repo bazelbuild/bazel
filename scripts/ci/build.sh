@@ -518,28 +518,29 @@ function build_and_publish_site() {
 }
 
 # Push json file to perf site, also add to file_list
-# Input: $1 json file
+# Input: $1 json file to push
 #        $2 name of the bucket to deploy the site to
 function push_benchmark_output_to_site() {
   tmpdir=$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)
   trap 'rm -fr ${tmpdir}' EXIT
   local gs="$(get_gsutil)"
-  local filename="$1"
+  local output_file="$1"
+  local output_file_basename="$(basename ${output_file})"
   local bucket="$2"
 
-  if [ ! -f "${filename}"] || [ -z "${bucket}" ]; then
+  if [ ! -f "${output_file}" ] || [ -z "${bucket}" ]; then
     echo "Usage: push_benchmark_output_to_site <json-file-name> <bucket>" >&2
     return 1
   fi
 
   # Upload json file
-  "${gs}" cp "${filename}" "gs://${bucket}/data/"
+  "${gs}" cp "${output_file}" "gs://${bucket}/data/${output_file_basename}"
 
   # Download file_list (it might not exist)
   "${gs}" cp "gs://${bucket}/file_list" "${tmpdir}" || true
   # Update file_list
   local list_file="${tmpdir}/file_list"
-  echo "${filename}" >> "${list_file}"
+  echo "${output_file_basename}" >> "${list_file}"
   "${gs}" cp "${list_file}" "gs://${bucket}/file_list"
 
   "${gs}" -m acl ch -R -u AllUsers:R "gs://${bucket}"
