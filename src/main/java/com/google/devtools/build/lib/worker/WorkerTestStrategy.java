@@ -87,10 +87,6 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       throw new UserExecException("Tests that do not use the default test runner are incompatible"
           + " with the persistent worker test strategy. Please use another test strategy");
     }
-    if (!action.isCoverageMode()) {
-      throw new UserExecException("Coverage is currently incompatible"
-          + " with the persistent worker test strategy. Please use another test strategy");
-    }
     List<String> startupArgs = getStartUpArgs(action);
 
     return execInWorker(
@@ -196,7 +192,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
   }
 
   private List<String> getStartUpArgs(TestRunnerAction action) throws ExecException {
-    List<String> args = getArgs(/*coverageScript=*/ "coverage-is-not-supported", action);
+    List<String> args = getArgs(/*coverageScript=*/ "", action);
     ImmutableList.Builder<String> startupArgs = ImmutableList.builder();
     // Add test setup with no echo to prevent stdout corruption.
     startupArgs.add(args.get(0)).add("--no_echo");
