@@ -527,7 +527,7 @@ function push_benchmark_output_to_site() {
   local filename="$1"
   local bucket="$2"
 
-  if [ ! -f "${site}"] || [ -z "${bucket}" ]; then
+  if [ ! -f "${filename}"] || [ -z "${bucket}" ]; then
     echo "Usage: push_benchmark_output_to_site <json-file-name> <bucket>" >&2
     return 1
   fi
