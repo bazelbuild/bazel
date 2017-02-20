@@ -1,4 +1,4 @@
 ---
-layout: redirect
-redirect: designs/skyframe.html
+layout: regular-redirect
+redirect: /designs/skyframe.html
 ---
