@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.MultiArchPlatformRule;
 import java.util.List;
 
-
 /**
  * {@link SplitTransitionProvider} implementation for multi-architecture apple rules which can
  * accept different apple platform types (such as ios or watchos).
@@ -44,8 +42,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   @VisibleForTesting
   static final String UNSUPPORTED_PLATFORM_TYPE_ERROR_FORMAT =
       "Unsupported platform type \"%s\"";
-
-  private static final String EXTENSION_COPT = "-application-extension";
+  
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
       ImmutableSet.of(PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS);
 
@@ -83,23 +80,17 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     }
   }
 
-  private static final ImmutableSet<AppleBinaryTransition>
-      SPLIT_TRANSITIONS = ImmutableSet.of(
-          new AppleBinaryTransition(PlatformType.IOS, false),
-          new AppleBinaryTransition(PlatformType.WATCHOS, false),
-          new AppleBinaryTransition(PlatformType.TVOS, false),
-          new AppleBinaryTransition(PlatformType.IOS, true),
-          new AppleBinaryTransition(PlatformType.WATCHOS, true),
-          new AppleBinaryTransition(PlatformType.TVOS, true));
+  private static final ImmutableMap<PlatformType, AppleBinaryTransition>
+      SPLIT_TRANSITIONS_BY_TYPE = ImmutableMap.<PlatformType, AppleBinaryTransition>builder()
+          .put(PlatformType.IOS, new AppleBinaryTransition(PlatformType.IOS))
+          .put(PlatformType.WATCHOS, new AppleBinaryTransition(PlatformType.WATCHOS))
+          .put(PlatformType.TVOS, new AppleBinaryTransition(PlatformType.TVOS))
+          .build();
 
   @Override
   public SplitTransition<?> apply(Rule fromRule) {
-    NonconfigurableAttributeMapper attrMapper = NonconfigurableAttributeMapper.of(fromRule);
-    String platformTypeString =
-        attrMapper.get(MultiArchPlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
-   
-    boolean isExtension = attrMapper.has(AppleBinaryRule.EXTENSION_SAFE_ATTR_NAME, BOOLEAN)
-        && attrMapper.get(AppleBinaryRule.EXTENSION_SAFE_ATTR_NAME, BOOLEAN);
+    String platformTypeString = NonconfigurableAttributeMapper.of(fromRule)
+        .get(MultiArchPlatformRule.PLATFORM_TYPE_ATTR_NAME, STRING);
     PlatformType platformType;
     try {
       platformType = getPlatformType(platformTypeString);
@@ -110,7 +101,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       platformType = PlatformType.IOS;
     }
 
-    return new AppleBinaryTransition(platformType, isExtension);
+    return SPLIT_TRANSITIONS_BY_TYPE.get(platformType);
   }
 
   /**
@@ -119,7 +110,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
    */
   public static List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
     return ImmutableList.<SplitTransition<BuildOptions>>copyOf(
-        SPLIT_TRANSITIONS.asList());
+        SPLIT_TRANSITIONS_BY_TYPE.values());
   }
 
   /**
@@ -130,11 +121,9 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   protected static class AppleBinaryTransition implements SplitTransition<BuildOptions> {
 
     private final PlatformType platformType;
-    private final boolean isExtension;
 
-    public AppleBinaryTransition(PlatformType platformType, boolean isExtension) {
+    public AppleBinaryTransition(PlatformType platformType) {
       this.platformType = platformType;
-      this.isExtension = isExtension;
     }
 
     @Override
@@ -144,45 +133,30 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       switch (platformType) {
         case IOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
-          if (cpus.isEmpty()) {
-            cpus = ImmutableList.of(buildOptions.get(AppleCommandLineOptions.class).iosCpu);
-          }
-          configurationDistinguisher = isExtension
-              ? ConfigurationDistinguisher.APPLEBIN_IOS_EXT
-              : ConfigurationDistinguisher.APPLEBIN_IOS;
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
           break;
         case WATCHOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).watchosCpus;
           if (cpus.isEmpty()) {
             cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_WATCHOS_CPU);
           }
-          configurationDistinguisher = isExtension
-              ? ConfigurationDistinguisher.APPLEBIN_WATCHOS_EXT
-              : ConfigurationDistinguisher.APPLEBIN_WATCHOS;
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_WATCHOS;
           break;
         case TVOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).tvosCpus;
           if (cpus.isEmpty()) {
             cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_TVOS_CPU);
           }
-          configurationDistinguisher = isExtension
-              ? ConfigurationDistinguisher.APPLEBIN_TVOS_EXT
-              : ConfigurationDistinguisher.APPLEBIN_TVOS;
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_TVOS;
           break;
         default:
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }
 
-      List<String> copts = buildOptions.get(ObjcCommandLineOptions.class).copts;
-      if (isExtension && !copts.contains(EXTENSION_COPT)) {
-        copts = ImmutableList.<String>builder()
-            .addAll(copts).add(EXTENSION_COPT).build();
-      }
       ImmutableList.Builder<BuildOptions> splitBuildOptions = ImmutableList.builder();
       for (String cpu : cpus) {
         BuildOptions splitOptions = buildOptions.clone();
 
-        splitOptions.get(ObjcCommandLineOptions.class).copts = copts;
         splitOptions.get(AppleCommandLineOptions.class).applePlatformType = platformType;
         splitOptions.get(AppleCommandLineOptions.class).appleSplitCpu = cpu;
         // If the new configuration does not use the apple crosstool, then it needs ios_cpu to be
@@ -209,21 +183,6 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     @Override
     public boolean defaultsToSelf() {
       return true;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(platformType, isExtension);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (!(other instanceof AppleBinaryTransition)) {
-        return false;
-      }
-      AppleBinaryTransition that = (AppleBinaryTransition) other;
-      return Objects.equal(platformType, that.platformType)
-          && Objects.equal(isExtension, that.isExtension);
     }
   }
 }
