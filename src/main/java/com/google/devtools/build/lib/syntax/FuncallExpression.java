@@ -675,9 +675,12 @@ public final class FuncallExpression extends Expression {
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) {  // expand the starArg
-        if (value instanceof Iterable) {
-          posargs.addAll((Iterable<Object>) value);
+        if (!(value instanceof Iterable)) {
+          throw new EvalException(
+              getLocation(),
+              "argument after * must be an iterable, not " + EvalUtils.getDataTypeName(value));
         }
+        posargs.addAll((Iterable<Object>) value);
       } else if (arg.isStarStar()) {  // expand the kwargs
         addKeywordArgs(kwargs, value, duplicates, getLocation());
       } else {

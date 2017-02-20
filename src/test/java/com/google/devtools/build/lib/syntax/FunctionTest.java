@@ -308,6 +308,19 @@ public class FunctionTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testArgsIsNotIterable() throws Exception {
+    checkEvalError(
+        "argument after * must be an iterable, not int",
+        "def func1(a, b): return a + b",
+        "func1('a', *42)");
+
+    checkEvalError(
+        "argument after * must be an iterable, not string",
+        "def func2(a, b): return a + b",
+        "func2('a', *'str')");
+  }
+
+  @Test
   public void testKwargs() throws Exception {
     eval("def foo(a, b = 'b', *, c, d = 'd'):",
       "  return a + b + c + d",
