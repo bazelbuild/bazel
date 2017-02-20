@@ -27,12 +27,9 @@ import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
@@ -120,8 +117,6 @@ class Desugar {
     Path dumpDirectory = Files.createTempDirectory("lambdas");
     System.setProperty(
         LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
-
-    deleteTreeOnExit(dumpDirectory);
 
     if (args.length == 1 && args[0].startsWith("@")) {
       args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
@@ -267,44 +262,6 @@ class Desugar {
         return super.loadClass(name, resolve);
       }
       throw new ClassNotFoundException();
-    }
-  }
-
-  private static void deleteTreeOnExit(Path directory) {
-    Thread shutdownHook =
-        new Thread() {
-          @Override
-          public void run() {
-            try {
-              deleteTree(directory);
-            } catch (IOException e) {
-              throw new RuntimeException("Failed to delete " + directory, e);
-            }
-          }
-        };
-    Runtime.getRuntime().addShutdownHook(shutdownHook);
-  }
-
-  /** Recursively delete a directory. */
-  private static void deleteTree(Path directory) throws IOException {
-    if (directory.toFile().exists()) {
-      Files.walkFileTree(
-          directory,
-          new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
-                throws IOException {
-              Files.delete(file);
-              return FileVisitResult.CONTINUE;
-            }
-
-            @Override
-            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
-                throws IOException {
-              Files.delete(dir);
-              return FileVisitResult.CONTINUE;
-            }
-          });
     }
   }
 }
