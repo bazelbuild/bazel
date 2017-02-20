@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.syntax.Parser.ParseResult;
 import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -299,7 +300,7 @@ public class BuildFileAST extends ASTNode {
 
   public static BuildFileAST parseBuildString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, null);
+    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
     Parser.ParseResult result = Parser.parseFile(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }
@@ -307,7 +308,7 @@ public class BuildFileAST extends ASTNode {
   // TODO(laurentlb): Merge parseSkylarkString and parseBuildString.
   public static BuildFileAST parseSkylarkString(EventHandler eventHandler, String... content) {
     String str = Joiner.on("\n").join(content);
-    ParserInputSource input = ParserInputSource.create(str, null);
+    ParserInputSource input = ParserInputSource.create(str, PathFragment.EMPTY_FRAGMENT);
     Parser.ParseResult result = Parser.parseFileForSkylark(input, eventHandler);
     return create(ImmutableList.<Statement>of(), result, null, eventHandler);
   }

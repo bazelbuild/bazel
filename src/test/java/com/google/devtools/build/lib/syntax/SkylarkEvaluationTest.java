@@ -421,7 +421,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
         "      xs.append(4)",
         "  return ys"
         // No file name in message, due to how test is set up.
-        ).testIfErrorContains("Object locked at the following location(s): 4:3, 5:5", "foo()");
+        ).testIfErrorContains("Object locked at the following location(s): :4:3, :5:5", "foo()");
   }
 
   @Test

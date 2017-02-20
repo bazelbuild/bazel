@@ -353,15 +353,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains(
             "Traceback (most recent call last):"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 8"
+                + "\tFile \"\", line 8"
                 + LINE_SEPARATOR
                 + "\t\tfoo()"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 2, in foo"
+                + "\tFile \"\", line 2, in foo"
                 + LINE_SEPARATOR
                 + "\t\tbar(1)"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 7, in bar"
+                + "\tFile \"\", line 7, in bar"
                 + LINE_SEPARATOR
                 + "\t\t'test'.index(x)",
             "def foo():",
@@ -378,11 +378,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testStackTraceWithIf() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "File \"<unknown>\", line 5"
+            "File \"\", line 5"
                 + LINE_SEPARATOR
                 + "\t\tfoo()"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 3, in foo"
+                + "\tFile \"\", line 3, in foo"
                 + LINE_SEPARATOR
                 + "\t\ts[0]",
             "def foo():",
@@ -411,15 +411,15 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfExactError(
             "Traceback (most recent call last):"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 6"
+                + "\tFile \"\", line 6"
                 + LINE_SEPARATOR
                 + "\t\tfoo()"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 2, in foo"
+                + "\tFile \"\", line 2, in foo"
                 + LINE_SEPARATOR
                 + "\t\tbar(1)"
                 + LINE_SEPARATOR
-                + "\tFile \"<unknown>\", line 5, in bar"
+                + "\tFile \"\", line 5, in bar"
                 + LINE_SEPARATOR
                 + "\t\t'test'.index(x)"
                 + LINE_SEPARATOR
