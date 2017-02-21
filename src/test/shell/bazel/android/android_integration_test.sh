@@ -289,7 +289,6 @@ function test_android_sdk_repository_path_from_environment() {
   cat > WORKSPACE <<EOF
 android_sdk_repository(
     name = "androidsdk",
-    api_level = 25,
 )
 EOF
   ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || fail \

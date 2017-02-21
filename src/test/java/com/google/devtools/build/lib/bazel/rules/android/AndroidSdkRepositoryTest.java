@@ -15,10 +15,12 @@
 package com.google.devtools.build.lib.bazel.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -207,6 +209,33 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
           androidSdk.getProvider(AndroidSdkProvider.class).getAndroidJar().getExecPathString())
           .isEqualTo(
               String.format("external/androidsdk/platforms/android-%d/android.jar", apiLevel));
+    }
+  }
+
+  @Test
+  public void testMissingApiLevel() throws Exception {
+    scratchPlatformsDirectories(24);
+    scratchBuildToolsDirectories("25.0.1");
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        "    api_level = 25,",
+        "    build_tools_version = '25.0.1',",
+        ")");
+    invalidatePackages();
+
+    try {
+      getTarget("@androidsdk//:files");
+      fail("android_sdk_repository should have failed due to missing SDK api level.");
+    } catch (BuildFileNotFoundException e) {
+      assertThat(e.getMessage())
+          .contains(
+              "Android SDK api level 25 was requested but it is not installed in the Android SDK "
+                  + "at /sdk. The api levels found were [24]. Please choose an available api level "
+                  + "or install api level 25 from the Android SDK Manager.");
     }
   }
 }
