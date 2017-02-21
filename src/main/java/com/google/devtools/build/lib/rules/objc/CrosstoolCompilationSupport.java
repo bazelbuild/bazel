@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -80,8 +81,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
           "preprocess-assemble",
           "c-compile",
           "c++-compile");
-  @Nullable private final CcToolchainProvider ccToolchain;
-  @Nullable private final FdoSupportProvider fdoSupport;
 
   /**
    * Creates a new CompilationSupport instance that uses the c++ rule backend
@@ -109,23 +108,17 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes) {
     super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes);
-    // Note some rules like objc_import do not need to compile anything and therefore do not define
-    // any toolchain attribute. However, they still use the base class to set up other actions like
-    // the module map action. Here we guard against those cases.
-    if (ruleContext.attributes().has(":cc_toolchain", BuildType.LABEL)) {
-      this.ccToolchain = CppHelper.getToolchain(ruleContext, ":cc_toolchain");
-      this.fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
-    } else {
-      this.ccToolchain = null;
-      this.fdoSupport = null;
-    }
   }
 
   @Override
   CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts,
       ObjcProvider objcProvider, ExtraCompileArgs extraCompileArgs,
-      Iterable<PathFragment> priorityHeaders) throws RuleErrorException, InterruptedException {
+      Iterable<PathFragment> priorityHeaders,
+      @Nullable CcToolchainProvider ccToolchain,
+      @Nullable FdoSupportProvider fdoSupport) throws RuleErrorException, InterruptedException {
+    Preconditions.checkNotNull(ccToolchain);
+    Preconditions.checkNotNull(fdoSupport);
     ObjcVariablesExtension.Builder extension = new ObjcVariablesExtension.Builder()
         .setRuleContext(ruleContext)
         .setObjcProvider(objcProvider)
@@ -142,11 +135,15 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   
       extension.addVariableCategory(VariableCategory.ARCHIVE_VARIABLES);
       
-      helper = createCcLibraryHelper(objcProvider, compilationArtifacts, extension.build())
-          .setLinkType(LinkTargetType.OBJC_ARCHIVE)
-          .addLinkActionInput(objList);
+      helper =
+          createCcLibraryHelper(
+                  objcProvider, compilationArtifacts, extension.build(), ccToolchain, fdoSupport)
+              .setLinkType(LinkTargetType.OBJC_ARCHIVE)
+              .addLinkActionInput(objList);
     } else {
-      helper = createCcLibraryHelper(objcProvider, compilationArtifacts, extension.build());
+      helper =
+          createCcLibraryHelper(
+              objcProvider, compilationArtifacts, extension.build(), ccToolchain, fdoSupport);
     }
     
     helper.build();
@@ -156,8 +153,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
   @Override
   protected CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive)
+      ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive,
+      @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport)
       throws InterruptedException {
+    Preconditions.checkNotNull(ccToolchain);
+    Preconditions.checkNotNull(fdoSupport);
     PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
     String libraryIdentifier =
         ruleContext
@@ -172,7 +172,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .setFullyLinkArchive(outputArchive)
         .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
         .build();
-    
     CppLinkAction fullyLinkAction =
         new CppLinkActionBuilder(
                 ruleContext, outputArchive, ccToolchain, fdoSupport.getFdoSupport())
@@ -236,6 +235,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .build();
    
     Artifact binaryToLink = getBinaryToLink();
+    CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext, ":cc_toolchain");
+    FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
     CppLinkAction executableLinkAction =
         new CppLinkActionBuilder(ruleContext, binaryToLink, ccToolchain, fdoSupport.getFdoSupport())
             .setMnemonic("ObjcLink")
@@ -257,7 +258,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return this;
   }
   private CcLibraryHelper createCcLibraryHelper(ObjcProvider objcProvider,
-      CompilationArtifacts compilationArtifacts, VariablesExtension extension) {
+      CompilationArtifacts compilationArtifacts, VariablesExtension extension,
+      CcToolchainProvider ccToolchain, FdoSupportProvider fdoSupport) {
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
     Collection<Artifact> arcSources = ImmutableSortedSet.copyOf(compilationArtifacts.getSrcs());
     Collection<Artifact> nonArcSources =
@@ -295,6 +297,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCoptsForCompilationMode())
             .addSystemIncludeDirs(objcProvider.get(INCLUDE_SYSTEM))
             .setCppModuleMap(intermediateArtifacts.moduleMap())
+            .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
             .setPropagateModuleMapToCompileAction(false)
             .setNeverLink(true)
             .addVariableExtension(extension);
@@ -311,7 +314,6 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
   private static FeatureConfiguration getFeatureConfiguration(RuleContext ruleContext,
       BuildConfiguration configuration) {
-
     ImmutableList.Builder<String> activatedCrosstoolSelectables =
         ImmutableList.<String>builder()
             .addAll(ACTIVATED_ACTIONS)

@@ -344,9 +344,16 @@ public class CppHelper {
 
   /** Returns the linked artifact for linux. */
   public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
+    return getLinuxLinkedArtifact(ruleContext, linkType, "");
+  }
+
+  /** Returns the linked artifact with the given suffix for linux. */
+  public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType,
+      String linkedArtifactNameSuffix) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
-      name = name.replaceName("lib" + name.getBaseName() + linkType.getExtension());
+      name = name.replaceName(
+          "lib" + name.getBaseName() + linkedArtifactNameSuffix  + linkType.getExtension());
     }
 
     return ruleContext.getBinArtifact(name);

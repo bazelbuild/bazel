@@ -66,15 +66,18 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map.Entry;
+import javax.annotation.Nullable;
 
 /**
  * Constructs command lines for objc compilation, archiving, and linking.  Uses hard-coded
@@ -157,7 +160,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
   @Override
   CompilationSupport registerCompileAndArchiveActions(
       CompilationArtifacts compilationArtifacts, ObjcProvider objcProvider,
-      ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders) {
+      ExtraCompileArgs extraCompileArgs, Iterable<PathFragment> priorityHeaders,
+      @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport) {
     registerGenerateModuleMapAction(compilationArtifacts);
     Optional<CppModuleMap> moduleMap;
     if (objcConfiguration.moduleMapsEnabled()) {
@@ -606,7 +610,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
 
   @Override
   protected CompilationSupport registerFullyLinkAction(
-      ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive) {
+      ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive,
+      @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport) {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(
                 appleConfiguration, appleConfiguration.getSingleArchPlatform())
