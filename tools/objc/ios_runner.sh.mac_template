@@ -133,7 +133,7 @@ fi
 readonly DEVELOPER_PATH=$(xcode-select -p)
 
 # Launch the simulator.
-open "${DEVELOPER_PATH}/Applications/${simulator_name}.app" --args -CurrentDeviceUDID "${TEST_DEVICE_ID}" &
+"${DEVELOPER_PATH}/Applications/${simulator_name}.app/Contents/MacOS/${simulator_name}" -CurrentDeviceUDID "${TEST_DEVICE_ID}" &
 wait_for_sim_to_boot "${TEST_DEVICE_ID}"
 
 # Pass environment variables prefixed with "IOS_" to the simulator, replace the
