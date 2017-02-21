@@ -9,7 +9,7 @@ genrule(
     name = "BUILD-jdk7",
     srcs = [":BUILD"],
     outs = ["BUILD.jdk7"],
-    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' $< > $@",
+    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' $< > $@",
 )
 
 filegroup(
@@ -113,7 +113,7 @@ java_toolchain(
     bootclasspath = [":bootclasspath"],
     encoding = "UTF-8",
     extclasspath = [":extclasspath"],
-    forcibly_disable_header_compilation = 1,
+    forcibly_disable_header_compilation = 0,
     genclass = ["//tools/jdk:GenClass_deploy.jar"],
     header_compiler = ["//tools/jdk:turbine_deploy.jar"],
     ijar = ["@bazel_tools//tools/jdk:ijar"],
