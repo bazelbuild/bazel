@@ -213,6 +213,13 @@ outputs (like `_deploy.jar` in `java_binary`).
 
 ## Actions
 
+An action describes how to generate a set of outputs from a set of inputs, for
+example "run gcc on hello.c and get hello.o". When an action is created, Bazel
+doesn't run the command immediately. It registers it in a graph of dependencies,
+because an action can depend on the output of another action (e.g. in C,
+the linker must be called after compilation). In the execution phase, Bazel
+decides which actions must be run and in which order.
+
 There are three ways to create actions:
 
 * [ctx.action](lib/ctx.html#action), to run a command.
@@ -259,10 +266,32 @@ its outputs are needed for the build.
 
 ## Configurations
 
-By default, a target is built in the target configuration. For each label
-attribute, you can decide whether the dependency should be built in the same
-configuration, or in the host configuration. If `executable=True`, configuration
-setting is required.
+Imagine that you want to build a C++ binary and target a different architecture.
+The build can be complex and involve multiple steps. Some of the intermediate
+binaries, like the compilers and code generators, have to run on your machine
+(the host); some of the binaries such the final output must be built for the
+target architecture.
+
+For this reason, Bazel has a concept of "configurations" and transitions. The
+topmost targets (the ones requested on the command line) are built in the
+"target" configuration, while tools that should run locally on the host are
+built in the "host" configuration. Rules may generate different actions based on
+the configuration, for instance to change the cpu architecture that is passed to
+the compiler. In some cases, the same library may be needed for different
+configurations. If this happens, it will be analyzed and potentially built
+multiple times.
+
+By default, Bazel builds the dependencies of a target in the same configuration
+as the target itself, i.e. without transitioning. When a target depends on a
+tool, the label attribute will specify a transition to the host configuration.
+This causes the tool and all of its dependencies to be built for the host
+machine, assuming those dependencies do not themselves have transitions.
+
+For each [label attribute](lib/attr.html#label), you can decide whether the
+dependency should be built in the same configuration, or transition to the host
+configuration (using `cfg`). If a label attribute has the flag
+`executable=True`, the configuration must be set explictly.
+[See example](cookbook.html#execute-a-binary)
 
 In general, sources, dependent libraries, and executables that will be needed at
 runtime can use the same configuration.
@@ -274,12 +303,11 @@ in the attribute.
 The configuration `"data"` is present for legacy reasons and should be used for
 the `data` attributes.
 
-
 ## <a name="fragments"></a> Configuration Fragments
 
-Rules may access configuration fragments such as `cpp`, `java` and `jvm`.
-However, all required fragments must be declared in order to avoid access
-errors:
+Rules may access [configuration fragments](lib/skylark-configuration-fragment.html)
+such as `cpp`, `java` and `jvm`. However, all required fragments must be
+declared in order to avoid access errors:
 
 ```python
 def impl(ctx):
@@ -316,13 +344,15 @@ to it, then and only then can `top` access it.
 
 The following data types can be passed using providers:
 
-* `bool`
-* `integer`
-* `string`
-* `file`
-* `label`
-* `None`
-* anything composed of these types and `lists`, `dicts`, `sets` or `structs`
+* [bool](lib/bool.html)
+* [integer](lib/int.html)
+* [string](lib/string.html)
+* [file](lib/File.html)
+* [label](lib/Label.html)
+* [None](lib/globals.html#None)
+* anything composed of these types and [lists](lib/list.html),
+ [dicts](lib/dict.html),  [depsets](lib/depset.html) or
+ [structs](lib/struct.html).
 
 Providers are created from the return value of the rule implementation function:
 
@@ -357,9 +387,9 @@ Providers are only available during the analysis phase. Examples of usage:
 Runfiles are a set of files used by the (often executable) output of a rule
 during runtime (as opposed to build time, i.e. when the binary itself is
 generated).
-During execution, Bazel creates a directory tree containing symlinks pointing to
-the runfiles, staging the environment for the binary so it can access the
-runfiles during runtime.
+During the [execution phase](concepts.md#evaluation-model), Bazel creates a
+directory tree containing symlinks pointing to the runfiles. This stages the
+environment for the binary so it can access the runfiles during runtime.
 
 Runfiles can be added manually during rule creation and/or collected
 transitively from the rule's dependencies:
@@ -445,11 +475,12 @@ def rule_implementation(ctx):
       dependency_attributes=["data", "deps"]))
 ```
 
-`ctx.config.coverage_enabled` notes whether coverage data collection is enabled
-for the current run in general (but says nothing about which files specifically
-should be instrumented). If a rule implementation needs to add coverage
-instrumentation at compile-time, it can determine if its sources should be
-instrumented with:
+[ctx.config.coverage_enabled](lib/configuration.html#coverage_enabled) notes
+whether coverage data collection is enabled for the current run in general
+(but says nothing about which files specifically should be instrumented).
+If a rule implementation needs to add coverage instrumentation at
+compile-time, it can determine if its sources should be instrumented with
+[ctx.coverage_instrumented](lib/ctx.html#coverage_instrumented):
 
 ```python
 # Are this rule's sources instrumented?

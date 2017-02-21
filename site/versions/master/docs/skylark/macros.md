@@ -8,10 +8,11 @@ title: Macros
 
 A macro is a function called from the BUILD file that can instantiate rules.
 Macros don't give additional power, they are just used for encapsulation and
-code reuse. By the end of the loading phase, macros don't exist anymore, and
-Bazel sees only the set of rules they created.
+code reuse. By the end of the [loading phase](concepts.html#evaluation-model),
+macros don't exist anymore, and Bazel sees only the set of rules they created.
 
-Native rules can be instantiated from the `native` module, e.g.
+Native rules (i.e. rules that don't need a `load()` statement) can be
+instantiated from the [native](lib/native.html) module, e.g.
 
 ```python
 def my_macro(name, visibility=None):
