@@ -172,14 +172,15 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
 
     AppleDebugOutputsProvider.Builder builder = AppleDebugOutputsProvider.Builder.create();
 
-    if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
-      for (BuildConfiguration c : childConfigurations) {
-        String arch = c.getFragment(AppleConfiguration.class).getSingleArchitecture();
+    for (BuildConfiguration childConfig : childConfigurations) {
+      AppleConfiguration childAppleConfig = childConfig.getFragment(AppleConfiguration.class);
+      if (childAppleConfig.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
+        String arch = childAppleConfig.getSingleArchitecture();
         IntermediateArtifacts intermediateArtifacts =
             new IntermediateArtifacts(
-                ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", c);
+                ruleContext, /*archiveFileNameSuffix*/ "", /*outputPrefix*/ "", childConfig);
         Artifact bitcodeSymbol = intermediateArtifacts.bitcodeSymbolMap();
-
+  
         builder.addOutput(arch, OutputType.BITCODE_SYMBOLS, bitcodeSymbol);
       }
     }

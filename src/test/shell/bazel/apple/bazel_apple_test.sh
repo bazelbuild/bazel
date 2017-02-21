@@ -666,24 +666,31 @@ EOF
   ARCHIVE=bazel-genfiles/ios/swift_lib/_objs/ios_swift_lib.a
 
   # No bitcode
-  bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+  bazel build --verbose_failures --xcode_version=$XCODE_VERSION --ios_multi_cpus=arm64 \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   ! otool -l $ARCHIVE | grep __bitcode -sq \
-      || fail "expected a.o to contain bitcode"
+      || fail "expected a.o to not contain bitcode"
 
   # Bitcode marker
   bazel build --verbose_failures \
-      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded_markers \
+      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded_markers --ios_multi_cpus=arm64 \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   # Bitcode marker has a length of 1.
   assert_equals $(size -m $ARCHIVE | grep __bitcode | cut -d: -f2 | tr -d ' ') "1"
 
   # Full bitcode
   bazel build --verbose_failures \
-      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded \
+      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded --ios_multi_cpus=arm64 \
       //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
   otool -l $ARCHIVE | grep __bitcode -sq \
       || fail "expected a.o to contain bitcode"
+
+  # Bitcode disabled because of simulator architecture
+  bazel build --verbose_failures \
+      --xcode_version=$XCODE_VERSION --apple_bitcode=embedded --ios_multi_cpus=x86_64 \
+      //ios:swift_lib >$TEST_log 2>&1 || fail "should build"
+  ! otool -l $ARCHIVE | grep __bitcode -sq \
+      || fail "expected a.o to not contain bitcode"
 }
 
 function test_swift_name_validation() {

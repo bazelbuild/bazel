@@ -510,10 +510,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable public Label getDefaultProvisioningProfileLabel() {
     return defaultProvisioningProfileLabel;
   }
-  
+
   /**
-   * Returns the bitcode mode to use for compilation steps. Users can control bitcode mode using the
-   * {@code apple_bitcode} build flag.
+   * Returns the bitcode mode to use for compilation steps. This should only be invoked in
+   * single-architecture contexts.
+   *
+   * <p>Users can control bitcode mode using the {@code apple_bitcode} build flag, but bitcode
+   * will be disabled for all simulator architectures regardless of this flag.
    *
    * @see AppleBitcodeMode
    */
@@ -523,7 +526,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     structField = true
   )
   public AppleBitcodeMode getBitcodeMode() {
-    return bitcodeMode;
+    if (getSingleArchPlatform().isDevice()) {
+      return bitcodeMode;
+    } else {
+      return AppleBitcodeMode.NONE;
+    }
   }
 
   /**
