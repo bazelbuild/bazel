@@ -301,6 +301,7 @@ java_library(
     name = "buildeventstream",
     srcs = glob(["buildeventstream/*.java"]),
     deps = [
+        ":events",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",

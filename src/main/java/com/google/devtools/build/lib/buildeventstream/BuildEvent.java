@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 
 /**
  * Interface for objects that can be posted on the public event stream.
@@ -21,7 +22,7 @@ package com.google.devtools.build.lib.buildeventstream;
  * <p>Objects posted on the build-event stream will implement this interface. This allows
  * pass-through of events, as well as proper chaining of events.
  */
-public interface BuildEvent extends ChainableEvent {
+public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postable {
   /**
    * Provide a binary representation of the event.
    *
