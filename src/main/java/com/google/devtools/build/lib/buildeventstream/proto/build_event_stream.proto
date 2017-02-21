@@ -139,7 +139,7 @@ message BuildStarted {
   string uuid = 1;
 
   // Start of the build in ms since the epoche.
-  int64 start_time_milis = 2;
+  int64 start_time_millis = 2;
 
   // Version of the build tool that is running.
   string build_tool_version = 3;

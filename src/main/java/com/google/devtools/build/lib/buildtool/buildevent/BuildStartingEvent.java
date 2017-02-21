@@ -90,7 +90,7 @@ public final class BuildStartingEvent implements BuildEvent {
     BuildEventStreamProtos.BuildStarted.Builder started =
         BuildEventStreamProtos.BuildStarted.newBuilder()
             .setUuid(request.getId().toString())
-            .setStartTimeMilis(request.getStartTime())
+            .setStartTimeMillis(request.getStartTime())
             .setBuildToolVersion(BlazeVersionInfo.instance().getVersion())
             .setOptionsDescription(request.getOptionsDescription())
             .setCommand(request.getCommandName());
