@@ -5,7 +5,7 @@ google.charts.setOnLoadCallback(drawAllChart);
  * Get data from /data/*.json and draw charts from it.
  */
 function drawAllChart() {
-  $.get('file_list', function(data) {
+  $.get('file_list?v=' + Date.now(), function(data) {
     /** @type {!Array<LineChart>} */
     const chart = [];
     const options = [];
