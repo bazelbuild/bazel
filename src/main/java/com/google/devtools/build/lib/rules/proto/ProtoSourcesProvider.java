@@ -107,8 +107,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   @SkylarkCallable(
     name = "direct_descriptor_set",
     doc = "The FileDescriptorSet of the direct sources. If no srcs, contains an empty file. ",
-    structField = true,
-    allowReturnNones = true
+    structField = true
   )
   public abstract Artifact directDescriptorSet();
 
@@ -124,8 +123,7 @@ public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
         "A set of FileDescriptorSet files of all dependent proto_library rules, and this one's. "
             + "This is not the same as passing --include_imports to proto-compiler. "
             + "Will be empty if no dependencies. ",
-    structField = true,
-    allowReturnNones = true
+    structField = true
   )
   public abstract NestedSet<Artifact> transitiveDescriptorSets();
 
