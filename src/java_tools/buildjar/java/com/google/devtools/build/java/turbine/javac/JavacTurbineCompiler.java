@@ -16,17 +16,14 @@ package com.google.devtools.build.java.turbine.javac;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileResult.Status;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
-
 import com.sun.tools.javac.file.CacheFSInfo;
 import com.sun.tools.javac.main.Arguments;
 import com.sun.tools.javac.main.CommandLine;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -34,7 +31,6 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 import javax.annotation.Nullable;
 import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
@@ -51,7 +47,7 @@ public class JavacTurbineCompiler {
 
     try (PrintWriter pw = new PrintWriter(sw)) {
       ZipOutputFileManager.preRegister(context, files);
-      setupContext(context, request.strictJavaDepsPlugin(), request.prune());
+      setupContext(context, request.strictJavaDepsPlugin());
       CacheFSInfo.preRegister(context);
 
       context.put(Log.outKey, pw);
@@ -95,7 +91,7 @@ public class JavacTurbineCompiler {
     return new JavacTurbineCompileResult(ImmutableMap.copyOf(files), status, sw, context);
   }
 
-  static void setupContext(Context context, @Nullable StrictJavaDepsPlugin sjd, Prune prune) {
-    JavacTurbineJavaCompiler.preRegister(context, sjd, prune);
+  static void setupContext(Context context, @Nullable StrictJavaDepsPlugin sjd) {
+    JavacTurbineJavaCompiler.preRegister(context, sjd);
   }
 }

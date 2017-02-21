@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.java.turbine;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine;
 import com.google.devtools.build.java.turbine.javac.JavacTurbine.Result;
 import com.google.turbine.diag.TurbineError;
@@ -31,16 +30,12 @@ import java.util.Arrays;
 public class Turbine {
 
   public static void main(String[] args) throws Exception {
-    System.exit(
-        new Turbine(ImmutableSet.<String>of(), "An exception has occurred in turbine.")
-            .compile(args));
+    System.exit(new Turbine("An exception has occurred in turbine.").compile(args));
   }
 
-  private final ImmutableSet<String> processorBlacklist;
   private final String bugMessage;
 
-  public Turbine(ImmutableSet<String> processorBlacklist, String bugMessage) {
-    this.processorBlacklist = processorBlacklist;
+  public Turbine(String bugMessage) {
     this.bugMessage = bugMessage;
   }
 
@@ -76,7 +71,6 @@ public class Turbine {
   Result javacTurbineCompile(String[] args) throws IOException {
     TurbineOptions.Builder options = TurbineOptions.builder();
     TurbineOptionsParser.parse(options, Arrays.asList(args));
-    options.addBlacklistedProcessors(processorBlacklist);
     return JavacTurbine.compile(options.build());
   }
 }

@@ -27,7 +27,6 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
-import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
 import com.google.turbine.options.TurbineOptions;
 import com.google.turbine.options.TurbineOptionsParser;
@@ -172,11 +171,6 @@ public class JavacTurbine implements AutoCloseable {
             .setJavacOptions(argbuilder.build())
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
             .setProcessorClassPath(processorpath);
-
-    if (!Collections.disjoint(
-        turbineOptions.processors(), turbineOptions.blacklistedProcessors())) {
-      requestBuilder.setPrune(Prune.NO);
-    }
 
     // JavaBuilder exempts some annotation processors from Strict Java Deps enforcement.
     // To avoid having to apply the same exemptions here, we just ignore strict deps errors

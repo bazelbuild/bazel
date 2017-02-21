@@ -1168,30 +1168,6 @@ public class JavacTurbineTest {
     optionsBuilder.addProcessorPathEntries(ImmutableList.of(processorJar.toString()));
   }
 
-  @Test
-  public void misguidedProcessor_pruning() throws Exception {
-    setupMisguidedProcessor();
-    compile();
-    Map<String, byte[]> outputs = collectOutputs();
-
-    assertThat(outputs.keySet()).containsExactly("Hello.class", "output.txt");
-    String output = new String(outputs.get("output.txt"), UTF_8);
-    assertThat(output).isEqualTo("[]");
-  }
-
-  @Test
-  public void misguidedProcessor() throws Exception {
-    setupMisguidedProcessor();
-    optionsBuilder.addBlacklistedProcessors(
-        ImmutableList.of(MisguidedAnnotationProcessor.class.getName()));
-    compile();
-    Map<String, byte[]> outputs = collectOutputs();
-
-    assertThat(outputs.keySet()).containsExactly("Hello.class", "output.txt");
-    String output = new String(outputs.get("output.txt"), UTF_8);
-    assertThat(output).isEqualTo("[42, hello, 42.1]");
-  }
-
   public static class TransitiveDep {}
 
   public static class DirectDep extends TransitiveDep {}
