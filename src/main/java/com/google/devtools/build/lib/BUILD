@@ -232,6 +232,12 @@ java_library(
 )
 
 java_library(
+    name = "classpath-util",
+    srcs = ["util/Classpath.java"],
+    deps = [":preconditions"],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
@@ -1181,7 +1187,7 @@ genrule(
     name = "gen_skylarklibrary",
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib " +
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib external" +
           " ".join(SKYLARK_REPOSITORY_CLASSES) +
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],

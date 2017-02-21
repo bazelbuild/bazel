@@ -75,7 +75,7 @@ public class SkylarkDocumentationTest extends SkylarkTestCase {
   }
 
   @SuppressWarnings("unchecked")
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) {
+  private void checkSkylarkTopLevelEnvItemsAreDocumented(Environment env) throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc topLevel =

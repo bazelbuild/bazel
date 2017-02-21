@@ -19,27 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
-import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.rules.SkylarkModules;
-import com.google.devtools.build.lib.rules.SkylarkRuleContext;
-import com.google.devtools.build.lib.rules.android.AndroidSkylarkApiProvider;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
-import com.google.devtools.build.lib.rules.java.Jvm;
-import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.BazelLibrary;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.util.Classpath;
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Deque;
@@ -48,7 +35,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -64,6 +50,9 @@ final class SkylarkDocumentationCollector {
   )
   private static final class TopLevelModule {}
 
+  // Common prefix of packages that may contain Skylark modules.
+  private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
+
   private SkylarkDocumentationCollector() {}
 
   /**
@@ -74,30 +63,25 @@ final class SkylarkDocumentationCollector {
   }
 
   /**
-   * Collects the documentation for all Skylark modules and returns a map that maps Skylark
-   * module name to the module documentation.
+   * Collects the documentation for all Skylark modules and returns a map that maps Skylark module
+   * name to the module documentation.
+   *
+   * <p>WARNING: This method no longer supports the specification of additional module classes via
+   * parameters. Instead, all module classes are being picked up automatically.
+   *
+   * @param clazz DEPRECATED.
    */
-  public static Map<String, SkylarkModuleDoc> collectModules(String... clazz) {
+  public static Map<String, SkylarkModuleDoc> collectModules(@Deprecated String... clazz)
+      throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = new TreeMap<>();
-    Map<String, SkylarkModuleDoc> builtinModules = collectBuiltinModules(clazz);
-    Map<SkylarkModule, Class<?>> builtinJavaObjects = collectBuiltinJavaObjects(clazz);
-
-    modules.putAll(builtinModules);
-    for (SkylarkModuleDoc builtinObject : builtinModules.values()) {
-      // Check the return type for built-in functions, it can be a module previously not added.
-      for (SkylarkBuiltinMethodDoc builtinMethod : builtinObject.getBuiltinMethods().values()) {
-        Class<?> type = builtinMethod.getAnnotation().documentationReturnType();
-        if (type == Object.class) {
-          type = builtinMethod.getAnnotation().returnType();
-        }
-        if (type.isAnnotationPresent(SkylarkModule.class)) {
-          collectJavaObjects(type.getAnnotation(SkylarkModule.class), type, modules);
-        }
+    Map<SkylarkModule, Class<?>> builtinModules = new HashMap<>();
+    for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
+      SkylarkModule annotation = candidateClass.getAnnotation(SkylarkModule.class);
+      if (annotation != null) {
+        collectBuiltinModule(builtinModules, candidateClass);
+        collectJavaObjects(annotation, candidateClass, modules);
       }
-      collectJavaObjects(builtinObject.getAnnotation(), builtinObject.getClassObject(), modules);
-    }
-    for (Entry<SkylarkModule, Class<?>> builtinModule : builtinJavaObjects.entrySet()) {
-      collectJavaObjects(builtinModule.getKey(), builtinModule.getValue(), modules);
+      collectBuiltinDoc(modules, candidateClass.getDeclaredFields());
     }
     return modules;
   }
@@ -148,25 +132,6 @@ final class SkylarkDocumentationCollector {
     }
   }
 
-  private static Map<String, SkylarkModuleDoc> collectBuiltinModules(String... clazz) {
-    Map<String, SkylarkModuleDoc> modules = new HashMap<>();
-    collectBuiltinDoc(modules, Runtime.class.getDeclaredFields());
-    collectBuiltinDoc(modules, BazelLibrary.class.getDeclaredFields());
-    collectBuiltinDoc(modules, MethodLibrary.class.getDeclaredFields());
-    for (Class<?> moduleClass : SkylarkModules.MODULES) {
-      collectBuiltinDoc(modules, moduleClass.getDeclaredFields());
-    }
-    for (String c : clazz) {
-      try {
-        collectBuiltinDoc(modules,
-            SkylarkDocumentationCollector.class.getClassLoader().loadClass(c).getDeclaredFields());
-      } catch (ClassNotFoundException e) {
-        System.err.println("SkylarkModule class " + c + " could not be found, ignoring...");
-      }
-    }
-    return modules;
-  }
-
   private static void collectBuiltinDoc(Map<String, SkylarkModuleDoc> modules, Field[] fields) {
     for (Field field : fields) {
       if (field.isAnnotationPresent(SkylarkSignature.class)) {
@@ -191,64 +156,11 @@ final class SkylarkDocumentationCollector {
     }
   }
 
-  private static Map<SkylarkModule, Class<?>> collectBuiltinJavaObjects(String ...clazz) {
-    Map<SkylarkModule, Class<?>> modules = new HashMap<>();
-    collectBuiltinModule(modules, MethodLibrary.BoolModule.class);
-    collectBuiltinModule(modules, MethodLibrary.IntModule.class);
-
-    collectBuiltinModule(modules, SkylarkRuleContext.class);
-    collectBuiltinModule(modules, TransitiveInfoCollection.class);
-
-    collectBuiltinModule(modules, AbstractAction.class);
-
-    collectBuiltinModule(modules, AppleConfiguration.class);
-    collectBuiltinModule(modules, ObjcConfiguration.class);
-    collectBuiltinModule(modules, CppConfiguration.class);
-    collectBuiltinModule(modules, JavaConfiguration.class);
-    collectBuiltinModule(modules, SwiftConfiguration.class);
-    collectBuiltinModule(modules, Jvm.class);
-    collectBuiltinModule(modules, JavaSkylarkApiProvider.class);
-    collectBuiltinModule(modules, JavaRuleOutputJarsProvider.OutputJar.class);
-    collectBuiltinModule(modules, AndroidSkylarkApiProvider.class);
-    for (String c : clazz) {
-      try {
-        collectBuiltinModule(modules,
-            SkylarkDocumentationCollector.class.getClassLoader().loadClass(c));
-      } catch (ClassNotFoundException e) {
-        System.err.println("SkylarkModule class " + c + " could not be found, ignoring...");
-      }
-    }
-    return modules;
-  }
-
   private static void collectBuiltinModule(
       Map<SkylarkModule, Class<?>> modules, Class<?> moduleClass) {
     if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
       SkylarkModule skylarkModule = moduleClass.getAnnotation(SkylarkModule.class);
       modules.put(skylarkModule, moduleClass);
     }
-  }
-
-  /**
-   * Returns the top level modules and functions with their documentation in a command-line
-   * printable format.
-   */
-  public static Map<String, String> collectTopLevelModules() {
-    Map<String, String> modules = new TreeMap<>();
-    for (SkylarkModuleDoc doc : collectBuiltinModules().values()) {
-      if (doc.getAnnotation() == getTopLevelModule()) {
-        for (Map.Entry<String, SkylarkBuiltinMethodDoc> entry :
-            doc.getBuiltinMethods().entrySet()) {
-          if (entry.getValue().documented()) {
-            modules.put(entry.getKey(),
-                DocgenConsts.toCommandLineFormat(entry.getValue().getDocumentation()));
-          }
-        }
-      } else {
-        modules.put(doc.getAnnotation().name(),
-            DocgenConsts.toCommandLineFormat(doc.getAnnotation().doc()));
-      }
-    }
-    return modules;
   }
 }

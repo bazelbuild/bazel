@@ -17,7 +17,7 @@ import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -31,11 +31,9 @@ import java.util.Map;
 public final class SkylarkDocumentationProcessor {
   private SkylarkDocumentationProcessor() {}
 
-  /**
-   * Generates the Skylark documentation to the given output directory.
-   */
-  public static void generateDocumentation(String outputDir, String... clazz) throws IOException,
-      BuildEncyclopediaDocException {
+  /** Generates the Skylark documentation to the given output directory. */
+  public static void generateDocumentation(String outputDir, String... clazz)
+      throws IOException, ClassPathException {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules(clazz);
 
     // Generate the top level module first in the doc
@@ -95,7 +93,7 @@ public final class SkylarkDocumentationProcessor {
    * method in the module.<br>
    * Returns null if no Skylark object is found.
    */
-  public static String getCommandLineAPIDoc(String[] params) {
+  public static String getCommandLineAPIDoc(String[] params) throws ClassPathException {
     Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
     SkylarkModuleDoc toplevelModuleDoc = modules.get(
         SkylarkDocumentationCollector.getTopLevelModule().name());

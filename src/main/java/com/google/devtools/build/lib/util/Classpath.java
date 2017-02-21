@@ -61,8 +61,12 @@ public final class Classpath {
             classNames = findClassesInJar(classPathEntry, pathPrefix);
           }
           for (String className : classNames) {
-            Class<?> clazz = Class.forName(className);
-            result.add(clazz);
+            try {
+              Class<?> clazz = Class.forName(className);
+              result.add(clazz);
+            } catch (UnsatisfiedLinkError | NoClassDefFoundError unused) {
+              // Ignore: we're most likely running on a different platform.
+            }
           }
         } catch (IOException e) {
           throw new ClassPathException(
