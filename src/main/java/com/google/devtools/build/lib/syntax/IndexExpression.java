@@ -43,6 +43,14 @@ public final class IndexExpression extends Expression {
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
+    return eval(env, objValue);
+  }
+
+  /**
+   * This method can be used instead of eval(Environment) if we want to avoid `obj` being evaluated
+   * several times.
+   */
+  Object eval(Environment env, Object objValue) throws EvalException, InterruptedException {
     Object keyValue = key.eval(env);
     Location loc = getLocation();
 

@@ -43,18 +43,46 @@ public class LValue implements Serializable {
    */
   public void assign(Environment env, Location loc, Object result)
       throws EvalException, InterruptedException {
-    assign(env, loc, expr, result);
+    doAssign(env, loc, expr, result);
   }
 
-  private static void assign(Environment env, Location loc, Expression lvalue, Object result)
+  /**
+   * Evaluate a rhs using a lhs and the operator, then assign to the lhs.
+   */
+  public void assign(Environment env, Location loc, Expression rhs, Operator operator)
       throws EvalException, InterruptedException {
-    if (lvalue instanceof Identifier) {
-      assign(env, loc, (Identifier) lvalue, result);
+    if (expr instanceof Identifier) {
+      Object result = BinaryOperatorExpression.evaluate(operator, expr, rhs, env, loc);
+      assign(env, loc, (Identifier) expr, result);
       return;
     }
 
-    if (lvalue instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lvalue;
+    if (expr instanceof IndexExpression) {
+      IndexExpression indexExpression = (IndexExpression) expr;
+      // This object should be evaluated only once
+      Object evaluatedLhsObject = indexExpression.getObject().eval(env);
+      Object evaluatedLhs = indexExpression.eval(env, evaluatedLhsObject);
+      Object key = indexExpression.getKey().eval(env);
+      Object result = BinaryOperatorExpression.evaluate(operator, evaluatedLhs, rhs, env, loc);
+      assignItem(env, loc, evaluatedLhsObject, key, result);
+      return;
+    }
+
+    if (expr instanceof ListLiteral) {
+      throw new EvalException(loc, "Cannot perform augment assignment on a list literal");
+    }
+  }
+
+  private static void doAssign(
+      Environment env, Location loc, Expression lhs, Object result)
+      throws EvalException, InterruptedException {
+    if (lhs instanceof Identifier) {
+      assign(env, loc, (Identifier) lhs, result);
+      return;
+    }
+
+    if (lhs instanceof ListLiteral) {
+      ListLiteral variables = (ListLiteral) lhs;
       Collection<?> rvalue = EvalUtils.toCollection(result, loc);
       int len = variables.getElements().size();
       if (len != rvalue.size()) {
@@ -63,7 +91,7 @@ public class LValue implements Serializable {
       }
       int i = 0;
       for (Object o : rvalue) {
-        assign(env, loc, variables.getElements().get(i), o);
+        doAssign(env, loc, variables.getElements().get(i), o);
         i++;
       }
       return;
@@ -71,15 +99,14 @@ public class LValue implements Serializable {
 
     // Support syntax for setting an element in an array, e.g. a[5] = 2
     // TODO: We currently do not allow slices (e.g. a[2:6] = [3]).
-    if (lvalue instanceof IndexExpression) {
-      IndexExpression expression = (IndexExpression) lvalue;
+    if (lhs instanceof IndexExpression) {
+      IndexExpression expression = (IndexExpression) lhs;
       Object key = expression.getKey().eval(env);
       Object evaluatedObject = expression.getObject().eval(env);
       assignItem(env, loc, evaluatedObject, key, result);
       return;
     }
-    throw new EvalException(loc,
-        "cannot assign to '" + lvalue + "'");
+    throw new EvalException(loc, "cannot assign to '" + lhs + "'");
   }
 
   @SuppressWarnings("unchecked")
@@ -149,19 +176,5 @@ public class LValue implements Serializable {
   @Override
   public String toString() {
     return expr.toString();
-  }
-
-  /**
-   * Checks that the size of a collection at runtime conforms to the amount of l-value expressions
-   * we have to assign to.
-   */
-  public static void checkSize(int expected, Collection<?> collection, Location location)
-      throws EvalException {
-    int actual = collection.size();
-    if (expected != actual) {
-      throw new EvalException(
-          location,
-          String.format("lvalue has length %d, but rvalue has has length %d", expected, actual));
-    }
   }
 }

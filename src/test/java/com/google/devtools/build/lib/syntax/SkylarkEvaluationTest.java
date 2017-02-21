@@ -909,6 +909,49 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testAugmentedAssignmentHasNoSideEffects() throws Exception {
+    new SkylarkTest().setUp(
+        "counter = [0]",
+        "value = [1, 2]",
+        "",
+        "def f():",
+        "  counter[0] = counter[0] + 1",
+        "  return value",
+        "",
+        "f()[1] += 1")  // `f()` should be called only once here
+        .testLookup("counter", MutableList.of(env, 1));
+  }
+
+  @Test
+  public void testAugmentedAssignmentNotAllowedForListLiterals() throws Exception {
+    new SkylarkTest().testIfErrorContains("Cannot perform augment assignment on a list literal",
+        "def f(a, b):",
+        "  [a, b] += []",
+        "f(1, 2)");
+  }
+
+  @Test
+  public void testAssignmentEvaluationOrder() throws Exception {
+    new SkylarkTest().setUp(
+        "ordinary = []",
+        "augmented = []",
+        "value = [1, 2]",
+        "",
+        "def f(record):",
+        "  record.append('f')",
+        "  return value",
+        "",
+        "def g(record):",
+        "  record.append('g')",
+        "  return value",
+        "",
+        "f(ordinary)[0] = g(ordinary)[1]",
+        "f(augmented)[0] += g(augmented)[1]")
+        .testLookup("ordinary", MutableList.of(env, "g", "f"))    // This order is consistent
+        .testLookup("augmented", MutableList.of(env, "f", "g"));  // with Python
+  }
+
+  @Test
   public void testStaticDirectJavaCall() throws Exception {
     new SkylarkTest().update("Mock", Mock.class).setUp("val = Mock.value_of('8')")
         .testLookup("val", 8);

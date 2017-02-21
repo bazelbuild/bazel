@@ -55,9 +55,7 @@ public final class AugmentedAssignmentStatement extends Statement {
   @Override
   void doExec(Environment env) throws EvalException, InterruptedException {
     Location loc = getLocation();
-    Object result =
-        BinaryOperatorExpression.evaluate(operator, lvalue.getExpression(), expression, env, loc);
-    lvalue.assign(env, loc, result);
+    lvalue.assign(env, loc, expression, operator);
   }
 
   @Override
