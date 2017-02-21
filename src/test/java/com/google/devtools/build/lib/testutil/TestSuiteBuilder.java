@@ -17,15 +17,14 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-
-import junit.framework.TestCase;
-
-import org.junit.runner.RunWith;
-
+import com.google.devtools.build.lib.util.Classpath;
+import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.lang.reflect.Modifier;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import junit.framework.TestCase;
+import org.junit.runner.RunWith;
 
 /**
  * A collector for test classes, for both JUnit 3 and 4. To be used in combination with {@link
@@ -73,10 +72,14 @@ public final class TestSuiteBuilder {
 
   private Set<Class<?>> getClassesRecursive(String pkgName) {
     Set<Class<?>> result = new LinkedHashSet<>();
-    for (Class<?> clazz : Classpath.findClasses(pkgName)) {
-      if (isTestClass(clazz)) {
-        result.add(clazz);
+    try {
+      for (Class<?> clazz : Classpath.findClasses(pkgName)) {
+        if (isTestClass(clazz)) {
+          result.add(clazz);
+        }
       }
+    } catch (ClassPathException e) {
+      throw new AssertionError("Cannot retrive classes: " + e.getMessage());
     }
     return result;
   }

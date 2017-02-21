@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.testutil;
+package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.util.Preconditions;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -35,13 +34,20 @@ import java.util.zip.ZipFile;
  * A helper class to find all classes on the current classpath. This is used to automatically create
  * JUnit 3 and 4 test suites.
  */
-final class Classpath {
+public final class Classpath {
   private static final String CLASS_EXTENSION = ".class";
 
   /**
-   * Finds all classes that live in or below the given package.
+   * Base exception for any classpath related errors.
    */
-  static Set<Class<?>> findClasses(String packageName) {
+  public static final class ClassPathException extends Exception {
+    public ClassPathException(String format, Object... args) {
+      super(String.format(format, args));
+    }
+  }
+
+  /** Finds all classes that live in or below the given package. */
+  public static Set<Class<?>> findClasses(String packageName) throws ClassPathException {
     Set<Class<?>> result = new LinkedHashSet<>();
     String pathPrefix = (packageName + '.').replace('.', '/');
     for (String entryName : getClassPath()) {
@@ -59,11 +65,12 @@ final class Classpath {
             result.add(clazz);
           }
         } catch (IOException e) {
-          throw new AssertionError("Can't read classpath entry "
-              + entryName + ": " + e.getMessage());
+          throw new ClassPathException(
+              "Can't read classpath entry %s: %s", entryName, e.getMessage());
         } catch (ClassNotFoundException e) {
-          throw new AssertionError("Class not found even though it is on the classpath "
-              + entryName + ": " + e.getMessage());
+          throw new ClassPathException(
+              "Class not found even though it is on the classpath %s: %s",
+              entryName, e.getMessage());
         }
       }
     }
@@ -127,23 +134,21 @@ final class Classpath {
   }
 
   private static void getClassPathsFromClasspathJar(File classpathJar, Set<String> classPaths)
-      throws IOException {
+      throws IOException, ClassPathException {
     Manifest manifest = new JarFile(classpathJar).getManifest();
     Attributes attributes = manifest.getMainAttributes();
     for (String classPath : attributes.getValue("Class-Path").split(" ")) {
       try {
         classPaths.add(Paths.get(new URI(classPath)).toAbsolutePath().toString());
       } catch (URISyntaxException e) {
-        throw new AssertionError(
-            "Error parsing classpath uri " + classPath + ": " + e.getMessage());
+        throw new ClassPathException(
+            "Error parsing classpath uri %s: %s", classPath, e.getMessage());
       }
     }
   }
 
-  /**
-   * Gets the classpath from current classloader.
-   */
-  private static Set<String> getClassPath() {
+  /** Gets the classpath from current classloader. */
+  private static Set<String> getClassPath() throws ClassPathException {
     ClassLoader classloader = Classpath.class.getClassLoader();
     if (!(classloader instanceof URLClassLoader)) {
       throw new IllegalStateException("Unable to find classes to test, since Test Suite class is "
@@ -163,8 +168,8 @@ final class Classpath {
           try {
             getClassPathsFromClasspathJar(classPathEntry, completeClassPaths);
           } catch (IOException e) {
-            throw new AssertionError(
-                "Can't read classpath entry " + entryName + ": " + e.getMessage());
+            throw new ClassPathException(
+                "Can't read classpath entry %s: %s", entryName, e.getMessage());
           }
         }
       }
