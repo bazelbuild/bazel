@@ -103,4 +103,36 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     BuildConfiguration ruleclass = Iterables.getOnlyElement(deps).getConfiguration();
     assertThat(ruleclass.getCpu()).isEqualTo("SET BY PATCH");
   }
+
+  @Test
+  public void testTopLevelRuleClassTransition() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.RuleClassTransitionRule());
+    scratch.file(
+        "a/BUILD",
+        "rule_class_transition(",
+        "   name = 'rule_class',",
+        ")");
+    ConfiguredTarget target =
+        Iterables.getOnlyElement(update("//a:rule_class").getTargetsToBuild());
+    assertThat(target.getConfiguration().getCpu()).isEqualTo("SET BY PATCH");
+  }
+
+  @Test
+  public void testTopLevelRuleClassTransitionAndNoTransition() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.RuleClassTransitionRule(),
+        new TestAspects.SimpleRule());
+    scratch.file(
+        "a/BUILD",
+        "rule_class_transition(",
+        "   name = 'rule_class',",
+        ")",
+        "simple(name='sim')");
+    ConfiguredTarget target =
+        Iterables.getOnlyElement(update("//a:sim").getTargetsToBuild());
+    assertThat(target.getConfiguration().getCpu()).isNotEqualTo("SET BY PATCH");
+  }
 }

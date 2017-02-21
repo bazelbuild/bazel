@@ -850,11 +850,22 @@ public class BuildView {
 
     for (TargetAndConfiguration targetAndConfig : inputs) {
       labelsToTargets.put(targetAndConfig.getLabel(), targetAndConfig.getTarget());
+
+      Attribute.Transition ruleclassTransition = null;
+      if (targetAndConfig.getTarget().getAssociatedRule() != null) {
+        ruleclassTransition = targetAndConfig
+            .getTarget()
+            .getAssociatedRule()
+            .getRuleClassObject()
+            .getTransition();
+      }
       if (targetAndConfig.getConfiguration() != null) {
         asDeps.put(targetAndConfig.getConfiguration(),
             Dependency.withTransitionAndAspects(
                 targetAndConfig.getLabel(),
-                Attribute.ConfigurationTransition.NONE,
+                ruleclassTransition == null
+                  ? Attribute.ConfigurationTransition.NONE
+                  : ruleclassTransition,
                 // TODO(bazel-team): support top-level aspects
                 AspectCollection.EMPTY));
       }
