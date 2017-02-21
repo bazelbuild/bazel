@@ -53,12 +53,13 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
   error_msg = ""
   for alias in aliases:
     decorated_aliases.append("'%s'" % alias)
-  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version", "-sdk"], 5,
+  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version", "-sdk"], 30,
                                              {"DEVELOPER_DIR": developer_dir})
   if (xcodebuild_result.return_code != 0):
     error_msg = (
-        "Invoking xcodebuild failed, " +
+        "Invoking xcodebuild failed, developer dir: {devdir} ," +
         "return code {code}, stderr: {err}, stdout: {out}").format(
+            devdir=developer_dir,
             code=xcodebuild_result.return_code,
             err=xcodebuild_result.stderr,
             out=xcodebuild_result.stdout)
@@ -90,7 +91,7 @@ VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
 
 def _darwin_build_file(repository_ctx):
   """Evaluates local system state to create xcode_config and xcode_version targets."""
-  xcodebuild_result = repository_ctx.execute(["env", "-i", "xcodebuild", "-version"])
+  xcodebuild_result = repository_ctx.execute(["env", "-i", "xcodebuild", "-version"], 30)
   # "xcodebuild -version" failing may be indicative of no versions of xcode
   # installed, which is an acceptable machine configuration to have for using
   # bazel. Thus no print warning should be emitted here.
@@ -106,7 +107,7 @@ def _darwin_build_file(repository_ctx):
   xcodeloc_src_path = str(repository_ctx.path(Label(repository_ctx.attr.xcode_locator)))
   xcrun_result = repository_ctx.execute(["env", "-i", "xcrun", "clang", "-fobjc-arc", "-framework",
                                          "CoreServices", "-framework", "Foundation", "-o",
-                                         "xcode-locator-bin", xcodeloc_src_path], 5)
+                                         "xcode-locator-bin", xcodeloc_src_path], 30)
 
   if (xcrun_result.return_code != 0):
     error_msg = (
@@ -118,7 +119,7 @@ def _darwin_build_file(repository_ctx):
     print(error_msg)
     return VERSION_CONFIG_STUB + "\n# Error: " + error_msg.replace("\n", " ") + "\n"
 
-  xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"])
+  xcode_locator_result = repository_ctx.execute(["./xcode-locator-bin", "-v"], 30)
   if (xcode_locator_result.return_code != 0):
     error_msg = (
         "Invoking xcode-locator failed, " +
