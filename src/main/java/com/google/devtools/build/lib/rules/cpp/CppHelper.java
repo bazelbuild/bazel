@@ -90,7 +90,13 @@ public class CppHelper {
         // TODO(bazel-team): Clean this up.
         contextBuilder.addSystemIncludeDir(
             stl.getLabel().getPackageIdentifier().getPathUnderExecRoot().getRelative("gcc3"));
-        contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
+        CppCompilationContext provider = stl.getProvider(CppCompilationContext.class);
+        if (provider == null) {
+          ruleContext.ruleError("Unable to merge the STL '" + stl.getLabel()
+              + "' and toolchain contexts");
+          return;
+        }
+        contextBuilder.mergeDependentContext(provider);
       }
     }
     if (toolchain != null) {
