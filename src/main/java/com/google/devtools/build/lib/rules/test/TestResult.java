@@ -40,7 +40,7 @@ public class TestResult {
   private final TestRunnerAction testAction;
   private final TestResultData data;
   private final boolean cached;
-  @Nullable private final Path execRoot;
+  @Nullable protected final Path execRoot;
 
   /**
    * Construct the TestResult for the given test / status.
