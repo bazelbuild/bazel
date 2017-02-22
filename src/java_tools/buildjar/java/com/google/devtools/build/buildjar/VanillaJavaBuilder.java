@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
+import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 import com.google.devtools.build.buildjar.resourcejar.ResourceJarBuilder;
 import com.google.devtools.build.buildjar.resourcejar.ResourceJarOptions;
@@ -166,7 +167,7 @@ public class VanillaJavaBuilder implements Closeable {
               new PrintWriter(output, true),
               fileManager,
               diagnosticCollector,
-              optionsParser.getJavacOpts(),
+              JavacOptions.removeBazelSpecificFlags(optionsParser.getJavacOpts()),
               ImmutableList.<String>of() /*classes*/,
               sources);
       setProcessors(optionsParser, fileManager, task);

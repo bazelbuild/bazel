@@ -83,6 +83,8 @@ public class VanillaJavaBuilderTest {
     VanillaJavaBuilderResult result =
         run(
             ImmutableList.of(
+                "--javacopts",
+                "-Xep:FallThrough:ERROR",
                 "--sources",
                 source.toString(),
                 "--source_jars",
@@ -113,12 +115,23 @@ public class VanillaJavaBuilderTest {
         source,
         ImmutableList.of(
             "class A {", //
-            "}}"),
+            "  void f(int x) {",
+            "    switch (x) {",
+            "      case 0:",
+            "        System.err.println(0);",
+            "      case 1:",
+            "        System.err.println(0);",
+            "    }",
+            "  }",
+            "}"),
         UTF_8);
 
     VanillaJavaBuilderResult result =
         run(
             ImmutableList.of(
+                "--javacopts",
+                "-Xlint:all",
+                "-Werror",
                 "--sources",
                 source.toString(),
                 "--output",
@@ -128,7 +141,7 @@ public class VanillaJavaBuilderTest {
                 "--classdir",
                 temporaryFolder.newFolder().toString()));
 
-    assertThat(result.output()).contains("class, interface, or enum expected");
+    assertThat(result.output()).contains("possible fall-through");
     assertThat(result.ok()).isFalse();
     assertThat(Files.exists(output)).isFalse();
   }

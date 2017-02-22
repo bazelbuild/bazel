@@ -183,6 +183,7 @@ bootstrap_java_binary(
         "JarOwner.java",
         "OptionsParser.java",
         "VanillaJavaBuilder.java",
+        "javac/JavacOptions.java",
     ],
     main_class = "com.google.devtools.build.buildjar.VanillaJavaBuilder",
     deps = [
@@ -202,6 +203,7 @@ java_library(
     name = "vanilla_java_builder",
     srcs = ["VanillaJavaBuilder.java"],
     deps = [
+        ":javac_options",
         ":optionsparser",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/resourcejar",
