@@ -36,6 +36,12 @@ public final class LabelValidator {
   private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("_@-");
 
   /**
+   * Matches characters allowed in package name (allowed are A-Z, a-z, 0-9, '/', '-', '.' and '_')
+   */
+  private static final CharMatcher ALLOWED_CHARACTERS_IN_PACKAGE_NAME =
+      CharMatcher.javaLetterOrDigit().or(CharMatcher.anyOf("/-._")).precomputed();
+
+  /**
    * Matches characters allowed in target names regardless of context.
    *
    * Note that the only other characters allowed in target names are / and . but they have
@@ -75,40 +81,34 @@ public final class LabelValidator {
       return "package names may not start with '/'";
     }
 
-    // Check for any character outside of [/0-9.A-Za-z_-]. Try to evaluate the
-    // conditional quickly (by looking in decreasing order of character class
-    // likelihood). To deal with . and .. pretend that the name is surrounded by '/'
-    // on both sides.
+    if (!ALLOWED_CHARACTERS_IN_PACKAGE_NAME.matchesAllOf(packageName)) {
+      return PACKAGE_NAME_ERROR;
+    }
+
+    if (packageName.charAt(packageName.length() - 1) == '/') {
+      return "package names may not end with '/'";
+    }
+    // Check for empty or dot-only package segment
     boolean nonDot = false;
-    int lastSlash = len;
+    boolean lastSlash = true;
+    // Going backward and marking the last character as being a / so we detect
+    // '.' only package segment.
     for (int i = len - 1; i >= -1; --i) {
       char c = (i >= 0) ? packageName.charAt(i) : '/';
-      if ((c < 'a' || c > 'z')
-          && c != '/'
-          && c != '_'
-          && c != '-'
-          && c != '.'
-          && (c < '0' || c > '9')
-          && (c < 'A' || c > 'Z')) {
-        return PACKAGE_NAME_ERROR;
-      }
-
       if (c == '/') {
-        if (lastSlash == i + 1) {
-          return lastSlash == len
-              ? "package names may not end with '/'"
-              : "package names may not contain '//' path separators";
+        if (lastSlash) {
+          return "package names may not contain '//' path separators";
         }
-
         if (!nonDot) {
           return PACKAGE_NAME_DOT_ERROR;
         }
         nonDot = false;
-        lastSlash = i;
+        lastSlash = true;
       } else {
         if (c != '.') {
           nonDot = true;
         }
+        lastSlash = false;
       }
     }
 
@@ -121,13 +121,6 @@ public final class LabelValidator {
    */
   @Nullable
   public static String validateTargetName(String targetName) {
-    // TODO(bazel-team): (2011) allow labels equaling '.' or ending in '/.' for now. If we ever
-    // actually configure the target we will report an error, but they will be permitted for
-    // data directories.
-
-    // TODO(bazel-team): (2011) Get rid of this code once we have reached critical mass and can
-    // pressure developers to clean up their BUILD files.
-
     // Code optimized for the common case: success.
     int len = targetName.length();
     if (len == 0) {
