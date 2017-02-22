@@ -121,7 +121,8 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
               && !workspace_layout->WorkspaceRelativizeRcFilePath(
                   workspace, &words[1]))) {
         blaze_util::StringPrintf(error,
-            "Invalid import declaration in .blazerc file '%s': '%s'",
+            "Invalid import declaration in .blazerc file '%s': '%s'"
+            " (are you in your source checkout/WORKSPACE?)",
             filename.c_str(), lines[line].c_str());
         return blaze_exit_code::BAD_ARGV;
       }
