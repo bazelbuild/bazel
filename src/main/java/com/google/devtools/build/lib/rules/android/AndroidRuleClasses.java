@@ -181,7 +181,7 @@ public final class AndroidRuleClasses {
 
   public static final SplitTransition<BuildOptions> ANDROID_SPLIT_TRANSITION =
       new AndroidSplitTransition();
-      
+
   private static final class AndroidSplitTransition implements
       SplitTransition<BuildOptions>, SkylarkValue {
 
@@ -396,6 +396,7 @@ public final class AndroidRuleClasses {
                   .useOutputLicenses()
                   .allowedRuleClasses("java_toolchain")
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
+          .advertiseProvider(AndroidSdkProvider.class)
           .build();
     }
 
