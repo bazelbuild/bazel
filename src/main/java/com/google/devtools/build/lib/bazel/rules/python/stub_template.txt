@@ -12,19 +12,21 @@ import zipfile
 def IsWindows():
   return os.name == 'nt'
 
-def FixAbsWindowsPath(path):
+def GetWindowsPathWithUNCPrefix(path):
   """Changes the path, so that it uses unicode Windows paths"""
   path = path.strip()
 
-  if not IsWindows():
-    return path # Not more to do for non-windows
+  # No need to add prefix for non-Windows platforms,
+  # And \\?\ doesn't work in python 2
+  if not IsWindows() or sys.version_info[0] < 3:
+    return path
 
   # Lets start the unicode fun
   unicode_prefix = "\\\\?\\"
   if path.startswith(unicode_prefix):
     return path
 
-  return unicode_prefix + os.path.normpath(path)
+  return unicode_prefix + os.path.abspath(path)
 
 PYTHON_BINARY = '%python_binary%'
 if IsWindows() and not PYTHON_BINARY.endswith('.exe'):
@@ -92,10 +94,8 @@ def CreateModuleSpace():
   ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
   # mkdtemp return absolute name
-  temp_dir = FixAbsWindowsPath(temp_dir)
-  # __file__ will be either empty or the absolute path to this script
-  # Not handling empty, since it was not handled before
-  zf = zipfile.ZipFile(FixAbsWindowsPath(os.path.dirname(__file__)))
+  temp_dir = GetWindowsPathWithUNCPrefix(temp_dir)
+  zf = zipfile.ZipFile(GetWindowsPathWithUNCPrefix(os.path.dirname(__file__)))
   zf.extractall(temp_dir)
   return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
 
