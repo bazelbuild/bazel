@@ -628,24 +628,24 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyStringPartitionEasy() throws Exception {
     new BothModesTest()
-        .testEval("'lawl'.partition('a')", "['l', 'a', 'wl']")
-        .testEval("'lawl'.rpartition('a')", "['l', 'a', 'wl']");
+        .testEval("'lawl'.partition('a')", "('l', 'a', 'wl')")
+        .testEval("'lawl'.rpartition('a')", "('l', 'a', 'wl')");
   }
 
   @Test
   public void testPyStringPartitionMultipleSep() throws Exception {
     new BothModesTest()
-        .testEval("'google'.partition('o')", "['g', 'o', 'ogle']")
-        .testEval("'google'.rpartition('o')", "['go', 'o', 'gle']")
-        .testEval("'xxx'.partition('x')", "['', 'x', 'xx']")
-        .testEval("'xxx'.rpartition('x')", "['xx', 'x', '']");
+        .testEval("'google'.partition('o')", "('g', 'o', 'ogle')")
+        .testEval("'google'.rpartition('o')", "('go', 'o', 'gle')")
+        .testEval("'xxx'.partition('x')", "('', 'x', 'xx')")
+        .testEval("'xxx'.rpartition('x')", "('xx', 'x', '')");
   }
 
   @Test
   public void testPyStringPartitionEmptyInput() throws Exception {
     new BothModesTest()
-        .testEval("''.partition('a')", "['', '', '']")
-        .testEval("''.rpartition('a')", "['', '', '']");
+        .testEval("''.partition('a')", "('', '', '')")
+        .testEval("''.rpartition('a')", "('', '', '')");
   }
 
   @Test
@@ -658,47 +658,47 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyStringPartitionDefaultSep() throws Exception {
     new BothModesTest()
-        .testEval("'hi this is a test'.partition()", "['hi', ' ', 'this is a test']")
-        .testEval("'hi this is a test'.rpartition()", "['hi this is a', ' ', 'test']")
-        .testEval("'google'.partition()", "['google', '', '']")
-        .testEval("'google'.rpartition()", "['', '', 'google']");
+        .testEval("'hi this is a test'.partition()", "('hi', ' ', 'this is a test')")
+        .testEval("'hi this is a test'.rpartition()", "('hi this is a', ' ', 'test')")
+        .testEval("'google'.partition()", "('google', '', '')")
+        .testEval("'google'.rpartition()", "('', '', 'google')");
   }
 
   @Test
   public void testPyStringPartitionNoMatch() throws Exception {
     new BothModesTest()
-        .testEval("'google'.partition('x')", "['google', '', '']")
-        .testEval("'google'.rpartition('x')", "['', '', 'google']");
+        .testEval("'google'.partition('x')", "('google', '', '')")
+        .testEval("'google'.rpartition('x')", "('', '', 'google')");
   }
 
   @Test
   public void testPyStringPartitionWordBoundaries() throws Exception {
     new BothModesTest()
-        .testEval("'goog'.partition('g')", "['', 'g', 'oog']")
-        .testEval("'goog'.rpartition('g')", "['goo', 'g', '']")
-        .testEval("'plex'.partition('p')", "['', 'p', 'lex']")
-        .testEval("'plex'.rpartition('p')", "['', 'p', 'lex']")
-        .testEval("'plex'.partition('x')", "['ple', 'x', '']")
-        .testEval("'plex'.rpartition('x')", "['ple', 'x', '']");
+        .testEval("'goog'.partition('g')", "('', 'g', 'oog')")
+        .testEval("'goog'.rpartition('g')", "('goo', 'g', '')")
+        .testEval("'plex'.partition('p')", "('', 'p', 'lex')")
+        .testEval("'plex'.rpartition('p')", "('', 'p', 'lex')")
+        .testEval("'plex'.partition('x')", "('ple', 'x', '')")
+        .testEval("'plex'.rpartition('x')", "('ple', 'x', '')");
   }
 
   @Test
   public void testPyStringPartitionLongSep() throws Exception {
     new BothModesTest()
-        .testEval("'google'.partition('oog')", "['g', 'oog', 'le']")
-        .testEval("'google'.rpartition('oog')", "['g', 'oog', 'le']")
+        .testEval("'google'.partition('oog')", "('g', 'oog', 'le')")
+        .testEval("'google'.rpartition('oog')", "('g', 'oog', 'le')")
         .testEval(
-            "'lolgooglolgooglolgooglol'.partition('goog')", "['lol', 'goog', 'lolgooglolgooglol']")
+            "'lolgooglolgooglolgooglol'.partition('goog')", "('lol', 'goog', 'lolgooglolgooglol')")
         .testEval(
             "'lolgooglolgooglolgooglol'.rpartition('goog')",
-            "['lolgooglolgooglol', 'goog', 'lol']");
+            "('lolgooglolgooglol', 'goog', 'lol')");
   }
 
   @Test
   public void testPyStringPartitionCompleteString() throws Exception {
     new BothModesTest()
-        .testEval("'google'.partition('google')", "['', 'google', '']")
-        .testEval("'google'.rpartition('google')", "['', 'google', '']");
+        .testEval("'google'.partition('google')", "('', 'google', '')")
+        .testEval("'google'.rpartition('google')", "('', 'google', '')");
   }
 
   @Test

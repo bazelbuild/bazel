@@ -398,10 +398,10 @@ public class MethodLibrary {
   }
 
   @SkylarkSignature(name = "partition", objectType = StringModule.class,
-      returnType = MutableList.class,
+      returnType = Tuple.class,
       doc = "Splits the input string at the first occurrence of the separator "
           + "<code>sep</code> and returns the resulting partition as a three-element "
-          + "list of the form [substring_before, separator, substring_after].",
+          + "tuple of the form (substring_before, separator, substring_after).",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(name = "sep", type = String.class,
@@ -410,17 +410,17 @@ public class MethodLibrary {
       useLocation = true)
   private static final BuiltinFunction partition = new BuiltinFunction("partition") {
     @SuppressWarnings("unused")
-    public MutableList<String> invoke(String self, String sep, Location loc, Environment env)
+    public Tuple<String> invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
-      return partitionWrapper(self, sep, true, env, loc);
+      return partitionWrapper(self, sep, true, loc);
     }
   };
 
   @SkylarkSignature(name = "rpartition", objectType = StringModule.class,
-      returnType = MutableList.class,
+      returnType = Tuple.class,
       doc = "Splits the input string at the last occurrence of the separator "
           + "<code>sep</code> and returns the resulting partition as a three-element "
-          + "list of the form [substring_before, separator, substring_after].",
+          + "tuple of the form (substring_before, separator, substring_after).",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
         @Param(name = "sep", type = String.class,
@@ -429,9 +429,9 @@ public class MethodLibrary {
       useLocation = true)
   private static final BuiltinFunction rpartition = new BuiltinFunction("rpartition") {
     @SuppressWarnings("unused")
-    public MutableList<String> invoke(String self, String sep, Location loc, Environment env)
+    public Tuple<String> invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
-      return partitionWrapper(self, sep, false, env, loc);
+      return partitionWrapper(self, sep, false, loc);
     }
   };
 
@@ -443,15 +443,13 @@ public class MethodLibrary {
    * @param separator The string to split on
    * @param forward A flag that controls whether the input string is split around
    *    the first ({@code true}) or last ({@code false}) occurrence of the separator.
-   * @param env The current environment
    * @param loc The location that is used for potential exceptions
    * @return A list with three elements
    */
-  private static MutableList<String> partitionWrapper(
-      String self, String separator, boolean forward,
-      Environment env, Location loc) throws EvalException {
+  private static Tuple<String> partitionWrapper(
+      String self, String separator, boolean forward, Location loc) throws EvalException {
     try {
-      return new MutableList(stringPartition(self, separator, forward), env);
+      return Tuple.copyOf(stringPartition(self, separator, forward));
     } catch (IllegalArgumentException ex) {
       throw new EvalException(loc, ex);
     }
