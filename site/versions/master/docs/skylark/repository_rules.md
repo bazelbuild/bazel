@@ -67,12 +67,47 @@ local_repository = repository_rule(
     ...)
 ```
 
+## When is the implementation function executed?
+
+If the repository is declared as `local` then change in a dependency
+in the dependency graph (including the WORKSPACE file itself) will
+cause an execution of the implementation function.
+
+The implementation function can be _restarted_ if a dependency it
+request is _missing_. The beginning of the implementation function
+will be re-executed after the dependency has been resolved.
+
+File given as a label are declared as dependencies, so requesting it
+might interrupt the function and restart it later, re-executing the
+part up till there.
+
+Finally, for non-`local` repositories, only a change in the following
+dependencies might cause a restart:
+
+- Skylark files needed to define the repository rule.
+- Declaration of the repository rule in the `WORKSPACE` file.
+- Value of any environment variable declared with the `environ`
+attribute of the
+[`repository_rule`](https://bazel.build/versions/master/docs/skylark/lib/globals.html#repository_rule)
+function. The value of those environment variable can be enforced from
+the command line with the
+[`--action_env`](/docs/command-line-reference.html#flag--action_env)
+flag (but this flag will invalidate every action of the build).
+- Content of any file used and referred to by a label (e.g.,
+  `//mypkg:label.txt` not `mypkg/label.txt`).
+
 ## Examples
 
-For now, we only have one full example of usage of the `repository_rule`:
-[C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/9116b3e99af2fd31d92c9bb7c37905a1675456c1/tools/cpp/cc_configure.bzl#L288).
-
-This example uses a repository rule to automatically create the
+- [C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/ac29b78000afdb95afc7e97efd2b1299ebea4dac/tools/cpp/cc_configure.bzl#L288):
+it uses a repository rule to automatically create the
 C++ configuration files for Bazel by looking for the local C++ compiler, the
 environment and the flags the C++ compiler supports.
+-
+  [Go repositories](https://github.com/bazelbuild/rules_go/blob/67bc217b6210a0922d76d252472b87e9a6118fdf/go/private/go_repositories.bzl#L195)
+  uses several `repository_rule` to defines the list of dependencies
+  needed to use the Go rules.
+-
+  [maven_jar](https://github.com/bazelbuild/bazel/a110ac400190c90a45856f15482c8d0952c542f5/master/tools/build_defs/repo/maven_rules.bzl#L276)
+  is a reimplementation of the native `maven_jar` rule using the
+  `maven` tool.
 
