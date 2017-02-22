@@ -129,14 +129,15 @@ Python:
 
 The following Python features are not supported:
 
-* implicit string concatenation (use explicit `+` operator)
-* `class` (see [`struct`](lib/globals.html#struct) function)
-* `import` (see [`load`](#loading-a-skylark-extension) statement)
-* `while`, `yield`
-* float and set types
-* `lambda` and nested functions
-* `is` (use `==` instead)
-* `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
-  for fatal errors)
-* `global`, `nonlocal`
-* most builtin functions, most methods
+*   implicit string concatenation (use explicit `+` operator)
+*   `class` (see [`struct`](lib/globals.html#struct) function)
+*   `import` (see [`load`](#loading-a-skylark-extension) statement)
+*   `while`, `yield`
+*   float and set types
+*   generators and generator expressions
+*   `lambda` and nested functions
+*   `is` (use `==` instead)
+*   `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail) for
+    fatal errors)
+*   `global`, `nonlocal`
+*   most builtin functions, most methods
