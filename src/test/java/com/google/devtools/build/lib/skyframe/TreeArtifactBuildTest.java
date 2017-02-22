@@ -564,7 +564,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testAbsoluteSymlinkRejected() throws Exception {
+  public void testAbsoluteSymlinkBadTargetRejected() throws Exception {
     // Failure expected
     StoredEventHandler storingEventHandler = new StoredEventHandler();
     reporter.removeHandler(failFastHandler);
@@ -596,10 +596,35 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       List<Event> errors = ImmutableList.copyOf(
           Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
       assertThat(errors).hasSize(2);
-      assertThat(errors.get(0).getMessage()).contains(
-          "A TreeArtifact may not contain absolute symlinks");
+      assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
       assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
     }
+  }
+
+  @Test
+  public void testAbsoluteSymlinkAccepted() throws Exception {
+    scratch.overwriteFile("/random/pointer");
+
+    final Artifact out = createTreeArtifact("output");
+
+    TreeArtifactTestAction action =
+        new TreeArtifactTestAction(out) {
+          @Override
+          public void execute(ActionExecutionContext actionExecutionContext) {
+            try {
+              writeFile(out.getPath().getChild("one"), "one");
+              writeFile(out.getPath().getChild("two"), "two");
+              FileSystemUtils.ensureSymbolicLink(
+                  out.getPath().getChild("links").getChild("link"), "/random/pointer");
+            } catch (Exception e) {
+              throw new RuntimeException(e);
+            }
+          }
+        };
+
+    registerAction(action);
+
+    buildArtifact(action.getSoleOutput());
   }
 
   @Test
