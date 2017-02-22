@@ -278,6 +278,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
   )
   public boolean enableAppleCrosstoolTransition;
 
+  @Option(
+    name = "target_uses_apple_crosstool",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "If true, this target uses the apple crosstool.  Do not set this flag manually."
+  )
+  public boolean targetUsesAppleCrosstool;
+
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
       if (Platform.forTarget(PlatformType.IOS, architecture) == Platform.IOS_DEVICE) {

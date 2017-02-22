@@ -48,8 +48,14 @@ public class AppleCrosstoolSplitTransition implements SplitTransition<BuildOptio
   @Override
   public List<BuildOptions> split(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
-    result.get(AppleCommandLineOptions.class).configurationDistinguisher =
-        ConfigurationDistinguisher.APPLE_CROSSTOOL;
+
+    if (!AppleCrosstoolTransition.appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
+      // If the apple crosstool is not applied universally, the apple crosstool distinguisher
+      // is required to prevent artifact collisions.  Since AppleCrosstoolTransition is only applied
+      // when the crosstool is applied universally, the distinguisher only needs to be set here.
+      result.get(AppleCommandLineOptions.class).configurationDistinguisher =
+          ConfigurationDistinguisher.APPLE_CROSSTOOL;
+    }
 
     // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
     // --apple_cpu) for toolchain selection in top-level consuming rules.

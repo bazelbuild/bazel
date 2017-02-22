@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
-import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
@@ -43,13 +42,9 @@ public class AppleCrosstoolTransition implements PatchTransition {
   public BuildOptions apply(BuildOptions buildOptions) {
     BuildOptions result = buildOptions.clone();
 
-    if (!shouldUseAppleCrosstoolTransition(buildOptions)) {
+    if (!appleCrosstoolTransitionIsAppliedForAllObjc(buildOptions)) {
       return buildOptions;
     }
-
-    result.get(AppleCommandLineOptions.class).configurationDistinguisher =
-        ConfigurationDistinguisher.APPLE_CROSSTOOL;
-
 
     // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
     // --apple_cpu) for toolchain selection in top-level consuming rules.
@@ -74,7 +69,8 @@ public class AppleCrosstoolTransition implements PatchTransition {
       BuildOptions to, String cpu) {
     to.get(BuildConfiguration.Options.class).cpu = cpu;
     to.get(CppOptions.class).crosstoolTop =
-        from.get(AppleCommandLineOptions.class).appleCrosstoolTop; 
+        from.get(AppleCommandLineOptions.class).appleCrosstoolTop;
+    to.get(AppleCommandLineOptions.class).targetUsesAppleCrosstool = true;
 
     // --compiler = "compiler" for all OSX toolchains.  We do not support asan/tsan, cfi, etc. on
     // darwin.
@@ -90,10 +86,9 @@ public class AppleCrosstoolTransition implements PatchTransition {
   }
 
   /**
-   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple
-   * targets.
+   * Returns true if the given options imply use of AppleCrosstoolTransition for all apple targets.
    */
-  public static boolean shouldUseAppleCrosstoolTransition(BuildOptions options) {
+  public static boolean appleCrosstoolTransitionIsAppliedForAllObjc(BuildOptions options) {
     return (options.get(AppleCommandLineOptions.class).enableAppleCrosstoolTransition
         || options.get(ObjcCommandLineOptions.class).experimentalObjcLibrary
         || options.get(ObjcCommandLineOptions.class).objcCrosstoolMode != ObjcCrosstoolMode.OFF);

@@ -114,7 +114,8 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     @Override
     public BuildConfiguration toplevelConfigurationHook(Target toTarget) {
       ImmutableList<String> appleCrosstoolRuleClasses =
-          AppleCrosstoolTransition.shouldUseAppleCrosstoolTransition(configuration.getOptions())
+          AppleCrosstoolTransition.appleCrosstoolTransitionIsAppliedForAllObjc(
+                  configuration.getOptions())
               ? AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES
               : AppleConfiguration.APPLE_CROSSTOOL_RULE_CLASSES_FOR_STATIC_CONFIGS;
 
