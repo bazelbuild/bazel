@@ -363,7 +363,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\tFile \"\", line 7, in bar"
                 + LINE_SEPARATOR
-                + "\t\t'test'.index(x)",
+                + "\t\t\"test\".index(x)",
             "def foo():",
             "  bar(1)",
             "def bar(x):",
@@ -421,7 +421,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
                 + LINE_SEPARATOR
                 + "\tFile \"\", line 5, in bar"
                 + LINE_SEPARATOR
-                + "\t\t'test'.index(x)"
+                + "\t\t\"test\".index(x)"
                 + LINE_SEPARATOR
                 + "method string.index(sub: string, start: int, end: int or NoneType) "
                 + "is not applicable "

@@ -224,7 +224,7 @@ public class ParserTest extends EvaluationTestCase {
   @Test
   public void testStringLiteralOptimizationToString() throws Exception {
     StringLiteral l = (StringLiteral) parseExpression("'abc' + 'def'");
-    assertEquals("'abcdef'", l.toString());
+    assertEquals("\"abcdef\"", l.toString());
   }
 
   @Test
@@ -236,7 +236,9 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testStringLiteralOptimizationDifferentQuote() throws Exception {
-    assertThat(parseExpression("'abc' + \"def\"")).isInstanceOf(BinaryOperatorExpression.class);
+    StringLiteral l = (StringLiteral) parseExpression("'abc' + \"def\"");
+    assertEquals(0, l.getLocation().getStartOffset());
+    assertEquals(13, l.getLocation().getEndOffset());
   }
 
   @Test
@@ -443,8 +445,8 @@ public class ParserTest extends EvaluationTestCase {
     assertEquals("[x[1::2]\n]", parseFile("x[1::2]").toString());
     assertEquals("[x[1:]\n]", parseFile("x[1:]").toString());
     assertEquals("[str[42]\n]", parseFile("str[42]").toString());
-    assertEquals("[ctx.new_file('hello')\n]", parseFile("ctx.new_file('hello')").toString());
-    assertEquals("[new_file('hello')\n]", parseFile("new_file('hello')").toString());
+    assertEquals("[ctx.new_file(\"hello\")\n]", parseFile("ctx.new_file('hello')").toString());
+    assertEquals("[new_file(\"hello\")\n]", parseFile("new_file(\"hello\")").toString());
   }
 
   @Test
@@ -1044,7 +1046,7 @@ public class ParserTest extends EvaluationTestCase {
 
     Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
     assertThat(imp.getLabel(containingFileLabel)).named("containingFileLabel()")
-        .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString)); 
+        .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
 
     int startOffset = stmt.getImport().getLocation().getStartOffset();
     int endOffset = stmt.getImport().getLocation().getEndOffset();
@@ -1055,7 +1057,7 @@ public class ParserTest extends EvaluationTestCase {
 
   private void invalidImportTest(String importString, String expectedMsg) {
     setFailFast(false);
-    parseFileForSkylark("load('" + importString + "', 'fun_test')\n"); 
+    parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     assertContainsError(expectedMsg);
   }
 

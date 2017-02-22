@@ -840,16 +840,6 @@ public final class Lexer {
   }
 
   /**
-   * Returns the character in the input buffer at the given position.
-   *
-   * @param at the position to get the character at.
-   * @return the character at the given position.
-   */
-  public char charAt(int at) {
-    return buffer[at];
-  }
-
-  /**
    * Returns the string at the current line, minus the new line.
    *
    * @param line the line from which to retrieve the String, 1-based

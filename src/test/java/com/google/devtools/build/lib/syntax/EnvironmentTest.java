@@ -185,8 +185,8 @@ public class EnvironmentTest extends EvaluationTestCase {
 
   @Test
   public void testToString() throws Exception {
-    update("subject", new StringLiteral("Hello, 'world'.", '\''));
-    update("from", new StringLiteral("Java", '"'));
+    update("subject", new StringLiteral("Hello, 'world'."));
+    update("from", new StringLiteral("Java"));
     assertThat(getEnvironment().toString()).isEqualTo("<Environment[test]>");
   }
 

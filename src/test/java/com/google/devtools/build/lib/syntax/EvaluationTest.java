@@ -521,7 +521,7 @@ public class EvaluationTest extends EvaluationTestCase {
   public void testDictComprehensions_ToString() throws Exception {
     assertEquals("{x: x for x in [1, 2]}",
         parseExpression("{x : x for x in [1, 2]}").toString());
-    assertEquals("{x + 'a': x for x in [1, 2]}",
+    assertEquals("{x + \"a\": x for x in [1, 2]}",
         parseExpression("{x + 'a' : x for x in [1, 2]}").toString());
   }
 

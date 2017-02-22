@@ -18,31 +18,18 @@ package com.google.devtools.build.lib.syntax;
  */
 public final class StringLiteral extends Literal<String> {
 
-  private final char quoteChar;
-
-  public StringLiteral(String value, char quoteChar) {
+  public StringLiteral(String value) {
     super(value);
-    this.quoteChar = quoteChar;
   }
 
   @Override
   public String toString() {
-    return quoteChar + value.replace(Character.toString(quoteChar), "\\" + quoteChar) + quoteChar;
+    return Printer.repr(value);
   }
 
   @Override
   public void accept(SyntaxTreeVisitor visitor) {
     visitor.visit(this);
-  }
-
-  /**
-   * Gets the quote character that was used for this string.  For example, if
-   * the string was 'hello, world!', then this method returns '\''.
-   *
-   * @return the character used to quote the string.
-   */
-  public char getQuoteChar() {
-    return quoteChar;
   }
 
   @Override

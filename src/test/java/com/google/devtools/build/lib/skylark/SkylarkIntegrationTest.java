@@ -323,7 +323,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
                 "\tFile \"/workspace/test/skylark/functions.bzl\", line 2, in first",
                 "\t\tsecond(a, b)",
                 "\tFile \"/workspace/test/skylark/functions.bzl\", line 5, in second",
-                "\t\tthird('legal')",
+                "\t\tthird(\"legal\")",
                 "\tFile \"/workspace/test/skylark/functions.bzl\", line 7, in third",
                 errorMessage);
     scratch.file(
@@ -756,7 +756,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
             target.getProvider(FileProvider.class).getFilesToBuild()))
         .containsExactly("foo.txt");
   }
-  
+
   @Test
   public void testRuleClassImplicitOutputs() throws Exception {
     scratch.file(
