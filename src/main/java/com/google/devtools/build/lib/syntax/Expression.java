@@ -38,7 +38,7 @@ public abstract class Expression extends ASTNode {
    * @throws EvalException if the expression could not be evaluated.
    * @throws InterruptedException may be thrown in a sub class.
    */
-  final Object eval(Environment env) throws EvalException, InterruptedException {
+  public final Object eval(Environment env) throws EvalException, InterruptedException {
     try {
       return doEval(env);
     } catch (EvalException ex) {
