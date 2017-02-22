@@ -38,9 +38,11 @@ import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -1054,6 +1057,23 @@ public abstract class CompilationSupport {
     return parents.build();
   }
 
+  /** Holds information about Objective-C compile actions that require header thinning. */
+  protected static final class ObjcHeaderThinningInfo {
+    /** Source file for compile action. */
+    public final Artifact sourceFile;
+    /** headers_list file for compile action. */
+    public final Artifact headersListFile;
+    /** Command line arguments for compile action execution. */
+    public final ImmutableList<String> arguments;
+
+    public ObjcHeaderThinningInfo(
+        Artifact sourceFile, Artifact headersListFile, ImmutableList<String> arguments) {
+      this.sourceFile = Preconditions.checkNotNull(sourceFile);
+      this.headersListFile = Preconditions.checkNotNull(headersListFile);
+      this.arguments = Preconditions.checkNotNull(arguments);
+    }
+  }
+
   /**
    * Returns true when ObjC header thinning is enabled via configuration and an a valid
    * header_scanner executable target is provided.
@@ -1073,6 +1093,78 @@ public abstract class CompilationSupport {
     return ruleContext
         .getPrerequisite(ObjcRuleClasses.HEADER_SCANNER_ATTRIBUTE, Mode.HOST)
         .getProvider(FilesToRunProvider.class);
+  }
+
+  protected void registerHeaderScanningActions(
+      ImmutableList<ObjcHeaderThinningInfo> headerThinningInfo,
+      ObjcProvider objcProvider,
+      CompilationArtifacts compilationArtifacts) {
+    if (headerThinningInfo.isEmpty()) {
+      return;
+    }
+
+    FilesToRunProvider headerScannerTool = getHeaderThinningToolExecutable();
+    ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
+        objcHeaderThinningInfoByCommandLine = groupActionsByCommandLine(headerThinningInfo);
+    // Register a header scanning spawn action for each unique set of command line arguments
+    for (ImmutableList<String> args : objcHeaderThinningInfoByCommandLine.keySet()) {
+      SpawnAction.Builder builder =
+          new SpawnAction.Builder()
+              .setMnemonic("ObjcHeaderScanning")
+              .setExecutable(headerScannerTool);
+      CustomCommandLine.Builder cmdLine = CustomCommandLine.builder();
+      for (ObjcHeaderThinningInfo info : objcHeaderThinningInfoByCommandLine.get(args)) {
+        cmdLine.addJoinPaths(
+            ":",
+            Lists.newArrayList(info.sourceFile.getExecPath(), info.headersListFile.getExecPath()));
+        builder.addInput(info.sourceFile).addOutput(info.headersListFile);
+      }
+      ruleContext.registerAction(
+          builder
+              .setCommandLine(cmdLine.add("--").add(args).build())
+              .addInputs(compilationArtifacts.getPrivateHdrs())
+              .addTransitiveInputs(attributes.hdrs())
+              .addTransitiveInputs(objcProvider.get(ObjcProvider.HEADER))
+              .addInputs(compilationArtifacts.getPchFile().asSet())
+              .addTransitiveInputs(objcProvider.get(ObjcProvider.STATIC_FRAMEWORK_FILE))
+              .addTransitiveInputs(objcProvider.get(ObjcProvider.DYNAMIC_FRAMEWORK_FILE))
+              .build(ruleContext));
+    }
+  }
+
+  /**
+   * Groups {@link ObjcHeaderThinningInfo} objects based on the command line arguments of the
+   * ObjcCompile action.
+   *
+   * <p>Grouping by command line arguments allows {@link
+   * #registerHeaderScanningActions(ImmutableList, ObjcProvider, CompilationArtifacts)} to create a
+   * {@link SpawnAction} based on the compiler command line flags that may cause a difference in
+   * behaviour by the preprocessor. Some of the command line arguments must be filtered out as they
+   * change with every source {@link Artifact}; for example the object file (-o) and dotd filenames
+   * (-MF). These arguments are known not to change the preprocessor behaviour.
+   *
+   * @param headerThinningInfos information for compile actions that require header thinning
+   * @return values in {@code headerThinningInfos} grouped by compile action command line arguments
+   */
+  private static ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
+      groupActionsByCommandLine(ImmutableList<ObjcHeaderThinningInfo> headerThinningInfos) {
+    // Maintain insertion order so that iteration in #registerHeaderScanningActions is deterministic
+    ListMultimap<ImmutableList<String>, ObjcHeaderThinningInfo>
+        objcHeaderThinningInfoByCommandLine = ArrayListMultimap.create();
+    for (ObjcHeaderThinningInfo info : headerThinningInfos) {
+      ImmutableList.Builder<String> filteredArgumentsBuilder = ImmutableList.builder();
+      List<String> arguments = info.arguments;
+      for (int i = 0; i < arguments.size(); ++i) {
+        String arg = arguments.get(i);
+        if (arg.equals("-MF") || arg.equals("-o") || arg.equals("-c")) {
+          ++i;
+        } else if (!arg.equals("-MD")) {
+          filteredArgumentsBuilder.add(arg);
+        }
+      }
+      objcHeaderThinningInfoByCommandLine.put(filteredArgumentsBuilder.build(), info);
+    }
+    return objcHeaderThinningInfoByCommandLine;
   }
 
   @Nullable
