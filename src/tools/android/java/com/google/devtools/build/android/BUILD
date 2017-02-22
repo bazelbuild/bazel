@@ -8,6 +8,7 @@ filegroup(
         "BUILD.tools",
         "classes_deploy.jar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:embedded_tools",
+        "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
     ],
 )
