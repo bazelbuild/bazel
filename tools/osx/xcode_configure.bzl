@@ -53,7 +53,7 @@ def _xcode_version_output(repository_ctx, name, version, aliases, developer_dir)
   error_msg = ""
   for alias in aliases:
     decorated_aliases.append("'%s'" % alias)
-  xcodebuild_result = repository_ctx.execute(["xcodebuild", "-version", "-sdk"], 30,
+  xcodebuild_result = repository_ctx.execute(["xcrun", "xcodebuild", "-version", "-sdk"], 30,
                                              {"DEVELOPER_DIR": developer_dir})
   if (xcodebuild_result.return_code != 0):
     error_msg = (
@@ -91,7 +91,7 @@ VERSION_CONFIG_STUB = "xcode_config(name = 'host_xcodes')"
 
 def _darwin_build_file(repository_ctx):
   """Evaluates local system state to create xcode_config and xcode_version targets."""
-  xcodebuild_result = repository_ctx.execute(["env", "-i", "xcodebuild", "-version"], 30)
+  xcodebuild_result = repository_ctx.execute(["env", "-i", "xcrun", "xcodebuild", "-version"], 30)
   # "xcodebuild -version" failing may be indicative of no versions of xcode
   # installed, which is an acceptable machine configuration to have for using
   # bazel. Thus no print warning should be emitted here.
