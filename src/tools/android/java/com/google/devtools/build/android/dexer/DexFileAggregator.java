@@ -115,12 +115,9 @@ class DexFileAggregator implements Closeable {
       addSeparate(dexFile);
     } else {
       // Could be smarter here and e.g. check whether dexFile will fit into current shard first
-      // and, with a hint as to whether this is a "full" file (e.g., from rotating in MergingDexer),
-      // write the current shard and then the given file separately.  The following is slower but
-      // guarantees that in the MINIMAL case, classes are written in the order in which we saw them
-      // as best as possible.  Since practically we aim for this method to never or almost never
-      // be called it shouldn't matter much.  (This method is called when we had to convert .class
-      // files on the fly, while add(Dex) is in particular called for pre-dexed .class.dex files.)
+      // and, with a hint as to whether this is a "full" file, write the current shard and then the
+      // given file separately.  The following is slower but guarantees that in the MINIMAL case,
+      // classes are written in the order in which we saw them as best as possible.
       add(DexFiles.toDex(dexFile));
     }
     return this;
