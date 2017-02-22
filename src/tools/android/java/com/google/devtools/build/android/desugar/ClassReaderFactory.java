@@ -22,9 +22,11 @@ import org.objectweb.asm.ClassReader;
 
 class ClassReaderFactory {
   private final ZipFile jar;
+  private final CoreLibraryRewriter rewriter;
 
-  public ClassReaderFactory(ZipFile jar) {
+  public ClassReaderFactory(ZipFile jar, CoreLibraryRewriter rewriter) {
     this.jar = jar;
+    this.rewriter = rewriter;
   }
 
   /**
@@ -34,13 +36,13 @@ class ClassReaderFactory {
    */
   @Nullable
   public ClassReader readIfKnown(String internalClassName) {
-    ZipEntry entry = jar.getEntry(internalClassName + ".class");
+    ZipEntry entry = jar.getEntry(rewriter.unprefix(internalClassName) + ".class");
     if (entry == null) {
       return null;
     }
     try (InputStream bytecode = jar.getInputStream(entry)) {
       // ClassReader doesn't take ownership and instead eagerly reads the stream's contents
-      return new ClassReader(bytecode);
+      return rewriter.reader(bytecode);
     } catch (IOException e) {
       // We should've already read through all files in the Jar once at this point, so we don't
       // expect failures reading some files a second time.

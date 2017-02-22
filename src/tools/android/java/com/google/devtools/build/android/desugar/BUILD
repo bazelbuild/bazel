@@ -18,6 +18,7 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:asm",
+        "//third_party:asm-commons",
         "//third_party:asm-tree",
         "//third_party:auto_value",
         "//third_party:guava",
