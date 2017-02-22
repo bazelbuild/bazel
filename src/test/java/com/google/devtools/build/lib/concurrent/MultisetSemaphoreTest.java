@@ -41,7 +41,6 @@ public class MultisetSemaphoreTest {
   public void testSimple_Serial() throws Exception {
     // When we have a MultisetSemaphore
     MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        .concurrencyLevel(1)
         // with 3 max num unique values,
         .maxNumUniqueValues(3)
         .build();
@@ -67,9 +66,7 @@ public class MultisetSemaphoreTest {
     Preconditions.checkState(m > n && m % n == 0, "M=%d N=%d", m, n);
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of M
-        .concurrencyLevel(m)
-        // And N max num unique values,
+        // with N max num unique values,
         .maxNumUniqueValues(n)
         .build();
 
@@ -150,9 +147,7 @@ public class MultisetSemaphoreTest {
     int n = 100;
     // When we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of N
-        .concurrencyLevel(n)
-        // And 2 max num unique values,
+        // with 2 max num unique values,
         .maxNumUniqueValues(2)
         .build();
     // And a ExecutorService with N threads,
@@ -216,9 +211,7 @@ public class MultisetSemaphoreTest {
     int numPermutations = permutations.size();
     // And we have a MultisetSemaphore
     final MultisetSemaphore<String> multisetSemaphore = MultisetSemaphore.newBuilder()
-        // With a concurrency level of N!
-        .concurrencyLevel(numPermutations)
-        // And with N max num unique values,
+        // with N max num unique values,
         .maxNumUniqueValues(n)
         .build();
     // And a ExecutorService with N! threads,
