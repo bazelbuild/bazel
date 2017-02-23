@@ -434,7 +434,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     // which this -printmapping command line flag will override.
     Artifact proguardOutputMap = null;
     if (ProguardHelper.genProguardMapping(ruleContext.attributes())
-        || ProguardHelper.getJavaOptimizationMode(ruleContext).alwaysGenerateOutputMapping()) {
+        || ProguardHelper.getJavaOptimizationMode(ruleContext).alwaysGenerateOutputMapping()
+        || shrinkResources) {
       if (rexEnabled) {
         proguardOutputMap = ProguardHelper.getProguardTempArtifact(ruleContext,
             ProguardHelper.getJavaOptimizationMode(ruleContext).name().toLowerCase(),

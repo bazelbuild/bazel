@@ -76,7 +76,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             <a href="${link android_binary.proguard_specs}">proguard_specs</a> attribute is
             specified and
             <a href="${link android_binary.proguard_generate_mapping}">proguard_generate_mapping</a>
-            is set.
+            or <a href="${link android_binary.shrink_resources}">shrink_resources</a> is set.
           </li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */

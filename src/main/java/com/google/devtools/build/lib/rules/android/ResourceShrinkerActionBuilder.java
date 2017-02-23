@@ -177,7 +177,10 @@ public class ResourceShrinkerActionBuilder {
 
     checkNotNull(resourceFilesZip);
     checkNotNull(shrunkJar);
+    checkNotNull(proguardMapping);
     checkNotNull(primaryResources);
+    checkNotNull(primaryResources.getRTxt());
+    checkNotNull(primaryResources.getManifest());
     checkNotNull(resourceApkOut);
 
     commandLine.addExecPath("--resources", resourceFilesZip);
@@ -186,10 +189,8 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addExecPath("--shrunkJar", shrunkJar);
     inputs.add(shrunkJar);
 
-    if (proguardMapping != null) {
-      commandLine.addExecPath("--proguardMapping", proguardMapping);
-      inputs.add(proguardMapping);
-    }
+    commandLine.addExecPath("--proguardMapping", proguardMapping);
+    inputs.add(proguardMapping);
 
     commandLine.addExecPath("--rTxt", primaryResources.getRTxt());
     inputs.add(primaryResources.getRTxt());
