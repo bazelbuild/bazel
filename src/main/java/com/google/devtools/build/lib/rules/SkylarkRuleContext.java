@@ -676,13 +676,30 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(structField = true,
+      name = "aspect_ids",
+      doc = "Returns a list ids for all aspects applied to the target."
+      + " Only available in aspect implementation functions.")
+  public ImmutableList<String> aspectIds() throws EvalException {
+    if (ruleAttributesCollection == null) {
+      throw new EvalException(
+          Location.BUILTIN, "'aspect_ids' is only available in aspect implementations");
+    }
+
+    ImmutableList.Builder<String> result = ImmutableList.builder();
+    for (AspectDescriptor descriptor : ruleContext.getAspectDescriptors()) {
+      result.add(descriptor.getDescription());
+    }
+    return result.build();
+  }
+
+
+  @SkylarkCallable(structField = true,
       name = "aspect_id",
-      doc = "Returns a string uniquely identifying this aspect"
-          + " Only available in aspect implementation functions.")
+      doc = "Deprecated, use 'aspect_ids'.")
   public String aspectId() throws EvalException {
     if (ruleAttributesCollection == null) {
       throw new EvalException(
-          Location.BUILTIN, "'aspect' is only available in aspect implementations");
+          Location.BUILTIN, "'aspect_id' is only available in aspect implementations");
     }
     return aspectDescriptor.getDescription();
   }

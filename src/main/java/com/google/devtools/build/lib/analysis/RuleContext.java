@@ -277,6 +277,13 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * All aspects applied to the rule.
+   */
+  public ImmutableList<AspectDescriptor> getAspectDescriptors() {
+    return aspectDescriptors;
+  }
+
+  /**
    * Accessor for the attributes of the rule and its aspects.
    *
    * <p>The rule's native attributes can be queried both on their structure / existence and values

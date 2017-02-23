@@ -1666,7 +1666,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectDescriptions() throws Exception {
+  public void aspectDescriptionsDeprecated() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _a_impl(target,ctx):",
@@ -1701,6 +1701,45 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertThat(result).containsExactly(
         "//test:r0[]@//test:aspect.bzl%a=None",
         "//test:r1[]@//test:aspect.bzl%a=//test:r0[\"//test:aspect.bzl%a\"],True");
+  }
+
+  @Test
+  public void aspectDescriptions() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _a_impl(target,ctx):",
+        "  s = str(target.label) + str(ctx.aspect_ids) + '='",
+        "  value = []",
+        "  if ctx.rule.attr.dep:",
+        "     d = ctx.rule.attr.dep",
+        "     this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]",
+        "     s += str(d.label) + str(d.my_ids) + ',' + str(this_id in d.aspect_ids)",
+        "     value += ctx.rule.attr.dep.ap",
+        "  else:",
+        "     s += 'None'",
+        "  value.append(s)",
+        "  return struct(ap = value, my_ids = ctx.aspect_ids)",
+        "a = aspect(_a_impl, attr_aspects = ['dep'])",
+        "def _r_impl(ctx):",
+        "  if not ctx.attr.dep:",
+        "     return struct(result = [])",
+        "  return struct(result = ctx.attr.dep.ap)",
+        "r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r')",
+        "r(name = 'r0')",
+        "r(name = 'r1', dep = ':r0')",
+        "r(name = 'r2', dep = ':r1')"
+    );
+    AnalysisResult analysisResult = update("//test:r2");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    SkylarkList<?> result = (SkylarkList<?>) target.get("result");
+
+    assertThat(result).containsExactly(
+        "//test:r0[\"//test:aspect.bzl%a\"]=None",
+        "//test:r1[\"//test:aspect.bzl%a\"]=//test:r0[\"//test:aspect.bzl%a\"],True");
   }
 
 
