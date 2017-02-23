@@ -127,6 +127,10 @@ std::string ConvertPath(const std::string& path);
 // is Windows path list.
 std::string ConvertPathList(const std::string& path_list);
 
+// Converts `path` to a string that's safe to pass as path in a JVM flag.
+// See https://github.com/bazelbuild/bazel/issues/2576
+std::string PathAsJvmFlag(const std::string& path);
+
 // Return a string used to separate paths in a list.
 std::string ListSeparator();
 

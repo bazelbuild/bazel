@@ -33,6 +33,7 @@
 #include <io.h>  // _open
 #endif  // COMPILER_MSVC
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -796,6 +797,15 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 }
 
 string ListSeparator() { return ";"; }
+
+string PathAsJvmFlag(const string& path) {
+  // Convert backslashes to forward slashes, in order to avoid the JVM parsing
+  // Windows paths as if they contained escaped characters.
+  // See https://github.com/bazelbuild/bazel/issues/2576
+  string result(path);
+  std::replace(result.begin(), result.end(), '\\', '/');
+  return result;
+}
 
 string ConvertPath(const string& path) {
 #ifdef COMPILER_MSVC

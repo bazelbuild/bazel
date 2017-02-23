@@ -163,6 +163,8 @@ std::string ConvertPath(const std::string &path) { return path; }
 
 std::string ConvertPathList(const std::string& path_list) { return path_list; }
 
+std::string PathAsJvmFlag(const std::string& path) { return path; }
+
 std::string ListSeparator() { return ":"; }
 
 bool SymlinkDirectories(const string &target, const string &link) {

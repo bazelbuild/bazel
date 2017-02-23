@@ -409,16 +409,18 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   // Configure logging
   const string propFile =
       blaze_util::JoinPath(output_base, "javalog.properties");
+  string java_log(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(output_base, "java.log")));
   if (!blaze_util::WriteFile("handlers=java.util.logging.FileHandler\n"
                              ".level=INFO\n"
                              "java.util.logging.FileHandler.level=INFO\n"
                              "java.util.logging.FileHandler.pattern=" +
-                                 blaze_util::JoinPath(output_base, "java.log") +
+                                 java_log +
                                  "\n"
                                  "java.util.logging.FileHandler.limit=50000\n"
                                  "java.util.logging.FileHandler.count=1\n"
-                                 "java.util.logging.FileHandler.formatter="
-                                 + java_logging_formatter + "\n",
+                                 "java.util.logging.FileHandler.formatter=" +
+                                 java_logging_formatter + "\n",
                              propFile)) {
     perror(("Couldn't write logging file " + propFile).c_str());
   } else {
