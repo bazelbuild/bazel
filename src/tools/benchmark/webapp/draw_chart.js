@@ -178,14 +178,16 @@ function getStandardDeviation(arr, ave) {
 /**
  * Create html content as tooltip.
  * @param {!Array<number>} arr array of build results
+ * @param {!string} codeVersion current code version
  * @return {!string} the html content
  */
-function createCustomHTMLContent(arr) {
+function createCustomHTMLContent(arr, codeVersion) {
   let str = '<div style="padding:10px 10px 10px 10px;">';
   for (let i = 0; i < arr.length; ++i) {
     str += (i+1) + '-th run: ' + arr[i] + '<br>';
   }
-  str += '</div>';
+  str += '<a href="https://github.com/bazelbuild/bazel/commit/' + codeVersion
+      + '">commit</a></div>';
   return str;
 }
 
