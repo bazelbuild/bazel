@@ -52,10 +52,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
     return builder
         .requiresConfigurationFragments(ProtoConfiguration.class)
-        // This rule works, but does nothing, in open-source Bazel, due to the
-        // lack of protoc support. Users can theoretically write their own Skylark rules,
-        // but these are still 'experimental' according to the documentation.
-        .setUndocumented()
         .setOutputToGenfiles()
         .add(attr(":proto_compiler", LABEL).cfg(HOST).exec().value(PROTO_COMPILER))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
@@ -95,7 +91,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 <p>Use <code>proto_library</code> to define libraries of protocol buffers
    which may be used from multiple languages. A <code>proto_library</code> may be listed
-   in the <code>deps</code> clause of supported rules, such as <code>objc_proto_library</code>.
+   in the <code>deps</code> clause of supported rules, such as <code>java_proto_library</code>.
 </p>
 
 <!-- #END_BLAZE_RULE -->*/

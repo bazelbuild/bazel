@@ -50,8 +50,6 @@ public class CcProtoLibraryRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        // This rule isn't ready for use yet.
-        .setUndocumented()
         /* <!-- #BLAZE_RULE(cc_proto_library).ATTRIBUTE(deps) -->
         The list of <a href="protocol-buffer.html#proto_library"><code>proto_library</code></a>
         rules to generate C++ code for.
