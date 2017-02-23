@@ -298,6 +298,9 @@ def build_java_ide_info(target, ctx, semantics):
   )
   return (java_ide_info, ide_info_files, intellij_resolve_files)
 
+def _package_manifest_file_argument(f):
+  return f.root.path + "," + f.short_path + "," + ("1" if is_external(f.owner) else "0")
+
 def build_java_package_manifest(ctx, target, source_files, suffix):
   """Builds the java package manifest for the given source files."""
   output = ctx.new_file(target.label.name + suffix)
@@ -305,7 +308,7 @@ def build_java_package_manifest(ctx, target, source_files, suffix):
   args = []
   args += ["--output_manifest", output.path]
   args += ["--sources"]
-  args += [":".join([f.root.path + "," + f.short_path for f in source_files])]
+  args += [":".join([_package_manifest_file_argument(f) for f in source_files])]
   argfile = ctx.new_file(ctx.configuration.bin_dir,
                          target.label.name + suffix + ".params")
   ctx.file_action(output=argfile, content="\n".join(args))

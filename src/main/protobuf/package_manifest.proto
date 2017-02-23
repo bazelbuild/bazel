@@ -25,8 +25,10 @@ message ArtifactLocation {
   string relative_path = 2;
   bool is_source = 3;
 
-  // set for derived artifacts (isSource = false)
+  // set for derived artifacts (is_source = false)
   string root_execution_path_fragment = 4;
+  // whether this artifact comes from an external repository (bazel only)
+  bool is_external = 5;
 }
 
 message JavaSourcePackage {

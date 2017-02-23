@@ -24,13 +24,13 @@ import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-/**
- * Parses artifact location from comma-separate paths
- */
+/** Parses artifact location from comma-separate paths */
 @VisibleForTesting
 public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
   private static final Splitter SPLITTER = Splitter.on(',');
   private static final PathConverter pathConverter = new PathConverter();
+  static final String INVALID_FORMAT =
+      "Expected format rootExecutionPathFragment,relPath,isExternal";
 
   @Override
   public ArtifactLocation convert(String input) throws OptionsParsingException {
@@ -39,12 +39,14 @@ public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
       Path rootExecutionPathFragment = pathConverter.convert(values.next());
       Path relPath = pathConverter.convert(values.next());
 
-      // TODO: remove this support for old format after the next blaze release
-      @SuppressWarnings("unused")
-      String root = values.hasNext() ? pathConverter.convert(values.next()).toString() : "";
+      // Last value is optional to maintain compatibility with the native aspect
+      boolean isExternal = false;
+      if (values.hasNext()) {
+        isExternal = values.next().equals("1");
+      }
 
       if (values.hasNext()) {
-        throw new OptionsParsingException("Expected either 2 or 3 comma-separated paths");
+        throw new OptionsParsingException(INVALID_FORMAT);
       }
 
       boolean isSource = rootExecutionPathFragment.toString().isEmpty();
@@ -52,10 +54,11 @@ public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
           .setRootExecutionPathFragment(rootExecutionPathFragment.toString())
           .setRelativePath(relPath.toString())
           .setIsSource(isSource)
+          .setIsExternal(isExternal)
           .build();
 
     } catch (OptionsParsingException | NoSuchElementException e) {
-      throw new OptionsParsingException("Expected either 2 or 3 comma-separated paths", e);
+      throw new OptionsParsingException(INVALID_FORMAT);
     }
   }
 
@@ -63,5 +66,4 @@ public class ArtifactLocationConverter implements Converter<ArtifactLocation> {
   public String getTypeDescription() {
     return "Artifact location parser";
   }
-
 }

@@ -20,13 +20,11 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.common.options.OptionsParsingException;
-
+import java.nio.file.Paths;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.nio.file.Paths;
 
 /**
  * Tests {@link ArtifactLocationConverter}.
@@ -69,24 +67,32 @@ public class ArtifactLocationConverterTest {
   }
 
   @Test
-  public void testInvalidFormatFails() throws Exception {
-    assertFails("/root", "Expected either 2 or 3 comma-separated paths");
-    assertFails("/root,exec,rel,extra", "Expected either 2 or 3 comma-separated paths");
-  }
-
-  @Test
-  public void testOldFormat() throws Exception {
-    ArtifactLocation parsed = converter
-        .convert("bin/out,java/com/test.java,/usr/local/_tmp/code/bin/out");
-    assertThat(parsed)
+  public void testConverterExternal() throws Exception {
+    ArtifactLocation externalArtifact =
+        converter.convert(Joiner.on(',').join("", "test.java", "1"));
+    assertThat(externalArtifact)
         .isEqualTo(
             ArtifactLocation.newBuilder()
-                .setRootExecutionPathFragment(Paths.get("bin/out").toString())
-                .setRelativePath(Paths.get("java/com/test.java").toString())
-                .setIsSource(false)
+                .setRelativePath(Paths.get("test.java").toString())
+                .setIsSource(true)
+                .setIsExternal(true)
+                .build());
+    ArtifactLocation nonExternalArtifact =
+        converter.convert(Joiner.on(',').join("", "test.java", "0"));
+    assertThat(nonExternalArtifact)
+        .isEqualTo(
+            ArtifactLocation.newBuilder()
+                .setRelativePath(Paths.get("test.java").toString())
+                .setIsSource(true)
+                .setIsExternal(false)
                 .build());
   }
 
+  @Test
+  public void testInvalidFormatFails() throws Exception {
+    assertFails("/root", ArtifactLocationConverter.INVALID_FORMAT);
+    assertFails("/root,exec,rel,extra", ArtifactLocationConverter.INVALID_FORMAT);
+  }
 
   private void assertFails(String input, String expectedError) {
     try {
