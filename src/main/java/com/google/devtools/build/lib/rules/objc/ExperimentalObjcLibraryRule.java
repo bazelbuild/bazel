@@ -48,8 +48,7 @@ public class ExperimentalObjcLibraryRule implements RuleDefinition {
             BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.LinkingRule.class,
             ObjcRuleClasses.AlwaysLinkRule.class,
-            ObjcRuleClasses.XcodegenRule.class,
-            ObjcRuleClasses.CrosstoolRule.class)
+            ObjcRuleClasses.XcodegenRule.class)
         .build();
   }
 }

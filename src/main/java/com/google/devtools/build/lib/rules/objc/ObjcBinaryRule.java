@@ -75,8 +75,7 @@ public class ObjcBinaryRule implements RuleDefinition {
             ObjcRuleClasses.LinkingRule.class,
             ObjcRuleClasses.XcodegenRule.class,
             ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.SimulatorRule.class,
-            ObjcRuleClasses.CrosstoolRule.class)
+            ObjcRuleClasses.SimulatorRule.class)
         .build();
   }
 }

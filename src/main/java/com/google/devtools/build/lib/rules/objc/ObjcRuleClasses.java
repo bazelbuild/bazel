@@ -776,7 +776,8 @@ public class ObjcRuleClasses {
               CompileDependencyRule.class,
               CoptsRule.class,
               LibtoolRule.class,
-              XcrunRule.class)
+              XcrunRule.class,
+              CrosstoolRule.class)
           .build();
     }
   }

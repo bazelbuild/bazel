@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -50,7 +51,8 @@ public class IosTestRule implements RuleDefinition {
     final Label mcov = env.getToolsLabel("//tools/objc:mcov");
     return builder
         .requiresConfigurationFragments(
-            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
+            ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class,
+            CppConfiguration.class)
         /*<!-- #BLAZE_RULE(ios_test).IMPLICIT_OUTPUTS -->
         <ul>
         <li><code><var>name</var>.ipa</code>: the test bundle as an
