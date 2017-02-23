@@ -426,6 +426,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     )
     public boolean useResourcePrefiltering;
 
+    @Option(name = "use_singlejar_for_proguard_libraryjars",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Use SingleJar to combine all ProGuard library jars.")
+    public boolean useSingleJarForProguardLibraryJars;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -506,6 +512,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useSingleJarApkBuilder;
   private final boolean useSingleJarForMultidex;
   private final boolean useResourcePrefiltering;
+  private final boolean useSingleJarForProguardLibraryJars;
 
   AndroidConfiguration(Options options, Label androidSdk) {
     this.sdk = androidSdk;
@@ -533,6 +540,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.apkSigningMethod = options.apkSigningMethod;
     this.useSingleJarApkBuilder = options.useSingleJarApkBuilder;
     this.useSingleJarForMultidex = options.useSingleJarForMultidex;
+    this.useSingleJarForProguardLibraryJars = options.useSingleJarForProguardLibraryJars;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.useResourcePrefiltering = options.useResourcePrefiltering;
   }
@@ -632,6 +640,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   
   public boolean useResourcePrefiltering() {
     return useResourcePrefiltering;
+  }
+
+  public boolean useSingleJarForProguardLibraryJars() {
+    return useSingleJarForProguardLibraryJars;
   }
 
   @Override
