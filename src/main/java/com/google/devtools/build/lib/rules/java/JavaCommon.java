@@ -664,7 +664,7 @@ public class JavaCommon {
     }
     builder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
 
-    semantics.collectTargetsTreatedAsDeps(ruleContext, builder);
+    semantics.collectTargetsTreatedAsDeps(ruleContext, builder, type);
 
     // Implicitly add dependency on java launcher cc_binary when --java_launcher= is enabled,
     // or when launcher attribute is specified in a build rule.

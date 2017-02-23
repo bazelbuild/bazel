@@ -25,6 +25,7 @@ DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 TESTBED="${PWD}/$1"
 SUITE_PARAMETER="$2"
+TESTBED_LIB_LOCATION="${PWD}/$3"
 SUITE_FLAG="-D${SUITE_PARAMETER}=com.google.testing.junit.runner.testbed.JUnit4TestbridgeExercises"
 XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
 
@@ -41,6 +42,9 @@ function set_up() {
 # Test that we respond to TESTBRIDGE_TEST_ONLY in JUnit4 tests.
 function test_Junit4() {
   cd $TEST_TMPDIR
+
+  # Pass the test target classpath through the environment variable
+  declare -x TEST_TARGET_CLASSPATH="$TESTBED_LIB_LOCATION"
 
   # Run the test without environment flag; it should fail.
   declare +x TESTBRIDGE_TEST_ONLY
@@ -65,6 +69,9 @@ function test_Junit4() {
 # Test that TESTBRIDGE_TEST_ONLY is overridden by a direct flag.
 function test_Junit4FlagOverridesEnv() {
   cd $TEST_TMPDIR
+
+  # Pass the test target classpath through the environment variable
+  declare -x TEST_TARGET_CLASSPATH="$TESTBED_LIB_LOCATION"
 
   # Run the test with both environment and command line flags.
   declare -x TESTBRIDGE_TEST_ONLY="doNotRun"

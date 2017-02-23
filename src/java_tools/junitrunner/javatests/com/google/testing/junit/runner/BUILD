@@ -68,8 +68,12 @@ sh_test(
     args = [
         "$(location :TestbedBinary)",
         "bazel.test_suite",
+        "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar)",
     ],
-    data = [":TestbedBinary"],
+    data = [
+        ":TestbedBinary",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar",
+    ],
     shard_count = 0,
     deps = [":testenv"],
 )
@@ -81,8 +85,12 @@ sh_test(
     args = [
         "$(location :TestbedBinary)",
         "bazel.test_suite",
+        "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar)",
     ],
-    data = [":TestbedBinary"],
+    data = [
+        ":TestbedBinary",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar",
+    ],
     shard_count = 0,
     deps = [":testenv"],
 )
@@ -95,10 +103,12 @@ sh_test(
         "$(location :TestbedBinary)",
         "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml)",
         "bazel.test_suite",
+        "$(location //src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar)",
     ],
     data = [
         ":TestbedBinary",
         "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:XmlOutputExercises.ant.xml",
+        "//src/java_tools/junitrunner/javatests/com/google/testing/junit/runner/testbed:libtestbed.jar",
     ],
     shard_count = 0,
     deps = [":testenv"],

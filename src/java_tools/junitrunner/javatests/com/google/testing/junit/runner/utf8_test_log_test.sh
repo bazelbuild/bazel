@@ -23,6 +23,7 @@ TESTBED="${PWD}/$1"
 SUITE_PARAMETER="$2"
 SUITE_FLAG="-D${SUITE_PARAMETER}=com.google.testing.junit.runner.testbed.InternationalCharsTest"
 XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
+TESTBED_LIB_LOCATION="${PWD}/$3"
 unset TEST_PREMATURE_EXIT_FILE
 
 shift 2
@@ -35,6 +36,9 @@ function expect_log() {
 }
 
 function test_utf8_log() {
+  # Pass the test target classpath through the environment variable
+  declare -x TEST_TARGET_CLASSPATH="$TESTBED_LIB_LOCATION"
+
   $TESTBED --jvm_flag=${SUITE_FLAG} > $TEST_log && fail "Expected failure"
   expect_log 'expected:<Test [Japan].> but was:<Test [日本].>'
 

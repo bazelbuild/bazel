@@ -22,7 +22,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function DISABLED_test_simple_scenario() {
+function test_simple_scenario() {
   mkdir -p java/testrunners || fail "mkdir failed"
 
   cat > java/testrunners/TestsPass.java <<EOF
@@ -80,8 +80,7 @@ EOF
       || true
 }
 
-# TODO(kush): Enable this test once we're able to reload modified classes in persistent test runner.
-function DISABLED_test_reload_modified_classes() {
+function test_reload_modified_classes() {
   mkdir -p java/testrunners || fail "mkdir failed"
 
   # Create a passing test.

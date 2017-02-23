@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -262,7 +263,7 @@ public interface JavaSemantics {
    */
   Artifact createStubAction(
       RuleContext ruleContext,
-      final JavaCommon javaCommon,
+      JavaCommon javaCommon,
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
@@ -284,11 +285,11 @@ public interface JavaSemantics {
    */
   Iterable<String> getExtraJavacOpts(RuleContext ruleContext);
 
-  /**
-   * Add additional targets to be treated as direct dependencies.
-   */
+  /** Add additional targets to be treated as direct dependencies. */
   void collectTargetsTreatedAsDeps(
-      RuleContext ruleContext, ImmutableList.Builder<TransitiveInfoCollection> builder);
+      RuleContext ruleContext,
+      ImmutableList.Builder<TransitiveInfoCollection> builder,
+      ClasspathType type);
 
   /**
    * Enables coverage support for the java target - adds instrumented jar to the classpath and

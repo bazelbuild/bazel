@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
@@ -33,18 +32,22 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs;
+import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
@@ -81,6 +84,8 @@ public class BazelJavaSemantics implements JavaSemantics {
   private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
       "com.google.testing.coverage.JacocoCoverageRunner";
 
+  private static final String BAZEL_TEST_RUNNER = "com.google.testing.junit.runner.BazelTestRunner";
+
   private BazelJavaSemantics() {
   }
 
@@ -103,10 +108,20 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
+  @Nullable
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
     }
+    String mainClass = determineMainClassFromRule(ruleContext);
+
+    if (mainClass.isEmpty()) {
+      mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
+    }
+    return mainClass;
+  }
+
+  private String determineMainClassFromRule(RuleContext ruleContext) {
     String mainClass = ruleContext.attributes().get("main_class", Type.STRING);
 
     // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
@@ -120,9 +135,8 @@ public class BazelJavaSemantics implements JavaSemantics {
     if (mainClass.isEmpty()) {
       if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
           && !useLegacyJavaTest(ruleContext)) {
-        return "com.google.testing.junit.runner.BazelTestRunner";
+        return BAZEL_TEST_RUNNER;
       }
-      mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
     }
     return mainClass;
   }
@@ -164,10 +178,55 @@ public class BazelJavaSemantics implements JavaSemantics {
     return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
   }
 
+  /**
+   * Used to generate the Classpaths contained within the stub.
+   */
+  private static class ComputedClasspathSubstitution extends ComputedSubstitution {
+    private final NestedSet<Artifact> jars;
+    private final String workspacePrefix;
+    private final boolean isRunfilesEnabled;
+
+    ComputedClasspathSubstitution(
+        String key, NestedSet<Artifact> jars, String workspacePrefix, boolean isRunfilesEnabled) {
+      super(key);
+      this.jars = jars;
+      this.workspacePrefix = workspacePrefix;
+      this.isRunfilesEnabled = isRunfilesEnabled;
+    }
+
+    /**
+     * Builds a class path by concatenating the root relative paths of the artifacts. Each relative
+     * path entry is prepended with "${RUNPATH}" which will be expanded by the stub script at
+     * runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
+     */
+    @Override
+    public String getValue() {
+      StringBuilder buffer = new StringBuilder();
+      buffer.append("\"");
+      for (Artifact artifact : jars) {
+        if (buffer.length() > 1) {
+          buffer.append(File.pathSeparatorChar);
+        }
+        if (!isRunfilesEnabled) {
+          buffer.append("$(rlocation ");
+          PathFragment runfilePath =
+              new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
+          buffer.append(runfilePath.normalize().getPathString());
+          buffer.append(")");
+        } else {
+          buffer.append("${RUNPATH}");
+          buffer.append(artifact.getRunfilesPath().getPathString());
+        }
+      }
+      buffer.append("\"");
+      return buffer.toString();
+    }
+  }
+
   @Override
   public Artifact createStubAction(
       RuleContext ruleContext,
-      final JavaCommon javaCommon,
+      JavaCommon javaCommon,
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
@@ -188,18 +247,26 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
         ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+
+    NestedSet<Artifact> classpath = javaCommon.getRuntimeClasspath();
+    NestedSet<Artifact> testTargetClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    if (TargetUtils.isTestRule(ruleContext.getRule())
+        && determineMainClassFromRule(ruleContext).equals(BAZEL_TEST_RUNNER)
+        && testSupport != null) {
+      // Keep only the locations containing the classes to start the test runner itself within,
+      // classpath variable, and place all the paths required for the test run in
+      // testTargetClasspath, so that the classes for the test target may be loaded by a separate
+      // ClassLoader.
+      testTargetClasspath = classpath;
+      classpath = getRuntimeJarsForTargets(testSupport);
+    }
     arguments.add(
-        new ComputedSubstitution("%classpath%") {
-          @Override
-          public String getValue() {
-            StringBuilder buffer = new StringBuilder();
-            Iterable<Artifact> jars = javaCommon.getRuntimeClasspath();
-            char delimiter = File.pathSeparatorChar;
-            appendRunfilesRelativeEntries(
-                buffer, jars, workspacePrefix, delimiter, isRunfilesEnabled);
-            return buffer.toString();
-          }
-        });
+        new ComputedClasspathSubstitution(
+            "%classpath%", classpath, workspacePrefix, isRunfilesEnabled));
+    arguments.add(
+        new ComputedClasspathSubstitution(
+            "%test_target_classpath%", testTargetClasspath, workspacePrefix, isRunfilesEnabled));
 
     JavaCompilationArtifacts javaArtifacts = javaCommon.getJavaCompilationArtifacts();
     String path =
@@ -250,40 +317,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
   }
 
-  /**
-   * Builds a class path by concatenating the root relative paths of the artifacts separated by the
-   * delimiter. Each relative path entry is prepended with "${RUNPATH}" which will be expanded by
-   * the stub script at runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
-   *
-   * @param buffer the buffer to use for concatenating the entries
-   * @param artifacts the entries to concatenate in the buffer
-   * @param delimiter the delimiter character to separate the entries
-   */
-  private static void appendRunfilesRelativeEntries(
-      StringBuilder buffer,
-      Iterable<Artifact> artifacts,
-      String workspacePrefix,
-      char delimiter,
-      boolean isRunfilesEnabled) {
-    buffer.append("\"");
-    for (Artifact artifact : artifacts) {
-      if (buffer.length() > 1) {
-        buffer.append(delimiter);
-      }
-      if (!isRunfilesEnabled) {
-        buffer.append("$(rlocation ");
-        PathFragment runfilePath =
-            new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
-        buffer.append(runfilePath.normalize().getPathString());
-        buffer.append(")");
-      } else {
-        buffer.append("${RUNPATH}");
-        buffer.append(artifact.getRunfilesPath().getPathString());
-      }
-    }
-    buffer.append("\"");
-  }
-
+  @Nullable
   private TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       return null;
@@ -300,13 +334,25 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
   }
 
+  private static NestedSet<Artifact> getRuntimeJarsForTargets(TransitiveInfoCollection... deps) {
+    // The dep may be a simple JAR and not a java rule, hence we can't simply do
+    // dep.getProvider(JavaCompilationArgsProvider.class).getRecursiveJavaCompilationArgs(),
+    // so we reuse the logic within JavaCompilationArgs to handle both scenarios.
+    JavaCompilationArgs args =
+        JavaCompilationArgs.builder()
+            .addTransitiveTargets(
+                ImmutableList.copyOf(deps), /*recursive=*/ true, ClasspathType.RUNTIME_ONLY)
+            .build();
+    return args.getRuntimeJars();
+  }
+
   @Override
   public void addRunfilesForBinary(RuleContext ruleContext, Artifact launcher,
       Runfiles.Builder runfilesBuilder) {
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport != null) {
-      runfilesBuilder.addTarget(testSupport, JavaRunfilesProvider.TO_RUNFILES);
-      runfilesBuilder.addTarget(testSupport, RunfilesProvider.DEFAULT_RUNFILES);
+      // Not using addTransitiveArtifacts() due to the mismatch in NestedSet ordering.
+      runfilesBuilder.addArtifacts(getRuntimeJarsForTargets(testSupport));
     }
   }
 
@@ -316,12 +362,16 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   @Override
   public void collectTargetsTreatedAsDeps(
-      RuleContext ruleContext, ImmutableList.Builder<TransitiveInfoCollection> builder) {
+      RuleContext ruleContext,
+      ImmutableList.Builder<TransitiveInfoCollection> builder,
+      ClasspathType type) {
+    if (type == ClasspathType.COMPILE_ONLY) {
+      // We add the test support below, but the test framework's deps are not relevant for
+      // COMPILE_ONLY, hence we return here.
+      return;
+    }
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
     if (testSupport != null) {
-      // TODO(bazel-team): The testsupport is used as the test framework
-      // and really only needs to be on the runtime, not compile-time
-      // classpath.
       builder.add(testSupport);
     }
   }
