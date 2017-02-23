@@ -1499,6 +1499,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
         "//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
+
   /**
    * Diamond case.
    * rule r1 depends or r0 with aspect a1.
@@ -1768,6 +1769,96 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "Aspect '//test:aspect.bzl%my_aspect', applied to '//test:xxx', "
         + "does not provide advertised provider 'foo'");
   }
+
+  @Test
+  public void aspectOnAspectInconsistentVisibility() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "a1p = provider()",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = a1p(text = 'random'))",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
+        "a2p = provider()",
+        "def _a2_impl(target,ctx):",
+        "  return struct(a2p = a2p(value = 'random'))",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  return struct(result = ctx.attr.dep.a2p.value)",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r1', 'r2')",
+        "r1(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')",
+        "r1(name = 'r1_1', dep = ':r2')",
+        "r2(name = 'r2_1', dep = ':r1_1')"
+
+    );
+    reporter.removeHandler(failFastHandler);
+
+    try {
+      AnalysisResult analysisResult = update("//test:r2_1");
+      assertThat(analysisResult.hasError()).isTrue();
+      assertThat(keepGoing()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expected
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:4:1: Aspect //test:aspect.bzl%a2 is"
+        + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
+        + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
+  }
+
+  @Test
+  public void aspectOnAspectInconsistentVisibilityIndirect() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "a1p = provider()",
+        "def _a1_impl(target,ctx):",
+        "  return struct(a1p = a1p(text = 'random'))",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = ['a1p'])",
+        "a2p = provider()",
+        "def _a2_impl(target,ctx):",
+        "  return struct(a2p = a2p(value = 'random'))",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  return struct(result = ctx.attr.dep.a2p.value)",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})",
+        "def _r0_impl(ctx):",
+        "  pass",
+        "r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
+        "r0(name = 'r0')",
+        "r1(name = 'r1', dep = ':r0')",
+        "r2(name = 'r2', dep = ':r1')",
+        "r1(name = 'r1_1', dep = ':r2')",
+        "r2(name = 'r2_1', dep = ':r1_1')",
+        "r0(name = 'r0_2', dep = ':r2_1')"
+    );
+    reporter.removeHandler(failFastHandler);
+
+    try {
+      AnalysisResult analysisResult = update("//test:r0_2");
+      assertThat(analysisResult.hasError()).isTrue();
+      assertThat(keepGoing()).isTrue();
+    } catch (ViewCreationFailedException e) {
+      // expected
+    }
+    assertContainsEvent("ERROR /workspace/test/BUILD:4:1: Aspect //test:aspect.bzl%a2 is"
+        + " applied twice, both before and after aspect //test:aspect.bzl%a1 "
+        + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
+  }
+
 
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {

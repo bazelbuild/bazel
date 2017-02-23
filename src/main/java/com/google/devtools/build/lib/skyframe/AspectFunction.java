@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -304,6 +305,10 @@ public final class AspectFunction implements SkyFunction {
         ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
         throw new AspectFunctionException(new AspectCreationException(
             cause.getMessage(), cause.getAnalysisRootCause()));
+      } else if (e.getCause() instanceof InconsistentAspectOrderException) {
+        InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+        throw new AspectFunctionException(new AspectCreationException(
+            cause.getMessage()));
       } else {
         // Cast to InvalidConfigurationException as a consistency check. If you add any
         // DependencyEvaluationException constructors, you may need to change this code, too.
@@ -518,6 +523,10 @@ public final class AspectFunction implements SkyFunction {
 
     public AspectFunctionException(AspectCreationException e) {
       super(e, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(InconsistentAspectOrderException cause) {
+      super(cause, Transience.PERSISTENT);
     }
   }
 }

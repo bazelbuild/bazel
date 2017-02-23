@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyResolver.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MergedConfiguredTarget.DuplicateException;
@@ -119,6 +120,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     public DependencyEvaluationException(ConfiguredValueCreationException cause) {
+      super(cause);
+    }
+
+    public DependencyEvaluationException(InconsistentAspectOrderException cause) {
       super(cause);
     }
 
@@ -258,6 +263,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (e.getCause() instanceof ConfiguredValueCreationException) {
         throw new ConfiguredTargetFunctionException(
             (ConfiguredValueCreationException) e.getCause());
+      } else if (e.getCause() instanceof InconsistentAspectOrderException) {
+        InconsistentAspectOrderException cause = (InconsistentAspectOrderException) e.getCause();
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(cause.getMessage(), target.getLabel()));
       } else {
         // Cast to InvalidConfigurationException as a consistency check. If you add any
         // DependencyEvaluationException constructors, you may need to change this code, too.
@@ -319,6 +328,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(e.print(), ctgValue.getLabel()));
     } catch (InvalidConfigurationException e) {
+      throw new DependencyEvaluationException(e);
+    } catch (InconsistentAspectOrderException e) {
+      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
 
@@ -986,8 +998,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Collect the corresponding Skyframe configured target values. Abort early if they haven't
     // been computed yet.
-    Collection<Dependency> configValueNames = resolver.resolveRuleLabels(
-        ctgValue, configLabelMap, transitiveLoadingRootCauses);
+    Collection<Dependency> configValueNames = null;
+    try {
+      configValueNames = resolver.resolveRuleLabels(
+          ctgValue, configLabelMap, transitiveLoadingRootCauses);
+    } catch (InconsistentAspectOrderException e) {
+      throw new DependencyEvaluationException(e);
+    }
     if (env.valuesMissing()) {
       return null;
     }
