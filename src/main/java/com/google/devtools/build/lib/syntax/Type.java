@@ -475,7 +475,7 @@ public abstract class Type<T> {
       return new DictType<>(keyType, valueType, labelClass);
     }
 
-    private DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
+    protected DictType(Type<KeyT> keyType, Type<ValueT> valueType, LabelClass labelClass) {
       this.keyType = keyType;
       this.valueType = valueType;
       this.labelClass = labelClass;
@@ -509,8 +509,7 @@ public abstract class Type<T> {
     public Map<KeyT, ValueT> convert(Object x, Object what, Object context)
         throws ConversionException {
       if (!(x instanceof Map<?, ?>)) {
-        throw new ConversionException(String.format(
-            "Expected a map for dictionary but got a %s", x.getClass().getName()));
+        throw new ConversionException(this, x, what);
       }
       // Order the keys so the return value will be independent of insertion order.
       Map<KeyT, ValueT> result = new TreeMap<>();

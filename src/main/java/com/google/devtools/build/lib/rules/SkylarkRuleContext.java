@@ -344,6 +344,16 @@ public final class SkylarkRuleContext {
           || (type == BuildType.LABEL && a.hasSplitConfigurationTransition())) {
         List<?> allPrereq = ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
         attrBuilder.put(skyname, SkylarkList.createImmutable(allPrereq));
+      } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
+        ImmutableMap.Builder<TransitiveInfoCollection, String> builder =
+            new ImmutableMap.Builder<>();
+        Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
+        List<? extends TransitiveInfoCollection> allPrereq =
+            ruleContext.getPrerequisites(a.getName(), Mode.DONT_CHECK);
+        for (TransitiveInfoCollection prereq : allPrereq) {
+          builder.put(prereq, original.get(prereq.getLabel()));
+        }
+        attrBuilder.put(skyname, SkylarkType.convertToSkylark(builder.build(), null));
       } else if (type == BuildType.LABEL_DICT_UNARY) {
         Map<Label, TransitiveInfoCollection> prereqsByLabel = new LinkedHashMap<>();
         for (TransitiveInfoCollection target

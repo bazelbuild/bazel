@@ -922,6 +922,158 @@ public final class SkylarkAttr {
       };
 
   @SkylarkSignature(
+    name = "label_keyed_string_dict",
+    doc =
+        "Creates an attribute which is a <a href=\"dict.html\">dict</a>. Its keys are type "
+            + "<a href=\"Target.html\">Target</a> and are specified by the label keys of the "
+            + "input dict. Its values are <a href=\"string.html\">strings</a>. See "
+            + "<a href=\"attr.html#label\">label</a> for more information.",
+    objectType = SkylarkAttr.class,
+    returnType = Descriptor.class,
+    parameters = {
+      @Param(
+        name = DEFAULT_ARG,
+        type = SkylarkDict.class,
+        callbackEnabled = true,
+        defaultValue = "{}",
+        named = true,
+        positional = false,
+        doc =
+            DEFAULT_DOC
+                + " Use the <a href=\"globals.html#Label\"><code>Label</code></a> function to "
+                + "specify default values ex:</p>"
+                + "<code>attr.label_keyed_string_dict(default = "
+                + "{ Label(\"//a:b\"): \"value\", Label(\"//a:c\"): \"string\" })</code>"
+      ),
+      @Param(
+        name = ALLOW_FILES_ARG, // bool or FileType filter
+        defaultValue = "None",
+        named = true,
+        positional = false,
+        doc = ALLOW_FILES_DOC
+      ),
+      @Param(
+        name = ALLOW_RULES_ARG,
+        type = SkylarkList.class,
+        generic1 = String.class,
+        noneable = true,
+        defaultValue = "None",
+        named = true,
+        positional = false,
+        doc = ALLOW_RULES_DOC
+      ),
+      @Param(
+        name = PROVIDERS_ARG,
+        type = SkylarkList.class,
+        defaultValue = "[]",
+        named = true,
+        positional = false,
+        doc = PROVIDERS_DOC
+      ),
+      @Param(
+        name = FLAGS_ARG,
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        named = true,
+        positional = false,
+        doc = FLAGS_DOC
+      ),
+      @Param(
+        name = MANDATORY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = MANDATORY_DOC
+      ),
+      @Param(
+        name = NON_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "False",
+        named = true,
+        positional = false,
+        doc = NON_EMPTY_DOC
+      ),
+      @Param(
+        name = ALLOW_EMPTY_ARG,
+        type = Boolean.class,
+        defaultValue = "True",
+        doc = ALLOW_EMPTY_DOC
+      ),
+      @Param(
+        name = CONFIGURATION_ARG,
+        type = Object.class,
+        noneable = true,
+        defaultValue = "None",
+        named = true,
+        positional = false,
+        doc = CONFIGURATION_DOC
+      ),
+      @Param(
+        name = ASPECTS_ARG,
+        type = SkylarkList.class,
+        generic1 = SkylarkAspect.class,
+        defaultValue = "[]",
+        named = true,
+        positional = false,
+        doc = ASPECTS_ARG_DOC
+      )
+    },
+    useAst = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction labelKeyedStringDict =
+      new BuiltinFunction("label_keyed_string_dict") {
+        public Descriptor invoke(
+            Object defaultList,
+            Object allowFiles,
+            Object allowRules,
+            SkylarkList<?> providers,
+            SkylarkList<?> flags,
+            Boolean mandatory,
+            Boolean nonEmpty,
+            Boolean allowEmpty,
+            Object cfg,
+            SkylarkList<?> aspects,
+            FuncallExpression ast,
+            Environment env)
+            throws EvalException {
+          env.checkLoadingOrWorkspacePhase("attr.label_keyed_string_dict", ast.getLocation());
+          SkylarkDict<String, Object> kwargs =
+              EvalUtils.<String, Object>optionMap(
+                  env,
+                  DEFAULT_ARG,
+                  defaultList,
+                  ALLOW_FILES_ARG,
+                  allowFiles,
+                  ALLOW_RULES_ARG,
+                  allowRules,
+                  PROVIDERS_ARG,
+                  providers,
+                  FLAGS_ARG,
+                  flags,
+                  MANDATORY_ARG,
+                  mandatory,
+                  NON_EMPTY_ARG,
+                  nonEmpty,
+                  ALLOW_EMPTY_ARG,
+                  allowEmpty,
+                  CONFIGURATION_ARG,
+                  cfg);
+          try {
+            Attribute.Builder<?> attribute =
+                createAttribute(BuildType.LABEL_KEYED_STRING_DICT, kwargs, ast, env);
+            ImmutableList<SkylarkAspect> skylarkAspects =
+                ImmutableList.copyOf(aspects.getContents(SkylarkAspect.class, "aspects"));
+            return new Descriptor(attribute, skylarkAspects);
+          } catch (EvalException e) {
+            throw new EvalException(ast.getLocation(), e.getMessage(), e);
+          }
+        }
+      };
+
+  @SkylarkSignature(
     name = "bool",
     doc = "Creates an attribute of type bool.",
     objectType = SkylarkAttr.class,

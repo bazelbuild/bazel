@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
@@ -68,6 +69,7 @@ public class ProtoUtils {
           .put(TRISTATE, Discriminator.TRISTATE)
           .put(INTEGER_LIST, Discriminator.INTEGER_LIST)
           .put(STRING_DICT_UNARY, Discriminator.STRING_DICT_UNARY)
+          .put(LABEL_KEYED_STRING_DICT, Discriminator.LABEL_KEYED_STRING_DICT)
           .build();
 
   /** Returns the {@link Discriminator} value corresponding to the provided {@link Type}. */

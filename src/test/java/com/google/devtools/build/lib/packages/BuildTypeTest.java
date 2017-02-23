@@ -53,6 +53,181 @@ public class BuildTypeTest {
   }
 
   @Test
+  public void testLabelKeyedStringDictConvertsToMapFromLabelToString() throws Exception {
+    Map<Object, String> input = new ImmutableMap.Builder<Object, String>()
+        .put("//absolute:label", "absolute value")
+        .put(":relative", "theory of relativity")
+        .put("nocolon", "colonial times")
+        .put("//current/package:explicit", "explicit content")
+        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
+        .build();
+    Label context = Label.parseAbsolute("//current/package:this");
+
+    Map<Label, String> expected = new ImmutableMap.Builder<Label, String>()
+        .put(Label.parseAbsolute("//absolute:label"), "absolute value")
+        .put(Label.parseAbsolute("//current/package:relative"), "theory of relativity")
+        .put(Label.parseAbsolute("//current/package:nocolon"), "colonial times")
+        .put(Label.parseAbsolute("//current/package:explicit"), "explicit content")
+        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
+        .build();
+
+    assertThat(BuildType.LABEL_KEYED_STRING_DICT.convert(input, null, context))
+        .containsExactlyEntriesIn(expected);
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingStringShouldFail() throws Exception {
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert("//actually/a:label", null, currentRule);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "expected value of type 'dict(label, string)', "
+                  + "but got \"//actually/a:label\" (string)");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingListShouldFail() throws Exception {
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(
+          ImmutableList.of("//actually/a:label"), null, currentRule);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "expected value of type 'dict(label, string)', "
+                  + "but got [\"//actually/a:label\"] (List)");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingMapWithNonStringKeyShouldFail() throws Exception {
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(ImmutableMap.of(1, "OK"), null, currentRule);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage("expected value of type 'string' for dict key element, but got 1 (int)");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingMapWithNonStringValueShouldFail() throws Exception {
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(
+          ImmutableMap.of("//actually/a:label", 3), null, currentRule);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage("expected value of type 'string' for dict value element, but got 3 (int)");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingMapWithInvalidLabelKeyShouldFail()
+      throws Exception {
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(
+          ImmutableMap.of("//uplevel/references/are:../../forbidden", "OK"), null, currentRule);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "invalid label '//uplevel/references/are:../../forbidden' in "
+                  + "dict key element: invalid target name '../../forbidden': "
+                  + "target names may not contain up-level references '..'");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingMapWithMultipleEquivalentKeysShouldFail()
+      throws Exception {
+    Label context = Label.parseAbsolute("//current/package:this");
+    Map<String, String> input = new ImmutableMap.Builder<String, String>()
+        .put(":reference", "value1")
+        .put("//current/package:reference", "value2")
+        .build();
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(input, null, context);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "duplicate labels: //current/package:reference "
+                  + "(as [\":reference\", \"//current/package:reference\"])");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictConvertingMapWithMultipleSetsOfEquivalentKeysShouldFail()
+      throws Exception {
+    Label context = Label.parseAbsolute("//current/rule:sibling");
+    Map<String, String> input = new ImmutableMap.Builder<String, String>()
+        .put(":rule", "first set")
+        .put("//current/rule:rule", "also first set")
+        .put("//other/package:package", "interrupting rule")
+        .put("//other/package", "interrupting rule's friend")
+        .put("//current/rule", "part of first set but non-contiguous in iteration order")
+        .put("//not/involved/in/any:collisions", "same value")
+        .put("//also/not/involved/in/any:collisions", "same value")
+        .build();
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(input, null, context);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "duplicate labels: //current/rule:rule "
+                  + "(as [\":rule\", \"//current/rule:rule\", \"//current/rule\"]), "
+                  + "//other/package:package "
+                  + "(as [\"//other/package:package\", \"//other/package\"])");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictErrorConvertingMapWithMultipleEquivalentKeysIncludesContext()
+      throws Exception {
+    Label context = Label.parseAbsolute("//current/package:this");
+    Map<String, String> input = new ImmutableMap.Builder<String, String>()
+        .put(":reference", "value1")
+        .put("//current/package:reference", "value2")
+        .build();
+    try {
+      BuildType.LABEL_KEYED_STRING_DICT.convert(input, "flag map", context);
+      fail("Expected a conversion exception to be thrown.");
+    } catch (ConversionException expected) {
+      assertThat(expected)
+          .hasMessage(
+              "duplicate labels in flag map: //current/package:reference "
+                  + "(as [\":reference\", \"//current/package:reference\"])");
+    }
+  }
+
+  @Test
+  public void testLabelKeyedStringDictCollectLabels() throws Exception {
+    Map<Label, String> input = new ImmutableMap.Builder<Label, String>()
+        .put(Label.parseAbsolute("//absolute:label"), "absolute value")
+        .put(Label.parseAbsolute("//current/package:relative"), "theory of relativity")
+        .put(Label.parseAbsolute("//current/package:nocolon"), "colonial times")
+        .put(Label.parseAbsolute("//current/package:explicit"), "explicit content")
+        .put(Label.parseAbsolute("//i/was/already/a/label"), "and that's okay")
+        .build();
+
+    ImmutableList<Label> expected =
+        ImmutableList.of(
+            Label.parseAbsolute("//absolute:label"),
+            Label.parseAbsolute("//current/package:relative"),
+            Label.parseAbsolute("//current/package:nocolon"),
+            Label.parseAbsolute("//current/package:explicit"),
+            Label.parseAbsolute("//i/was/already/a/label"));
+
+    assertThat(collectLabels(BuildType.LABEL_KEYED_STRING_DICT, input))
+        .containsExactlyElementsIn(expected);
+  }
+
+  @Test
   public void testFilesetEntry() throws Exception {
     Label srcDir = Label.create("foo", "src");
     Label entryLabel = Label.create("foo", "entry");

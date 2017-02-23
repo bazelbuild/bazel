@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
 import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
 import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Sele
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.SelectorEntry.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Tristate;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelDictUnaryEntry;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelKeyedStringDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.LabelListDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictEntry;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnaryEntry;
@@ -61,7 +63,15 @@ public class AttributeFormatter {
 
   private static final ImmutableSet<Type<?>> depTypes =
       ImmutableSet.<Type<?>>of(
-          STRING, LABEL, OUTPUT, STRING_LIST, LABEL_LIST, OUTPUT_LIST, DISTRIBUTIONS);
+          STRING,
+          LABEL,
+          OUTPUT,
+          STRING_LIST,
+          LABEL_LIST,
+          LABEL_DICT_UNARY,
+          LABEL_KEYED_STRING_DICT,
+          OUTPUT_LIST,
+          DISTRIBUTIONS);
 
   private static final ImmutableSet<Type<?>> noDepTypes =
       ImmutableSet.<Type<?>>of(NODEP_LABEL_LIST, NODEP_LABEL);
@@ -230,6 +240,15 @@ public class AttributeFormatter {
                 .setValue(dictEntry.getValue().toString());
         builder.addLabelDictUnaryValue(entry);
       }
+    } else if (type == LABEL_KEYED_STRING_DICT) {
+      Map<Label, String> dict = (Map<Label, String>) value;
+      for (Map.Entry<Label, String> dictEntry : dict.entrySet()) {
+        LabelKeyedStringDictEntry.Builder entry =
+            LabelKeyedStringDictEntry.newBuilder()
+                .setKey(dictEntry.getKey().toString())
+                .setValue(dictEntry.getValue());
+        builder.addLabelKeyedStringDictValue(entry);
+      }
     } else if (type == FILESET_ENTRY_LIST) {
       List<FilesetEntry> filesetEntries = (List<FilesetEntry>) value;
       for (FilesetEntry filesetEntry : filesetEntries) {
@@ -302,6 +321,8 @@ public class AttributeFormatter {
 
     void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder);
 
+    void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder);
+
     void addLabelListDictValue(LabelListDictEntry.Builder builder);
 
     void addIntListValue(int i);
@@ -359,6 +380,11 @@ public class AttributeFormatter {
     @Override
     public void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder) {
       attributeBuilder.addLabelDictUnaryValue(builder);
+    }
+
+    @Override
+    public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
+      attributeBuilder.addLabelKeyedStringDictValue(builder);
     }
 
     @Override
@@ -485,6 +511,11 @@ public class AttributeFormatter {
     @Override
     public void addLabelDictUnaryValue(LabelDictUnaryEntry.Builder builder) {
       selectorEntryBuilder.addLabelDictUnaryValue(builder);
+    }
+
+    @Override
+    public void addLabelKeyedStringDictValue(LabelKeyedStringDictEntry.Builder builder) {
+      selectorEntryBuilder.addLabelKeyedStringDictValue(builder);
     }
 
     @Override

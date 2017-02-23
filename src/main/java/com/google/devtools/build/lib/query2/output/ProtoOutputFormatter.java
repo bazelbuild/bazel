@@ -432,7 +432,8 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     if (attrType == Type.STRING_DICT
         || attrType == Type.STRING_DICT_UNARY
         || attrType == Type.STRING_LIST_DICT
-        || attrType == BuildType.LABEL_DICT_UNARY) {
+        || attrType == BuildType.LABEL_DICT_UNARY
+        || attrType == BuildType.LABEL_KEYED_STRING_DICT) {
       Map<Object, Object> mergedDict = new HashMap<>();
       for (Object possibleValue : possibleValues) {
         Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;

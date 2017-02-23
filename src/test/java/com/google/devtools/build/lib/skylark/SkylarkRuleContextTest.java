@@ -775,6 +775,335 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelKeyedStringDictConvertsToTargetToStringMap() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "filegroup(name='dep')",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={':dep': 'value'})");
+
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("//:r");
+    Label keyLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.label_dict.keys()[0].label");
+    assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:dep"));
+    String valueString =
+        (String) evalRuleContextCode(context, "ruleContext.attr.label_dict.values()[0]");
+    assertThat(valueString).isEqualTo("value");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAcceptsDefaultValues() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(default={Label('//:default'): 'defs'}),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "filegroup(name='default')",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r')");
+
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("//:r");
+    Label keyLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.label_dict.keys()[0].label");
+    assertThat(keyLabel).isEqualTo(Label.parseAbsolute("//:default"));
+    String valueString =
+        (String) evalRuleContextCode(context, "ruleContext.attr.label_dict.values()[0]");
+    assertThat(valueString).isEqualTo("defs");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsFilesWhenAllowFilesIsTrue() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_files=True),",
+        "  }",
+        ")");
+
+    scratch.file("myfile.cc");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={'myfile.cc': 'value'})");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsFilesOfAppropriateTypes() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_files=['.cc']),",
+        "  }",
+        ")");
+
+    scratch.file("myfile.cc");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={'myfile.cc': 'value'})");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelKeyedStringDictForbidsFilesOfIncorrectTypes() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_files=['.cc']),",
+        "  }",
+        ")");
+
+    scratch.file("myfile.cpp");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={'myfile.cpp': 'value'})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("file '//:myfile.cpp' is misplaced here (expected .cc)");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictForbidsFilesWhenAllowFilesIsFalse() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_files=False),",
+        "  }",
+        ")");
+
+    scratch.file("myfile.cpp");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={'myfile.cpp': 'value'})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
+        + "file '//:myfile.cpp' is misplaced here (expected no files)");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsRulesWithRequiredProviders() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(providers=[['my_provider']]),",
+        "  }",
+        ")",
+        "def _dep_impl(ctx):",
+        "  return struct(my_provider=5)",
+        "my_dep_rule = rule(",
+        "  implementation = _dep_impl,",
+        "  attrs = {}",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_dep_rule(name='dep')",
+        "my_rule(name='r',",
+        "        label_dict={':dep': 'value'})");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelKeyedStringDictForbidsRulesMissingRequiredProviders() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(providers=[['my_provider']]),",
+        "  }",
+        ")",
+        "def _dep_impl(ctx):",
+        "  return",
+        "my_dep_rule = rule(",
+        "  implementation = _dep_impl,",
+        "  attrs = {}",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule', 'my_dep_rule')",
+        "my_dep_rule(name='dep')",
+        "my_rule(name='r',",
+        "        label_dict={':dep': 'value'})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
+        + "'//:dep' does not have mandatory provider 'my_provider'");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictForbidsEmptyDictWhenAllowEmptyIsFalse() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_empty=False),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={})");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
+        + "attribute must be non empty");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsEmptyDictWhenAllowEmptyIsTrue() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(allow_empty=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r',",
+        "        label_dict={})");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testLabelKeyedStringDictForbidsMissingAttributeWhenMandatoryIsTrue()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(mandatory=True),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:r");
+    assertContainsEvent("missing value for mandatory attribute 'label_dict' in 'my_rule' rule");
+  }
+
+  @Test
+  public void testLabelKeyedStringDictAllowsMissingAttributeWhenMandatoryIsFalse()
+      throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'label_dict': attr.label_keyed_string_dict(mandatory=False),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD",
+        "load('//:my_rule.bzl', 'my_rule')",
+        "my_rule(name='r')");
+
+    invalidatePackages();
+    createRuleContext("//:r");
+    assertNoEvents();
+  }
+
+  @Test
   public void testLabelAttributeDefault() throws Exception {
     scratch.file(
         "my_rule.bzl",

@@ -493,7 +493,8 @@ public class TypeTest {
       Type.STRING_DICT.convert("some string", null);
       fail();
     } catch (ConversionException e) {
-      assertThat(e).hasMessage("Expected a map for dictionary but got a java.lang.String");
+      assertThat(e).hasMessage(
+          "expected value of type 'dict(string, string)', but got \"some string\" (string)");
     }
   }
 
