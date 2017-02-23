@@ -345,8 +345,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
    * be overridden by subclasses of CcToolchain.
    *
    * @param ruleContext the rule context
+   * @throws RuleErrorException if there are configuration errors making it impossible to resolve
+   *     certain build variables of this toolchain
    */
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
+  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+      throws RuleErrorException {
     return ImmutableMap.<String, String>of();
   }
 
