@@ -112,19 +112,20 @@ function test_java() {
   assert_binary_run_from_subdir "bazel-bin/${java_pkg}/hello-world foo" "Hello foo"
 }
 
-function test_java_test() {
-  setup_javatest_support
-  local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
-  local java_native_main=//examples/java-native/src/main/java/com/example/myproject
+# TODO(pcloudy): Re-enable this test case after fixing https://github.com/bazelbuild/bazel/issues/2558
+# function test_java_test() {
+#   setup_javatest_support
+#   local java_native_tests=//examples/java-native/src/test/java/com/example/myproject
+#   local java_native_main=//examples/java-native/src/main/java/com/example/myproject
 
-  assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
-  assert_build_fails "${java_native_main}:hello-error-prone" \
-      "Did you mean 'result = b == -1;'?"
-  assert_test_ok "${java_native_tests}:hello"
-  assert_test_ok "${java_native_tests}:custom"
-  assert_test_fails "${java_native_tests}:fail"
-  assert_test_fails "${java_native_tests}:resource-fail"
-}
+#   assert_build "-- //examples/java-native/... -${java_native_main}:hello-error-prone"
+#   assert_build_fails "${java_native_main}:hello-error-prone" \
+#       "Did you mean 'result = b == -1;'?"
+#   assert_test_ok "${java_native_tests}:hello"
+#   assert_test_ok "${java_native_tests}:custom"
+#   assert_test_fails "${java_native_tests}:fail"
+#   assert_test_fails "${java_native_tests}:resource-fail"
+# }
 
 function test_native_python() {
   # On windows, we build a python executable zip as the python binary
