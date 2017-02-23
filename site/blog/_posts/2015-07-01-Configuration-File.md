@@ -8,13 +8,13 @@ that doesn't scale when you share your workspace with others.
 
 For instance, you could de-activate [Error Prone](http://errorprone.info)'s
 [DepAnn](http://errorprone.info/bugpattern/DepAnn) checks by adding the
-`--javacopts="-Xep:DepAnn:OFF"` flag in your `~/.bazelrc`. However, `~/.bazelrc`
+`--javacopt="-Xep:DepAnn:OFF"` flag in your `~/.bazelrc`. However, `~/.bazelrc`
 is not really convenient as it a user file, not shared with
 your team. You could instead add a rc file at `tools/bazel.rc` in your workspace
 with the content of the bazelrc file you want to share with your team:
 
 ```
-build --javacopts="-Xep:DepAnn:OFF"
+build --javacopt="-Xep:DepAnn:OFF"
 ```
 
 This file, called a master rc file, is parsed before the user rc file. There is
