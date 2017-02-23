@@ -23,6 +23,6 @@ public interface ExtendedEventHandler extends EventHandler {
   /** Interface for declaring events that can be posted via the extended event handler */
   public interface Postable {}
 
-  /** Report arbitrary information over the evnt bus. */
+  /** Report arbitrary information over the event bus. */
   void post(Postable obj);
 }
