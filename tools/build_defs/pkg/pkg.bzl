@@ -45,11 +45,11 @@ def _pkg_tar_impl(ctx):
   ctx.file_action(arg_file, "\n".join(args))
 
   ctx.action(
-      executable = build_tar,
-      arguments = ["--flagfile=" + arg_file.path],
-      inputs = ctx.files.files + ctx.files.deps + [arg_file],
+      command = "%s --flagfile=%s" % (build_tar.path, arg_file.path),
+      inputs = ctx.files.files + ctx.files.deps + [arg_file, build_tar],
       outputs = [ctx.outputs.out],
-      mnemonic="PackageTar"
+      mnemonic="PackageTar",
+      use_default_shell_env = True,
       )
 
 

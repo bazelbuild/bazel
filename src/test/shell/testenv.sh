@@ -30,6 +30,16 @@ function is_windows() {
   fi
 }
 
+# Set some enviornment variables needed on Windows.
+if is_windows; then
+  # Changing TEST_TMPDIR to avoid long path issue on Windows
+  TEST_TMPDIR="/c/tmp"
+  export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
+  export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
+  export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
+  export TMPDIR="c:/tmp"
+fi
+
 # Make the command "bazel" available for tests.
 PATH_TO_BAZEL_BIN=$(rlocation io_bazel/src/bazel)
 PATH_TO_BAZEL_WRAPPER="$(dirname $(rlocation io_bazel/src/test/shell/bin/bazel))"
