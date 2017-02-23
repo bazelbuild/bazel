@@ -617,6 +617,45 @@ def _get_env(repository_ctx):
   else:
     return ""
 
+def _coverage_feature(darwin):
+  if darwin:
+    compile_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+        flag: '-fcoverage-mapping'
+      }"""
+    link_flags = """flag_group {
+        flag: '-fprofile-instr-generate'
+      }"""
+  else:
+    compile_flags = """flag_group {
+        flag: '-fprofile-arcs'
+        flag: '-ftest-coverage'
+      }"""
+    link_flags = """flag_group {
+        flag: '-lgcov'
+      }"""
+  return """
+    feature {
+      name: 'coverage'
+      provides: 'profile'
+      flag_set {
+        action: 'preprocess-assemble'
+        action: 'c-compile'
+        action: 'c++-compile'
+        action: 'c++-header-parsing'
+        action: 'c++-header-preprocessing'
+        action: 'c++-module-compile'
+        """ + compile_flags + """
+      }
+      flag_set {
+        action: 'c++-link-interface-dynamic-library'
+        action: 'c++-link-dynamic-library'
+        action: 'c++-link-executable'
+        """ + link_flags + """
+      }
+    }
+  """
+
 def _impl(repository_ctx):
   repository_ctx.file("tools/cpp/empty.cc", "int main() {}")
   cpu_value = _get_cpu_value(repository_ctx)
@@ -703,6 +742,7 @@ def _impl(repository_ctx):
         "%{opt_content}": _build_crosstool(opt_content, "    "),
         "%{dbg_content}": _build_crosstool(dbg_content, "    "),
         "%{cxx_builtin_include_directory}": "",
+        "%{coverage}": _coverage_feature(darwin),
     })
 
 
