@@ -94,7 +94,7 @@ public class JavaCodeGenerator {
       }
 
       JavaCodeGeneratorHelper.writeMainClassToDir("com.example.generated", projectPath);
-      JavaCodeGeneratorHelper.buildFileWithMainClass(TARGET_A_FEW_FILES, "", projectPath);
+      JavaCodeGeneratorHelper.buildFileWithMainClass(projectPath.getFileName().toString(), "", projectPath);
     } catch (IOException e) {
       System.err.println("Error creating target with some files: " + e.getMessage());
     }

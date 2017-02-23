@@ -141,7 +141,8 @@ class JavaCodeGeneratorHelper {
                     "    srcs = glob([ 'com/example/deps%d/*.java' ]),",
                     "%s",
                     "    visibility = [ '//visibility:public' ],",
-                    ")"),
+                    ")",
+                    ""),
             index,
             index,
             deps);
@@ -162,7 +163,8 @@ class JavaCodeGeneratorHelper {
                     "    srcs = glob([ 'com/example/generated/*.java' ]),",
                     "    main_class = 'com.example.generated.Main',",
                     "%s",
-                    ")"),
+                    ")",
+                    ""),
             targetName,
             deps);
 
