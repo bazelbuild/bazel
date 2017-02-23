@@ -39,7 +39,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   private static final Set<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
         JavaCompilationArgsProvider.class,
-        JavaSourceJarsProvider.class);
+        JavaSourceJarsProvider.class,
+        ProtoJavaApiInfoAspectProvider.class);
 
   private final TransitiveInfoProviderMap providers;
 
@@ -63,6 +64,8 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
         JavaProvider.fetchProvidersFromList(providers, JavaCompilationArgsProvider.class);
     List<JavaSourceJarsProvider> javaSourceJarsProviders =
         JavaProvider.fetchProvidersFromList(providers, JavaSourceJarsProvider.class);
+    List<ProtoJavaApiInfoAspectProvider> protoJavaApiInfoAspectProviders =
+        JavaProvider.fetchProvidersFromList(providers, ProtoJavaApiInfoAspectProvider.class);
 
     return JavaProvider.Builder.create()
         .addProvider(
@@ -70,6 +73,9 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
             JavaCompilationArgsProvider.merge(javaCompilationArgsProviders))
         .addProvider(
           JavaSourceJarsProvider.class, JavaSourceJarsProvider.merge(javaSourceJarsProviders))
+        .addProvider(
+            ProtoJavaApiInfoAspectProvider.class,
+            ProtoJavaApiInfoAspectProvider.merge(protoJavaApiInfoAspectProviders))
         .build();
   }
 
