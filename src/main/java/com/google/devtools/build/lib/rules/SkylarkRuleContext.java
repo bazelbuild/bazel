@@ -693,18 +693,6 @@ public final class SkylarkRuleContext {
   }
 
 
-  @SkylarkCallable(structField = true,
-      name = "aspect_id",
-      doc = "Deprecated, use 'aspect_ids'.")
-  public String aspectId() throws EvalException {
-    if (ruleAttributesCollection == null) {
-      throw new EvalException(
-          Location.BUILTIN, "'aspect_id' is only available in aspect implementations");
-    }
-    return aspectDescriptor.getDescription();
-  }
-
-
   @SkylarkCallable(
     structField = true,
     doc = "Dictionary (String to String) of configuration variables."

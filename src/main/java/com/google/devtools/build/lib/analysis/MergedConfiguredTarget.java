@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import java.util.ArrayList;
@@ -32,7 +30,6 @@ import javax.annotation.Nullable;
  */
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
-  private final ImmutableList<AspectDescriptor> aspects;
   private final TransitiveInfoProviderMap providers;
 
   /**
@@ -46,12 +43,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
   }
 
-  private MergedConfiguredTarget(ConfiguredTarget base,
-      ImmutableList<AspectDescriptor> aspects,
-      TransitiveInfoProviderMap providers) {
+  private MergedConfiguredTarget(ConfiguredTarget base, TransitiveInfoProviderMap providers) {
     super(base.getTarget(), base.getConfiguration());
     this.base = base;
-    this.aspects = aspects;
     this.providers = providers;
   }
 
@@ -77,25 +71,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     return provider;
-  }
-
-  /**
-   * List of aspects applied to the target.
-   */
-  public ImmutableList<AspectDescriptor> getAspects() {
-    return aspects;
-  }
-
-  @Override
-  public Object getValue(String name) {
-    if (ASPECTS_FIELD.equals(name)) {
-      ImmutableList.Builder<String> builder = ImmutableList.builder();
-      for (AspectDescriptor aspect : aspects) {
-        builder.add(aspect.getDescription());
-      }
-      return builder.build();
-    }
-    return super.getValue(name);
   }
 
   /** Creates an instance based on a configured target and a set of aspects. */
@@ -136,8 +111,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       aspectProviders.add(mergedExtraActionProviders);
     }
 
-    ImmutableList.Builder<AspectDescriptor> aspectDescriptors = ImmutableList.builder();
-
     for (ConfiguredAspect aspect : aspects) {
       for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
           aspect.getProviders().entrySet()) {
@@ -154,9 +127,8 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
         aspectProviders.add(entry.getValue());
       }
-      aspectDescriptors.add(aspect.getDescriptor());
     }
-    return new MergedConfiguredTarget(base, aspectDescriptors.build(), aspectProviders.build());
+    return new MergedConfiguredTarget(base, aspectProviders.build());
   }
 
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(

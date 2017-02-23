@@ -1471,9 +1471,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
         "     value += ctx.rule.attr.dep.a2p.value",
         "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=yes')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
         "  else:",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
         "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
         "def _r1_impl(ctx):",
@@ -1496,8 +1496,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result).containsExactly(
-        "//test:r0[\"//test:aspect.bzl%a1\"]=yes",
-        "//test:r1[]=no");
+        "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+        "//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
   /**
    * Diamond case.
@@ -1527,7 +1527,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  for dep in ctx.rule.attr.deps:",
         "     if hasattr(dep, 'a3p'):",
         "         value += dep.a3p",
-        "  s = str(target.label) + str(target.aspect_ids) + '='",
+        "  s = str(target.label) + str(ctx.aspect_ids) + '='",
         "  if hasattr(target, 'a1p'):",
         "     s += 'a1p'",
         "  if hasattr(target, 'a2p'):",
@@ -1560,10 +1560,10 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     SkylarkList result = (SkylarkList) target.get("result");
     assertThat(result).containsExactly(
-        "//test:r0[\"//test:aspect.bzl%a1\"]=a1p",
-        "//test:r1[]=",
-        "//test:r0[\"//test:aspect.bzl%a2\"]=a2p",
-        "//test:r2[]=");
+        "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a3\"]=a1p",
+        "//test:r1[\"//test:aspect.bzl%a3\"]=",
+        "//test:r0[\"//test:aspect.bzl%a2\", \"//test:aspect.bzl%a3\"]=a2p",
+        "//test:r2[\"//test:aspect.bzl%a3\"]=");
   }
 
   /**
@@ -1589,9 +1589,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
         "     value += ctx.rule.attr.dep.a2p.value",
         "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=yes')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
         "  else:",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
         "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = [])",
         "def _r1_impl(ctx):",
@@ -1613,9 +1613,10 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
     SkylarkList result = (SkylarkList) target.get("result");
     // "yes" means that aspect a2 sees a1's providers.
-    assertThat(result).containsExactly("//test:r0[]=no",
-        "//test:r1[]=no",
-        "//test:r2_1[]=no");
+    assertThat(result).containsExactly(
+        "//test:r0[\"//test:aspect.bzl%a2\"]=no",
+        "//test:r1[\"//test:aspect.bzl%a2\"]=no",
+        "//test:r2_1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   /**
@@ -1635,9 +1636,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  if hasattr(ctx.rule.attr.dep, 'a2p'):",
         "     value += ctx.rule.attr.dep.a2p.value",
         "  if hasattr(target, 'a1p'):",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=yes')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=yes')",
         "  else:",
-        "     value.append(str(target.label) + str(target.aspect_ids) + '=no')",
+        "     value.append(str(target.label) + str(ctx.aspect_ids) + '=no')",
         "  return struct(a2p = a2p(value = value))",
         "a2 = aspect(_a2_impl, attr_aspects = ['dep'], required_aspect_providers = ['a1p'])",
         "def _r1_impl(ctx):",
@@ -1661,46 +1662,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     // "yes" means that aspect a2 sees a1's providers.
     assertThat(result).containsExactly(
-        "//test:r0[\"//test:aspect.bzl%a1\"]=yes",
-        "//test:r1[]=no");
-  }
-
-  @Test
-  public void aspectDescriptionsDeprecated() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def _a_impl(target,ctx):",
-        "  s = str(target.label) + str(target.aspect_ids) + '@' + ctx.aspect_id + '='",
-        "  value = []",
-        "  if ctx.rule.attr.dep:",
-        "     d = ctx.rule.attr.dep",
-        "     s += str(d.label) + str(d.aspect_ids) + ',' + str(ctx.aspect_id in d.aspect_ids)",
-        "     value += ctx.rule.attr.dep.ap",
-        "  else:",
-        "     s += 'None'",
-        "  value.append(s)",
-        "  return struct(ap = value)",
-        "a = aspect(_a_impl, attr_aspects = ['dep'])",
-        "def _r_impl(ctx):",
-        "  if not ctx.attr.dep:",
-        "     return struct(result = [])",
-        "  return struct(result = ctx.attr.dep.ap)",
-        "r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})"
-    );
-    scratch.file(
-        "test/BUILD",
-        "load(':aspect.bzl', 'r')",
-        "r(name = 'r0')",
-        "r(name = 'r1', dep = ':r0')",
-        "r(name = 'r2', dep = ':r1')"
-    );
-    AnalysisResult analysisResult = update("//test:r2");
-    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
-    SkylarkList<?> result = (SkylarkList<?>) target.get("result");
-
-    assertThat(result).containsExactly(
-        "//test:r0[]@//test:aspect.bzl%a=None",
-        "//test:r1[]@//test:aspect.bzl%a=//test:r0[\"//test:aspect.bzl%a\"],True");
+        "//test:r0[\"//test:aspect.bzl%a1\", \"//test:aspect.bzl%a2\"]=yes",
+        "//test:r1[\"//test:aspect.bzl%a2\"]=no");
   }
 
   @Test
@@ -1713,7 +1676,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "  if ctx.rule.attr.dep:",
         "     d = ctx.rule.attr.dep",
         "     this_id = ctx.aspect_ids[len(ctx.aspect_ids) - 1]",
-        "     s += str(d.label) + str(d.my_ids) + ',' + str(this_id in d.aspect_ids)",
+        "     s += str(d.label) + str(d.my_ids) + ',' + str(this_id in d.my_ids)",
         "     value += ctx.rule.attr.dep.ap",
         "  else:",
         "     s += 'None'",
