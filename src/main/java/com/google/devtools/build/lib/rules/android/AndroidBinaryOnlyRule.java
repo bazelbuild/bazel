@@ -84,7 +84,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         A list of resource configuration filters, such 'en' that will limit the resources in the
         apk to only the ones in the 'en' configuration.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("resource_configuration_filters", STRING_LIST))
+        .add(attr(ResourceConfigurationFilter.ATTR_NAME, STRING_LIST))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(shrink_resources) -->
         Whether to perform resource shrinking. Resources that are not used by the binary will be
         removed from the APK. This is only supported for rules using local resources (i.e. the

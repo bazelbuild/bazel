@@ -44,7 +44,7 @@ public class ResourceShrinkerActionBuilder {
 
   private List<String> uncompressedExtensions = Collections.emptyList();
   private List<String> assetsToIgnore = Collections.emptyList();
-  private List<String> resourceConfigs = Collections.emptyList();
+  private ResourceConfigurationFilter resourceConfigs;
 
   /**
    * @param ruleContext The RuleContext of the owning rule.
@@ -53,6 +53,7 @@ public class ResourceShrinkerActionBuilder {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+    this.resourceConfigs = ResourceConfigurationFilter.empty(ruleContext);
   }
 
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
@@ -66,7 +67,11 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  public ResourceShrinkerActionBuilder setConfigurationFilters(List<String> resourceConfigs) {
+  /**
+   * @param resourceConfigs The configuration filters to apply to the resources.
+   */
+  public ResourceShrinkerActionBuilder setConfigurationFilters(
+      ResourceConfigurationFilter resourceConfigs) {
     this.resourceConfigs = resourceConfigs;
     return this;
   }
@@ -172,7 +177,7 @@ public class ResourceShrinkerActionBuilder {
       commandLine.add("--debug");
     }
     if (!resourceConfigs.isEmpty()) {
-      commandLine.addJoinStrings("--resourceConfigs", ",", resourceConfigs);
+      commandLine.add("--resourceConfigs").add(resourceConfigs.getFilterString());
     }
 
     checkNotNull(resourceFilesZip);

@@ -215,7 +215,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceDeps,
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
           null, /* Artifact symbolsTxt */
-          ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
+          ResourceConfigurationFilter.fromRuleContext(ruleContext),
           ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
           ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
           ruleContext.getTokenizedStringListAttr("densities"),
@@ -237,7 +237,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ruleContext.getTokenizedStringListAttr("densities"),
@@ -258,7 +258,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ruleContext.getTokenizedStringListAttr("densities"),
@@ -279,7 +279,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ruleContext.getTokenizedStringListAttr("resource_configuration_filters"),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ruleContext.getTokenizedStringListAttr("densities"),
@@ -1131,8 +1131,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .withProguardMapping(proguardOutput.getMapping())
           .withPrimary(resourceApk.getPrimaryResource())
           .withDependencies(resourceApk.getResourceDependencies())
-          .setConfigurationFilters(
-              ruleContext.getTokenizedStringListAttr("resource_configuration_filters"))
+          .setConfigurationFilters(ResourceConfigurationFilter.fromRuleContext(ruleContext))
           .setUncompressedExtensions(
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
           .build();
@@ -1731,8 +1730,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ResourceDependencies resourceDeps) {
     return Iterables.size(resourceDeps.getResources()) > 1
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("densities")
-        || ruleContext.attributes().isAttributeValueExplicitlySpecified(
-            "resource_configuration_filters")
+        || ResourceConfigurationFilter.hasFilters(ruleContext)
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("nocompress_extensions");
   }
 

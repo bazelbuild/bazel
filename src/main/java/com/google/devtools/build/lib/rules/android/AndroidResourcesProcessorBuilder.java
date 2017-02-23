@@ -69,7 +69,7 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
-  private List<String> resourceConfigs = Collections.emptyList();
+  private ResourceConfigurationFilter resourceConfigs;
   private List<String> uncompressedExtensions = Collections.emptyList();
   private Artifact apkOut;
   private final AndroidSdkProvider sdk;
@@ -96,6 +96,7 @@ public class AndroidResourcesProcessorBuilder {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
+    this.resourceConfigs = ResourceConfigurationFilter.empty(ruleContext);
   }
 
   /**
@@ -138,7 +139,8 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setConfigurationFilters(List<String> resourceConfigs) {
+  public AndroidResourcesProcessorBuilder setConfigurationFilters(
+      ResourceConfigurationFilter resourceConfigs) {
     this.resourceConfigs = resourceConfigs;
     return this;
   }
@@ -272,7 +274,7 @@ public class AndroidResourcesProcessorBuilder {
       outs.add(apkOut);
     }
     if (!resourceConfigs.isEmpty()) {
-      builder.addJoinStrings("--resourceConfigs", ",", resourceConfigs);
+      builder.add("--resourceConfigs").add(resourceConfigs.getFilterString());
     }
     if (!densities.isEmpty()) {
       builder.addJoinStrings("--densities", ",", densities);

@@ -124,6 +124,13 @@ public abstract class ResourceContainer {
 
   /** Converts this container back into a builder to create a modified copy. */
   public abstract Builder toBuilder();
+  
+  /**
+   * Returns a copy of this container with filtered resources. The original container is unchanged.
+   */
+  public ResourceContainer filter(ResourceConfigurationFilter filter) {
+    return toBuilder().setResources(filter.filter(getResources())).build();
+  }
 
   /** Creates a new builder with default values. */
   public static Builder builder() {

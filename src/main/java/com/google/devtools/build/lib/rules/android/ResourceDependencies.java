@@ -151,6 +151,12 @@ public final class ResourceDependencies {
     this.transitiveResources = transitiveResources;
     this.directResources = directResources;
   }
+  
+  /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
+  public ResourceDependencies filter(ResourceConfigurationFilter filter) {
+    return new ResourceDependencies(
+        neverlink, filter.filter(transitiveResources), filter.filter(directResources));
+  }
 
   /**
    * Creates a new AndroidResourcesProvider with the supplied ResourceContainer as the direct dep.
