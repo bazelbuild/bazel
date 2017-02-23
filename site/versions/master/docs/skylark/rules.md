@@ -329,18 +329,22 @@ use `ctx.host_fragments` instead.
 
 ## Providers
 
-Providers are used to access information from other rules. A rule depending on
-another rule has access to the data the latter provides. These data can be e.g.
-output files, the libraries the dependent rule is using to link or compile, or
-anything the depending rule should know about. Using providers is the only way
-to exchange data between rules.
+Providers are pieces of information that a rule exposes to other rules that
+depend on it. This data can include output files, libraries, parameters to pass
+on a tool's command line, or anything else the depending rule should know about.
+Providers are the only mechanism to exchange data between rules, and can be
+thought of as part of a rule's public interface (loosely analogous to a
+function's return value).
 
-A rule can only access data provided by its direct dependencies, not that of
-transitive dependencies: if rule `top` depends on `middle`, and `middle` depends
-on `bottom`, then `middle` is a direct dependency of `top` and `bottom` is a
-transitive dependency of `top`. In this scenario `top` can only access data
-provided by `middle`. If `middle` also provides the data that `bottom` provided
-to it, then and only then can `top` access it.
+A rule can only see the providers of its direct dependencies. If there is a rule
+`top` that depends on `middle`, and `middle` depends on `bottom`, then we say
+that `middle` is a direct dependency of `top`, while `bottom` is a transitive
+dependency of `top`. In this case, `top` can see the providers of `middle`. The
+only way for `top` to see any information from `bottom` is if `middle`
+re-exports this information in its own providers; this is how transitive
+information can be accumulated from all dependencies. In such cases, consider
+using [depsets](depsets.md) to hold the data more efficiently without excessive
+copying.
 
 The following data types can be passed using providers:
 

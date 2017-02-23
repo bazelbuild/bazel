@@ -119,18 +119,6 @@ The following items are upcoming changes.
     dictionaries. This will be going away. The same result can be achieved using
     `dict(a.items() + b.items())`.
 
-*   The `|` operator is defined for depsets as a synonym for `+`. This will be
-    going away; use `+` instead.
-
-*   The structure of the set that you get back from using the `+` or `|`
-    operator is changing. Previously `a + b`, where `a` is a set, would include
-    as its direct items all of `a`'s direct items. Under the upcoming way, the
-    result will only include `a` as a single transitive entity. This will alter
-    the visible iteration order of the returned set. Most notably, `set([1,
-    2]) + set([3, 4] + set([5, 6])` will return elements in the order `1 2 3 4 5
-    6` instead of `3 4 5 6 1 2`. This change is associated with a fix that
-    improves set union to be O(1) time.
-
 These changes concern the `load()` syntax in particular.
 
 * Currently a `load()` statement can appear anywhere in a file so long as it is
