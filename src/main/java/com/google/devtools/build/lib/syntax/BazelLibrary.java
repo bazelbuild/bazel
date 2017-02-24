@@ -56,31 +56,31 @@ public class BazelLibrary {
     name = "depset",
     returnType = SkylarkNestedSet.class,
     doc =
-        "Creates a <a href=\"depset.html\">depset</a> from the <code>items</code>. "
-            + "The depset supports nesting other depsets of the same element type in it. "
-            + "A desired <a href=\"depset.html\">iteration order</a> can also be specified.<br>"
-            + "Examples:<br><pre class=\"language-python\">depset([\"a\", \"b\"])\n"
-            + "depset([1, 2, 3], order=\"postorder\")</pre>",
+        "Creates a <a href=\"depset.html\">depset</a>. In the case that <code>items</code> is an "
+            + "iterable, its contents become the direct elements of the depset, with their left-to-"
+            + "right order preserved, and the depset has no transitive elements. In the case that "
+            + "<code>items</code> is a depset, it is made the sole transitive element of the new "
+            + "depset, and no direct elements are added. In the second case the given depset's "
+            + "order must match the <code>order</code> param or else one of the two must be <code>"
+            + "\"default\"</code>. See the <a href=\"../depsets.md\">Depsets overview</a> for more "
+            + "information.",
     parameters = {
       @Param(
         name = "items",
         type = Object.class,
         defaultValue = "[]",
         doc =
-            "The items to initialize the depset with. May contain both standalone items "
-                + "and other depsets."
+            "An iterable whose items become the direct elements of the new depset, in left-to-"
+                + "right order; or alternatively, a depset that becomes the transitive element of "
+                + "the new depset."
       ),
       @Param(
         name = "order",
         type = String.class,
         defaultValue = "\"default\"",
         doc =
-            "The ordering strategy for the depset. Possible values are: <code>default</code> "
-                + "(default), <code>postorder</code>, <code>topological</code>, and "
-                + "<code>preorder</code>. These are also known by the deprecated names "
-                + "<code>stable</code>, <code>compile</code>, <code>link</code> and "
-                + "<code>naive_link</code> respectively. An explanation of the values can be found "
-                + "<a href=\"depset.html\">here</a>."
+            "The traversal strategy for the new depset. See <a href=\"depset.html\">here</a> for "
+                + "the possible values."
       )
     },
     useLocation = true
@@ -137,8 +137,9 @@ public class BazelLibrary {
     objectType = SkylarkNestedSet.class,
     returnType = SkylarkNestedSet.class,
     doc =
-        "Creates a new <a href=\"depset.html\">depset</a> that contains both "
-            + "the input depset as well as all additional elements.",
+        "<i>(Deprecated)</i> Returns a new <a href=\"depset.html\">depset</a> that is the merge "
+            + "of the given depset and <code>new_elements</code>. This is the same as the <code>+"
+            + "</code> operator.",
     parameters = {
       @Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset."),
       @Param(name = "new_elements", type = Object.class, doc = "The elements to be added.")
@@ -148,8 +149,7 @@ public class BazelLibrary {
   private static final BuiltinFunction union =
       new BuiltinFunction("union") {
         @SuppressWarnings("unused")
-        public SkylarkNestedSet invoke(
-            SkylarkNestedSet input, Object newElements, Location loc)
+        public SkylarkNestedSet invoke(SkylarkNestedSet input, Object newElements, Location loc)
             throws EvalException {
           // newElements' type is Object because of the polymorphism on unioning two
           // SkylarkNestedSets versus a set and another kind of iterable.
@@ -182,8 +182,8 @@ public class BazelLibrary {
             throws EvalException {
           for (Object key : dict.keySet()) {
             if (!(key instanceof String)) {
-              throw new EvalException(loc,
-                  String.format("Invalid key: %s. select keys must be label references", key));
+              throw new EvalException(
+                  loc, String.format("Invalid key: %s. select keys must be label references", key));
             }
           }
           return SelectorList.of(new SelectorValue(dict, noMatchError));

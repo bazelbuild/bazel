@@ -39,51 +39,50 @@ import javax.annotation.Nullable;
  *
  * <p>It is also an error if this type has a non-bottom intersection with {@link SkylarkType#DICT}
  * or {@link SkylarkType#LIST}, unless the set is empty.
- * TODO(bazel-team): Decide whether this restriction is still useful.
+ *
+ * <p>TODO(bazel-team): Decide whether this restriction is still useful.
  */
 @SkylarkModule(
-    name = "depset",
-    category = SkylarkModuleCategory.BUILTIN,
-    doc =
-        "<p>A specialized data structure that supports efficient merge operations and has a "
-        + "defined traversal order. Commonly used for accumulating data from transitive "
-        + "dependencies in rules and aspects. For more information see "
-        + "<a href=\"../depsets.html\">here</a>."
-
-        + "<p>Depsets are not implemented as hash sets and do not support fast membership tests. "
-        + "If you need a general set datatype, you can simulate one using a dictionary where all "
-        + "keys map to <code>None</code>."
-
-        + "<p>Depsets are immutable. They can be created using their "
-        + "<a href=\"globals.html#depset\">constructor function</a> and merged or augmented using "
-        + "the <code>+</code> operator."
-
-        + "<p>The <code>order</code> parameter determines the kind of traversal that is done to "
-        + "convert the depset to an iterable. There are four possible values:"
-
-        + "<ul>"
-        + "<li><code>default</code> (formerly <code>stable</code>): Order is unspecified (but "
-        + "deterministic).</li>"
-
-        + "<li><code>postorder</code> (formerly <code>compile</code>): A left-to-right post-"
-        + "ordering. Precisely, this recursively traverses all children leftmost-first, then the "
-        + "direct elements leftmost-first.</li>"
-
-        + "<li><code>preorder</code> (formerly <code>naive_link</code>): A left-to-right pre-"
-        + "ordering. Precisely, this traverses the direct elements leftmost-first, then "
-        + "recursively traverses the children leftmost-first.</li>"
-
-        + "<li><code>topological</code> (formerly <code>link</code>): A topological ordering from "
-        + "the root down to the leaves. There is no left-to-right guarantee.</li>"
-        + "</ul>"
-
-        + "<p>Two depsets may only be merged (via <code>+</code> or the <code>union()</code> "
-        + "method) if either both depsets have the same order, or one of them has <code>stable"
-        + "</code> order. In the latter case the resulting depset's order will be the same as the "
-        + "left operand's."
-
-        + "<p>The function <code>set()</code> is a deprecated alias for <code>depset()</code>. "
-        + "Please update legacy code and use only <code>depset()</code>."
+  name = "depset",
+  category = SkylarkModuleCategory.BUILTIN,
+  doc =
+      "<p>A specialized data structure that supports efficient merge operations and has a defined "
+          + "traversal order. Commonly used for accumulating data from transitive dependencies in "
+          + "rules and aspects. For more information see <a href=\"../depsets.md\">here</a>."
+          + "<p>"
+          + "Depsets are not implemented as hash sets and do not support fast membership tests. If "
+          + "you need a general set datatype, you can simulate one using a dictionary where all "
+          + "keys map to <code>None</code>."
+          + "<p>"
+          + "Depsets are immutable. They can be created using their "
+          + "<a href=\"globals.html#depset\">constructor function</a> and merged or augmented "
+          + "using the <code>+</code> operator."
+          + "<p>"
+          + "The <code>order</code> parameter determines the kind of traversal that is done to "
+          + "convert the depset to an iterable. There are four possible values:"
+          + "<ul>"
+          + "<li><code>\"default\"</code> (formerly <code>\"stable\"</code>): Order is unspecified "
+          + "(but deterministic).</li>"
+          + "<li><code>\"postorder\"</code> (formerly <code>\"compile\"</code>): A left-to-right "
+          + "post-ordering. Precisely, this recursively traverses all children leftmost-first, "
+          + "then the direct elements leftmost-first.</li>"
+          + "<li><code>\"preorder\"</code> (formerly <code>\"naive_link\"</code>): A left-to-right "
+          + "pre-ordering. Precisely, this traverses the direct elements leftmost-first, then "
+          + "recursively traverses the children leftmost-first.</li>"
+          + "<li><code>\"topological\"</code> (formerly <code>\"link\"</code>): A topological "
+          + "ordering from the root down to the leaves. There is no left-to-right guarantee.</li>"
+          + "</ul>"
+          + "<p>"
+          + "Two depsets may only be merged (via <code>+</code> or the <code>union()</code> "
+          + "method) if either both depsets have the same order, or one of them has <code>"
+          + "\"default\"</code> order. In the latter case the resulting depset's order will be the "
+          + "same as the left operand's."
+          + "<p>"
+          + "Depsets may contain duplicate values but these will be suppressed when iterating "
+          + "(using <code>to_list()</code>). Duplicates may interfere with the ordering semantics."
+          + "<p>"
+          + "The function <code>set()</code> is a deprecated alias for <code>depset()</code>. "
+          + "Please update legacy code and use only <code>depset()</code>."
 )
 @Immutable
 public final class SkylarkNestedSet implements SkylarkValue, SkylarkQueryable {
