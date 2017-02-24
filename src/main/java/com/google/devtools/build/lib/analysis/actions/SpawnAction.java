@@ -382,9 +382,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
   public ExtraActionInfo.Builder getExtraActionInfo() {
     ExtraActionInfo.Builder builder = super.getExtraActionInfo();
     if (extraActionInfoSupplier == null) {
-      Spawn spawn = getSpawn();
-      SpawnInfo spawnInfo = getExtraActionInfo(spawn);
-
+      SpawnInfo spawnInfo = getExtraActionSpawnInfo();
       return builder
           .setExtension(SpawnInfo.spawnInfo, spawnInfo);
     } else {
@@ -393,9 +391,15 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     }
   }
 
-  private static SpawnInfo getExtraActionInfo(Spawn spawn) {
+  /**
+   * Returns information about this spawn action for use by the extra action mechanism.
+   *
+   * <p>Subclasses of SpawnAction may override this in order to provide action-specific behaviour.
+   * This can be necessary, for example, when the action discovers inputs.
+   */
+  protected SpawnInfo getExtraActionSpawnInfo() {
     SpawnInfo.Builder info = SpawnInfo.newBuilder();
-
+    Spawn spawn = getSpawn();
     info.addAllArgument(spawn.getArguments());
     for (Map.Entry<String, String> variable : spawn.getEnvironment().entrySet()) {
       info.addVariable(
