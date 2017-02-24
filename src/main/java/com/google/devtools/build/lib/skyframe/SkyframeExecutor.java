@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -744,7 +745,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return ImmutableList.of(value.getStableArtifact(), value.getVolatileArtifact());
   }
 
-  // TODO(bazel-team): Make this take a PackageIdentifier.
   public Map<PathFragment, Root> getArtifactRootsForFiles(
       final EventHandler eventHandler, Iterable<PathFragment> execPaths)
       throws PackageRootResolutionException, InterruptedException {
@@ -760,28 +760,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private Map<PathFragment, Root> getArtifactRoots(
       final EventHandler eventHandler, Iterable<PathFragment> execPaths, boolean forFiles)
       throws PackageRootResolutionException, InterruptedException {
-
-    final List<SkyKey> packageKeys = new ArrayList<>();
-    if (forFiles) {
-      for (PathFragment execPath : execPaths) {
-        PathFragment parent = Preconditions.checkNotNull(
-            execPath.getParentDirectory(), "Must pass in files, not root directory");
-        Preconditions.checkArgument(!parent.isAbsolute(), execPath);
-        packageKeys.add(ContainingPackageLookupValue.key(
-            PackageIdentifier.createInMainRepo(parent)));
-      }
-    } else {
-      for (PathFragment execPath : execPaths) {
-        Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
-        packageKeys.add(ContainingPackageLookupValue.key(
-            PackageIdentifier.createInMainRepo(execPath)));
+    final Map<PathFragment, SkyKey> packageKeys = new HashMap<>();
+    for (PathFragment execPath : execPaths) {
+      try {
+        PackageIdentifier pkgIdentifier =
+            PackageIdentifier.discoverFromExecPath(execPath, forFiles);
+        packageKeys.put(execPath, ContainingPackageLookupValue.key(pkgIdentifier));
+      } catch (LabelSyntaxException e) {
+        throw new PackageRootResolutionException(
+            String.format("Could not find the external repository for %s", execPath), e);
       }
     }
 
     EvaluationResult<ContainingPackageLookupValue> result;
     synchronized (valueLookupLock) {
       result =
-          buildDriver.evaluate(packageKeys, /*keepGoing=*/ true, /*numThreads=*/ 1, eventHandler);
+          buildDriver.evaluate(
+              packageKeys.values(), /*keepGoing=*/ true, /*numThreads=*/ 1, eventHandler);
     }
 
     if (result.hasError()) {
@@ -791,11 +786,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     Map<PathFragment, Root> roots = new HashMap<>();
     for (PathFragment execPath : execPaths) {
-      ContainingPackageLookupValue value = result.get(ContainingPackageLookupValue.key(
-          PackageIdentifier.createInMainRepo(forFiles ? execPath.getParentDirectory() : execPath)));
+      ContainingPackageLookupValue value = result.get(packageKeys.get(execPath));
       if (value.hasContainingPackage()) {
-        roots.put(execPath, Root.asSourceRoot(value.getContainingPackageRoot(),
-            value.getContainingPackageName().getRepository().isMain()));
+        roots.put(execPath,
+            Root.computeSourceRoot(
+                value.getContainingPackageRoot(),
+                value.getContainingPackageName().getRepository()));
       } else {
         roots.put(execPath, null);
       }

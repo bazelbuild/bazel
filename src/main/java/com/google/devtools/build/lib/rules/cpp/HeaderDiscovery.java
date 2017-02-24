@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -122,7 +124,15 @@ public class HeaderDiscovery {
       }
       Artifact artifact = allowedDerivedInputsMap.get(execPathFragment);
       if (artifact == null) {
-        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, RepositoryName.MAIN);
+        try {
+          RepositoryName repository =
+              PackageIdentifier.discoverFromExecPath(execPathFragment, false).getRepository();
+          artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
+        } catch (LabelSyntaxException e) {
+          throw new ActionExecutionException(
+              String.format("Could not find the external repository for %s", execPathFragment),
+              e, action, false);
+        }
       }
       if (artifact != null) {
         inputs.add(artifact);

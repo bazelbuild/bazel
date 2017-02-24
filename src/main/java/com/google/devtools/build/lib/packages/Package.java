@@ -260,6 +260,8 @@ public class Package {
     defaultRestrictedTo = environments;
   }
 
+  // This must always be consistent with Root.computeSourceRoot; otherwise computing source roots
+  // from exec paths does not work, which can break the action cache for input-discovering actions.
   private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
     Path current = buildFile.getParentDirectory();
     for (int i = 0, len = packageFragment.segmentCount();

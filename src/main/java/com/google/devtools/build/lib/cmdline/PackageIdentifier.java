@@ -20,10 +20,8 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -56,6 +54,41 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   public static PackageIdentifier createInMainRepo(PathFragment name) {
     return create(RepositoryName.MAIN, name);
+  }
+
+  /**
+   * Tries to infer the package identifier from the given exec path. This method does not perform
+   * any I/O, but looks solely at the structure of the exec path. The resulting identifier may
+   * actually be a subdirectory of a package rather than a package, e.g.:
+   * <pre><code>
+   * + WORKSPACE
+   * + foo/BUILD
+   * + foo/bar/bar.java
+   * </code></pre>
+   *
+   * In this case, this method returns a package identifier for foo/bar, even though that is not a
+   * package. Callers need to look up the actual package if needed.
+   *
+   * @throws LabelSyntaxException if the exec path seems to be for an external repository that doe
+   *         not have a valid repository name (see {@link RepositoryName#create})
+   */
+  public static PackageIdentifier discoverFromExecPath(PathFragment execPath, boolean forFiles)
+      throws LabelSyntaxException {
+    Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
+    PathFragment tofind = forFiles
+        ? Preconditions.checkNotNull(
+            execPath.getParentDirectory(), "Must pass in files, not root directory")
+        : execPath;
+    if (tofind.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
+      // TODO(ulfjack): Remove this when kchodorow@'s exec root rearrangement has been rolled out.
+      RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
+      return PackageIdentifier.create(repository, tofind.subFragment(2, tofind.segmentCount()));
+    } else if (!tofind.normalize().isNormalized()) {
+      RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
+      return PackageIdentifier.create(repository, tofind.subFragment(2, tofind.segmentCount()));
+    } else {
+      return PackageIdentifier.createInMainRepo(tofind);
+    }
   }
 
   /**
