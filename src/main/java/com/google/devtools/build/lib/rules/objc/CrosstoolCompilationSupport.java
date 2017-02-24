@@ -69,6 +69,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
+  private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
+
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
@@ -341,13 +343,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
     if (!CompilationAttributes.Builder.fromRuleContext(ruleContext).build().enableModules()) {
       activatedCrosstoolSelectables.add(NO_ENABLE_MODULES_FEATURE_NAME);
-    } 
-
+    }
+    if (ruleContext.getConfiguration().getFragment(ObjcConfiguration.class).shouldStripBinary()) {
+      activatedCrosstoolSelectables.add(DEAD_STRIP_FEATURE_NAME);
+    }
     if (ruleContext.attributes().has("pch", BuildType.LABEL)
         && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       activatedCrosstoolSelectables.add("pch");
     }
-
     return configuration
         .getFragment(CppConfiguration.class)
         .getFeatures()
