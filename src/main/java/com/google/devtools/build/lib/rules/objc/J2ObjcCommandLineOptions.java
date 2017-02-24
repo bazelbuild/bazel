@@ -51,14 +51,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       )
   public boolean explicitJreDeps;
 
-  @Option(name = "experimental_j2objc_srcjar_processing",
-      defaultValue = "true",
-      category = "flags",
-      help = "Whether to generate individual ObjC header files for each Java source file inside "
-          + "Java source jars."
-      )
-  public boolean experimentalSrcJarProcessing;
-
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }

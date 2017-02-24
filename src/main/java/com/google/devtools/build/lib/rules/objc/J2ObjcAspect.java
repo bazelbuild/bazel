@@ -323,19 +323,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     ImmutableSet.Builder<Artifact> javaSourceJarsBuilder = ImmutableSet.builder();
     if (sourceInfoProvider != null) {
       javaSourceFilesBuilder.addAll(sourceInfoProvider.getSourceFiles());
-
-      if (ruleContext.getFragment(J2ObjcConfiguration.class).experimentalSrcJarProcessing()) {
-        javaSourceJarsBuilder
-            .addAll(sourceInfoProvider.getSourceJars())
-            .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
-      } else {
-        // The old source jar support treates source jars as source files, in the sense that
-        // we generate a single concatenated ObjC header and source files for all sources inside
-        // a given Java source jar.
-        javaSourceFilesBuilder
-            .addAll(sourceInfoProvider.getSourceJars())
-            .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
-      }
+      javaSourceJarsBuilder
+          .addAll(sourceInfoProvider.getSourceJars())
+          .addAll(sourceInfoProvider.getSourceJarsForJarFiles());
     }
 
     if (genJarProvider != null && genJarProvider.getGenSourceJar() != null) {
