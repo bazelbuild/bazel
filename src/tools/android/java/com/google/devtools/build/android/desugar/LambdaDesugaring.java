@@ -55,6 +55,7 @@ class LambdaDesugaring extends ClassVisitor {
 
   private String internalName;
   private boolean isInterface;
+  private int lambdaCount;
 
   public LambdaDesugaring(
       ClassVisitor dest,
@@ -77,6 +78,7 @@ class LambdaDesugaring extends ClassVisitor {
       String signature,
       String superName,
       String[] interfaces) {
+    checkState(internalName == null, "not intended for reuse but reused for %s", name);
     internalName = name;
     isInterface = BitFlags.isSet(access, Opcodes.ACC_INTERFACE);
     super.visit(version, access, name, signature, superName, interfaces);
@@ -360,9 +362,13 @@ class LambdaDesugaring extends ClassVisitor {
         // and ultimately we don't care if the bootstrap method was even on the bootclasspath
         // when this class was compiled (although it must've been since javac is unhappy otherwise).
         MethodHandle bsmMethod = toMethodHandle(publicLookup(), bsm, /*target*/ false);
-        String lambdaClassName = lambdas.generateLambdaClass(
+        // Give generated classes to have more stable names (b/35643761).  Use BSM's naming scheme
+        // but with separate counter for each surrounding class.
+        String lambdaClassName = internalName + "$$Lambda$" + (lambdaCount++);
+        lambdas.generateLambdaClass(
             internalName,
-            LambdaInfo.create(desc, bridgeInfo.methodReference(), bridgeInfo.bridgeMethod()),
+            LambdaInfo.create(
+                lambdaClassName, desc, bridgeInfo.methodReference(), bridgeInfo.bridgeMethod()),
             bsmMethod,
             args);
         // Emit invokestatic that calls the factory method generated in the lambda class

@@ -19,11 +19,15 @@ import org.objectweb.asm.Handle;
 @AutoValue
 abstract class LambdaInfo {
   public static LambdaInfo create(
-      String factoryMethodDesc, Handle methodReference, Handle bridgeMethod) {
+      String desiredInternalName,
+      String factoryMethodDesc,
+      Handle methodReference,
+      Handle bridgeMethod) {
     return new AutoValue_LambdaInfo(
-        factoryMethodDesc, methodReference, bridgeMethod);
+        desiredInternalName, factoryMethodDesc, methodReference, bridgeMethod);
   }
 
+  public abstract String desiredInternalName();
   public abstract String factoryMethodDesc();
   public abstract Handle methodReference();
   public abstract Handle bridgeMethod();

@@ -184,12 +184,9 @@ class Desugar {
               visitor = new Java7Compatibility(visitor, readerFactory);
             }
 
-            visitor = new LambdaDesugaring(
-                    visitor,
-                    loader,
-                    lambdas,
-                    interfaceLambdaMethodCollector,
-                    allowDefaultMethods);
+            visitor =
+                new LambdaDesugaring(
+                    visitor, loader, lambdas, interfaceLambdaMethodCollector, allowDefaultMethods);
 
             reader.accept(visitor, 0);
 
@@ -225,7 +222,7 @@ class Desugar {
             visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
           }
 
-          LambdaClassFixer lambdaFixer =
+          visitor =
               new LambdaClassFixer(
                   visitor,
                   lambdaClass.getValue(),
@@ -235,9 +232,11 @@ class Desugar {
           // Send lambda classes through desugaring to make sure there's no invokedynamic
           // instructions in generated lambda classes (checkState below will fail)
           reader.accept(
-              new LambdaDesugaring(lambdaFixer, loader, lambdas, null, allowDefaultMethods), 0);
-          String name = rewriter.unprefix(lambdaFixer.getInternalName() + ".class");
-          writeStoredEntry(out, name, writer.toByteArray());
+              new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods),
+              0);
+          String filename =
+              rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
+          writeStoredEntry(out, filename, writer.toByteArray());
         }
       }
 

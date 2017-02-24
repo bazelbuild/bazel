@@ -14,7 +14,6 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterators;
@@ -41,7 +40,7 @@ class LambdaClassMaker {
     this.rootDirectory = rootDirectory;
   }
 
-  public String generateLambdaClass(String invokerInternalName, LambdaInfo lambdaInfo,
+  public void generateLambdaClass(String invokerInternalName, LambdaInfo lambdaInfo,
       MethodHandle bootstrapMethod, ArrayList<Object> bsmArgs) throws IOException {
     // Invoking the bootstrap method will dump the generated class
     try {
@@ -52,11 +51,7 @@ class LambdaClassMaker {
     }
 
     Path generatedClassFile = findOnlyUnprocessed(invokerInternalName + "$$Lambda$");
-    String lambdaClassName = generatedClassFile.toString();
-    checkState(lambdaClassName.endsWith(".class"), "Unexpected filename %s", lambdaClassName);
-    lambdaClassName = lambdaClassName.substring(0, lambdaClassName.length() - ".class".length());
     generatedClasses.put(generatedClassFile, lambdaInfo);
-    return lambdaClassName;
   }
 
   /**

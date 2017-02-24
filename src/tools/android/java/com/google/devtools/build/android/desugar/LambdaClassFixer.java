@@ -51,7 +51,7 @@ class LambdaClassFixer extends ClassVisitor {
   private final HashSet<String> implementedMethods = new HashSet<>();
   private final LinkedHashSet<String> methodsToMoveIn = new LinkedHashSet<>();
 
-  private String internalName;
+  private String originalInternalName;
   private ImmutableList<String> interfaces;
 
   private boolean hasState;
@@ -71,10 +71,6 @@ class LambdaClassFixer extends ClassVisitor {
     this.allowDefaultMethods = allowDefaultMethods;
   }
 
-  public String getInternalName() {
-    return internalName;
-  }
-
   @Override
   public void visit(
       int version,
@@ -84,15 +80,16 @@ class LambdaClassFixer extends ClassVisitor {
       String superName,
       String[] interfaces) {
     checkArgument(BitFlags.noneSet(access, Opcodes.ACC_INTERFACE), "Not a class: %s", name);
-    checkState(internalName == null, "Already visited %s, can't reuse for %s", internalName, name);
-    internalName = name;
+    checkState(this.originalInternalName == null, "not intended for reuse but reused for %s", name);
+    originalInternalName = name;
     hasState = false;
     hasFactory = false;
     desc = null;
     this.signature = null;
     exceptions = null;
     this.interfaces = ImmutableList.copyOf(interfaces);
-    super.visit(version, access, name, signature, superName, interfaces);
+    // Rename to desired name
+    super.visit(version, access, getInternalName(), signature, superName, interfaces);
   }
 
   @Override
@@ -143,14 +140,14 @@ class LambdaClassFixer extends ClassVisitor {
   @Override
   public void visitEnd() {
     checkState(!hasState || hasFactory,
-        "Expected factory method for capturing lambda %s", internalName);
+        "Expected factory method for capturing lambda %s", getInternalName());
     if (!hasFactory) {
       // Fake factory method if LambdaMetafactory didn't generate it
       checkState(signature == null,
-          "Didn't expect generic constructor signature %s %s", internalName, signature);
+          "Didn't expect generic constructor signature %s %s", getInternalName(), signature);
 
       // Since this is a stateless class we populate and use a static singleton field "$instance"
-      String singletonFieldDesc = Type.getObjectType(internalName).getDescriptor();
+      String singletonFieldDesc = Type.getObjectType(getInternalName()).getDescriptor();
       super.visitField(
           Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
           "$instance",
@@ -166,11 +163,12 @@ class LambdaClassFixer extends ClassVisitor {
               "()V",
               (String) null,
               new String[0]);
-      codeBuilder.visitTypeInsn(Opcodes.NEW, internalName);
+      codeBuilder.visitTypeInsn(Opcodes.NEW, getInternalName());
       codeBuilder.visitInsn(Opcodes.DUP);
-      codeBuilder.visitMethodInsn(Opcodes.INVOKESPECIAL, internalName, "<init>",
-          checkNotNull(desc, "didn't see a constructor for %s", internalName), /*itf*/ false);
-      codeBuilder.visitFieldInsn(Opcodes.PUTSTATIC, internalName, "$instance", singletonFieldDesc);
+      codeBuilder.visitMethodInsn(Opcodes.INVOKESPECIAL, getInternalName(), "<init>",
+          checkNotNull(desc, "didn't see a constructor for %s", getInternalName()), /*itf*/ false);
+      codeBuilder.visitFieldInsn(
+          Opcodes.PUTSTATIC, getInternalName(), "$instance", singletonFieldDesc);
       codeBuilder.visitInsn(Opcodes.RETURN);
       codeBuilder.visitMaxs(2, 0); // two values are pushed onto the stack
       codeBuilder.visitEnd();
@@ -182,7 +180,8 @@ class LambdaClassFixer extends ClassVisitor {
               lambdaInfo.factoryMethodDesc(),
               (String) null,
               exceptions);
-      codeBuilder.visitFieldInsn(Opcodes.GETSTATIC, internalName, "$instance", singletonFieldDesc);
+      codeBuilder.visitFieldInsn(
+          Opcodes.GETSTATIC, getInternalName(), "$instance", singletonFieldDesc);
       codeBuilder.visitInsn(Opcodes.ARETURN);
       codeBuilder.visitMaxs(1, 0); // one value on the stack
     }
@@ -193,6 +192,10 @@ class LambdaClassFixer extends ClassVisitor {
       copyBridgeMethods(interfaces);
     }
     super.visitEnd();
+  }
+
+  private String getInternalName() {
+    return lambdaInfo.desiredInternalName();
   }
 
   private void copyRewrittenLambdaMethods() {
@@ -233,14 +236,38 @@ class LambdaClassFixer extends ClassVisitor {
         // Rewrite invocations of lambda methods in interfaces to anticipate the lambda method being
         // moved into the lambda class (i.e., the class being visited here).
         checkArgument(opcode == Opcodes.INVOKESTATIC, "Cannot move instance method %s", method);
-        owner = internalName;
+        owner = getInternalName();
         itf = false; // owner was interface but is now a class
         methodsToMoveIn.add(method);
-      } else if (name.startsWith("lambda$")) {
-        // Reflect renaming of lambda$ instance methods to avoid accidental overrides
-        name = LambdaDesugaring.uniqueInPackage(owner, name);
+      } else {
+        if (originalInternalName.equals(owner)) {
+          // Reflect renaming of lambda classes
+          owner = getInternalName();
+        }
+        if (name.startsWith("lambda$")) {
+          // Reflect renaming of lambda$ instance methods to avoid accidental overrides
+          name = LambdaDesugaring.uniqueInPackage(owner, name);
+        }
       }
       super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    @Override
+    public void visitTypeInsn(int opcode, String type) {
+      if (originalInternalName.equals(type)) {
+        // Reflect renaming of lambda classes
+        type = getInternalName();
+      }
+      super.visitTypeInsn(opcode, type);
+    }
+
+    @Override
+    public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+      if (originalInternalName.equals(owner)) {
+        // Reflect renaming of lambda classes
+        owner = getInternalName();
+      }
+      super.visitFieldInsn(opcode, owner, name, desc);
     }
 
     @Override
