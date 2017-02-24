@@ -25,16 +25,12 @@ XML_OUTPUT_FILE="${TEST_TMPDIR}/test.xml"
 SUITE_PARAMETER="$3"
 SUITE="com.google.testing.junit.runner.testbed.XmlOutputExercises"
 SUITE_FLAG="-D${SUITE_PARAMETER}=${SUITE}"
-TESTBED_LIB_LOCATION="${PWD}/$4"
 
 shift 3
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 
 function test_XmlOutputExercises() {
   cd $TEST_TMPDIR
-
-  # Pass the test target classpath through the environment variable
-  declare -x TEST_TARGET_CLASSPATH="$TESTBED_LIB_LOCATION"
 
   $TESTBED --jvm_flag=${SUITE_FLAG} || true  # Test failures
 
