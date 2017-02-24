@@ -15,16 +15,15 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.io.Serializable;
 import java.util.Objects;
-
 import javax.annotation.Nullable;
 
 /**
@@ -55,6 +54,20 @@ public final class Root implements Comparable<Root>, Serializable {
   // TODO(kchodorow): remove once roots don't need to know if they're in the main repo.
   public static Root asSourceRoot(Path path, boolean isMainRepo) {
     return new Root(null, path, false, isMainRepo);
+  }
+
+  // This must always be consistent with Package.getSourceRoot; otherwise computing source roots
+  // from exec paths does not work, which can break the action cache for input-discovering actions.
+  public static Root computeSourceRoot(Path packageRoot, RepositoryName repository) {
+    if (repository.isMain()) {
+      return Root.asSourceRoot(packageRoot, true);
+    } else {
+      Path actualRoot = packageRoot;
+      for (int i = 0; i < repository.getSourceRoot().segmentCount(); i++) {
+        actualRoot = actualRoot.getParentDirectory();
+      }
+      return Root.asSourceRoot(actualRoot, false);
+    }
   }
 
   /**

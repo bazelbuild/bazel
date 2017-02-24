@@ -305,17 +305,17 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       // Source exec paths cannot escape the source root.
       return null;
     }
-    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
-    if (artifact != null) {
-      return artifact;
-    }
     // Don't create an artifact if it's derived.
     if (isDerivedArtifact(execPath)) {
       return null;
     }
-
-    return createArtifactIfNotValid(
-        findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName), execPath);
+    Root sourceRoot = findSourceRoot(execPath, baseExecPath, baseRoot, repositoryName);
+    Artifact artifact = sourceArtifactCache.getArtifactIfValid(execPath);
+    if (artifact != null) {
+      Preconditions.checkState(sourceRoot == null || sourceRoot.equals(artifact.getRoot()));
+      return artifact;
+    }
+    return createArtifactIfNotValid(sourceRoot, execPath);
   }
 
   /**

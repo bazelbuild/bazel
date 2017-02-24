@@ -334,9 +334,11 @@ public class CppCompileAction extends AbstractAction
     // the inputs are as declared, hence known, and remain so.
     this.shouldScanIncludes = shouldScanIncludes;
     this.shouldPruneModules = shouldPruneModules;
+    // We can only prune modules if include scanning is enabled.
+    Preconditions.checkArgument(!shouldPruneModules || shouldScanIncludes, this);
     this.usePic = usePic;
     this.useHeaderModules = useHeaderModules;
-    this.inputsKnown = !shouldScanIncludes;
+    this.inputsKnown = !shouldScanIncludes && !cppSemantics.needsDotdInputPruning();
     this.cppCompileCommandLine =
         new CppCompileCommandLine(
             sourceFile, dotdFile, copts, coptsFilter, features, variables, actionName);
