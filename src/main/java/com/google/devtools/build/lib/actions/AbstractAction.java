@@ -174,8 +174,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public synchronized Iterable<Artifact> discoverInputs(
-      ActionExecutionContext actionExecutionContext)
+  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
         + " since it does not discover inputs");
@@ -494,6 +493,27 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of();
+  }
+
+  /**
+   * Returns input files that need to be present to allow extra_action rules to shadow this action
+   * correctly when run remotely. This is at least the normal inputs of the action, but may include
+   * other files as well. For example C(++) compilation may perform include file header scanning.
+   * This needs to be mirrored by the extra_action rule. Called by
+   * {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time.
+   *
+   * <p>As this method is called from the ExtraAction, make sure it is ok to call
+   * this method from a different thread than the one this action is executed on.
+   *
+   * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
+   * @throws ActionExecutionException only when code called from this method
+   *     throws that exception.
+   * @throws InterruptedException if interrupted
+   */
+  public Iterable<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    return getInputs();
   }
 
   @SkylarkCallable(
