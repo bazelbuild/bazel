@@ -84,6 +84,7 @@ public class TestSupport {
             .add(Substitution.of("%(memleaks)s", runMemleaks))
             .add(Substitution.of("%(test_app_ipa)s", testBundleIpa.getRootRelativePathString()))
             .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testBundleIpa)))
+            .add(Substitution.of("%(test_bundle_path)s", testBundleIpa.getRootRelativePathString()))
             .add(
                 Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
 
@@ -95,11 +96,20 @@ public class TestSupport {
       substitutions
           .add(Substitution.of("%(xctest_app_ipa)s",
               testHarnessIpa.get().getRootRelativePathString()))
-          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(testHarnessIpa.get())));
+          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(testHarnessIpa.get())))
+          .add(Substitution.of("%(test_host_path)s",
+              testHarnessIpa.get().getRootRelativePathString()));
     } else {
       substitutions
           .add(Substitution.of("%(xctest_app_ipa)s", ""))
-          .add(Substitution.of("%(xctest_app_name)s", ""));
+          .add(Substitution.of("%(xctest_app_name)s", ""))
+          .add(Substitution.of("%(test_host_path)s", ""));
+    }
+
+    if (ruleContext.attributes().get(IosTest.IS_XCTEST_ATTR, Type.BOOLEAN)) {
+      substitutions.add(Substitution.of("%(test_type)s", "XCTEST"));
+    } else {
+      substitutions.add(Substitution.of("%(test_type)s", "KIF"));
     }
 
     Artifact template;
