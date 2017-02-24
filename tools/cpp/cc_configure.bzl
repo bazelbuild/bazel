@@ -717,6 +717,7 @@ def _impl(repository_ctx):
         "%{opt_content}": "",
         "%{dbg_content}": "",
         "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
+        "%{coverage}": "",
     })
   else:
     darwin = cpu_value == "darwin"
