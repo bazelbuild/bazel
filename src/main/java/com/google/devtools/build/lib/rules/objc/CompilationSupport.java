@@ -30,6 +30,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -993,6 +995,51 @@ public abstract class CompilationSupport {
     return objcConfiguration.shouldStripBinary()
         ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
         : intermediateArtifacts.strippedSingleArchitectureBinary();    
+  }
+
+  private static CommandLine symbolStripCommandLine(
+      Iterable<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
+    return CustomCommandLine.builder()
+        .add(STRIP)
+        .add(extraFlags)
+        .addExecPath("-o", strippedArtifact)
+        .addPath(unstrippedArtifact.getExecPath())
+        .build();
+  }
+
+  /** Signals if stripping should include options for dynamic libraries. */
+  protected enum StrippingType {
+    DEFAULT, DYNAMIC_LIB
+  }
+
+  /**
+   * Registers an action that uses the 'strip' tool to perform binary stripping on the given binary
+   * subject to the given {@link StrippingType}.
+   */
+  protected void registerBinaryStripAction(Artifact binaryToLink, StrippingType strippingType) {
+    final Iterable<String> stripArgs;
+    if (TargetUtils.isTestRule(ruleContext.getRule())) {
+      // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
+      // to strip off all symbols in XCTest bundle.
+      stripArgs = ImmutableList.of("-S");
+    } else if (strippingType == StrippingType.DYNAMIC_LIB) {
+      // For dynamic libs must pass "-x" to strip only local symbols.
+      stripArgs = ImmutableList.of("-x");
+    } else {
+      stripArgs = ImmutableList.<String>of();
+    }
+
+    Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
+
+    ruleContext.registerAction(
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(
+                appleConfiguration, appleConfiguration.getSingleArchPlatform())
+            .setMnemonic("ObjcBinarySymbolStrip")
+            .setExecutable(xcrunwrapper(ruleContext))
+            .setCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
+            .addOutput(strippedBinary)
+            .addInput(binaryToLink)
+            .build(ruleContext));
   }
 
   private NestedSet<Artifact> getGcovForObjectiveCIfNeeded() {
