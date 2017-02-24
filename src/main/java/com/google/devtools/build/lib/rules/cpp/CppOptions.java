@@ -496,6 +496,15 @@ public class CppOptions extends FragmentOptions {
   public List<String> hostCoptList;
 
   @Option(
+    name = "host_cxxopt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to gcc for host tools."
+  )
+  public List<String> hostCxxoptList;
+
+  @Option(
     name = "grte_top",
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
@@ -625,6 +634,7 @@ public class CppOptions extends FragmentOptions {
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
     host.coptList = ImmutableList.<String>builder().add("-g0").addAll(hostCoptList).build();
+    host.cxxoptList = ImmutableList.<String>builder().add("-g0").addAll(hostCxxoptList).build();
 
     host.useStartEndLib = useStartEndLib;
     host.stripBinaries = StripMode.ALWAYS;
