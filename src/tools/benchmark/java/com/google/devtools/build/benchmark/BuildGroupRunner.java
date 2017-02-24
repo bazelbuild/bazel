@@ -72,44 +72,73 @@ class BuildGroupRunner {
 
           // Target config
           for (int targetIndex = 0; targetIndex < buildTargetConfigs.size(); ++targetIndex) {
-            BuildTargetConfig targetConfig = buildTargetConfigs.get(targetIndex);
-            System.out.println(targetConfig.getDescription());
-
-            // Prepare generated code for build
-            if (lastIsIncremental && !envConfig.getIncremental()) {
-              buildCase.prepareGeneratedCode(
-                  workspace.resolve(GENERATED_CODE_FOR_COPY_DIR),
-                  workspace.resolve(GENERATED_CODE_DIR));
-            }
-            if (!lastIsIncremental && envConfig.getIncremental()) {
-              JavaCodeGenerator.modifyExistingProject(
-                  workspace.resolve(GENERATED_CODE_DIR).toString(), true, true, true, true);
-            }
-            lastIsIncremental = envConfig.getIncremental();
-
-            // Builder's clean method
-            if (envConfig.getCleanBeforeBuild()) {
-              builder.clean();
-            }
-
-            // Run build
-            double elapsedTime =
-                builder.buildAndGetElapsedTime(
-                    buildBinary, builder.getCommandFromConfig(targetConfig, envConfig));
-            System.out.println(elapsedTime);
-
-            // Store result
-            buildGroupResultBuilder
-                .getBuildTargetResultsBuilder(targetIndex)
-                .getBuildEnvResultsBuilder(envIndex)
-                .getResultsBuilder(versionIndex)
-                .addResults(elapsedTime);
+            lastIsIncremental = runForConfigAndReturnLastIsIncremental(
+                buildGroupResultBuilder,
+                buildCase,
+                buildBinary,
+                envConfig,
+                buildTargetConfigs,
+                versionIndex, envIndex, targetIndex,
+                lastIsIncremental, (t == 0 && envIndex == 0 && targetIndex == 0));
           }
         }
       }
     }
 
     return buildGroupResultBuilder.build();
+  }
+
+  private boolean runForConfigAndReturnLastIsIncremental(
+      BuildGroupResult.Builder buildGroupResultBuilder,
+      BuildCase buildCase,
+      Path buildBinary,
+      BuildEnvConfig envConfig,
+      ImmutableList<BuildTargetConfig> buildTargetConfigs,
+      int versionIndex, int envIndex, int targetIndex,
+      boolean lastIsIncremental, boolean removeFirstResult) throws IOException, CommandException{
+    BuildTargetConfig targetConfig = buildTargetConfigs.get(targetIndex);
+    System.out.println(targetConfig.getDescription());
+
+    // Prepare generated code for build
+    if (lastIsIncremental && !envConfig.getIncremental()) {
+      buildCase.prepareGeneratedCode(
+          workspace.resolve(GENERATED_CODE_FOR_COPY_DIR),
+          workspace.resolve(GENERATED_CODE_DIR));
+    }
+    if (!lastIsIncremental && envConfig.getIncremental()) {
+      JavaCodeGenerator.modifyExistingProject(
+          workspace.resolve(GENERATED_CODE_DIR).toString(), true, true, true, true);
+    }
+    lastIsIncremental = envConfig.getIncremental();
+
+    if (removeFirstResult) {
+      buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
+    }
+    double elapsedTime = buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
+
+    // Store result
+    buildGroupResultBuilder
+        .getBuildTargetResultsBuilder(targetIndex)
+        .getBuildEnvResultsBuilder(envIndex)
+        .getResultsBuilder(versionIndex)
+        .addResults(elapsedTime);
+    return lastIsIncremental;
+  }
+
+  private double buildTargetAndGetElapsedTime(
+      Path buildBinary, BuildEnvConfig envConfig, BuildTargetConfig targetConfig)
+      throws CommandException {
+    // Builder's clean method
+    if (envConfig.getCleanBeforeBuild()) {
+      builder.clean();
+    }
+
+    // Run build
+    double elapsedTime =
+        builder.buildAndGetElapsedTime(
+            buildBinary, builder.getCommandFromConfig(targetConfig, envConfig));
+    System.out.println(elapsedTime);
+    return elapsedTime;
   }
 
   private static BuildGroupResult.Builder getBuildGroupResultBuilder(
