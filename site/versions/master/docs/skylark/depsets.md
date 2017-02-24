@@ -172,13 +172,79 @@ depset, the result is a copy of `a` where:
 
 In all cases, the original depset is left unmodified because depsets are
 immutable. The returned value shares most of its internal structure with the old
-depset.
+depset. As with other immutable types, `s += t` is shorthand for `s = s + t`.
+
+```python
+s = depset(["a", "b", "c"])
+t = s
+s += depset(["d", "e"])
+
+print(s)    # depset(["d", "e", "a", "b", "c"])
+print(t)    # depset(["a", "b", "c"])
+```
 
 To retrieve the contents of a depset, use the
 [to_list()](lib/depset.html#to_list) method. It returns a list of all transitive
 elements, not including duplicates. There is no way to directly inspect the
 precise structure of the DAG, although this structure does affect the order in
 which the elements are returned.
+
+```python
+s = depset(["a", "b", "c"])
+
+print("c" in s.to_list())              # True
+print(s.to_list() == ["a", "b", "c"])  # True
+```
+
+The allowed items in a depset are restricted, just as the allowed keys in
+dictionaries are restricted. In particular, depset contents may not be mutable.
+
+Depsets use reference equality: a depset is equal to itself, but unequal to any
+other depset, even if they have the same contents and same internal structure.
+
+```python
+s = depset(["a", "b", "c"])
+t = s
+print(s == t)  # True
+
+t = depset(["a", "b", "c"])
+print(s == t)  # False
+
+t = s
+# Trivial modification that adds no elements
+t += []
+print(s == t)  # False
+
+d = {}
+d[s] = None
+d[t] = None
+print(len(d))  # 2
+```
+
+To compare depsets by their contents, convert them to sorted lists.
+
+```python
+s = depset(["a", "b", "c"])
+t = depset(["c", "b", "a"])
+print(sorted(s.to_list()) == sorted(t.to_list()))  # True
+```
+
+There is no ability to remove elements from a depset. If this is needed, you
+must read out the entire contents of the depset, filter the elements you want to
+remove, and reconstruct a new depset. This is not particularly efficient.
+
+```python
+s = depset(["a", "b", "c"])
+t = depset(["b", "c"])
+
+# Compute set difference s - t. Precompute t.to_list() so it's not done
+# in a loop, and convert it to a dictionary for fast membership tests.
+t_items = {e: None for e in t.to_list()}
+diff_items = [x for x in s.to_list() if x not in t_items]
+# Convert back to depset if it's still going to be used for merge operations.
+s = depset(diff_items)
+print(s)  # depset(["a"])
+```
 
 ## Order
 
@@ -195,20 +261,60 @@ traversals](https://en.wikipedia.org/wiki/Tree_traversal#Depth-first_search)
 except that they operate on DAGs and skip already visited nodes. The third order
 works as a topological sort from root to leaves, essentially the same as
 preorder except that shared children are listed only after all of their parents.
-Preorder and postorder operate as left-to-right traversals. For topological
+Preorder and postorder operate as left-to-right traversals, but note that within
+each node direct elements have no order relative to children. For topological
 order, there is no left-to-right guarantee, and even the
 all-parents-before-child guarantee does not apply in the case that there are
 duplicate elements in different nodes of the DAG.
 
+```python
+# This demonstrates how the + operator interacts with traversal orders.
+
+def create(order):
+  # Create s with "a" and "b" as direct elements.
+  s = depset(["a", "b"], order=order)
+  # Add a new child with contents "c" and "d".
+  s += depset(["c", "d"], order=order)
+  # Append "e" and "f" as direct elements.
+  s += ["e", "f"]
+  # Add a new child with contents "g" and "h"
+  s += depset(["g", "h"], order=order)
+  # During postorder traversal, all contents of children are emitted first,
+  # then the direct contents.
+  return s
+
+print(create("postorder").to_list())  # ["c", "d", "g", "h", "a", "b", "e", "f"]
+print(create("preorder").to_list())   # ["a", "b", "e", "f", "c", "d", "g", "h"]
+```
+
+```python
+# This demonstrates different orders on a diamond graph.
+
+def create(order):
+  a = depset(["a"], order=order)
+  b = depset(["b"], order=order)
+  b += a
+  c = depset(["c"], order=order)
+  c += a
+  d = depset(["d"], order=order)
+  d = d + b + c
+  return d
+
+print(create("postorder").to_list())    # ["a", "b", "c", "d"]
+print(create("preorder").to_list())     # ["d", "b", "a", "c"]
+print(create("topological").to_list())  # ["d", "b", "c", "a"]
+```
+
 Due to how traversals are implemented, the order must be specified at the time
 the depset is created with the constructor’s `order` keyword argument. If this
 argument is omitted, the depset has the special `default` order, in which case
-there are no guarantees about the order of any of its elements. For safety,
-depsets with different orders cannot be merged with the `+` operator unless one
-of them uses the default order; the resulting depset’s order is the same as the
-left operand. Note that when two depsets of different order are merged in this
-way, the child may appear to have had its elements rearranged when it is
-traversed via the parent.
+there are no guarantees about the order of any of its elements.
+
+For safety, depsets with different orders cannot be merged with the `+` operator
+unless one of them uses the default order; the resulting depset’s order is the
+same as the left operand. Note that when two depsets of different order are
+merged in this way, the child may appear to have had its elements rearranged
+when it is traversed via the parent.
 
 ## Performance
 
@@ -283,6 +389,9 @@ and/or upcoming changes.
 *   Depset contents should be retrieved using `to_list()`, not by iterating over
     the depset itself. Direct iteration over depsets is deprecated and will be
     removed.
+
+*   Depset elements currently must have the same type, e.g. all ints or all
+    strings. This restriction will be lifted.
 
 *   The `|` operator is defined for depsets as a synonym for `+`. This will be
     going away; use `+` instead.
