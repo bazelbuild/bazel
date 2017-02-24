@@ -45,15 +45,16 @@ class BuildGroupRunner {
     prepareBuilder();
     System.out.println("Done preparing builder.");
 
-    // Get code versions (commit hashtag for Bazel)
+    // Get code versions (commit hashtag for Bazel) and datetimes
     ImmutableList<String> codeVersions = buildCase.getCodeVersions(builder, opt);
+    ImmutableList<String> datetimes = builder.getDatetimeForCodeVersions(codeVersions);
     System.out.println("Ready to run benchmark for the following versions:");
     for (String version : codeVersions) {
       System.out.println(version);
     }
 
     BuildGroupResult.Builder buildGroupResultBuilder =
-        getBuildGroupResultBuilder(buildTargetConfigs, buildEnvConfigs, codeVersions);
+        getBuildGroupResultBuilder(buildTargetConfigs, buildEnvConfigs, codeVersions, datetimes);
 
     boolean lastIsIncremental = true;
     for (int versionIndex = 0; versionIndex < codeVersions.size(); ++versionIndex) {
@@ -144,13 +145,14 @@ class BuildGroupRunner {
   private static BuildGroupResult.Builder getBuildGroupResultBuilder(
       ImmutableList<BuildTargetConfig> buildTargetConfigs,
       ImmutableList<BuildEnvConfig> buildEnvConfigs,
-      ImmutableList<String> codeVersions) {
+      ImmutableList<String> codeVersions,
+      ImmutableList<String> datetimes) {
     // Initialize a BuildGroupResult object to preserve array length
     BuildGroupResult.Builder buildGroupResultBuilder = BuildGroupResult.newBuilder();
     for (BuildTargetConfig targetConfig : buildTargetConfigs) {
       BuildTargetResult.Builder targetBuilder =
           BuildTargetResult.newBuilder().setBuildTargetConfig(targetConfig);
-      prepareBuildEnvConfigs(buildEnvConfigs, codeVersions, targetBuilder);
+      prepareBuildEnvConfigs(buildEnvConfigs, targetBuilder, codeVersions, datetimes);
       buildGroupResultBuilder.addBuildTargetResults(targetBuilder.build());
     }
     return buildGroupResultBuilder;
@@ -158,12 +160,17 @@ class BuildGroupRunner {
 
   private static void prepareBuildEnvConfigs(
       ImmutableList<BuildEnvConfig> buildEnvConfigs,
+      BuildTargetResult.Builder targetBuilder,
       ImmutableList<String> codeVersions,
-      BuildTargetResult.Builder targetBuilder) {
+      ImmutableList<String> datetimes) {
     for (BuildEnvConfig envConfig : buildEnvConfigs) {
       BuildEnvResult.Builder envBuilder = BuildEnvResult.newBuilder().setConfig(envConfig);
-      for (String version : codeVersions) {
-        envBuilder.addResults(SingleBuildResult.newBuilder().setCodeVersion(version).build());
+      for (int i = 0; i < codeVersions.size(); ++i) {
+        envBuilder.addResults(
+            SingleBuildResult.newBuilder()
+                .setCodeVersion(codeVersions.get(i))
+                .setDatetime(datetimes.get(i))
+                .build());
       }
       targetBuilder.addBuildEnvResults(envBuilder.build());
     }

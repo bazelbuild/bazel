@@ -30,7 +30,8 @@ message BuildEnvConfig {
 // results are used for running benchmark for several times for now
 message SingleBuildResult {
   string code_version = 1;
-  repeated double results = 2;
+  string datetime = 2;
+  repeated double results = 3;
 }
 
 // Build results for a specific environment config

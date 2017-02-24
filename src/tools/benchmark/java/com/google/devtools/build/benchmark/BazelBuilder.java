@@ -142,6 +142,14 @@ class BazelBuilder implements Builder {
         "--before", dateFilter.getToString(), "--pretty=format:%H", "--reverse");
   }
 
+  @Override
+  public ImmutableList<String> getDatetimeForCodeVersions(ImmutableList<String> codeVersions)
+      throws CommandException {
+    return getListOfOutputFromCommandWithAdditionalParam(codeVersions,
+        "git", "show", "-s",
+        "--date=iso", "--pretty=format:%cd", "--date=format:%Y-%m-%d %H:%M:%S");
+  }
+
   void prepareFromGitRepo(String gitRepo) throws IOException, CommandException {
     if (builderDir.toFile().exists() && !builderDir.toFile().isDirectory()) {
       try {
@@ -170,5 +178,14 @@ class BazelBuilder implements Builder {
     CommandResult result = cmd.execute();
     String output = new String(result.getStdout(), UTF_8).trim();
     return ImmutableList.copyOf(output.split("\n"));
+  }
+
+  private ImmutableList<String> getListOfOutputFromCommandWithAdditionalParam(
+      ImmutableList<String> additionalParam, String... command) throws CommandException{
+    ImmutableList<String> commandList =
+        ImmutableList.<String>builder().add(command).addAll(additionalParam).build();
+    String[] finalCommand = commandList.toArray(new String[0]);
+
+    return getListOfOutputFromCommand(finalCommand);
   }
 }

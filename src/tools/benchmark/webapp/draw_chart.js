@@ -64,6 +64,8 @@ function initChartData (buildTargetResults, chart, tableData, options) {
     // Options for each chart (including title)
     options[i] = {
       title: buildTargetResults[i].buildTargetConfig.description,
+      vAxis: { title: 'Elapsed time (s)' },
+      hAxis: { title: 'Changes' },
       tooltip: { isHtml: true, trigger: 'both' },
       intervals: { style: 'bars' },
       chartArea: {  width: '70%' }
@@ -131,7 +133,7 @@ function addColumnsFromBuildEnv (lineChart, buildEnvResults) {
  */
 function addRowsFromData (lineChart, buildEnvResults) {
   for (let j = 0; j < buildEnvResults[0].results.length; ++j) {
-    const row = [buildEnvResults[0].results[j].codeVersion.substr(0, 10)];
+    const row = [buildEnvResults[0].results[j].datetime];
     for (let buildEnvResult of buildEnvResults) {
       const singleBuildResult = buildEnvResult.results[j];
 

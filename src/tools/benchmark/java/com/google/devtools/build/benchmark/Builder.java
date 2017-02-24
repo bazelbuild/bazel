@@ -36,6 +36,10 @@ interface Builder {
   ImmutableList<String> getCodeVersionsBetweenDates(DateFilter dateFilter)
       throws CommandException;
 
+  /** Return the datetime of all {@code codeVersions} */
+  ImmutableList<String> getDatetimeForCodeVersions(ImmutableList<String> codeVersions)
+      throws CommandException;
+
   /** Returns a command for build under specific config. */
   ImmutableList<String> getCommandFromConfig(
       BuildTargetConfig targetConfig, BuildEnvConfig envConfig);
