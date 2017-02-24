@@ -27,6 +27,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.events.Reporter;
@@ -137,7 +138,7 @@ public class EagerInvalidatorTest {
 
   protected <T extends SkyValue> EvaluationResult<T> eval(boolean keepGoing, SkyKey... keys)
     throws InterruptedException {
-    Reporter reporter = new Reporter();
+    Reporter reporter = new Reporter(new EventBus());
     ParallelEvaluator evaluator =
         new ParallelEvaluator(
             graph,

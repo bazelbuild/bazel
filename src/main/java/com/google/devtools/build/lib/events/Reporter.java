@@ -13,31 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
-
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The reporter is the primary means of reporting events such as errors,
- * warnings, progress information and diagnostic information to the user.  It
- * is not intended as a logging mechanism for developer-only messages; use a
- * Logger for that.
+ * The reporter is the primary means of reporting events such as errors, warnings, progress
+ * information and diagnostic information to the user. It is not intended as a logging mechanism for
+ * developer-only messages; use a Logger for that.
  *
- * <p>The reporter instance is consumed by the build system, and passes events to
- * {@link EventHandler} instances. These handlers are registered via {@link
- * #addHandler(EventHandler)}. The reporter's main use is in the blaze runtime
- * and its lifetime is the lifetime of the blaze server.
+ * <p>The reporter instance is consumed by the build system, and passes events to {@link
+ * EventHandler} instances. These handlers are registered via {@link #addHandler(EventHandler)}. The
+ * reporter's main use is in the blaze runtime and its lifetime is the lifetime of the blaze server.
  *
- * <p>Thread-safe: calls to {@code #report} may be made on any thread.
- * Handlers may be run in an arbitary thread (but right now, they will not be
- * run concurrently).
+ * <p>Thread-safe: calls to {@code #report} may be made on any thread. Handlers may be run in an
+ * arbitary thread (but right now, they will not be run concurrently).
  */
-public final class Reporter implements EventHandler, ExceptionListener {
+public final class Reporter implements ExtendedEventHandler, ExceptionListener {
 
   private final List<EventHandler> handlers = new ArrayList<>();
+  private EventBus eventBus;
 
   /** An OutErr that sends all of its output to this Reporter.
    * Each write will (when flushed) get mapped to an EventKind.STDOUT or EventKind.STDERR event.
@@ -48,7 +46,9 @@ public final class Reporter implements EventHandler, ExceptionListener {
   private EventHandler ansiStrippingHandler;
   private boolean ansiAllowingHandlerRegistered;
 
-  public Reporter() {}
+  public Reporter(EventBus eventBus) {
+    this.eventBus = eventBus;
+  }
 
   public static OutErr outErrForReporter(EventHandler rep) {
     return OutErr.create(
@@ -64,12 +64,12 @@ public final class Reporter implements EventHandler, ExceptionListener {
    */
   public Reporter(Reporter template) {
     handlers.addAll(template.handlers);
+    this.eventBus = template.eventBus;
   }
 
-  /**
-   * Constructor which configures a reporter with the specified handlers.
-   */
-  public Reporter(EventHandler... handlers) {
+  /** Constructor which configures a reporter with the specified handlers. */
+  public Reporter(EventBus eventBus, EventHandler... handlers) {
+    this.eventBus = eventBus;
     for (EventHandler handler: handlers) {
       addHandler(handler);
     }
@@ -109,6 +109,17 @@ public final class Reporter implements EventHandler, ExceptionListener {
     for (EventHandler handler : handlers) {
       handler.handle(e);
     }
+  }
+
+  @Override
+  public void post(ExtendedEventHandler.Postable obj) {
+    if (eventBus != null) {
+      eventBus.post(obj);
+    }
+  }
+
+  public void clearEventBus() {
+    eventBus = null;
   }
 
   /**

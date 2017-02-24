@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -148,7 +148,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   public SkyQueryEnvironment(
       boolean keepGoing,
       int loadingPhaseThreads,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       QueryExpressionEvalListener<Target> evalListener,
@@ -176,7 +176,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       boolean keepGoing,
       int loadingPhaseThreads,
       int queryEvaluationParallelismLevel,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       QueryExpressionEvalListener<Target> evalListener,

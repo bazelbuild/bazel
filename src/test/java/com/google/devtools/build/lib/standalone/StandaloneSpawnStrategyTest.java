@@ -60,7 +60,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class StandaloneSpawnStrategyTest {
 
-  private Reporter reporter = new Reporter(PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
+  private Reporter reporter =
+      new Reporter(new EventBus(), PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
   private FileSystem fileSystem;
 

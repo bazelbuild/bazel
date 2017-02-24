@@ -18,7 +18,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.io.PrintStream;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -49,8 +49,8 @@ public interface MemoizingEvaluator {
       Version version,
       boolean keepGoing,
       int numThreads,
-      EventHandler reporter)
-          throws InterruptedException;
+      ExtendedEventHandler reporter)
+      throws InterruptedException;
 
   /**
    * Ensures that after the next completed {@link #evaluate} call the current values of any value

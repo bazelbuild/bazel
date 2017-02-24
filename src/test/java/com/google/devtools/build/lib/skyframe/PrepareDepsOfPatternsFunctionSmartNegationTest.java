@@ -19,9 +19,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -139,7 +141,11 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor()
             .getDriverForTesting()
-            .evaluate(singletonTargetPattern, keepGoing, LOADING_PHASE_THREADS, eventCollector);
+            .evaluate(
+                singletonTargetPattern,
+                keepGoing,
+                LOADING_PHASE_THREADS,
+                new Reporter(new EventBus(), eventCollector));
     // The evaluation has no errors if success was expected.
     assertThat(evaluationResult.hasError()).isNotEqualTo(successExpected);
     return Preconditions.checkNotNull(evaluationResult.getWalkableGraph());

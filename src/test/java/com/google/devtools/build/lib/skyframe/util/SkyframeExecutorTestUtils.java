@@ -21,7 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -62,13 +62,13 @@ public class SkyframeExecutorTestUtils {
     return skyframeExecutor.getEvaluatorForTesting().getExistingErrorForTesting(key);
   }
 
-  /**
-   * Calls {@link MemoizingEvaluator#evaluate} on the given {@link SkyframeExecutor}'s
-   * graph.
-   */
+  /** Calls {@link MemoizingEvaluator#evaluate} on the given {@link SkyframeExecutor}'s graph. */
   public static <T extends SkyValue> EvaluationResult<T> evaluate(
-      SkyframeExecutor skyframeExecutor, SkyKey key, boolean keepGoing,
-      EventHandler errorEventListener) throws InterruptedException {
+      SkyframeExecutor skyframeExecutor,
+      SkyKey key,
+      boolean keepGoing,
+      ExtendedEventHandler errorEventListener)
+      throws InterruptedException {
     return skyframeExecutor.getDriverForTesting().evaluate(ImmutableList.of(key), keepGoing,
         SkyframeExecutor.DEFAULT_THREAD_COUNT, errorEventListener);
   }

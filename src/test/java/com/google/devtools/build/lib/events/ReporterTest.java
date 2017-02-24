@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
-
+import com.google.common.eventbus.EventBus;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +35,7 @@ public class ReporterTest extends EventTestTemplate {
 
   @Before
   public final void initializeOutput() throws Exception  {
-    reporter = new Reporter();
+    reporter = new Reporter(new EventBus());
     out = new StringBuilder();
     outAppender = new AbstractEventHandler(EventKind.ERRORS) {
       @Override

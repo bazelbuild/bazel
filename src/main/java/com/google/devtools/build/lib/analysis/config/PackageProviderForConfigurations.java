@@ -17,7 +17,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -28,7 +28,7 @@ import java.io.IOException;
  * A variant of PackageProvider which is used during a creation of BuildConfiguration.Fragments.
  */
 public interface PackageProviderForConfigurations {
-  EventHandler getEventHandler();
+  ExtendedEventHandler getEventHandler();
 
   /**
    * Adds dependency to fileName if needed. Used only in skyframe, for creating correct dependencies

@@ -17,13 +17,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,7 +43,7 @@ public class LexerTest {
   private Lexer createLexer(String input) {
     PathFragment somePath = new PathFragment("/some/path.txt");
     ParserInputSource inputSource = ParserInputSource.create(input, somePath);
-    Reporter reporter = new Reporter();
+    Reporter reporter = new Reporter(new EventBus());
     reporter.addHandler(new EventHandler() {
       @Override
       public void handle(Event event) {

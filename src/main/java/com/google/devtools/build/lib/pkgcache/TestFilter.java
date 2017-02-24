@@ -15,17 +15,15 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.packages.TestTimeout;
-
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -33,11 +31,9 @@ import javax.annotation.Nullable;
  * Implements {@link #hashCode} and {@link #equals} so it can be used as a Skyframe key.
  */
 public final class TestFilter implements Predicate<Target> {
-  /**
-   * Convert the options into a test filter.
-   */
-  public static TestFilter forOptions(LoadingOptions options, EventHandler eventHandler,
-      Set<String> ruleNames) {
+  /** Convert the options into a test filter. */
+  public static TestFilter forOptions(
+      LoadingOptions options, ExtendedEventHandler eventHandler, Set<String> ruleNames) {
     Predicate<Target> testFilter = Predicates.alwaysTrue();
     if (!options.testSizeFilterSet.isEmpty()) {
       testFilter = Predicates.and(testFilter,

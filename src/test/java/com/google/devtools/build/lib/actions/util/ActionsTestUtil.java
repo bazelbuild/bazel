@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -45,6 +46,8 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.util.FileType;
@@ -149,8 +152,12 @@ public final class ActionsTestUtil {
       EvaluationResult<SkyValue> evaluationResult;
       Map<SkyKey, ValueOrUntypedException> result = new HashMap<>();
       try {
-        evaluationResult = driver.evaluate(depKeys, /*keepGoing=*/false,
-            ResourceUsage.getAvailableProcessors(), eventHandler);
+        evaluationResult =
+            driver.evaluate(
+                depKeys, /*keepGoing=*/
+                false,
+                ResourceUsage.getAvailableProcessors(),
+                new Reporter(new EventBus(), eventHandler));
       } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
         for (SkyKey key : depKeys) {
@@ -175,7 +182,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public EventHandler getListener() {
+    public ExtendedEventHandler getListener() {
       return null;
     }
 

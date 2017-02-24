@@ -19,7 +19,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -31,11 +31,9 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.util.BinaryPredicate;
-
 import java.util.LinkedHashSet;
 import java.util.Map.Entry;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -46,9 +44,9 @@ import javax.annotation.Nullable;
  */
 public class PreciseAspectResolver implements AspectResolver {
   private final PackageProvider packageProvider;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
 
-  public PreciseAspectResolver(PackageProvider packageProvider, EventHandler eventHandler) {
+  public PreciseAspectResolver(PackageProvider packageProvider, ExtendedEventHandler eventHandler) {
     this.packageProvider = packageProvider;
     this.eventHandler = eventHandler;
   }

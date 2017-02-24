@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -32,13 +33,11 @@ import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
-
+import java.util.HashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.util.HashMap;
-import java.util.Map;
 
 @RunWith(JUnit4.class)
 public class RuleFactoryTest extends PackageLoadingTestCase {
@@ -67,7 +66,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(),
+            new Reporter(new EventBus()),
             /*ast=*/ null,
             LOCATION_42,
             /*env=*/ null,
@@ -128,7 +127,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
-            new Reporter(),
+            new Reporter(new EventBus()),
             /*ast=*/ null,
             Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
             /*env=*/ null,
@@ -154,7 +153,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           LOCATION_42,
           /*env=*/ null,
@@ -183,7 +182,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
           /*env=*/ null,
@@ -223,7 +222,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
           pkgBuilder,
           ruleClass,
           new BuildLangTypedAttributeValuesMap(attributeValues),
-          new Reporter(),
+          new Reporter(new EventBus()),
           /*ast=*/ null,
           Location.fromFileAndOffsets(myPkgPath.asFragment(), 42, 42),
           /*env=*/ null,

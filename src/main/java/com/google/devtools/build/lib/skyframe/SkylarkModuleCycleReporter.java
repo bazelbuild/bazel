@@ -21,7 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -56,8 +56,11 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
       SkyFunctions.isSkyFunction(SkyFunctions.LOCAL_REPOSITORY_LOOKUP);
 
   @Override
-  public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo, boolean alreadyReported,
-      EventHandler eventHandler) {
+  public boolean maybeReportCycle(
+      SkyKey topLevelKey,
+      CycleInfo cycleInfo,
+      boolean alreadyReported,
+      ExtendedEventHandler eventHandler) {
     ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
     ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
     if (pathToCycle.isEmpty()) {

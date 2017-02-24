@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -195,7 +195,7 @@ public final class SkyframeBuildView {
    * @return the configured targets that should be built along with a WalkableGraph of the analysis.
    */
   public SkyframeAnalysisResult configureTargets(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       List<ConfiguredTargetKey> values,
       List<AspectValueKey> aspectKeys,
       EventBus eventBus,
@@ -453,7 +453,7 @@ public final class SkyframeBuildView {
   CachingAnalysisEnvironment createAnalysisEnvironment(
       ArtifactOwner owner,
       boolean isSystemEnv,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Environment env,
       BuildConfiguration config)
       throws InterruptedException {

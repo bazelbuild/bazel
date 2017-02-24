@@ -22,8 +22,10 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -208,7 +210,11 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor()
             .getDriverForTesting()
-            .evaluate(singletonTargetPattern, keepGoing, LOADING_PHASE_THREADS, eventCollector);
+            .evaluate(
+                singletonTargetPattern,
+                keepGoing,
+                LOADING_PHASE_THREADS,
+                new Reporter(new EventBus(), eventCollector));
     // Currently all callers either expect success or pass keepGoing=true, which implies success,
     // since PrepareDepsOfPatternsFunction swallows all errors. Will need to be changed if a test
     // that evaluates with keepGoing=false and expects errors is added.

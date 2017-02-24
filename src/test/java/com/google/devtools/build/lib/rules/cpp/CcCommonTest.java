@@ -547,7 +547,7 @@ public class CcCommonTest extends BuildViewTestCase {
         "    path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
-            eventCollector,
+            reporter,
             new ModifiedFileSet.Builder().modify(new PathFragment("WORKSPACE")).build(),
             rootDirectory);
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));

@@ -19,7 +19,7 @@ import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
@@ -49,7 +49,7 @@ import javax.annotation.Nullable;
 public abstract class LoadingPhaseRunner {
   /** Performs target pattern evaluation and test suite expansion (if requested). */
   public abstract LoadingResult execute(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       EventBus eventBus,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
@@ -80,7 +80,8 @@ public abstract class LoadingPhaseRunner {
    * <i>wanting</i> to build it are different things.
    */
   // Public for use by skyframe.TargetPatternPhaseFunction until this class goes away.
-  public static void maybeReportDeprecation(EventHandler eventHandler, Collection<Target> targets) {
+  public static void maybeReportDeprecation(
+      ExtendedEventHandler eventHandler, Collection<Target> targets) {
     for (Rule rule : Iterables.filter(targets, Rule.class)) {
       if (rule.isAttributeValueExplicitlySpecified("deprecation")) {
         eventHandler.handle(Event.warn(rule.getLocation(), String.format(

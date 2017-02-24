@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 
@@ -38,10 +38,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
  * names of any implementation of this class.
  */
 public interface AnalysisEnvironment extends ActionRegistry {
-  /**
-   * Returns a callback to be used in this build for reporting analysis errors.
-   */
-  EventHandler getEventHandler();
+  /** Returns a callback to be used in this build for reporting analysis errors. */
+  ExtendedEventHandler getEventHandler();
 
   /**
    * Returns whether any errors were reported to this instance.

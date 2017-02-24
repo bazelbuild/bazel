@@ -38,13 +38,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.common.testing.GcFinalization;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -82,7 +84,7 @@ public class MemoizingEvaluatorTest {
 
   protected MemoizingEvaluatorTester tester;
   private EventCollector eventCollector;
-  private EventHandler reporter;
+  private ExtendedEventHandler reporter;
   protected MemoizingEvaluator.EmittedEventState emittedEventState;
 
   // Knobs that control the size / duration of larger tests.
@@ -136,7 +138,7 @@ public class MemoizingEvaluatorTest {
 
   private void initializeReporter() {
     eventCollector = new EventCollector();
-    reporter = eventCollector;
+    reporter = new Reporter(new EventBus(), eventCollector);
     tester.resetPlayedEvents();
   }
 

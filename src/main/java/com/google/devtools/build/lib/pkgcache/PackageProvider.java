@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 
@@ -27,21 +27,20 @@ import com.google.devtools.build.lib.packages.Package;
 public interface PackageProvider extends TargetProvider {
 
   /**
-   * Returns the {@link Package} named "packageName". If there is no such package (e.g.
-   * {@code isPackage(packageName)} returns false), throws a {@link NoSuchPackageException}.
+   * Returns the {@link Package} named "packageName". If there is no such package (e.g. {@code
+   * isPackage(packageName)} returns false), throws a {@link NoSuchPackageException}.
    *
-   * <p>The returned package may contain lexical/grammatical errors, in which
-   * case <code>pkg.containsErrors() == true</code>.  Such packages may be
-   * missing some rules.  Any rules that are present may soundly be used for
-   * builds, though.
+   * <p>The returned package may contain lexical/grammatical errors, in which case <code>
+   * pkg.containsErrors() == true</code>. Such packages may be missing some rules. Any rules that
+   * are present may soundly be used for builds, though.
    *
-   * @param eventHandler the eventHandler on which to report warning and errors; if the package
-   *        has been loaded by another thread, this eventHandler won't see any warnings or errors
+   * @param eventHandler the eventHandler on which to report warning and errors; if the package has
+   *     been loaded by another thread, this eventHandler won't see any warnings or errors
    * @param packageName a legal package name.
    * @throws NoSuchPackageException if the package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException;
 
   /**
@@ -49,9 +48,9 @@ public interface PackageProvider extends TargetProvider {
    * following hold
    *
    * <ol>
-   * <li>{@code packageName} is a valid package name
-   * <li>there is a BUILD file for the package
-   * <li>the package is not considered deleted via --deleted_packages
+   *   <li>{@code packageName} is a valid package name
+   *   <li>there is a BUILD file for the package
+   *   <li>the package is not considered deleted via --deleted_packages
    * </ol>
    *
    * <p>If these don't hold, then attempting to read the package with {@link #getPackage} may fail
@@ -60,6 +59,6 @@ public interface PackageProvider extends TargetProvider {
    * @param eventHandler the eventHandler on which to report warnings and errors
    * @param packageName the name of the package.
    */
-  boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException;
 }

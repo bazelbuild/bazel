@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.rules.test.TestProvider;
@@ -226,15 +226,14 @@ public class SkyframeBuilder implements Builder {
   /**
    * Process the Skyframe update, taking into account the keepGoing setting.
    *
-   * <p> Returns optional {@link ExitCode} based on following conditions:
-   *    1. null, if result had no errors.
-   *    2. Optional.absent(), if result had errors but none of the errors specified an exit code.
-   *    3. Optional.of(e), if result had errors and one of them specified exit code 'e'.
-   * Throws on fail-fast failures.
+   * <p>Returns optional {@link ExitCode} based on following conditions: 1. null, if result had no
+   * errors. 2. Optional.absent(), if result had errors but none of the errors specified an exit
+   * code. 3. Optional.of(e), if result had errors and one of them specified exit code 'e'. Throws
+   * on fail-fast failures.
    */
   @Nullable
   private static Optional<ExitCode> processResult(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       EvaluationResult<?> result,
       boolean keepGoing,
       SkyframeExecutor skyframeExecutor)

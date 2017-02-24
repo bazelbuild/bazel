@@ -19,7 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -49,13 +49,16 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
   protected abstract boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo);
 
   protected String getAdditionalMessageAboutCycle(
-      EventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
+      ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     return "";
   }
 
   @Override
-  public boolean maybeReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo,
-      boolean alreadyReported, EventHandler eventHandler) {
+  public boolean maybeReportCycle(
+      SkyKey topLevelKey,
+      CycleInfo cycleInfo,
+      boolean alreadyReported,
+      ExtendedEventHandler eventHandler) {
     Preconditions.checkNotNull(eventHandler);
     if (!canReportCycle(topLevelKey, cycleInfo)) {
       return false;
@@ -125,7 +128,8 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     return cycleValue;
   }
 
-  protected final Target getTargetForLabel(final EventHandler eventHandler, final Label label) {
+  protected final Target getTargetForLabel(
+      final ExtendedEventHandler eventHandler, final Label label) {
     try {
       return Uninterruptibles.callUninterruptibly(new Callable<Target>() {
         @Override

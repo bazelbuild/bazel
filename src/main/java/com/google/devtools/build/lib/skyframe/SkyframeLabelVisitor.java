@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframeTransitivePackageLoader;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -45,8 +45,12 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   // The only remaining non-test caller of this code is BlazeQueryEnvironment.
   @Override
-  public boolean sync(EventHandler eventHandler, Set<Label> labelsToVisit, boolean keepGoing,
-      int parallelThreads) throws InterruptedException {
+  public boolean sync(
+      ExtendedEventHandler eventHandler,
+      Set<Label> labelsToVisit,
+      boolean keepGoing,
+      int parallelThreads)
+      throws InterruptedException {
     EvaluationResult<TransitiveTargetValue> result = transitivePackageLoader.loadTransitiveTargets(
         eventHandler, labelsToVisit, keepGoing, parallelThreads);
 
@@ -121,14 +125,14 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
         && Iterables.contains(errorInfo.getRootCauses(), TransitiveTargetValue.key(label));
   }
 
-  private static void errorAboutLoadingFailure(Label topLevelLabel, @Nullable Throwable throwable,
-      EventHandler eventHandler) {
+  private static void errorAboutLoadingFailure(
+      Label topLevelLabel, @Nullable Throwable throwable, ExtendedEventHandler eventHandler) {
     eventHandler.handle(Event.error(
         "Loading of target '" + topLevelLabel + "' failed; build aborted" +
             (throwable == null ? "" : ": " + throwable.getMessage())));
   }
 
-  private static void warnAboutLoadingFailure(Label label, EventHandler eventHandler) {
+  private static void warnAboutLoadingFailure(Label label, ExtendedEventHandler eventHandler) {
     eventHandler.handle(Event.warn("errors encountered while loading target '" + label + "'"));
   }
 }

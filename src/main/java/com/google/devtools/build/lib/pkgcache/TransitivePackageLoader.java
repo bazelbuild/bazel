@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.util.Set;
 
 /**
@@ -23,17 +23,19 @@ import java.util.Set;
 public interface TransitivePackageLoader {
 
   /**
-   * Visit the specified labels and follow the transitive closure of their
-   * outbound dependencies. If the targets have previously been visited,
-   * may do an up-to-date check which will not trigger any of the observers.
+   * Visit the specified labels and follow the transitive closure of their outbound dependencies. If
+   * the targets have previously been visited, may do an up-to-date check which will not trigger any
+   * of the observers.
    *
    * @param eventHandler the error and warnings eventHandler; must be thread-safe
    * @param labelsToVisit the labels to visit in addition to the targets
    * @param keepGoing if false, stop visitation upon first error
    * @param parallelThreads number of threads to use in the visitation
    */
-  boolean sync(EventHandler eventHandler,
-               Set<Label> labelsToVisit,
-               boolean keepGoing,
-               int parallelThreads) throws InterruptedException;
+  boolean sync(
+      ExtendedEventHandler eventHandler,
+      Set<Label> labelsToVisit,
+      boolean keepGoing,
+      int parallelThreads)
+      throws InterruptedException;
 }

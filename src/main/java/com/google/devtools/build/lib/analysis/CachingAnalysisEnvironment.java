@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue;
@@ -78,7 +78,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   private boolean enabled = true;
   private MiddlemanFactory middlemanFactory;
-  private EventHandler errorEventListener;
+  private ExtendedEventHandler errorEventListener;
   private SkyFunction.Environment skyframeEnv;
   private Map<Artifact, String> artifacts;
 
@@ -88,9 +88,13 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
    */
   final List<ActionAnalysisMetadata> actions = new ArrayList<>();
 
-  public CachingAnalysisEnvironment(ArtifactFactory artifactFactory,
-      ArtifactOwner owner, boolean isSystemEnv, boolean extendedSanityChecks,
-      EventHandler errorEventListener, SkyFunction.Environment env,
+  public CachingAnalysisEnvironment(
+      ArtifactFactory artifactFactory,
+      ArtifactOwner owner,
+      boolean isSystemEnv,
+      boolean extendedSanityChecks,
+      ExtendedEventHandler errorEventListener,
+      SkyFunction.Environment env,
       boolean allowRegisteringActions) {
     this.artifactFactory = artifactFactory;
     this.owner = Preconditions.checkNotNull(owner);
@@ -181,7 +185,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return errorEventListener;
   }
 

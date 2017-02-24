@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -63,10 +63,11 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   private static final Logger logger =
       Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
 
-  protected AbstractBlazeQueryEnvironment(boolean keepGoing,
+  protected AbstractBlazeQueryEnvironment(
+      boolean keepGoing,
       boolean strictScope,
       Predicate<Label> labelFilter,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       QueryExpressionEvalListener<T> evalListener) {

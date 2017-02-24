@@ -14,7 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Collection;
 import java.util.Map;
@@ -99,7 +99,8 @@ public interface WalkableGraph {
   /** Provides a WalkableGraph on demand after preparing it. */
   interface WalkableGraphFactory {
     EvaluationResult<SkyValue> prepareAndGet(
-        SkyKey universeKey, int numThreads, EventHandler eventHandler) throws InterruptedException;
+        SkyKey universeKey, int numThreads, ExtendedEventHandler eventHandler)
+        throws InterruptedException;
 
     /**
      * Returns true if this instance has already been used to {@link #prepareAndGet} {@code

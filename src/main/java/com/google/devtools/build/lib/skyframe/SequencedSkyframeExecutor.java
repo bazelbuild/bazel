@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -272,7 +272,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void sync(
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       PackageCacheOptions packageCacheOptions,
       Path outputBase,
       Path workingDirectory,
@@ -334,17 +334,15 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     invalidateDeletedPackages(deletedPackages.get());
   }
 
-  /**
-   * Uses diff awareness on all the package paths to invalidate changed files.
-   */
+  /** Uses diff awareness on all the package paths to invalidate changed files. */
   @VisibleForTesting
-  public void handleDiffs(EventHandler eventHandler) throws InterruptedException {
+  public void handleDiffs(ExtendedEventHandler eventHandler) throws InterruptedException {
     handleDiffs(eventHandler, /*checkOutputFiles=*/false, OptionsClassProvider.EMPTY);
   }
 
   private void handleDiffs(
-      EventHandler eventHandler, boolean checkOutputFiles, OptionsClassProvider options)
-          throws InterruptedException {
+      ExtendedEventHandler eventHandler, boolean checkOutputFiles, OptionsClassProvider options)
+      throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -415,13 +413,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   /**
-   * Finds and invalidates changed files under path entries whose corresponding
-   * {@link DiffAwareness} said all files may have been modified.
+   * Finds and invalidates changed files under path entries whose corresponding {@link
+   * DiffAwareness} said all files may have been modified.
    */
-  private void handleDiffsWithMissingDiffInformation(EventHandler eventHandler,
+  private void handleDiffsWithMissingDiffInformation(
+      ExtendedEventHandler eventHandler,
       TimestampGranularityMonitor tsgm,
       Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
-          pathEntriesWithoutDiffInformation, boolean checkOutputFiles) throws InterruptedException {
+          pathEntriesWithoutDiffInformation,
+      boolean checkOutputFiles)
+      throws InterruptedException {
     ExternalFilesKnowledge externalFilesKnowledge =
         externalFilesHelper.getExternalFilesKnowledge();
     if (pathEntriesWithoutDiffInformation.isEmpty()
@@ -559,8 +560,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void invalidateFilesUnderPathForTesting(EventHandler eventHandler,
-      ModifiedFileSet modifiedFileSet, Path pathEntry) throws InterruptedException {
+  public void invalidateFilesUnderPathForTesting(
+      ExtendedEventHandler eventHandler, ModifiedFileSet modifiedFileSet, Path pathEntry)
+      throws InterruptedException {
     if (lastAnalysisDiscarded) {
       // Values were cleared last build, but they couldn't be deleted because they were needed for
       // the execution phase. We can delete them now.
@@ -644,13 +646,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   /**
    * Deletes all ConfiguredTarget values from the Skyframe cache.
    *
-   * <p>After the execution of this method all invalidated and marked for deletion values
-   * (and the values depending on them) will be deleted from the cache.
+   * <p>After the execution of this method all invalidated and marked for deletion values (and the
+   * values depending on them) will be deleted from the cache.
    *
-   * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe.
-   * The next build should clear the legacy caches.
+   * <p>WARNING: Note that a call to this method leaves legacy data inconsistent with Skyframe. The
+   * next build should clear the legacy caches.
    */
-  private void dropConfiguredTargetsNow(final EventHandler eventHandler) {
+  private void dropConfiguredTargetsNow(final ExtendedEventHandler eventHandler) {
     dropConfiguredTargets();
     // Run the invalidator to actually delete the values.
     try {

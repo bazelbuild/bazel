@@ -129,7 +129,7 @@ public final class CommandEnvironment {
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
     this.commandId = null; // Will be set once we get the client environment
-    this.reporter = new Reporter();
+    this.reporter = new Reporter(eventBus);
     this.eventBus = eventBus;
     this.commandThread = commandThread;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();

@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
 import java.util.Map;
@@ -27,10 +27,10 @@ import java.util.Map;
  */
 public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
   private final QueryableGraph queryableGraph;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
 
   public QueryableGraphBackedSkyFunctionEnvironment(
-      QueryableGraph queryableGraph, EventHandler eventHandler) {
+      QueryableGraph queryableGraph, ExtendedEventHandler eventHandler) {
     this.queryableGraph = queryableGraph;
     this.eventHandler = eventHandler;
   }
@@ -75,7 +75,7 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
   }
 
   @Override
-  public EventHandler getListener() {
+  public ExtendedEventHandler getListener() {
     return eventHandler;
   }
 

@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
@@ -155,7 +155,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
   @Nullable
   private BuildConfiguration createConfiguration(
       Cache<String, BuildConfiguration> cache,
-      EventHandler originalEventListener,
+      ExtendedEventHandler originalEventListener,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       String cpuOverride)

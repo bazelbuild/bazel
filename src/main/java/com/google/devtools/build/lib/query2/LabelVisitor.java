@@ -24,7 +24,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -208,9 +208,14 @@ final class LabelVisitor {
     this.edgeFilter = edgeFilter;
   }
 
-  boolean syncWithVisitor(EventHandler eventHandler, Collection<Target> targetsToVisit,
-      boolean keepGoing, int parallelThreads, int maxDepth, TargetEdgeObserver... observers)
-          throws InterruptedException {
+  boolean syncWithVisitor(
+      ExtendedEventHandler eventHandler,
+      Collection<Target> targetsToVisit,
+      boolean keepGoing,
+      int parallelThreads,
+      int maxDepth,
+      TargetEdgeObserver... observers)
+      throws InterruptedException {
     VisitationAttributes nextVisitation = new VisitationAttributes();
     nextVisitation.targetsToVisit = targetsToVisit;
     nextVisitation.maxDepth = maxDepth;
@@ -229,12 +234,13 @@ final class LabelVisitor {
   }
 
   // Does a bounded transitive visitation starting at the given top-level targets.
-  private boolean redoVisitation(EventHandler eventHandler,
-                                 VisitationAttributes visitation,
-                                 boolean keepGoing,
-                                 int parallelThreads,
-                                 int maxDepth,
-                                 TargetEdgeObserver... observers)
+  private boolean redoVisitation(
+      ExtendedEventHandler eventHandler,
+      VisitationAttributes visitation,
+      boolean keepGoing,
+      int parallelThreads,
+      int maxDepth,
+      TargetEdgeObserver... observers)
       throws InterruptedException {
     visitedMap.clear();
     visitedTargets.clear();
@@ -264,7 +270,7 @@ final class LabelVisitor {
 
     private final static String THREAD_NAME = "LabelVisitor";
 
-    private final EventHandler eventHandler;
+    private final ExtendedEventHandler eventHandler;
     private final boolean keepGoing;
     private final int maxDepth;
     private final Iterable<TargetEdgeObserver> observers;
@@ -273,8 +279,12 @@ final class LabelVisitor {
     private static final boolean CONCURRENT = true;
 
 
-    public Visitor(EventHandler eventHandler, boolean keepGoing, int parallelThreads,
-                   int maxDepth, TargetEdgeObserver... observers) {
+    public Visitor(
+        ExtendedEventHandler eventHandler,
+        boolean keepGoing,
+        int parallelThreads,
+        int maxDepth,
+        TargetEdgeObserver... observers) {
       // Observing the loading phase of a typical large package (with all subpackages) shows
       // maximum thread-level concurrency of ~20. Limiting the total number of threads to 200 is
       // therefore conservative and should help us avoid hitting native limits.

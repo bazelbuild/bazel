@@ -27,7 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
@@ -198,7 +198,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
       TestTargetUtils.expandTestSuites(
           new TargetProvider() {
             @Override
-            public Target getTarget(EventHandler eventHandler, Label label)
+            public Target getTarget(ExtendedEventHandler eventHandler, Label label)
                 throws InterruptedException {
               throw new InterruptedException();
             }

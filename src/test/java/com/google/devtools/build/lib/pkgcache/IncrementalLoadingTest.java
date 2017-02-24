@@ -23,6 +23,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
@@ -449,7 +450,7 @@ public class IncrementalLoadingTest {
     private final ManualClock clock;
     private final Path workspace;
     private final Path outputBase;
-    private final Reporter reporter = new Reporter();
+    private final Reporter reporter = new Reporter(new EventBus());
     private final SkyframeExecutor skyframeExecutor;
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
@@ -588,8 +589,8 @@ public class IncrementalLoadingTest {
           ImmutableMap.<String, String>of(),
           new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(), modifiedFileSet, workspace);
-      ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter());
+          new Reporter(new EventBus()), modifiedFileSet, workspace);
+      ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter(new EventBus()));
 
       changes.clear();
     }

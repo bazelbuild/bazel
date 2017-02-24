@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -192,7 +192,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
    * DO NOT USE! We should get rid of this method: errors reported directly to this object don't set
    * the error flag in {@link ConfiguredTarget}.
    */
-  private EventHandler getEventHandler(RuleContext ruleContext) {
+  private ExtendedEventHandler getEventHandler(RuleContext ruleContext) {
     return ruleContext.getAnalysisEnvironment().getEventHandler();
   }
 
@@ -396,7 +396,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
 
     @Override
     public Map<String, ResolvedTargets<Target>> preloadTargetPatterns(
-        EventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
+        ExtendedEventHandler eventHandler, Collection<String> patterns, boolean keepGoing)
         throws TargetParsingException, InterruptedException {
       Preconditions.checkArgument(!keepGoing);
       boolean ok = true;
@@ -481,16 +481,18 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public ResolvedTargets<Target> parseTargetPatternList(EventHandler eventHandler,
-                                                          List<String> targetPatterns,
-                                                          FilteringPolicy policy, boolean keepGoing)
+    public ResolvedTargets<Target> parseTargetPatternList(
+        ExtendedEventHandler eventHandler,
+        List<String> targetPatterns,
+        FilteringPolicy policy,
+        boolean keepGoing)
         throws TargetParsingException {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public ResolvedTargets<Target> parseTargetPattern(EventHandler eventHandler, String pattern,
-                                                      boolean keepGoing)
+    public ResolvedTargets<Target> parseTargetPattern(
+        ExtendedEventHandler eventHandler, String pattern, boolean keepGoing)
         throws TargetParsingException {
       throw new UnsupportedOperationException();
     }
@@ -521,7 +523,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public Package getPackage(EventHandler eventHandler, PackageIdentifier packageId)
+    public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
         throws NoSuchPackageException {
       Package pkg = pkgMap.get(packageId);
       if (pkg != null) {
@@ -532,7 +534,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public Target getTarget(EventHandler eventHandler, Label label)
+    public Target getTarget(ExtendedEventHandler eventHandler, Label label)
         throws NoSuchPackageException, NoSuchTargetException {
       // Try to perform only one map lookup in the common case.
       Target target = labelToTarget.get(label);
@@ -545,7 +547,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
+    public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName) {
       throw new UnsupportedOperationException();
     }
   }

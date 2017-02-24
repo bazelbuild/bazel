@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -67,13 +67,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private static final int MAX_PACKAGES_BULK_GET = 1000;
 
   private final RecursivePackageProvider recursivePackageProvider;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
   private final FilteringPolicy policy;
   private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
       RecursivePackageProvider recursivePackageProvider,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       FilteringPolicy policy,
       MultisetSemaphore<PackageIdentifier> packageSemaphore) {
     this.recursivePackageProvider = recursivePackageProvider;

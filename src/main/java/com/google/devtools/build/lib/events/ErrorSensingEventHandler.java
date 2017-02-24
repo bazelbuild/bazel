@@ -22,7 +22,7 @@ public final class ErrorSensingEventHandler extends DelegatingEventHandler {
 
   private volatile boolean hasErrors;
 
-  public ErrorSensingEventHandler(EventHandler eventHandler) {
+  public ErrorSensingEventHandler(ExtendedEventHandler eventHandler) {
     super(eventHandler);
   }
 

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -89,22 +89,24 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   /**
    * Note that the correct operation of this class critically depends on the Reporter being a
    * singleton object, shared by all cooperating classes contributing to Query.
+   *
    * @param strictScope if true, fail the whole query if a label goes out of scope.
-   * @param loadingPhaseThreads the number of threads to use during loading
-   *     the packages for the query.
-   * @param labelFilter a predicate that determines if a specific label is
-   *     allowed to be visited during query execution. If it returns false,
-   *     the query execution is stopped with an error message.
+   * @param loadingPhaseThreads the number of threads to use during loading the packages for the
+   *     query.
+   * @param labelFilter a predicate that determines if a specific label is allowed to be visited
+   *     during query execution. If it returns false, the query execution is stopped with an error
+   *     message.
    * @param settings a set of enabled settings
    */
-  BlazeQueryEnvironment(TransitivePackageLoader transitivePackageLoader,
+  BlazeQueryEnvironment(
+      TransitivePackageLoader transitivePackageLoader,
       TargetProvider targetProvider,
       TargetPatternEvaluator targetPatternEvaluator,
       boolean keepGoing,
       boolean strictScope,
       int loadingPhaseThreads,
       Predicate<Label> labelFilter,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       QueryExpressionEvalListener<Target> evalListener) {

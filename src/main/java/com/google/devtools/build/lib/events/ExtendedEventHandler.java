@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.events;
 
 /**
  * Interface for reporting events during the build. It extends the {@link EventHandler} by also
- * allowing posting arbitrary objects on the event bus.
+ * allowing posting more structured information.
  */
 public interface ExtendedEventHandler extends EventHandler {
 
   /** Interface for declaring events that can be posted via the extended event handler */
   public interface Postable {}
 
-  /** Report arbitrary information over the event bus. */
+  /** Post an postable object with more refined information about an important build event */
   void post(Postable obj);
 }

@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -30,9 +30,9 @@ import javax.annotation.Nullable;
  */
 public final class SkyframePackageRootResolver implements PackageRootResolver {
   private final SkyframeExecutor executor;
-  private final EventHandler eventHandler;
+  private final ExtendedEventHandler eventHandler;
 
-  public SkyframePackageRootResolver(SkyframeExecutor executor, EventHandler eventHandler) {
+  public SkyframePackageRootResolver(SkyframeExecutor executor, ExtendedEventHandler eventHandler) {
     this.executor = executor;
     this.eventHandler = eventHandler;
   }

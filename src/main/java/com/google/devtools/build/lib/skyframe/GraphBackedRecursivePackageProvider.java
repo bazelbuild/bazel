@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -77,7 +77,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
 
@@ -100,7 +100,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Map<PackageIdentifier, Package> bulkGetPackages(
-      EventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
 
@@ -135,7 +135,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageName);
     PackageLookupValue packageLookupValue = (PackageLookupValue) graph.getValue(packageLookupKey);
@@ -266,7 +266,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
   }

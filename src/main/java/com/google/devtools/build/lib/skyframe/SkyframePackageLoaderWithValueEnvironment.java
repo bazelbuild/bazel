@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigura
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -50,7 +50,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   }
 
   @Override
-  public EventHandler getEventHandler() {
+  public ExtendedEventHandler getEventHandler() {
     return env.getListener();
   }
 

@@ -26,6 +26,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
@@ -70,7 +71,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
     final Semaphore beforeError = new Semaphore(0);
     final Semaphore afterError = new Semaphore(0);
-    Reporter reporter = new Reporter();
+    Reporter reporter = new Reporter(new EventBus());
     ParsingTracker parser = new ParsingTracker(beforeError, afterError, reporter);
     final Logger log = Logger.getLogger(PackageFactory.class.getName());
     log.addHandler(parser);

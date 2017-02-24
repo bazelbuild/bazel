@@ -15,7 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -267,10 +267,10 @@ public interface SkyFunction {
     boolean valuesMissing();
 
     /**
-     * Returns the {@link EventHandler} that a SkyFunction should use to print any errors,
-     * warnings, or progress messages during execution of {@link SkyFunction#compute}.
+     * Returns the {@link EventHandler} that a SkyFunction should use to print any errors, warnings,
+     * or progress messages during execution of {@link SkyFunction#compute}.
      */
-    EventHandler getListener();
+    ExtendedEventHandler getListener();
 
     /** Returns whether we are currently in error bubbling. */
     @VisibleForTesting

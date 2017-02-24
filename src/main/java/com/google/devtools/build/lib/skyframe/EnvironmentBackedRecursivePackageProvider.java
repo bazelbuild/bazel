@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -54,7 +54,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Package getPackage(EventHandler eventHandler, PackageIdentifier packageName)
+  public Package getPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)
       throws NoSuchPackageException, MissingDepException, InterruptedException {
     SkyKey pkgKey = PackageValue.key(packageName);
     PackageValue pkgValue =
@@ -80,9 +80,9 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(EventHandler eventHandler,
-          Iterable<PackageIdentifier> pkgIds)
-          throws NoSuchPackageException, InterruptedException {
+  public Map<PackageIdentifier, Package> bulkGetPackages(
+      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+      throws NoSuchPackageException, InterruptedException {
     ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
     for (PackageIdentifier pkgId : pkgIds) {
       builder.put(pkgId, getPackage(eventHandler, pkgId));
@@ -91,7 +91,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageId)
+  public boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageId)
       throws MissingDepException, InterruptedException {
     SkyKey packageLookupKey = PackageLookupValue.key(packageId);
     try {
@@ -156,7 +156,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Target getTarget(EventHandler eventHandler, Label label)
+  public Target getTarget(ExtendedEventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException, MissingDepException,
           InterruptedException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());

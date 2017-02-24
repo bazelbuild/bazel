@@ -20,7 +20,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -72,7 +72,7 @@ class ConfiguredTargetCycleReporter extends AbstractLabelCycleReporter {
 
   @Override
   protected String getAdditionalMessageAboutCycle(
-      EventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
+      ExtendedEventHandler eventHandler, SkyKey topLevelKey, CycleInfo cycleInfo) {
     if (Iterables.all(cycleInfo.getCycle(), IS_TRANSITIVE_TARGET_SKY_KEY)) {
       // The problem happened strictly in loading, so delegate the explanation to
       // TransitiveTargetCycleReporter.
