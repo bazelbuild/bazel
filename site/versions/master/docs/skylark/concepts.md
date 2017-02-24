@@ -143,7 +143,7 @@ These changes concern the `load()` syntax in particular.
 
 To profile your code and analyze the performance, use the `--profile` flag:
 
-```shell
+```
 $ bazel build --nobuild --profile=/tmp/prof //path/to:target
 $ bazel analyze-profile /tmp/prof --html --html_details
 ```
