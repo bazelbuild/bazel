@@ -706,12 +706,18 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     FRAMEWORK("framework"),
     /** Split transition distinguisher for {@code apple_watch1_extension} rule. */
     WATCH_OS1_EXTENSION("watch_os1_extension"),
-    /** Distinguisher for {@code apple_binary} rule with "ios" platform_type. */
+    /** Distinguisher for non-extension {@code apple_binary} rule with "ios" platform_type. */
     APPLEBIN_IOS("applebin_ios"),
-    /** Distinguisher for {@code apple_binary} rule with "watchos" platform_type. */
+    /** Distinguisher for non-extension  {@code apple_binary} rule with "watchos" platform_type. */
     APPLEBIN_WATCHOS("applebin_watchos"),
-    /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
+    /** Distinguisher for non-extension  {@code apple_binary} rule with "tvos" platform_type. */
     APPLEBIN_TVOS("applebin_tvos"),
+    /** Distinguisher for extension {@code apple_binary} rule with "ios" platform_type. */
+    APPLEBIN_IOS_EXT("applebin_ios_ext"),
+    /** Distinguisher for extension {@code apple_binary} rule with "watchos" platform_type. */
+    APPLEBIN_WATCHOS_EXT("applebin_watchos_ext"),
+    /** Distinguisher for extension {@code apple_binary} rule with "tvos" platform_type. */
+    APPLEBIN_TVOS_EXT("applebin_tvos_ext"),
     /**
      * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory
      * names instead of "apple_crosstool" to avoid oversized path names, which can be problematic

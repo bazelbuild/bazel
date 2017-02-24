@@ -478,6 +478,7 @@ public final class ObjcProvider extends SkylarkClassObject implements Transitive
           DYNAMIC_FRAMEWORK_DIR,
           DYNAMIC_FRAMEWORK_FILE,
           FLAG,
+          IQUOTE,
           MERGE_ZIP,
           ROOT_MERGE_ZIP,
           FRAMEWORK_SEARCH_PATH_ONLY,
