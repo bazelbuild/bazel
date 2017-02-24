@@ -110,14 +110,6 @@ public class ProtoConfiguration extends Fragment {
     )
     public StrictDepsMode strictProtoDeps;
 
-    @Option(
-      name = "output_descriptor_set",
-      defaultValue = "true",
-      category = "experimental",
-      help = "ignored."
-    )
-    public boolean outputDescriptorSet;
-
     @Override
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
