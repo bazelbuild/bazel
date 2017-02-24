@@ -436,7 +436,8 @@ public class CppCompileAction extends AbstractAction
 
   @Nullable
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public synchronized Iterable<Artifact> discoverInputs(
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Iterable<Artifact> initialResult;
@@ -1261,32 +1262,6 @@ public class CppCompileAction extends AbstractAction
         }
       }
     }
-  }
-
-  /**
-   * Provides list of include files needed for performing extra actions on this action when run
-   * remotely. The list of include files is created by performing a header scan on the known input
-   * files.
-   */
-  @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    Iterable<Artifact> scannedIncludes;
-    try {
-      scannedIncludes = actionExecutionContext.getExecutor().getContext(actionContext)
-          .findAdditionalInputs(this, actionExecutionContext,  cppSemantics.getIncludeProcessing());
-    } catch (ExecException e) {
-      throw e.toActionExecutionException(this);
-    }
-
-    if (scannedIncludes == null) {
-      return ImmutableList.of();
-    }
-
-    // Use a set to eliminate duplicates.
-    ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
-    return result.addAll(getInputs()).addAll(scannedIncludes).build();
   }
 
   @Override

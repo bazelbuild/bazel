@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -51,6 +52,7 @@ public final class ExtraAction extends SpawnAction {
   private final boolean createDummyOutput;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> extraActionInputs;
+
   // This can be read/written from multiple threads, and so accesses should be synchronized.
   @GuardedBy("this")
   private boolean inputsKnown;
@@ -82,7 +84,7 @@ public final class ExtraAction extends SpawnAction {
     super(
         shadowedAction.getOwner(),
         ImmutableList.<Artifact>of(),
-        createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier),
+        createInputs(shadowedAction.getMandatoryInputs(), extraActionInputs, runfilesSupplier),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
@@ -114,18 +116,24 @@ public final class ExtraAction extends SpawnAction {
 
   @Nullable
   @Override
-  public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
+  public synchronized Iterable<Artifact> discoverInputs(
+      ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    // Note that discoverInputsStage2() is neither implemented nor called on the shadowed action.
+    // This means that the input files of extra actions and shadowed actions can be different, but
+    // it doesn't seem to be a problem in practice and we hope that we can eventually replace this
+    // awkward hardwired two-stage mechanism with something more principled, for example, being able
+    // to declare arbitrary Skyframe dependencies on actions and extra actions waiting for shadowed
+    // actions that make use of this facility to finish.
     Preconditions.checkState(discoversInputs(), this);
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
-    if (shadowedAction.discoversInputs() && shadowedAction instanceof AbstractAction) {
-      Iterable<Artifact> additionalInputs =
-          ((AbstractAction) shadowedAction).getInputFilesForExtraAction(actionExecutionContext);
-      updateInputs(createInputs(additionalInputs, extraActionInputs, runfilesSupplier));
-      return ImmutableSet.copyOf(additionalInputs);
-    }
-    return null;
+    Iterable<Artifact> additionalInputs = shadowedAction.discoverInputs(actionExecutionContext);
+    updateInputs(createInputs(
+        Iterables.concat(shadowedAction.getMandatoryInputs(), additionalInputs),
+        extraActionInputs,
+        runfilesSupplier));
+    return additionalInputs;
   }
 
   @Override
