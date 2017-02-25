@@ -42,3 +42,5 @@ Find more background about Bazel in our [FAQ](http://bazel.build/faq.html).
   * [Current Bazel Release Candidate](https://github.com/bazelbuild/bazel/issues?utf8=%E2%9C%93&q=is%3Aopen%20label%3A%22Release%20blocker%22%20label%3A%22type%3A%20process%22)
 
 [![Build Status](http://ci.bazel.io/buildStatus/icon?job=bazel-tests)](http://ci.bazel.io/job/bazel-tests)
+
+DO NOT SUBMIT
