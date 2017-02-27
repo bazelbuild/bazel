@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -449,6 +450,8 @@ public abstract class OutputFormatter implements Serializable {
             } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
               // Display it as a list (and not as a tuple). Attributes can never be tuples.
               value = new ArrayList<>((List<?>) value);
+            } else if (value instanceof TriState) {
+              value = ((TriState) value).toInt();
             }
             // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
             StringBuilder builder = new StringBuilder();

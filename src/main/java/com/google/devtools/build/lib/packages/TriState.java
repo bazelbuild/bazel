@@ -18,5 +18,20 @@ package com.google.devtools.build.lib.packages;
  * Enum used to represent tri-state parameters in rule attributes (yes/no/auto).
  */
 public enum TriState {
-  YES, NO, AUTO
+  YES,
+  NO,
+  AUTO;
+
+  public int toInt() {
+    switch (this) {
+      case YES:
+        return 1;
+      case NO:
+        return 0;
+      case AUTO:
+        return -1;
+      default:
+        throw new IllegalStateException();
+    }
+  }
 }
