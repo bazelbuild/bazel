@@ -90,4 +90,30 @@ EOF
   bazel build //a || fail "build failled"
 }
 
+function test_no_recompile_on_shutdown() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+cc_binary(name="a", srcs=["a.cc"], deps=["b"])
+cc_library(name="b", includes=["."], hdrs=["b.h"])
+EOF
+
+  cat > a/a.cc <<EOF
+#include "b.h"
+
+int main(void) {
+  return B_RETURN_VALUE;
+}
+EOF
+
+  cat > a/b.h <<EOF
+#define B_RETURN_VALUE 31
+EOF
+
+  bazel build -s //a >& $TEST_log || fail "build failed"
+  expect_log "Compiling a/a.cc"
+  bazel shutdown >& /dev/null || fail "query failed"
+  bazel build -s //a >& $TEST_log || fail "build failed"
+  expect_not_log "Compiling a/a.cc"
+}
+
 run_suite "Tests for Bazel's C++ rules"
