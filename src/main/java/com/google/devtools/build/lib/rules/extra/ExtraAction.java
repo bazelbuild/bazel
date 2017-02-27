@@ -18,6 +18,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -51,6 +52,8 @@ public final class ExtraAction extends SpawnAction {
   private final boolean createDummyOutput;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> extraActionInputs;
+  private final Iterable<Artifact> originalShadowedActionInputs;
+
   // This can be read/written from multiple threads, and so accesses should be synchronized.
   @GuardedBy("this")
   private boolean inputsKnown;
@@ -95,6 +98,7 @@ public final class ExtraAction extends SpawnAction {
         mnemonic,
         false,
         null);
+    this.originalShadowedActionInputs = shadowedAction.getInputs();
     this.shadowedAction = shadowedAction;
     this.runfilesSupplier = runfilesSupplier;
     this.createDummyOutput = createDummyOutput;
@@ -117,15 +121,15 @@ public final class ExtraAction extends SpawnAction {
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Preconditions.checkState(discoversInputs(), this);
+    // We depend on the outputs of actions doing input discovery and they should know their inputs
+    // after having been executed
+    Preconditions.checkState(shadowedAction.inputsKnown());
+
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
-    if (shadowedAction.discoversInputs() && shadowedAction instanceof AbstractAction) {
-      Iterable<Artifact> additionalInputs =
-          ((AbstractAction) shadowedAction).getInputFilesForExtraAction(actionExecutionContext);
-      updateInputs(createInputs(additionalInputs, extraActionInputs, runfilesSupplier));
-      return ImmutableSet.copyOf(additionalInputs);
-    }
-    return null;
+    updateInputs(createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier));
+    return Sets.difference(ImmutableSet.copyOf(shadowedAction.getInputs()),
+        ImmutableSet.copyOf(originalShadowedActionInputs));
   }
 
   @Override

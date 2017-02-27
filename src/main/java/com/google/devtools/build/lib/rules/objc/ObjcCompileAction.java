@@ -387,17 +387,6 @@ public class ObjcCompileAction extends SpawnAction {
   }
 
   @Override
-  public Iterable<Artifact> getInputFilesForExtraAction(
-      ActionExecutionContext actionExecutionContext)
-      throws ActionExecutionException, InterruptedException {
-    // Use a set to eliminate duplicates.
-    return ImmutableSet.<Artifact>builder()
-        .addAll(getInputs())
-        .addAll(discoverInputs(actionExecutionContext))
-        .build();
-  }
-
-  @Override
   protected SpawnInfo getExtraActionSpawnInfo() {
     SpawnInfo.Builder info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
     if (!inputsKnown()) {
