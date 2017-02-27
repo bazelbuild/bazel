@@ -1,7 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//tools/build_rules:py_rules.bzl", "py_library", "py_binary")
-
 py_library(
     name = "lib",
     srcs = ["lib.py"],
