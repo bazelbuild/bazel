@@ -58,11 +58,11 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
       if (errWriter != null) {
         errWriter.printf("createdir: %s\n", createDir.getPathString());
       }
-      FileSystemUtils.createDirectoryAndParents(createDir);
+      FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, createDir);
     }
 
     // Link all the inputs.
-    linkInputs(inputs);
+    linkInputs(inputs, createdDirs);
   }
 
   private void createDirectoriesForOutputs(Collection<PathFragment> outputs, Set<Path> createdDirs)
@@ -89,7 +89,8 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
    * names (by following solib symlinks back) to modify the paths to the shared libraries in
    * cc_binaries.
    */
-  private void linkInputs(Map<PathFragment, Path> inputs) throws IOException {
+  private void linkInputs(Map<PathFragment, Path> inputs, Set<Path> createdDirs)
+      throws IOException {
     // Create directory for input files.
     Path inputsDir = sandboxPath.getRelative("inputs");
     if (!inputsDir.exists()) {
@@ -97,6 +98,16 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
     }
 
     for (ImmutableMap.Entry<PathFragment, Path> entry : inputs.entrySet()) {
+      Path targetName = sandboxExecRoot.getRelative(entry.getKey());
+      FileSystemUtils.createDirectoryAndParentsWithCache(
+          createdDirs, targetName.getParentDirectory());
+
+      // The target is supposed to be an empty file.
+      if (entry.getValue() == null) {
+        FileSystemUtils.createEmptyFile(targetName);
+        continue;
+      }
+
       // Hardlink, resolve symlink here instead in finalizeLinks.
       Path target = entry.getValue().resolveSymbolicLinks();
       Path hardlinkName =
@@ -115,12 +126,10 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
       }
 
       // symlink
-      Path symlinkName = sandboxExecRoot.getRelative(entry.getKey());
       if (errWriter != null) {
-        errWriter.printf("symlink: %s -> %s\n", symlinkName, hardlinkName);
+        errWriter.printf("symlink: %s -> %s\n", targetName, hardlinkName);
       }
-      FileSystemUtils.createDirectoryAndParents(symlinkName.getParentDirectory());
-      symlinkName.createSymbolicLink(hardlinkName);
+      targetName.createSymbolicLink(hardlinkName);
     }
   }
 

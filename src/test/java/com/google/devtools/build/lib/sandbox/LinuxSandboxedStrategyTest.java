@@ -57,13 +57,11 @@ public class LinuxSandboxedStrategyTest extends SandboxTestCase {
     SpawnHelpers.parseManifestFile(
         fileSystem, mounts, targetDir, manifestFile.getPathFile(), false, "");
 
-    assertThat(mounts)
-        .isEqualTo(
-            ImmutableMap.of(
-                new PathFragment("runfiles/x/testfile"),
-                testFile,
-                new PathFragment("runfiles/x/emptyfile"),
-                fileSystem.getPath("/dev/null")));
+    Map<PathFragment, Path> expected = new HashMap<>();
+    expected.put(new PathFragment("runfiles/x/testfile"), testFile);
+    expected.put(new PathFragment("runfiles/x/emptyfile"), null);
+
+    assertThat(mounts).isEqualTo(expected);
   }
 
   @Test

@@ -127,7 +127,7 @@ public final class SpawnHelpers {
       Path source;
       switch (fields.length) {
         case 1:
-          source = fs.getPath("/dev/null");
+          source = null;
           break;
         case 2:
           source = fs.getPath(fields[1]);
@@ -152,12 +152,12 @@ public final class SpawnHelpers {
       }
       for (Map.Entry<PathFragment, Artifact> mapping : rootAndMappings.getValue().entrySet()) {
         Artifact sourceArtifact = mapping.getValue();
-        PathFragment source =
-            (sourceArtifact != null) ? sourceArtifact.getExecPath() : new PathFragment("/dev/null");
+        Path source =
+            (sourceArtifact != null) ? execRoot.getRelative(sourceArtifact.getExecPath()) : null;
 
         Preconditions.checkArgument(!mapping.getKey().isAbsolute());
         PathFragment target = root.getRelative(mapping.getKey());
-        mounts.put(target, execRoot.getRelative(source));
+        mounts.put(target, source);
       }
     }
   }

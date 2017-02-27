@@ -292,12 +292,19 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     }
   }
 
-  private ImmutableMap<PathFragment, Path> finalizeLinks(Map<PathFragment, Path> unfinalized)
+  private Map<PathFragment, Path> finalizeLinks(Map<PathFragment, Path> unfinalized)
       throws IOException {
-    ImmutableMap.Builder<PathFragment, Path> finalizedLinks = new ImmutableMap.Builder<>();
+    HashMap<PathFragment, Path> finalizedLinks = new HashMap<>();
     for (Map.Entry<PathFragment, Path> mount : unfinalized.entrySet()) {
       PathFragment target = mount.getKey();
       Path source = mount.getValue();
+
+      // If the source is null, the target is supposed to be an empty file. In this case we don't
+      // have to deal with finalizing the link.
+      if (source == null) {
+        finalizedLinks.put(target, source);
+        continue;
+      }
 
       FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
 
@@ -311,14 +318,11 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         finalizeLinksPath(finalizedLinks, target, source, stat);
       }
     }
-    return finalizedLinks.build();
+    return finalizedLinks;
   }
 
   private void finalizeLinksPath(
-      ImmutableMap.Builder<PathFragment, Path> finalizedMounts,
-      PathFragment target,
-      Path source,
-      FileStatus stat)
+      Map<PathFragment, Path> finalizedMounts, PathFragment target, Path source, FileStatus stat)
       throws IOException {
     // The source must exist.
     Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
