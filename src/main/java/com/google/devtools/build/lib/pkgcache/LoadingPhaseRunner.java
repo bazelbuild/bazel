@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
@@ -50,7 +49,6 @@ public abstract class LoadingPhaseRunner {
   /** Performs target pattern evaluation and test suite expansion (if requested). */
   public abstract LoadingResult execute(
       ExtendedEventHandler eventHandler,
-      EventBus eventBus,
       List<String> targetPatterns,
       PathFragment relativeWorkingDirectory,
       LoadingOptions options,

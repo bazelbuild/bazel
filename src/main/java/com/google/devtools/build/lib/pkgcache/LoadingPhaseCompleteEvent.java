@@ -18,12 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Target;
 
 /**
  * This event is fired after the loading phase is complete.
  */
-public final class LoadingPhaseCompleteEvent {
+public final class LoadingPhaseCompleteEvent implements ExtendedEventHandler.Postable {
   private final ImmutableSet<Target> targets;
   private final ImmutableSet<Target> filteredTargets;
   private final PackageManager.PackageManagerStatistics pkgManagerStats;

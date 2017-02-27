@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -671,8 +672,7 @@ public class LoadingPhaseRunnerTest {
         eventBus.register(listener);
         result =
             loadingPhaseRunner.execute(
-                storedErrors,
-                eventBus,
+                new Reporter(eventBus, storedErrors),
                 ImmutableList.copyOf(patterns),
                 PathFragment.EMPTY_FRAGMENT,
                 options,

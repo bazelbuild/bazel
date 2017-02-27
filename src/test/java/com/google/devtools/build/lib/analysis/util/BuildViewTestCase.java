@@ -1486,7 +1486,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     LoadingResult loadingResult =
         runner.execute(
             reporter,
-            eventBus,
             targets,
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,

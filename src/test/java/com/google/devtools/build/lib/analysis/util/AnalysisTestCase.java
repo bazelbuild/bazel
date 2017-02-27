@@ -331,7 +331,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     LoadingResult loadingResult =
         loadingPhaseRunner.execute(
             reporter,
-            eventBus,
             ImmutableList.copyOf(labels),
             PathFragment.EMPTY_FRAGMENT,
             loadingOptions,
