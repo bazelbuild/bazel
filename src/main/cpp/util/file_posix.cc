@@ -185,10 +185,19 @@ bool ReadFile(const string &filename, string *content, int max_size) {
   return result;
 }
 
-bool WriteFile(const void *data, size_t size, const string &filename) {
+bool ReadFile(const string &filename, void *data, size_t size) {
+  int fd = open(filename.c_str(), O_RDONLY);
+  if (fd == -1) return false;
+  bool result = ReadFrom(
+      [fd](void *buf, size_t len) { return read(fd, buf, len); }, data, size);
+  close(fd);
+  return result;
+}
+
+bool WriteFile(const void *data, size_t size, const string &filename,
+               unsigned int perm) {
   UnlinkPath(filename);  // We don't care about the success of this.
-  int fd =
-      open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, 0755);  // chmod +x
+  int fd = open(filename.c_str(), O_CREAT | O_WRONLY | O_TRUNC, perm);
   if (fd == -1) {
     return false;
   }

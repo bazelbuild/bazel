@@ -31,16 +31,17 @@ using std::pair;
 using std::string;
 using std::vector;
 
-bool ReadFrom(const std::function<int(void *, int)> &read_func, string *content,
-              int max_size) {
+bool ReadFrom(const std::function<int(void *, size_t)> &read_func,
+              string *content, int max_size) {
+  static const size_t kReadSize = 4096;  // read 4K chunks
   content->clear();
-  char buf[4096];
+  char buf[kReadSize];
   // OPT:  This loop generates one spurious read on regular files.
   while (int r = read_func(
              buf, max_size > 0
-                      ? std::min(max_size, static_cast<int>(sizeof buf))
-                      : sizeof buf)) {
-    if (r == -1) {
+                      ? std::min(static_cast<size_t>(max_size), kReadSize)
+                      : kReadSize)) {
+    if (r < 0) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
     }
@@ -56,6 +57,26 @@ bool ReadFrom(const std::function<int(void *, int)> &read_func, string *content,
   return true;
 }
 
+bool ReadFrom(const std::function<int(void *, size_t)> &read_func, void *data,
+              size_t size) {
+  static const size_t kReadSize = 4096;  // read 4K chunks
+  size_t offset = 0;
+  while (int r = read_func(reinterpret_cast<char *>(data) + offset,
+                           std::min(kReadSize, size))) {
+    if (r < 0) {
+      if (errno == EINTR || errno == EAGAIN) continue;
+      return false;
+    }
+    offset += r;
+    if (size > static_cast<size_t>(r)) {
+      size -= r;
+    } else {
+      break;
+    }
+  }
+  return true;
+}
+
 bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
              const void *data, size_t size) {
   int r = write_func(data, size);
@@ -65,8 +86,9 @@ bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
   return r == static_cast<int>(size);
 }
 
-bool WriteFile(const std::string &content, const std::string &filename) {
-  return WriteFile(content.c_str(), content.size(), filename);
+bool WriteFile(const std::string &content, const std::string &filename,
+               unsigned int perm) {
+  return WriteFile(content.c_str(), content.size(), filename, perm);
 }
 
 string Dirname(const string &path) {

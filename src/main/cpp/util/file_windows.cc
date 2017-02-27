@@ -526,42 +526,69 @@ bool AsShortWindowsPath(const string& path, string* result) {
   return true;
 }
 
-bool ReadFile(const string& filename, string* content, int max_size) {
+static bool OpenFileForReading(const string& filename, HANDLE* result) {
   if (filename.empty()) {
     return false;
   }
   if (IsDevNull(filename)) {
-    content->clear();
     return true;
   }
   wstring wfilename;
   if (!AsWindowsPathWithUncPrefix(filename, &wfilename)) {
     return false;
   }
-  windows_util::AutoHandle handle(::CreateFileW(
+  *result = ::CreateFileW(
       /* lpFileName */ wfilename.c_str(),
       /* dwDesiredAccess */ GENERIC_READ,
       /* dwShareMode */ FILE_SHARE_READ,
       /* lpSecurityAttributes */ NULL,
       /* dwCreationDisposition */ OPEN_EXISTING,
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL));
-  if (!handle.IsValid()) {
+      /* hTemplateFile */ NULL);
+  return true;
+}
+
+bool ReadFile(const string& filename, string* content, int max_size) {
+  HANDLE handle;
+  if (!OpenFileForReading(filename, &handle)) {
     return false;
   }
 
-  HANDLE h = handle;
-  bool result = ReadFrom(
-      [h](void* buf, int len) {
+  windows_util::AutoHandle autohandle(handle);
+  if (!autohandle.IsValid()) {
+    return false;
+  }
+  content->clear();
+  return ReadFrom(
+      [handle](void* buf, int len) {
         DWORD actually_read = 0;
-        ::ReadFile(h, buf, len, &actually_read, NULL);
+        ::ReadFile(handle, buf, len, &actually_read, NULL);
         return actually_read;
       },
       content, max_size);
-  return result;
 }
 
-bool WriteFile(const void* data, size_t size, const string& filename) {
+bool ReadFile(const string& filename, void* data, size_t size) {
+  HANDLE handle;
+  if (!OpenFileForReading(filename, &handle)) {
+    return false;
+  }
+
+  windows_util::AutoHandle autohandle(handle);
+  if (!autohandle.IsValid()) {
+    return false;
+  }
+  return ReadFrom(
+      [handle](void* buf, int len) {
+        DWORD actually_read = 0;
+        ::ReadFile(handle, buf, len, &actually_read, NULL);
+        return actually_read;
+      },
+      data, size);
+}
+
+bool WriteFile(const void* data, size_t size, const string& filename,
+               unsigned int perm) {
   if (IsDevNull(filename)) {
     return true;  // mimic write(2) behavior with /dev/null
   }
@@ -582,6 +609,8 @@ bool WriteFile(const void* data, size_t size, const string& filename) {
   if (!handle.IsValid()) {
     return false;
   }
+
+  // TODO(laszlocsomor): respect `perm` and set the file permissions accoridngly
 
   HANDLE h = handle;
   bool result = WriteTo(

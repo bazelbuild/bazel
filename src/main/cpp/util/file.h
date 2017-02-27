@@ -38,12 +38,19 @@ class IPipe {
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads everything.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFrom(const std::function<int(void *, int)> &read_func,
+bool ReadFrom(const std::function<int(void *, size_t)> &read_func,
               std::string *content, int max_size = 0);
 
-// Writes `size` bytes from `data` into file 'filename' and makes it executable.
+// Reads up to `size` bytes using `read_func` into `data`.
+// There must be enough memory allocated at `data`.
+// Returns true on success, false on error.
+bool ReadFrom(const std::function<int(void *, size_t)> &read_func, void *data,
+              size_t size);
+
+// Writes `content` into file `filename`, and chmods it to `perm`.
 // Returns false on failure, sets errno.
-bool WriteFile(const void *data, size_t size, const std::string &filename);
+bool WriteFile(const std::string &content, const std::string &filename,
+               unsigned int perm = 0755);
 
 // Writes `size` bytes from `data` into a destination using `write_func`.
 // Returns false on failure, sets errno.
@@ -66,7 +73,8 @@ std::string JoinPath(const std::string &path1, const std::string &path2);
 // Does not follow symlinks / junctions.
 //
 // Populates `result` with the full paths of the files. Every entry will have
-// `path` as its prefix. If `path` is a file, `result` contains just this file.
+// `path` as its prefix. If `path` is a file, `result` contains just this
+// file.
 void GetAllFilesUnder(const std::string &path,
                       std::vector<std::string> *result);
 

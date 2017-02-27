@@ -60,9 +60,15 @@ std::pair<std::string, std::string> SplitPath(const std::string &path);
 bool ReadFile(const std::string &filename, std::string *content,
               int max_size = 0);
 
-// Writes 'content' into file 'filename', and makes it executable.
+// Reads up to `size` bytes from the file `filename` into `data`.
+// There must be enough memory allocated at `data`.
+// Returns true on success, false on error.
+bool ReadFile(const std::string &filename, void *data, size_t size);
+
+// Writes `size` bytes from `data` into file `filename` and chmods it to `perm`.
 // Returns false on failure, sets errno.
-bool WriteFile(const std::string &content, const std::string &filename);
+bool WriteFile(const void *data, size_t size, const std::string &filename,
+               unsigned int perm = 0755);
 
 enum RenameDirectoryResult {
   kRenameDirectorySuccess = 0,
