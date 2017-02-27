@@ -115,6 +115,7 @@ public class SkyframeBuilder implements Builder {
                 .addAll(parallelTests)
                 .addAll(exclusiveTests)
                 .build(),
+            topLevelArtifactContext,
             skyframeExecutor.getEventBus());
     skyframeExecutor
         .getEventBus()

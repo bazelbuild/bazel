@@ -1,0 +1,129 @@
+// Copyright 2017 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package com.google.devtools.build.lib.analysis;
+
+import static com.google.common.collect.Iterables.size;
+import static com.google.devtools.build.lib.analysis.OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX;
+import static com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.getAllArtifactsToBuild;
+import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.Path;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+/** Tests for {@link TopLevelArtifactHelper}. */
+@RunWith(JUnit4.class)
+public class TopLevelArtifactHelperTest {
+
+  private TopLevelArtifactContext ctx;
+  private OutputGroupProvider groupProvider;
+
+  private Path path;
+  private Root root;
+  private int artifactIdx;
+
+  @Before
+  public final void setRootDir() throws Exception {
+    Scratch scratch = new Scratch();
+    path = scratch.dir("/foo");
+    root = Root.asDerivedRoot(scratch.dir("/"));
+  }
+
+  private void setup(Iterable<Pair<String, Integer>> groupArtifacts) {
+    ImmutableSortedSet.Builder<String> setBuilder = ImmutableSortedSet.naturalOrder();
+    ImmutableMap.Builder<String, NestedSet<Artifact>> mapBuilder = ImmutableMap.builder();
+    for (Pair<String, Integer> groupArtifact : groupArtifacts) {
+      setBuilder.add(checkNotNull(groupArtifact.getFirst()));
+      mapBuilder.put(
+          groupArtifact.getFirst(), newArtifacts(checkNotNull(groupArtifact.getSecond())));
+    }
+    ctx = new TopLevelArtifactContext(false, setBuilder.build());
+    groupProvider = new OutputGroupProvider(mapBuilder.build());
+  }
+
+  @Test
+  public void artifactsShouldBeSeparateByGroup() {
+    setup(asList(Pair.of("foo", 3), Pair.of("bar", 2)));
+
+    ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
+    assertEquals(5, size(allArtifacts.getAllArtifacts()));
+    assertEquals(5, size(allArtifacts.getImportantArtifacts()));
+
+    NestedSet<ArtifactsInOutputGroup> artifactsByGroup =
+        allArtifacts.getAllArtifactsByOutputGroup();
+    // Two groups
+    assertEquals(2, size(artifactsByGroup));
+
+    for (ArtifactsInOutputGroup artifacts : artifactsByGroup) {
+      String outputGroup = artifacts.getOutputGroup();
+      if ("foo".equals(outputGroup)) {
+        assertEquals(3, size(artifacts.getArtifacts()));
+      } else if ("bar".equals(outputGroup)) {
+        assertEquals(2, size(artifacts.getArtifacts()));
+      }
+    }
+  }
+
+  @Test
+  public void emptyGroupsShouldBeIgnored() {
+    setup(asList(Pair.of("foo", 1), Pair.of("bar", 0)));
+
+    ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
+    assertEquals(1, size(allArtifacts.getAllArtifacts()));
+    assertEquals(1, size(allArtifacts.getImportantArtifacts()));
+
+    NestedSet<ArtifactsInOutputGroup> artifactsByGroup =
+        allArtifacts.getAllArtifactsByOutputGroup();
+    // The bar list should not appear here, as it contains no artifacts.
+    assertEquals(1, size(artifactsByGroup));
+    assertEquals("foo", artifactsByGroup.toList().get(0).getOutputGroup());
+  }
+
+  @Test
+  public void importantArtifacts() {
+    setup(asList(Pair.of(HIDDEN_OUTPUT_GROUP_PREFIX + "notimportant", 1), Pair.of("important", 2)));
+
+    ArtifactsToBuild allArtifacts = getAllArtifactsToBuild(groupProvider, null, ctx);
+    assertEquals(3, size(allArtifacts.getAllArtifacts()));
+    assertEquals(2, size(allArtifacts.getImportantArtifacts()));
+  }
+
+  private NestedSet<Artifact> newArtifacts(int num) {
+    NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(Order.STABLE_ORDER);
+    for (int i = 0; i < num; i++) {
+      builder.add(newArtifact());
+    }
+    return builder.build();
+  }
+
+  private Artifact newArtifact() {
+    return new Artifact(path.getRelative(Integer.toString(artifactIdx++)), root);
+  }
+}

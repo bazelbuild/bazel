@@ -198,11 +198,28 @@ message ActionExecuted {
   string label = 5;
 }
 
+// Collection of all output files belonging to that output group.
+message OutputGroup {
+  // Name of the output group
+  string name = 1;
+
+  // List of output files that belong to this output group.
+  repeated File output_file = 2;
+}
+
 // Payload of the event indicating the completion of a target. The target is
 // specified in the id. If the target failed the root causes are provided as
 // children events.
 message TargetComplete {
   bool success = 1;
+
+  // The output files are arranged by their output group. If an output file
+  // is part of multiple output groups, it appears once in each output
+  // group.
+  repeated OutputGroup output_group = 2;
+
+  // List of tags associated with this target.
+  repeated string tag = 3;
 }
 
 // Payload on events reporting about individual test action.

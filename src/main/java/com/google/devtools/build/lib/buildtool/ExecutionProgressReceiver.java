@@ -21,6 +21,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
@@ -56,6 +59,7 @@ public final class ExecutionProgressReceiver
   private final int exclusiveTestsCount;
   private final Set<ConfiguredTarget> testedTargets;
   private final EventBus eventBus;
+  private final TopLevelArtifactContext topLevelArtifactContext;
 
   static {
     PROGRESS_MESSAGE_NUMBER_FORMATTER = NumberFormat.getIntegerInstance(Locale.ENGLISH);
@@ -70,11 +74,13 @@ public final class ExecutionProgressReceiver
       Set<ConfiguredTarget> builtTargets,
       int exclusiveTestsCount,
       Set<ConfiguredTarget> testedTargets,
+      TopLevelArtifactContext topLevelArtifactContext,
       EventBus eventBus) {
     this.builtTargets = Collections.synchronizedSet(builtTargets);
     this.exclusiveTestsCount = exclusiveTestsCount;
-    this.eventBus = eventBus;
     this.testedTargets = testedTargets;
+    this.topLevelArtifactContext = topLevelArtifactContext;
+    this.eventBus = eventBus;
   }
 
   @Override
@@ -99,14 +105,17 @@ public final class ExecutionProgressReceiver
     SkyFunctionName type = skyKey.functionName();
     if (type.equals(SkyFunctions.TARGET_COMPLETION)) {
       TargetCompletionValue value = (TargetCompletionValue) skyValueSupplier.get();
-      if (value != null) {
-        ConfiguredTarget target = value.getConfiguredTarget();
-        builtTargets.add(target);
-        if (testedTargets.contains(target)) {
-          eventBus.post(TargetCompleteEvent.createSuccessfulTestTarget(target));
-        } else {
-          eventBus.post(TargetCompleteEvent.createSuccessfulTarget(target));
-        }
+      if (value == null) {
+        return;
+      }
+
+      ConfiguredTarget target = value.getConfiguredTarget();
+      builtTargets.add(target);
+
+      if (testedTargets.contains(target)) {
+        postTestTargetComplete(target);
+      } else {
+        postBuildTargetComplete(target);
       }
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();
@@ -205,5 +214,17 @@ public final class ExecutionProgressReceiver
         }
       }
     };
+  }
+
+  private void postTestTargetComplete(ConfiguredTarget target) {
+    eventBus.post(TargetCompleteEvent.createSuccessfulTestTarget(target));
+  }
+
+  private void postBuildTargetComplete(ConfiguredTarget target) {
+    ArtifactsToBuild artifactsToBuild =
+        TopLevelArtifactHelper.getAllArtifactsToBuild(target, topLevelArtifactContext);
+    eventBus.post(
+        TargetCompleteEvent.createSuccessfulTarget(
+            target, artifactsToBuild.getAllArtifactsByOutputGroup()));
   }
 }

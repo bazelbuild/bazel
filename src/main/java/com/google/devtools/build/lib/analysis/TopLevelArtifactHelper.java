@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,7 +24,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.test.TestProvider;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-
 import javax.annotation.Nullable;
 
 /**
@@ -31,36 +32,82 @@ import javax.annotation.Nullable;
  */
 public final class TopLevelArtifactHelper {
 
-  /***
+  /** Set of {@link Artifact}s in an output group. */
+  @Immutable
+  public static final class ArtifactsInOutputGroup {
+    private final String outputGroup;
+    private final boolean important;
+    private final NestedSet<Artifact> artifacts;
+
+    private ArtifactsInOutputGroup(
+        String outputGroup, boolean important, NestedSet<Artifact> artifacts) {
+      this.outputGroup = checkNotNull(outputGroup);
+      this.important = important;
+      this.artifacts = checkNotNull(artifacts);
+    }
+
+    public String getOutputGroup() {
+      return outputGroup;
+    }
+
+    public NestedSet<Artifact> getArtifacts() {
+      return artifacts;
+    }
+
+    /** Returns {@code true} if the user should know about this output group. */
+    public boolean areImportant() {
+      return important;
+    }
+  }
+
+  /**
    * The set of artifacts to build.
    *
    * <p>There are two kinds: the ones that the user cares about (e.g. files to build) and the ones
    * she doesn't (e.g. baseline coverage artifacts). The latter type doesn't get reported on various
-   * outputs, e.g. on the console  output listing the output artifacts of targets on the command
+   * outputs, e.g. on the console output listing the output artifacts of targets on the command
    * line.
    */
   @Immutable
   public static final class ArtifactsToBuild {
-    private final NestedSet<Artifact> important;
-    private final NestedSet<Artifact> all;
+    private NestedSet<ArtifactsInOutputGroup> artifacts;
 
-    private ArtifactsToBuild(NestedSet<Artifact> important, NestedSet<Artifact> all) {
-      this.important = important;
-      this.all = all;
+    private ArtifactsToBuild(NestedSet<ArtifactsInOutputGroup> artifacts) {
+      this.artifacts = checkNotNull(artifacts);
     }
 
     /**
      * Returns the artifacts that the user should know about.
      */
     public NestedSet<Artifact> getImportantArtifacts() {
-      return important;
+      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+        if (artifactsInOutputGroup.areImportant()) {
+          builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+        }
+      }
+      return builder.build();
     }
 
     /**
      * Returns the actual set of artifacts that need to be built.
      */
     public NestedSet<Artifact> getAllArtifacts() {
-      return all;
+      NestedSetBuilder<Artifact> builder = new NestedSetBuilder<>(artifacts.getOrder());
+      for (ArtifactsInOutputGroup artifactsInOutputGroup : artifacts) {
+        builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+      }
+      return builder.build();
+    }
+
+    /**
+     * Returns the set of all {@link Artifact}s grouped by their corresponding output group.
+     *
+     * <p>If an {@link Artifact} belongs to two or more output groups, it appears once in each
+     * output group.
+     */
+    public NestedSet<ArtifactsInOutputGroup> getAllArtifactsByOutputGroup() {
+      return artifacts;
     }
   }
 
@@ -88,14 +135,12 @@ public final class TopLevelArtifactHelper {
    */
   public static ArtifactsToBuild getAllArtifactsToBuild(
       Iterable<? extends TransitiveInfoCollection> targets, TopLevelArtifactContext context) {
-    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> importantArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<ArtifactsInOutputGroup> artifacts = NestedSetBuilder.stableOrder();
     for (TransitiveInfoCollection target : targets) {
       ArtifactsToBuild targetArtifacts = getAllArtifactsToBuild(target, context);
-      allArtifacts.addTransitive(targetArtifacts.getAllArtifacts());
-      importantArtifacts.addTransitive(targetArtifacts.getImportantArtifacts());
+      artifacts.addTransitive(targetArtifacts.getAllArtifactsByOutputGroup());
     }
-    return new ArtifactsToBuild(importantArtifacts.build(), allArtifacts.build());
+    return new ArtifactsToBuild(artifacts.build());
   }
 
   /**
@@ -103,14 +148,12 @@ public final class TopLevelArtifactHelper {
    */
   public static ArtifactsToBuild getAllArtifactsToBuildFromAspects(
       Iterable<AspectValue> aspects, TopLevelArtifactContext context) {
-    NestedSetBuilder<Artifact> allArtifacts = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> importantArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<ArtifactsInOutputGroup> artifacts = NestedSetBuilder.stableOrder();
     for (AspectValue aspect : aspects) {
       ArtifactsToBuild aspectArtifacts = getAllArtifactsToBuild(aspect, context);
-      allArtifacts.addTransitive(aspectArtifacts.getAllArtifacts());
-      importantArtifacts.addTransitive(aspectArtifacts.getImportantArtifacts());
+      artifacts.addTransitive(aspectArtifacts.getAllArtifactsByOutputGroup());
     }
-    return new ArtifactsToBuild(importantArtifacts.build(), allArtifacts.build());
+    return new ArtifactsToBuild(artifacts.build());
   }
 
 
@@ -145,31 +188,33 @@ public final class TopLevelArtifactHelper {
       @Nullable OutputGroupProvider outputGroupProvider,
       @Nullable FileProvider fileProvider,
       TopLevelArtifactContext context) {
-    NestedSetBuilder<Artifact> importantBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> allBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<ArtifactsInOutputGroup> allBuilder = NestedSetBuilder.stableOrder();
 
     for (String outputGroup : context.outputGroups()) {
       NestedSetBuilder<Artifact> results = NestedSetBuilder.stableOrder();
 
-      if (outputGroup.equals(OutputGroupProvider.DEFAULT)) {
-        if (fileProvider != null) {
-          results.addTransitive(fileProvider.getFilesToBuild());
-        }
+      if (outputGroup.equals(OutputGroupProvider.DEFAULT) && fileProvider != null) {
+        results.addTransitive(fileProvider.getFilesToBuild());
       }
 
       if (outputGroupProvider != null) {
         results.addTransitive(outputGroupProvider.getOutputGroup(outputGroup));
       }
 
-      if (outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX)) {
-        allBuilder.addTransitive(results.build());
-      } else {
-        importantBuilder.addTransitive(results.build());
+      // Ignore output groups that have no artifacts.
+      if (results.isEmpty()) {
+        continue;
       }
+
+      boolean isImportantGroup =
+          !outputGroup.startsWith(OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX);
+
+      ArtifactsInOutputGroup artifacts =
+          new ArtifactsInOutputGroup(outputGroup, isImportantGroup, results.build());
+
+      allBuilder.add(artifacts);
     }
 
-    NestedSet<Artifact> importantArtifacts = importantBuilder.build();
-    allBuilder.addTransitive(importantArtifacts);
-    return new ArtifactsToBuild(importantArtifacts, allBuilder.build());
+    return new ArtifactsToBuild(allBuilder.build());
   }
 }
