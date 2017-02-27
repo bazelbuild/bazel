@@ -486,69 +486,87 @@ toolchain {
       flag_group {
         iterate_over: 'libraries_to_link'
         flag_group {
-          expand_if_all_available: 'libraries_to_link.object_file_group_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'object_file_group'
+          }
           iterate_over: 'libraries_to_link.object_files'
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.object_files}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.object_files}'
           }
         }
         flag_group {
-          expand_if_all_available: 'libraries_to_link.object_file_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'object_file'
+          }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
-          expand_if_all_available: 'libraries_to_link.interface_library_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'interface_library'
+          }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
-          expand_if_all_available: 'libraries_to_link.static_library_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'static_library'
+          }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
-          expand_if_all_available: 'libraries_to_link.dynamic_library_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'dynamic_library'
+          }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {
-          expand_if_all_available: 'libraries_to_link.versioned_dynamic_library_presence'
+          expand_if_equal: {
+            variable: 'libraries_to_link.type'
+            value: 'versioned_dynamic_library'
+          }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.no_whole_archive_presence'
+            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
           }
           flag_group {
-            expand_if_all_available: 'libraries_to_link.whole_archive_presence'
+            expand_if_true: 'libraries_to_link.is_whole_archive'
             flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }

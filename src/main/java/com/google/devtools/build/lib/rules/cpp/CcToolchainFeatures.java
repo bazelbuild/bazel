@@ -1072,19 +1072,7 @@ public class CcToolchainFeatures implements Serializable {
           return new StringValue(type.name);
         } else if (IS_WHOLE_ARCHIVE_FIELD_NAME.equals(field)) {
           return new IntegerValue(isWholeArchive ? 1 : 0);
-        } else if ("whole_archive_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return isWholeArchive ? new IntegerValue(0) : null;
-        } else if ("no_whole_archive_presence".equals(field)) {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          return !isWholeArchive ? new IntegerValue(0) : null;
         } else {
-          // TODO(b/33403458): Cleanup this workaround once bazel >=0.4.3 is released.
-          for (Type t : Type.values()) {
-            if ((t.name + "_presence").equals(field)) {
-              return type.equals(t) ? new IntegerValue(0) : null;
-            }
-          }
           return null;
         }
       }
