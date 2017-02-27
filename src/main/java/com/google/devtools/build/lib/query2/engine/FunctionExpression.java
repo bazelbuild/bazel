@@ -20,10 +20,9 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A query expression for user-defined query functions.
@@ -46,19 +45,9 @@ public class FunctionExpression extends QueryExpression {
   }
 
   @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
-    function.eval(env, context, this, args, callback);
-  }
-
-  @Override
-  protected <T> void parEvalImpl(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    function.parEval(env, context, this, args, callback, forkJoinPool);
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    return function.eval(env, context, this, args, callback);
   }
 
   @Override

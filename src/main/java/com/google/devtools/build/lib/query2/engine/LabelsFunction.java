@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * A label(attr_name, argument) expression, which computes the set of targets
@@ -52,16 +52,15 @@ class LabelsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       final QueryExpression expression,
       final List<Argument> args,
-      final Callback<T> callback)
-      throws QueryException, InterruptedException {
+      final Callback<T> callback) {
     final String attrName = args.get(0).getWord();
     final Uniquifier<T> uniquifier = env.createUniquifier();
-    env.eval(args.get(1).getExpression(), context, new Callback<T>() {
+    return env.eval(args.get(1).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         for (T input : partialResult) {
@@ -79,16 +78,5 @@ class LabelsFunction implements QueryFunction {
 
       }
     });
-  }
-
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
   }
 }

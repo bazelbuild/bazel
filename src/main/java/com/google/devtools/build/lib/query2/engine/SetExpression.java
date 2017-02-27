@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Joiner;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -46,12 +47,13 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
-  protected <T> void evalImpl(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
-          throws QueryException, InterruptedException {
+  public <T> QueryTaskFuture<Void> eval(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+    ArrayList<QueryTaskFuture<Void>> queryTasks = new ArrayList<>(words.size());
     for (TargetLiteral expr : words) {
-      env.eval(expr, context, callback);
+      queryTasks.add(env.eval(expr, context, callback));
     }
+    return env.whenAllSucceed(queryTasks);
   }
 
   @Override

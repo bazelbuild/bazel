@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageP
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -47,7 +46,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -131,7 +129,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
    * transitive dependencies. Its methods may throw {@link MissingDepException} if the package
    * values this depends on haven't been calculated and added to its environment.
    */
-  static class DepsOfPatternPreparer implements TargetPatternResolver<Void> {
+  static class DepsOfPatternPreparer extends TargetPatternResolver<Void> {
 
     private final EnvironmentBackedRecursivePackageProvider packageProvider;
     private final Environment env;
@@ -230,7 +228,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String directory,
         boolean rulesOnly,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<Void, E> callback, Class<E> exceptionClass)
+        BatchCallback<Void, E> callback,
+        Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
@@ -260,27 +259,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
       }
-    }
-
-    @Override
-    public <E extends Exception> void findTargetsBeneathDirectoryPar(
-        RepositoryName repository,
-        String originalPattern,
-        String directory,
-        boolean rulesOnly,
-        ImmutableSet<PathFragment> excludedSubdirectories,
-        ThreadSafeBatchCallback<Void, E> callback,
-        Class<E> exceptionClass,
-        ForkJoinPool forkJoinPool)
-        throws TargetParsingException, E, InterruptedException {
-      findTargetsBeneathDirectory(
-          repository,
-          originalPattern,
-          directory,
-          rulesOnly,
-          excludedSubdirectories,
-          callback,
-          exceptionClass);
     }
   }
 }

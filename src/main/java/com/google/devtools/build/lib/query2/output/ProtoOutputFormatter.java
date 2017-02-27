@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
@@ -50,7 +52,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Bu
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Type;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -130,9 +131,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public OutputFormatterCallback<Target> createStreamCallback(
+  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return createPostFactoStreamCallback(out, options);
+    return new SynchronizedDelegatingOutputFormatterCallback<>(
+        createPostFactoStreamCallback(out, options));
   }
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
