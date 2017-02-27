@@ -20,7 +20,7 @@ import com.google.devtools.build.benchmark.codegenerator.JavaCodeGenerator;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.FileSystems;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -56,7 +56,7 @@ final class BazelBuildCase implements BuildCase {
   private static final ImmutableList<BuildEnvConfig> BUILD_ENV_CONFIGS =
       ImmutableList.of(FULL_CLEAN_BUILD_CONFIG, INCREMENTAL_BUILD_CONFIG);
 
-  private static final FileSystem fileSystem = FileSystems.initDefaultAsJavaIo();
+  private static final FileSystem fileSystem = new JavaIoFileSystem();
 
   @Override
   public ImmutableList<BuildTargetConfig> getBuildTargetConfigs() {
