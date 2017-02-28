@@ -136,25 +136,31 @@ You can also add this command to your `~/.bashrc` file.
 
 Install Bazel on Mac OS X using one of the following methods:
 
-  * [Using Homebrew](#install-on-mac-os-x-homebrew)
-  * [Using binary installer](#install-with-installer-mac-os-x)
+  * [Install using Homebrew](#install-on-mac-os-x-homebrew)
+  * [Install with installer](#install-with-installer-mac-os-x)
   * [Compiling Bazel from source](#compiling-from-source)
 
 
-### <a name="install-on-mac-os-x-homebrew"></a>Using Homebrew
+### <a name="install-on-mac-os-x-homebrew"></a>Install using Homebrew
 
-#### 1. Install Homebrew on Mac OS X (one time setup)
+#### 1. Install JDK 8
+
+JDK 8 can be downloaded from
+[Oracle's JDK Page](http://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html).
+Look for "Mac OS X x64" under "Java SE Development Kit". This will download a
+DMG image with an install wizard.
+
+#### 2. Install Homebrew on Mac OS X (one time setup)
 
 `$ /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"`
 
-#### 2. Install Bazel Homebrew Package
+#### 3. Install Bazel Homebrew Package
 
 `$ brew install bazel`
 
-Once installed, you can upgrade to newer version of Bazel with:
+You are all set. You can confirm Bazel is installed successfully by running `bazel version`.
 
-`$ brew upgrade bazel`
-
+You can later upgrade to newer version of Bazel with `brew upgrade bazel`.
 
 ### <a name="install-with-installer-mac-os-x"></a>Install with installer
 
@@ -216,6 +222,7 @@ $ export PATH="$PATH:$HOME/bin"
 
 You can also add this command to your `~/.bashrc` file.
 
+You are all set. You can confirm Bazel is installed successfully by running `bazel version`.
 
 ## <a name="windows"></a>Windows
 
