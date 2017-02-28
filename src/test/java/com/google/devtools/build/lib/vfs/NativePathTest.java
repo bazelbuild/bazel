@@ -25,7 +25,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import java.io.File;
-import java.io.FileWriter;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -38,49 +38,47 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@link Path}.
- */
+/** Tests for {@link Path} in combination with the native file system for the current platform. */
 @RunWith(JUnit4.class)
-public class UnixPathTest {
+public class NativePathTest {
 
-  private FileSystem unixFs;
+  private FileSystem fs;
   private File aDirectory;
   private File aFile;
   private File anotherFile;
   private File tmpDir;
 
-  protected FileSystem getUnixFileSystem() {
+  protected FileSystem getNativeFileSystem() {
     return FileSystems.getNativeFileSystem();
   }
 
   @Before
   public final void createFiles() throws Exception  {
-    unixFs = getUnixFileSystem();
+    fs = getNativeFileSystem();
     tmpDir = new File(TestUtils.tmpDir(), "tmpDir");
     tmpDir.mkdirs();
     aDirectory = new File(tmpDir, "a_directory");
     aDirectory.mkdirs();
     aFile = new File(tmpDir, "a_file");
-    new FileWriter(aFile).close();
+    new FileOutputStream(aFile).close();
     anotherFile = new File(aDirectory, "another_file.txt");
-    new FileWriter(anotherFile).close();
+    new FileOutputStream(anotherFile).close();
   }
 
   @Test
   public void testExists() {
-    assertTrue(unixFs.getPath(aDirectory.getPath()).exists());
-    assertTrue(unixFs.getPath(aFile.getPath()).exists());
-    assertFalse(unixFs.getPath("/does/not/exist").exists());
+    assertTrue(fs.getPath(aDirectory.getPath()).exists());
+    assertTrue(fs.getPath(aFile.getPath()).exists());
+    assertFalse(fs.getPath("/does/not/exist").exists());
   }
 
   @Test
   public void testDirectoryEntriesForDirectory() throws IOException {
     Collection<Path> entries =
-        unixFs.getPath(tmpDir.getPath()).getDirectoryEntries();
+        fs.getPath(tmpDir.getPath()).getDirectoryEntries();
     List<Path> expectedEntries = Arrays.asList(
-      unixFs.getPath(tmpDir.getPath() + "/a_file"),
-      unixFs.getPath(tmpDir.getPath() + "/a_directory"));
+      fs.getPath(tmpDir.getPath() + "/a_file"),
+      fs.getPath(tmpDir.getPath() + "/a_directory"));
 
     assertEquals(new HashSet<Object>(expectedEntries),
         new HashSet<Object>(entries));
@@ -89,7 +87,7 @@ public class UnixPathTest {
   @Test
   public void testDirectoryEntriesForFileThrowsException() {
     try {
-      unixFs.getPath(aFile.getPath()).getDirectoryEntries();
+      fs.getPath(aFile.getPath()).getDirectoryEntries();
       fail("No exception thrown.");
     } catch (IOException x) {
       // The expected result.
@@ -98,42 +96,42 @@ public class UnixPathTest {
 
   @Test
   public void testIsFileIsTrueForFile() {
-    assertTrue(unixFs.getPath(aFile.getPath()).isFile());
+    assertTrue(fs.getPath(aFile.getPath()).isFile());
   }
 
   @Test
   public void testIsFileIsFalseForDirectory() {
-    assertFalse(unixFs.getPath(aDirectory.getPath()).isFile());
+    assertFalse(fs.getPath(aDirectory.getPath()).isFile());
   }
 
   @Test
   public void testBaseName() {
-    assertEquals("base", unixFs.getPath("/foo/base").getBaseName());
+    assertEquals("base", fs.getPath("/foo/base").getBaseName());
   }
 
   @Test
   public void testBaseNameRunsAfterDotDotInterpretation() {
-    assertEquals("base", unixFs.getPath("/base/foo/..").getBaseName());
+    assertEquals("base", fs.getPath("/base/foo/..").getBaseName());
   }
 
   @Test
   public void testParentOfRootIsRoot() {
-    assertEquals(unixFs.getPath("/"), unixFs.getPath("/.."));
-    assertEquals(unixFs.getPath("/"), unixFs.getPath("/../../../../../.."));
-    assertEquals(unixFs.getPath("/foo"), unixFs.getPath("/../../../foo"));
+    assertEquals(fs.getPath("/"), fs.getPath("/.."));
+    assertEquals(fs.getPath("/"), fs.getPath("/../../../../../.."));
+    assertEquals(fs.getPath("/foo"), fs.getPath("/../../../foo"));
   }
 
   @Test
   public void testIsDirectory() {
-    assertTrue(unixFs.getPath(aDirectory.getPath()).isDirectory());
-    assertFalse(unixFs.getPath(aFile.getPath()).isDirectory());
-    assertFalse(unixFs.getPath("/does/not/exist").isDirectory());
+    assertTrue(fs.getPath(aDirectory.getPath()).isDirectory());
+    assertFalse(fs.getPath(aFile.getPath()).isDirectory());
+    assertFalse(fs.getPath("/does/not/exist").isDirectory());
   }
 
   @Test
   public void testListNonExistingDirectoryThrowsException() {
     try {
-      unixFs.getPath("/does/not/exist").getDirectoryEntries();
+      fs.getPath("/does/not/exist").getDirectoryEntries();
       fail("No exception thrown.");
     } catch (IOException ex) {
       // success!
@@ -152,22 +150,22 @@ public class UnixPathTest {
 
   @Test
   public void testGlob() throws Exception {
-    Collection<Path> textFiles = UnixGlob.forPath(unixFs.getPath(tmpDir.getPath()))
+    Collection<Path> textFiles = UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
         .addPattern("*/*.txt")
         .globInterruptible();
     assertThat(textFiles).hasSize(1);
     Path onlyFile = textFiles.iterator().next();
-    assertEquals(unixFs.getPath(anotherFile.getPath()), onlyFile);
+    assertEquals(fs.getPath(anotherFile.getPath()), onlyFile);
 
     Collection<Path> onlyFiles =
-        UnixGlob.forPath(unixFs.getPath(tmpDir.getPath()))
+        UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
         .addPattern("*")
         .setExcludeDirectories(true)
         .globInterruptible();
     assertPathSet(onlyFiles, aFile.getPath());
 
     Collection<Path> directoriesToo =
-        UnixGlob.forPath(unixFs.getPath(tmpDir.getPath()))
+        UnixGlob.forPath(fs.getPath(tmpDir.getPath()))
         .addPattern("*")
         .setExcludeDirectories(false)
         .globInterruptible();
@@ -176,16 +174,16 @@ public class UnixPathTest {
 
   @Test
   public void testGetRelative() {
-    Path relative = unixFs.getPath("/foo").getChild("bar");
-    Path expected = unixFs.getPath("/foo/bar");
+    Path relative = fs.getPath("/foo").getChild("bar");
+    Path expected = fs.getPath("/foo/bar");
     assertEquals(expected, relative);
   }
 
   @Test
   public void testEqualsAndHash() {
-    Path path = unixFs.getPath("/foo/bar");
-    Path equalPath = unixFs.getPath("/foo/bar");
-    Path differentPath = unixFs.getPath("/foo/bar/baz");
+    Path path = fs.getPath("/foo/bar");
+    Path equalPath = fs.getPath("/foo/bar");
+    Path differentPath = fs.getPath("/foo/bar/baz");
     Object differentType = new Object();
 
     new EqualsTester().addEqualityGroup(path, equalPath).testEquals();
@@ -199,7 +197,7 @@ public class UnixPathTest {
     for (int i = 0; i < 256; i++) {
       allLatin1Chars[i] = (char) i;
     }
-    Path path = unixFs.getPath(aFile.getPath());
+    Path path = fs.getPath(aFile.getPath());
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
     String fileContent = new String(FileSystemUtils.readContentAsLatin1(path));
@@ -207,9 +205,9 @@ public class UnixPathTest {
   }
 
   /**
-   * Verify that the encoding implemented by
-   * {@link FileSystemUtils#writeContentAsLatin1(Path, String)}
-   * really is 8859-1 (latin1).
+   * Verify that the encoding implemented by {@link
+   * com.google.devtools.build.lib.vfs.FileSystemUtils#writeContentAsLatin1(Path, String)} really is
+   * 8859-1 (latin1).
    */
   @Test
   public void testVerifyLatin1() throws IOException {
@@ -217,7 +215,7 @@ public class UnixPathTest {
     for( int i = 0; i < 256; i++) {
       allLatin1Chars[i] = (char)i;
     }
-    Path path = unixFs.getPath(aFile.getPath());
+    Path path = fs.getPath(aFile.getPath());
     String latin1String = new String(allLatin1Chars);
     FileSystemUtils.writeContentAsLatin1(path, latin1String);
     byte[] bytes = FileSystemUtils.readContent(path);
@@ -228,7 +226,7 @@ public class UnixPathTest {
   public void testBytesReadAndWrite() throws IOException {
     byte[] bytes = new byte[] { (byte) 0xdeadbeef, (byte) 0xdeadbeef>>8,
                                 (byte) 0xdeadbeef>>16, (byte) 0xdeadbeef>>24 };
-    Path path = unixFs.getPath(aFile.getPath());
+    Path path = fs.getPath(aFile.getPath());
     FileSystemUtils.writeContent(path, bytes);
     byte[] content = FileSystemUtils.readContent(path);
     assertEquals(bytes.length, content.length);
@@ -239,7 +237,7 @@ public class UnixPathTest {
 
   @Test
   public void testInputOutputStreams() throws IOException {
-    Path path = unixFs.getPath(aFile.getPath());
+    Path path = fs.getPath(aFile.getPath());
     OutputStream out = path.getOutputStream();
     for (int i = 0; i < 256; i++) {
       out.write(i);
@@ -254,20 +252,8 @@ public class UnixPathTest {
   }
 
   @Test
-  public void testAbsolutePathRoot() {
-    assertEquals("/", new Path(null).toString());
-  }
-
-  @Test
-  public void testAbsolutePath() {
-    Path segment = new Path(null, "bar.txt",
-      new Path(null, "foo", new Path(null)));
-    assertEquals("/foo/bar.txt", segment.toString());
-  }
-
-  @Test
   public void testDerivedSegmentEquality() {
-    Path absoluteSegment = unixFs.getRootDirectory();
+    Path absoluteSegment = fs.getRootDirectory();
 
     Path derivedNode = absoluteSegment.getChild("derivedSegment");
     Path otherDerivedNode = absoluteSegment.getChild("derivedSegment");

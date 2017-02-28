@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;

@@ -16,16 +16,15 @@ package com.google.devtools.build.lib.vfs.util;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnionFileSystem;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 import com.google.devtools.build.lib.vfs.ZipFileSystem;
-
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import java.io.IOException;
 import java.util.Map;
 
@@ -58,7 +57,8 @@ public final class FileSystems {
       if (defaultNativeFileSystem == null) {
         try {
           defaultNativeFileSystem = (FileSystem)
-              Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM).newInstance();
+              Class.forName(TestConstants.TEST_REAL_UNIX_FILE_SYSTEM)
+                  .getDeclaredConstructor().newInstance();
         } catch (Exception e) {
           throw new IllegalStateException(e);
         }

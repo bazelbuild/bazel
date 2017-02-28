@@ -6,16 +6,17 @@ package(
 CROSS_PLATFORM_WINDOWS_TESTS = [
     "util/DependencySetWindowsTest.java",
     "vfs/PathFragmentWindowsTest.java",
-    "vfs/PathWindowsTest.java",
+    "windows/PathWindowsTest.java",
 ]
 
 # Tests for Windows-specific functionality that run on Windows.
 WINDOWS_ON_WINDOWS_TESTS = glob(
     ["windows/*.java"],
-    exclude = ["windows/MockSubprocess.java"],
-) + [
-    "vfs/WindowsFileSystemTest.java",
-]
+    exclude = [
+        "windows/MockSubprocess.java",
+        "windows/PathWindowsTest.java",
+    ],
+)
 
 # All Windows-specific tests. Use this to exclude Windows tests from globs.
 ALL_WINDOWS_TESTS = CROSS_PLATFORM_WINDOWS_TESTS + WINDOWS_ON_WINDOWS_TESTS
@@ -98,8 +99,10 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:io",
         "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib:unix",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -191,6 +194,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:guava-testlib",
@@ -206,6 +210,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -220,13 +225,19 @@ java_test(
     data = [
         ":MockSubprocess_deploy.jar",
     ] + JNI_LIB,
+    jvm_flags = [
+        "-Dbazel.windows_unix_root=C:/fake/msys",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":test_runner",
         ":testutil",
         ":windows_testutil",
+        "//src/main/java/com/google/devtools/build/lib:clock",
+        "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:os_util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib:windows",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

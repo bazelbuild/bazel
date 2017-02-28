@@ -25,12 +25,6 @@ import com.google.common.testing.EqualsTester;
 import com.google.common.testing.GcFinalization;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
@@ -38,6 +32,10 @@ import java.io.ObjectOutputStream;
 import java.lang.ref.WeakReference;
 import java.util.Collections;
 import java.util.List;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * A test for {@link Path}.
@@ -302,6 +300,18 @@ public class PathTest {
     } finally {
       Path.setFileSystemForSerialization(oldFileSystem);
     }
+  }
+
+  @Test
+  public void testAbsolutePathRoot() {
+    assertEquals("/", new Path(null).toString());
+  }
+
+  @Test
+  public void testAbsolutePath() {
+    Path segment = new Path(null, "bar.txt",
+      new Path(null, "foo", new Path(null)));
+    assertEquals("/foo/bar.txt", segment.toString());
   }
 
   private void assertAsFragmentWorks(String expected) {

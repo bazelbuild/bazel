@@ -11,24 +11,24 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.unix;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.unix.NativePosixFiles;
-
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
-/**
- * Tests for the {@link UnixFileSystem} class.
- */
+/** Tests for the {@link com.google.devtools.build.lib.unix.UnixFileSystem} class. */
 @RunWith(JUnit4.class)
 public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
 

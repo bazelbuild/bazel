@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
+import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
@@ -63,16 +64,15 @@ import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.UnixFileSystem;
-import com.google.devtools.build.lib.vfs.WindowsFileSystem;
+import com.google.devtools.build.lib.windows.WindowsFileSystem;
 import com.google.devtools.build.lib.windows.WindowsSubprocessFactory;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionPriority;
@@ -934,7 +934,7 @@ public final class BlazeRuntime {
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
 
-    OsUtils.maybeForceJNI(installBase);  // Must be before first use of JNI.
+    maybeForceJNI(installBase);  // Must be before first use of JNI.
 
     // From the point of view of the Java program --install_base and --output_base
     // are mandatory options, despite the comment in their declarations.
@@ -1016,6 +1016,32 @@ public final class BlazeRuntime {
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     return runtime;
+  }
+
+  /**
+   * Loads JNI libraries, if necessary under the current platform.
+   */
+  public static void maybeForceJNI(PathFragment installBase) {
+    if (jniLibsAvailable()) {
+      forceJNI(installBase);
+    }
+  }
+
+  private static boolean jniLibsAvailable() {
+    return !"0".equals(System.getProperty("io.bazel.EnableJni"));
+  }
+
+  // Force JNI linking at a moment when we have 'installBase' handy, and print
+  // an informative error if it fails.
+  private static void forceJNI(PathFragment installBase) {
+    try {
+      ProcessUtils.getpid(); // force JNI initialization
+    } catch (UnsatisfiedLinkError t) {
+      System.err.println("JNI initialization failed: " + t.getMessage() + ".  "
+          + "Possibly your installation has been corrupted; "
+          + "if this problem persists, try 'rm -fr " + installBase + "'.");
+      throw t;
+    }
   }
 
   /**

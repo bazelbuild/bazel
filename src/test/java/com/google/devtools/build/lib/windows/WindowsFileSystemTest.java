@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.windows.WindowsFileSystem.SHORT_NAME_MATCHER;
 import static org.junit.Assert.assertSame;
 
 import com.google.common.base.Function;
@@ -24,7 +25,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Symlinks;
+import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
 import com.google.devtools.build.lib.windows.util.WindowsTestUtil;
 import java.io.File;
 import java.io.IOException;
@@ -65,6 +69,48 @@ public class WindowsFileSystemTest {
   }
 
   @Test
+  public void testShortNameMatcher() {
+    assertThat(SHORT_NAME_MATCHER.apply("abc")).isFalse(); // no ~ in the name
+    assertThat(SHORT_NAME_MATCHER.apply("abc~")).isFalse(); // no number after the ~
+    assertThat(SHORT_NAME_MATCHER.apply("~abc")).isFalse(); // no ~ followed by number
+    assertThat(SHORT_NAME_MATCHER.apply("too_long_path")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("too_long_path~1")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("abcd~1234")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("h~1")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("h~12")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("h~12.")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("h~12.a")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("h~12.abc")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("h~123456")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~1")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.a")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.abc")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hello~1.abcd")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.abcd")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hello~12")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hello~12.")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hello~12.a")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hello~12.abc")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("hello~12.abcd")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~12")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.a")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.ab")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("~h~1")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~1.")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~1.a")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~1.abc")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~1.abcd")).isFalse(); // too long for 8dot3
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.a")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.abc")).isTrue();
+    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.abcd")).isFalse(); // too long for 8dot3
+  }
+
+  @Test
   public void testCanWorkWithJunctionSymlinks() throws Exception {
     testUtil.scratchFile("dir\\hello.txt", "hello");
     testUtil.scratchDir("non_existent");
@@ -76,26 +122,26 @@ public class WindowsFileSystemTest {
     Path nonExistentPath = testUtil.createVfsPath(fs, "non_existent");
 
     // Test junction creation.
-    assertThat(fs.exists(juncPath, /* followSymlinks */ false)).isTrue();
-    assertThat(fs.exists(dirPath, /* followSymlinks */ false)).isTrue();
-    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isTrue();
-    assertThat(fs.exists(nonExistentPath, /* followSymlinks */ false)).isTrue();
+    assertThat(juncPath.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(dirPath.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(juncBadPath.exists(Symlinks.NOFOLLOW)).isTrue();
+    assertThat(nonExistentPath.exists(Symlinks.NOFOLLOW)).isTrue();
 
     // Test recognizing and dereferencing a directory junction.
-    assertThat(fs.isSymbolicLink(juncPath)).isTrue();
-    assertThat(fs.isDirectory(juncPath, /* followSymlinks */ true)).isTrue();
-    assertThat(fs.isDirectory(juncPath, /* followSymlinks */ false)).isFalse();
-    assertThat(fs.getDirectoryEntries(juncPath))
+    assertThat(juncPath.isSymbolicLink()).isTrue();
+    assertThat(juncPath.isDirectory(Symlinks.FOLLOW)).isTrue();
+    assertThat(juncPath.isDirectory(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(juncPath.getDirectoryEntries())
         .containsExactly(testUtil.createVfsPath(fs, "junc\\hello.txt"));
 
     // Test deleting a directory junction.
-    assertThat(fs.delete(juncPath)).isTrue();
-    assertThat(fs.exists(juncPath, /* followSymlinks */ false)).isFalse();
+    assertThat(juncPath.delete()).isTrue();
+    assertThat(juncPath.exists(Symlinks.NOFOLLOW)).isFalse();
 
     // Test recognizing a dangling directory junction.
-    assertThat(fs.delete(nonExistentPath)).isTrue();
-    assertThat(fs.exists(nonExistentPath, /* followSymlinks */ false)).isFalse();
-    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isTrue();
+    assertThat(nonExistentPath.delete()).isTrue();
+    assertThat(nonExistentPath.exists(Symlinks.NOFOLLOW)).isFalse();
+    assertThat(juncBadPath.exists(Symlinks.NOFOLLOW)).isTrue();
     // TODO(bazel-team): fix https://github.com/bazelbuild/bazel/issues/1690 and uncomment the
     // assertion below.
     //assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
@@ -103,8 +149,8 @@ public class WindowsFileSystemTest {
     assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ false)).isFalse();
 
     // Test deleting a dangling junction.
-    assertThat(fs.delete(juncBadPath)).isTrue();
-    assertThat(fs.exists(juncBadPath, /* followSymlinks */ false)).isFalse();
+    assertThat(juncBadPath.delete()).isTrue();
+    assertThat(juncBadPath.exists(Symlinks.NOFOLLOW)).isFalse();
   }
 
   @Test
@@ -254,7 +300,7 @@ public class WindowsFileSystemTest {
     String longPrefix = "unresolvable.shortpath/foo/";
     String longPath = longPrefix + "will.exist/bar/hello.txt";
     testUtil.scratchDir(longPrefix);
-    final Path foo = fs.getPath(scratchRoot).getRelative(longPrefix);
+    final WindowsPath foo = (WindowsPath) fs.getPath(scratchRoot).getRelative(longPrefix);
 
     // Assert that we can create an unresolvable path.
     Path p = fs.getPath(scratchRoot).getRelative(shortPath);

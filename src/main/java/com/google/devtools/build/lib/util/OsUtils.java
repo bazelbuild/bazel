@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.devtools.build.lib.vfs.PathFragment;
-
 /**
  * Operating system-specific utilities.
  */
@@ -33,41 +31,5 @@ public final class OsUtils {
    */
   public static String executableExtension() {
     return EXECUTABLE_EXTENSION;
-  }
-
-  /**
-   * Loads JNI libraries, if necessary under the current platform.
-   */
-  public static void maybeForceJNI(PathFragment installBase) {
-    if (jniLibsAvailable()) {
-      forceJNI(installBase);
-    }
-  }
-
-  private static boolean jniLibsAvailable() {
-    return !"0".equals(System.getProperty("io.bazel.EnableJni"));
-  }
-
-  // Force JNI linking at a moment when we have 'installBase' handy, and print
-  // an informative error if it fails.
-  private static void forceJNI(PathFragment installBase) {
-    try {
-      ProcessUtils.getpid(); // force JNI initialization
-    } catch (UnsatisfiedLinkError t) {
-      System.err.println("JNI initialization failed: " + t.getMessage() + ".  "
-          + "Possibly your installation has been corrupted; "
-          + "if this problem persists, try 'rm -fr " + installBase + "'.");
-      throw t;
-    }
-  }
-
-  /**
-   * Returns the PID of the current process, or -1 if not available.
-   */
-  public static int getpid() {
-    if (jniLibsAvailable()) {
-      return ProcessUtils.getpid();
-    }
-    return -1;
   }
 }

@@ -11,16 +11,19 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.windows;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
-import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
-import com.google.devtools.build.lib.windows.WindowsFileOperations;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -200,7 +203,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
   }
 
-  private static final class WindowsPath extends Path {
+  /** A windows-specific subclass of Path. */
+  @VisibleForTesting
+  protected static final class WindowsPath extends Path {
 
     // The drive letter is '\0' if and only if this Path is the filesystem root "/".
     private char driveLetter;
@@ -223,8 +228,9 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         if (isTopLevelDirectory()) {
           result.append(driveLetter).append(':').append(PathFragment.SEPARATOR_CHAR);
         } else {
-          getParentDirectory().buildPathString(result);
-          if (!getParentDirectory().isTopLevelDirectory()) {
+          WindowsPath parent = (WindowsPath) getParentDirectory();
+          parent.buildPathString(result);
+          if (!parent.isTopLevelDirectory()) {
             result.append(PathFragment.SEPARATOR_CHAR);
           }
           result.append(getBaseName());
@@ -260,7 +266,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         segments = Arrays.copyOfRange(segments, 1, segments.length);
       }
 
-      return new PathFragment(driveLetter, true, segments);
+      return PathFragment.create(driveLetter, true, segments);
     }
 
     @Override
@@ -294,6 +300,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
           return parent.driveLetter;
         }
       }
+    }
+
+    @VisibleForTesting
+    @Override
+    protected void applyToChildren(Predicate<Path> function) {
+      super.applyToChildren(function);
     }
   }
 

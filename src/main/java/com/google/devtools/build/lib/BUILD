@@ -73,9 +73,32 @@ java_library(
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     deps = [
+        ":concurrent",
         ":os_util",
+        ":preconditions",
         ":shell",
+        ":vfs",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "windows",
+    srcs = glob([
+        "windows/*.java",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":base-util",
+        ":clock",
+        ":concurrent",
+        ":os_util",
+        ":preconditions",
+        ":shell",
+        ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -126,7 +149,6 @@ java_library(
     srcs = glob([
         "profiler/*.java",
         "vfs/*.java",
-        "windows/*.java",
     ]),
     visibility = ["//visibility:public"],
     deps = [
@@ -136,7 +158,6 @@ java_library(
         ":os_util",
         ":preconditions",
         ":shell",
-        ":unix",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -238,6 +259,17 @@ java_library(
 )
 
 java_library(
+    name = "process_util",
+    srcs = ["util/ProcessUtils.java"],
+    deps = [
+        ":concurrent",
+        ":os_util",
+        ":unix",
+        ":windows",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
@@ -248,6 +280,7 @@ java_library(
             "util/JavaClock.java",
             "util/OS.java",
             "util/Preconditions.java",
+            "util/ProcessUtils.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
             "util/VarInt.java",
@@ -1020,12 +1053,14 @@ java_library(
         ":flags",
         ":io",
         ":packages-internal",
+        ":process_util",
         ":profiler-output",
         ":shared-base-rules",
         ":shell",
         ":unix",
         ":util",
         ":vfs",
+        ":windows",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",

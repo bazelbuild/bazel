@@ -11,18 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.vfs;
+package com.google.devtools.build.lib.windows;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.vfs.WindowsFileSystem.SHORT_NAME_MATCHER;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,7 +54,7 @@ public class PathWindowsTest {
   }
 
   private FileSystem filesystem;
-  private Path root;
+  private WindowsPath root;
   private final MockShortPathResolver shortPathResolver = new MockShortPathResolver();
 
   @Before
@@ -63,7 +66,7 @@ public class PathWindowsTest {
             return WindowsFileSystem.getPathFactoryForTesting(shortPathResolver);
           }
         };
-    root = filesystem.getRootDirectory().getRelative("C:/");
+    root = (WindowsPath) filesystem.getRootDirectory().getRelative("C:/");
     root.createDirectory();
   }
 
@@ -163,7 +166,7 @@ public class PathWindowsTest {
   public void testChildRegistrationWithTranslatedPaths() {
     // Ensure the Path to "/usr" (actually "C:/fake/msys/usr") is created, path parents/children
     // properly registered.
-    Path usrPath = root.getRelative("/usr");
+    WindowsPath usrPath = (WindowsPath) root.getRelative("/usr");
     root.getRelative("dummy_path");
 
     // Assert that "usr" is not registered as a child of "/".
@@ -180,7 +183,7 @@ public class PathWindowsTest {
 
     // Assert that "usr" is registered as a child of "C:/fake/msys/".
     children.clear();
-    root.getRelative("C:/fake/msys")
+    ((WindowsPath) root.getRelative("C:/fake/msys"))
         .applyToChildren(
             new Predicate<Path>() {
               @Override
@@ -192,48 +195,6 @@ public class PathWindowsTest {
     assertThat(children).containsExactly("C:/fake/msys/usr");
 
     assertThat(usrPath).isEqualTo(root.getRelative("C:/fake/msys/usr"));
-  }
-
-  @Test
-  public void testShortNameMatcher() {
-    assertThat(SHORT_NAME_MATCHER.apply("abc")).isFalse(); // no ~ in the name
-    assertThat(SHORT_NAME_MATCHER.apply("abc~")).isFalse(); // no number after the ~
-    assertThat(SHORT_NAME_MATCHER.apply("~abc")).isFalse(); // no ~ followed by number
-    assertThat(SHORT_NAME_MATCHER.apply("too_long_path")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("too_long_path~1")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("abcd~1234")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("h~1")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("h~12")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("h~12.")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("h~12.a")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("h~12.abc")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("h~123456")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~1")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.a")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.abc")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hello~1.abcd")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~1.abcd")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hello~12")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hello~12.")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hello~12.a")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hello~12.abc")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("hello~12.abcd")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~12")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.a")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("hellow~12.ab")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("~h~1")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~1.")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~1.a")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~1.abc")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~1.abcd")).isFalse(); // too long for 8dot3
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.a")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.abc")).isTrue();
-    assertThat(SHORT_NAME_MATCHER.apply("~h~12~1.abcd")).isFalse(); // too long for 8dot3
   }
 
   @Test
@@ -279,7 +240,7 @@ public class PathWindowsTest {
           }
         };
 
-    Path msRoot = root.getRelative("d:/progra~1/micros~1");
+    WindowsPath msRoot = (WindowsPath) root.getRelative("d:/progra~1/micros~1");
     assertThat(msRoot.getPathString()).isEqualTo("D:/program files/microsoft something");
     msRoot.applyToChildren(collector);
     // The path string has an upper-case drive letter because that's how path printing works.
@@ -287,7 +248,8 @@ public class PathWindowsTest {
 
     // Assert that the non-resolvable path was not cached.
     children.clear();
-    msRoot.getRelative("foo").applyToChildren(collector);
+    WindowsPath foo = (WindowsPath) msRoot.getRelative("foo");
+    foo.applyToChildren(collector);
     assertThat(children).containsExactly("D:/program files/microsoft something/foo/~bar_hello");
 
     // Pretend that a path we already failed to resolve once came into existence.
@@ -309,10 +271,10 @@ public class PathWindowsTest {
 
     // Assert that this time we cached the previously non-existent path.
     children.clear();
-    msRoot.getRelative("foo").applyToChildren(collector);
+    foo.applyToChildren(collector);
     // The path strings have upper-case drive letters because that's how path printing works.
     children.clear();
-    msRoot.getRelative("foo").applyToChildren(collector);
+    foo.applyToChildren(collector);
     assertThat(children)
         .containsExactly(
             "D:/program files/microsoft something/foo/~bar_hello",

@@ -976,11 +976,6 @@ public class FileSystemUtils {
    * <p>Its results are unspecified and MUST NOT be interpreted programmatically.
    */
   public static void dump(FileSystem fs, final PrintStream out) {
-    if (!(fs instanceof UnixFileSystem)) {
-      out.println("  Not a UnixFileSystem.");
-      return;
-    }
-
     // Unfortunately there's no "letrec" for anonymous functions so we have to
     // (a) name the function, (b) put it in a box and (c) use List not array
     // because of the generic type.  *sigh*.

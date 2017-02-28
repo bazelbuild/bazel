@@ -18,28 +18,26 @@ import static org.junit.Assert.assertNull;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
-
+import java.io.IOException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.io.IOException;
-
 /**
- * A test for {@link Path} in the context of {@link UnixFileSystem}.
+ * A test for {@link Path}.
  */
 @RunWith(JUnit4.class)
-public class UnixPathGetParentTest {
+public class PathGetParentTest {
 
-  private FileSystem unixFs;
+  private FileSystem fs;
   private Path testRoot;
 
   @Before
   public final void createTestRoot() throws Exception  {
-    unixFs = FileSystems.getNativeFileSystem();
-    testRoot = unixFs.getPath(TestUtils.tmpDir()).getRelative("UnixPathGetParentTest");
+    fs = FileSystems.getNativeFileSystem();
+    testRoot = fs.getPath(TestUtils.tmpDir()).getRelative("UnixPathGetParentTest");
     FileSystemUtils.createDirectoryAndParents(testRoot);
   }
 
@@ -49,7 +47,7 @@ public class UnixPathGetParentTest {
   }
 
   private Path getParent(String path) {
-    return unixFs.getPath(path).getParentDirectory();
+    return fs.getPath(path).getParentDirectory();
   }
 
   @Test

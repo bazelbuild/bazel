@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.RuleDefinition
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.ByteArrayOutputStream;
@@ -334,7 +334,7 @@ public abstract class InfoItem {
     @Override
     public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env)
         throws AbruptExitException {
-      return print(OsUtils.getpid());
+      return print(ProcessUtils.getpid());
     }
   }
 
