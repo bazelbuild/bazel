@@ -51,14 +51,19 @@ public class NdkRelease {
     }
     String revision = properties.getProperty(REVISION_PROPERTY);
     String[] revisionParsed = revision.split("\\.");
-    return new NdkRelease(
-        revision, // raw revision
-        true, // isValid
-        revisionParsed[0], // major revision
-        revisionParsed[1], // minor revision
-        null, // release candidate
-        true // is64 bit. 32-bit NDKs are provided for only windows.
-    );
+    if (revisionParsed.length < 2) {
+      // Unable to parse Pkg.Revision. Return invalid NdkRelease.
+      return new NdkRelease(revision, false, null, null, null, false);
+    } else {
+      return new NdkRelease(
+          revision, // raw revision
+          true, // isValid
+          revisionParsed[0], // major revision
+          revisionParsed[1], // minor revision
+          null, // release candidate
+          true // is64 bit. 32-bit NDKs are provided for only windows.
+      );
+    }
   }
 
   /**
