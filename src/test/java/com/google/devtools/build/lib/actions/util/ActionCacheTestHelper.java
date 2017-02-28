@@ -14,9 +14,7 @@
 package com.google.devtools.build.lib.actions.util;
 
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import java.io.PrintStream;
-import java.util.Map;
 
 /**
  * Utilities for tests that use the action cache.
@@ -45,10 +43,5 @@ public class ActionCacheTestHelper {
 
         @Override
         public void dump(PrintStream out) {}
-
-        @Override
-        public Entry newEntry(String key, Map<String, String> env, boolean discoversInputs) {
-          return new Entry(key, env, discoversInputs);
-        }
       };
 }

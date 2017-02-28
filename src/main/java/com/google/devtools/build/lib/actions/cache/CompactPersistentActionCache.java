@@ -338,11 +338,6 @@ public class CompactPersistentActionCache implements ActionCache {
     }
   }
 
-  @Override
-  public Entry newEntry(String key, Map<String, String> usedClientEnv, boolean discoversInputs) {
-    return new Entry(key, usedClientEnv, discoversInputs);
-  }
-
   /**
    * @return action data encoded as a byte[] array.
    */

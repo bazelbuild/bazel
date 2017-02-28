@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,15 +53,42 @@ public class ActionCacheChecker {
   private final ActionCache actionCache;
   private final Predicate<? super Action> executionFilter;
   private final ArtifactResolver artifactResolver;
-  // True iff --verbose_explanations flag is set.
-  private final boolean verboseExplanations;
+  private final CacheConfig cacheConfig;
 
-  public ActionCacheChecker(ActionCache actionCache, ArtifactResolver artifactResolver,
-      Predicate<? super Action> executionFilter, boolean verboseExplanations) {
+  /** Cache config parameters for ActionCacheChecker. */
+  @AutoValue
+  public abstract static class CacheConfig {
+    abstract boolean enabled();
+    // True iff --verbose_explanations flag is set.
+    abstract boolean verboseExplanations();
+
+    public static Builder builder() {
+      return new AutoValue_ActionCacheChecker_CacheConfig.Builder();
+    }
+
+    /** Builder for ActionCacheChecker.CacheConfig. */
+    @AutoValue.Builder
+    public abstract static class Builder {
+      public abstract Builder setVerboseExplanations(boolean value);
+
+      public abstract Builder setEnabled(boolean value);
+
+      public abstract CacheConfig build();
+    }
+  }
+
+  public ActionCacheChecker(
+      ActionCache actionCache,
+      ArtifactResolver artifactResolver,
+      Predicate<? super Action> executionFilter,
+      @Nullable CacheConfig cacheConfig) {
     this.actionCache = actionCache;
     this.executionFilter = executionFilter;
     this.artifactResolver = artifactResolver;
-    this.verboseExplanations = verboseExplanations;
+    this.cacheConfig =
+        cacheConfig != null
+            ? cacheConfig
+            : CacheConfig.builder().setEnabled(true).setVerboseExplanations(false).build();
   }
 
   public boolean isActionExecutionProhibited(Action action) {
@@ -72,6 +100,9 @@ public class ActionCacheChecker {
    * If yes, returns it - otherwise uses first output file as a key
    */
   private ActionCache.Entry getCacheEntry(Action action) {
+    if (!cacheConfig.enabled()) {
+      return null; // ignore existing cache when disabled.
+    }
     for (Artifact output : action.getOutputs()) {
       ActionCache.Entry entry = actionCache.get(output.getExecPathString());
       if (entry != null) {
@@ -114,7 +145,7 @@ public class ActionCacheChecker {
 
   private void reportCommand(EventHandler handler, Action action) {
     if (handler != null) {
-      if (verboseExplanations) {
+      if (cacheConfig.verboseExplanations()) {
         String keyDescription = action.describeKey();
         reportRebuild(handler, action, keyDescription == null
             ? "action command has changed"
@@ -128,7 +159,7 @@ public class ActionCacheChecker {
 
   private void reportClientEnv(EventHandler handler, Action action, Map<String, String> used) {
     if (handler != null) {
-      if (verboseExplanations) {
+      if (cacheConfig.verboseExplanations()) {
         StringBuilder message = new StringBuilder();
         message.append("Effective client environment has changed. Now using\n");
         for (Map.Entry<String, String> entry : used.entrySet()) {
@@ -193,6 +224,9 @@ public class ActionCacheChecker {
         checkMiddlemanAction(action, handler, metadataHandler);
       }
       return null;
+    }
+    if (!cacheConfig.enabled()) {
+      return new Token(getKeyString(action));
     }
     Iterable<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
@@ -259,6 +293,10 @@ public class ActionCacheChecker {
   public void afterExecution(
       Action action, Token token, MetadataHandler metadataHandler, Map<String, String> clientEnv)
       throws IOException {
+    if (!cacheConfig.enabled()) {
+      // Action cache is disabled, don't generate digests.
+      return;
+    }
     Preconditions.checkArgument(token != null);
     String key = token.cacheKey;
     if (actionCache.get(key) != null) {
@@ -267,11 +305,7 @@ public class ActionCacheChecker {
     }
     Map<String, String> usedClientEnv = computeUsedClientEnv(action, clientEnv);
     ActionCache.Entry entry =
-        actionCache.newEntry(action.getKey(), usedClientEnv, action.discoversInputs());
-    if (entry == null) {
-      // Action cache is disabled, don't generate digests.
-      return;
-    }
+        new ActionCache.Entry(action.getKey(), usedClientEnv, action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -370,6 +404,10 @@ public class ActionCacheChecker {
    */
   protected void checkMiddlemanAction(Action action, EventHandler handler,
       MetadataHandler metadataHandler) {
+    if (!cacheConfig.enabled()) {
+      // Action cache is disabled, don't generate digests.
+      return;
+    }
     Artifact middleman = action.getPrimaryOutput();
     String cacheKey = middleman.getExecPathString();
     ActionCache.Entry entry = actionCache.get(cacheKey);
@@ -390,17 +428,10 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      entry = actionCache.newEntry("", ImmutableMap.<String, String>of(), false);
-      if (entry != null) {
-        for (Artifact input : action.getInputs()) {
-          entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));
-        }
+      entry = new ActionCache.Entry("", ImmutableMap.<String, String>of(), false);
+      for (Artifact input : action.getInputs()) {
+        entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));
       }
-    }
-
-    // Action cache is disabled, skip the digest.
-    if (entry == null) {
-      return;
     }
 
     metadataHandler.setDigestForVirtualArtifact(middleman, entry.getFileDigest());

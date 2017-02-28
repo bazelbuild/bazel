@@ -650,7 +650,6 @@ public class ExecutionTool {
       SkyframeExecutor skyframeExecutor,
       ModifiedFileSet modifiedOutputFiles) {
     BuildRequest.BuildRequestOptions options = request.getBuildOptions();
-    boolean verboseExplanations = options.verboseExplanations;
     boolean keepGoing = request.getViewOptions().keepGoing;
 
     Path actionOutputRoot = env.getDirectories().getActionConsoleOutputDirectory();
@@ -663,12 +662,24 @@ public class ExecutionTool {
 
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
     ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
-    return new SkyframeBuilder(skyframeExecutor,
-        new ActionCacheChecker(actionCache, artifactFactory, executionFilter, verboseExplanations),
-        keepGoing, actualJobs,
+    return new SkyframeBuilder(
+        skyframeExecutor,
+        new ActionCacheChecker(
+            actionCache,
+            artifactFactory,
+            executionFilter,
+            ActionCacheChecker.CacheConfig.builder()
+                .setEnabled(options.useActionCache)
+                .setVerboseExplanations(options.verboseExplanations)
+                .build()),
+        keepGoing,
+        actualJobs,
         request.getPackageCacheOptions().checkOutputFiles
-            ? modifiedOutputFiles : ModifiedFileSet.NOTHING_MODIFIED,
-        options.finalizeActions, fileCache, request.getBuildOptions().progressReportInterval);
+            ? modifiedOutputFiles
+            : ModifiedFileSet.NOTHING_MODIFIED,
+        options.finalizeActions,
+        fileCache,
+        request.getBuildOptions().progressReportInterval);
   }
 
   private void configureResourceManager(BuildRequest request) {

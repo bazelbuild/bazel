@@ -21,7 +21,6 @@ import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
-import com.google.devtools.build.lib.actions.cache.StubActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -220,16 +219,6 @@ public final class BlazeWorkspace {
    */
   public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      boolean useActionCache =
-          runtime
-              .getStartupOptionsProvider()
-              .getOptions(BlazeServerStartupOptions.class)
-              .useActionCache;
-      if (!useActionCache) {
-        reporter.handle(Event.info("Action cache disabled"));
-        actionCache = new StubActionCache();
-        return actionCache;
-      }
       try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, LOG)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());

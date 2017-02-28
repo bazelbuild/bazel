@@ -59,13 +59,6 @@ public interface ActionCache {
   void remove(String key);
 
   /**
-   * Constructs an {@code Entry}.
-   * @return new {@code Entry} or null if the cache is disabled.
-   */
-  @Nullable
-  Entry newEntry(String key, Map<String, String> usedClientEnv, boolean discoversInputs);
-
-  /**
    * An entry in the ActionCache that contains all action input and output
    * artifact paths and their metadata plus action key itself.
    *

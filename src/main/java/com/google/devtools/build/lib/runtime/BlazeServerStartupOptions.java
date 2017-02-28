@@ -298,12 +298,4 @@ public class BlazeServerStartupOptions extends OptionsBase {
             + "Please do not use this flag."
   )
   public boolean useCustomExitCodeOnAbruptExit;
-
-  @Option(
-    name = "use_action_cache",
-    defaultValue = "true",
-    category = "server startup",
-    help = "Whether to use the action cache"
-  )
-  public boolean useActionCache;
 }
