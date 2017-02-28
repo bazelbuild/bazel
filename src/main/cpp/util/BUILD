@@ -1,5 +1,11 @@
 # Description:
 #   C++ utility source for Bazel
+package_group(
+    name = "ijar",
+    packages = [
+        "//third_party/ijar/...",
+    ],
+)
 
 cc_library(
     name = "util",
@@ -41,6 +47,7 @@ cc_library(
         "file_platform.h",
     ],
     visibility = [
+        ":ijar",
         "//src/test/cpp/util:__pkg__",
         "//src/tools/singlejar:__pkg__",
     ],
@@ -63,7 +70,10 @@ cc_library(
         "//conditions:default": ["errors_posix.cc"],
     }),
     hdrs = ["errors.h"],
-    visibility = ["//src/main/cpp:__subpackages__"],
+    visibility = [
+        ":ijar",
+        "//src/main/cpp:__subpackages__",
+    ],
     deps = [":port"],
 )
 
