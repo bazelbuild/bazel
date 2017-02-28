@@ -146,8 +146,51 @@ trigger a rebuild when it changes.
 *Open question: Should the whitelist of environment variables be configurable,
 e.g. in the WORKSPACE file?*
 
-### Known issues in this area of work
+### What files does a sandboxed process have access to?
 
-[Bazel #577: genrules leaking PATH into environment]
-(https://github.com/bazelbuild/bazel/issues/577)
+Ideally, we would want to execute SpawnActions in an environment that looks like this:
 
+ * Allows read access to everything in /.
+   * Except the workspace (e.g. /home/philwo/src/bazel).
+   * Except the "real" execroot (e.g. /tmp/_bazel_philwo/6d3feea2bf88e88127079b36d7ddade1/execroot).
+   * Except a user-configurable set of blacklisted files or directories (e.g. /var/secret).
+
+ * Has a separate execroot just for this action: /tmp/_bazel_philwo/6d3feea2bf88e88127079b36d7ddade1/execroot-1
+   * which only contains the input files listed for the action.
+   * to which the output files will be written.
+   * from which the output files will be moved to the real execroot after successful execution.
+
+ * Processes can write wherever they naturally have permission to do so.
+   * However, writes have no influence on the host system, instead they are redirected into a separate folder (see: overlayfs's upperdir).
+
+#### Open issues
+
+ * We don't know a way to hide the workspace, while still making selected input files out of it available inside the new execroot. Ideas we tried:
+   * copying: Works, but too slow.
+   * hard-linking: Does not work when workspace and output_base are on different filesystems.
+   * bind mounting them: Works only on Linux, does not scale (the mount syscall becomes really slow once you're at >20000 active mounts).
+   * building a custom FUSE filesystem: Might work, but lots of effort.
+
+ * How to hide files from the sandboxed process?
+   * There seems to be no good way to "hide" files on Linux or macOS.
+   * The best we can do on both systems is to make them unreadable.
+
+ * overlayfs is not usable for our purposes, because it requires root on all systems except Ubuntu.
+
+#### What can we do today?
+
+This is what Bazel is doing for sandboxing at the moment:
+
+ * Allows read access to everything in /.
+   * Except a [user-configurable](https://github.com/bazelbuild/bazel/blob/0f119a4db515105217244e4db5d4fed9371ef1a4/src/main/java/com/google/devtools/build/lib/sandbox/SandboxOptions.java#L96) set of blacklisted files or directories (e.g. /var/secret).
+
+ * Has a separate execroot just for this action: /tmp/_bazel_philwo/6d3feea2bf88e88127079b36d7ddade1/execroot-1
+   * which contains symlinks to the input files listed for the action (the targets are in the workspace or the "real" execroot).
+   * to which the output files will be written.
+   * from which the output files will be moved to the real execroot after successful execution.
+
+ * Processes can only write to their private execroot and a private $TMPDIR.
+
+### Related links
+
+ * [Known issues in this area of work](https://github.com/bazelbuild/bazel/issues?q=is%3Aopen+is%3Aissue+label%3A%22category%3A+sandboxing%22)
