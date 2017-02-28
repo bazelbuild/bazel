@@ -85,6 +85,10 @@ message BuildEventId {
     string label = 1;
   }
 
+  // Identifier of the BuildFinished event, indicating the end of a build.
+  message BuildFinishedId {
+  }
+
   oneof id {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
@@ -94,6 +98,7 @@ message BuildEventId {
     ActionCompletedId action_completed = 6;
     TestResultId test_result = 8;
     TestSummaryId test_summary = 7;
+    BuildFinishedId build_finished = 9;
   }
 }
 
@@ -139,6 +144,8 @@ message BuildStarted {
   string uuid = 1;
 
   // Start of the build in ms since the epoche.
+  // TODO(buchgr): Use google.protobuf.TimeStamp once bazel's protoc supports
+  // it.
   int64 start_time_millis = 2;
 
   // Version of the build tool that is running.
@@ -245,6 +252,16 @@ message TestSummary {
   repeated File failed = 4;
 }
 
+// Event indicating the end of a build.
+message BuildFinished {
+  // If the build succeeded or failed.
+  bool overall_success = 1;
+  // Time in milliseconds since the epoch.
+  // TODO(buchgr): Use google.protobuf.Timestamp once bazel's protoc supports
+  // it.
+  int64 finish_time_millis = 2;
+}
+
 // Message describing a build event. Events will have an identifier that
 // is unique within a given build invocation; they also announce follow-up
 // events as children. More details, which are specific to the kind of event
@@ -262,5 +279,6 @@ message BuildEvent {
     TargetComplete completed = 8;
     TestResult test_result = 10;
     TestSummary test_summary = 9;
+    BuildFinished finished = 14;
   };
 }

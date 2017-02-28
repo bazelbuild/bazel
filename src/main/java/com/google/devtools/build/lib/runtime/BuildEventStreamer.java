@@ -47,7 +47,7 @@ public class BuildEventStreamer implements EventHandler {
   private final Multimap<BuildEventId, BuildEvent> pendingEvents;
   private int progressCount;
   private AbortReason abortReason = AbortReason.UNKNOWN;
-  private static final Logger LOG = Logger.getLogger(BuildEventStreamer.class.getName());
+  private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
 
   public BuildEventStreamer(Collection<BuildEventTransport> transports) {
     this.transports = transports;
@@ -98,7 +98,7 @@ public class BuildEventStreamer implements EventHandler {
         transport.sendBuildEvent(event);
       } catch (IOException e) {
         // TODO(aehlig): signal that the build ought to be aborted
-        LOG.severe("Failed to write to build event transport: " + e);
+        log.severe("Failed to write to build event transport: " + e);
       }
     }
   }
@@ -135,7 +135,7 @@ public class BuildEventStreamer implements EventHandler {
         transport.close();
       } catch (IOException e) {
         // TODO(aehlig): signal that the build ought to be aborted
-        LOG.warning("Failure while closing build event transport: " + e);
+        log.warning("Failure while closing build event transport: " + e);
       }
     }
   }
@@ -151,33 +151,12 @@ public class BuildEventStreamer implements EventHandler {
   @Subscribe
   public void buildInterrupted(BuildInterruptedEvent event) {
     abortReason = AbortReason.USER_INTERRUPTED;
-  };
-
-  @Subscribe
-  public void buildComplete(BuildCompleteEvent event) {
-    clearPendingEvents();
-    post(ProgressEvent.finalProgressUpdate(progressCount));
-    clearAnnouncedEvents();
-    close();
   }
 
   @Subscribe
   public void buildEvent(BuildEvent event) {
-    if (event instanceof ActionExecutedEvent) {
-      // We ignore events about action executions if the execution succeeded.
-      if (((ActionExecutedEvent) event).getException() == null) {
-        return;
-      }
-    }
-
-    if (event instanceof BuildEventWithOrderConstraint) {
-      // Check if all prerequisit events are posted already.
-      for (BuildEventId prerequisiteId : ((BuildEventWithOrderConstraint) event).postedAfter()) {
-        if (!postedEvents.contains(prerequisiteId)) {
-          pendingEvents.put(prerequisiteId, event);
-          return;
-        }
-      }
+    if (isActionWithoutError(event) || bufferUntilPrerequisitesReceived(event)) {
+      return;
     }
 
     post(event);
@@ -187,10 +166,40 @@ public class BuildEventStreamer implements EventHandler {
     for (BuildEvent freedEvent : toReconsider) {
       buildEvent(freedEvent);
     }
+
+    if (event instanceof BuildCompleteEvent) {
+      buildComplete();
+    }
   }
 
   @VisibleForTesting
   ImmutableSet<BuildEventTransport> getTransports() {
     return ImmutableSet.copyOf(transports);
+  }
+
+  private void buildComplete() {
+    clearPendingEvents();
+    post(ProgressEvent.finalProgressUpdate(progressCount));
+    clearAnnouncedEvents();
+    close();
+  }
+
+  private static boolean isActionWithoutError(BuildEvent event) {
+    return event instanceof ActionExecutedEvent
+        && ((ActionExecutedEvent) event).getException() == null;
+  }
+
+  private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
+    if (!(event instanceof BuildEventWithOrderConstraint)) {
+      return false;
+    }
+    // Check if all prerequisite events are posted already.
+    for (BuildEventId prerequisiteId : ((BuildEventWithOrderConstraint) event).postedAfter()) {
+      if (!postedEvents.contains(prerequisiteId)) {
+        pendingEvents.put(prerequisiteId, event);
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstra
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
+import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -110,7 +111,8 @@ public class BuildEventStreamerTest {
 
     BuildEvent startEvent =
         new GenericBuildEvent(
-            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+            testId("Initial"), ImmutableSet.of(ProgressEvent.INITIAL_PROGRESS_UPDATE,
+            BuildEventId.buildFinished()));
 
     streamer.buildEvent(startEvent);
 
@@ -118,11 +120,12 @@ public class BuildEventStreamerTest {
     assertThat(afterFirstEvent).hasSize(1);
     assertEquals(startEvent.getEventId(), afterFirstEvent.get(0).getEventId());
 
-    streamer.buildComplete(new BuildCompleteEvent(null));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
     List<BuildEvent> finalStream = transport.getEvents();
-    assertThat(finalStream).hasSize(2);
-    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, finalStream.get(1).getEventId());
+    assertThat(finalStream).hasSize(3);
+    assertEquals(BuildEventId.buildFinished(), finalStream.get(1).getEventId());
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, finalStream.get(2).getEventId());
   }
 
   @Test
@@ -208,7 +211,8 @@ public class BuildEventStreamerTest {
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
-            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE,
+                BuildEventId.buildFinished()));
     BuildEvent earlyEvent =
         new GenericBuildEvent(testId("unexpected"), ImmutableSet.<BuildEventId>of());
     BuildEvent lateReference =
@@ -217,7 +221,7 @@ public class BuildEventStreamerTest {
     streamer.buildEvent(startEvent);
     streamer.buildEvent(earlyEvent);
     streamer.buildEvent(lateReference);
-    streamer.buildComplete(new BuildCompleteEvent(null));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
     List<BuildEvent> eventsSeen = transport.getEvents();
     int earlyEventCount = 0;
@@ -274,21 +278,23 @@ public class BuildEventStreamerTest {
     BuildEvent startEvent =
         new GenericBuildEvent(
             testId("Initial"),
-            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE, expectedId));
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE, expectedId,
+                BuildEventId.buildFinished()));
     BuildEventId rootCauseId = testId("failure event");
     BuildEvent failedTarget =
         new GenericOrderEvent(expectedId, ImmutableSet.<BuildEventId>of(rootCauseId));
 
     streamer.buildEvent(startEvent);
     streamer.buildEvent(failedTarget);
-    streamer.buildComplete(new BuildCompleteEvent(null));
+    streamer.buildEvent(new BuildCompleteEvent(new BuildResult(0)));
 
     List<BuildEvent> allEventsSeen = transport.getEvents();
-    assertThat(allEventsSeen).hasSize(5);
+    assertThat(allEventsSeen).hasSize(6);
     assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
-    BuildEvent linkEvent = allEventsSeen.get(1);
+    assertEquals(BuildEventId.buildFinished(), allEventsSeen.get(1).getEventId());
+    BuildEvent linkEvent = allEventsSeen.get(2);
     assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, linkEvent.getEventId());
-    assertEquals(rootCauseId, allEventsSeen.get(2).getEventId());
-    assertEquals(failedTarget.getEventId(), allEventsSeen.get(3).getEventId());
+    assertEquals(rootCauseId, allEventsSeen.get(3).getEventId());
+    assertEquals(failedTarget.getEventId(), allEventsSeen.get(4).getEventId());
   }
 }

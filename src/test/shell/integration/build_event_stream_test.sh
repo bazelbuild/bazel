@@ -75,6 +75,10 @@ function test_basic() {
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
+  # Build Finished
+  expect_log 'build_finished'
+  expect_log 'overall_success: true'
+  expect_log 'finish_time'
   expect_not_log 'aborted'
 }
 
@@ -197,6 +201,10 @@ function test_build_only() {
   expect_not_log 'aborted'
   expect_not_log 'test_summary '
   expect_log_once '^progress'
+  # Build Finished
+  expect_log 'build_finished'
+  expect_log 'overall_success: true'
+  expect_log 'finish_time'
 }
 
 function test_build_test_suite() {

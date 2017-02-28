@@ -82,7 +82,8 @@ public final class BuildStartingEvent implements BuildEvent {
   public Collection<BuildEventId> getChildrenEvents() {
     return ImmutableList.of(
         ProgressEvent.INITIAL_PROGRESS_UPDATE,
-        BuildEventId.targetPatternExpanded(request.getTargets()));
+        BuildEventId.targetPatternExpanded(request.getTargets()),
+        BuildEventId.buildFinished());
   }
 
   @Override
