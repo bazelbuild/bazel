@@ -5,19 +5,25 @@ title: Protocol Buffers in Bazel
 
 Bazel currently provides built-in rules for Java, JavaLite and C++.
 
-`proto_library` is a language-agnostic rule that describes relations between
-`.proto` files.
+[`proto_library`](https://bazel.build/versions/master/docs/be/protocol-buffer.html#proto_library)
+is a language-agnostic rule that describes relations between `.proto` files.
 
-`java_proto_library`, `java_lite_proto_library` and `cc_proto_library` are rules
-that "attach" to `proto_library` and generate language-specific bindings.
+[`java_proto_library`](https://bazel.build/versions/master/docs/be/java.html#java_proto_library),
+[`java_lite_proto_library`](https://bazel.build/versions/master/docs/be/java.html#java_lite_proto_library)
+and
+[`cc_proto_library`](https://bazel.build/versions/master/docs/be/c-cpp.html#cc_proto_library)
+are rules that "attach" to `proto_library` and generate language-specific
+bindings.
 
 By making a `java_library` (resp. `cc_library`) depend on `java_proto_library`
 (resp. `cc_proto_library`) your code gains access to the generated code.
 
 ## TL;DR - Usage example
 
-> TIP: https://github.com/cgrushko/proto_library contains a buildable example.
-
+> TIP:
+> [https://github.com/cgrushko/proto_library](https://github.com/cgrushko/proto_library)
+> contains a buildable example.
+>
 > NOTE: Bazel 0.4.4 lacks some features the example uses - you'll need to build
 > Bazel from head. The easiest is to install Bazel, download Bazel's source
 > code, build it (`bazel build //src:bazel`) and copy it somewhere (e.g., `cp
@@ -25,11 +31,13 @@ By making a `java_library` (resp. `cc_library`) depend on `java_proto_library`
 
 ### WORKSPACE file
 
-Bazel's proto rules implicitly depend on the https://github.com/google/protobuf
+Bazel's proto rules implicitly depend on the
+[https://github.com/google/protobuf](https://github.com/google/protobuf)
 distribution (described below, in "Implicit Dependencies and Proto Toolchains").
 The following satisfies these dependencies:
 
-> TIP: This is a shortened version of https://github.com/cgrushko/proto_library/blob/master/WORKSPACE
+> TIP: This is a shortened version of
+> [https://github.com/cgrushko/proto_library/blob/master/WORKSPACE](https://github.com/cgrushko/proto_library/blob/master/WORKSPACE)
 
 ```python
 # proto_library rules implicitly depend on @com_google_protobuf//:protoc,
@@ -57,7 +65,8 @@ http_archive(
 
 ### BUILD files
 
-> TIP: This is a shortened version of https://github.com/cgrushko/proto_library/blob/master/src/BUILD
+> TIP: This is a shortened version of
+> [https://github.com/cgrushko/proto_library/blob/master/src/BUILD](https://github.com/cgrushko/proto_library/blob/master/src/BUILD)
 
 ```python
 java_proto_library(
@@ -121,33 +130,33 @@ files in a project.
 ## FAQ
 
 **Q:** I already have rules named `java_proto_library` and `cc_proto_library`.
-Will there be a problem? \
+Will there be a problem?<br />
 **A:** No. Since Skylark extensions imported through `load` statements take
 precedence over native rules with the same name, the new rule should not affect
 existing usage of the `java_proto_library` macro.
 
-**Q:** How do I use gRPC with these rules? \
+**Q:** How do I use gRPC with these rules?<br />
 **A:** The Bazel rules do not generate RPC code since `protobuf` is independent
 of any RPC system. We will work with the gRPC team to create Skylark extensions
 to do so. ([C++ Issue](https://github.com/grpc/grpc/issues/9873), [Java
 Issue](https://github.com/grpc/grpc-java/issues/2756))
 
-**Q:** Do you plan to release additional languages? \
+**Q:** Do you plan to release additional languages?<br />
 **A:** We can relatively easily create `py_proto_library`. Our end goal is to
 improve Skylark to the point where these rules can be written in Skylark, making
 them independent of Bazel.
 
 **Q:** How does one use well-known types? (e.g., `any.proto`,
-`descriptor.proto`) \
-**A:** Once https://github.com/google/protobuf/issues/2763 is resolved, the
+`descriptor.proto`)<br />
+**A:** Once [https://github.com/google/protobuf/issues/2763](https://github.com/google/protobuf/issues/2763) is resolved, the
 following should be added to a `.proto` file: `import google/protobuf/any.proto`
 and the following: `@com_google_protobuf//:well_known_types_protos` to one's
 `proto_library` rule.
 
-**Q:** Any tips for writing my own such rules? \
+**Q:** Any tips for writing my own such rules?<br />
 **A:** First, make sure you're able to register actions that compile your target
 language. (as far as I know, Bazel Python actions are not exposed to Skylark,
-for example). \
+for example).<br />
 Second, take extra care to generate unique symbol names and unique filenames.
 There's an implicit assumption that different proto rules with different
 options, generate different symbols. For example, if you write a new rule
@@ -198,11 +207,12 @@ node.
 When compiled on the command-line, a `proto_library` creates a descriptor set
 for the messages it `srcs`. The file is a serialized `FileDescriptorSet`, which
 is described in
-https://developers.google.com/protocol-buffers/docs/techniques#self-description.
+[https://developers.google.com/protocol-buffers/docs/techniques#self-description](https://developers.google.com/protocol-buffers/docs/techniques#self-description).
 
 One use case for the descriptor set is generating code without having to parse
-`.proto` files. (https://github.com/google/protobuf/issues/2725 tracks this
-ability in the protobuf compiler)
+`.proto` files.
+([https://github.com/google/protobuf/issues/2725](https://github.com/google/protobuf/issues/2725)
+tracks this ability in the protobuf compiler)
 
 The aforementioned file only contains information about the `.proto` files
 directly mentioned by a `proto_library` rule; the collection of transitive
