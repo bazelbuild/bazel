@@ -159,6 +159,8 @@ import com.google.devtools.build.lib.rules.objc.ObjcProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses;
 import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
 import com.google.devtools.build.lib.rules.objc.XcTestAppProvider;
+import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
+import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -273,6 +275,7 @@ public class BazelRuleClassProvider {
     CORE_RULES.init(builder);
     CORE_WORKSPACE_RULES.init(builder);
     BASIC_RULES.init(builder);
+    PLATFORM_RULES.init(builder);
     PROTO_RULES.init(builder);
     SH_RULES.init(builder);
     CPP_RULES.init(builder);
@@ -331,6 +334,20 @@ public class BazelRuleClassProvider {
         @Override
         public ImmutableList<RuleSet> requires() {
           return ImmutableList.of();
+        }
+      };
+
+  public static final RuleSet PLATFORM_RULES =
+      new RuleSet() {
+        @Override
+        public void init(Builder builder) {
+          builder.addRuleDefinition(new ConstraintSettingRule());
+          builder.addRuleDefinition(new ConstraintValueRule());
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CORE_RULES);
         }
       };
 
