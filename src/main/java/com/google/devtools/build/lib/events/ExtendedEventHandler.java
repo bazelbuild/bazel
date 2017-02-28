@@ -25,4 +25,10 @@ public interface ExtendedEventHandler extends EventHandler {
 
   /** Post an postable object with more refined information about an important build event */
   void post(Postable obj);
+
+  /**
+   * Interface for declaring postable events that report about progress (as oposed to success or
+   * failure) and hence should not be stored and replayed.
+   */
+  public interface ProgressLike extends Postable {}
 }
