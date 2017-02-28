@@ -32,16 +32,10 @@ gflags.MarkFlagAsRequired('output')
 
 gflags.DEFINE_multistring('layer', [], 'The tar files for layers to join.')
 
-gflags.DEFINE_string(
-    'id', None, 'The hex identifier of the top layer (hexstring or @filename).')
-
-gflags.DEFINE_string(
-    'repository', None,
-    'The name of the repository to add this image (use with --id and --name).')
-
-gflags.DEFINE_string(
-    'name', None,
-    'The symbolic name of this image (use with --id and --repository).')
+gflags.DEFINE_multistring(
+    'tags', [],
+    'An associative list of fully qualified tag names and the layer they tag. '
+    'e.g. ubuntu=deadbeef,gcr.io/blah/debian=baadf00d')
 
 FLAGS = gflags.FLAGS
 
@@ -51,25 +45,57 @@ def _layer_filter(name):
   return basename not in ('manifest.json', 'top', 'repositories')
 
 
-def create_image(output, layers, identifier=None,
-                 name=None, repository=None):
+def _add_top(tar, repositories):
+  # Don't add 'top' if there are multiple images in this bundle.
+  if len(repositories) != 1:
+    return
+
+  # Walk the single-item dictionary, and if there is a single tag
+  # for the single repository, then emit a 'top' file pointing to
+  # the single image in this bundle.
+  for (unused_x, tags) in repositories.iteritems():
+    if len(tags) != 1:
+      continue
+    for (unused_y, layer_id) in tags.iteritems():
+      tar.add_file('top', content=layer_id)
+
+
+def create_image(output, layers, repositories=None):
   """Creates a Docker image from a list of layers.
 
   Args:
     output: the name of the docker image file to create.
     layers: the layers (tar files) to join to the image.
-    identifier: the identifier of the top layer for this image.
-    name: symbolic name for this docker image.
-    repository: repository name for this docker image.
+    repositories: the repositories two-level dictionary, which is keyed by
+                  repo names at the top-level, and tag names at the second
+                  level pointing to layer ids.
   """
-  manifest = []
+  # Compute a map from layer tarball names to the tags that should apply to them
+  layers_to_tag = {}
+  for repo in repositories:
+    tags = repositories[repo]
+    for tag in tags:
+      layer_name = tags[tag] + '/layer.tar'
+      fq_name = '%s:%s' % (repo, tag)
+      layer_tags = layers_to_tag.get(layer_name, [])
+      layer_tags.append(fq_name)
+      layers_to_tag[layer_name] = layer_tags
 
+  manifests = []
   tar = archive.TarFileWriter(output)
   for layer in layers:
     tar.add_tar(layer, name_filter=_layer_filter)
-    manifest += utils.GetManifestFromTar(layer)
+    layer_manifests = utils.GetManifestFromTar(layer)
 
-  manifest_content = json.dumps(manifest, sort_keys=True)
+    # Augment each manifest with any tags that should apply to their top layer.
+    for manifest in layer_manifests:
+      top_layer = manifest['Layers'][-1]
+      manifest['RepoTags'] = list(sorted(set(manifest['RepoTags'] +
+                                             layers_to_tag.get(top_layer, []))))
+
+    manifests += layer_manifests
+
+  manifest_content = json.dumps(manifests, sort_keys=True)
   tar.add_file('manifest.json', content=manifest_content)
 
   # In addition to N layers of the form described above, there might be
@@ -82,28 +108,49 @@ def create_image(output, layers, identifier=None,
   #   },
   #   ...
   # }
-  if identifier:
+  # This is the exact structure we expect repositories to have.
+  if repositories:
     # If the identifier is not provided, then the resulted layer will be
-    # created without a 'top' file. Docker doesn't needs that file nor
+    # created without a 'top' file.  Docker doesn't needs that file nor
     # the repository to load the image and for intermediate layer,
     # docker_build store the name of the layer in a separate artifact so
     # this 'top' file is not needed.
-    tar.add_file('top', content=identifier)
-    if repository and name:
-      tar.add_file('repositories',
-                   content='\n'.join([
-                       '{', '  "%s": {' % repository, '    "%s": "%s"' % (
-                           name, identifier), '  }', '}'
-                   ]))
+    _add_top(tar, repositories)
+    tar.add_file('repositories',
+                 content=json.dumps(repositories, sort_keys=True))
+
+
+def resolve_layer(identifier):
+  if not identifier:
+    # TODO(mattmoor): This should not happen.
+    return None
+
+  if not identifier.startswith('@'):
+    return identifier
+
+  with open(identifier[1:], 'r') as f:
+    return f.read()
 
 
 def main(unused_argv):
-  identifier = FLAGS.id
-  if identifier and identifier.startswith('@'):
-    with open(identifier[1:], 'r') as f:
-      identifier = f.read()
-  create_image(FLAGS.output, FLAGS.layer, identifier, FLAGS.name,
-               FLAGS.repository)
+  repositories = {}
+  for entry in FLAGS.tags:
+    elts = entry.split('=')
+    if len(elts) != 2:
+      raise Exception('Expected associative list key=value, got: %s' % entry)
+    (fq_tag, layer_id) = elts
+
+    tag_parts = fq_tag.rsplit(':', 2)
+    if len(tag_parts) != 2:
+      raise Exception('Expected fully-qualified tag name (e.g. ubuntu:latest), '
+                      'got: %s' % fq_tag)
+    (repository, tag) = tag_parts
+
+    others = repositories.get(repository, {})
+    others[tag] = resolve_layer(layer_id)
+    repositories[repository] = others
+
+  create_image(FLAGS.output, FLAGS.layer, repositories)
 
 
 if __name__ == '__main__':

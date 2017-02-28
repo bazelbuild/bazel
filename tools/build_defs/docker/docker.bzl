@@ -143,15 +143,21 @@ def _get_base_artifact(ctx):
 def _serialize_dict(dict_value):
     return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])
 
+def _string_to_label(label_list, string_list):
+  """Form a mapping from label strings to the resolved label."""
+  label_string_dict = dict()
+  for i in range(len(label_list)):
+    string = string_list[i]
+    label = label_list[i]
+    label_string_dict[string] = label
+  return label_string_dict
+
 def _image_config(ctx, layer_names):
   """Create the configuration for a new docker image."""
   config = ctx.new_file(ctx.label.name + ".config")
 
-  label_file_dict = dict()
-  for i in range(len(ctx.files.label_files)):
-    fname = ctx.attr.label_file_strings[i]
-    file = ctx.files.label_files[i]
-    label_file_dict[fname] = file
+  label_file_dict = _string_to_label(
+      ctx.files.label_files, ctx.attr.label_file_strings)
 
   labels = dict()
   for l in ctx.attr.labels:
@@ -199,11 +205,8 @@ def _metadata_action(ctx, layer, name, output):
   """Generate the action to create the JSON metadata for the layer."""
   rewrite_tool = ctx.executable.rewrite_tool
 
-  label_file_dict = dict()
-  for i in range(len(ctx.files.label_files)):
-    fname = ctx.attr.label_file_strings[i]
-    file = ctx.files.label_files[i]
-    label_file_dict[fname] = file
+  label_file_dict = _string_to_label(
+      ctx.files.label_files, ctx.attr.label_file_strings)
 
   labels = dict()
   for l in ctx.attr.labels:
@@ -274,16 +277,16 @@ def _metadata(ctx, layer, name):
   _metadata_action(ctx, layer, name, metadata)
   return metadata
 
-def _create_image(ctx, layers, id, config, name, metadata):
+def _create_image(ctx, layers, identifier, config, name, metadata, tags):
   """Create the new image."""
   args = [
       "--output=" + ctx.outputs.layer.path,
-      "--id=@" + id.path,
+      "--id=@" + identifier.path,
       "--config=" + config.path,
-      ]
+      ] + ["--tag=" + tag for tag in tags]
 
   args += ["--layer=@%s=%s" % (l["name"].path, l["layer"].path) for l in layers]
-  inputs = [id, config] + [l["name"] for l in layers] + [l["layer"] for l in layers]
+  inputs = [identifier, config] + [l["name"] for l in layers] + [l["layer"] for l in layers]
 
   if name:
     args += ["--legacy_id=@" + name.path]
@@ -312,23 +315,23 @@ def _create_image(ctx, layers, id, config, name, metadata):
       mnemonic = "CreateImage",
       )
 
-def _assemble_image(ctx, layers, name):
+def _assemble_image(ctx, layers, tags_to_names):
   """Create the full image from the list of layers."""
   layers = [l["layer"] for l in layers]
   args = [
       "--output=" + ctx.outputs.out.path,
-      "--id=@" + name.path,
-      "--repository=" + _repository_name(ctx),
-      "--name=" + ctx.label.name
-      ] + ["--layer=" + l.path for l in layers]
-  inputs = [name] + layers
+  ] + [
+      "--tags=" + tag + "=@" + tags_to_names[tag].path
+      for tag in tags_to_names
+  ] + ["--layer=" + l.path for l in layers]
+  inputs = layers + tags_to_names.values()
   ctx.action(
       executable = ctx.executable.join_layers,
       arguments = args,
       inputs = inputs,
       outputs = [ctx.outputs.out],
       mnemonic = "JoinLayers"
-      )
+  )
 
 def _repository_name(ctx):
   """Compute the repository name for the current rule."""
@@ -358,14 +361,17 @@ def _docker_build_impl(ctx):
   layer_sha = _sha256(ctx, layer)
 
   config = _image_config(ctx, [layer_sha])
-  id = _sha256(ctx, config)
+  identifier = _sha256(ctx, config)
 
   name = _compute_layer_name(ctx, layer)
   metadata = _metadata(ctx, layer, name)
 
+  # Construct a temporary name based on the build target.
+  tags = [_repository_name(ctx) + ":" + ctx.label.name]
+
   # creating a partial image so only pass the layers that belong to it
   image_layer = {"layer": layer, "name": layer_sha}
-  _create_image(ctx, [image_layer], id, config, name, metadata)
+  _create_image(ctx, [image_layer], identifier, config, name, metadata, tags)
 
   # Compute the layers transitive provider.
   # It includes the current layers, and, if they exists the layer from
@@ -373,25 +379,14 @@ def _docker_build_impl(ctx):
   # a base tarball as they probably do not respect the convention on
   # layer naming that our rules use.
   layers =  [
-      {"layer": ctx.outputs.layer, "id": id, "name": name}
-      ] + getattr(ctx.attr.base, "docker_layers", [])
+      {"layer": ctx.outputs.layer, "id": identifier, "name": name}
+  ] + getattr(ctx.attr.base, "docker_layers", [])
+
   # Generate the incremental load statement
-  ctx.template_action(
-      template = ctx.file.incremental_load_template,
-      substitutions = {
-        "%{load_statements}": "\n".join([
-            "incr_load '%s' '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
-                                          _get_runfile_path(ctx, l["id"]),
-                                          _get_runfile_path(ctx, l["layer"]))
-            # The last layer is the first in the list of layers.
-            # We reverse to load the layer from the parent to the child.
-            for l in reverse(layers)]),
-        "%{repository}": _repository_name(ctx),
-        "%{tag}": ctx.label.name,
-        },
-      output = ctx.outputs.executable,
-      executable = True)
-  _assemble_image(ctx, reverse(layers), name)
+  _incr_load(ctx, layers, {tag_name: {"name": name, "id": identifier}
+                           for tag_name in tags})
+
+  _assemble_image(ctx, reverse(layers), {tag_name: name for tag_name in tags})
   runfiles = ctx.runfiles(
       files = [l["name"] for l in layers] +
               [l["id"] for l in layers] +
@@ -577,3 +572,121 @@ def docker_build(**kwargs):
   if "entrypoint" in kwargs:
     kwargs["entrypoint"] = _validate_command("entrypoint", kwargs["entrypoint"])
   docker_build_(**kwargs)
+
+
+def _incr_load(ctx, layers, images):
+  """Generate the incremental load statement."""
+  ctx.template_action(
+      template = ctx.file.incremental_load_template,
+      substitutions = {
+          "%{load_statements}": "\n".join([
+              "incr_load '%s' '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
+                                            _get_runfile_path(ctx, l["id"]),
+                                            _get_runfile_path(ctx, l["layer"]))
+              # The last layer is the first in the list of layers.
+              # We reverse to load the layer from the parent to the child.
+              for l in reverse(layers)]),
+          "%{tag_statements}": "\n".join([
+              "tag_layer '%s' '%s' '%s'" % (
+                  img,
+                  _get_runfile_path(ctx, images[img]["name"]),
+                  _get_runfile_path(ctx, images[img]["id"]))
+              for img in images
+          ])
+      },
+      output = ctx.outputs.executable,
+      executable = True)
+
+
+def _docker_bundle_impl(ctx):
+  """Implementation for the docker_bundle rule."""
+
+  # Compute the set of layers from the image_targes.
+  image_target_dict = _string_to_label(
+      ctx.attr.image_targets, ctx.attr.image_target_strings)
+
+  seen_names = []
+  layers = []
+  for image in ctx.attr.image_targets:
+    for layer in getattr(image, "docker_layers", []):
+      if layer["name"].path in seen_names:
+        continue
+      seen_names.append(layer["name"].path)
+      layers.append(layer)
+
+  images = dict()
+  for unresolved_tag in ctx.attr.images:
+    # Allow users to put make variables into the tag name.
+    tag = ctx.expand_make_variables("images", unresolved_tag, {})
+
+    target = ctx.attr.images[unresolved_tag]
+    target = image_target_dict[target]
+    images[tag] = getattr(target, "docker_layers", [])[0]
+
+  _incr_load(ctx, layers, images)
+
+  _assemble_image(ctx, reverse(layers), {
+      # Create a new dictionary with the same keyspace that
+      # points to the name of the layer.
+      k: images[k]["name"]
+      for k in images
+  })
+
+  runfiles = ctx.runfiles(
+      files = ([l["name"] for l in layers] +
+               [l["id"] for l in layers] +
+               [l["layer"] for l in layers]))
+
+  return struct(runfiles = runfiles,
+                files = set(),
+                docker_layers = layers)
+
+docker_bundle_ = rule(
+    implementation = _docker_bundle_impl,
+    attrs = {
+        "images": attr.string_dict(),
+        # Implicit dependencies.
+        "image_targets": attr.label_list(allow_files=True),
+        "image_target_strings": attr.string_list(),
+        "incremental_load_template": attr.label(
+            default=Label("//tools/build_defs/docker:incremental_load_template"),
+            single_file=True,
+            allow_files=True),
+        "join_layers": attr.label(
+            default=Label("//tools/build_defs/docker:join_layers"),
+            cfg="host",
+            executable=True,
+            allow_files=True),
+    },
+    outputs = {
+        "out": "%{name}.tar",
+    },
+    executable = True)
+
+
+# Produces a new docker image tarball compatible with 'docker load', which
+# contains the N listed 'images', each aliased with their key.
+#
+# Example:
+#   docker_bundle(
+#     name = "foo",
+#     images = {
+#       "ubuntu:latest": ":blah",
+#       "foo.io/bar:canary": "//baz:asdf",
+#     }
+#   )
+def docker_bundle(**kwargs):
+  """Package several docker images into a single tarball.
+
+  Args:
+    **kwargs: See above.
+  """
+  for reserved in ["image_targets", "image_target_strings"]:
+    if reserved in kwargs:
+      fail("reserved for internal use by docker_bundle macro", attr=reserved)
+
+  if "images" in kwargs:
+    kwargs["image_targets"] = kwargs["images"].values()
+    kwargs["image_target_strings"] = kwargs["images"].values()
+
+  docker_bundle_(**kwargs)

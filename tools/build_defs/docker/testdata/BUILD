@@ -4,7 +4,7 @@ package(
     ],
 )
 
-load("//tools/build_defs/docker:docker.bzl", "docker_build")
+load("//tools/build_defs/docker:docker.bzl", "docker_build", "docker_bundle")
 
 filegroup(
     name = "srcs",
@@ -369,6 +369,15 @@ docker_build(
     base = ":notop_files_base",
     symlinks = {
         "/usr/bin/java": "/bar",
+    },
+)
+
+docker_bundle(
+    name = "bundle_test",
+    images = {
+        "docker.io/ubuntu:latest": ":base_with_entrypoint",
+        "us.gcr.io/google-appengine/base:fresh": ":link_with_files_base",
+        "gcr.io/google-containers/pause:2.0": ":with_double_env",
     },
 )
 
