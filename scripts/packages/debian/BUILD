@@ -14,7 +14,7 @@ pkg_tar(
     ],
     mode = "0755",
     package_dir = "/usr/bin",
-    strip_prefix = ".",
+    strip_prefix = "/scripts/packages",
 )
 
 pkg_tar(
