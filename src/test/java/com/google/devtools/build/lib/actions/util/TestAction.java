@@ -81,7 +81,7 @@ public class TestAction extends AbstractAction {
   @Override
   public boolean discoversInputs() {
     for (Artifact input : getInputs()) {
-      if (!input.getExecPath().getBaseName().endsWith(".optional")) {
+      if (input.getExecPath().getBaseName().endsWith(".optional")) {
         return true;
       }
     }
@@ -91,6 +91,7 @@ public class TestAction extends AbstractAction {
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext) {
     Preconditions.checkState(discoversInputs(), this);
+    updateInputs(getInputs());
     return ImmutableList.of();
   }
 

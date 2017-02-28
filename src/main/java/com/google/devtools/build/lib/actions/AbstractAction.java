@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
@@ -94,8 +95,13 @@ public abstract class AbstractAction implements Action, SkylarkValue {
    */
   private final Iterable<Artifact> tools;
 
+  @GuardedBy("this")
+  private boolean inputsDiscovered = false;  // Only used when discoversInputs() returns true
+
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
+  @GuardedBy("this")
   private Iterable<Artifact> inputs;
+
   private final Iterable<String> clientEnvironmentVariables;
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> outputs;
@@ -164,15 +170,36 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public boolean inputsKnown() {
-    return true;
+  public final synchronized boolean inputsDiscovered() {
+    return discoversInputs() ? inputsDiscovered : true;
   }
 
+  /**
+   * Should be overridden by actions that do input discovery.
+   *
+   * <p>The value returned by each instance should be constant over the lifetime of that instance.
+   *
+   * <p>If this returns true, {@link #discoverInputs(ActionExecutionContext)} must also be
+   * implemented.
+   */
   @Override
   public boolean discoversInputs() {
     return false;
   }
 
+  /**
+   * Run input discovery on the action.
+   *
+   * <p>Called by Blaze if {@link #discoversInputs()} returns true. It must return the set of
+   * input artifacts that were not known at analysis time. May also call
+   * {@link #updateInputs(Iterable<Artifact>)}; if it doesn't, the action itself must arrange for
+   * the newly discovered artifacts to be available during action execution, probably by keeping
+   * state in the action instance and using a custom action execution context and for
+   * {@code #updateInputs()} to be called during the execution of the action.
+   *
+   * <p>Since keeping state within an action bad, don't do that unless there is a very good reason
+   * to do so.
+   */
   @Override
   public Iterable<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
@@ -192,10 +219,21 @@ public abstract class AbstractAction implements Action, SkylarkValue {
         "Method must be overridden for actions that may have unknown inputs.");
   }
 
+  /**
+   * Should be called when the inputs of the action become known, that is, either during
+   * {@link #discoverInputs(ActionExecutionContext)} or during
+   * {@link #execute(ActionExecutionContext)}.
+   *
+   * <p>When an action discovers inputs, it must have been called by the time {@code #execute()}
+   * returns. It can be called both during {@code discoverInputs} and during {@code execute()}.
+   *
+   * <p>In addition to being called from action implementations, it will also be called by Bazel
+   * itself when an action is loaded from the on-disk action cache.
+   */
   @Override
-  public void updateInputs(Iterable<Artifact> inputs) {
-    throw new IllegalStateException(
-        "Method must be overridden for actions that may have unknown inputs.");
+  public final synchronized void updateInputs(Iterable<Artifact> inputs) {
+    this.inputs = CollectionUtils.makeImmutable(inputs);
+    inputsDiscovered = true;
   }
 
   @Override
@@ -204,12 +242,10 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   /**
-   * Should only be overridden by actions that need to optionally insert inputs. Actions that
-   * discover their inputs should use {@link #setInputs} to set the new iterable of inputs when they
-   * know it.
+   * Should not be overridden (it's non-final only for tests)
    */
   @Override
-  public Iterable<Artifact> getInputs() {
+  public synchronized Iterable<Artifact> getInputs() {
     return inputs;
   }
 
@@ -221,15 +257,6 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public RunfilesSupplier getRunfilesSupplier() {
     return runfilesSupplier;
-  }
-
-  /**
-   * Set the inputs of the action. May only be used by an action that {@link #discoversInputs()}.
-   * The iterable passed in is automatically made immutable.
-   */
-  protected void setInputs(Iterable<Artifact> inputs) {
-    Preconditions.checkState(discoversInputs(), this);
-    this.inputs = CollectionUtils.makeImmutable(inputs);
   }
 
   @Override
@@ -259,7 +286,7 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   @Override
   public String toString() {
     return prettyPrint() + " (" + getMnemonic() + "[" + ImmutableList.copyOf(getInputs())
-        + (inputsKnown() ? " -> " : ", unknown inputs -> ")
+        + (inputsDiscovered() ? " -> " : ", unknown inputs -> ")
         + getOutputs() + "]" + ")";
   }
 

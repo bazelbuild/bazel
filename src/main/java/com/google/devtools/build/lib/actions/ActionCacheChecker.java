@@ -196,8 +196,8 @@ public class ActionCacheChecker {
     }
     Iterable<Artifact> actionInputs = action.getInputs();
     // Resolve action inputs from cache, if necessary.
-    boolean inputsKnown = action.inputsKnown();
-    if (!inputsKnown && resolvedCacheArtifacts != null) {
+    boolean inputsDiscovered = action.inputsDiscovered();
+    if (!inputsDiscovered && resolvedCacheArtifacts != null) {
       // The action doesn't know its inputs, but the caller has a good idea of what they are.
       Preconditions.checkState(action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s", action);
@@ -211,7 +211,7 @@ public class ActionCacheChecker {
       return new Token(getKeyString(action));
     }
 
-    if (!inputsKnown) {
+    if (!inputsDiscovered) {
       action.updateInputs(actionInputs);
     }
     return null;

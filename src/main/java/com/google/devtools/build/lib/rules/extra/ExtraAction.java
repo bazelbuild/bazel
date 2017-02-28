@@ -41,7 +41,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * Action used by extra_action rules to create an action that shadows an existing action. Runs a
@@ -53,10 +52,6 @@ public final class ExtraAction extends SpawnAction {
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableSet<Artifact> extraActionInputs;
   private final Iterable<Artifact> originalShadowedActionInputs;
-
-  // This can be read/written from multiple threads, and so accesses should be synchronized.
-  @GuardedBy("this")
-  private boolean inputsKnown;
 
   /**
    * A long way to say (ExtraAction xa) -> xa.getShadowedAction().
@@ -104,7 +99,6 @@ public final class ExtraAction extends SpawnAction {
     this.createDummyOutput = createDummyOutput;
 
     this.extraActionInputs = extraActionInputs;
-    inputsKnown = shadowedAction.inputsKnown();
     if (createDummyOutput) {
       // Expecting just a single dummy file in the outputs.
       Preconditions.checkArgument(outputs.size() == 1, outputs);
@@ -123,18 +117,13 @@ public final class ExtraAction extends SpawnAction {
     Preconditions.checkState(discoversInputs(), this);
     // We depend on the outputs of actions doing input discovery and they should know their inputs
     // after having been executed
-    Preconditions.checkState(shadowedAction.inputsKnown());
+    Preconditions.checkState(shadowedAction.inputsDiscovered());
 
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
     updateInputs(createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier));
     return Sets.difference(ImmutableSet.copyOf(shadowedAction.getInputs()),
         ImmutableSet.copyOf(originalShadowedActionInputs));
-  }
-
-  @Override
-  public synchronized boolean inputsKnown() {
-    return inputsKnown;
   }
 
   private static NestedSet<Artifact> createInputs(
@@ -149,12 +138,6 @@ public final class ExtraAction extends SpawnAction {
     }
     result.addAll(extraActionRunfilesSupplier.getArtifacts());
     return result.addAll(extraActionInputs).build();
-  }
-
-  @Override
-  public synchronized void updateInputs(Iterable<Artifact> discoveredInputs) {
-    setInputs(discoveredInputs);
-    inputsKnown = true;
   }
 
   @Override
@@ -188,9 +171,6 @@ public final class ExtraAction extends SpawnAction {
           throw new ActionExecutionException(e.getMessage(), e, this, false);
         }
       }
-    }
-    synchronized (this) {
-      inputsKnown = true;
     }
   }
 

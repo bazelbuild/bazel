@@ -176,7 +176,7 @@ public interface Action extends ActionExecutionMetadata, Describable {
   /**
    * Informs the action that its inputs are {@code inputs}, and that its inputs are now known. Can
    * only be called for actions that discover inputs. After this method is called,
-   * {@link ActionExecutionMetadata#inputsKnown} should return true.
+   * {@link ActionExecutionMetadata#inputsDiscovered} should return true.
    */
   void updateInputs(Iterable<Artifact> inputs);
 

@@ -14,30 +14,24 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests that the data passed from the application to the Builder is passed
@@ -103,73 +97,5 @@ public class ActionDataTest extends TimestampBuilderTestCase {
             reporter, outputs, null, null, null, null, executor, null, /*explain=*/ false, null,
             null);
     assertSame(executor, action.executor);
-  }
-
-  private static class InputDiscoveringAction extends AbstractAction {
-    private final Collection<Artifact> discoveredInputs;
-
-    public InputDiscoveringAction(Artifact output, Collection<Artifact> discoveredInputs) {
-      super(
-          ActionsTestUtil.NULL_ACTION_OWNER,
-          ImmutableList.<Artifact>of(),
-          ImmutableList.of(output));
-      this.discoveredInputs = discoveredInputs;
-    }
-
-    @Override
-    public boolean discoversInputs() {
-      return true;
-    }
-
-    @Override
-    public boolean inputsKnown() {
-      return true;
-    }
-
-    @Override
-    public Iterable<Artifact> getMandatoryInputs() {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public Iterable<Artifact> getInputs() {
-      return discoveredInputs;
-    }
-
-    @Override
-    public void execute(ActionExecutionContext actionExecutionContext) {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public String getMnemonic() {
-      return "InputDiscovering";
-    }
-
-    @Override
-    protected String computeKey() {
-      return "";
-    }
-
-    @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
-    }
-  }
-
-  @Test
-  public void testActionSharabilityAndDiscoveredInputs() throws Exception {
-    Artifact output =
-        new Artifact(
-            scratch.file("/out/output"), Root.asDerivedRoot(scratch.dir("/"), scratch.dir("/out")));
-    Artifact discovered =
-        new Artifact(
-            scratch.file("/bin/discovered"),
-            Root.asDerivedRoot(scratch.dir("/"), scratch.dir("/bin")));
-
-    Action a = new InputDiscoveringAction(output, ImmutableList.of(discovered));
-    Action b = new InputDiscoveringAction(output, ImmutableList.<Artifact>of());
-
-    assertTrue(Actions.canBeShared(a, b));
   }
 }

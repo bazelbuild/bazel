@@ -798,7 +798,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private void completeAction(Action action, MetadataHandler metadataHandler, FileOutErr fileOutErr,
       boolean outputAlreadyDumped) throws ActionExecutionException {
     try {
-      Preconditions.checkState(action.inputsKnown(),
+      Preconditions.checkState(action.inputsDiscovered(),
           "Action %s successfully executed, but inputs still not known", action);
 
       profiler.startTask(ProfilerTask.ACTION_COMPLETE, action);

@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
-import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -56,13 +55,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.annotation.Nullable;
-import javax.annotation.concurrent.GuardedBy;
 
 /**
  * An action that compiles objc or objc++ source.
@@ -111,10 +108,6 @@ public class ObjcCompileAction extends SpawnAction {
 
   private Iterable<Artifact> discoveredInputs;
 
-  // This can be read/written from multiple threads, so accesses must be synchronized.
-  @GuardedBy("this")
-  private boolean inputsKnown = false;
-
   private static final String GUID = "a00d5bac-a72c-4f0f-99a7-d5fdc6072137";
 
   private ObjcCompileAction(
@@ -157,7 +150,6 @@ public class ObjcCompileAction extends SpawnAction {
     this.sourceFile = sourceFile;
     this.mandatoryInputs = mandatoryInputs;
     this.dotdPruningPlan = dotdPruningPlan;
-    this.inputsKnown = (dotdPruningPlan == DotdPruningMode.DO_NOT_USE && headersListFile == null);
     this.headers = headers;
     this.headersListFile = headersListFile;
   }
@@ -179,11 +171,6 @@ public class ObjcCompileAction extends SpawnAction {
   @VisibleForTesting
   public HeaderDiscovery.DotdPruningMode getDotdPruningPlan() {
     return dotdPruningPlan;
-  }
-
-  @Override
-  public synchronized boolean inputsKnown() {
-    return inputsKnown;
   }
 
   @Override
@@ -287,14 +274,6 @@ public class ObjcCompileAction extends SpawnAction {
   }
 
   @Override
-  public synchronized void updateInputs(Iterable<Artifact> inputs) {
-    inputsKnown = true;
-    synchronized (this) {
-      setInputs(inputs);
-    }
-  }
-
-  @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of(dotdFile.artifact());
   }
@@ -312,6 +291,12 @@ public class ObjcCompileAction extends SpawnAction {
               executor.getExecRoot(), scanningContext.getArtifactResolver());
 
       updateActionInputs(discoveredInputs);
+    } else {
+      // TODO(lberki): This is awkward, but necessary since updateInputs() must be called when
+      // input discovery is in effect. I *think* it's possible to avoid setting discoversInputs()
+      // to true if the header list file is null and then we'd not need to have this here, but I
+      // haven't quite managed to get that right yet.
+      updateActionInputs(getInputs());
     }
   }
 
@@ -370,26 +355,22 @@ public class ObjcCompileAction extends SpawnAction {
    *
    * @throws ActionExecutionException iff any errors happen during update.
    */
-  @VisibleForTesting
+  @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   @ThreadCompatible
-  public final synchronized void updateActionInputs(Iterable<Artifact> discoveredInputs)
+  final void updateActionInputs(Iterable<Artifact> discoveredInputs)
       throws ActionExecutionException {
-    inputsKnown = false;
-    Iterable<Artifact> inputs = Collections.emptyList();
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
     try {
-      inputs = Iterables.concat(mandatoryInputs, discoveredInputs);
-      inputsKnown = true;
+      updateInputs(Iterables.concat(mandatoryInputs, discoveredInputs));
     } finally {
       Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
-      setInputs(inputs);
     }
   }
 
   @Override
   protected SpawnInfo getExtraActionSpawnInfo() {
     SpawnInfo.Builder info = SpawnInfo.newBuilder(super.getExtraActionSpawnInfo());
-    if (!inputsKnown()) {
+    if (!inputsDiscovered()) {
       for (Artifact headerArtifact : filterHeaderFiles()) {
         // As in SpawnAction#getExtraActionSpawnInfo explicitly ignore middleman artifacts here.
         if (!headerArtifact.isMiddlemanArtifact()) {

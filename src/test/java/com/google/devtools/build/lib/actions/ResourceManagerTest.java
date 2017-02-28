@@ -492,7 +492,7 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public boolean inputsKnown() {
+    public boolean inputsDiscovered() {
       throw new IllegalStateException();
     }
 
