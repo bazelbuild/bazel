@@ -139,10 +139,13 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
-    jar.setNormalize(true);
-    jar.setCompression(build.compressJar());
-    jar.addDirectory(build.getSourceGenDir());
-    jar.execute();
+    try {
+      jar.setNormalize(true);
+      jar.setCompression(build.compressJar());
+      jar.addDirectory(build.getSourceGenDir());
+    } finally {
+      jar.execute();
+    }
   }
 
   /**
@@ -193,41 +196,43 @@ public class SimpleJavaLibraryBuilder implements Closeable {
 
   public void buildJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getOutputJar());
-    jar.setNormalize(true);
-    jar.setCompression(build.compressJar());
+    try {
+      jar.setNormalize(true);
+      jar.setCompression(build.compressJar());
 
-    for (String resourceJar : build.getResourceJars()) {
-      for (Path root : getJarFileSystem(Paths.get(resourceJar)).getRootDirectories()) {
-        Files.walkFileTree(
-            root,
-            new SimpleFileVisitor<Path>() {
-              @Override
-              public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
-                  throws IOException {
-                // TODO(b/28452451): omit directories entries from jar files
-                if (dir.getNameCount() > 0) {
-                  jar.addEntry(root.relativize(dir).toString(), dir);
+      for (String resourceJar : build.getResourceJars()) {
+        for (Path root : getJarFileSystem(Paths.get(resourceJar)).getRootDirectories()) {
+          Files.walkFileTree(
+              root,
+              new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
+                    throws IOException {
+                  // TODO(b/28452451): omit directories entries from jar files
+                  if (dir.getNameCount() > 0) {
+                    jar.addEntry(root.relativize(dir).toString(), dir);
+                  }
+                  return FileVisitResult.CONTINUE;
                 }
-                return FileVisitResult.CONTINUE;
-              }
 
-              @Override
-              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-                  throws IOException {
-                jar.addEntry(root.relativize(path).toString(), path);
-                return FileVisitResult.CONTINUE;
-              }
-            });
+                @Override
+                public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                    throws IOException {
+                  jar.addEntry(root.relativize(path).toString(), path);
+                  return FileVisitResult.CONTINUE;
+                }
+              });
+        }
       }
+
+      jar.addDirectory(build.getClassDir());
+
+      jar.addRootEntries(build.getRootResourceFiles());
+      addResourceEntries(jar, build.getResourceFiles());
+      addMessageEntries(jar, build.getMessageFiles());
+    } finally {
+      jar.execute();
     }
-
-    jar.addDirectory(build.getClassDir());
-
-    jar.addRootEntries(build.getRootResourceFiles());
-    addResourceEntries(jar, build.getResourceFiles());
-    addMessageEntries(jar, build.getMessageFiles());
-
-    jar.execute();
   }
 
   /**

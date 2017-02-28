@@ -54,7 +54,6 @@ public class JarHelper {
 
   // The state needed to create the Jar
   protected final Set<String> names = new HashSet<>();
-  protected JarOutputStream out;
 
   public JarHelper(String filename) {
     jarFile = filename;
@@ -152,7 +151,7 @@ public class JarHelper {
    * @param content the Manifest content to write to the manifest entry.
    * @throws IOException
    */
-  protected void writeManifestEntry(byte[] content) throws IOException {
+  protected void writeManifestEntry(JarOutputStream out, byte[] content) throws IOException {
     int oldStorageMethod = storageMethod;
     // Do not compress small manifest files, the compressed one is frequently
     // larger than the original. The threshold of 256 bytes is somewhat arbitrary.
@@ -171,7 +170,7 @@ public class JarHelper {
    * Copies file or directory entries from the file system into the jar. Directory entries will be
    * detected and their names automatically '/' suffixed.
    */
-  protected void copyEntry(String name, Path path) throws IOException {
+  protected void copyEntry(JarOutputStream out, String name, Path path) throws IOException {
     if (!names.contains(name)) {
       if (!Files.exists(path)) {
         throw new FileNotFoundException(path.toAbsolutePath() + " (No such file or directory)");
