@@ -20,6 +20,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -34,6 +37,7 @@ import java.util.regex.Pattern;
 class BazelBuilder implements Builder {
 
   private static final Logger logger = Logger.getLogger(BazelBuilder.class.getName());
+  private static final FileSystem fileSystem = new JavaIoFileSystem();
 
   private static final String BAZEL_BINARY_PATH = "bazel-bin/src/bazel";
   private static final Pattern ELAPSED_TIME_PATTERN = Pattern.compile("(?<=Elapsed time: )[0-9.]+");
@@ -151,13 +155,15 @@ class BazelBuilder implements Builder {
   }
 
   void prepareFromGitRepo(String gitRepo) throws IOException, CommandException {
-    if (builderDir.toFile().exists() && !builderDir.toFile().isDirectory()) {
+    // Try to pull git repo first, delete directory if failed.
+    if (builderDir.toFile().isDirectory()) {
       try {
-        Files.delete(builderDir);
-      } catch (IOException e) {
-        throw new IOException(builderDir + " is a file and cannot be deleted", e);
+        pullGitRepo();
+      } catch (CommandException e) {
+        FileSystemUtils.deleteTree(fileSystem.getPath(builderDir.toString()));
       }
     }
+
     if (Files.notExists(builderDir)) {
       try {
         Files.createDirectories(builderDir);
@@ -170,6 +176,12 @@ class BazelBuilder implements Builder {
       cmd.execute();
     }
     // Assume the directory is what we need if not empty
+  }
+
+  private void pullGitRepo() throws CommandException {
+    String[] gitCloneCommand = {"git", "pull"};
+    Command cmd = new Command(gitCloneCommand, null, builderDir.toFile());
+    cmd.execute();
   }
 
   private ImmutableList<String> getListOfOutputFromCommand(String... command)

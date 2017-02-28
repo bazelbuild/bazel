@@ -46,6 +46,10 @@ public class Main {
 
     // Prepare paths
     File workspace = new File(opt.workspace);
+    if (workspace.isFile()) {
+      logger.log(Level.SEVERE, "Workspace directory is an existing file: " + opt.workspace);
+      System.exit(1);
+    }
     if (!workspace.exists() && !workspace.mkdirs()) {
       logger.log(Level.SEVERE, "Failed to create workspace directory: " + opt.workspace);
       System.exit(1);
