@@ -105,6 +105,10 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
       if (workspaceFileValue == null) {
         return Optional.absent();
       }
+      if (workspaceFileValue.isDirectory()) {
+        // There is a directory named WORKSPACE, ignore it for checking repository existence.
+        return Optional.of(false);
+      }
       return Optional.of(workspaceFileValue.exists());
     } catch (IOException e) {
       throw new LocalRepositoryLookupFunctionException(
