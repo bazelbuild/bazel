@@ -22,6 +22,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(SCRIPT_DIR)
 
 GCCPATTERNS = [
+    ('-I(.+)', ['/I$0']),
     ('-m(32|64)', ['$TARGET_ARCH']),
     ('-Xcompilation-mode=(dbg|fastbuild|opt)', ['$COMPILATION_MODE']),
     ('-msse', ['/arch:SSE']),
