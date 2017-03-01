@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.io.IOException;
+import java.net.URL;
 import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -576,4 +578,91 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertEquals("", ExperimentalStateTracker.suffix("foo", -2));
     assertEquals("foobar", ExperimentalStateTracker.suffix("foobar", 200));
   }
+
+  @Test
+  public void testDownloadShown() throws Exception {
+    // Verify that, whenever a single download is running in loading face, it is shown in the status
+    // bar.
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 80);
+
+    URL url = new URL("http://example.org/first/dep");
+
+    stateTracker.buildStarted(null);
+    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Progress bar should contain '" + url.toString() + "', but was:\n" + output,
+        output.contains(url.toString()));
+    assertTrue("Progress bar should contain '6s', but was:\n" + output, output.contains("6s"));
+
+    // Progress on the pending download should be reported appropriately
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Progress bar should contain '" + url.toString() + "', but was:\n" + output,
+        output.contains(url.toString()));
+    assertTrue("Progress bar should contain '7s', but was:\n" + output, output.contains("7s"));
+    assertTrue("Progress bar should contain '256', but was:\n" + output, output.contains("256"));
+
+    // After finishing the download, it should no longer be reported.
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    stateTracker.downloadProgress(new DownloadProgressEvent(url, 256, true));
+
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    output = terminalWriter.getTranscript();
+
+    assertFalse(
+        "Progress bar should not contain url, but was:\n" + output, output.contains("example.org"));
+  }
+
+  @Test
+  public void testDownloadOutputLength() throws Exception {
+    // Verify that URLs are shortened in a reasonable way, if the terminal is not wide enough
+    // Also verify that the length is respected, even if only a download sample is shown.
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1234));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 60);
+    URL url = new URL("http://example.org/some/really/very/very/long/path/filename.tar.gz");
+
+    stateTracker.buildStarted(null);
+    stateTracker.downloadProgress(new DownloadProgressEvent(url));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(6));
+    for (int i = 0; i < 10; i++) {
+      stateTracker.downloadProgress(
+          new DownloadProgressEvent(
+              new URL(
+                  "http://otherhost.example/another/also/length/path/to/another/download"
+                      + i
+                      + ".zip")));
+      clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    }
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Only lines with at most 60 chars should be present in the output:\n" + output,
+        longestLine(output) <= 60);
+    assertTrue(
+        "Output still should contain the filename, but was:\n" + output,
+        output.contains("filename.tar.gz"));
+    assertTrue(
+        "Output still should contain the host name, but was:\n" + output,
+        output.contains("example.org"));
+  }
+
 }

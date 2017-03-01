@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
@@ -49,8 +50,12 @@ class ExperimentalStateTracker {
 
   static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
   static final String ELLIPSIS = "...";
+  static final String FETCH_PREFIX = "    Fetching ";
+  static final String AND_MORE = " ...";
+
 
   static final int NANOS_PER_SECOND = 1000000000;
+  static final String URL_PROTOCOL_SEP = "://";
 
   private int sampleSize = 3;
 
@@ -69,6 +74,12 @@ class ExperimentalStateTracker {
   private final Map<String, Action> actions;
   private final Map<String, Long> actionNanoStartTimes;
   private final Map<String, String> actionStrategy;
+
+  // running downloads are identified by the original URL they were trying to
+  // access.
+  private final Deque<String> runningDownloads;
+  private final Map<String, Long> downloadNanoStartTimes;
+  private final Map<String, DownloadProgressEvent> downloads;
 
   // For each test, the list of actions (again identified by the path of the
   // primary output) currently running for that test (identified by its label),
@@ -92,6 +103,9 @@ class ExperimentalStateTracker {
     this.actionNanoStartTimes = new TreeMap<>();
     this.actionStrategy = new TreeMap<>();
     this.testActions = new TreeMap<>();
+    this.runningDownloads = new ArrayDeque<>();
+    this.downloads = new TreeMap<>();
+    this.downloadNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
@@ -174,6 +188,25 @@ class ExperimentalStateTracker {
 
   void buildComplete(BuildCompleteEvent event) {
     buildComplete(event, "");
+  }
+
+  synchronized void downloadProgress(DownloadProgressEvent event) {
+    String url = event.getOriginalUrl().toString();
+    if (event.isFinished()) {
+      // a download is finished, clean it up
+      runningDownloads.remove(url);
+      downloadNanoStartTimes.remove(url);
+      downloads.remove(url);
+    } else if (runningDownloads.contains(url)) {
+      // a new progress update on an already known, still running download
+      downloads.put(url, event);
+    } else {
+      // Start of a new download
+      long nanoTime = clock.nanoTime();
+      runningDownloads.add(url);
+      downloads.put(url, event);
+      downloadNanoStartTimes.put(url, nanoTime);
+    }
   }
 
   synchronized void actionStarted(ActionStartedEvent event) {
@@ -410,11 +443,12 @@ class ExperimentalStateTracker {
         totalCount--;
         break;
       }
-      int width = (count >= sampleSize && count < actionCount) ? targetWidth - 8 : targetWidth - 4;
+      int width =
+          targetWidth - 4 - ((count >= sampleSize && count < actionCount) ? AND_MORE.length() : 0);
       terminalWriter.newline().append("    " + describeAction(action, nanoTime, width, toSkip));
     }
     if (totalCount < actionCount) {
-      terminalWriter.append(" ...");
+      terminalWriter.append(AND_MORE);
     }
   }
 
@@ -444,6 +478,9 @@ class ExperimentalStateTracker {
    */
   boolean progressBarTimeDependent() {
     if (packageProgressReceiver != null) {
+      return true;
+    }
+    if (runningDownloads.size() >= 1) {
       return true;
     }
     if (status != null) {
@@ -484,6 +521,90 @@ class ExperimentalStateTracker {
     }
   }
 
+  private String shortenUrl(String url, int width) {
+
+    if (url.length() < width) {
+      return url;
+    }
+
+    // Try to shorten to the form prot://host/.../rest/path/filename
+    String prefix = "";
+    int protocolIndex = url.indexOf(URL_PROTOCOL_SEP);
+    if (protocolIndex > 0) {
+      prefix = url.substring(0, protocolIndex + URL_PROTOCOL_SEP.length() + 1);
+      url = url.substring(protocolIndex + URL_PROTOCOL_SEP.length() + 1);
+      int hostIndex = url.indexOf("/");
+      if (hostIndex > 0) {
+        prefix = prefix + url.substring(0, hostIndex + 1);
+        url = url.substring(hostIndex + 1);
+        int targetLength = width - prefix.length();
+        // accept this form of shortening, if what is left from the filename is
+        // significantly longer (twice as long) as the ellipsis symbol introduced
+        if (targetLength > 3 * ELLIPSIS.length()) {
+          String shortPath = suffix(url, targetLength - ELLIPSIS.length());
+          int slashPos = shortPath.indexOf("/");
+          if (slashPos >= 0) {
+            return prefix + ELLIPSIS + shortPath.substring(slashPos);
+          } else {
+            return prefix + ELLIPSIS + shortPath;
+          }
+        }
+      }
+    }
+
+    // Last resort: just take a suffix
+    if (width <= ELLIPSIS.length()) {
+      // No chance to shorten anyway
+      return "";
+    }
+    return ELLIPSIS + suffix(url, width - ELLIPSIS.length());
+  }
+
+  private void reportOnOneDownload(
+      String url, long nanoTime, int width, AnsiTerminalWriter terminalWriter) throws IOException {
+
+    String postfix = "";
+
+    DownloadProgressEvent download = downloads.get(url);
+    long nanoDownloadTime = nanoTime - downloadNanoStartTimes.get(url);
+    long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
+
+    if (download.getBytesRead() > 0) {
+      postfix = postfix + " " + download.getBytesRead() + "b";
+    }
+    if (downloadSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      postfix = postfix + " " + downloadSeconds + "s";
+    }
+    if (postfix.length() > 0) {
+      postfix = ";" + postfix;
+    }
+    url = shortenUrl(url, width - postfix.length());
+    terminalWriter.append(url + postfix);
+  }
+
+  private void reportOnDownloads(AnsiTerminalWriter terminalWriter) throws IOException {
+    int count = 0;
+    long nanoTime = clock.nanoTime();
+    int downloadCount = runningDownloads.size();
+    for (String url : runningDownloads) {
+      if (count >= sampleSize) {
+        break;
+      }
+      count++;
+      terminalWriter.newline().append(FETCH_PREFIX);
+      reportOnOneDownload(
+          url,
+          nanoTime,
+          targetWidth
+              - FETCH_PREFIX.length()
+              - ((count >= sampleSize && count < downloadCount) ? AND_MORE.length() : 0),
+          terminalWriter);
+    }
+    if (count < downloadCount) {
+      terminalWriter.append(AND_MORE);
+    }
+  }
+
   synchronized void writeProgressBar(AnsiTerminalWriter rawTerminalWriter, boolean shortVersion)
       throws IOException {
     PositionAwareAnsiTerminalWriter terminalWriter =
@@ -502,6 +623,9 @@ class ExperimentalStateTracker {
           terminalWriter.newline().append("    " + progress.getSecond());
         }
       }
+      if (!shortVersion) {
+        reportOnDownloads(terminalWriter);
+      }
       return;
     }
     if (packageProgressReceiver != null) {
@@ -509,6 +633,9 @@ class ExperimentalStateTracker {
       terminalWriter.okStatus().append("Loading:").normal().append(" " + progress.getFirst());
       if (progress.getSecond().length() > 0) {
         terminalWriter.newline().append("    " + progress.getSecond());
+      }
+      if (!shortVersion) {
+        reportOnDownloads(terminalWriter);
       }
       return;
     }
