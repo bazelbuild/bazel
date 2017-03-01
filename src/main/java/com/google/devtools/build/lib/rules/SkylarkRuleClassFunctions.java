@@ -94,7 +94,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -684,7 +683,6 @@ public class SkylarkRuleClassFunctions {
       }
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
         SkylarkAttr.Descriptor descriptor = attribute.getSecond();
-        descriptor.exportAspects(definitionLocation);
 
         addAttribute(definitionLocation, builder,
             descriptor.build(attribute.getFirst()));
@@ -719,25 +717,6 @@ public class SkylarkRuleClassFunctions {
           SkylarkClassObjectConstructor.class,
           SkylarkAspect.class,
           RuleFunction.class);
-
-  public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel)
-      throws EvalException {
-    Set<String> globalNames = env.getGlobals().getDirectVariableNames();
-
-    for (Class<? extends SkylarkExportable> exportable : EXPORTABLES) {
-      for (String name : globalNames) {
-        Object value = env.lookup(name);
-        if (value == null) {
-          throw new AssertionError(String.format("No such variable: '%s'", name));
-        }
-        if (exportable.isInstance(value)) {
-          if (!exportable.cast(value).isExported()) {
-            exportable.cast(value).export(skylarkLabel, name);
-          }
-        }
-      }
-    }
-  }
 
   @SkylarkSignature(
     name = "Label",

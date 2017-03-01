@@ -194,25 +194,50 @@ public class BuildFileAST extends ASTNode {
   public boolean exec(Environment env, EventHandler eventHandler) throws InterruptedException {
     boolean ok = true;
     for (Statement stmt : stmts) {
-      try {
-        stmt.exec(env);
-      } catch (EvalException e) {
+      if (!execTopLevelStatement(stmt, env, eventHandler)) {
         ok = false;
-        // Do not report errors caused by a previous parsing error, as it has already been
-        // reported.
-        if (e.isDueToIncompleteAST()) {
-          continue;
-        }
-        // When the exception is raised from another file, report first the location in the
-        // BUILD file (as it is the most probable cause for the error).
-        Location exnLoc = e.getLocation();
-        Location nodeLoc = stmt.getLocation();
-        eventHandler.handle(Event.error(
-            (exnLoc == null || !nodeLoc.getPath().equals(exnLoc.getPath())) ? nodeLoc : exnLoc,
-            e.getMessage()));
       }
     }
     return ok;
+  }
+
+  /**
+   * Executes tol-level statement of this build file in a given Environment.
+   *
+   * <p>If, for any reason, execution of a statement cannot be completed, an {@link EvalException}
+   * is thrown by {@link Statement#exec(Environment)}. This exception is caught here and reported
+   * through reporter. In effect, there is a
+   * "try/except" block around every top level statement. Such exceptions are not ignored, though:
+   * they are visible via the return value. Rules declared in a package containing any error
+   * (including loading-phase semantical errors that cannot be checked here) must also be considered
+   * "in error".
+   *
+   * <p>Note that this method will not affect the value of {@link #containsErrors()}; that refers
+   * only to lexer/parser errors.
+   *
+   * @return true if no error occurred during execution.
+   */
+
+  public boolean execTopLevelStatement(Statement stmt, Environment env,
+      EventHandler eventHandler) throws InterruptedException {
+    try {
+      stmt.exec(env);
+      return true;
+    } catch (EvalException e) {
+      // Do not report errors caused by a previous parsing error, as it has already been
+      // reported.
+      if (e.isDueToIncompleteAST()) {
+        return false;
+      }
+      // When the exception is raised from another file, report first the location in the
+      // BUILD file (as it is the most probable cause for the error).
+      Location exnLoc = e.getLocation();
+      Location nodeLoc = stmt.getLocation();
+      eventHandler.handle(Event.error(
+          (exnLoc == null || !nodeLoc.getPath().equals(exnLoc.getPath())) ? nodeLoc : exnLoc,
+          e.getMessage()));
+      return false;
+    }
   }
 
   @Override
@@ -348,10 +373,20 @@ public class BuildFileAST extends ASTNode {
   @Nullable
   public static Object eval(Environment env, String... input)
       throws EvalException, InterruptedException {
+    BuildFileAST ast = parseAndValidateSkylarkString(env, input);
+    return ast.eval(env);
+  }
+
+  /**
+   * Parses and validates the lines from input and return the the AST
+   * In case of error during validation, it throws an EvalException.
+   */
+  public static BuildFileAST parseAndValidateSkylarkString(Environment env, String[] input)
+      throws EvalException {
     BuildFileAST ast = parseSkylarkString(env.getEventHandler(), input);
     ValidationEnvironment valid = new ValidationEnvironment(env);
     valid.validateAst(ast.getStatements());
-    return ast.eval(env);
+    return ast;
   }
 
   /**
