@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.Serializable;
@@ -71,35 +70,6 @@ public class LValue implements Serializable {
 
     if (expr instanceof ListLiteral) {
       throw new EvalException(loc, "Cannot perform augment assignment on a list literal");
-    }
-  }
-
-  /**
-   *  Returns all names bound by this LValue.
-   *
-   *  Examples:
-   *  <ul>
-   *  <li><{@code x = ...} binds x.</li>
-   *  <li><{@code x, [y,z] = ..} binds x, y, z.</li>
-   *  <li><{@code x[5] = ..} does not bind any names.</li>
-   *  </ul>
-   */
-  public ImmutableSet<String> boundNames() {
-    ImmutableSet.Builder<String> result = ImmutableSet.builder();
-    collectBoundNames(expr, result);
-    return result.build();
-  }
-
-  private static void collectBoundNames(Expression lhs, ImmutableSet.Builder<String> result) {
-    if (lhs instanceof Identifier) {
-      result.add(((Identifier) lhs).getName());
-      return;
-    }
-    if (lhs instanceof ListLiteral) {
-      ListLiteral variables = (ListLiteral) lhs;
-      for (Expression expression : variables.getElements()) {
-        collectBoundNames(expression, result);
-      }
     }
   }
 

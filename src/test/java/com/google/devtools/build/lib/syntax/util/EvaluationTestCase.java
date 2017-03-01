@@ -125,7 +125,7 @@ public class EvaluationTestCase {
     setMode(TestMode.BUILD);
   }
 
-  public EventHandler getEventHandler() {
+  protected EventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
   }
 

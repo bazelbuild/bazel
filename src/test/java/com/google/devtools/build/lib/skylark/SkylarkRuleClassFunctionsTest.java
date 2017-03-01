@@ -37,18 +37,17 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.SkylarkAspect;
-import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
+import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
-import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -97,37 +96,36 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testCannotOverrideBuiltInAttribute() throws Exception {
-    ev.setFailFast(false);
+    ev.setFailFast(true);
     try {
       evalAndExport(
           "def impl(ctx): return", "r = rule(impl, attrs = {'tags': attr.string_list()})");
       Assert.fail("Expected error '"
           + "There is already a built-in attribute 'tags' which cannot be overridden"
           + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains(
+    } catch (EvalException e) {
+      assertThat(e).hasMessage(
           "There is already a built-in attribute 'tags' which cannot be overridden");
     }
   }
 
   @Test
   public void testCannotOverrideBuiltInAttributeName() throws Exception {
-    ev.setFailFast(false);
+    ev.setFailFast(true);
     try {
       evalAndExport(
           "def impl(ctx): return", "r = rule(impl, attrs = {'name': attr.string()})");
       Assert.fail("Expected error '"
           + "There is already a built-in attribute 'name' which cannot be overridden"
           + "' but got no error");
-    } catch (AssertionError e) {
-      assertThat(e).hasMessageThat().contains(
+    } catch (EvalException e) {
+      assertThat(e).hasMessage(
           "There is already a built-in attribute 'name' which cannot be overridden");
     }
   }
 
   @Test
   public void testImplicitArgsAttribute() throws Exception {
-    ev.setFailFast(false);
     evalAndExport(
         "def _impl(ctx):",
         "  pass",
@@ -265,30 +263,16 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testLabelListWithAspects() throws Exception {
-    evalAndExport(
+    SkylarkAttr.Descriptor attr =
+        (SkylarkAttr.Descriptor) evalRuleClassCode(
             "def _impl(target, ctx):",
             "   pass",
             "my_aspect = aspect(implementation = _impl)",
-            "a = attr.label_list(aspects = [my_aspect])");
-    SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-            SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+            "attr.label_list(aspects = [my_aspect])");
+    Object aspect = ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
-    assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
+    assertThat(attr.getAspects()).containsExactly(aspect);
   }
-
-  @Test
-  public void testLabelWithAspects() throws Exception {
-    evalAndExport(
-        "def _impl(target, ctx):",
-        "   pass",
-        "my_aspect = aspect(implementation = _impl)",
-        "a = attr.label(aspects = [my_aspect])");
-    SkylarkAttr.Descriptor attr = (SkylarkAttr.Descriptor) ev.lookup("a");
-    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
-    assertThat(aspect).isNotNull();
-    assertThat(attr.build("xxx").getAspectClasses()).containsExactly(aspect.getAspectClass());
-  }
-
 
   @Test
   public void testLabelListWithAspectsError() throws Exception {
@@ -508,10 +492,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   protected void evalAndExport(String... lines) throws Exception {
-    BuildFileAST buildFileAST = BuildFileAST.parseAndValidateSkylarkString(
-        ev.getEnvironment(), lines);
-    SkylarkImportLookupFunction.execAndExport(
-        buildFileAST, FAKE_LABEL, ev.getEventHandler(), ev.getEnvironment());
+    eval(lines);
+    SkylarkRuleClassFunctions.exportRuleFunctionsAndAspects(ev.getEnvironment(), FAKE_LABEL);
   }
 
   @Test
@@ -1239,44 +1221,6 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
   }
 
-  @Test
-  public void fancyExports() throws Exception {
-    evalAndExport(
-        "def _impla(target, ctx): pass",
-        "p, (a, p1) = [",
-        "   provider(),",
-        "   [ aspect(_impla),",
-        "     provider() ]",
-        "]"
-    );
-    SkylarkClassObjectConstructor p = (SkylarkClassObjectConstructor) lookup("p");
-    SkylarkAspect a = (SkylarkAspect) lookup("a");
-    SkylarkClassObjectConstructor p1 = (SkylarkClassObjectConstructor) lookup("p1");
-    assertThat(p.getPrintableName()).isEqualTo("p");
-    assertThat(p.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
-    assertThat(p1.getPrintableName()).isEqualTo("p1");
-    assertThat(p1.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p1"));
-    assertThat(a.getAspectClass()).isEqualTo(
-        new SkylarkAspectClass(FAKE_LABEL, "a")
-    );
-  }
-
-  @Test
-  public void multipleTopLevels() throws Exception {
-    evalAndExport(
-        "p = provider()",
-        "p1 = p"
-    );
-    SkylarkClassObjectConstructor p = (SkylarkClassObjectConstructor) lookup("p");
-    SkylarkClassObjectConstructor p1 = (SkylarkClassObjectConstructor) lookup("p1");
-    assertThat(p).isEqualTo(p1);
-    assertThat(p.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
-    assertThat(p1.getKey())
-        .isEqualTo(new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, "p"));
-  }
 
 
   @Test

@@ -27,21 +27,18 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.SkylarkExportable;
+import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupValue.SkylarkImportLookupKey;
-import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
-import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -370,46 +367,18 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               .createSkylarkRuleClassEnvironment(
                   extensionLabel, mutability, eventHandler, ast.getContentHashCode(), importMap)
               .setupOverride("native", packageFactory.getNativeModule(inWorkspace));
-      execAndExport(ast, extensionLabel, eventHandler, extensionEnv);
+      ast.exec(extensionEnv, eventHandler);
+      try {
+        SkylarkRuleClassFunctions.exportRuleFunctionsAndAspects(extensionEnv, extensionLabel);
+      } catch (EvalException e) {
+        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
+      }
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       if (eventHandler.hasErrors()) {
         throw SkylarkImportFailedException.errors(extensionFile);
       }
       return new Extension(extensionEnv);
-    }
-  }
-
-  public static void execAndExport(BuildFileAST ast, Label extensionLabel,
-      EventHandler eventHandler,
-      com.google.devtools.build.lib.syntax.Environment extensionEnv) throws InterruptedException {
-    ImmutableList<Statement> statements = ast.getStatements();
-    for (Statement statement : statements) {
-      ast.execTopLevelStatement(statement, extensionEnv, eventHandler);
-      possiblyExport(statement, extensionLabel, eventHandler, extensionEnv);
-    }
-  }
-
-  private static void possiblyExport(Statement statement, Label extensionLabel,
-      EventHandler eventHandler,
-      com.google.devtools.build.lib.syntax.Environment extensionEnv) {
-    if (!(statement instanceof AssignmentStatement)) {
-      return;
-    }
-    AssignmentStatement assignmentStatement = (AssignmentStatement) statement;
-    ImmutableSet<String> boundNames = assignmentStatement.getLValue().boundNames();
-    for (String name : boundNames) {
-      Object lookup = extensionEnv.lookup(name);
-      if (lookup instanceof SkylarkExportable) {
-        try {
-          SkylarkExportable exportable = (SkylarkExportable) lookup;
-          if (!exportable.isExported()) {
-            exportable.export(extensionLabel, name);
-          }
-        } catch (EvalException e) {
-          eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
-        }
-      }
     }
   }
 
