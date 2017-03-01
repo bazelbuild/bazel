@@ -30,6 +30,10 @@ RUNTIME_DEPS = [
 
 PREREQUISITE_DEPS = []
 
+# Dependency type enum
+COMPILE_TIME = 0
+RUNTIME = 1
+
 ##### Helpers
 
 def struct_omit_none(**kwargs):
@@ -151,13 +155,6 @@ def collect_targets_from_attrs(rule_attrs, attrs):
     _collect_target_from_attr(rule_attrs, attr_name, result)
   return [target for target in result if is_valid_aspect_target(target)]
 
-def collect_transitive_exports(targets):
-  """Build a union of all export dependencies."""
-  result = set()
-  for dep in targets:
-    result = result | dep.intellij_info.export_deps
-  return result
-
 def targets_to_labels(targets):
   """Returns a set of label strings for the given targets."""
   return set([str(target.label) for target in targets])
@@ -169,6 +166,42 @@ def list_omit_none(value):
 def is_valid_aspect_target(target):
   """Returns whether the target has had the aspect run on it."""
   return hasattr(target, "intellij_info")
+
+def get_aspect_ids(ctx, target):
+  """Returns the all aspect ids, filtering out self."""
+  aspect_ids = None
+  if hasattr(ctx, "aspect_ids"):
+    aspect_ids = ctx.aspect_ids
+  elif hasattr(target, "aspect_ids"):
+    aspect_ids = target.aspect_ids
+  else:
+    return None
+  return [aspect_id for aspect_id in aspect_ids if "intellij_info_aspect" not in aspect_id]
+
+def make_target_key(label, aspect_ids):
+  """Returns a TargetKey proto struct from a target."""
+  return struct_omit_none(
+      label = str(label),
+      aspect_ids = tuple(aspect_ids) if aspect_ids else None
+  )
+
+def make_dep(dep, dependency_type):
+  """Returns a Dependency proto struct."""
+  return struct(
+      target = dep.intellij_info.target_key,
+      dependency_type = dependency_type,
+  )
+
+def make_deps(deps, dependency_type):
+  """Returns a list of Dependency proto structs."""
+  return [make_dep(dep, dependency_type) for dep in deps]
+
+def make_dep_from_label(label, dependency_type):
+  """Returns a Dependency proto struct from a label."""
+  return struct(
+      target = struct(label = str(label)),
+      dependency_type = dependency_type,
+  )
 
 ##### Builders for individual parts of the aspect output
 
@@ -241,9 +274,17 @@ def build_c_toolchain_ide_info(ctx):
   )
   return (c_toolchain_ide_info, set())
 
+def get_java_provider(target):
+  if hasattr(target, "proto_java"):
+    return target.proto_java
+  if hasattr(target, "java"):
+    return target.java
+  return None
+
 def build_java_ide_info(target, ctx, semantics):
   """Build JavaIdeInfo."""
-  if not hasattr(target, "java"):
+  java = get_java_provider(target)
+  if not java:
     return (None, set(), set())
 
   java_semantics = semantics.java if hasattr(semantics, "java") else None
@@ -253,19 +294,19 @@ def build_java_ide_info(target, ctx, semantics):
   ide_info_files = set()
   sources = sources_from_target(ctx)
 
-  jars = [library_artifact(output) for output in target.java.outputs.jars]
-  output_jars = [jar for output in target.java.outputs.jars for jar in jars_from_output(output)]
+  jars = [library_artifact(output) for output in java.outputs.jars]
+  output_jars = [jar for output in java.outputs.jars for jar in jars_from_output(output)]
   intellij_resolve_files = set(output_jars)
 
   gen_jars = []
-  if target.java.annotation_processing and target.java.annotation_processing.enabled:
-    gen_jars = [annotation_processing_jars(target.java.annotation_processing)]
+  if java.annotation_processing and java.annotation_processing.enabled:
+    gen_jars = [annotation_processing_jars(java.annotation_processing)]
     intellij_resolve_files = intellij_resolve_files | set([
-        jar for jar in [target.java.annotation_processing.class_jar,
-                        target.java.annotation_processing.source_jar]
+        jar for jar in [java.annotation_processing.class_jar,
+                        java.annotation_processing.source_jar]
         if jar != None and not jar.is_source])
 
-  jdeps = artifact_location(target.java.outputs.jdeps)
+  jdeps = artifact_location(java.outputs.jdeps)
 
   java_sources, gen_java_sources, srcjars = divide_java_sources(ctx)
 
@@ -282,6 +323,7 @@ def build_java_ide_info(target, ctx, semantics):
     filtered_gen_jar, filtered_gen_resolve_files = build_filtered_gen_jar(
         ctx,
         target,
+        java,
         gen_java_sources,
         srcjars
     )
@@ -323,11 +365,11 @@ def build_java_package_manifest(ctx, target, source_files, suffix):
   )
   return output
 
-def build_filtered_gen_jar(ctx, target, gen_java_sources, srcjars):
+def build_filtered_gen_jar(ctx, target, java, gen_java_sources, srcjars):
   """Filters the passed jar to contain only classes from the given manifest."""
   jar_artifacts = []
   source_jar_artifacts = []
-  for jar in target.java.outputs.jars:
+  for jar in java.outputs.jars:
     if jar.ijar:
       jar_artifacts.append(jar.ijar)
     elif jar.class_jar:
@@ -449,24 +491,32 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   # Collect direct dependencies
   direct_dep_targets = collect_targets_from_attrs(
       rule_attrs, semantics_extra_deps(DEPS, semantics, "extra_deps"))
+  direct_deps = make_deps(direct_dep_targets, COMPILE_TIME)
 
   # Add exports from direct dependencies
-  exported_deps_from_deps = collect_transitive_exports(direct_dep_targets)
-  compiletime_deps = targets_to_labels(direct_dep_targets) | exported_deps_from_deps
+  exported_deps_from_deps = []
+  for dep in direct_dep_targets:
+    exported_deps_from_deps = exported_deps_from_deps + dep.intellij_info.export_deps
+
+  # Combine into all compile time deps
+  compiletime_deps = direct_deps + exported_deps_from_deps
 
   # Propagate my own exports
-  export_deps = set()
+  export_deps = []
   if hasattr(target, "java"):
-    export_deps = set([str(l) for l in target.java.transitive_exports])
+    transitive_exports = target.java.transitive_exports
+    export_deps = [make_dep_from_label(label, COMPILE_TIME) for label in transitive_exports]
     # Empty android libraries export all their dependencies.
     if ctx.rule.kind == "android_library":
       if not hasattr(rule_attrs, "srcs") or not ctx.rule.attr.srcs:
-        export_deps = export_deps | compiletime_deps
+        export_deps = export_deps + compiletime_deps
+  export_deps = list(set(export_deps))
 
   # runtime_deps
   runtime_dep_targets = collect_targets_from_attrs(
       rule_attrs, semantics_extra_deps(RUNTIME_DEPS, semantics, "extra_runtime_deps"))
-  runtime_deps = targets_to_labels(runtime_dep_targets)
+  runtime_deps = make_deps(runtime_dep_targets, RUNTIME)
+  all_deps = list(set(compiletime_deps + runtime_deps))
 
   # extra prerequisites
   extra_prerequisite_targets = collect_targets_from_attrs(
@@ -509,17 +559,24 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   # Collect test info
   test_info = build_test_info(ctx)
 
+  file_name = target.label.name
+  aspect_ids = get_aspect_ids(ctx, target)
+  if aspect_ids:
+    aspect_hash = hash(".".join(aspect_ids))
+    file_name = file_name + "-" + str(aspect_hash)
+  file_name = file_name + ".intellij-info.txt"
+
   # Any extra ide info
   extra_ide_info = {}
   if hasattr(semantics, "extra_ide_info"):
     extra_ide_info = semantics.extra_ide_info(target, ctx)
 
   # Build TargetIdeInfo proto
+  target_key = make_target_key(target.label, aspect_ids)
   info = struct_omit_none(
-      label = str(target.label),
+      key = target_key,
       kind_string = ctx.rule.kind,
-      dependencies = list(compiletime_deps),
-      runtime_deps = list(runtime_deps),
+      deps = list(all_deps),
       build_file_artifact_location = build_file_artifact_location(ctx),
       c_ide_info = c_ide_info,
       c_toolchain_ide_info = c_toolchain_ide_info,
@@ -533,7 +590,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   )
 
   # Output the ide information file.
-  output = ctx.new_file(target.label.name + ".intellij-info.txt")
+  output = ctx.new_file(file_name)
   ctx.file_action(output, info.to_proto())
   intellij_info_text = intellij_info_text | set([output])
 
@@ -545,6 +602,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
           "intellij-compile": intellij_compile_files,
       },
       intellij_info = struct(
+          target_key = target_key,
           intellij_info_text = intellij_info_text,
           intellij_resolve_files = intellij_resolve_files,
           export_deps = export_deps,
@@ -582,4 +640,5 @@ def make_intellij_info_aspect(aspect_impl, semantics):
       attr_aspects = attr_aspects,
       fragments = ["cpp"],
       implementation = aspect_impl,
+      required_aspect_providers = ["proto_java"],
   )
