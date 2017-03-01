@@ -121,8 +121,13 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       }
     }
     ImmutableList<SkyKey> skyKeys = builder.build();
-    return parseTargetPatternKeys(skyKeys, SkyframeExecutor.DEFAULT_THREAD_COUNT, keepGoing,
-        eventHandler, createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing));
+    return parseTargetPatternKeys(
+        targetPatterns,
+        skyKeys,
+        SkyframeExecutor.DEFAULT_THREAD_COUNT,
+        keepGoing,
+        eventHandler,
+        createTargetPatternEvaluatorUtil(policy, eventHandler, keepGoing));
   }
 
   private TargetPatternsResultBuilder createTargetPatternEvaluatorUtil(
@@ -134,6 +139,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
   }
 
   ResolvedTargets<Target> parseTargetPatternKeys(
+      List<String> targetPattern,
       Iterable<SkyKey> patternSkyKeys,
       int numThreads,
       boolean keepGoing,
@@ -178,6 +184,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
         }
         if (keepGoing) {
           eventHandler.handle(Event.error("Skipping '" + rawPattern + "': " + errorMessage));
+          eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         }
         finalTargetSetEvaluator.setError();
 
@@ -192,6 +199,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternEvaluator {
       Preconditions.checkState(errorMessage != null, "unexpected errors: %s", result.errorMap());
       finalTargetSetEvaluator.setError();
       if (!keepGoing) {
+        eventHandler.post(PatternExpandingError.failed(targetPattern, errorMessage));
         throw new TargetParsingException(errorMessage);
       }
     }

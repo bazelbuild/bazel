@@ -241,4 +241,26 @@ function test_root_cause_early() {
       || fail "failed action not before compelted target"
 }
 
+function test_loading_failure() {
+  # Verify that if loading fails, this is properly reported as the
+  # reason for the target expansion event not resulting in targets
+  # being expanded.
+  (bazel build --experimental_build_event_text_file=$TEST_log \
+         //does/not/exist && fail "build failure expected") || true
+  expect_log_once '^progress '
+  expect_log_once '^loading_failed'
+  expect_log 'details.*BUILD file not found on package path'
+  expect_not_log 'expanded'
+  expect_not_log 'aborted'
+}
+
+function test_loading_failure_keep_going() {
+  (bazel build --experimental_build_event_text_file=$TEST_log \
+         -k //does/not/exist && fail "build failure expected") || true
+  expect_log_once '^loading_failed'
+  expect_log_once '^expanded'
+  expect_log 'details.*BUILD file not found on package path'
+  expect_not_log 'aborted'
+}
+
 run_suite "Integration tests for the build event stream"

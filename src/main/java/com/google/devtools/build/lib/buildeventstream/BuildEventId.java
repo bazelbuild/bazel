@@ -84,14 +84,29 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
   }
 
-  public static BuildEventId targetPatternExpanded(List<String> targetPattern) {
+  private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
         BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()
             .addAllPattern(targetPattern)
             .build();
-    return new BuildEventId(
-        BuildEventStreamProtos.BuildEventId.newBuilder().setPattern(patternId).build());
+    BuildEventStreamProtos.BuildEventId.Builder builder =
+        BuildEventStreamProtos.BuildEventId.newBuilder();
+    if (skipped) {
+      builder.setPatternSkipped(patternId);
+    } else {
+      builder.setPattern(patternId);
+    }
+    return new BuildEventId(builder.build());
   }
+
+  public static BuildEventId targetPatternExpanded(List<String> targetPattern) {
+    return targetPatternExpanded(targetPattern, false);
+  }
+
+  public static BuildEventId targetPatternSkipped(List<String> targetPattern) {
+    return targetPatternExpanded(targetPattern, true);
+  }
+
 
   public static BuildEventId targetCompleted(Label target) {
     BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =

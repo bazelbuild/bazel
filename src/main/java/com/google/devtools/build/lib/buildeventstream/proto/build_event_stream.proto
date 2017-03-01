@@ -51,6 +51,10 @@ message BuildEventId {
 
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
+  // Messages of this shape are also used to describe parts of a pattern that
+  // have been skipped for some reason, if the actual expasion was still carried
+  // out (e.g., if keep_going is set). In this case, the pattern_skipped choice
+  // in the id field is to be made.
   message PatternExpandedId {
     repeated string pattern = 1;
   }
@@ -94,6 +98,7 @@ message BuildEventId {
     ProgressId progress = 2;
     BuildStartedId started = 3;
     PatternExpandedId pattern = 4;
+    PatternExpandedId pattern_skipped = 10;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
     TestResultId test_result = 8;
@@ -133,6 +138,12 @@ message Aborted {
   // A human readable description with more details about there reason, where
   // available and useful.
   string description = 2;
+}
+
+// Payload of an event indicating that an expected event will not come, as
+// something went wrong when attempting to load the corresponding package.
+message LoadingFailure {
+  string details = 1;
 }
 
 // Payload of an event indicating the beginning of a new build. Usually, events
@@ -273,6 +284,7 @@ message BuildEvent {
   oneof payload {
     Progress progress = 3;
     Aborted aborted = 4;
+    LoadingFailure loading_failed = 11;
     BuildStarted started = 5;
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
