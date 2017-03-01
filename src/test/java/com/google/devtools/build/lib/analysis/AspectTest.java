@@ -129,6 +129,74 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectIsNotCreatedIfAdvertisedProviderIsNotPresentWithAlias() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.LiarRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "liar(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
+  }
+
+  @Test
+  public void aspectIsNotPropagatedThroughLiars() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(),
+        new TestAspects.LiarRule(),
+        new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b_alias'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "liar(name='b', foo=[':c'])",
+        "honest(name = 'c', foo = [])"
+    );
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
+  }
+
+  @Test
+  public void aspectPropagatedThroughAliasRule() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b_alias'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "honest(name='b', foo=[])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly(
+        "rule //a:a", "aspect //a:b");
+  }
+
+  @Test
+  public void aspectPropagatedThroughAliasRuleAndHonestRules() throws Exception {
+    setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=[':b'])",
+        "alias(name = 'b_alias', actual = ':b')",
+        "honest(name='b', foo=[':c'])",
+        "honest(name='c', foo=[])"
+    );
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly(
+        "rule //a:a", "aspect //a:b", "aspect //a:c");
+  }
+
+
+
+
+
+  @Test
   public void aspectCreationWorksThroughBind() throws Exception {
     setRulesAvailableInTests(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());
