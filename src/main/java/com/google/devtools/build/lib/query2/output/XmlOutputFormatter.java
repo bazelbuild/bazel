@@ -29,11 +29,10 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.syntax.Type;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
@@ -63,10 +62,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+  public OutputFormatterCallback<Target> createStreamCallback(
       OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-    return new SynchronizedDelegatingOutputFormatterCallback<>(
-        createPostFactoStreamCallback(out, options));
+    return createPostFactoStreamCallback(out, options);
   }
 
   @Override

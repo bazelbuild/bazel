@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
-/** A marker parent class for a {@link ThreadSafe} {@link OutputFormatterCallback}. */
+/** Marker interface for a {@link ThreadSafe} {@link Uniquifier}. */
 @ThreadSafe
-public abstract class ThreadSafeOutputFormatterCallback<T> extends OutputFormatterCallback<T> {
+public interface ThreadSafeUniquifier<T> extends Uniquifier<T> {
 }
+

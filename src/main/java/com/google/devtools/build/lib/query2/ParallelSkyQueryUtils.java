@@ -36,10 +36,10 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.Callback;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeUniquifier;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -77,13 +77,14 @@ class ParallelSkyQueryUtils {
    * Specialized parallel variant of {@link SkyQueryEnvironment#getAllRdeps} that is appropriate
    * when there is no depth-bound.
    */
-  static QueryTaskFuture<Void> getAllRdepsUnboundedParallel(
+  static void getAllRdepsUnboundedParallel(
       SkyQueryEnvironment env,
       QueryExpression expression,
       VariableContext<Target> context,
-      Callback<Target> callback,
-      MultisetSemaphore<PackageIdentifier> packageSemaphore) {
-    return env.eval(
+      ThreadSafeCallback<Target> callback,
+      MultisetSemaphore<PackageIdentifier> packageSemaphore)
+          throws QueryException, InterruptedException {
+    env.eval(
         expression,
         context,
         new SkyKeyBFSVisitorCallback(
@@ -94,10 +95,10 @@ class ParallelSkyQueryUtils {
   static void getRBuildFilesParallel(
       SkyQueryEnvironment env,
       Collection<PathFragment> fileIdentifiers,
-      Callback<Target> callback,
+      ThreadSafeCallback<Target> callback,
       MultisetSemaphore<PackageIdentifier> packageSemaphore)
           throws QueryException, InterruptedException {
-    Uniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
+    ThreadSafeUniquifier<SkyKey> keyUniquifier = env.createSkyKeyUniquifier();
     RBuildFilesVisitor visitor =
         new RBuildFilesVisitor(env, keyUniquifier, callback, packageSemaphore);
     visitor.visitAndWaitForCompletion(env.getSkyKeysForFileFragments(fileIdentifiers));
@@ -109,7 +110,7 @@ class ParallelSkyQueryUtils {
 
     private RBuildFilesVisitor(
         SkyQueryEnvironment env,
-        Uniquifier<SkyKey> uniquifier,
+        ThreadSafeUniquifier<SkyKey> uniquifier,
         Callback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore) {
       super(env, uniquifier, callback);
@@ -179,8 +180,8 @@ class ParallelSkyQueryUtils {
 
     private AllRdepsUnboundedVisitor(
         SkyQueryEnvironment env,
-        Uniquifier<Pair<SkyKey, SkyKey>> uniquifier,
-        Callback<Target> callback,
+        ThreadSafeUniquifier<Pair<SkyKey, SkyKey>> uniquifier,
+        ThreadSafeCallback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore) {
       super(env, uniquifier, callback);
       this.packageSemaphore = packageSemaphore;
@@ -189,18 +190,19 @@ class ParallelSkyQueryUtils {
     /**
      * A {@link Factory} for {@link AllRdepsUnboundedVisitor} instances, each of which will be used
      * to perform visitation of the reverse transitive closure of the {@link Target}s passed in a
-     * single {@link Callback#process} call. Note that all the created instances share the same
-     * {@link Uniquifier} so that we don't visit the same Skyframe node more than once.
+     * single {@link ThreadSafeCallback#process} call. Note that all the created
+     * instances share the same {@code ThreadSafeUniquifier<SkyKey>} so that we don't visit the
+     * same Skyframe node more than once.
      */
     private static class Factory implements AbstractSkyKeyBFSVisitor.Factory {
       private final SkyQueryEnvironment env;
-      private final Uniquifier<Pair<SkyKey, SkyKey>> uniquifier;
-      private final Callback<Target> callback;
+      private final ThreadSafeUniquifier<Pair<SkyKey, SkyKey>> uniquifier;
+      private final ThreadSafeCallback<Target> callback;
       private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
 
       private Factory(
         SkyQueryEnvironment env,
-        Callback<Target> callback,
+        ThreadSafeCallback<Target> callback,
         MultisetSemaphore<PackageIdentifier> packageSemaphore) {
         this.env = env;
         this.uniquifier = env.createReverseDepSkyKeyUniquifier();
@@ -339,10 +341,10 @@ class ParallelSkyQueryUtils {
   }
 
   /**
-   * A {@link Callback} whose {@link Callback#process} method kicks off a BFS visitation via a fresh
-   * {@link AbstractSkyKeyBFSVisitor} instance.
+   * A {@link ThreadSafeCallback} whose {@link ThreadSafeCallback#process} method kicks off a BFS
+   * visitation via a fresh {@link AbstractSkyKeyBFSVisitor} instance.
    */
-  private static class SkyKeyBFSVisitorCallback implements Callback<Target> {
+  private static class SkyKeyBFSVisitorCallback implements ThreadSafeCallback<Target> {
     private final AbstractSkyKeyBFSVisitor.Factory visitorFactory;
 
     private SkyKeyBFSVisitorCallback(AbstractSkyKeyBFSVisitor.Factory visitorFactory) {
@@ -353,8 +355,6 @@ class ParallelSkyQueryUtils {
     public void process(Iterable<Target> partialResult)
         throws QueryException, InterruptedException {
       AbstractSkyKeyBFSVisitor<?> visitor = visitorFactory.create();
-      // TODO(nharmata): It's not ideal to have an operation like this in #process that blocks on
-      // another, potentially expensive computation. Refactor to something like "processAsync".
       visitor.visitAndWaitForCompletion(
           SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
     }
@@ -370,7 +370,7 @@ class ParallelSkyQueryUtils {
   @ThreadSafe
   private abstract static class AbstractSkyKeyBFSVisitor<T> {
     protected final SkyQueryEnvironment env;
-    private final Uniquifier<T> uniquifier;
+    private final ThreadSafeUniquifier<T> uniquifier;
     private final Callback<Target> callback;
 
     private final QuiescingExecutor executor;
@@ -434,7 +434,7 @@ class ParallelSkyQueryUtils {
             new ThreadFactoryBuilder().setNameFormat("skykey-bfs-visitor %d").build());
 
     private AbstractSkyKeyBFSVisitor(
-        SkyQueryEnvironment env, Uniquifier<T> uniquifier, Callback<Target> callback) {
+        SkyQueryEnvironment env, ThreadSafeUniquifier<T> uniquifier, Callback<Target> callback) {
       this.env = env;
       this.uniquifier = uniquifier;
       this.callback = callback;

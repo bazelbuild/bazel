@@ -35,8 +35,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -180,16 +178,15 @@ public abstract class OutputFormatter implements Serializable {
     void setOptions(QueryOptions options, AspectResolver aspectResolver);
 
     /**
-     * Returns a {@link ThreadSafeOutputFormatterCallback} whose
-     * {@link OutputFormatterCallback#process} outputs formatted {@link Target}s to the given
-     * {@code out}.
+     * Returns a {@link OutputFormatterCallback} whose {@link OutputFormatterCallback#process}
+     * outputs formatted {@link Target}s to the given {@code out}.
      *
      * <p>Takes any options specified via the most recent call to {@link #setOptions} into
      * consideration.
      *
      * <p>Intended to be use for streaming out during evaluation of a query.
      */
-    ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+    OutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env);
 
     /**
@@ -291,10 +288,9 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return new SynchronizedDelegatingOutputFormatterCallback<>(
-          createPostFactoStreamCallback(out, options));
+      return createPostFactoStreamCallback(out, options);
     }
   }
 
@@ -349,10 +345,9 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return new SynchronizedDelegatingOutputFormatterCallback<>(
-          createPostFactoStreamCallback(out, options));
+      return createPostFactoStreamCallback(out, options);
     }
   }
 
@@ -392,10 +387,9 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return new SynchronizedDelegatingOutputFormatterCallback<>(
-          createPostFactoStreamCallback(out, options));
+      return createPostFactoStreamCallback(out, options);
     }
   }
 
@@ -484,10 +478,9 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public ThreadSafeOutputFormatterCallback<Target> createStreamCallback(
+    public OutputFormatterCallback<Target> createStreamCallback(
         OutputStream out, QueryOptions options, QueryEnvironment<?> env) {
-      return new SynchronizedDelegatingOutputFormatterCallback<>(
-          createPostFactoStreamCallback(out, options));
+      return createPostFactoStreamCallback(out, options);
     }
   }
 

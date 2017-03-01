@@ -46,7 +46,7 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
    * disambiguate between real interruptions or IO Exceptions.
    */
   @Override
-  public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+  public final void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
     try {
       processOutput(partialResult);
     } catch (IOException e) {

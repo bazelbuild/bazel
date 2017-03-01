@@ -19,9 +19,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.util.BatchCallback;
@@ -29,12 +26,15 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Pattern;
+
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -157,48 +157,17 @@ public abstract class TargetPattern implements Serializable {
       throws TargetParsingException, E, InterruptedException;
 
   /**
-   * Evaluates this {@link TargetPattern} synchronously, feeding the result to the given
-   * {@code callback}, and then returns an appropriate immediate {@link ListenableFuture}.
-   *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
+   * Same as {@link #eval}, but optionally making use of the given {@link ForkJoinPool} to achieve
+   * parallelism.
    */
-  public final <T, E extends Exception> ListenableFuture<Void> evalAdaptedForAsync(
-      TargetPatternResolver<T> resolver,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<T, E> callback,
-      Class<E> exceptionClass) {
-    try {
-      eval(resolver, excludedSubdirectories, callback, exceptionClass);
-      return Futures.immediateFuture(null);
-    } catch (TargetParsingException e) {
-      return Futures.immediateFailedFuture(e);
-    } catch (InterruptedException e) {
-      return Futures.immediateCancelledFuture();
-    } catch (Exception e) {
-      if (exceptionClass.isInstance(e)) {
-        return Futures.immediateFailedFuture(exceptionClass.cast(e));
-      }
-      throw new IllegalStateException(e);
-    }
-  }
-
-  /**
-   * Returns a {@link ListenableFuture} representing the asynchronous evaluation of this
-   * {@link TargetPattern} that feeds the results to the given {@code callback}.
-   *
-   * <p>If the returned {@link ListenableFuture}'s {@link ListenableFuture#get} throws an
-   * {@link ExecutionException}, the cause will be an instance of either
-   * {@link TargetParsingException} or the given {@code exceptionClass}.
-   */
-  public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+  public <T, E extends Exception> void parEval(
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass,
-      ListeningExecutorService executor) {
-    return evalAdaptedForAsync(resolver, excludedSubdirectories, callback, exceptionClass);
+      ForkJoinPool forkJoinPool)
+      throws TargetParsingException, E, InterruptedException {
+    eval(resolver, excludedSubdirectories, callback, exceptionClass);
   }
 
   /**
@@ -283,8 +252,8 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback,
-        Class<E> exceptionClass) throws TargetParsingException, E, InterruptedException {
+        BatchCallback<T, E> callback, Class<E> exceptionClass)
+        throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
           getOriginalPattern(), getType(), excludedSubdirectories);
@@ -549,13 +518,14 @@ public abstract class TargetPattern implements Serializable {
     }
 
     @Override
-    public <T, E extends Exception> ListenableFuture<Void> evalAsync(
+    public <T, E extends Exception> void parEval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
         ThreadSafeBatchCallback<T, E> callback,
         Class<E> exceptionClass,
-        ListeningExecutorService executor) {
-      return resolver.findTargetsBeneathDirectoryAsync(
+        ForkJoinPool forkJoinPool)
+        throws TargetParsingException, E, InterruptedException {
+      resolver.findTargetsBeneathDirectoryPar(
           directory.getRepository(),
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
@@ -563,7 +533,7 @@ public abstract class TargetPattern implements Serializable {
           excludedSubdirectories,
           callback,
           exceptionClass,
-          executor);
+          forkJoinPool);
     }
 
     @Override

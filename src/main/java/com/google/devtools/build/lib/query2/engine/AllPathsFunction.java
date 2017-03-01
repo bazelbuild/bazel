@@ -21,12 +21,12 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Implementation of the <code>allpaths()</code> function.
@@ -51,47 +51,46 @@ public class AllPathsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> QueryTaskFuture<Void> eval(
-      final QueryEnvironment<T> env,
+  public <T> void eval(
+      QueryEnvironment<T> env,
       VariableContext<T> context,
-      final QueryExpression expression,
+      QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback) {
-    final QueryTaskFuture<Set<T>> fromValueFuture =
-        QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    final QueryTaskFuture<Set<T>> toValueFuture =
-        QueryUtil.evalAll(env, context, args.get(1).getExpression());
+      Callback<T> callback) throws QueryException, InterruptedException {
 
-    return env.whenAllSucceedCall(
-        ImmutableList.of(fromValueFuture, toValueFuture),
-        new QueryTaskCallable<Void>() {
-          @Override
-          public Void call() throws QueryException, InterruptedException {
-            // Algorithm: compute "reachableFromX", the forward transitive closure of
-            // the "from" set, then find the intersection of "reachableFromX" with the
-            // reverse transitive closure of the "to" set.  The reverse transitive
-            // closure and intersection operations are interleaved for efficiency.
-            // "result" holds the intersection.
+    Set<T> fromValue = QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    Set<T> toValue = QueryUtil.evalAll(env, context, args.get(1).getExpression());
 
-            Set<T> fromValue = fromValueFuture.getIfSuccessful();
-            Set<T> toValue = toValueFuture.getIfSuccessful();
+    // Algorithm: compute "reachableFromX", the forward transitive closure of
+    // the "from" set, then find the intersection of "reachableFromX" with the
+    // reverse transitive closure of the "to" set.  The reverse transitive
+    // closure and intersection operations are interleaved for efficiency.
+    // "result" holds the intersection.
 
-            env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
+    env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
-            Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
-            Predicate<T> reachable = Predicates.in(reachableFromX);
-            Uniquifier<T> uniquifier = env.createUniquifier();
-            Collection<T> result = uniquifier.unique(intersection(reachableFromX, toValue));
-            callback.process(result);
-            Collection<T> worklist = result;
-            while (!worklist.isEmpty()) {
-              Collection<T> reverseDeps = env.getReverseDeps(worklist);
-              worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
-              callback.process(worklist);
-            }
-            return null;
-          }
-        });
+    Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
+    Predicate<T> reachable = Predicates.in(reachableFromX);
+    Uniquifier<T> uniquifier = env.createUniquifier();
+    Collection<T> result = uniquifier.unique(intersection(reachableFromX, toValue));
+    callback.process(result);
+    Collection<T> worklist = result;
+    while (!worklist.isEmpty()) {
+      Collection<T> reverseDeps = env.getReverseDeps(worklist);
+      worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
+      callback.process(worklist);
+    }
+  }
+
+  @Override
+  public <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
+    eval(env, context, expression, args, callback);
   }
 
   /**

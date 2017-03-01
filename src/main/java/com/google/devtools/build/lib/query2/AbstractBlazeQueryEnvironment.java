@@ -24,15 +24,15 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.AbstractQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.io.IOException;
@@ -47,7 +47,8 @@ import java.util.logging.Logger;
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
  * QueryEnvironment as possible while remaining mostly agnostic as to the objects being stored.
  */
-public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvironment<T> {
+public abstract class AbstractBlazeQueryEnvironment<T>
+    implements QueryEnvironment<T> {
   protected ErrorSensingEventHandler eventHandler;
   protected final boolean keepGoing;
   protected final boolean strictScope;
@@ -57,6 +58,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
 
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
+  private final QueryExpressionEvalListener<T> evalListener;
 
   private static final Logger logger =
       Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
@@ -67,7 +69,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       Predicate<Label> labelFilter,
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
-      Iterable<QueryFunction> extraFunctions) {
+      Iterable<QueryFunction> extraFunctions,
+      QueryExpressionEvalListener<T> evalListener) {
     this.eventHandler = new ErrorSensingEventHandler(eventHandler);
     this.keepGoing = keepGoing;
     this.strictScope = strictScope;
@@ -75,6 +78,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     this.labelFilter = labelFilter;
     this.settings = Sets.immutableEnumSet(settings);
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
+    this.evalListener = evalListener;
   }
 
   private static DependencyFilter constructDependencyFilter(
@@ -99,7 +103,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
    */
   protected void evalTopLevelInternal(QueryExpression expr, OutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException {
-    ((QueryTaskFutureImpl<Void>) eval(expr, VariableContext.<T>empty(), callback)).getChecked();
+    eval(expr, VariableContext.<T>empty(), callback);
   }
 
   /**
@@ -116,9 +120,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
    */
   public QueryEvalResult evaluateQuery(
       QueryExpression expr,
-      ThreadSafeOutputFormatterCallback<T> callback)
+      final OutputFormatterCallback<T> callback)
           throws QueryException, InterruptedException, IOException {
-    EmptinessSensingCallback<T> emptySensingCallback = new EmptinessSensingCallback<>(callback);
+    EmptinessSensingCallback<T> emptySensingCallback = createEmptinessSensingCallback(callback);
     long startTime = System.currentTimeMillis();
     // In the --nokeep_going case, errors are reported in the order in which the patterns are
     // specified; using a linked hash set here makes sure that the left-most error is reported.
@@ -171,6 +175,13 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return new QueryEvalResult(!eventHandler.hasErrors(), emptySensingCallback.isEmpty());
   }
 
+  private static <T> EmptinessSensingCallback<T> createEmptinessSensingCallback(
+      OutputFormatterCallback<T> callback) {
+    return (callback instanceof ThreadSafeCallback)
+        ? new ThreadSafeEmptinessSensingCallback<>(callback)
+        : new EmptinessSensingCallback<>(callback);
+  }
+
   private static class EmptinessSensingCallback<T> extends OutputFormatterCallback<T> {
     private final OutputFormatterCallback<T> callback;
     private final AtomicBoolean empty = new AtomicBoolean(true);
@@ -201,11 +212,19 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     }
   }
 
+  private static class ThreadSafeEmptinessSensingCallback<T>
+      extends EmptinessSensingCallback<T> implements ThreadSafeCallback<T> {
+    private ThreadSafeEmptinessSensingCallback(OutputFormatterCallback<T> callback) {
+      super(callback);
+      Preconditions.checkState(callback instanceof ThreadSafeCallback);
+    }
+  }
+
   public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     return queryExpression;
   }
 
-  public QueryEvalResult evaluateQuery(String query, ThreadSafeOutputFormatterCallback<T> callback)
+  public QueryEvalResult evaluateQuery(String query, OutputFormatterCallback<T> callback)
       throws QueryException, InterruptedException, IOException {
     return evaluateQuery(
         QueryExpression.parse(query, this), callback);
@@ -237,32 +256,17 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     return true;
   }
 
-  public QueryTaskFuture<Set<T>> evalTargetPattern(QueryExpression caller, String pattern) {
+  public Set<T> evalTargetPattern(QueryExpression caller, String pattern)
+      throws QueryException, InterruptedException {
     try {
       preloadOrThrow(caller, ImmutableList.of(pattern));
-    } catch (TargetParsingException tpe) {
-      try {
-        // Will skip the target and keep going if -k is specified.
-        reportBuildFileError(caller, tpe.getMessage());
-      } catch (QueryException qe) {
-        return immediateFailedFuture(qe);
-      }
-    } catch (QueryException qe) {
-      return immediateFailedFuture(qe);
-    } catch (InterruptedException e) {
-      return immediateCancelledFuture();
+    } catch (TargetParsingException e) {
+      // Will skip the target and keep going if -k is specified.
+      reportBuildFileError(caller, e.getMessage());
     }
-    final AggregateAllCallback<T> aggregatingCallback = QueryUtil.newAggregateAllCallback();
-    QueryTaskFuture<Void> evalFuture =
-        getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
-    return whenSucceedsCall(
-        evalFuture,
-        new QueryTaskCallable<Set<T>>() {
-          @Override
-          public Set<T> call() {
-            return aggregatingCallback.getResult();
-          }
-        });
+    AggregateAllCallback<T> aggregatingCallback = QueryUtil.newAggregateAllCallback();
+    getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
+    return aggregatingCallback.getResult();
   }
 
   /**
@@ -284,5 +288,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     builder.addAll(DEFAULT_QUERY_FUNCTIONS);
     builder.addAll(extraFunctions);
     return builder.build();
+  }
+
+  @Override
+  public QueryExpressionEvalListener<T> getEvalListener() {
+    return evalListener;
   }
 }

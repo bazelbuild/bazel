@@ -13,10 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.util.Preconditions;
+
 import java.util.Collection;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A literal set of targets, using 'blaze build' syntax.  Or, a reference to a
@@ -44,31 +45,38 @@ public final class TargetLiteral extends QueryExpression {
     return LetExpression.isValidVarReference(pattern);
   }
 
-  private <T> QueryTaskFuture<Void> evalVarReference(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+  private <T> void evalVarReference(VariableContext<T> context, Callback<T> callback)
+      throws QueryException, InterruptedException {
     String varName = LetExpression.getNameFromReference(pattern);
     Set<T> value = context.get(varName);
     if (value == null) {
-      return env.immediateFailedFuture(
-          new QueryException(this, "undefined variable '" + varName + "'"));
+      throw new QueryException(this, "undefined variable '" + varName + "'");
     }
-    try {
-      callback.process(value);
-      return env.immediateSuccessfulFuture(null);
-    } catch (QueryException e) {
-      return env.immediateFailedFuture(e);
-    } catch (InterruptedException e) {
-      return env.immediateCancelledFuture();
+    callback.process(value);
+  }
+
+  @Override
+  protected <T> void evalImpl(
+      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback)
+          throws QueryException, InterruptedException {
+    if (isVariableReference()) {
+      evalVarReference(context, callback);
+    } else {
+      env.getTargetsMatchingPattern(this, pattern, callback);
     }
   }
 
   @Override
-  public <T> QueryTaskFuture<Void> eval(
-      QueryEnvironment<T> env, VariableContext<T> context, Callback<T> callback) {
+  protected <T> void parEvalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
     if (isVariableReference()) {
-      return evalVarReference(env, context, callback);
+      evalVarReference(context, callback);
     } else {
-      return env.getTargetsMatchingPattern(this, pattern, callback);
+      env.getTargetsMatchingPatternPar(this, pattern, callback, forkJoinPool);
     }
   }
 

@@ -18,10 +18,10 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * A "deps" query expression, which computes the dependencies of the argument. An optional
@@ -53,15 +53,15 @@ final class DepsFunction implements QueryFunction {
    * Breadth-first search from the arguments.
    */
   @Override
-  public <T> QueryTaskFuture<Void> eval(
+  public <T> void eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       final QueryExpression expression,
       List<Argument> args,
-      final Callback<T> callback) {
+      final Callback<T> callback) throws QueryException, InterruptedException {
     final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
     final Uniquifier<T> uniquifier = env.createUniquifier();
-    return env.eval(args.get(0).getExpression(), context, new Callback<T>() {
+    env.eval(args.get(0).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
         Collection<T> current = Sets.newHashSet(partialResult);
@@ -82,5 +82,16 @@ final class DepsFunction implements QueryFunction {
         }
       }
     });
+  }
+
+  @Override
+  public <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      QueryExpression expression,
+      List<Argument> args,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
+    eval(env, context, expression, args, callback);
   }
 }

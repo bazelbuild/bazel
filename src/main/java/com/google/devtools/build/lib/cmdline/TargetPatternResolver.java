@@ -15,38 +15,35 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.concurrent.ForkJoinPool;
 
 /**
- * A callback that is used during the process of converting target patterns (such as
+ * A callback interface that is used during the process of converting target patterns (such as
  * <code>//foo:all</code>) into one or more lists of targets (such as <code>//foo:foo,
  * //foo:bar</code>). During a call to {@link TargetPattern#eval}, the {@link TargetPattern} makes
  * calls to this interface to implement the target pattern semantics. The generic type {@code T} is
  * only for compile-time type safety; there are no requirements to the actual type.
  */
-public abstract class TargetPatternResolver<T> {
+public interface TargetPatternResolver<T> {
 
   /**
    * Reports the given warning.
    */
-  public abstract void warn(String msg);
+  void warn(String msg);
 
   /**
    * Returns a single target corresponding to the given label, or null. This method may only throw
    * an exception if the current thread was interrupted.
    */
-  public abstract T getTargetOrNull(Label label) throws InterruptedException;
+  T getTargetOrNull(Label label) throws InterruptedException;
 
   /**
    * Returns a single target corresponding to the given label, or an empty or failed result.
    */
-  public abstract ResolvedTargets<T> getExplicitTarget(Label label)
+  ResolvedTargets<T> getExplicitTarget(Label label)
       throws TargetParsingException, InterruptedException;
 
   /**
@@ -58,7 +55,7 @@ public abstract class TargetPatternResolver<T> {
    * @param packageIdentifier the identifier of the package
    * @param rulesOnly whether to return rules only
    */
-  public abstract ResolvedTargets<T> getTargetsInPackage(String originalPattern,
+  ResolvedTargets<T> getTargetsInPackage(String originalPattern,
       PackageIdentifier packageIdentifier, boolean rulesOnly)
       throws TargetParsingException, InterruptedException;
 
@@ -87,7 +84,7 @@ public abstract class TargetPatternResolver<T> {
    * @param exceptionClass The class type of the parameterized exception.
    * @throws TargetParsingException under implementation-specific failure conditions
    */
-  public abstract <E extends Exception> void findTargetsBeneathDirectory(
+  <E extends Exception> void findTargetsBeneathDirectory(
       RepositoryName repository,
       String originalPattern,
       String directory,
@@ -101,7 +98,7 @@ public abstract class TargetPatternResolver<T> {
    * Same as {@link #findTargetsBeneathDirectory}, but optionally making use of the given
    * {@link ForkJoinPool} to achieve parallelism.
    */
-  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+  <E extends Exception> void findTargetsBeneathDirectoryPar(
       RepositoryName repository,
       String originalPattern,
       String directory,
@@ -109,38 +106,19 @@ public abstract class TargetPatternResolver<T> {
       ImmutableSet<PathFragment> excludedSubdirectories,
       ThreadSafeBatchCallback<T, E> callback,
       Class<E> exceptionClass,
-      ListeningExecutorService executor) {
-      try {
-        findTargetsBeneathDirectory(
-            repository,
-            originalPattern,
-            directory,
-            rulesOnly,
-            excludedSubdirectories,
-            callback,
-            exceptionClass);
-        return Futures.immediateFuture(null);
-      } catch (TargetParsingException e) {
-        return Futures.immediateFailedFuture(e);
-      } catch (InterruptedException e) {
-        return Futures.immediateCancelledFuture();
-      } catch (Exception e) {
-        if (exceptionClass.isInstance(e)) {
-          return Futures.immediateFailedFuture(e);
-        }
-        throw new IllegalStateException(e);
-      }
-  }
+      ForkJoinPool forkJoinPool)
+      throws TargetParsingException, E, InterruptedException;
 
   /**
    * Returns true, if and only if the given package identifier corresponds to a package, i.e., a
-   * file with the name {@code packageName/BUILD} exists in the appropriate repository.
+   * file with the name {@code packageName/BUILD} exists in the appropriat repository.
    */
-  public abstract boolean isPackage(PackageIdentifier packageIdentifier)
-      throws InterruptedException;
+  boolean isPackage(PackageIdentifier packageIdentifier) throws InterruptedException;
 
   /**
    * Returns the target kind of the given target, for example {@code cc_library rule}.
    */
-  public abstract String getTargetKind(T target);
+  String getTargetKind(T target);
+
+
 }

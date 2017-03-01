@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+
 import java.util.Collection;
+import java.util.concurrent.ForkJoinPool;
 
 /**
  * Base class for expressions in the Blaze query language, revision 2.
@@ -58,9 +59,9 @@ public abstract class QueryExpression {
   protected QueryExpression() {}
 
   /**
-   * Returns a {@link QueryTaskFuture} representing the asynchronous evaluation of this query in the
-   * specified environment, notifying the callback with a result. Note that it is allowed to notify
-   * the callback with partial results instead of just one final result.
+   * Evaluates this query in the specified environment, and notifies the callback with a result.
+   * Note that it is allowed to notify the callback with partial results instead of just one final
+   * result.
    *
    * <p>Failures resulting from evaluation of an ill-formed query cause
    * QueryException to be thrown.
@@ -70,10 +71,45 @@ public abstract class QueryExpression {
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> QueryTaskFuture<Void> eval(
+  public final <T> void eval(
       QueryEnvironment<T> env,
       VariableContext<T> context,
-      Callback<T> callback);
+      Callback<T> callback) throws QueryException, InterruptedException {
+    env.getEvalListener().onEval(this, env, context, callback);
+    evalImpl(env, context, callback);
+  }
+
+  protected abstract <T> void evalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      Callback<T> callback) throws QueryException, InterruptedException;
+
+  /**
+   * Evaluates this query in the specified environment, as in
+   * {@link #eval(QueryEnvironment, VariableContext, Callback)}, using {@code forkJoinPool} to
+   * achieve parallelism.
+   *
+   * <p>The caller must ensure that {@code env} is thread safe.
+   */
+  @ThreadSafe
+  public final <T> void parEval(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    env.getEvalListener().onParEval(this, env, context, callback, forkJoinPool);
+    parEvalImpl(env, context, callback, forkJoinPool);
+  }
+
+  protected <T> void parEvalImpl(
+      QueryEnvironment<T> env,
+      VariableContext<T> context,
+      ThreadSafeCallback<T> callback,
+      ForkJoinPool forkJoinPool)
+      throws QueryException, InterruptedException {
+    evalImpl(env, context, callback);
+  }
 
   /**
    * Collects all target patterns that are referenced anywhere within this query expression and adds

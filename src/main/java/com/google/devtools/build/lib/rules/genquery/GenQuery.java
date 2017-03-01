@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
@@ -283,7 +284,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     DigraphQueryEvalResult<Target> queryResult;
     OutputFormatter formatter;
     AggregateAllOutputFormatterCallback<Target> targets =
-        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+        QueryUtil.newAggregateAllOutputFormatterCallback();
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -317,6 +318,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               getEventHandler(ruleContext),
               settings,
               ImmutableList.<QueryFunction>of(),
+              QueryExpressionEvalListener.NullListener.<Target>instance(),
               /*packagePath=*/null);
       queryResult = (DigraphQueryEvalResult<Target>) queryEnvironment.evaluateQuery(query, targets);
     } catch (SkyframeRestartQueryException e) {
