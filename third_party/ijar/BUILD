@@ -51,6 +51,16 @@ cc_library(
         "platform_utils.h",
     ],
     visibility = ["//visibility:private"],
+    deps = select({
+        "//src:windows": [
+            "//src/main/cpp/util:file",
+        ],
+        "//src:windows_msvc": [
+            "//src/main/cpp/util:file",
+        ],
+        "//conditions:default": [
+        ],
+    }),
 )
 
 cc_binary(

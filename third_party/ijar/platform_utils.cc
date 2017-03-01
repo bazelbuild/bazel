@@ -18,26 +18,58 @@
 #include <limits.h>
 #include <stdio.h>
 
-#ifdef COMPILER_MSVC
-#else  // not COMPILER_MSVC
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#include <windows.h>
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
+#ifndef COMPILER_MSVC
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#endif  // COMPILER_MSVC
+#endif  // not COMPILER_MSVC
 
 #include <string>
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#include "src/main/cpp/util/errors.h"
+#include "src/main/cpp/util/file_platform.h"
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
 namespace devtools_ijar {
 
 using std::string;
 
 bool stat_file(const char* path, Stat* result) {
-#ifdef COMPILER_MSVC
-  // TODO(laszlocsomor) 2016-12-01: implement this and other methods, in order
-  // to close https://github.com/bazelbuild/bazel/issues/2157.
-  fprintf(stderr, "Not yet implemented on Windows\n");
-  return false;
-#else   // not COMPILER_MSVC
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+  std::wstring wpath;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(path, &wpath)) {
+    blaze_util::die(255, "stat_file: AsWindowsPathWithUncPrefix(%s) failed",
+                    path);
+  }
+  bool success = false;
+  BY_HANDLE_FILE_INFORMATION info;
+  HANDLE handle = ::CreateFileW(
+      /* lpFileName */ wpath.c_str(),
+      /* dwDesiredAccess */ GENERIC_READ,
+      /* dwShareMode */ FILE_SHARE_READ,
+      /* lpSecurityAttributes */ NULL,
+      /* dwCreationDisposition */ OPEN_EXISTING,
+      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+      /* hTemplateFile */ NULL);
+  if (handle != INVALID_HANDLE_VALUE &&
+      ::GetFileInformationByHandle(handle, &info)) {
+    success = true;
+    // TODO(laszlocsomor): use info.nFileSizeHigh after we updated total_size to
+    // be u8 type.
+    result->total_size = info.nFileSizeLow;
+    // TODO(laszlocsomor): query the actual permissions and write in file_mode.
+    result->file_mode = 0777;
+    result->is_directory = (info.dwFileAttributes != INVALID_FILE_ATTRIBUTES) &&
+                           (info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+  }
+  ::CloseHandle(handle);
+  return success;
+#else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
   struct stat statst;
   if (stat(path, &statst) < 0) {
     return false;
@@ -46,7 +78,7 @@ bool stat_file(const char* path, Stat* result) {
   result->file_mode = statst.st_mode;
   result->is_directory = (statst.st_mode & S_IFDIR) != 0;
   return true;
-#endif  // COMPILER_MSVC
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 }
 
 bool write_file(const char* path, mode_t perm, const void* data, size_t size) {
