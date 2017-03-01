@@ -95,7 +95,9 @@ bool write_file(const char* path, mode_t perm, const void* data, size_t size) {
     return false;
   }
   bool result = true;
-  if (write(fd, data, size) != size) {
+  int error = write(fd, data, size);
+  // Check for an error condition, or if we didn't write all of the data.
+  if (error < 0 || static_cast<size_t>(error) != size) {
     fprintf(stderr, "Cannot write %zu bytes to file %s: %s\n", size, path,
             strerror(errno));
     result = false;

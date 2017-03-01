@@ -62,7 +62,7 @@ class JarStripperProcessor : public ZipExtractorProcessor {
 };
 
 bool JarStripperProcessor::Accept(const char* filename, const u4 attr) {
-  const int filename_len = strlen(filename);
+  const size_t filename_len = strlen(filename);
   if (filename_len >= CLASS_EXTENSION_LENGTH) {
     return strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
                   CLASS_EXTENSION) == 0;
