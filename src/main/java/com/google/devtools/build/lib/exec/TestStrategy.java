@@ -312,18 +312,14 @@ public abstract class TestStrategy implements TestActionContext {
       boolean enableRunfiles)
       throws ExecException, InterruptedException {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
+    Path runfilesDir = execSettings.getRunfilesDir();
 
     // If the symlink farm is already created then return the existing directory. If not we
     // need to explicitly build it. This can happen when --nobuild_runfile_links is supplied
     // as a flag to the build.
     if (execSettings.getRunfilesSymlinksCreated()) {
-      return execSettings.getRunfilesDir();
+      return runfilesDir;
     }
-
-    // TODO(bazel-team): Should we be using TestTargetExecutionSettings#getRunfilesDir() here over
-    // generating the directory ourselves?
-    Path program = execSettings.getExecutable().getPath();
-    Path runfilesDir = program.getParentDirectory().getChild(program.getBaseName() + ".runfiles");
 
     // Synchronize runfiles tree generation on the runfiles manifest artifact.
     // This is necessary, because we might end up with multiple test runner actions
