@@ -1459,10 +1459,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a {@link DexArchiveProvider} of all transitively generated dex archives as well as dex
-   * archives for the Jars produced by the binary target itself.
+   * Returns a {@link Map} of all transitively generated dex archives as well as dex archives for
+   * the Jars produced by the binary target itself.
    */
-  private static Function<Artifact, Artifact> collectDexArchives(
+  private static Map<Artifact, Artifact> collectDexArchives(
       RuleContext ruleContext,
       AndroidCommon common,
       List<String> dexopts,
@@ -1507,7 +1507,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes attributes,
       Function<Artifact, Artifact> derivedJarFunction,
       @Nullable Artifact mainDexList)
-      throws InterruptedException {
+      throws InterruptedException, RuleErrorException {
     checkArgument(mainDexList == null || shards.size() > 1);
     checkArgument(proguardedJar == null || inclusionFilterJar == null);
     Artifact javaResourceJar =
@@ -1548,8 +1548,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         // Use dex archives instead of their corresponding Jars wherever we can.  At this point
         // there should be very few or no Jar files that still end up in shards.  The dexing
         // step below will have to deal with those in addition to merging .dex files together.
-        classpath = Iterables.transform(classpath,
-            collectDexArchives(ruleContext, common, dexopts, semantics, derivedJarFunction));
+        Map<Artifact, Artifact> dexArchives =
+            collectDexArchives(ruleContext, common, dexopts, semantics, derivedJarFunction);
+        ImmutableList.Builder<Artifact> dexedClasspath = ImmutableList.builder();
+        boolean reportMissing =
+            AndroidCommon.getAndroidConfig(ruleContext).incrementalDexingErrorOnMissedJars();
+        for (Artifact jar : classpath) {
+          Artifact dexArchive = dexArchives.get(jar);
+          if (reportMissing && dexArchive == null) {
+            // Users can create this situation by directly depending on a .jar artifact (checked in
+            // or coming from a genrule or similar, b/11285003).  This will also catch new  implicit
+            // dependencies that incremental dexing would need to be extended to (b/34949364).
+            ruleContext.throwWithAttributeError("deps", "Dependencies on .jar artifacts are not "
+                + "allowed in Android binaries, please use a java_import to depend on "
+                + jar.prettyPrint() + ". If this is an implicit dependency then Bazel will need "
+                + "to be fixed to account for it correctly.");
+          }
+          dexedClasspath.add(dexArchive != null ? dexArchive : jar);
+        }
+        classpath = dexedClasspath.build();
         shardCommandLine.add("--split_dexed_classes");
       } else {
         classpath = Iterables.transform(classpath, derivedJarFunction);

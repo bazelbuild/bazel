@@ -331,6 +331,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "Do not use.")
     public boolean incrementalDexingForLiteProtos;
 
+    /**
+     * Whether to error out when we find Jar files when building binaries that weren't converted to
+     * a dex archive. Once this option works, we'll flip the default value in a config file, then
+     * once it is proven that it works, remove it from Bazel and said config file.
+     */
+    @Option(
+      name = "experimental_incremental_dexing_error_on_missed_jars",
+      defaultValue = "false",
+      category = "experimental",
+      help = "Do not use.")
+    public boolean incrementalDexingErrorOnMissedJars;
+
     @Option(name = "non_incremental_per_target_dexopts",
         converter = Converters.CommaSeparatedOptionListConverter.class,
         defaultValue = "--no-locals",
@@ -452,6 +464,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexing = incrementalDexing;
       host.incrementalDexingBinaries = incrementalDexingBinaries;
       host.incrementalDexingForLiteProtos = incrementalDexingForLiteProtos;
+      host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
       host.manifestMerger = manifestMerger;
@@ -500,6 +513,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean jackSanityChecks;
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
   private final boolean incrementalDexingForLiteProtos;
+  private final boolean incrementalDexingErrorOnMissedJars;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final boolean desugarJava8;
@@ -527,6 +541,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       this.incrementalDexingBinaries = ImmutableSet.of();
     }
     this.incrementalDexingForLiteProtos = options.incrementalDexingForLiteProtos;
+    this.incrementalDexingErrorOnMissedJars = options.incrementalDexingErrorOnMissedJars;
     this.dexoptsSupportedInIncrementalDexing =
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
@@ -588,6 +603,14 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns whether to report an error when Jars that weren't converted to dex archives are part
+   * of an android binary.
+   */
+  public boolean incrementalDexingErrorOnMissedJars() {
+    return incrementalDexingErrorOnMissedJars;
+  }
+
+  /**
    * dx flags supported in incremental dexing actions.
    */
   public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
@@ -637,7 +660,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   public boolean useSingleJarForMultidex() {
     return useSingleJarForMultidex;
   }
-  
+
   public boolean useResourcePrefiltering() {
     return useResourcePrefiltering;
   }
