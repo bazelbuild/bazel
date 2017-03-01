@@ -78,7 +78,10 @@ public final class JavacOptions {
   }
 
   private static boolean isBazelSpecificFlag(String opt) {
-    return opt.startsWith("-Werror:") || opt.startsWith("-Xep");
+    return opt.startsWith("-Werror:")
+        || opt.startsWith("-Xep")
+        || opt.equals("-extra_checks")
+        || opt.startsWith("-extra_checks:");
   }
 
   private static final XlintOptionNormalizer XLINT_OPTION_NORMALIZER = new XlintOptionNormalizer();
