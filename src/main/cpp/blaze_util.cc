@@ -14,7 +14,6 @@
 
 #include "src/main/cpp/blaze_util.h"
 
-#include <errno.h>
 #include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -25,7 +24,6 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/util/port.h"

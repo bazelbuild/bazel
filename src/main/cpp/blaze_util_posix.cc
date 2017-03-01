@@ -32,7 +32,6 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/md5.h"
 #include "src/main/cpp/util/numbers.h"
 
@@ -283,11 +282,7 @@ static string RunProgram(const string& exe,
   } else if (child > 0) {  // we're the parent
     close(send_socket);    // parent keeps only the reading side
     string result;
-    bool success = blaze_util::ReadFrom(
-        [recv_socket](void* buf, int size) {
-          return read(recv_socket, buf, size);
-        },
-        &result);
+    bool success = blaze_util::ReadFrom(recv_socket, &result);
     close(recv_socket);
     if (!success) {
       pdie(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output");

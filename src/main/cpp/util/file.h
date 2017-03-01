@@ -14,9 +14,10 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_H_
 
-#include <functional>
 #include <string>
 #include <vector>
+
+#include "src/main/cpp/util/file_platform.h"
 
 namespace blaze_util {
 
@@ -34,28 +35,21 @@ class IPipe {
   virtual int Receive(void *buffer, int size) = 0;
 };
 
-// Replaces 'content' with data read from a source using `read_func`.
+// Replaces 'content' with data read from a source using `ReadFromHandle`.
 // If `max_size` is positive, the method reads at most that many bytes;
 // otherwise the method reads everything.
 // Returns false on error. Can be called from a signal handler.
-bool ReadFrom(const std::function<int(void *, size_t)> &read_func,
-              std::string *content, int max_size = 0);
+bool ReadFrom(file_handle_type handle, std::string *content, int max_size = 0);
 
-// Reads up to `size` bytes using `read_func` into `data`.
+// Reads up to `size` bytes using `ReadFromHandle` into `data`.
 // There must be enough memory allocated at `data`.
 // Returns true on success, false on error.
-bool ReadFrom(const std::function<int(void *, size_t)> &read_func, void *data,
-              size_t size);
+bool ReadFrom(file_handle_type handle, void *data, size_t size);
 
 // Writes `content` into file `filename`, and chmods it to `perm`.
-// Returns false on failure, sets errno.
+// Returns false on failure.
 bool WriteFile(const std::string &content, const std::string &filename,
                unsigned int perm = 0755);
-
-// Writes `size` bytes from `data` into a destination using `write_func`.
-// Returns false on failure, sets errno.
-bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
-             const void *data, size_t size);
 
 // Returns the part of the path before the final "/".  If there is a single
 // leading "/" in the path, the result will be the leading "/".  If there is

@@ -15,6 +15,13 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+#include <windows.h>
+// Undef GetUserName defined by windows.h so we won't conflict with
+// blaze_util::GetUserName
+#undef GetUserName
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
 #include <stdint.h>
 #include <time.h>
 
@@ -52,6 +59,14 @@ IFileMtime *CreateFileMtime();
 
 // Split a path to dirname and basename parts.
 std::pair<std::string, std::string> SplitPath(const std::string &path);
+
+#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
+typedef HANDLE file_handle_type;
+#else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
+typedef int file_handle_type;
+#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
+
+int ReadFromHandle(file_handle_type handle, void *data, size_t size);
 
 // Replaces 'content' with contents of file 'filename'.
 // If `max_size` is positive, the method reads at most that many bytes;

@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file_platform.h"
 
 #include <errno.h>
 #include <dirent.h>  // DIR, dirent, opendir, closedir
@@ -22,6 +21,7 @@
 #include <unistd.h>  // access, open, close, fsync
 #include <utime.h>   // utime
 
+#include <string>
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"
@@ -175,12 +175,14 @@ pair<string, string> SplitPath(const string &path) {
   return std::make_pair(string(path, 0, pos), string(path, pos + 1));
 }
 
+int ReadFromHandle(file_handle_type fd, void *data, size_t size) {
+  return read(fd, data, size);
+}
+
 bool ReadFile(const string &filename, string *content, int max_size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  bool result =
-      ReadFrom([fd](void *buf, int len) { return read(fd, buf, len); }, content,
-               max_size);
+  bool result = ReadFrom(fd, content, max_size);
   close(fd);
   return result;
 }
@@ -188,8 +190,7 @@ bool ReadFile(const string &filename, string *content, int max_size) {
 bool ReadFile(const string &filename, void *data, size_t size) {
   int fd = open(filename.c_str(), O_RDONLY);
   if (fd == -1) return false;
-  bool result = ReadFrom(
-      [fd](void *buf, size_t len) { return read(fd, buf, len); }, data, size);
+  bool result = ReadFrom(fd, data, size);
   close(fd);
   return result;
 }
@@ -201,15 +202,13 @@ bool WriteFile(const void *data, size_t size, const string &filename,
   if (fd == -1) {
     return false;
   }
-  bool result = WriteTo(
-      [fd](const void *buf, size_t bufsize) { return write(fd, buf, bufsize); },
-      data, size);
+  int result = write(fd, data, size);
   int saved_errno = errno;
-  if (close(fd)) {
+  if (close(fd) || result < 0) {
     return false;  // Can fail on NFS.
   }
   errno = saved_errno;  // Caller should see errno from write().
-  return result;
+  return static_cast<size_t>(result) == size;
 }
 
 int RenameDirectory(const std::string &old_name, const std::string &new_name) {

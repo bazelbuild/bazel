@@ -14,7 +14,6 @@
 #include "src/main/cpp/startup_options.h"
 
 #include <assert.h>
-#include <errno.h>  // errno, ENOENT
 
 #include <cstdio>
 #include <cstdlib>

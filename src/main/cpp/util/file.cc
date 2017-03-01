@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file.h"
-
 #include <errno.h>
 #include <limits.h>  // PATH_MAX
 
@@ -20,9 +18,9 @@
 #include <cstdlib>
 #include <vector>
 
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/strings.h"
 
 namespace blaze_util {
@@ -31,16 +29,15 @@ using std::pair;
 using std::string;
 using std::vector;
 
-bool ReadFrom(const std::function<int(void *, size_t)> &read_func,
-              string *content, int max_size) {
+bool ReadFrom(file_handle_type handle, string *content, int max_size) {
   static const size_t kReadSize = 4096;  // read 4K chunks
   content->clear();
   char buf[kReadSize];
   // OPT:  This loop generates one spurious read on regular files.
-  while (int r = read_func(
-             buf, max_size > 0
-                      ? std::min(static_cast<size_t>(max_size), kReadSize)
-                      : kReadSize)) {
+  while (int r = ReadFromHandle(
+             handle, buf,
+             max_size > 0 ? std::min(static_cast<size_t>(max_size), kReadSize)
+                          : kReadSize)) {
     if (r < 0) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
@@ -57,12 +54,11 @@ bool ReadFrom(const std::function<int(void *, size_t)> &read_func,
   return true;
 }
 
-bool ReadFrom(const std::function<int(void *, size_t)> &read_func, void *data,
-              size_t size) {
+bool ReadFrom(file_handle_type handle, void *data, size_t size) {
   static const size_t kReadSize = 4096;  // read 4K chunks
   size_t offset = 0;
-  while (int r = read_func(reinterpret_cast<char *>(data) + offset,
-                           std::min(kReadSize, size))) {
+  while (int r = ReadFromHandle(handle, reinterpret_cast<char *>(data) + offset,
+                                std::min(kReadSize, size))) {
     if (r < 0) {
       if (errno == EINTR || errno == EAGAIN) continue;
       return false;
@@ -75,15 +71,6 @@ bool ReadFrom(const std::function<int(void *, size_t)> &read_func, void *data,
     }
   }
   return true;
-}
-
-bool WriteTo(const std::function<int(const void *, size_t)> &write_func,
-             const void *data, size_t size) {
-  int r = write_func(data, size);
-  if (r == -1) {
-    return false;
-  }
-  return r == static_cast<int>(size);
 }
 
 bool WriteFile(const std::string &content, const std::string &filename,

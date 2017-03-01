@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>  // errno, ENAMETOOLONG
 #include <fcntl.h>
-#include <limits.h>
 #include <stdarg.h>  // va_start, va_end, va_list
 
 #ifndef COMPILER_MSVC
+#include <errno.h>
+#include <limits.h>
 #include <sys/cygwin.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
@@ -1273,12 +1273,6 @@ void ReleaseLock(BlazeLock* blaze_lock) {
   close(blaze_lock->lockfd);
 #endif  // COMPILER_MSVC
 }
-
-#ifdef GetUserName
-// By including <windows.h>, we have GetUserName defined either as
-// GetUserNameA or GetUserNameW.
-#undef GetUserName
-#endif
 
 string GetUserName() {
   WCHAR buffer[UNLEN + 1];

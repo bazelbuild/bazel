@@ -15,7 +15,6 @@
 #include <stdlib.h>
 
 #include "src/main/cpp/util/file.h"
-#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/tools/singlejar/input_jar.h"

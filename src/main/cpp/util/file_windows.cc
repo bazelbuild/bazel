@@ -11,8 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/cpp/util/file_platform.h"
-
 #include <ctype.h>  // isalpha
 #include <wchar.h>  // wcslen
 #include <wctype.h>  // iswalpha
@@ -548,6 +546,12 @@ static bool OpenFileForReading(const string& filename, HANDLE* result) {
   return true;
 }
 
+int ReadFromHandle(file_handle_type handle, void* data, size_t size) {
+  DWORD actually_read = 0;
+  return ::ReadFile(handle, data, size, &actually_read, NULL) ? actually_read
+                                                              : -1;
+}
+
 bool ReadFile(const string& filename, string* content, int max_size) {
   HANDLE handle;
   if (!OpenFileForReading(filename, &handle)) {
@@ -559,13 +563,7 @@ bool ReadFile(const string& filename, string* content, int max_size) {
     return false;
   }
   content->clear();
-  return ReadFrom(
-      [handle](void* buf, int len) {
-        DWORD actually_read = 0;
-        ::ReadFile(handle, buf, len, &actually_read, NULL);
-        return actually_read;
-      },
-      content, max_size);
+  return ReadFrom(handle, content, max_size);
 }
 
 bool ReadFile(const string& filename, void* data, size_t size) {
@@ -578,13 +576,7 @@ bool ReadFile(const string& filename, void* data, size_t size) {
   if (!autohandle.IsValid()) {
     return false;
   }
-  return ReadFrom(
-      [handle](void* buf, int len) {
-        DWORD actually_read = 0;
-        ::ReadFile(handle, buf, len, &actually_read, NULL);
-        return actually_read;
-      },
-      data, size);
+  return ReadFrom(handle, data, size);
 }
 
 bool WriteFile(const void* data, size_t size, const string& filename,
@@ -610,17 +602,10 @@ bool WriteFile(const void* data, size_t size, const string& filename,
     return false;
   }
 
-  // TODO(laszlocsomor): respect `perm` and set the file permissions accoridngly
-
-  HANDLE h = handle;
-  bool result = WriteTo(
-      [h](const void* buf, size_t bufsize) {
-        DWORD actually_written = 0;
-        ::WriteFile(h, buf, bufsize, &actually_written, NULL);
-        return actually_written;
-      },
-      data, size);
-  return result;
+  // TODO(laszlocsomor): respect `perm` and set the file permissions accordingly
+  DWORD actually_written = 0;
+  ::WriteFile(handle, data, size, &actually_written, NULL);
+  return actually_written == size;
 }
 
 int RenameDirectory(const std::string& old_name, const std::string& new_name) {
