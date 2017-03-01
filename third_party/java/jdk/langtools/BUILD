@@ -19,22 +19,22 @@ filegroup(
         "//conditions:default": [
             "BUILD",
             "LICENSE",
-            "javac-9-dev-r3297-3.jar",
-            "javac-9-dev-r3297-3.srcjar",
+            "javac-9-dev-r3297-4.jar",
+            "javac-9-dev-r3297-4.srcjar",
         ],
     }),
 )
 
 java_import(
     name = "javac",
-    jars = ["javac-9-dev-r3297-3.jar"],
+    jars = ["javac-9-dev-r3297-4.jar"],
 )
 
 filegroup(
     name = "javac_jar",
     srcs = select({
         "//tools/jdk:jdk7": ["javac7.jar"],
-        "//conditions:default": ["javac-9-dev-r3297-3.jar"],
+        "//conditions:default": ["javac-9-dev-r3297-4.jar"],
     }),
 )
 
