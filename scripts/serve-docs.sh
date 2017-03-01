@@ -47,7 +47,7 @@ function check {
 function build_and_serve {
   bazel build //site:jekyll-tree.tar
   rm -rf $WORKING_DIR/*
-  tar -xf bazel-genfiles/site/jekyll-tree.tar -C $WORKING_DIR
+  tar -xf "$(bazel info bazel-genfiles)/site/jekyll-tree.tar" -C $WORKING_DIR
 
   pkill -9 jekyll || true
 
