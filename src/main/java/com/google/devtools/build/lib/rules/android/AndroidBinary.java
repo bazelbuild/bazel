@@ -1559,10 +1559,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             // Users can create this situation by directly depending on a .jar artifact (checked in
             // or coming from a genrule or similar, b/11285003).  This will also catch new  implicit
             // dependencies that incremental dexing would need to be extended to (b/34949364).
+            // Typically the fix for the latter involves propagating DexArchiveAspect along the
+            // attribute defining the new implicit dependency.
             ruleContext.throwWithAttributeError("deps", "Dependencies on .jar artifacts are not "
                 + "allowed in Android binaries, please use a java_import to depend on "
-                + jar.prettyPrint() + ". If this is an implicit dependency then Bazel will need "
-                + "to be fixed to account for it correctly.");
+                + jar.prettyPrint() + ". If this is an implicit dependency then the rule that "
+                + "introduces it will need to be fixed to account for it correctly.");
           }
           dexedClasspath.add(dexArchive != null ? dexArchive : jar);
         }

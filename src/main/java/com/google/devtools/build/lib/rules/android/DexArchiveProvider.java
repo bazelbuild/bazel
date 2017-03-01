@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -114,8 +114,9 @@ public class DexArchiveProvider implements TransitiveInfoProvider {
    * Returns a flat map from Jars to dex archives transitively produced for the given dexopts.
    */
   public Map<Artifact, Artifact> archivesForDexopts(ImmutableSet<String> dexopts) {
-    // Can't use ImmutableMap because we can encounter the same key-value pair multiple times
-    HashMap<Artifact, Artifact> result = new HashMap<>();
+    // Can't use ImmutableMap because we can encounter the same key-value pair multiple times.
+    // Use LinkedHashMap in case someone tries to iterate this map (not the case as of 2/2017).
+    LinkedHashMap<Artifact, Artifact> result = new LinkedHashMap<>();
     for (ImmutableTable<ImmutableSet<String>, Artifact, Artifact> partialMapping : dexArchives) {
       result.putAll(partialMapping.row(dexopts));
     }
