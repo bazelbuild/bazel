@@ -52,9 +52,6 @@ public interface QuiescingExecutor extends Executor {
    */
   void awaitQuiescence(boolean interruptWorkers) throws InterruptedException;
 
-  /** Return the number of tasks which are not completed (running or waiting to be executed). */
-  long getRemainingTasksCount();
-
   /** Get latch that is released if a task throws an exception. Used only in tests. */
   @VisibleForTesting
   CountDownLatch getExceptionLatchForTestingOnly();

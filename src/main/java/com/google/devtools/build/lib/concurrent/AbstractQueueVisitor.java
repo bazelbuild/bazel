@@ -108,9 +108,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * Flag used to record when all threads were killed by failed action execution. Only ever
    * transitions from {@code false} to {@code true}.
    *
-   * <p>May only be accessed in a block that is synchronized on {@link #zeroRemainingTasks}.
+   * <p>Except for {@link #mustJobsBeStopped}, may only be accessed in a block that is synchronized
+   * on {@link #zeroRemainingTasks}.
    */
-  private boolean jobsMustBeStopped = false;
+  private volatile boolean jobsMustBeStopped = false;
 
   /** Map from thread to number of jobs executing in the thread. Used for interrupt handling. */
   private final AtomicLongMap<Thread> jobs = AtomicLongMap.create();
@@ -142,7 +143,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private final ErrorClassifier errorClassifier;
 
-  private static final Logger LOG = Logger.getLogger(AbstractQueueVisitor.class.getName());
+  private static final Logger logger = Logger.getLogger(AbstractQueueVisitor.class.getName());
 
   /**
    * Create the {@link AbstractQueueVisitor}.
@@ -385,11 +386,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  @Override
-  public long getRemainingTasksCount() {
-    return remainingTasks.get();
-  }
-
   /**
    * Subclasses may override this to make dynamic decisions about whether to run tasks
    * asynchronously versus in-thread.
@@ -415,10 +411,10 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     ErrorClassification errorClassification = errorClassifier.classify(e);
     switch (errorClassification) {
         case AS_CRITICAL_AS_POSSIBLE:
-        case CRITICAL_AND_LOG:
-          critical = true;
-          LOG.log(Level.WARNING, "Found critical error in queue visitor", e);
-          break;
+      case CRITICAL_AND_LOG:
+        critical = true;
+        logger.log(Level.WARNING, "Found critical error in queue visitor", e);
+        break;
         case CRITICAL:
           critical = true;
           break;
@@ -524,7 +520,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   /** Set an internal flag to show that an interrupt was detected. */
-  private void setInterrupted() {
+  protected final void setInterrupted() {
     threadInterrupted = true;
   }
 
@@ -568,17 +564,27 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    * Get number of jobs remaining. Note that this can increase in value if running tasks submit
    * further jobs.
    */
-  @VisibleForTesting
   protected final long getTaskCount() {
     return remainingTasks.get();
   }
 
   /**
-   * Waits for the task queue to drain, then shuts down the {@link ExecutorService} and
-   * waits for it to terminate.  Throws (the same) unchecked exception if any
-   * worker thread failed unexpectedly.
+   * Whether all running and pending jobs will be stopped or cancelled. Also newly submitted tasks
+   * will be rejected if this is true.
+   *
+   * <p>This function returns the CURRENT state of whether jobs should be stopped. If the value is
+   * false right now, it may be changed to true by another thread later.
    */
-  private void awaitTermination(boolean interruptWorkers) throws InterruptedException {
+  protected final boolean mustJobsBeStopped() {
+    return jobsMustBeStopped;
+  }
+
+  /**
+   * Waits for the task queue to drain. Then if {@code ownExecutorService} is true, shuts down the
+   * {@link ExecutorService} and waits for it to terminate. Throws (the same) unchecked exception if
+   * any worker thread failed unexpectedly.
+   */
+  protected final void awaitTermination(boolean interruptWorkers) throws InterruptedException {
     Throwables.propagateIfPossible(catastrophe);
     try {
       synchronized (zeroRemainingTasks) {
