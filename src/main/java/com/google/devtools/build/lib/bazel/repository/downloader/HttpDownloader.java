@@ -21,7 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -64,8 +64,11 @@ public class HttpDownloader {
 
   /** Validates native repository rule attributes and calls the other download method. */
   public Path download(
-      Rule rule, Path outputDirectory, EventHandler eventHandler, Map<String, String> clientEnv)
-          throws RepositoryFunctionException, InterruptedException {
+      Rule rule,
+      Path outputDirectory,
+      ExtendedEventHandler eventHandler,
+      Map<String, String> clientEnv)
+      throws RepositoryFunctionException, InterruptedException {
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
     List<URL> urls = new ArrayList<>();
     String sha256;
@@ -145,9 +148,9 @@ public class HttpDownloader {
       String sha256,
       Optional<String> type,
       Path output,
-      EventHandler eventHandler,
+      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)
-          throws IOException, InterruptedException {
+      throws IOException, InterruptedException {
     if (Thread.interrupted()) {
       throw new InterruptedException();
     }

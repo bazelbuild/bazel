@@ -27,8 +27,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import java.io.IOException;
 import java.io.InputStream;
@@ -45,10 +48,12 @@ public class ProgressInputStreamTest {
 
   private final ManualClock clock = new ManualClock();
   private final EventHandler eventHandler = mock(EventHandler.class);
+  private final ExtendedEventHandler extendedEventHandler =
+      new Reporter(new EventBus(), eventHandler);
   private final InputStream delegate = mock(InputStream.class);
   private final URL url = makeUrl("http://lol.example");
   private ProgressInputStream stream =
-      new ProgressInputStream(Locale.US, clock, eventHandler, 1, delegate, url, url);
+      new ProgressInputStream(Locale.US, clock, extendedEventHandler, 1, delegate, url, url);
 
   @After
   public void after() throws Exception {
@@ -124,7 +129,8 @@ public class ProgressInputStreamTest {
 
   @Test
   public void bufferReadsAfterIntervalInGermany_usesPeriodAsSeparator() throws Exception {
-    stream = new ProgressInputStream(Locale.GERMANY, clock, eventHandler, 1, delegate, url, url);
+    stream =
+        new ProgressInputStream(Locale.GERMANY, clock, extendedEventHandler, 1, delegate, url, url);
     byte[] buffer = new byte[1024];
     when(delegate.read(any(byte[].class), anyInt(), anyInt())).thenReturn(1024);
     clock.advanceMillis(1);
@@ -135,8 +141,15 @@ public class ProgressInputStreamTest {
 
   @Test
   public void redirectedToDifferentServer_showsOriginalUrlWithVia() throws Exception {
-    stream = new ProgressInputStream(
-        Locale.US, clock, eventHandler, 1, delegate, new URL("http://cdn.example/foo"), url);
+    stream =
+        new ProgressInputStream(
+            Locale.US,
+            clock,
+            extendedEventHandler,
+            1,
+            delegate,
+            new URL("http://cdn.example/foo"),
+            url);
     when(delegate.read()).thenReturn(42);
     assertThat(stream.read()).isEqualTo(42);
     clock.advanceMillis(1);

@@ -27,7 +27,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.Sleeper;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
 
   private final ExecutorService executor = Executors.newFixedThreadPool(3);
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);
-  private final EventHandler eventHandler = mock(EventHandler.class);
+  private final ExtendedEventHandler eventHandler = mock(ExtendedEventHandler.class);
   private final ManualClock clock = new ManualClock();
   private final Sleeper sleeper = mock(Sleeper.class);
   private final Locale locale = Locale.US;
