@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -51,9 +52,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -104,7 +102,6 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
   private Reporter reporter;
   private final AtomicReference<EventBus> eventBus;
-  private final ResourceManager resourceManager;
   private Map<String, String> clientEnv = ImmutableMap.of();
   private Executor executorEngine;
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
@@ -139,10 +136,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
 
-  SkyframeActionExecutor(ResourceManager resourceManager,
+  SkyframeActionExecutor(
       AtomicReference<EventBus> eventBus,
       AtomicReference<ActionExecutionStatusReporter> statusReporterRef) {
-    this.resourceManager = resourceManager;
     this.eventBus = eventBus;
     this.statusReporterRef = statusReporterRef;
   }
@@ -703,24 +699,13 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
 
     postEvent(new ActionStartedEvent(action, actionStartTime));
-    ResourceSet estimate =
-        Preconditions.checkNotNull(action.estimateResourceConsumption(executorEngine));
     ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
-    ResourceHandle handle = null;
     try {
-      if (estimate == ResourceSet.ZERO) {
-        statusReporter.setRunningFromBuildData(action);
-      } else {
-        // If estimated resource consumption is null, action will manually call
-        // resource manager when it knows what resources are needed.
-        handle = resourceManager.acquireResources(action, estimate);
-      }
+      // Mark the current action as being prepared.
+      statusReporter.updateStatus(ActionStatusMessage.preparingStrategy(action));
       boolean outputDumped = executeActionTask(action, context);
       completeAction(action, context.getMetadataHandler(), context.getFileOutErr(), outputDumped);
     } finally {
-      if (handle != null) {
-        handle.close();
-      }
       statusReporter.remove(action);
       postEvent(new ActionCompletionEvent(actionStartTime, action));
     }

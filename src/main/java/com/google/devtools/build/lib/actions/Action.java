@@ -188,6 +188,7 @@ public interface Action extends ActionExecutionMetadata, Describable {
    *   executor parameter of the top-level call to
    *   Builder.buildArtifacts().
    */
+  @Deprecated // TODO(ulfjack): Remove this.
   @Nullable ResourceSet estimateResourceConsumption(Executor executor);
 
   /**

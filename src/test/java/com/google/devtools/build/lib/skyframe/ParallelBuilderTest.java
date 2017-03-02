@@ -32,10 +32,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.LocalHostCapacity;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.events.Event;
@@ -87,10 +83,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   @Before
   public final void setUp() throws Exception {
     this.cache = new InMemoryActionCache();
-    ResourceManager.instance().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
-    ResourceManager.instance().setRamUtilizationPercentage(
-        ResourceManager.DEFAULT_RAM_UTILIZATION_PERCENTAGE);
-    ResourceManager.instance().resetResourceUsage();
   }
 
   @SafeVarargs
@@ -568,79 +560,6 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
     assertTrue("bar action not finished, yet buildArtifacts has completed.",
                finished[0]);
-  }
-
-  @Test
-  public void testSchedulingOfMemoryResources() throws Exception {
-    // The action graph consists of 100 independent actions, but execution is
-    // memory limited: only 6 TestActions can run concurrently:
-    ResourceManager.instance().setRamUtilizationPercentage(50);
-    ResourceManager.instance().setAvailableResources(
-        ResourceSet.createWithRamCpuIo(/*memoryMb=*/12.8, /*cpu=*/Integer.MAX_VALUE, /*io=*/0.0));
-    ResourceManager.instance().resetResourceUsage();
-
-    class Counter {
-      int currentlyRunning = 0;
-      int maxConcurrent = 0;
-      synchronized void increment() {
-        ++currentlyRunning;
-        if (currentlyRunning > maxConcurrent) {
-          maxConcurrent = currentlyRunning;
-        }
-      }
-      synchronized void decrement() {
-        currentlyRunning--;
-      }
-    }
-    final Counter counter = new Counter();
-
-    Artifact[] outputs = new Artifact[100];
-    for (int ii = 0; ii < outputs.length; ++ii) {
-      Artifact artifact = createDerivedArtifact("file" + ii);
-      Callable<Void> callable = new Callable<Void>() {
-          @Override
-          public Void call() throws Exception{
-            counter.increment();
-            Thread.sleep(100); // 100ms
-            counter.decrement();
-            return null;
-          }
-        };
-      registerAction(new TestAction(callable, Artifact.NO_ARTIFACTS, ImmutableList.of(artifact)));
-      outputs[ii] = artifact;
-    }
-
-    buildArtifacts(outputs);
-
-    assertEquals(0, counter.currentlyRunning);
-    assertEquals(6, counter.maxConcurrent);
-  }
-
-  @Test
-  public void testEstimateExceedsAvailableRam() throws Exception {
-    // Pretend that the machine has only 1MB of RAM available,
-    // then test running an action that we estimate requires 2MB of RAM.
-
-    ResourceManager.instance().setAvailableResources(
-        ResourceSet.createWithRamCpuIo(/*memoryMb=*/1.0, /*cpuUsage=*/4, /*ioUsage=*/0));
-    ResourceManager.instance().resetResourceUsage();
-
-    final boolean[] finished = { false };
-    Artifact foo = createDerivedArtifact("foo");
-    Runnable makeFoo = new Runnable() {
-        @Override
-        public void run() {
-          finished[0] = true;
-        }
-      };
-    registerAction(new TestAction(makeFoo, emptySet, asSet(foo)) {
-        @Override
-        public ResourceSet estimateResourceConsumption(Executor executor) {
-          return ResourceSet.createWithRamCpuIo(/*memoryMb=*/2.0, /*cpuUsage=*/1, /*ioUsage=*/0);
-        }
-      });
-    buildArtifacts(foo);
-    assertTrue(finished[0]);
   }
 
   @Test

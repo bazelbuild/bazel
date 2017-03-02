@@ -21,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -53,16 +52,15 @@ public class ResourceManagerTest {
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1000.0, /*cpuUsage=*/1.0, /*ioUsage=*/1.0,
         /*testCount=*/2));
-    rm.setEventBus(new EventBus());
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
     rm.resetResourceUsage();
   }
 
-  private void acquire(double ram, double cpu, double io, int tests)
+  private ResourceHandle acquire(double ram, double cpu, double io, int tests)
       throws InterruptedException {
-    rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, io, tests));
   }
 
   private ResourceHandle acquireNonblocking(double ram, double cpu, double io, int tests) {

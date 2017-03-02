@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -48,13 +52,20 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final Path processWrapper;
   private final Path execRoot;
   private final String productName;
+  private final ResourceManager resourceManager;
 
   public StandaloneSpawnStrategy(Path execRoot, boolean verboseFailures, String productName) {
+    this(execRoot, verboseFailures, productName, ResourceManager.instance());
+  }
+
+  public StandaloneSpawnStrategy(
+      Path execRoot, boolean verboseFailures, String productName, ResourceManager resourceManager) {
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
     this.processWrapper = execRoot.getRelative(
         "_bin/process-wrapper" + OsUtils.executableExtension());
     this.productName = productName;
+    this.resourceManager = resourceManager;
   }
 
   /**
@@ -63,16 +74,28 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
   @Override
   public void exec(Spawn spawn,
       ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+    EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
+    ActionExecutionMetadata owner = spawn.getResourceOwner();
+    eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
+    try (ResourceHandle handle =
+        resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+      eventBus.post(ActionStatusMessage.runningStrategy(owner, "standalone"));
+      actuallyExec(spawn, actionExecutionContext);
+    }
+  }
+
+  /**
+   * Executes the given {@code spawn}.
+   */
+  private void actuallyExec(Spawn spawn,
+      ActionExecutionContext actionExecutionContext)
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
 
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(spawn);
     }
-
-    executor
-        .getEventBus()
-        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "standalone"));
 
     int timeoutSeconds = Spawns.getTimeoutSeconds(spawn);
 

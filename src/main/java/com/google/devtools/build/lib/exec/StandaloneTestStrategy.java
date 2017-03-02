@@ -23,9 +23,6 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -246,13 +243,10 @@ public class StandaloneTestStrategy extends TestStrategy {
       Path workingDirectory)
       throws IOException, ExecException, InterruptedException {
     prepareFileSystem(action, tmpDir, coverageDir, workingDirectory);
-    ResourceSet resources =
-        action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
 
     try (FileOutErr fileOutErr =
             new FileOutErr(
-                action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr());
-        ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
+                action.getTestLog().getPath(), action.resolve(execRoot).getTestStderr())) {
       TestResultData data =
           executeTest(
               action,

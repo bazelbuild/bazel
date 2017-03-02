@@ -22,8 +22,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.eventbus.EventBus;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -31,6 +33,8 @@ import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -204,21 +208,37 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    EventHandler eventHandler = executor.getEventHandler();
-    StandaloneSpawnStrategy standaloneStrategy =
-        Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
-
-    if (executor.reportsSubcommands()) {
-      executor.reportSubcommand(spawn);
-    }
-
     if (!spawn.getExecutionInfo().containsKey("supports-workers")
         || !spawn.getExecutionInfo().get("supports-workers").equals("1")) {
-      eventHandler.handle(
+      StandaloneSpawnStrategy standaloneStrategy =
+          Preconditions.checkNotNull(executor.getContext(StandaloneSpawnStrategy.class));
+      executor.getEventHandler().handle(
           Event.warn(
               String.format(ERROR_MESSAGE_PREFIX + REASON_NO_EXECUTION_INFO, spawn.getMnemonic())));
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
+    }
+
+    EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
+    ActionExecutionMetadata owner = spawn.getResourceOwner();
+    eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
+    try (ResourceHandle handle =
+        ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
+      eventBus.post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "worker"));
+      actuallyExec(spawn, actionExecutionContext, writeOutputFiles);
+    }
+  }
+
+  private void actuallyExec(
+      Spawn spawn,
+      ActionExecutionContext actionExecutionContext,
+      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
+      throws ExecException, InterruptedException {
+    Executor executor = actionExecutionContext.getExecutor();
+    EventHandler eventHandler = executor.getEventHandler();
+
+    if (executor.reportsSubcommands()) {
+      executor.reportSubcommand(spawn);
     }
 
     // We assume that the spawn to be executed always gets a @flagfile argument, which contains the
@@ -234,10 +254,6 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       throw new UserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_TOOLS, spawn.getMnemonic()));
     }
-
-    executor
-        .getEventBus()
-        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "worker"));
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 

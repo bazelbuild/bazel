@@ -70,7 +70,7 @@ public class SpawnGccStrategy implements CppCompileActionContext {
       throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
-    Spawn spawn = new GccSpawn(action, estimateResourceConsumption(action));
+    Spawn spawn = new GccSpawn(action, action.estimateResourceConsumptionLocal());
     spawnActionContext.exec(spawn, actionExecutionContext);
     return null;
   }

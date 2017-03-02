@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -120,12 +118,9 @@ public final class SymlinkTreeHelper {
       List<String> args =
           getSpawnArgumentList(
               actionExecutionContext.getExecutor().getExecRoot(), binTools);
-      try (ResourceHandle handle =
-               ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
-        actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
-            new BaseSpawn.Local(args, shellEnvironment, action),
-            actionExecutionContext);
-      }
+      actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
+          new BaseSpawn.Local(args, shellEnvironment, action, RESOURCE_SET),
+          actionExecutionContext);
     } else {
       // Pretend we created the runfiles tree by copying the manifest
       try {

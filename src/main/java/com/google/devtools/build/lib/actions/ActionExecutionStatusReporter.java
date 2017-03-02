@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,7 +32,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-
 import javax.annotation.Nullable;
 
 /**
@@ -114,10 +112,6 @@ public final class ActionExecutionStatusReporter {
    */
   public void setPreparing(Action action) {
     updateStatus(ActionStatusMessage.preparingStrategy(action));
-  }
-
-  public void setRunningFromBuildData(ActionExecutionMetadata action) {
-    updateStatus(ActionStatusMessage.runningStrategy(action, "unknown"));
   }
 
   @Subscribe

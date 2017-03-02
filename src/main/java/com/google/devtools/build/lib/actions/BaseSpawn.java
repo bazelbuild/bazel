@@ -189,19 +189,21 @@ public class BaseSpawn implements Spawn {
     return action.getMnemonic();
   }
 
-  /** A local spawn requiring zero resources. */
+  /** A local spawn. */
   public static class Local extends BaseSpawn {
     public Local(
-        List<String> arguments, Map<String, String> environment, ActionExecutionMetadata action) {
-      this(arguments, environment, ImmutableMap.<String, String>of(), action);
+        List<String> arguments, Map<String, String> environment, ActionExecutionMetadata action,
+        ResourceSet localResources) {
+      this(arguments, environment, ImmutableMap.<String, String>of(), action, localResources);
     }
 
     public Local(
         List<String> arguments,
         Map<String, String> environment,
         Map<String, String> executionInfo,
-        ActionExecutionMetadata action) {
-      super(arguments, environment, buildExecutionInfo(executionInfo), action, ResourceSet.ZERO);
+        ActionExecutionMetadata action,
+        ResourceSet localResources) {
+      super(arguments, environment, buildExecutionInfo(executionInfo), action, localResources);
     }
 
     private static ImmutableMap<String, String> buildExecutionInfo(

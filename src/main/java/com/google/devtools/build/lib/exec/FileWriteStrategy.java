@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -44,7 +43,7 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   @Override
   public void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-
+    // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
             AutoProfiler.logged(
                 "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {

@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
-import com.google.devtools.build.lib.actions.cache.ActionCache.Entry;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -162,8 +161,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     ActionExecutionStatusReporter statusReporter =
         ActionExecutionStatusReporter.create(new StoredEventHandler());
     final SkyframeActionExecutor skyframeActionExecutor =
-        new SkyframeActionExecutor(
-            ResourceManager.instance(), eventBusRef, new AtomicReference<>(statusReporter));
+        new SkyframeActionExecutor(eventBusRef, new AtomicReference<>(statusReporter));
 
     Path actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
     skyframeActionExecutor.setActionLogBufferPathGenerator(
