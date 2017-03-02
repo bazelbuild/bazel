@@ -22,13 +22,11 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Nullable;
 
 /**
@@ -351,22 +349,39 @@ public abstract class ReverseDepsUtilImpl<T> implements ReverseDepsUtil<T> {
         case CHECK:
           Preconditions.checkState(
               reverseDepsAsSet.contains(key),
-              "%s %s %s",
+              "%s %s %s %s",
               keyToConsolidate,
               reverseDepsAsSet,
+              dataToConsolidate,
               container);
           break;
         case REMOVE:
           Preconditions.checkState(
-              reverseDepsAsSet.remove(key), "%s %s %s", keyToConsolidate, reverseDeps, container);
+              reverseDepsAsSet.remove(key),
+              "%s %s %s %s",
+              keyToConsolidate,
+              reverseDeps,
+              dataToConsolidate,
+              container);
           break;
         case ADD:
           Preconditions.checkState(
-              reverseDepsAsSet.add(key), "%s %s %s", keyToConsolidate, reverseDeps, container);
+              reverseDepsAsSet.add(key),
+              "%s %s %s %s",
+              keyToConsolidate,
+              reverseDeps,
+              dataToConsolidate,
+              container);
           break;
         default:
           throw new IllegalStateException(
-              keyToConsolidate + ", " + reverseDepsAsSet + ", " + container);
+              keyToConsolidate
+                  + ", "
+                  + reverseDepsAsSet
+                  + ", "
+                  + dataToConsolidate
+                  + ", "
+                  + container);
       }
     }
 
