@@ -8,7 +8,6 @@ java_test(
     name = "JarFilterTest",
     size = "small",
     srcs = ["JarFilterTest.java"],
-    tags = ["no_windows"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:package_manifest_java_proto",

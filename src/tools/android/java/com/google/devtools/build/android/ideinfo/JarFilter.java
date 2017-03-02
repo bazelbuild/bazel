@@ -333,6 +333,10 @@ public final class JarFilter {
    */
   private static String getArchiveFileNamePrefix(String javaFile, String packageString) {
     int lastSlashIndex = javaFile.lastIndexOf('/');
+    // On Windows, the separator could be '\\'
+    if (lastSlashIndex == -1) {
+      lastSlashIndex = javaFile.lastIndexOf('\\');
+    }
     String fileName = lastSlashIndex != -1 ? javaFile.substring(lastSlashIndex + 1) : javaFile;
     String className = fileName.substring(0, fileName.length() - ".java".length());
     return packageString.replace('.', '/') + '/' + className;
