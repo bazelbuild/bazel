@@ -106,7 +106,7 @@ origdir=$$PWD
 tmpdir=$$(mktemp -d)
 for f in $(SRCS); do
     mkdir -p $$tmpdir/$$(dirname $$f)
-    if which dot; then
+    if which dot > /dev/null; then
       $(location //scripts/docs:generate_dot_graphs) < $$f > $$tmpdir/$$f
     else
       cp $$f $$tmpdir/$$f
