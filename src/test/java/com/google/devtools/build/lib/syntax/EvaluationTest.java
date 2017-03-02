@@ -673,10 +673,9 @@ public class EvaluationTest extends EvaluationTestCase {
   @Test
   public void testInFail() throws Exception {
     newTest()
-        .testIfExactError(
-            "in operator only works on strings if the left operand is also a string", "1 in '123'")
-        .testIfExactError(
-            "in operator only works on lists, tuples, sets, dicts and strings", "'a' in 1");
+        .testIfErrorContains(
+            "'in <string>' requires string as left operand, not 'int'", "1 in '123'")
+        .testIfErrorContains("'int' is not iterable. in operator only works on ", "'a' in 1");
   }
 
   @Test

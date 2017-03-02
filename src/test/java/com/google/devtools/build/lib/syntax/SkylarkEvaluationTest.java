@@ -1243,15 +1243,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Override
   @Test
-  public void testInFail() throws Exception {
-    new SkylarkTest().testIfExactError(
-        "in operator only works on strings if the left operand is also a string", "1 in '123'");
-    new SkylarkTest().testIfExactError(
-        "in operator only works on lists, tuples, sets, dicts and strings", "'a' in 1");
-  }
-
-  @Override
-  @Test
   public void testListComprehensionsMultipleVariablesFail() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
