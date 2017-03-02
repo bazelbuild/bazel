@@ -30,18 +30,7 @@ cc_library(
     deps = [
         ":platform_utils",
         ":zlib_client",
-    ] + select({
-        "//src:windows": [
-            "//src/main/cpp/util:errors",
-            "//src/main/cpp/util:file",
-        ],
-        "//src:windows_msvc": [
-            "//src/main/cpp/util:errors",
-            "//src/main/cpp/util:file",
-        ],
-        "//conditions:default": [
-        ],
-    }),
+    ],
 )
 
 cc_library(
@@ -62,10 +51,16 @@ cc_library(
         "platform_utils.h",
     ],
     visibility = ["//visibility:private"],
-    deps = [
-        "//src/main/cpp/util:errors",
-        "//src/main/cpp/util:file",
-    ],
+    deps = select({
+        "//src:windows": [
+            "//src/main/cpp/util:file",
+        ],
+        "//src:windows_msvc": [
+            "//src/main/cpp/util:file",
+        ],
+        "//conditions:default": [
+        ],
+    }),
 )
 
 cc_binary(
