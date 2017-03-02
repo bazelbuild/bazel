@@ -1274,6 +1274,12 @@ void ReleaseLock(BlazeLock* blaze_lock) {
 #endif  // COMPILER_MSVC
 }
 
+#ifdef GetUserName
+// By including <windows.h>, we have GetUserName defined either as
+// GetUserNameA or GetUserNameW.
+#undef GetUserName
+#endif
+
 string GetUserName() {
   WCHAR buffer[UNLEN + 1];
   DWORD len = UNLEN + 1;

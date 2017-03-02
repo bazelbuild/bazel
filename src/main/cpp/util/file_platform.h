@@ -15,13 +15,6 @@
 #ifndef BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 #define BAZEL_SRC_MAIN_CPP_UTIL_FILE_PLATFORM_H_
 
-#if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-#include <windows.h>
-// Undef GetUserName defined by windows.h so we won't conflict with
-// blaze_util::GetUserName
-#undef GetUserName
-#endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
-
 #include <stdint.h>
 #include <time.h>
 
@@ -61,7 +54,13 @@ IFileMtime *CreateFileMtime();
 std::pair<std::string, std::string> SplitPath(const std::string &path);
 
 #if defined(COMPILER_MSVC) || defined(__CYGWIN__)
-typedef HANDLE file_handle_type;
+// We cannot include <windows.h> because it #defines many symbols that conflict
+// with our function names, e.g. GetUserName, SendMessage.
+// Instead of typedef'ing HANDLE, let's use the actual type, void*. If that ever
+// changes in the future and HANDLE would no longer be compatible with void*
+// (very unlikely, given how fundamental this type is in Windows), then we'd get
+// a compilation error.
+typedef /* HANDLE */ void *file_handle_type;
 #else   // !(defined(COMPILER_MSVC) || defined(__CYGWIN__))
 typedef int file_handle_type;
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
