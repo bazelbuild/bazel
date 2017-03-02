@@ -37,22 +37,25 @@ import java.util.Set;
  */
 public class RuleDocumentationAttribute implements Comparable<RuleDocumentationAttribute> {
 
-  private static final Map<Type<?>, String> TYPE_DESC = ImmutableMap.<Type<?>, String>builder()
-      .put(Type.BOOLEAN, "Boolean")
-      .put(Type.INTEGER, "Integer")
-      .put(Type.INTEGER_LIST, "List of integers")
-      .put(Type.STRING, "String")
-      .put(Type.STRING_LIST, "List of strings")
-      .put(BuildType.TRISTATE, "Integer")
-      .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
-      .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
-      .put(BuildType.LABEL_DICT_UNARY,
-          "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
-      .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
-      .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
-      .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
-      .put(BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
-      .build();
+  private static final ImmutableMap<Type<?>, String> TYPE_DESC =
+      ImmutableMap.<Type<?>, String>builder()
+          .put(Type.BOOLEAN, "Boolean")
+          .put(Type.INTEGER, "Integer")
+          .put(Type.INTEGER_LIST, "List of integers")
+          .put(Type.STRING, "String")
+          .put(Type.STRING_LIST, "List of strings")
+          .put(BuildType.TRISTATE, "Integer")
+          .put(BuildType.LABEL, "<a href=\"../build-ref.html#labels\">Label</a>")
+          .put(BuildType.LABEL_LIST, "List of <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(
+              BuildType.LABEL_DICT_UNARY,
+              "Dictionary mapping strings to <a href=\"../build-ref.html#labels\">labels</a>")
+          .put(BuildType.NODEP_LABEL, "<a href=\"../build-ref.html#name\">Name</a>")
+          .put(BuildType.NODEP_LABEL_LIST, "List of <a href=\"../build-ref.html#name\">names</a>")
+          .put(BuildType.OUTPUT, "<a href=\"../build-ref.html#filename\">Filename</a>")
+          .put(
+              BuildType.OUTPUT_LIST, "List of <a href=\"../build-ref.html#filename\">filenames</a>")
+          .build();
 
   private final Class<? extends RuleDefinition> definitionClass;
   private final String attributeName;

@@ -28,14 +28,13 @@ import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 
-import java.util.Set;
 
 /**
  * Rule definition for the java_import rule.
  */
 public final class BazelJavaImportRule implements RuleDefinition {
 
-  private static final Set<String> ALLOWED_DEPS =
+  private static final ImmutableSet<String> ALLOWED_DEPS =
       ImmutableSet.of("java_library", "java_import", "cc_library", "cc_binary");
 
   @Override

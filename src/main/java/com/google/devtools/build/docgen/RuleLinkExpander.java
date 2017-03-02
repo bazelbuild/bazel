@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Matcher;
 
 /**
@@ -33,24 +32,24 @@ public class RuleLinkExpander {
   private static final String IMPLICIT_OUTPUTS_SUFFIX = "_implicit_outputs";
   private static final String FUNCTIONS_PAGE = "functions";
 
-  private static final Set<String> STATIC_PAGES = ImmutableSet.<String>of(
-      "common-definitions",
-      "make-variables",
-      "predefined-python-variables");
-  private static final Map<String, String> FUNCTIONS = ImmutableMap.<String, String>builder()
-      .put("load", FUNCTIONS_PAGE)
-      .put("subinclude", FUNCTIONS_PAGE)
-      .put("PYTHON-PREPROCESSING-REQUIRED", FUNCTIONS_PAGE)
-      .put("package", FUNCTIONS_PAGE)
-      .put("package_group", FUNCTIONS_PAGE)
-      .put("description", FUNCTIONS_PAGE)
-      .put("distribs", FUNCTIONS_PAGE)
-      .put("licenses", FUNCTIONS_PAGE)
-      .put("exports_files", FUNCTIONS_PAGE)
-      .put("glob", FUNCTIONS_PAGE)
-      .put("select", FUNCTIONS_PAGE)
-      .put("workspace", FUNCTIONS_PAGE)
-      .build();
+  private static final ImmutableSet<String> STATIC_PAGES =
+      ImmutableSet.<String>of(
+          "common-definitions", "make-variables", "predefined-python-variables");
+  private static final ImmutableMap<String, String> FUNCTIONS =
+      ImmutableMap.<String, String>builder()
+          .put("load", FUNCTIONS_PAGE)
+          .put("subinclude", FUNCTIONS_PAGE)
+          .put("PYTHON-PREPROCESSING-REQUIRED", FUNCTIONS_PAGE)
+          .put("package", FUNCTIONS_PAGE)
+          .put("package_group", FUNCTIONS_PAGE)
+          .put("description", FUNCTIONS_PAGE)
+          .put("distribs", FUNCTIONS_PAGE)
+          .put("licenses", FUNCTIONS_PAGE)
+          .put("exports_files", FUNCTIONS_PAGE)
+          .put("glob", FUNCTIONS_PAGE)
+          .put("select", FUNCTIONS_PAGE)
+          .put("workspace", FUNCTIONS_PAGE)
+          .build();
 
   private final String productName;
   private final Map<String, String> ruleIndex = new HashMap<>();
