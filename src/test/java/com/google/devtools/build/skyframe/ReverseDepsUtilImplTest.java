@@ -36,7 +36,7 @@ public class ReverseDepsUtilImplTest {
   private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private final int numElements;
 
-  @Parameters
+  @Parameters(name = "numElements-{0}")
   public static List<Object[]> paramenters() {
     List<Object[]> params = new ArrayList<>();
     for (int i = 0; i < 20; i++) {
