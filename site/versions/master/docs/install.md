@@ -273,10 +273,7 @@ The standard way of compiling a release version of Bazel from source
 is to use a distribution archive. Download `bazel-<VERSION>-dist.zip`
 from
 the [release page](https://github.com/bazelbuild/bazel/releases) for
-the desired version (for releases 0.4.0 and earlier: download the "source
-code" zip archive and note that it will only work for the supported
-architectures as it contains binaries). We recommend to also verify
-the signature made by our
+the desired version. We recommend to also verify the signature made by our
 [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
 Unzip the archive and call `bash ./compile.sh`; this will create a

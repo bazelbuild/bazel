@@ -62,6 +62,7 @@ for Java. We don't have IDE support for other languages in Bazel right now.
 ### Preparations
 
 * [Install Bazel](https://bazel.build/versions/master/docs/install.html) on your system.
+  Note that for developing Bazel, you need the latest released version of Bazel.
 * Clone Bazel's Git repository from Gerrit:
   * `git clone https://bazel.googlesource.com/bazel`
 * Try to build Bazel:
@@ -103,8 +104,8 @@ To work with Eclipse:
 ### Compiling Bazel
 
 To test out bazel, you need to compile it. To compile a development version of
-Bazel, you need a working version of Bazel already, e.g., the latest release
-version [compiled from source](/versions/master/docs/install.html#compiling-from-source).
+Bazel, you need a the latest released version of bazel, which can be
+[compiled from source](/versions/master/docs/install.html#compiling-from-source).
 
 `bazel build //src:bazel` builds the Bazel binary using `bazel` from your PATH
 and the resulting binary can be found at `bazel-bin/src/bazel`. This is the
