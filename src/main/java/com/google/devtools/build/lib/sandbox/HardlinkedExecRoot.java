@@ -149,6 +149,9 @@ public class HardlinkedExecRoot implements SandboxExecRoot {
       java.nio.file.Files.createLink(targetNio, sourceNio);
       // Directory
     } else if (source.isDirectory()) {
+      // Eagerly create target directory in case source is an empty directory.
+      FileSystemUtils.createDirectoryAndParents(target);
+
       Collection<Path> subpaths = source.getDirectoryEntries();
       for (Path sourceSubpath : subpaths) {
         Path targetSubpath = target.getRelative(sourceSubpath.relativeTo(source));
