@@ -23,6 +23,17 @@ namespace blaze_util {
 
 class IPipe {
  public:
+  // Error modes of the pipe.
+  //
+  // This is a platform-independent abstraction of `errno`. If you need to
+  // handle an errno value, add an entry here and update the platform-specific
+  // pipe implementations accordingly.
+  enum Errors {
+    SUCCESS = 0,
+    OTHER_ERROR = 1,
+    INTERRUPTED = 2,  // EINTR
+  };
+
   virtual ~IPipe() {}
 
   // Sends `size` bytes from `buffer` through the pipe.
@@ -30,9 +41,10 @@ class IPipe {
   virtual bool Send(const void *buffer, int size) = 0;
 
   // Receives at most `size` bytes into `buffer` from the pipe.
-  // Returns the number of bytes received; sets `errno` upon error.
-  // If `size` is negative, returns -1.
-  virtual int Receive(void *buffer, int size) = 0;
+  // Returns the number of bytes received.
+  // If `size` is negative or if there's an error, then returns -1, and if
+  // `error` isn't NULL then sets its value to one of the `Errors`.
+  virtual int Receive(void *buffer, int size, int *error) = 0;
 };
 
 // Replaces 'content' with data read from a source using `ReadFromHandle`.

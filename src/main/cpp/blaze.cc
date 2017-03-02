@@ -27,7 +27,6 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -1527,8 +1526,9 @@ void GrpcBlazeServer::CancelThread() {
   while (running) {
     char buf;
 
-    int bytes_read = pipe_->Receive(&buf, 1);
-    if (bytes_read < 0 && errno == EINTR) {
+    int error;
+    int bytes_read = pipe_->Receive(&buf, 1, &error);
+    if (bytes_read < 0 && error == blaze_util::IPipe::INTERRUPTED) {
       continue;
     } else if (bytes_read != 1) {
       pdie(blaze_exit_code::INTERNAL_ERROR,
@@ -1665,8 +1665,9 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (!response.standard_output().empty()) {
       size_t size = response.standard_output().size();
-      size_t r = fwrite(response.standard_output().c_str(), 1, size, stdout);
-      if (r < size && errno == EPIPE) {
+      if (blaze_util::WriteToStdOutErr(response.standard_output().c_str(), size,
+                                       /* to_stdout */ true) ==
+          blaze_util::WriteResult::BROKEN_PIPE) {
         pipe_broken_now = true;
         broken_pipe_name = "standard output";
       }
@@ -1674,8 +1675,9 @@ unsigned int GrpcBlazeServer::Communicate() {
 
     if (!response.standard_error().empty()) {
       size_t size = response.standard_error().size();
-      size_t r = fwrite(response.standard_error().c_str(), 1, size, stderr);
-      if (r < size && errno == EPIPE) {
+      if (blaze_util::WriteToStdOutErr(response.standard_error().c_str(), size,
+                                       /* to_stdout */ false) ==
+          blaze_util::WriteResult::BROKEN_PIPE) {
         pipe_broken_now = true;
         broken_pipe_name = "standard error";
       }

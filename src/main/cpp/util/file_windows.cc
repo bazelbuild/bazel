@@ -120,11 +120,14 @@ class WindowsPipe : public IPipe {
                        NULL) == TRUE;
   }
 
-  int Receive(void* buffer, int size) override {
+  int Receive(void* buffer, int size, int* error) override {
     DWORD actually_read = 0;
-    return ::ReadFile(_read_handle, buffer, size, &actually_read, NULL)
-               ? actually_read
-               : -1;
+    BOOL result = ::ReadFile(_read_handle, buffer, size, &actually_read, NULL);
+    if (error != nullptr) {
+      // TODO(laszlocsomor): handle the error mode that is errno=EINTR on Linux.
+      *error = result ? IPipe::SUCCESS : IPipe::OTHER_ERROR;
+    }
+    return result ? actually_read : -1;
   }
 
  private:
@@ -546,10 +549,16 @@ static bool OpenFileForReading(const string& filename, HANDLE* result) {
   return true;
 }
 
-int ReadFromHandle(file_handle_type handle, void* data, size_t size) {
+int ReadFromHandle(file_handle_type handle, void* data, size_t size,
+                   int* error) {
   DWORD actually_read = 0;
-  return ::ReadFile(handle, data, size, &actually_read, NULL) ? actually_read
-                                                              : -1;
+  bool success = ::ReadFile(handle, data, size, &actually_read, NULL);
+  if (error != nullptr) {
+    // TODO(laszlocsomor): handle the error cases that are errno=EINTR and
+    // errno=EAGAIN on Linux.
+    *error = success ? ReadFileResult::SUCCESS : ReadFileResult::OTHER_ERROR;
+  }
+  return success ? actually_read : -1;
 }
 
 bool ReadFile(const string& filename, string* content, int max_size) {
@@ -606,6 +615,21 @@ bool WriteFile(const void* data, size_t size, const string& filename,
   DWORD actually_written = 0;
   ::WriteFile(handle, data, size, &actually_written, NULL);
   return actually_written == size;
+}
+
+int WriteToStdOutErr(const void* data, size_t size, bool to_stdout) {
+  DWORD written = 0;
+  HANDLE h = ::GetStdHandle(to_stdout ? STD_OUTPUT_HANDLE : STD_ERROR_HANDLE);
+  if (h == INVALID_HANDLE_VALUE) {
+    return WriteResult::OTHER_ERROR;
+  }
+
+  if (::WriteFile(h, data, size, &written, NULL)) {
+    return (written == size) ? WriteResult::SUCCESS : WriteResult::OTHER_ERROR;
+  } else {
+    return (GetLastError() == ERROR_NO_DATA) ? WriteResult::BROKEN_PIPE
+                                             : WriteResult::OTHER_ERROR;
+  }
 }
 
 int RenameDirectory(const std::string& old_name, const std::string& new_name) {

@@ -13,7 +13,6 @@
 // limitations under the License.
 #include "src/main/cpp/util/strings.h"
 
-#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -331,7 +330,8 @@ static unique_ptr<V[]> UstringToVstring(
     const U *input, size_t (*convert)(V *output, const U *input, size_t len)) {
   size_t size = convert(nullptr, input, 0) + 1;
   if (size == (size_t)-1) {
-    fprintf(stderr, "Invalid input for string conversion, errno=%d\n", errno);
+    fprintf(stderr, "UstringToVstring: invalid input \"");
+    fprintf(stderr, sizeof(U) == sizeof(char) ? "%s\"\n" : "%S\"\n", input);
     exit(blaze_exit_code::INTERNAL_ERROR);
     return unique_ptr<V[]>(nullptr);  // formally return, though unreachable
   }

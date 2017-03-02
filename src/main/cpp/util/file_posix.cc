@@ -135,8 +135,20 @@ class PosixPipe : public IPipe {
     return size >= 0 && write(_send_socket, buffer, size) == size;
   }
 
-  int Receive(void* buffer, int size) override {
-    return size < 0 ? -1 : read(_recv_socket, buffer, size);
+  int Receive(void *buffer, int size, int *error) override {
+    if (size < 0) {
+      if (error != nullptr) {
+        *error = IPipe::OTHER_ERROR;
+      }
+      return -1;
+    }
+    int result = read(_recv_socket, buffer, size);
+    if (error != nullptr) {
+      *error = result >= 0 ? IPipe::SUCCESS
+                           : ((errno == EINTR) ? IPipe::INTERRUPTED
+                                               : IPipe::OTHER_ERROR);
+    }
+    return result;
   }
 
  private:
@@ -175,8 +187,22 @@ pair<string, string> SplitPath(const string &path) {
   return std::make_pair(string(path, 0, pos), string(path, pos + 1));
 }
 
-int ReadFromHandle(file_handle_type fd, void *data, size_t size) {
-  return read(fd, data, size);
+int ReadFromHandle(file_handle_type fd, void *data, size_t size, int *error) {
+  int result = read(fd, data, size);
+  if (error != nullptr) {
+    if (result >= 0) {
+      *error = ReadFileResult::SUCCESS;
+    } else {
+      if (errno == EINTR) {
+        *error = ReadFileResult::INTERRUPTED;
+      } else if (errno == EAGAIN) {
+        *error = ReadFileResult::AGAIN;
+      } else {
+        *error = ReadFileResult::OTHER_ERROR;
+      }
+    }
+  }
+  return result;
 }
 
 bool ReadFile(const string &filename, string *content, int max_size) {
@@ -203,12 +229,17 @@ bool WriteFile(const void *data, size_t size, const string &filename,
     return false;
   }
   int result = write(fd, data, size);
-  int saved_errno = errno;
-  if (close(fd) || result < 0) {
+  if (close(fd)) {
     return false;  // Can fail on NFS.
   }
-  errno = saved_errno;  // Caller should see errno from write().
-  return static_cast<size_t>(result) == size;
+  return result == static_cast<int>(size);
+}
+
+int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
+  size_t r = fwrite(data, 1, size, to_stdout ? stdout : stderr);
+  return (r == size) ? WriteResult::SUCCESS
+                     : ((errno == EPIPE) ? WriteResult::BROKEN_PIPE
+                                         : WriteResult::OTHER_ERROR);
 }
 
 int RenameDirectory(const std::string &old_name, const std::string &new_name) {
