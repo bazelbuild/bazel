@@ -364,8 +364,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  [ -e third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar ] \
-    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar
+  [ -e third_party/java/jdk/langtools/javac-9-dev-r3297-3.jar ] \
+    || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9-dev-r3297-3.jar
 
   touch WORKSPACE
 }
