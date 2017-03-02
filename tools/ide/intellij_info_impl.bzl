@@ -21,6 +21,8 @@ DEPS = [
     "deps",
     "exports",
     "_robolectric",  # From android_robolectric_test
+    "_android_sdk",  # from android rules
+    "aidl_lib",  # from android_sdk
 ]
 
 # Run-time dependency attributes, grouped by type.
