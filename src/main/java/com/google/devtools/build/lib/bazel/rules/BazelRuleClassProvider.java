@@ -161,6 +161,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
 import com.google.devtools.build.lib.rules.objc.XcTestAppProvider;
 import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
 import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
+import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -176,16 +177,13 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 
-/**
- * A rule class provider implementing the rules Bazel knows.
- */
+/** A rule class provider implementing the rules Bazel knows. */
 public class BazelRuleClassProvider {
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 
   /** Used by the build encyclopedia generator. */
   public static ConfiguredRuleClassProvider create() {
-    ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder();
+    ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     builder.setToolsRepository(TOOLS_REPOSITORY);
     setup(builder);
     return builder.build();
@@ -193,8 +191,8 @@ public class BazelRuleClassProvider {
 
   private static class BazelPrerequisiteValidator implements PrerequisiteValidator {
     @Override
-    public void validate(RuleContext.Builder context,
-        ConfiguredTarget prerequisite, Attribute attribute) {
+    public void validate(
+        RuleContext.Builder context, ConfiguredTarget prerequisite, Attribute attribute) {
       validateDirectPrerequisiteVisibility(context, prerequisite, attribute.getName());
       validateDirectPrerequisiteForTestOnly(context, prerequisite);
       DeprecationValidator.validateDirectPrerequisiteForDeprecation(
@@ -205,21 +203,27 @@ public class BazelRuleClassProvider {
         RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
       Rule rule = context.getRule();
       Target prerequisiteTarget = prerequisite.getTarget();
-      if (!context.getRule().getLabel().getPackageIdentifier().equals(
-              AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
+      if (!context
+              .getRule()
+              .getLabel()
+              .getPackageIdentifier()
+              .equals(AliasProvider.getDependencyLabel(prerequisite).getPackageIdentifier())
           && !context.isVisible(prerequisite)) {
         if (!context.getConfiguration().checkVisibility()) {
-          context.ruleWarning(String.format("Target '%s' violates visibility of target "
-              + "%s. Continuing because --nocheck_visibility is active",
-              rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite)));
+          context.ruleWarning(
+              String.format(
+                  "Target '%s' violates visibility of target "
+                      + "%s. Continuing because --nocheck_visibility is active",
+                  rule.getLabel(), AliasProvider.printLabelWithAliasChain(prerequisite)));
         } else {
           // Oddly enough, we use reportError rather than ruleError here.
-          context.reportError(rule.getLocation(),
-              String.format("Target %s is not visible from target '%s'. Check "
-                  + "the visibility declaration of the former target if you think "
-                  + "the dependency is legitimate",
-                  AliasProvider.printLabelWithAliasChain(prerequisite),
-                  rule.getLabel()));
+          context.reportError(
+              rule.getLocation(),
+              String.format(
+                  "Target %s is not visible from target '%s'. Check "
+                      + "the visibility declaration of the former target if you think "
+                      + "the dependency is legitimate",
+                  AliasProvider.printLabelWithAliasChain(prerequisite), rule.getLabel()));
         }
       }
 
@@ -253,9 +257,12 @@ public class BazelRuleClassProvider {
       String thisPackage = rule.getLabel().getPackageName();
 
       if (isTestOnlyRule(prerequisiteTarget) && !isTestOnlyRule(rule)) {
-        String message = "non-test target '" + rule.getLabel() + "' depends on testonly target "
-            + AliasProvider.printLabelWithAliasChain(prerequisite)
-            + " and doesn't have testonly attribute set";
+        String message =
+            "non-test target '"
+                + rule.getLabel()
+                + "' depends on testonly target "
+                + AliasProvider.printLabelWithAliasChain(prerequisite)
+                + " and doesn't have testonly attribute set";
         if (thisPackage.startsWith("experimental/")) {
           context.ruleWarning(message);
         } else {
@@ -343,6 +350,7 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           builder.addRuleDefinition(new ConstraintSettingRule());
           builder.addRuleDefinition(new ConstraintValueRule());
+          builder.addRuleDefinition(new PlatformRule());
         }
 
         @Override

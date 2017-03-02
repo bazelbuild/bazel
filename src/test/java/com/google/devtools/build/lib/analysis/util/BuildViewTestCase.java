@@ -1237,7 +1237,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  private static Label makeLabel(String label) {
+  public static Label makeLabel(String label) {
     try {
       return Label.parseAbsolute(label);
     } catch (LabelSyntaxException e) {

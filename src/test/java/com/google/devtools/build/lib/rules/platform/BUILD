@@ -5,7 +5,7 @@ filegroup(
 )
 
 java_test(
-    name = "PlatformTests",
+    name = "PlatformRulesTests",
     srcs = glob(["*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -15,6 +15,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
         "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
