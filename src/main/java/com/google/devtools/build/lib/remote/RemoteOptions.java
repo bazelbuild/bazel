@@ -100,26 +100,34 @@ public final class RemoteOptions extends OptionsBase {
   public int grpcMaxBatchSizeBytes;
 
   @Option(
-      name = "grpc_timeout_seconds",
-      defaultValue = "60",
-      category = "remote",
-      help = "The maximal number of seconds to wait for remote calls. For client mode only."
-    )
+    name = "grpc_timeout_seconds",
+    defaultValue = "60",
+    category = "remote",
+    help = "The maximal number of seconds to wait for remote calls. For client mode only."
+  )
   public int grpcTimeoutSeconds;
 
   @Option(
-      name = "remote_accept_cached",
-      defaultValue = "true",
-      category = "remote",
-      help = "Whether to accept remotely cached action results."
-    )
+    name = "remote_accept_cached",
+    defaultValue = "true",
+    category = "remote",
+    help = "Whether to accept remotely cached action results."
+  )
   public boolean remoteAcceptCached;
 
   @Option(
-      name = "remote_allow_local_fallback",
-      defaultValue = "true",
-      category = "remote",
-      help = "Whether to fall back to standalone strategy if remote fails."
-    )
+    name = "remote_allow_local_fallback",
+    defaultValue = "true",
+    category = "remote",
+    help = "Whether to fall back to standalone strategy if remote fails."
+  )
   public boolean remoteAllowLocalFallback;
+
+  @Option(
+    name = "remote_local_exec_upload_results",
+    defaultValue = "true",
+    category = "remote",
+    help = "Whether to upload action results to the remote cache after executing locally."
+  )
+  public boolean remoteLocalExecUploadResults;
 }

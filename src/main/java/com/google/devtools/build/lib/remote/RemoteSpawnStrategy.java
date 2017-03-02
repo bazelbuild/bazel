@@ -111,7 +111,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       Spawn spawn, ActionExecutionContext actionExecutionContext, RemoteActionCache actionCache,
       ActionKey actionKey) throws ExecException, InterruptedException {
     standaloneStrategy.exec(spawn, actionExecutionContext);
-    if (actionCache != null && actionKey != null) {
+    if (options.remoteLocalExecUploadResults && actionCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
         outputFiles.add(execRoot.getRelative(output.getExecPathString()));
