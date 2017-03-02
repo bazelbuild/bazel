@@ -17,8 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 
 /**
  * Provider containing the executable binary output that was built using an apple_binary target with
@@ -37,8 +38,8 @@ public final class AppleDylibBinaryProvider extends SkylarkClassObject
   public static final String SKYLARK_NAME = "AppleDylibBinary";
 
  /** Skylark constructor and identifier for AppleDylibBinaryProvider. */
-  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      SkylarkClassObjectConstructor.createNative(SKYLARK_NAME);
+  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
+     new NativeClassObjectConstructor(SKYLARK_NAME) { };
 
   private final Artifact dylibBinary;
   private final ObjcProvider depsObjcProvider;

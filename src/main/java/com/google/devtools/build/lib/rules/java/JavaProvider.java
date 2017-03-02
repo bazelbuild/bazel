@@ -21,8 +21,9 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,8 +34,8 @@ import javax.annotation.Nullable;
 @Immutable
 public final class JavaProvider extends SkylarkClassObject implements TransitiveInfoProvider {
 
-  public static final SkylarkClassObjectConstructor JAVA_PROVIDER =
-      SkylarkClassObjectConstructor.createNative("java_common.provider");
+  public static final ClassObjectConstructor JAVA_PROVIDER =
+      new NativeClassObjectConstructor("java_common.provider") { };
 
   private static final Set<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(

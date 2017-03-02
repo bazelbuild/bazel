@@ -28,9 +28,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
@@ -112,7 +112,7 @@ public class SkylarkRepositoryContext {
                 : SkylarkType.convertToSkylark(val, null));
       }
     }
-    attrObject = SkylarkClassObjectConstructor.STRUCT.create(
+    attrObject = NativeClassObjectConstructor.STRUCT.create(
         attrBuilder.build(), "No such attribute '%s'");
   }
 

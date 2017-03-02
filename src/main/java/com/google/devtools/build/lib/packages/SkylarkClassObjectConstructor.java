@@ -16,11 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -29,94 +25,41 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Declared Provider (a constructor for {@link SkylarkClassObject}).
+ *  Declared provider defined in Skylark.
+ *
+ *  This is a result of calling {@code provider()} function from Skylark
+ *  ({@link com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions#provider}).
  */
-@SkylarkModule(name = "provider",
-    doc = "A constructor for simple value objects. "
-        + "See the global <a href=\"globals.html#provider\">provider</a> function "
-        + "for more details."
-)
-public final class SkylarkClassObjectConstructor extends BaseFunction implements SkylarkExportable {
-  /**
-   * "struct" function.
-   */
-  public static final SkylarkClassObjectConstructor STRUCT =
-      createNativeConstructable("struct");
-
+public final class SkylarkClassObjectConstructor
+    extends ClassObjectConstructor
+    implements SkylarkExportable {
 
   private static final FunctionSignature.WithValues<Object, SkylarkType> SIGNATURE =
       FunctionSignature.WithValues.create(FunctionSignature.KWARGS);
 
   @Nullable
-  private Key key;
+  private SkylarkKey key;
+  @Nullable
+  private String errorMessageFormatForInstances;
 
-  /**
-   * Some native declared providers are not constructable from Skylark.
-   */
-  private final boolean isConstructable;
-
-  private SkylarkClassObjectConstructor(String name, Location location) {
-    super(name, SIGNATURE, location);
-    // All Skylark-defined declared providers are constructable.
-    this.isConstructable = true;
-  }
-
-  private SkylarkClassObjectConstructor(String name, boolean isConstructable) {
-    super(name, SIGNATURE, Location.BUILTIN);
-    this.key = new NativeKey();
-    this.isConstructable = isConstructable;
-  }
-
-  /**
-   * Creates a native Declared Provider ({@link SkylarkClassObject} constructor).
-   * 
-   * The convention for the name of a provider follows the convention for a class name in
-   * Python: CapitalCamelCase.
-   */
-  public static SkylarkClassObjectConstructor createNative(String name) {
-    return new SkylarkClassObjectConstructor(name, false);
-  }
-
-  /**
-   * Creates a native Declared Provider ({@link SkylarkClassObject} constructor)
-   * that can be constructed from Skylark.
-   * 
-   * Use CapitalCamelCase style for the name.
-   */
-  public static SkylarkClassObjectConstructor createNativeConstructable(String name) {
-    return new SkylarkClassObjectConstructor(name, true);
-  }
-
+  private static final String DEFAULT_ERROR_MESSAFE = "Object has no '%s' attribute.";
 
   /**
    * Creates a Skylark-defined Declared Provider ({@link SkylarkClassObject} constructor).
    *
    * Needs to be exported later.
    */
-  public static SkylarkClassObjectConstructor createSkylark(String name, Location location) {
-    return new SkylarkClassObjectConstructor(name, location);
+  public SkylarkClassObjectConstructor(String name, Location location) {
+    super(name, SIGNATURE, location);
+    this.errorMessageFormatForInstances = DEFAULT_ERROR_MESSAFE;
   }
 
   @Override
-  protected Object call(Object[] args, @Nullable FuncallExpression ast, @Nullable Environment env)
-      throws EvalException, InterruptedException {
-    if (!isConstructable) {
-      Location loc = ast != null ? ast.getLocation() : Location.BUILTIN;
-      throw new EvalException(loc,
-          String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
-    }
+  protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc)
+      throws EvalException {
     @SuppressWarnings("unchecked")
     Map<String, Object> kwargs = (Map<String, Object>) args[0];
-    return new SkylarkClassObject(this, kwargs, ast != null ? ast.getLocation() : Location.BUILTIN);
-  }
-
-  /**
-   * Creates a built-in class object (i.e. without creation loc).
-   * 
-   * The errorMessage has to have exactly one '%s' parameter to substitute the field name.
-   */
-  public SkylarkClassObject create(Map<String, Object> values, String message) {
-    return new SkylarkClassObject(this, values, message);
+    return new SkylarkClassObject(this, kwargs, loc);
   }
 
   @Override
@@ -124,19 +67,28 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
     return key != null;
   }
 
-  public Key getKey() {
+  @Override
+  public SkylarkKey getKey() {
     Preconditions.checkState(isExported());
     return key;
   }
 
+  @Override
   public String getPrintableName() {
     return key != null ? key.getExportedName() : getName();
+  }
+
+  @Override
+  public String getErrorMessageFormatForInstances() {
+    return errorMessageFormatForInstances;
   }
 
   @Override
   public void export(Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
     this.key = new SkylarkKey(extensionLabel, exportedName);
+    this.errorMessageFormatForInstances = String.format(
+        "'%s' object has no attribute '%%s'", exportedName);
   }
 
   @Override
@@ -168,17 +120,6 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
   }
 
   /**
-   * A representation of {@link SkylarkClassObjectConstructor}.
-   */
-  // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
-  // we will need to serialize this somehow.
-  public abstract static class Key {
-    private Key() {}
-
-    public abstract String getExportedName();
-  }
-
-  /**
    * A serializable representation of Skylark-defined {@link SkylarkClassObjectConstructor}
    * that uniquely identifies all {@link SkylarkClassObjectConstructor}s that
    * are exposed to SkyFrame.
@@ -196,8 +137,12 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
       return extensionLabel;
     }
 
-    @Override
     public String getExportedName() {
+      return exportedName;
+    }
+
+    @Override
+    public String toString() {
       return exportedName;
     }
 
@@ -221,22 +166,4 @@ public final class SkylarkClassObjectConstructor extends BaseFunction implements
     }
   }
 
-  /**
-   * A representation of {@link SkylarkClassObjectConstructor} defined in native code.
-   */
-  // todo(vladmos,dslomov): when we allow declared providers in `requiredProviders`,
-  // we will need to serialize this somehow.
-  public final class NativeKey extends Key {
-    private NativeKey() {
-    }
-
-    @Override
-    public String getExportedName() {
-      return SkylarkClassObjectConstructor.this.getName();
-    }
-
-    public SkylarkClassObjectConstructor getConstructor() {
-      return SkylarkClassObjectConstructor.this;
-    }
-  }
 }

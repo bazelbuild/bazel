@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDe
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.proto.StrictDepsUtils;
 import com.google.devtools.build.lib.skylarkinterface.Param;
@@ -48,7 +48,7 @@ public class JavaSkylarkCommon {
     structField = true,
     doc = "Returns the Java declared provider."
   )
-  public SkylarkClassObjectConstructor getJavaProvider() {
+  public ClassObjectConstructor getJavaProvider() {
     return JavaProvider.JAVA_PROVIDER;
   }
 

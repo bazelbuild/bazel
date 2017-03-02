@@ -22,7 +22,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
@@ -129,7 +129,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
         SkylarkDict.of(env, "key", 123),
         SkylarkDict.of(env, 123, "value"),
         NestedSetBuilder.stableOrder().add(1).add(2).add(3).build(),
-        SkylarkClassObjectConstructor.STRUCT.create(
+        NativeClassObjectConstructor.STRUCT.create(
             ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 

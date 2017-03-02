@@ -21,6 +21,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor.StructConstructor;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -48,31 +49,31 @@ import javax.annotation.Nullable;
           + "for more details."
 )
 public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable, Serializable {
-  /** Error message to use when errorMessage argument is null. */
-  private static final String DEFAULT_ERROR_MESSAGE = "'struct' object has no attribute '%s'";
-
-  private final SkylarkClassObjectConstructor constructor;
+  private final ClassObjectConstructor constructor;
   private final ImmutableMap<String, Object> values;
   private final Location creationLoc;
   private final String errorMessage;
 
   /**
-   * Primarily for testing purposes where no location is available and the default
-   * errorMessage suffices.
+   * Creates a built-in struct (i.e. without creation loc).
    */
-  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+  public SkylarkClassObject(ClassObjectConstructor constructor,
       Map<String, Object> values) {
     this.constructor = constructor;
     this.values = copyValues(values);
     this.creationLoc = null;
-    this.errorMessage = DEFAULT_ERROR_MESSAGE;
+    this.errorMessage = constructor.getErrorMessageFormatForInstances();
   }
 
   /**
-   * Creates a built-in struct (i.e. without creation loc). The errorMessage has to have
-   * exactly one '%s' parameter to substitute the struct field name.
+   * Creates a built-in struct (i.e. without creation loc).
+   *
+   * Allows to supply a specific error message.
+   * Only used in {@link StructConstructor#create(Map, String)}
+   * If you need to override an error message, preferred way is to create a specific
+   * {@link NativeClassObjectConstructor}.
    */
-  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+  SkylarkClassObject(ClassObjectConstructor constructor,
       Map<String, Object> values, String errorMessage) {
     this.constructor = constructor;
     this.values = copyValues(values);
@@ -80,12 +81,12 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
     this.errorMessage = Preconditions.checkNotNull(errorMessage);
   }
 
-  public SkylarkClassObject(SkylarkClassObjectConstructor constructor,
+  public SkylarkClassObject(ClassObjectConstructor constructor,
       Map<String, Object> values, Location creationLoc) {
     this.constructor = constructor;
     this.values = copyValues(values);
     this.creationLoc = Preconditions.checkNotNull(creationLoc);
-    this.errorMessage = DEFAULT_ERROR_MESSAGE;
+    this.errorMessage = constructor.getErrorMessageFormatForInstances();
   }
 
   // Ensure that values are all acceptable to Skylark before to stuff them in a ClassObject
@@ -130,7 +131,7 @@ public class SkylarkClassObject implements ClassObject, SkylarkValue, Concatable
     return StructConcatter.INSTANCE;
   }
   
-  public SkylarkClassObjectConstructor getConstructor() {
+  public ClassObjectConstructor getConstructor() {
     return constructor;
   }
 

@@ -1454,7 +1454,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Object invokeCallback(Map<String, Object> attrValues)
         throws EvalException, InterruptedException {
       ClassObject attrs =
-          SkylarkClassObjectConstructor.STRUCT.create(
+          NativeClassObjectConstructor.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
       Object result = callback.call(attrs);
       try {

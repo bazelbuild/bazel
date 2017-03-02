@@ -96,7 +96,7 @@ public abstract class ImplicitOutputsFunction {
       }
       // Add 'name' explicitly, since its value is not in the attribute map.
       attrValues.put("name", map.getName());
-      ClassObject attrs = SkylarkClassObjectConstructor.STRUCT.create(
+      ClassObject attrs = NativeClassObjectConstructor.STRUCT.create(
           attrValues,
           "Attribute '%s' either doesn't exist "
           + "or uses a select() (i.e. could have multiple values)");

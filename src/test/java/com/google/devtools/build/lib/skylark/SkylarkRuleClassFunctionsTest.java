@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -1039,17 +1040,17 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   private static SkylarkClassObject makeStruct(String field, Object value) {
-    return SkylarkClassObjectConstructor.STRUCT.create(
+    return NativeClassObjectConstructor.STRUCT.create(
         ImmutableMap.of(field, value),
         "no field '%'");
   }
 
   private static SkylarkClassObject makeBigStruct(Environment env) {
     // struct(a=[struct(x={1:1}), ()], b=(), c={2:2})
-    return SkylarkClassObjectConstructor.STRUCT.create(
+    return NativeClassObjectConstructor.STRUCT.create(
         ImmutableMap.<String, Object>of(
             "a", MutableList.<Object>of(env,
-                SkylarkClassObjectConstructor.STRUCT.create(ImmutableMap.<String, Object>of(
+                NativeClassObjectConstructor.STRUCT.create(ImmutableMap.<String, Object>of(
                     "x", SkylarkDict.<Object, Object>of(env, 1, 1)),
                     "no field '%s'"),
                 Tuple.of()),
@@ -1138,10 +1139,10 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "data = struct(x = 1)"
     );
     SkylarkClassObject data = (SkylarkClassObject) lookup("data");
-    assertThat(SkylarkClassObjectConstructor.STRUCT.isExported()).isTrue();
-    assertThat(data.getConstructor()).isEqualTo(SkylarkClassObjectConstructor.STRUCT);
+    assertThat(NativeClassObjectConstructor.STRUCT.isExported()).isTrue();
+    assertThat(data.getConstructor()).isEqualTo(NativeClassObjectConstructor.STRUCT);
     assertThat(data.getConstructor().getKey())
-        .isEqualTo(SkylarkClassObjectConstructor.STRUCT.getKey());
+        .isEqualTo(NativeClassObjectConstructor.STRUCT.getKey());
   }
 
   @Test

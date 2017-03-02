@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.FilesetEntry;
@@ -72,7 +73,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -848,7 +848,7 @@ public final class RuleContext extends TargetContext
    * specified attribute of this target in the BUILD file.
    */
   public Iterable<SkylarkClassObject> getPrerequisites(
-      String attributeName, Mode mode, final SkylarkClassObjectConstructor.Key skylarkKey) {
+      String attributeName, Mode mode, final ClassObjectConstructor.Key skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
@@ -859,7 +859,7 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public SkylarkClassObject getPrerequisite(
-      String attributeName, Mode mode, final SkylarkClassObjectConstructor.Key skylarkKey) {
+      String attributeName, Mode mode, final ClassObjectConstructor.Key skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }

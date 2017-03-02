@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
@@ -212,7 +212,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
       if (!skylarkProvidersMap.isEmpty()) {
         providers.add(
-            new SkylarkProviders(skylarkProvidersMap, ImmutableMap.<Key, SkylarkClassObject>of()));
+            new SkylarkProviders(skylarkProvidersMap,
+                ImmutableMap.<ClassObjectConstructor.Key, SkylarkClassObject>of()));
       }
 
       addProvider(

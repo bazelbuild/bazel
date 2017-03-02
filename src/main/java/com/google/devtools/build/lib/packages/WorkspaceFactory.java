@@ -475,7 +475,7 @@ public class WorkspaceFactory {
     }
 
     builder.put("bazel_version", version);
-    return SkylarkClassObjectConstructor.STRUCT.create(
+    return NativeClassObjectConstructor.STRUCT.create(
         builder.build(), "no native function or rule '%s'");
   }
 

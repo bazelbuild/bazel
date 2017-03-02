@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +57,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   @Nullable
   @Override
-  public SkylarkClassObject get(Key providerKey) {
+  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
     return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
   }
 

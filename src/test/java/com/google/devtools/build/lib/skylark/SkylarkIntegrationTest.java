@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -932,7 +933,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
-    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
+    ClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
         Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
         "my_provider");
     SkylarkProviders skylarkProviders = configuredTarget.getProvider(SkylarkProviders.class);
@@ -959,7 +960,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
     );
 
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
-    SkylarkClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
+    ClassObjectConstructor.Key key = new SkylarkClassObjectConstructor.SkylarkKey(
         Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
         "my_provider");
     SkylarkProviders skylarkProviders = configuredTarget.getProvider(SkylarkProviders.class);

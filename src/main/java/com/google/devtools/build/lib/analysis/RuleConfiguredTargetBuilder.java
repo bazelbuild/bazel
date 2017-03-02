@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
@@ -61,7 +61,7 @@ public final class RuleConfiguredTargetBuilder {
   private final TransitiveInfoProviderMap.Builder providersBuilder =
       TransitiveInfoProviderMap.builder();
   private final ImmutableMap.Builder<String, Object> skylarkProviders = ImmutableMap.builder();
-  private final ImmutableMap.Builder<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
+  private final ImmutableMap.Builder<ClassObjectConstructor.Key, SkylarkClassObject>
       skylarkDeclaredProviders = ImmutableMap.builder();
   private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
 
@@ -263,7 +263,7 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Add a specific provider with a given value.
    *
-   * @deprecated use {@link addProvider}
+   * @deprecated use {@link #addProvider}
    */
   @Deprecated
   public <T extends TransitiveInfoProvider> RuleConfiguredTargetBuilder add(Class<T> key, T value) {
@@ -301,7 +301,7 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
       SkylarkClassObject provider, Location loc) throws EvalException {
-    SkylarkClassObjectConstructor constructor = provider.getConstructor();
+    ClassObjectConstructor constructor = provider.getConstructor();
     SkylarkProviderValidationUtil.validateAndThrowEvalException(
         constructor.getPrintableName(), provider, loc);
     if (!constructor.isExported()) {
@@ -335,7 +335,7 @@ public final class RuleConfiguredTargetBuilder {
    * for Skylark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(SkylarkClassObject provider) {
-    SkylarkClassObjectConstructor constructor = provider.getConstructor();
+    ClassObjectConstructor constructor = provider.getConstructor();
     Preconditions.checkState(constructor.isExported());
     skylarkDeclaredProviders.put(constructor.getKey(), provider);
     return this;

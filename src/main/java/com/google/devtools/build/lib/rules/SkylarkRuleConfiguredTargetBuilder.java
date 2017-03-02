@@ -412,8 +412,10 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     // TODO: Add actual attributes that users expect to access from default providers
     attrBuilder.put("runfiles", runfilesProvider);
-    SkylarkClassObject statelessDefaultProvider = SkylarkRuleContext.getDefaultProvider().create(
-        attrBuilder.build(), "Default provider has no attribute '%s'");
+    SkylarkClassObject statelessDefaultProvider =
+        new SkylarkClassObject(
+            SkylarkRuleContext.getDefaultProvider(),
+            attrBuilder.build());
 
     // Add the default provider
     builder.addSkylarkDeclaredProvider(statelessDefaultProvider, (defaultProvider == null) ? loc

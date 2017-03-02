@@ -1603,7 +1603,7 @@ public final class PackageFactory {
         builder.put(function.getName(), function);
       }
     }
-    return SkylarkClassObjectConstructor.STRUCT.create(
+    return NativeClassObjectConstructor.STRUCT.create(
         builder.build(), "no native function or rule '%s'");
   }
 

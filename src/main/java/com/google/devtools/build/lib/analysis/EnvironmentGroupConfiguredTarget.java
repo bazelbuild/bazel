@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.Key;
 import com.google.devtools.build.lib.util.Preconditions;
 import javax.annotation.Nullable;
 
@@ -43,7 +43,7 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
 
   @Nullable
   @Override
-  public SkylarkClassObject get(Key providerKey) {
+  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
     // No providers.
     return null;
   }

@@ -886,7 +886,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
     assertThat(provider).isInstanceOf(SkylarkClassObject.class);
     SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
-    assertThat((defaultProvider).getConstructor().getKey().getExportedName())
+    assertThat((defaultProvider).getConstructor().getPrintableName())
         .isEqualTo("default_provider");
 
     // Test .runfiles
@@ -936,7 +936,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
     assertThat(provider).isInstanceOf(SkylarkClassObject.class);
     SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
-    assertThat((defaultProvider).getConstructor().getKey().getExportedName())
+    assertThat((defaultProvider).getConstructor().getPrintableName())
         .isEqualTo("default_provider");
   }
 
@@ -1008,7 +1008,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("proxy");
     assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey().getExportedName())
+    assertThat(((SkylarkClassObject) provider).getConstructor().getPrintableName())
         .isEqualTo("foo_provider");
   }
 
@@ -1054,7 +1054,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("proxy");
     assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    assertThat(((SkylarkClassObject) provider).getConstructor().getKey().getExportedName())
+    assertThat(((SkylarkClassObject) provider).getConstructor().getPrintableName())
         .isEqualTo("foo_provider");
   }
 

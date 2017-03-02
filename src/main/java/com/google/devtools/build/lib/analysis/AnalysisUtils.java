@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -84,7 +84,7 @@ public final class AnalysisUtils {
    */
   public static Iterable<SkylarkClassObject> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final SkylarkClassObjectConstructor.Key skylarkKey) {
+      final ClassObjectConstructor.Key skylarkKey) {
     ImmutableList.Builder<SkylarkClassObject> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
       SkylarkClassObject prerequisiteProvider = prerequisite.get(skylarkKey);

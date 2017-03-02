@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -30,8 +30,8 @@ public final class ActionsProvider {
   /**
    * The Actions provider type itself. 
    */
-  public static final SkylarkClassObjectConstructor SKYLARK_CONSTRUCTOR =
-      SkylarkClassObjectConstructor.createNative("Actions");
+  public static final NativeClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor("Actions") { };
 
   /**
    * Factory method for creating instances of the Actions provider.

@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
@@ -116,7 +116,7 @@ public class AppleSkylarkCommon {
             + "the XcodeVersionProperties provider, use this as the key with which to retrieve it.",
     structField = true
   )
-  public SkylarkClassObjectConstructor getXcodeVersionPropertiesConstructor() {
+  public ClassObjectConstructor getXcodeVersionPropertiesConstructor() {
     return XcodeVersionProperties.SKYLARK_CONSTRUCTOR;
   }
 
@@ -127,7 +127,7 @@ public class AppleSkylarkCommon {
             + "the AppleDylibBinary provider, use this as the key with which to retrieve it.",
     structField = true
   )
-  public SkylarkClassObjectConstructor getAppleDylibBinaryConstructor() {
+  public ClassObjectConstructor getAppleDylibBinaryConstructor() {
     return AppleDylibBinaryProvider.SKYLARK_CONSTRUCTOR;
   }
 
@@ -138,7 +138,7 @@ public class AppleSkylarkCommon {
             + "the AppleExecutableBinary provider, use this as the key with which to retrieve it.",
     structField = true
   )
-  public SkylarkClassObjectConstructor getAppleExecutableBinaryConstructor() {
+  public ClassObjectConstructor getAppleExecutableBinaryConstructor() {
     return AppleExecutableBinaryProvider.SKYLARK_CONSTRUCTOR;
   }
 
@@ -150,7 +150,7 @@ public class AppleSkylarkCommon {
             + "with which to retrieve it.",
     structField = true
   )
-  public SkylarkClassObjectConstructor getAppleLoadableBundleBinaryConstructor() {
+  public ClassObjectConstructor getAppleLoadableBundleBinaryConstructor() {
     return AppleLoadableBundleBinaryProvider.SKYLARK_CONSTRUCTOR;
   }
 
@@ -161,7 +161,7 @@ public class AppleSkylarkCommon {
             + "attributes exposed by ios_device.",
     structField = true
   )
-  public SkylarkClassObjectConstructor getIosDeviceProviderConstructor() {
+  public ClassObjectConstructor getIosDeviceProviderConstructor() {
     return IosDeviceProvider.SKYLARK_CONSTRUCTOR;
   }
 
