@@ -196,6 +196,7 @@ class DexFileMerger {
                     ZipEntryPredicates.suffixes(".class", ".dex"),
                     extraFilter)));
     Collections.sort(filesToProcess, ZipEntryComparator.LIKE_DX);
+    int unconverted = 0;
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();
       try (InputStream content = zip.getInputStream(entry)) {
@@ -205,6 +206,8 @@ class DexFileMerger {
           // a byte buffer before effectively calling Dex(byte[]) anyway.
           out.add(new Dex(ByteStreams.toByteArray(content)));
         } else if (filename.endsWith(".class")) {
+          ++unconverted;
+          System.err.printf("%s not converted to .dex format yet%n", filename);
           // TODO(b/34949364): Remove this fallback once Blaze incrementally dexes all Jars
           out.add(DexFiles.toDex(dexer.toDexFile(ByteStreams.toByteArray(content), filename)));
         } else {
@@ -212,6 +215,12 @@ class DexFileMerger {
         }
       }
     }
+    // Hitting this error indicates Jar files not covered by incremental dexing (b/34949364).  This
+    // is a backstop until we can build with --experimental_incremental_dexing_error_on_missed_jars,
+    // which prevents this error from happening.  If you do get this exception, find the Jar files
+    // the reported classes come from and depend on them via java_imports.
+    checkState(unconverted == 0, "Had to convert %s files in %s on the fly", unconverted,
+        zip.getName());
   }
 
   private static DexFileAggregator createDexFileAggregator(Options options) throws IOException {
