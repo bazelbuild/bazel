@@ -26,6 +26,7 @@
 
 #define __STDC_FORMAT_MACROS 1
 #define __STDC_LIMIT_MACROS 1
+#define __STDC_FORMAT_MACROS 1
 #include <inttypes.h> // for PRIx32
 #include <stddef.h>
 #include <stdio.h>
