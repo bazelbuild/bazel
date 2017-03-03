@@ -155,17 +155,14 @@ public class AndroidIdlHelper {
   }
 
   public static boolean hasIdlSrcs(RuleContext ruleContext) {
-    return !getIdlSrcs(ruleContext).isEmpty();
+    return ruleContext.getRule().isAttrDefined("idl_srcs", BuildType.LABEL_LIST);
   }
 
   /**
    * Returns a new list with the idl libs added to the given list if necessary, or the same list.
    */
-  public static ImmutableList<TransitiveInfoCollection> maybeAddSupportLibs(RuleContext ruleContext,
+  public static ImmutableList<TransitiveInfoCollection> addSupportLibs(RuleContext ruleContext,
       ImmutableList<TransitiveInfoCollection> deps) {
-    if (!hasIdlSrcs(ruleContext)) {
-      return deps;
-    }
     TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
     if (aidlLib == null) {
       return deps;
@@ -176,20 +173,13 @@ public class AndroidIdlHelper {
         .build();
   }
 
-  public static void maybeAddSupportLibProguardConfigs(RuleContext ruleContext,
-      NestedSetBuilder<Artifact> proguardConfigsBuilder) {
-    if (!hasIdlSrcs(ruleContext)) {
-      return;
-    }
+  public static void addSupportLibProguardConfigs(RuleContext ruleContext,
+      NestedSetBuilder<Artifact> proguardConfigsbuilder) {
     TransitiveInfoCollection aidlLib = AndroidSdkProvider.fromRuleContext(ruleContext).getAidlLib();
-    if (aidlLib == null) {
-      return;
+    if (aidlLib != null) {
+      proguardConfigsbuilder.addTransitive(
+          aidlLib.getProvider(ProguardSpecProvider.class).getTransitiveProguardSpecs());
     }
-    ProguardSpecProvider provider = aidlLib.getProvider(ProguardSpecProvider.class);
-    if (provider == null) {
-      return;
-    }
-    proguardConfigsBuilder.addTransitive(provider.getTransitiveProguardSpecs());
   }
 
   /**
@@ -215,7 +205,7 @@ public class AndroidIdlHelper {
    * Returns the idl_srcs defined on the given rule.
    */
   private static Collection<Artifact> getIdlSrcs(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined("idl_srcs", BuildType.LABEL_LIST)) {
+    if (!hasIdlSrcs(ruleContext)) {
       return ImmutableList.of();
     }
     checkIdlSrcsSamePackage(ruleContext);

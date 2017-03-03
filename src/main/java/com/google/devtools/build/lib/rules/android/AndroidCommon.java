@@ -961,7 +961,9 @@ public class AndroidCommon {
       if (useDataBinding) {
         compileDeps = DataBinding.addSupportLibs(ruleContext, compileDeps);
       }
-      compileDeps = AndroidIdlHelper.maybeAddSupportLibs(ruleContext, compileDeps);
+      if (AndroidIdlHelper.hasIdlSrcs(ruleContext)) {
+        compileDeps = AndroidIdlHelper.addSupportLibs(ruleContext, compileDeps);
+      }
       runtimeDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY);
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
     } else {
