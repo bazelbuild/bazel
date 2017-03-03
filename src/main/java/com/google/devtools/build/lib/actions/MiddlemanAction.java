@@ -57,11 +57,6 @@ public final class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return ResourceSet.ZERO;
-  }
-
-  @Override
   protected String computeKey() {
     // TODO(bazel-team): Need to take middlemanType into account here.
     // Only the set of inputs matters, and the dependency checker is

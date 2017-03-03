@@ -485,11 +485,6 @@ public final class CppLinkAction extends AbstractAction
     return (isLTOIndexing ? "LTO indexing " : "Linking ") + linkOutput.prettyPrint();
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(CppLinkActionContext.class).estimateResourceConsumption(this);
-  }
-
   /**
    * Estimate the resources consumed when this action is run locally.
    */

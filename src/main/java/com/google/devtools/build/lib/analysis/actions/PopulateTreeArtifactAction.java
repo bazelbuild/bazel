@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -230,14 +229,6 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
   @Override
   public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     return true;
-  }
-
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    if (getContext(executor).willExecuteRemotely(true)) {
-      return ResourceSet.ZERO;
-    }
-    return AbstractAction.DEFAULT_RESOURCE_SET;
   }
 
   private SpawnActionContext getContext(Executor executor) {

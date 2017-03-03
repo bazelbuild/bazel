@@ -1067,11 +1067,6 @@ public class CppCompileAction extends AbstractAction
     return context.getDeclaredIncludeSrcs();
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    return executor.getContext(actionContext).estimateResourceConsumption(this);
-  }
-
   @VisibleForTesting
   public Class<? extends CppCompileActionContext> getActionContext() {
     return actionContext;

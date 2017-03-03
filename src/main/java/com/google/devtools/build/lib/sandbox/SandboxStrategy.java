@@ -133,11 +133,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   }
 
   @Override
-  public boolean willExecuteRemotely(boolean remotable) {
-    return false;
-  }
-
-  @Override
   public String toString() {
     return "sandboxed";
   }

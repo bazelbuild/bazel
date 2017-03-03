@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -44,7 +43,7 @@ public interface CppCompileActionContext extends ActionContext {
    * <p>Returns null if additional inputs will only be found during action execution, not before.
    */
   @Nullable
-  public Iterable<Artifact> findAdditionalInputs(
+  Iterable<Artifact> findAdditionalInputs(
       CppCompileAction action,
       ActionExecutionContext actionExecutionContext,
       IncludeProcessing includeProcessing)
@@ -61,9 +60,4 @@ public interface CppCompileActionContext extends ActionContext {
    */
   @Nullable Reply getReplyFromException(
       ExecException e, CppCompileAction action);
-
-  /**
-   * Returns the estimated resource consumption of the action.
-   */
-  ResourceSet estimateResourceConsumption(CppCompileAction action);
 }

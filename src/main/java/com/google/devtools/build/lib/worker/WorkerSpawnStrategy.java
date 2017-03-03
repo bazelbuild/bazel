@@ -432,11 +432,6 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   }
 
   @Override
-  public boolean willExecuteRemotely(boolean remotable) {
-    return false;
-  }
-
-  @Override
   public boolean shouldPropagateExecException() {
     return false;
   }

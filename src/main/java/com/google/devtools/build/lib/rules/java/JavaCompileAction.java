@@ -543,14 +543,6 @@ public final class JavaCompileAction extends AbstractAction {
     return first;
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    if (getContext(executor).willExecuteRemotely(true)) {
-      return ResourceSet.ZERO;
-    }
-    return LOCAL_RESOURCES;
-  }
-
   protected SpawnActionContext getContext(Executor executor) {
     return executor.getSpawnActionContext(getMnemonic());
   }

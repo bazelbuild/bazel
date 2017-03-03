@@ -155,11 +155,6 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     return "standalone";
   }
 
-  @Override
-  public boolean willExecuteRemotely(boolean remotable) {
-    return false;
-  }
-
   /**
    * Adds to the given environment all variables that are dependent on system state of the host
    * machine.

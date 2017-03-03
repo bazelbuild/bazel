@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -211,11 +210,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     protected String computeKey() {
       return getPrimaryOutput().getExecPathString() + executionCounter.get();
-    }
-
-    @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
     }
   }
 
@@ -658,11 +652,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     @Override
     protected String computeKey() {
       return new Fingerprint().addInt(42).hexDigestAndReset();
-    }
-
-    @Override
-    public ResourceSet estimateResourceConsumption(Executor executor) {
-      return ResourceSet.ZERO;
     }
   }
 

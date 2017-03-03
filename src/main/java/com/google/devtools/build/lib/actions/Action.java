@@ -181,17 +181,6 @@ public interface Action extends ActionExecutionMetadata, Describable {
   void updateInputs(Iterable<Artifact> inputs);
 
   /**
-   * Return a best-guess estimate of the operation's resource consumption on the
-   * local host itself for use in scheduling.
-   *
-   * @param executor the application-specific value passed to the
-   *   executor parameter of the top-level call to
-   *   Builder.buildArtifacts().
-   */
-  @Deprecated // TODO(ulfjack): Remove this.
-  @Nullable ResourceSet estimateResourceConsumption(Executor executor);
-
-  /**
    * Returns true if the output should bypass output filtering. This is used for test actions.
    */
   boolean showsOutputUnconditionally();

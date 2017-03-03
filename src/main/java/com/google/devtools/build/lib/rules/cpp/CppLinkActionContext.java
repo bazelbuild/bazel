@@ -18,19 +18,12 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
-import com.google.devtools.build.lib.actions.ResourceSet;
 
 /**
  * Context for executing {@link CppLinkAction}s.
  */
 @ActionContextMarker(name = "C++ link")
 public interface CppLinkActionContext extends ActionContext {
-
-  /**
-   * Returns the estimated resource consumption of the action.
-   */
-  ResourceSet estimateResourceConsumption(CppLinkAction action);
-
   /**
    * Executes the specified action.
    */

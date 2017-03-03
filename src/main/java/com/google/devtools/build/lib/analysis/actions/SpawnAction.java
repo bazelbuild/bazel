@@ -440,15 +440,6 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
     return executor.getSpawnActionContext(getMnemonic());
   }
 
-  @Override
-  public ResourceSet estimateResourceConsumption(Executor executor) {
-    SpawnActionContext context = getContext(executor);
-    if (context.willExecuteRemotely(!executionInfo.containsKey("local"))) {
-      return ResourceSet.ZERO;
-    }
-    return resourceSet;
-  }
-
   /**
    * A spawn instance that is tied to a specific SpawnAction.
    */
