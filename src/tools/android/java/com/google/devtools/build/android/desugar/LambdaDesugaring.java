@@ -371,13 +371,19 @@ class LambdaDesugaring extends ClassVisitor {
                 lambdaClassName, desc, bridgeInfo.methodReference(), bridgeInfo.bridgeMethod()),
             bsmMethod,
             args);
-        // Emit invokestatic that calls the factory method generated in the lambda class
-        super.visitMethodInsn(
-            Opcodes.INVOKESTATIC,
-            lambdaClassName,
-            LambdaClassFixer.FACTORY_METHOD_NAME,
-            desc,
-            /*itf*/ false);
+        if (desc.startsWith("()")) {
+          // For stateless lambda classes we'll generate a singleton instance that we can just load
+          super.visitFieldInsn(Opcodes.GETSTATIC, lambdaClassName,
+              LambdaClassFixer.SINGLETON_FIELD_NAME, desc.substring("()".length()));
+        } else {
+          // Emit invokestatic that calls the factory method generated in the lambda class
+          super.visitMethodInsn(
+              Opcodes.INVOKESTATIC,
+              lambdaClassName,
+              LambdaClassFixer.FACTORY_METHOD_NAME,
+              desc,
+              /*itf*/ false);
+        }
       } catch (IOException | ReflectiveOperationException e) {
         throw new IllegalStateException("Couldn't desugar invokedynamic for " + internalName + "."
             + name + " using " + bsm + " with arguments " + Arrays.toString(bsmArgs), e);

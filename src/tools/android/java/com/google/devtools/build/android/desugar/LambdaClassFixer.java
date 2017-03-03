@@ -27,7 +27,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
@@ -41,8 +40,10 @@ import org.objectweb.asm.tree.TypeInsnNode;
  */
 class LambdaClassFixer extends ClassVisitor {
 
-  /** Magic method name used by {@link java.lang.invoke.LambdaMetafactory} */
+  /** Magic method name used by {@link java.lang.invoke.LambdaMetafactory}. */
   public static final String FACTORY_METHOD_NAME = "get$Lambda";
+  /** Field name we'll use to hold singleton instances where possible. */
+  public static final String SINGLETON_FIELD_NAME = "$instance";
 
   private final LambdaInfo lambdaInfo;
   private final ClassReaderFactory factory;
@@ -59,7 +60,6 @@ class LambdaClassFixer extends ClassVisitor {
 
   private String desc;
   private String signature;
-  private String[] exceptions;
 
 
   public LambdaClassFixer(ClassVisitor dest, LambdaInfo lambdaInfo, ClassReaderFactory factory,
@@ -86,7 +86,6 @@ class LambdaClassFixer extends ClassVisitor {
     hasFactory = false;
     desc = null;
     this.signature = null;
-    exceptions = null;
     this.interfaces = ImmutableList.copyOf(interfaces);
     // Rename to desired name
     super.visit(version, access, getInternalName(), signature, superName, interfaces);
@@ -122,7 +121,6 @@ class LambdaClassFixer extends ClassVisitor {
     } else if ("<init>".equals(name)) {
       this.desc = desc;
       this.signature = signature;
-      this.exceptions = exceptions;
     }
     MethodVisitor methodVisitor =
         new LambdaClassMethodRewriter(super.visitMethod(access, name, desc, signature, exceptions));
@@ -141,16 +139,18 @@ class LambdaClassFixer extends ClassVisitor {
   public void visitEnd() {
     checkState(!hasState || hasFactory,
         "Expected factory method for capturing lambda %s", getInternalName());
-    if (!hasFactory) {
-      // Fake factory method if LambdaMetafactory didn't generate it
+    if (!hasState) {
       checkState(signature == null,
           "Didn't expect generic constructor signature %s %s", getInternalName(), signature);
-
-      // Since this is a stateless class we populate and use a static singleton field "$instance"
-      String singletonFieldDesc = Type.getObjectType(getInternalName()).getDescriptor();
+      checkState(lambdaInfo.factoryMethodDesc().startsWith("()"),
+          "Expected 0-arg factory method for %s but found %s", getInternalName(),
+          lambdaInfo.factoryMethodDesc());
+      // Since this is a stateless class we populate and use a static singleton field "$instance".
+      // Field is package-private so we can read it from the class that had the invokedynamic.
+      String singletonFieldDesc = lambdaInfo.factoryMethodDesc().substring("()".length());
       super.visitField(
-          Opcodes.ACC_PRIVATE | Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
-          "$instance",
+          Opcodes.ACC_STATIC | Opcodes.ACC_FINAL,
+          SINGLETON_FIELD_NAME,
           singletonFieldDesc,
           (String) null,
           (Object) null)
@@ -168,26 +168,13 @@ class LambdaClassFixer extends ClassVisitor {
       codeBuilder.visitMethodInsn(Opcodes.INVOKESPECIAL, getInternalName(), "<init>",
           checkNotNull(desc, "didn't see a constructor for %s", getInternalName()), /*itf*/ false);
       codeBuilder.visitFieldInsn(
-          Opcodes.PUTSTATIC, getInternalName(), "$instance", singletonFieldDesc);
+          Opcodes.PUTSTATIC, getInternalName(), SINGLETON_FIELD_NAME, singletonFieldDesc);
       codeBuilder.visitInsn(Opcodes.RETURN);
       codeBuilder.visitMaxs(2, 0); // two values are pushed onto the stack
       codeBuilder.visitEnd();
-
-      codeBuilder = // reuse codeBuilder variable to avoid accidental additions to previous method
-          super.visitMethod(
-              Opcodes.ACC_STATIC,
-              FACTORY_METHOD_NAME,
-              lambdaInfo.factoryMethodDesc(),
-              (String) null,
-              exceptions);
-      codeBuilder.visitFieldInsn(
-          Opcodes.GETSTATIC, getInternalName(), "$instance", singletonFieldDesc);
-      codeBuilder.visitInsn(Opcodes.ARETURN);
-      codeBuilder.visitMaxs(1, 0); // one value on the stack
     }
 
     copyRewrittenLambdaMethods();
-
     if (!allowDefaultMethods) {
       copyBridgeMethods(interfaces);
     }
