@@ -19,6 +19,7 @@ import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.escape.Escaper;
@@ -243,25 +244,51 @@ public class OptionsParser implements OptionsProvider {
     private final String source;
     private final String implicitDependant;
     private final String expandedFrom;
+    private final boolean allowMultiple;
 
-    public OptionValueDescription(String name, Object value,
-        OptionPriority priority, String source, String implicitDependant, String expandedFrom) {
+    public OptionValueDescription(
+        String name,
+        Object value,
+        OptionPriority priority,
+        String source,
+        String implicitDependant,
+        String expandedFrom,
+        boolean allowMultiple) {
       this.name = name;
       this.value = value;
       this.priority = priority;
       this.source = source;
       this.implicitDependant = implicitDependant;
       this.expandedFrom = expandedFrom;
+      this.allowMultiple = allowMultiple;
     }
 
     public String getName() {
       return name;
     }
 
+    // Need to suppress unchecked warnings, because the "multiple occurrence"
+    // options use unchecked ListMultimaps due to limitations of Java generics.
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public Object getValue() {
+      if (allowMultiple) {
+        // Sort the results by option priority and return them in a new list.
+        // The generic type of the list is not known at runtime, so we can't
+        // use it here. It was already checked in the constructor, so this is
+        // type-safe.
+        List result = Lists.newArrayList();
+        ListMultimap realValue = (ListMultimap) value;
+        for (OptionPriority priority : OptionPriority.values()) {
+          // If there is no mapping for this key, this check avoids object creation (because
+          // ListMultimap has to return a new object on get) and also an unnecessary addAll call.
+          if (realValue.containsKey(priority)) {
+            result.addAll(realValue.get(priority));
+          }
+        }
+        return result;
+      }
       return value;
     }
-
     /**
      * @return the priority of the thing that set this value for this flag
      */
@@ -305,6 +332,19 @@ public class OptionsParser implements OptionsProvider {
         result.append(" implicitly by ");
       }
       return result.toString();
+    }
+
+    // Need to suppress unchecked warnings, because the "multiple occurrence"
+    // options use unchecked ListMultimaps due to limitations of Java generics.
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void addValue(OptionPriority addedPriority, Object addedValue) {
+      Preconditions.checkState(allowMultiple);
+      ListMultimap optionValueList = (ListMultimap) value;
+      if (addedValue instanceof List<?>) {
+        optionValueList.putAll(addedPriority, (List<?>) addedValue);
+      } else {
+        optionValueList.put(addedPriority, addedValue);
+      }
     }
   }
 
