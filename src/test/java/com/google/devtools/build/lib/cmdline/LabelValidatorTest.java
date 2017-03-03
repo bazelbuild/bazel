@@ -53,17 +53,15 @@ public class LabelValidatorTest {
     assertNull(LabelValidator.validatePackageName("a/.b"));
     assertNull(LabelValidator.validatePackageName("a/b."));
     assertNull(LabelValidator.validatePackageName("a/b.."));
+    assertNull(LabelValidator.validatePackageName("a$( )/b.."));
 
     // Bad:
     assertEquals(
         "package names may not start with '/'", LabelValidator.validatePackageName("/foo"));
     assertEquals("package names may not end with '/'", LabelValidator.validatePackageName("foo/"));
-    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("bar baz"));
     assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("foo:bar"));
     assertEquals(
         LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("baz@12345"));
-    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("baz(foo)"));
-    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("bazfoo)"));
 
     assertEquals(
         LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/../baz"));
@@ -97,20 +95,12 @@ public class LabelValidatorTest {
 
     assertEquals("target names may not end with '/'",
                  LabelValidator.validateTargetName("foo/"));
-    assertEquals("target names may not contain ' '",
-                 LabelValidator.validateTargetName("bar baz"));
     assertEquals("target names may not contain ':'",
                  LabelValidator.validateTargetName("bar:baz"));
     assertEquals("target names may not contain ':'",
                  LabelValidator.validateTargetName("bar:"));
     assertEquals("target names may not contain '&'",
                  LabelValidator.validateTargetName("bar&"));
-    assertEquals("target names may not contain '$'",
-                 LabelValidator.validateTargetName("baz$a"));
-    assertEquals("target names may not contain '('",
-                 LabelValidator.validateTargetName("baz(foo)"));
-    assertEquals("target names may not contain ')'",
-                 LabelValidator.validateTargetName("bazfoo)"));
   }
 
   @Test
@@ -122,6 +112,13 @@ public class LabelValidatorTest {
         LabelValidator.validateAbsoluteLabel("@repo//foo:bar"));
     assertEquals(new PackageAndTarget("foo", "bar"),
         LabelValidator.validateAbsoluteLabel("@//foo:bar"));
+    emptyPackage = new PackageAndTarget("", "b$() ar");
+    assertEquals(emptyPackage, LabelValidator.validateAbsoluteLabel("//:b$() ar"));
+    assertEquals(emptyPackage, LabelValidator.validateAbsoluteLabel("@repo//:b$() ar"));
+    assertEquals(new PackageAndTarget("f$( )oo", "b$() ar"),
+        LabelValidator.validateAbsoluteLabel("@repo//f$( )oo:b$() ar"));
+    assertEquals(new PackageAndTarget("f$( )oo", "b$() ar"),
+        LabelValidator.validateAbsoluteLabel("@//f$( )oo:b$() ar"));
   }
 
   @Test
