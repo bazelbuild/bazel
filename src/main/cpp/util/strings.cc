@@ -327,11 +327,13 @@ string AsLower(const string &str) {
 
 template <typename U, typename V>
 static unique_ptr<V[]> UstringToVstring(
-    const U *input, size_t (*convert)(V *output, const U *input, size_t len)) {
+    const U *input, size_t (*convert)(V *output, const U *input, size_t len),
+    const char* fmtStringU) {
   size_t size = convert(nullptr, input, 0) + 1;
   if (size == (size_t)-1) {
     fprintf(stderr, "UstringToVstring: invalid input \"");
-    fprintf(stderr, sizeof(U) == sizeof(char) ? "%s\"\n" : "%S\"\n", input);
+    fprintf(stderr, fmtStringU, input);
+    fprintf(stderr, "\"\n");
     exit(blaze_exit_code::INTERNAL_ERROR);
     return unique_ptr<V[]>(nullptr);  // formally return, though unreachable
   }
@@ -342,11 +344,11 @@ static unique_ptr<V[]> UstringToVstring(
 }
 
 unique_ptr<char[]> WstringToCstring(const wchar_t *input) {
-  return UstringToVstring<wchar_t, char>(input, wcstombs);
+  return UstringToVstring<wchar_t, char>(input, wcstombs, "%ls");
 }
 
 unique_ptr<wchar_t[]> CstringToWstring(const char *input) {
-  return UstringToVstring<char, wchar_t>(input, mbstowcs);
+  return UstringToVstring<char, wchar_t>(input, mbstowcs, "%s");
 }
 
 }  // namespace blaze_util

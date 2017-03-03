@@ -52,7 +52,8 @@ bool stat_file(const char* path, Stat* result);
 // The file is created or overwritten and is set to have `perm` permissions.
 // Returns true upon success: file is created and all data is written.
 // Returns false upon failure and reports the error to stderr.
-bool write_file(const char* path, mode_t perm, const void* data, size_t size);
+bool write_file(const char* path, unsigned int perm, const void* data,
+                size_t size);
 
 // Reads at most `size` bytes into `buffer` from the file under `path`.
 // Returns true upon success: file is opened and all data is read.
@@ -69,7 +70,7 @@ std::string get_cwd();
 // openable by the current user.
 // Returns true if all directories were created and permissions set.
 // Returns false upon failure and reports the error to stderr.
-bool make_dirs(const char* path, mode_t perm);
+bool make_dirs(const char* path, unsigned int perm);
 
 }  // namespace devtools_ijar
 
