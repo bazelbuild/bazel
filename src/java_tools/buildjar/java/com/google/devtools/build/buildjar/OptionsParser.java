@@ -65,6 +65,7 @@ public final class OptionsParser {
   private final List<String> rootResourceFiles = new ArrayList<>();
 
   private String classPath = "";
+  private String sourcePath;
   private String bootClassPath;
   private String extdir;
 
@@ -109,6 +110,7 @@ public final class OptionsParser {
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
           bootClassPathFromJavacOpts();
+          sourcePathFromJavacOpts();
           break;
         case "--direct_dependency":
           {
@@ -168,6 +170,10 @@ public final class OptionsParser {
           break;
         case "--classpath":
           classPath = getArgument(argQueue, arg);
+          break;
+          // TODO(#970): Consider wether we want to use --sourcepath for resolving of #970.
+        case "--sourcepath":
+          sourcePath = getArgument(argQueue, arg);
           break;
         case "--bootclasspath":
           bootClassPath = getArgument(argQueue, arg);
@@ -332,6 +338,19 @@ public final class OptionsParser {
     }
   }
 
+  // TODO(#970): Delete that function (either set --sourcepath from Bazel or just drop support).
+  private void sourcePathFromJavacOpts() {
+    Iterator<String> it = javacOpts.iterator();
+    while (it.hasNext()) {
+      String curr = it.next();
+      if (curr.equals("-sourcepath") && it.hasNext()) {
+        it.remove();
+        sourcePath = it.next();
+        it.remove();
+      }
+    }
+  }
+
   public List<String> getJavacOpts() {
     return javacOpts;
   }
@@ -406,6 +425,10 @@ public final class OptionsParser {
 
   public String getBootClassPath() {
     return bootClassPath;
+  }
+
+  public String getSourcePath() {
+    return sourcePath;
   }
 
   public String getExtdir() {

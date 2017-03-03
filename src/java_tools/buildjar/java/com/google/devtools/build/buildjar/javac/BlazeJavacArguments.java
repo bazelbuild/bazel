@@ -42,6 +42,9 @@ public abstract class BlazeJavacArguments {
   /** The compilation bootclasspath. */
   public abstract ImmutableList<Path> bootClassPath();
 
+  /** The compilation source path. */
+  public abstract ImmutableList<Path> sourcePath();
+
   /** The classpath to load processors from. */
   public abstract ImmutableList<Path> processorPath();
 
@@ -68,6 +71,7 @@ public abstract class BlazeJavacArguments {
         .bootClassPath(ImmutableList.of())
         .javacOptions(ImmutableList.of())
         .sourceFiles(ImmutableList.of())
+        .sourcePath(ImmutableList.of())
         .processors(null)
         .sourceOutput(null)
         .processorPath(ImmutableList.of())
@@ -84,6 +88,8 @@ public abstract class BlazeJavacArguments {
     Builder bootClassPath(ImmutableList<Path> bootClassPath);
 
     Builder javacOptions(ImmutableList<String> javacOptions);
+
+    Builder sourcePath(ImmutableList<Path> sourcePath);
 
     Builder sourceFiles(ImmutableList<Path> sourceFiles);
 
