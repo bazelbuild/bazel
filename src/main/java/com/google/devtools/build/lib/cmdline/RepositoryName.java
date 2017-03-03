@@ -119,6 +119,18 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Creates a RepositoryName from a known-valid string (not @-prefixed). Generally this is a
+   * directory that has been created via getSourceRoot() or getPathUnderExecRoot().
+   */
+  public static RepositoryName createFromValidStrippedName(String name) {
+    try {
+      return repositoryNameCache.get("@" + name);
+    } catch (ExecutionException e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
+  }
+
+  /**
    * Extracts the repository name from a PathFragment that was created with
    * {@code PackageIdentifier.getSourceRoot}.
    *

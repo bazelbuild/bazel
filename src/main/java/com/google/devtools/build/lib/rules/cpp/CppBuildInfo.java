@@ -44,19 +44,19 @@ public final class CppBuildInfo implements BuildInfoFactory {
 
   @Override
   public BuildInfoCollection create(BuildInfoContext buildInfoContext, BuildConfiguration config,
-      Artifact buildInfo, Artifact buildChangelist) {
+      Artifact buildInfo, Artifact buildChangelist, RepositoryName repositoryName) {
     List<Action> actions = new ArrayList<>();
     WriteBuildInfoHeaderAction redactedInfo = getHeader(buildInfoContext, config,
         BUILD_INFO_REDACTED_HEADER_NAME,
-        Artifact.NO_ARTIFACTS, true, true);
+        Artifact.NO_ARTIFACTS, true, true, repositoryName);
     WriteBuildInfoHeaderAction nonvolatileInfo = getHeader(buildInfoContext, config,
         BUILD_INFO_NONVOLATILE_HEADER_NAME,
         ImmutableList.of(buildInfo),
-        false, true);
+        false, true, repositoryName);
     WriteBuildInfoHeaderAction volatileInfo = getHeader(buildInfoContext, config,
         BUILD_INFO_VOLATILE_HEADER_NAME,
         ImmutableList.of(buildChangelist),
-        true, false);
+        true, false, repositoryName);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
     actions.add(volatileInfo);
@@ -68,8 +68,8 @@ public final class CppBuildInfo implements BuildInfoFactory {
   private WriteBuildInfoHeaderAction getHeader(BuildInfoContext buildInfoContext,
       BuildConfiguration config, PathFragment headerName,
       Collection<Artifact> inputs,
-      boolean writeVolatileInfo, boolean writeNonVolatileInfo) {
-    Root outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
+      boolean writeVolatileInfo, boolean writeNonVolatileInfo, RepositoryName repositoryName) {
+    Root outputPath = config.getIncludeDirectory(repositoryName);
     final Artifact header =
         buildInfoContext.getBuildInfoArtifact(headerName, outputPath,
             writeVolatileInfo && !inputs.isEmpty()

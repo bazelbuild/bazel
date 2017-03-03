@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoType;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -54,6 +55,13 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     if (buildInfoFactories == null) {
       return null;
     }
+    WorkspaceNameValue nameValue = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    if (nameValue == null) {
+      return null;
+    }
+    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(
+        nameValue.maybeGetName());
+
     final ArtifactFactory factory = artifactFactory.get();
     BuildInfoContext context = new BuildInfoContext() {
       @Override
@@ -65,9 +73,9 @@ public class BuildInfoCollectionFunction implements SkyFunction {
       }
     };
 
-    return new BuildInfoCollectionValue(buildInfoFactories.get(
-        keyAndConfig.getInfoKey()).create(context, keyAndConfig.getConfig(),
-            infoArtifactValue.getStableArtifact(), infoArtifactValue.getVolatileArtifact()));
+    return new BuildInfoCollectionValue(buildInfoFactories.get(keyAndConfig.getInfoKey()).create(
+        context, keyAndConfig.getConfig(), infoArtifactValue.getStableArtifact(),
+        infoArtifactValue.getVolatileArtifact(), repositoryName));
   }
 
   @Override

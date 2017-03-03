@@ -59,28 +59,31 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
 
   @Override
   public final BuildInfoCollection create(BuildInfoContext context, BuildConfiguration config,
-      Artifact stableStatus, Artifact volatileStatus) {
+      Artifact stableStatus, Artifact volatileStatus, RepositoryName repositoryName) {
     WriteBuildInfoPropertiesAction redactedInfo = getHeader(context,
         config,
         BUILD_INFO_REDACTED_PROPERTIES_NAME,
         Artifact.NO_ARTIFACTS,
         createRedactedTranslator(),
         true,
-        true);
+        true,
+        repositoryName);
     WriteBuildInfoPropertiesAction nonvolatileInfo = getHeader(context,
         config,
         BUILD_INFO_NONVOLATILE_PROPERTIES_NAME,
         ImmutableList.of(stableStatus),
         createNonVolatileTranslator(),
         false,
-        true);
+        true,
+        repositoryName);
     WriteBuildInfoPropertiesAction volatileInfo = getHeader(context,
         config,
         BUILD_INFO_VOLATILE_PROPERTIES_NAME,
         ImmutableList.of(volatileStatus),
         createVolatileTranslator(),
         true,
-        false);
+        false,
+        repositoryName);
     List<Action> actions = new ArrayList<>(3);
     actions.add(redactedInfo);
     actions.add(nonvolatileInfo);
@@ -119,8 +122,9 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
       ImmutableList<Artifact> inputs,
       BuildInfoPropertiesTranslator translator,
       boolean includeVolatile,
-      boolean includeNonVolatile) {
-    Root outputPath = config.getIncludeDirectory(RepositoryName.MAIN);
+      boolean includeNonVolatile,
+      RepositoryName repositoryName) {
+    Root outputPath = config.getIncludeDirectory(repositoryName);
     final Artifact output = context.getBuildInfoArtifact(propertyFileName, outputPath,
         includeVolatile && !inputs.isEmpty() ? BuildInfoType.NO_REBUILD
             : BuildInfoType.FORCE_REBUILD_IF_CHANGED);
