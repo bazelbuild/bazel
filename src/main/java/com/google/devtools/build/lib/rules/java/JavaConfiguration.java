@@ -136,7 +136,6 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
-  private final ImmutableList<String> javacOpts;
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
@@ -166,7 +165,6 @@ public final class JavaConfiguration extends Fragment {
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
-    this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
@@ -274,10 +272,6 @@ public final class JavaConfiguration extends Fragment {
    */
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
-  }
-
-  public ImmutableList<String> getJavacOpts() {
-    return javacOpts;
   }
 
   /**
