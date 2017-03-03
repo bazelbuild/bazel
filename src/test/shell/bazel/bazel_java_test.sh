@@ -105,6 +105,45 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
+# Regression test for #2606: support for passing -sourcepath
+# TODO(#2606): Update when a final solution is found for #2606.
+function test_build_with_sourcepath() {
+  mkdir -p g
+  cat >g/A.java <<'EOF'
+package g;
+public class A {
+   public A() {
+      new B();
+   }
+}
+EOF
+
+  cat >g/B.java <<'EOF'
+package g;
+public class B {
+   public B() {
+   }
+}
+EOF
+
+  cat >g/BUILD <<'EOF'
+genrule(
+  name = "stub",
+  srcs = ["B.java"],
+  outs = ["B.jar"],
+  cmd = "zip $@ $(SRCS)",
+)
+
+java_library(
+  name = "test",
+  srcs = ["A.java"],
+  javacopts = ["-sourcepath $(GENDIR)/$(location :stub)", "-implicit:none"],
+  deps = [":stub"]
+)
+EOF
+  bazel build //g:test >$TEST_log || fail "Failed to build //g:test"
+}
+
 # Runfiles is disabled by default on Windows, but we can test it on Unix by
 # adding flag --experimental_enable_runfiles=0
 function test_build_and_run_hello_world_without_runfiles() {

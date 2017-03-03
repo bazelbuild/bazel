@@ -55,6 +55,7 @@ public final class JavaLibraryBuildRequest {
   /** Resource files that should be put in the root of the output jar. */
   private final ImmutableList<String> rootResourceFiles;
 
+  private final String sourcePath;
   private final String classPath;
   private final String bootClassPath;
   private final String extdir;
@@ -152,6 +153,7 @@ public final class JavaLibraryBuildRequest {
     this.resourceJars = ImmutableList.copyOf(optionsParser.getResourceJars());
     this.rootResourceFiles = ImmutableList.copyOf(optionsParser.getRootResourceFiles());
     this.classPath = optionsParser.getClassPath();
+    this.sourcePath = optionsParser.getSourcePath();
     this.bootClassPath = optionsParser.getBootClassPath();
     this.extdir = optionsParser.getExtdir();
     this.processorPath = optionsParser.getProcessorPath();
@@ -195,6 +197,10 @@ public final class JavaLibraryBuildRequest {
 
   public String getSourceGenDir() {
     return sourceGenDir;
+  }
+
+  public String getSourcePath() {
+    return sourcePath;
   }
 
   public String getGeneratedSourcesOutputJar() {
@@ -293,6 +299,7 @@ public final class JavaLibraryBuildRequest {
         .javacOptions(makeJavacArguments())
         .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
         .processors(null)
+        .sourcePath(toPaths(getSourcePath()))
         .sourceOutput(getSourceGenDir() != null ? Paths.get(getSourceGenDir()) : null)
         .processorPath(toPaths(getProcessorPath()))
         .plugins(getPlugins())

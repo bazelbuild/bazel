@@ -169,7 +169,7 @@ public class BlazeJavacMain {
       fileManager.setLocationFromPaths(StandardLocation.CLASS_PATH, arguments.classPath());
       fileManager.setLocationFromPaths(
           StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
-      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, ImmutableList.of());
+      fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, arguments.sourcePath());
       // TODO(cushon): require an explicit bootclasspath
       Iterable<Path> bootClassPath = arguments.bootClassPath();
       if (!Iterables.isEmpty(bootClassPath)) {
