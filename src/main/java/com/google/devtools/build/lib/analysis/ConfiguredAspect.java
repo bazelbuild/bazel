@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
@@ -110,6 +111,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     private final Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
         ImmutableMap.builder();
+    private final ImmutableMap.Builder<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
+        skylarkDeclaredProvidersBuilder = ImmutableMap.builder();
     private final RuleContext ruleContext;
     private final AspectDescriptor descriptor;
 
@@ -195,6 +198,19 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       return this;
     }
 
+    public Builder addSkylarkDeclaredProvider(SkylarkClassObject declaredProvider, Location loc)
+        throws EvalException {
+      ClassObjectConstructor constructor = declaredProvider.getConstructor();
+      SkylarkProviderValidationUtil.validateAndThrowEvalException(
+          constructor.getPrintableName(), declaredProvider, loc);
+      if (!constructor.isExported()) {
+        throw new EvalException(
+            constructor.getLocation(), "All providers must be top level values");
+      }
+      skylarkDeclaredProvidersBuilder.put(constructor.getKey(), declaredProvider);
+      return this;
+    }
+
     public ConfiguredAspect build() {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
@@ -210,10 +226,10 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       }
 
       ImmutableMap<String, Object> skylarkProvidersMap = skylarkProviderBuilder.build();
-      if (!skylarkProvidersMap.isEmpty()) {
-        providers.add(
-            new SkylarkProviders(skylarkProvidersMap,
-                ImmutableMap.<ClassObjectConstructor.Key, SkylarkClassObject>of()));
+      ImmutableMap<SkylarkClassObjectConstructor.Key, SkylarkClassObject>
+          skylarkDeclaredProvidersMap = skylarkDeclaredProvidersBuilder.build();
+      if (!skylarkProvidersMap.isEmpty() || !skylarkDeclaredProvidersMap.isEmpty()) {
+        providers.add(new SkylarkProviders(skylarkProvidersMap, skylarkDeclaredProvidersMap));
       }
 
       addProvider(

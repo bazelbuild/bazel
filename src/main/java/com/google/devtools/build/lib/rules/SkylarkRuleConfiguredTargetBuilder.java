@@ -94,8 +94,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           && !(target instanceof Iterable)) {
         ruleContext.ruleError(
             String.format(
-                "Rule should return a return a struct or a list, but got %s",
-                SkylarkType.typeOf(target)));
+                "Rule should return a struct or a list, but got %s", SkylarkType.typeOf(target)));
         return null;
       } else if (!expectFailure.isEmpty()) {
         ruleContext.ruleError("Expected failure not found: " + expectFailure);
@@ -246,9 +245,13 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     } else if (target instanceof Iterable) {
       loc = ruleContext.getRule().getRuleClassObject().getConfiguredTargetFunction().getLocation();
       for (Object o : (Iterable) target) {
-        SkylarkClassObject declaredProvider = SkylarkType.cast(o, SkylarkClassObject.class, loc,
-            "A return value of rule implementation function should be "
-                + "a sequence of declared providers");
+        SkylarkClassObject declaredProvider =
+            SkylarkType.cast(
+                o,
+                SkylarkClassObject.class,
+                loc,
+                "A return value of a rule implementation function should be "
+                    + "a sequence of declared providers");
         if (declaredProvider.getConstructor().getKey().equals(
             SkylarkRuleContext.getDefaultProvider().getKey())) {
           parseProviderKeys(declaredProvider, true, ruleContext, loc, executable,

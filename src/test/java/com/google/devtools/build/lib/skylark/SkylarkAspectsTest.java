@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
@@ -41,6 +43,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.Arrays;
+import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -74,6 +77,54 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
   }
 
+  @Test
+  public void aspectWithDeclaredProviders() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "foo = provider()",
+        "bar = provider()",
+        "def _impl(target, ctx):",
+        "   return [foo(), bar()]",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
+
+    List<Key> providers = getDeclaredProviderKeys(analysisResult);
+    assertThat((providers.get(0)))
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo"));
+    assertThat((providers.get(1)))
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar"));
+  }
+
+  @Test
+  public void aspectWithDeclaredProvidersInAStruct() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "foo = provider()",
+        "bar = provider()",
+        "def _impl(target, ctx):",
+        "   return struct(foobar='foobar', providers=[foo(), bar()])",
+        "MyAspect = aspect(implementation=_impl)");
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    assertThat(getLabelsToBuild(analysisResult)).containsExactly("//test:xxx");
+    assertThat(getAspectDescriptions(analysisResult))
+        .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
+
+    List<Key> providers = getDeclaredProviderKeys(analysisResult);
+    assertThat((providers.get(0)))
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "foo"));
+    assertThat((providers.get(1)))
+        .isEqualTo(new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "bar"));
+  }
+
   private Iterable<String> getAspectDescriptions(AnalysisResult analysisResult) {
     return transform(
         analysisResult.getAspects(),
@@ -87,6 +138,25 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
                 aspectValue.getLabel().toString());
           }
         });
+  }
+
+  private List<Key> getDeclaredProviderKeys(AnalysisResult analysisResult) {
+    return transform(
+            analysisResult.getAspects(),
+            new Function<AspectValue, List<Key>>() {
+              @Nullable
+              @Override
+              public List<Key> apply(AspectValue aspectValue) {
+                return aspectValue
+                    .getConfiguredAspect()
+                    .getProviders()
+                    .getProvider(SkylarkProviders.class)
+                    .getDeclaredProviderKeys()
+                    .asList();
+              }
+            })
+        .iterator()
+        .next(); // Assume there's only one aspect
   }
 
   @Test
@@ -585,7 +655,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
-    assertContainsEvent("Aspect implementation doesn't return a struct");
+    assertContainsEvent("Aspect implementation should return a struct or a list, but got int");
   }
 
   @Test
