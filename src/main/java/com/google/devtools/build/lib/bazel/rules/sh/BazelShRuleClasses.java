@@ -28,10 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-
 import java.util.Collection;
-import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -105,12 +102,11 @@ public final class BazelShRuleClasses {
    */
   static final String SYSTEM_BASH_VERSION = "system";
 
-  static final Map<String, BashBinaryBinding> BASH_BINARY_BINDINGS =
+  static final ImmutableMap<String, BashBinaryBinding> BASH_BINARY_BINDINGS =
       ImmutableMap.of(
           // "system": don't package any bash with the target, but rather use whatever is
           // available on the system the script is run on.
-          SYSTEM_BASH_VERSION, new BashBinaryBinding("/bin/bash")
-      );
+          SYSTEM_BASH_VERSION, new BashBinaryBinding("/bin/bash"));
 
   static final String DEFAULT_BASH_VERSION = SYSTEM_BASH_VERSION;
 

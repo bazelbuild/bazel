@@ -25,19 +25,15 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
-
-import org.joda.time.Duration;
-import org.joda.time.Instant;
-
 import java.io.IOException;
 import java.util.Calendar;
 import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.joda.time.Duration;
+import org.joda.time.Instant;
 
 /**
  * An event handler for ANSI terminals which uses control characters to
@@ -71,7 +67,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
       //   [1,442 / 23,476] Compiling base/base.cc
       "^\\[(?:(?:\\d\\d?\\d?%)|(?:[\\d+,]+ / [\\d,]+))\\] ");
   private static final Splitter LINEBREAK_SPLITTER = Splitter.on('\n');
-  private static final List<String> SPECIAL_MESSAGES =
+  private static final ImmutableList<String> SPECIAL_MESSAGES =
       ImmutableList.of(
           "Reading startup options from "
               + "HKEY_LOCAL_MACHINE\\Software\\Google\\Devtools\\CurrentVersion",
@@ -98,7 +94,7 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
           "Searching for cellular signal",
           "Waiting for workstation CPU temperature to decrease");
 
-  private static final Set<Character> PUNCTUATION_CHARACTERS =
+  private static final ImmutableSet<Character> PUNCTUATION_CHARACTERS =
       ImmutableSet.<Character>of(',', '.', ':', '?', '!', ';');
 
   private final Iterator<String> messageIterator = Iterators.cycle(SPECIAL_MESSAGES);
