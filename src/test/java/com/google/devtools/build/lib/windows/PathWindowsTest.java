@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.windows.WindowsFileSystem.WindowsPath;
 import java.util.ArrayList;
@@ -64,6 +65,11 @@ public class PathWindowsTest {
           @Override
           protected PathFactory getPathFactory() {
             return WindowsFileSystem.getPathFactoryForTesting(shortPathResolver);
+          }
+
+          @Override
+          public boolean isFilePathCaseSensitive() {
+            return false;
           }
         };
     root = (WindowsPath) filesystem.getRootDirectory().getRelative("C:/");
@@ -279,5 +285,54 @@ public class PathWindowsTest {
         .containsExactly(
             "D:/program files/microsoft something/foo/~bar_hello",
             "D:/program files/microsoft something/foo/will.exist");
+  }
+
+  @Test
+  public void testCaseInsensitivePathFragment() {
+    // equals
+    assertThat(new PathFragment("c:/FOO/BAR")).isEqualTo(new PathFragment("c:\\foo\\bar"));
+    assertThat(new PathFragment("c:/FOO/BAR")).isNotEqualTo(new PathFragment("d:\\foo\\bar"));
+    assertThat(new PathFragment("c:/FOO/BAR")).isNotEqualTo(new PathFragment("/foo/bar"));
+    // equals for the string representation
+    assertThat(new PathFragment("c:/FOO/BAR").toString())
+        .isNotEqualTo(new PathFragment("c:/foo/bar").toString());
+    // hashCode
+    assertThat(new PathFragment("c:/FOO/BAR").hashCode())
+        .isEqualTo(new PathFragment("c:\\foo\\bar").hashCode());
+    assertThat(new PathFragment("c:/FOO/BAR").hashCode())
+        .isNotEqualTo(new PathFragment("d:\\foo\\bar").hashCode());
+    assertThat(new PathFragment("c:/FOO/BAR").hashCode())
+        .isNotEqualTo(new PathFragment("/foo/bar").hashCode());
+    // compareTo
+    assertThat(new PathFragment("c:/FOO/BAR").compareTo(new PathFragment("c:\\foo\\bar")))
+        .isEqualTo(0);
+    assertThat(new PathFragment("c:/FOO/BAR").compareTo(new PathFragment("d:\\foo\\bar")))
+        .isLessThan(0);
+    assertThat(new PathFragment("c:/FOO/BAR").compareTo(new PathFragment("/foo/bar")))
+        .isGreaterThan(0);
+    // startsWith
+    assertThat(new PathFragment("c:/FOO/BAR").startsWith(new PathFragment("c:\\foo"))).isTrue();
+    assertThat(new PathFragment("c:/FOO/BAR").startsWith(new PathFragment("d:\\foo"))).isFalse();
+    // endsWith
+    assertThat(new PathFragment("c:/FOO/BAR/BAZ").endsWith(new PathFragment("bar\\baz"))).isTrue();
+    assertThat(new PathFragment("c:/FOO/BAR/BAZ").endsWith(new PathFragment("/bar/baz"))).isFalse();
+    assertThat(new PathFragment("c:/FOO/BAR/BAZ").endsWith(new PathFragment("d:\\bar\\baz")))
+        .isFalse();
+    // relativeTo
+    assertThat(new PathFragment("c:/FOO/BAR/BAZ/QUX").relativeTo(new PathFragment("c:\\foo\\bar")))
+        .isEqualTo(new PathFragment("Baz/Qux"));
+  }
+
+  @Test
+  public void testCaseInsensitiveRootedPath() {
+    Path ancestor = filesystem.getPath("C:\\foo\\bar");
+    assertThat(ancestor).isInstanceOf(WindowsPath.class);
+    Path child = filesystem.getPath("C:\\FOO\\Bar\\baz");
+    assertThat(child).isInstanceOf(WindowsPath.class);
+    assertThat(child.startsWith(ancestor)).isTrue();
+    assertThat(child.relativeTo(ancestor)).isEqualTo(new PathFragment("baz"));
+    RootedPath actual = RootedPath.toRootedPath(ancestor, child);
+    assertThat(actual.getRoot()).isEqualTo(ancestor);
+    assertThat(actual.getRelativePath()).isEqualTo(new PathFragment("baz"));
   }
 }
