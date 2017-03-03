@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 
 /**
@@ -46,10 +45,8 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       "Entry classes must be specified when flag --compilationMode=opt is on in order to"
           + " perform J2ObjC dead code stripping.";
 
-  public static final List<String> J2OBJC_SUPPORTED_RULES = ImmutableList.of(
-      "java_import",
-      "java_library",
-      "proto_library");
+  public static final ImmutableList<String> J2OBJC_SUPPORTED_RULES =
+      ImmutableList.of("java_import", "java_library", "proto_library");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
