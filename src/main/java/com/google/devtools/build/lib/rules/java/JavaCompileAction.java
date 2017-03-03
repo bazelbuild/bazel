@@ -613,6 +613,7 @@ public final class JavaCompileAction extends AbstractAction {
       final Collection<Artifact> sourceJars,
       final Collection<Artifact> sourceFiles,
       final Collection<Artifact> extdirInputs,
+      final Collection<Artifact> bootclasspathEntries,
       final List<String> javacOpts,
       final String ruleKind,
       final Label targetLabel,
@@ -647,6 +648,9 @@ public final class JavaCompileAction extends AbstractAction {
         if (!extdirInputs.isEmpty()) {
           result.addJoinExecPaths("--extdir", pathSeparator, extdirInputs);
         }
+        if (!bootclasspathEntries.isEmpty()) {
+          result.addJoinExecPaths("--bootclasspath", pathSeparator, bootclasspathEntries);
+        }
         if (!processorPath.isEmpty() || !processorPathDirs.isEmpty()) {
           ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
           execPathStrings.addAll(Artifact.toExecPaths(processorPath));
@@ -663,7 +667,8 @@ public final class JavaCompileAction extends AbstractAction {
           for (Artifact message : messages) {
             addAsResourcePrefixedExecPath(
                 semantics.getDefaultJavaResourcePath(message.getRootRelativePath()),
-                message, result);
+                message,
+                result);
           }
         }
         if (!resources.isEmpty()) {
@@ -1015,13 +1020,8 @@ public final class JavaCompileAction extends AbstractAction {
       // TODO(bazel-team): all the params should be calculated before getting here, and the various
       // aggregation code below should go away.
       final String pathSeparator = configuration.getHostPathSeparator();
-      List<String> jcopts = new ArrayList<>(javacOpts);
-      if (!bootclasspathEntries.isEmpty()) {
-        jcopts.add("-bootclasspath");
-        jcopts.add(Artifact.joinExecPaths(pathSeparator, bootclasspathEntries));
-      }
       final List<String> internedJcopts = new ArrayList<>();
-      for (String jcopt : jcopts) {
+      for (String jcopt : javacOpts) {
         internedJcopts.add(StringCanonicalizer.intern(jcopt));
       }
 
@@ -1078,30 +1078,32 @@ public final class JavaCompileAction extends AbstractAction {
       }
       ImmutableList<Artifact> outputs = outputsBuilder.build();
 
-      CustomMultiArgv commonJavaBuilderArgs = commonJavaBuilderArgs(
-          semantics,
-          classDirectory,
-          sourceGenDirectory,
-          tempDirectory,
-          outputJar,
-          gensrcOutputJar,
-          manifestProtoOutput,
-          compressJar,
-          outputDepsProto,
-          processorPath,
-          processorPathDirs,
-          processorNames,
-          translations,
-          resources,
-          resourceJars,
-          classpathResources,
-          sourceJars,
-          sourceFiles,
-          extdirInputs,
-          internedJcopts,
-          ruleKind,
-          targetLabel,
-          pathSeparator);
+      CustomMultiArgv commonJavaBuilderArgs =
+          commonJavaBuilderArgs(
+              semantics,
+              classDirectory,
+              sourceGenDirectory,
+              tempDirectory,
+              outputJar,
+              gensrcOutputJar,
+              manifestProtoOutput,
+              compressJar,
+              outputDepsProto,
+              processorPath,
+              processorPathDirs,
+              processorNames,
+              translations,
+              resources,
+              resourceJars,
+              classpathResources,
+              sourceJars,
+              sourceFiles,
+              extdirInputs,
+              bootclasspathEntries,
+              internedJcopts,
+              ruleKind,
+              targetLabel,
+              pathSeparator);
 
       CustomCommandLine.Builder paramFileContentsBuilder = javaCompileCommandLine(
           commonJavaBuilderArgs,
