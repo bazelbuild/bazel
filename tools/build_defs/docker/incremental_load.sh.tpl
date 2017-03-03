@@ -56,17 +56,27 @@ function incr_load() {
   fi
 }
 
-# List of 'incr_load' statements for all layers.
-# This generated and injected by docker_build.
-%{load_statements}
+function tag_layer() {
+  if [ "$LEGACY_DOCKER" = true ]; then
+    name=$(cat ${RUNFILES}/$2)
+  else
+    name=$(cat ${RUNFILES}/$3)
+  fi
 
-# Tag the last layer.
-if [ -n "${name}" ]; then
-  TAG="${1:-%{repository}:%{tag}}"
+  TAG="$1"
   echo "Tagging ${name} as ${TAG}"
   if [ "$LEGACY_DOCKER" = true ]; then
     "${DOCKER}" tag -f ${name} ${TAG}
   else
     "${DOCKER}" tag ${name} ${TAG}
   fi
-fi
+}
+
+# List of 'incr_load' statements for all layers.
+# This generated and injected by docker_build.
+%{load_statements}
+
+# List of 'tag_layer' statements for all tags.
+# This generated and injected by docker_build.
+%{tag_statements}
+

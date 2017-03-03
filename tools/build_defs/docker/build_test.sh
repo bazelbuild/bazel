@@ -35,6 +35,10 @@ function EXPECT_CONTAINS() {
     || fail "$message"
 }
 
+function no_check() {
+  echo "${@}"
+}
+
 function check_property() {
   local property="${1}"
   local tarball="${2}"
@@ -43,6 +47,18 @@ function check_property() {
   local test_data="${TEST_DATA_DIR}/${tarball}.tar"
 
   local metadata="$(tar xOf "${test_data}" "./${layer}/json")"
+
+  # This would be much more accurate if we had 'jq' everywhere.
+  EXPECT_CONTAINS "${metadata}" "\"${property}\": ${expected}"
+}
+
+function check_manifest_property() {
+  local property="${1}"
+  local tarball="${2}"
+  local expected="${3}"
+  local test_data="${TEST_DATA_DIR}/${tarball}.tar"
+
+  local metadata="$(tar xOf "${test_data}" "./manifest.json")"
 
   # This would be much more accurate if we had 'jq' everywhere.
   EXPECT_CONTAINS "${metadata}" "\"${property}\": ${expected}"
@@ -132,6 +148,8 @@ function check_user() {
 }
 
 function check_layers_aux() {
+  local ancestry_check=${1}
+  shift 1
   local input=${1}
   shift 1
   local expected_layers=(${*})
@@ -176,7 +194,7 @@ function check_layers_aux() {
 
     # Check that the layer contains its predecessor as its parent in the JSON.
     if [[ -n "${parent}" ]]; then
-      check_parent "${input}" "${layer}" "\"${parent}\""
+      "${ancestry_check}" "${input}" "${layer}" "\"${parent}\""
     fi
 
     # Check that the layer's size metadata matches the layer's tarball's size.
@@ -191,8 +209,8 @@ function check_layers_aux() {
 function check_layers() {
   local input=$1
   shift
-  check_layers_aux "$input" "$@"
-  check_layers_aux "notop_$input" "$@"
+  check_layers_aux "check_parent" "$input" "$@"
+  check_layers_aux "check_parent" "notop_$input" "$@"
 }
 
 function test_gen_image() {
@@ -203,7 +221,7 @@ function test_gen_image() {
 function test_dummy_repository() {
   local layer="0279f3ce8b08d10506abcf452393b3e48439f5eca41b836fae59a0d509fbafea"
   local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
-  check_layers_aux "dummy_repository" "$layer"
+  check_layers_aux "check_parent" "dummy_repository" "$layer"
 
 
   local repositories="$(tar xOf "${test_data}" "./repositories")"
@@ -341,6 +359,11 @@ function test_with_env() {
   check_env "with_env" \
     "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
     '["bar=blah blah blah", "foo=/asdf"]'
+
+  # We should have a tag in our manifest, otherwise it will be untagged
+  # when loaded in newer clients.
+  check_manifest_property "RepoTags" "with_env" \
+    "[\"bazel/${TEST_DATA_TARGET_BASE}:with_env\"]"
 }
 
 function test_with_double_env() {
@@ -396,10 +419,10 @@ function test_data_path() {
   local absolute_data_path_sha="f196c42ab4f3eb850d9655b950b824db2c99c01527703ac486a7b48bb2a34f44"
   local root_data_path_sha="19d7fd26d67bfaeedd6232dcd441f14ee163bc81c56ed565cc20e73311c418b6"
 
-  check_layers_aux "no_data_path_image" "${no_data_path_sha}"
-  check_layers_aux "data_path_image" "${data_path_sha}"
-  check_layers_aux "absolute_data_path_image" "${absolute_data_path_sha}"
-  check_layers_aux "root_data_path_image" "${root_data_path_sha}"
+  check_layers_aux "check_parent" "no_data_path_image" "${no_data_path_sha}"
+  check_layers_aux "check_parent" "data_path_image" "${data_path_sha}"
+  check_layers_aux "check_parent" "absolute_data_path_image" "${absolute_data_path_sha}"
+  check_layers_aux "check_parent" "root_data_path_image" "${root_data_path_sha}"
 
   # Without data_path = "." the file will be inserted as `./test`
   # (since it is the path in the package) and with data_path = "."
@@ -452,6 +475,28 @@ function test_extras_with_deb() {
 ./usr/bin/
 ./usr/bin/java -> /path/to/bin/java
 ./usr/titi"
+}
+
+function test_bundle() {
+  # Check that we have these layers, but ignore the parent check, since
+  # this is a tree not a list.
+  check_layers_aux "no_check" "bundle_test" \
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
+    "576a9fd9c690be04dc7aacbb9dbd1f14816e32dbbcc510f4d42325bbff7163dd" \
+    "82ca3945f7d07df82f274d7fafe83fd664c2154e5c64c988916ccd5b217bb710" \
+    "e5cfc312de72ce09488d789f525189a26a686d60fcc1c74249a3d7ce62986a82"
+
+  # Our bundle should have the following aliases.
+  check_manifest_property "RepoTags" "bundle_test" \
+    "[\"bazel/${TEST_DATA_TARGET_BASE}:base_with_entrypoint\", \"docker.io/ubuntu:latest\"]"
+
+  check_manifest_property "RepoTags" "bundle_test" \
+    "[\"bazel/${TEST_DATA_TARGET_BASE}:link_with_files_base\", \"us.gcr.io/google-appengine/base:fresh\"]"
+
+  check_manifest_property "RepoTags" "bundle_test" \
+    "[\"bazel/${TEST_DATA_TARGET_BASE}:with_double_env\", \"gcr.io/google-containers/pause:2.0\"]"
 }
 
 run_suite "build_test"

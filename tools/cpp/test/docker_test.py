@@ -45,7 +45,7 @@ gflags.DEFINE_boolean("verbose", True, "Be verbose.")
 
 FLAGS = gflags.FLAGS
 
-LOCAL_IMAGE_PREFIX = "bazel/docker_test:"
+LOCAL_IMAGE_PREFIX = "bazel/"
 
 
 def _copy_stream(in_stream, out_stream):
@@ -76,11 +76,11 @@ def execute(command, stdout=sys.stdout, stderr=sys.stderr, env=None):
 
 def load_image(image):
   """Load a docker image using the runner provided by docker_build."""
-  tag = LOCAL_IMAGE_PREFIX + image.replace("/", "_")
+  tag = LOCAL_IMAGE_PREFIX + ":".join(image.rsplit("/", 1))
   err = StringIO.StringIO()
   env = copy.deepcopy(os.environ)
   env["DOCKER"] = FLAGS.docker
-  ret = execute([image, tag], stderr=err, env=env)
+  ret = execute([image], stderr=err, env=env)
   if ret != 0:
     sys.stderr.write("Error loading image %s (return code: %s):\n" %
                      (image, ret))
