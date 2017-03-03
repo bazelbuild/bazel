@@ -279,8 +279,6 @@ public class LabelTest {
 
   @Test
   public void testBadCharacters() throws Exception {
-    assertSyntaxError("package names may contain only",
-                      "//foo/bar baz");
     assertSyntaxError("target names may not contain ':'",
                       "//foo:bar:baz");
     assertSyntaxError("target names may not contain ':'",
@@ -289,12 +287,6 @@ public class LabelTest {
                       "//foo/bar::");
     assertSyntaxError("target names may not contain '&'",
                       "//foo:bar&");
-    assertSyntaxError("target names may not contain '$'",
-                      "//foo/bar:baz$a");
-    assertSyntaxError("target names may not contain '('",
-                      "//foo/bar:baz(foo)");
-    assertSyntaxError("target names may not contain ')'",
-                      "//foo/bar:bazfoo)");
     // Warning: if these assertions are false, tools that assume that they can safely quote labels
     // may need to be fixed. Please consult with bazel-dev before loosening these restrictions.
     assertSyntaxError("target names may not contain '''", "//foo/bar:baz'foo");
@@ -357,6 +349,7 @@ public class LabelTest {
     Label.parseAbsolute("//package:foo.bar");
     Label.parseAbsolute("//package:foo@bar");
     Label.parseAbsolute("//package:foo~bar");
+    Label.parseAbsolute("//$( ):$( )");
   }
 
   /**

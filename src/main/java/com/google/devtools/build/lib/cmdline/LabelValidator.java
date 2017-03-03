@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
 public final class LabelValidator {
 
   /** Matches punctuation in target names which requires quoting in a blaze query. */
-  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~#");
+  private static final CharMatcher PUNCTUATION_REQUIRING_QUOTING = CharMatcher.anyOf("+,=~# ()$");
 
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.
@@ -36,13 +36,13 @@ public final class LabelValidator {
   private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("_@-");
 
   /**
-   * Matches characters allowed in package name (allowed are A-Z, a-z, 0-9, '/', '-', '.' and '_')
+   * Matches characters allowed in package name.
    */
   private static final CharMatcher ALLOWED_CHARACTERS_IN_PACKAGE_NAME =
       CharMatcher.inRange('0', '9')
           .or(CharMatcher.inRange('a', 'z'))
           .or(CharMatcher.inRange('A', 'Z'))
-          .or(CharMatcher.anyOf("/-._"))
+          .or(CharMatcher.anyOf("/-._ $()"))
           .precomputed();
 
   /**
@@ -59,7 +59,7 @@ public final class LabelValidator {
 
   @VisibleForTesting
   static final String PACKAGE_NAME_ERROR =
-      "package names may contain only A-Z, a-z, 0-9, '/', '-', '.' and '_'";
+      "package names may contain only A-Z, a-z, 0-9, '/', '-', '.', ' ', '$', '(', ')' and '_'";
 
   @VisibleForTesting
   static final String PACKAGE_NAME_DOT_ERROR =

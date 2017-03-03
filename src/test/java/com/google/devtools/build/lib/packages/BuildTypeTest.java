@@ -294,14 +294,13 @@ public class BuildTypeTest {
   @Test
   public void testSelectorWrongType() throws Exception {
     ImmutableMap<String, String> input = ImmutableMap.of(
-        "//conditions:a", "not a label",
-        "//conditions:b", "also not a label",
+        "//conditions:a", "not a/../label", "//conditions:b", "also not a/../label",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "whatever");
     try {
       new Selector<>(input, null, currentRule, BuildType.LABEL);
       fail("Expected Selector instantiation to fail since the input isn't a selection of labels");
     } catch (ConversionException e) {
-      assertThat(e.getMessage()).contains("invalid label 'not a label'");
+      assertThat(e.getMessage()).contains("invalid label 'not a/../label'");
     }
   }
 
@@ -311,13 +310,13 @@ public class BuildTypeTest {
   @Test
   public void testSelectorKeyIsNotALabel() throws Exception {
     ImmutableMap<String, String> input = ImmutableMap.of(
-        "not a label", "//a:a",
+        "not a/../label", "//a:a",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "whatever");
     try {
       new Selector<>(input, null, currentRule, BuildType.LABEL);
       fail("Expected Selector instantiation to fail since the key isn't a label");
     } catch (ConversionException e) {
-      assertThat(e.getMessage()).contains("invalid label 'not a label'");
+      assertThat(e.getMessage()).contains("invalid label 'not a/../label'");
     }
   }
 

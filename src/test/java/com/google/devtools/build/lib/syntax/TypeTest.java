@@ -256,10 +256,10 @@ public class TypeTest {
   @Test
   public void testInvalidLabel() throws Exception {
     try {
-      BuildType.LABEL.convert("not a label", null, currentRule);
+      BuildType.LABEL.convert("not//a label", null, currentRule);
       fail();
     } catch (Type.ConversionException e) {
-      MoreAsserts.assertContainsWordsWithQuotes(e.getMessage(), "not a label");
+      MoreAsserts.assertContainsWordsWithQuotes(e.getMessage(), "not//a label");
     }
   }
 

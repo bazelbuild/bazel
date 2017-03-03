@@ -801,8 +801,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   @Test
   public void testLabelGetRelativeSyntaxError() throws Exception {
     checkErrorContains(
-        "invalid target name 'bad syntax': target names may not contain ' '",
-        "Label('//foo:bar').relative('bad syntax')");
+        "invalid target name 'bad//syntax': target names may not contain '//' path separators",
+        "Label('//foo:bar').relative('bad//syntax')");
   }
 
   @Test

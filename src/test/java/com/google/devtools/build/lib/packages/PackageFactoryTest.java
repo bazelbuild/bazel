@@ -114,13 +114,16 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   @Test
   public void testBadPackageName() throws Exception {
     try {
-      packages.createPackage("not even a legal label", emptyBuildFile("not even a legal label"));
+      // PathFragment parsing de-double slashes, and normalization of the path fragment removes
+      // up reference (/../), so use triple dot /.../ that will always be a forbidden package name.
+      packages.createPackage("not even a legal/.../label",
+          emptyBuildFile("not even a legal/.../label"));
       fail();
     } catch (NoSuchPackageException e) {
       assertThat(e.getMessage())
           .contains(
-              "no such package 'not even a legal label': "
-                  + "illegal package name: 'not even a legal label' ");
+              "no such package 'not even a legal/.../label': "
+                  + "illegal package name: 'not even a legal/.../label' ");
     }
   }
 
