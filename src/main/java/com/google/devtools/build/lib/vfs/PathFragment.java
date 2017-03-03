@@ -518,11 +518,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
           + " is not beneath " + ancestorDirectory);
     }
 
-    for (int index = 0; index < ancestorLength; index++) {
-      if (!segments[index].equals(ancestorSegments[index])) {
-        throw new IllegalArgumentException("PathFragment " + this
-            + " is not beneath " + ancestorDirectory);
-      }
+    if (!segmentsEqual(ancestorLength, segments, 0, ancestorSegments)) {
+      throw new IllegalArgumentException(
+          "PathFragment " + this + " is not beneath " + ancestorDirectory);
     }
 
     int length = segments.length - ancestorLength;
@@ -573,12 +571,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
         || (isAbsolute && this.driveLetter != prefix.driveLetter)) {
       return false;
     }
-    for (int i = 0, len = prefix.segments.length; i < len; i++) {
-      if (!this.segments[i].equals(prefix.segments[i])) {
-        return false;
-      }
-    }
-    return true;
+    return segmentsEqual(prefix.segments.length, segments, 0, prefix.segments);
   }
 
   /**
@@ -594,12 +587,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return false;
     }
     int offset = this.segments.length - suffix.segments.length;
-    for (int i = 0; i < suffix.segments.length; i++) {
-      if (!this.segments[offset + i].equals(suffix.segments[i])) {
-        return false;
-      }
-    }
-    return true;
+    return segmentsEqual(suffix.segments.length, segments, offset, suffix.segments);
   }
 
   private static String[] subarray(String[] array, int start, int length) {
@@ -736,10 +724,12 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     // overhead from synchronization, at the cost of potentially computing the hash code more than
     // once.
     int h = hashCode;
+    boolean isWindows = OS.getCurrent() == OS.WINDOWS;
     if (h == 0) {
       h = Boolean.valueOf(isAbsolute).hashCode();
       for (String segment : segments) {
-        h = h * 31 + segment.hashCode();
+        int segmentHash = isWindows ? segment.toLowerCase().hashCode() : segment.hashCode();
+        h = h * 31 + segmentHash;
       }
       if (!isEmpty()) {
         h = h * 31 + Character.valueOf(driveLetter).hashCode();
@@ -763,8 +753,35 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     } else {
       return isAbsolute == otherPath.isAbsolute
           && driveLetter == otherPath.driveLetter
-          && Arrays.equals(otherPath.segments, segments);
+          && segments.length == otherPath.segments.length
+          && segmentsEqual(segments.length, segments, 0, otherPath.segments);
     }
+  }
+
+  private static boolean segmentsEqual(
+      int length, String[] segments1, int offset1, String[] segments2) {
+    if ((segments1.length - offset1) < length || segments2.length < length) {
+      return false;
+    }
+    boolean isWindows = OS.getCurrent() == OS.WINDOWS;
+    for (int i = 0; i < length; ++i) {
+      String seg1 = segments1[i + offset1];
+      String seg2 = segments2[i];
+      if ((seg1 == null) != (seg2 == null)) {
+        return false;
+      }
+      if (seg1 == null) {
+        continue;
+      }
+      if (isWindows) {
+        seg1 = seg1.toLowerCase();
+        seg2 = seg2.toLowerCase();
+      }
+      if (!seg1.equals(seg2)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   /**
@@ -775,17 +792,27 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     if (isAbsolute != p2.isAbsolute) {
       return isAbsolute ? -1 : 1;
     }
+    int cmp = Character.compare(driveLetter, p2.driveLetter);
+    if (cmp != 0) {
+      return cmp;
+    }
     PathFragment p1 = this;
     String[] segments1 = p1.segments;
     String[] segments2 = p2.segments;
     int len1 = segments1.length;
     int len2 = segments2.length;
     int n = Math.min(len1, len2);
+    boolean isWindows = OS.getCurrent() == OS.WINDOWS;
     for (int i = 0; i < n; i++) {
-      String segment1 = segments1[i];
-      String segment2 = segments2[i];
-      if (!segment1.equals(segment2)) {
-       return segment1.compareTo(segment2);
+      String seg1 = segments1[i];
+      String seg2 = segments2[i];
+      if (isWindows) {
+        seg1 = seg1.toLowerCase();
+        seg2 = seg2.toLowerCase();
+      }
+      cmp = seg1.compareTo(seg2);
+      if (cmp != 0) {
+        return cmp;
       }
     }
     return len1 - len2;
