@@ -306,7 +306,8 @@ public class BuildRequest implements OptionsClassProvider {
   private boolean runningInEmacs = false;
   private boolean runTests = false;
 
-  private static final List<Class<? extends OptionsBase>> MANDATORY_OPTIONS = ImmutableList.of(
+  private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
+      ImmutableList.of(
           BuildRequestOptions.class,
           PackageCacheOptions.class,
           LoadingOptions.class,

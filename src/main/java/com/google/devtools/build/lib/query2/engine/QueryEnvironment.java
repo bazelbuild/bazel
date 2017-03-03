@@ -376,7 +376,7 @@ public interface QueryEnvironment<T> {
   QueryExpressionEvalListener<T> getEvalListener();
 
   /** List of the default query functions. */
-  List<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
+  ImmutableList<QueryFunction> DEFAULT_QUERY_FUNCTIONS =
       ImmutableList.of(
           new AllPathsFunction(),
           new BuildFilesFunction(),

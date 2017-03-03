@@ -40,7 +40,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
@@ -124,7 +123,7 @@ public class DensitySpecificResourceFilter {
   private final Path out;
   private final Path working;
 
-  private static final Map<String, Integer> DENSITY_MAP =
+  private static final ImmutableMap<String, Integer> DENSITY_MAP =
       new ImmutableMap.Builder<String, Integer>()
           .put("nodpi", 0)
           .put("ldpi", 120)

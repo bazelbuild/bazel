@@ -20,28 +20,27 @@ import com.google.devtools.build.lib.rules.java.BuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.GenericBuildInfoPropertiesTranslator;
 import com.google.devtools.build.lib.rules.java.JavaBuildInfoFactory;
 
-import java.util.Map;
 
 /**
  * BuildInfoFactory for Java.
  */
 public class BazelJavaBuildInfoFactory extends JavaBuildInfoFactory {
-  private static final Map<String, String> VOLATILE_KEYS = ImmutableMap
-      .<String, String>builder()
-      .put("build.time", "%BUILD_TIME%")
-      .put("build.timestamp.as.int", "%BUILD_TIMESTAMP%")
-      .put("build.timestamp", "%BUILD_TIMESTAMP%")
-      .build();
+  private static final ImmutableMap<String, String> VOLATILE_KEYS =
+      ImmutableMap.<String, String>builder()
+          .put("build.time", "%BUILD_TIME%")
+          .put("build.timestamp.as.int", "%BUILD_TIMESTAMP%")
+          .put("build.timestamp", "%BUILD_TIMESTAMP%")
+          .build();
 
-  private static final Map<String, String> NONVOLATILE_KEYS =
+  private static final ImmutableMap<String, String> NONVOLATILE_KEYS =
       ImmutableMap.of("build.label", "%" + BuildInfo.BUILD_EMBED_LABEL + "|%");
 
-  private static final Map<String, String> REDACTED_KEYS = ImmutableMap
-      .<String, String>builder()
-      .put("build.time", "Thu Jan 01 00:00:00 1970 (0)")
-      .put("build.timestamp.as.int", "0")
-      .put("build.timestamp", "Thu Jan 01 00:00:00 1970 (0)")
-      .build();
+  private static final ImmutableMap<String, String> REDACTED_KEYS =
+      ImmutableMap.<String, String>builder()
+          .put("build.time", "Thu Jan 01 00:00:00 1970 (0)")
+          .put("build.timestamp.as.int", "0")
+          .put("build.timestamp", "Thu Jan 01 00:00:00 1970 (0)")
+          .build();
 
   @Override
   protected BuildInfoPropertiesTranslator createVolatileTranslator() {
