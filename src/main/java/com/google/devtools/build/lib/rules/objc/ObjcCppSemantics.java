@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DYNAMIC_FRAM
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STATIC_FRAMEWORK_FILE;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -26,9 +27,11 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
+import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
 import com.google.devtools.build.lib.rules.cpp.IncludeProcessing;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -39,21 +42,43 @@ public class ObjcCppSemantics implements CppSemantics {
   private final IncludeProcessing includeProcessing;
   private final ObjcProvider objcProvider;
   private final ObjcConfiguration config;
+  private final boolean isHeaderThinningEnabled;
+  private final IntermediateArtifacts intermediateArtifacts;
+
+  /**
+   * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
+   * compatible with header thinning.
+   */
+  private static final FileTypeSet SOURCES_FOR_HEADER_THINNING =
+      FileTypeSet.of(
+          CppFileTypes.OBJC_SOURCE,
+          CppFileTypes.OBJCPP_SOURCE,
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.C_SOURCE);
 
   /**
    * Creates an instance of ObjcCppSemantics
    *
    * @param objcProvider the provider that should be used in determining objc-specific inputs to
    *     actions
-   * @param config the ObjcConfiguration for this build
    * @param includeProcessing the closure providing the strategy for processing of includes for
    *     actions
+   * @param config the ObjcConfiguration for this build
+   * @param isHeaderThinningEnabled true if headers_list artifacts should be generated and added as
+   *     input to compiling actions
+   * @param intermediateArtifacts used to create headers_list artifacts
    */
   public ObjcCppSemantics(
-      ObjcProvider objcProvider, IncludeProcessing includeProcessing, ObjcConfiguration config) {
-    this.includeProcessing = includeProcessing;
+      ObjcProvider objcProvider,
+      IncludeProcessing includeProcessing,
+      ObjcConfiguration config,
+      boolean isHeaderThinningEnabled,
+      IntermediateArtifacts intermediateArtifacts) {
     this.objcProvider = objcProvider;
+    this.includeProcessing = includeProcessing;
     this.config = config;
+    this.isHeaderThinningEnabled = isHeaderThinningEnabled;
+    this.intermediateArtifacts = intermediateArtifacts;
   }
 
   @Override
@@ -73,6 +98,15 @@ public class ObjcCppSemantics implements CppSemantics {
 
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(STATIC_FRAMEWORK_FILE));
     actionBuilder.addTransitiveMandatoryInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
+
+    if (isHeaderThinningEnabled) {
+      Artifact sourceFile = actionBuilder.getSourceFile();
+      if (!sourceFile.isTreeArtifact()
+          && SOURCES_FOR_HEADER_THINNING.matches(sourceFile.getFilename())) {
+        actionBuilder.addMandatoryInputs(
+            ImmutableList.of(intermediateArtifacts.headersListFile(sourceFile)));
+      }
+    }
   }
 
   @Override

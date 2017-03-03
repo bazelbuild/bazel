@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
@@ -49,16 +50,11 @@ import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -187,90 +183,21 @@ public class ObjcCompileAction extends SpawnAction {
   public synchronized Iterable<Artifact> discoverInputs(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    discoveredInputs = headersListFile != null ? findRequiredHeaderInputs() : filterHeaderFiles();
+    if (headersListFile != null) {
+      try {
+        discoveredInputs =
+            HeaderThinning.findRequiredHeaderInputs(
+                sourceFile, headersListFile, getAllowedDerivedInputsMap(false));
+      } catch (ExecException e) {
+        throw e.toActionExecutionException(
+            "Header thinning of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getExecutor().getVerboseFailures(),
+            this);
+      }
+    } else {
+      discoveredInputs = filterHeaderFiles();
+    }
     return discoveredInputs;
-  }
-
-  /** Reads the header scanning output file and discovers all those headers as outputs. */
-  private Iterable<Artifact> findRequiredHeaderInputs()
-      throws ActionExecutionException, InterruptedException {
-    try {
-      Map<PathFragment, Artifact> inputArtifactsMap = getAllowedDerivedInputsMap(false);
-      ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
-      List<PathFragment> missing = new ArrayList<>();
-      for (String line :
-          FileSystemUtils.readLines(headersListFile.getPath(), StandardCharsets.UTF_8)) {
-        if (line.isEmpty()) {
-          continue;
-        }
-
-        PathFragment headerPath = new PathFragment(line);
-        Artifact header = inputArtifactsMap.get(headerPath);
-        if (header == null) {
-          missing.add(headerPath);
-        } else {
-          includeBuilder.add(header);
-        }
-      }
-
-      if (!missing.isEmpty()) {
-        includeBuilder.addAll(findRequiredHeaderInputsInTreeArtifacts(inputArtifactsMap, missing));
-      }
-      return includeBuilder.build();
-    } catch (IOException ex) {
-      throw new ActionExecutionException(
-          String.format("Error reading headers file %s", headersListFile.getExecPathString()),
-          ex,
-          this,
-          false);
-    }
-  }
-
-  /**
-   * Headers inside a TreeArtifact will not have their ExecPath as a key in the map as they do not
-   * have their own Artifact object. These headers must be mapped to their containing TreeArtifact.
-   * We are unable to select individual files from within a TreeArtifact so must discover the entire
-   * TreeArtifact as an input.
-   */
-  private Iterable<Artifact> findRequiredHeaderInputsInTreeArtifacts(
-      Map<PathFragment, Artifact> inputArtifactsMap, List<PathFragment> missing)
-      throws ActionExecutionException {
-    ImmutableList.Builder<Artifact> includeBuilder = ImmutableList.builder();
-    ImmutableList.Builder<PathFragment> treeArtifactPathsBuilder = ImmutableList.builder();
-    for (Entry<PathFragment, Artifact> inputEntry : inputArtifactsMap.entrySet()) {
-      if (inputEntry.getValue().isTreeArtifact()) {
-        treeArtifactPathsBuilder.add(inputEntry.getKey());
-      }
-    }
-
-    ImmutableList<PathFragment> treeArtifactPaths = treeArtifactPathsBuilder.build();
-    for (PathFragment missingPath : missing) {
-      includeBuilder.add(
-          findRequiredHeaderInputInTreeArtifacts(
-              treeArtifactPaths, inputArtifactsMap, missingPath));
-    }
-
-    return includeBuilder.build();
-  }
-
-  private Artifact findRequiredHeaderInputInTreeArtifacts(
-      ImmutableList<PathFragment> treeArtifactPaths,
-      Map<PathFragment, Artifact> inputArtifactsMap,
-      PathFragment missingPath)
-      throws ActionExecutionException {
-    for (PathFragment treeArtifactPath : treeArtifactPaths) {
-      if (missingPath.startsWith(treeArtifactPath)) {
-        return inputArtifactsMap.get(treeArtifactPath);
-      }
-    }
-
-    throw new ActionExecutionException(
-        String.format(
-            "Unable to map header file (%s) found during header scanning of %s."
-                + " This is usually the result of a case mismatch.",
-            missingPath, sourceFile.getExecPathString()),
-        this,
-        true);
   }
 
   @Override

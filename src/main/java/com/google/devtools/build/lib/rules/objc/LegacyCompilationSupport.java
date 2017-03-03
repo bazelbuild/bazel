@@ -64,10 +64,8 @@ import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
-import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,17 +92,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
               inputTreeFileArtifact.getParentRelativePath(), ".o");
         }
       };
-
-  /**
-   * Set of {@link com.google.devtools.build.lib.util.FileType} of source artifacts that are
-   * compatible with header thinning.
-   */
-  private static final FileTypeSet SOURCES_FOR_HEADER_THINNING =
-      FileTypeSet.of(
-          CppFileTypes.OBJC_SOURCE,
-          CppFileTypes.OBJCPP_SOURCE,
-          CppFileTypes.CPP_SOURCE,
-          CppFileTypes.C_SOURCE);
 
   /**
    * Returns information about the given rule's compilation artifacts. Dependencies specified in the
