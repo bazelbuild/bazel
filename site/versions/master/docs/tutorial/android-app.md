@@ -67,12 +67,23 @@ Add the following lines to your `WORKSPACE` file:
 ```python
 android_sdk_repository(
     name = "androidsdk",
-    # Replace with path to Android SDK on your system
-    path = "/Users/username/Library/Android/sdk",
-    # Replace with the Android SDK API level
-    api_level = 23,
-    # Replace with the version in sdk/build-tools/
-    build_tools_version="23.0.0"
+    # Replace with your installed Android SDK API level
+    api_level = 25,
+    # Replace with your installed Android SDK build-tools version
+    build_tools_version="25.0.1"
+)
+```
+
+This will use the Android SDK specified referenced by the `ANDROID_HOME`
+environment variable. Alternatively, you can explicitly specify which Android
+SDK to use by including a `path` argument:
+
+```python
+android_sdk_repository(
+    name = "androidsdk",
+    path = "/path/to/Android/sdk",
+    api_level = 25,
+    build_tools_version="25.0.1"
 )
 ```
 
