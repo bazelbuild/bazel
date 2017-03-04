@@ -14,16 +14,15 @@
 
 package com.google.devtools.build.java.turbine.javac;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
 import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileResult.Status;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
+import com.sun.source.util.JavacTask;
+import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.file.CacheFSInfo;
-import com.sun.tools.javac.main.Arguments;
-import com.sun.tools.javac.main.CommandLine;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Log;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -32,7 +31,6 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
-import javax.tools.JavaFileManager;
 import javax.tools.StandardLocation;
 
 /** Performs a javac-based turbine compilation given a {@link JavacTurbineCompileRequest}. */
@@ -46,46 +44,32 @@ public class JavacTurbineCompiler {
     Context context = new Context();
 
     try (PrintWriter pw = new PrintWriter(sw)) {
-      ZipOutputFileManager.preRegister(context, files);
       setupContext(context, request.strictJavaDepsPlugin());
       CacheFSInfo.preRegister(context);
+      try (ZipOutputFileManager fm = new ZipOutputFileManager(files)) {
+        JavacTask task =
+            JavacTool.create()
+                .getTask(
+                    pw,
+                    fm,
+                    null /*diagnostics*/,
+                    request.javacOptions(),
+                    ImmutableList.of() /*classes*/,
+                    fm.getJavaFileObjectsFromPaths(request.sources()),
+                    context);
 
-      context.put(Log.outKey, pw);
+        fm.setContext(context);
+        fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
+        fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
+        fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, request.bootClassPath());
+        fm.setLocationFromPaths(
+            StandardLocation.ANNOTATION_PROCESSOR_PATH, request.processorClassPath());
 
-      ZipOutputFileManager fm = (ZipOutputFileManager) context.get(JavaFileManager.class);
-      fm.setLocationFromPaths(StandardLocation.SOURCE_PATH, Collections.<Path>emptyList());
-      fm.setLocationFromPaths(StandardLocation.CLASS_PATH, request.classPath());
-      fm.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, request.bootClassPath());
-      fm.setLocationFromPaths(
-          StandardLocation.ANNOTATION_PROCESSOR_PATH, request.processorClassPath());
-
-      String[] javacArgArray = request.javacOptions().toArray(new String[0]);
-      javacArgArray = CommandLine.parse(javacArgArray);
-
-      Arguments args = Arguments.instance(context);
-      args.init("turbine", javacArgArray);
-
-      fm.setContext(context);
-      fm.handleOptions(args.getDeferredFileManagerOptions());
-
-      if (!args.validate()) {
-        return new JavacTurbineCompileResult(
-            ImmutableMap.<String, OutputFileObject>of(), Status.ERROR, sw, context);
-      }
-
-      JavaCompiler comp = JavaCompiler.instance(context);
-      if (request.strictJavaDepsPlugin() != null) {
-        request.strictJavaDepsPlugin().init(context, Log.instance(context), comp);
-      }
-
-      try {
-        comp.compile(args.getFileObjects(), args.getClassNames(), null);
-        status = comp.errorCount() == 0 ? Status.OK : Status.ERROR;
+        status = task.call() ? Status.OK : Status.ERROR;
       } catch (Throwable t) {
         t.printStackTrace(pw);
         status = Status.ERROR;
       }
-      comp.close();
     }
 
     return new JavacTurbineCompileResult(ImmutableMap.copyOf(files), status, sw, context);

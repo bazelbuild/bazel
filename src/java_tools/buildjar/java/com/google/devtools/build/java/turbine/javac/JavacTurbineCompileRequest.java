@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 /** The input to a {@link JavacTurbineCompiler} compilation. */
 class JavacTurbineCompileRequest {
 
+  private final ImmutableList<Path> sources;
   private final ImmutableList<Path> classPath;
   private final ImmutableList<Path> bootClassPath;
   private final ImmutableList<Path> processorClassPath;
@@ -31,16 +32,23 @@ class JavacTurbineCompileRequest {
   @Nullable private final StrictJavaDepsPlugin strictJavaDepsPlugin;
 
   JavacTurbineCompileRequest(
+      ImmutableList<Path> sources,
       ImmutableList<Path> classPath,
       ImmutableList<Path> bootClassPath,
       ImmutableList<Path> processorClassPath,
       ImmutableList<String> javacOptions,
       @Nullable StrictJavaDepsPlugin strictJavaDepsPlugin) {
+    this.sources = checkNotNull(sources);
     this.classPath = checkNotNull(classPath);
     this.bootClassPath = checkNotNull(bootClassPath);
     this.processorClassPath = checkNotNull(processorClassPath);
     this.javacOptions = checkNotNull(javacOptions);
     this.strictJavaDepsPlugin = strictJavaDepsPlugin;
+  }
+
+  /** The sources to compile. */
+  ImmutableList<Path> sources() {
+    return sources;
   }
 
   /** The class path; correspond's to javac -classpath. */
@@ -76,6 +84,7 @@ class JavacTurbineCompileRequest {
   }
 
   static class Builder {
+    private ImmutableList<Path> sources;
     private ImmutableList<Path> classPath;
     private ImmutableList<Path> bootClassPath;
     private ImmutableList<Path> processorClassPath;
@@ -86,7 +95,12 @@ class JavacTurbineCompileRequest {
 
     JavacTurbineCompileRequest build() {
       return new JavacTurbineCompileRequest(
-          classPath, bootClassPath, processorClassPath, javacOptions, strictDepsPlugin);
+          sources, classPath, bootClassPath, processorClassPath, javacOptions, strictDepsPlugin);
+    }
+
+    Builder setSources(ImmutableList<Path> sources) {
+      this.sources = sources;
+      return this;
     }
 
     Builder setClassPath(ImmutableList<Path> classPath) {

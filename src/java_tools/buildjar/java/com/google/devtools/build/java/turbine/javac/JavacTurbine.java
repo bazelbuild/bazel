@@ -37,22 +37,19 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import javax.tools.StandardLocation;
 import org.objectweb.asm.ClassReader;
@@ -119,15 +116,15 @@ public class JavacTurbine implements AutoCloseable {
   private final TurbineOptions turbineOptions;
   @VisibleForTesting Context context;
 
+  /** Cache of opened zip filesystems for srcjars. */
+  private final Map<Path, FileSystem> filesystems = new HashMap<>();
+
   public JavacTurbine(PrintWriter out, TurbineOptions turbineOptions) {
     this.out = out;
     this.turbineOptions = turbineOptions;
   }
 
   Result compile() throws IOException {
-    Path tmpdir = Paths.get(turbineOptions.tempDir());
-    Files.createDirectories(tmpdir);
-
     ImmutableList.Builder<String> argbuilder = ImmutableList.builder();
 
     argbuilder.addAll(JavacOptions.removeBazelSpecificFlags(turbineOptions.javacOpts()));
@@ -160,14 +157,15 @@ public class JavacTurbine implements AutoCloseable {
       processorpath = ImmutableList.of();
     }
 
-    List<String> sources = new ArrayList<>();
-    sources.addAll(turbineOptions.sources());
-    sources.addAll(extractSourceJars(turbineOptions, tmpdir));
-
-    argbuilder.addAll(sources);
+    ImmutableList<Path> sources =
+        ImmutableList.<Path>builder()
+            .addAll(asPaths(turbineOptions.sources()))
+            .addAll(getSourceJarEntries(turbineOptions))
+            .build();
 
     JavacTurbineCompileRequest.Builder requestBuilder =
         JavacTurbineCompileRequest.builder()
+            .setSources(sources)
             .setJavacOptions(argbuilder.build())
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
             .setProcessorClassPath(processorpath);
@@ -208,9 +206,6 @@ public class JavacTurbine implements AutoCloseable {
 
     if (!compileResult.success() && hasRecognizedError(compileResult.output())) {
       // fall back to transitive classpath
-      deleteRecursively(tmpdir);
-      extractSourceJars(turbineOptions, tmpdir);
-
       actualClasspath = originalClasspath;
       requestBuilder.setClassPath(asPaths(actualClasspath));
       compileResult = JavacTurbineCompiler.compile(requestBuilder.build());
@@ -362,31 +357,36 @@ public class JavacTurbine implements AutoCloseable {
     return result.build();
   }
 
-  /** Extra sources in srcjars to disk. */
-  private static List<String> extractSourceJars(TurbineOptions turbineOptions, Path tmpdir)
+  /** Returns paths to the source jar entries to compile. */
+  private ImmutableList<Path> getSourceJarEntries(TurbineOptions turbineOptions)
       throws IOException {
-    if (turbineOptions.sourceJars().isEmpty()) {
-      return Collections.emptyList();
-    }
-
-    ArrayList<String> extractedSources = new ArrayList<>();
+    ImmutableList.Builder<Path> sources = ImmutableList.builder();
     for (String sourceJar : turbineOptions.sourceJars()) {
-      try (ZipFile zf = new ZipFile(sourceJar)) {
-        Enumeration<? extends ZipEntry> entries = zf.entries();
-        while (entries.hasMoreElements()) {
-          ZipEntry ze = entries.nextElement();
-          if (!ze.getName().endsWith(".java")) {
-            continue;
-          }
-          Path dest = tmpdir.resolve(ze.getName());
-          Files.createDirectories(dest.getParent());
-          // allow overlapping source jars for compatibility with JavaBuilder (see b/26688023)
-          Files.copy(zf.getInputStream(ze), dest, StandardCopyOption.REPLACE_EXISTING);
-          extractedSources.add(dest.toAbsolutePath().toString());
-        }
+      for (Path root : getJarFileSystem(Paths.get(sourceJar)).getRootDirectories()) {
+        Files.walkFileTree(
+            root,
+            new SimpleFileVisitor<Path>() {
+              @Override
+              public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                  throws IOException {
+                String fileName = path.getFileName().toString();
+                if (fileName.endsWith(".java")) {
+                  sources.add(path);
+                }
+                return FileVisitResult.CONTINUE;
+              }
+            });
       }
     }
-    return extractedSources;
+    return sources.build();
+  }
+
+  private FileSystem getJarFileSystem(Path sourceJar) throws IOException {
+    FileSystem fs = filesystems.get(sourceJar);
+    if (fs == null) {
+      filesystems.put(sourceJar, fs = FileSystems.newFileSystem(sourceJar, null));
+    }
+    return fs;
   }
 
   private static final Pattern MISSING_PACKAGE =
@@ -409,27 +409,8 @@ public class JavacTurbine implements AutoCloseable {
   @Override
   public void close() throws IOException {
     out.flush();
-    deleteRecursively(Paths.get(turbineOptions.tempDir()));
-  }
-
-  private static void deleteRecursively(final Path dir) throws IOException {
-    Files.walkFileTree(
-        dir,
-        new SimpleFileVisitor<Path>() {
-          @Override
-          public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
-              throws IOException {
-            Files.delete(path);
-            return FileVisitResult.CONTINUE;
-          }
-
-          @Override
-          public FileVisitResult postVisitDirectory(Path path, IOException exc) throws IOException {
-            if (!path.equals(dir)) {
-              Files.delete(path);
-            }
-            return FileVisitResult.CONTINUE;
-          }
-        });
+    for (FileSystem fs : filesystems.values()) {
+      fs.close();
+    }
   }
 }

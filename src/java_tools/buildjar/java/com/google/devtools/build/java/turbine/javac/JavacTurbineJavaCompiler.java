@@ -21,6 +21,7 @@ import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Log;
 import java.util.Queue;
 import javax.annotation.Nullable;
 import javax.tools.JavaFileObject;
@@ -39,6 +40,10 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
   public JavacTurbineJavaCompiler(Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps) {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
+    JavaCompiler comp = JavaCompiler.instance(context);
+    if (strictJavaDeps != null) {
+      strictJavaDeps.init(context, Log.instance(context), this);
+    }
   }
 
   @Override
