@@ -590,12 +590,23 @@ public class SkylarkRuleClassFunctions {
             attributes.add(attribute);
           }
 
+          for (Object o : providesArg) {
+            if (!SkylarkAttr.isProvider(o)) {
+              throw new EvalException(ast.getLocation(),
+                  String.format("Illegal argument: element in 'provides' is of unexpected type. "
+                      + "Should be list of providers, but got %s. ",
+                      EvalUtils.getDataTypeName(o, true)));
+            }
+          }
+
           return new SkylarkAspect(
               implementation,
               attrAspects.build(),
               attributes.build(),
-              SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg),
-              ImmutableList.copyOf(STRING_LIST.convert(providesArg, "provides")),
+              SkylarkAttr.buildProviderPredicate(requiredAspectProvidersArg,
+                  "required_aspect_providers", ast.getLocation()
+              ),
+              SkylarkAttr.getSkylarkProviderIdentifiers(providesArg, ast.getLocation()),
               requiredParams.build(),
               ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
               ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),

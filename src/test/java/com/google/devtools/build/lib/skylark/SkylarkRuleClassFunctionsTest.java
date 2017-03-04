@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
+import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.Collection;
 import org.junit.Assert;
@@ -148,12 +150,16 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Test
   public void testAttrWithOnlyType() throws Exception {
-    Attribute attr = buildAttribute("a1", "attr.string_list()", "");
+    Attribute attr = buildAttribute("a1", "attr.string_list()");
     assertEquals(Type.STRING_LIST, attr.getType());
   }
 
   private Attribute buildAttribute(String name, String... lines) throws Exception {
-    return ((SkylarkAttr.Descriptor) evalRuleClassCode(lines)).build(name);
+    String[] strings = lines.clone();
+    strings[strings.length - 1] = String.format("%s = %s", name, strings[strings.length - 1]);
+    evalAndExport(strings);
+    Descriptor lookup = (Descriptor) ev.lookup(name);
+    return lookup != null ? lookup.build(name) : null;
   }
 
   @Test
@@ -229,39 +235,64 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertFalse(attr.getAllowedFileTypesPredicate().apply("a.txt"));
   }
 
+  private static SkylarkProviderIdentifier legacy(String legacyId) {
+    return SkylarkProviderIdentifier.forLegacy(legacyId);
+  }
+
+  private static SkylarkProviderIdentifier declared(String exportedName) {
+    return SkylarkProviderIdentifier.forKey(
+        new SkylarkClassObjectConstructor.SkylarkKey(FAKE_LABEL, exportedName));
+  }
+
   @Test
   public void testAttrWithProviders() throws Exception {
     Attribute attr =
-        buildAttribute("a1", "attr.label_list(allow_files = True, providers = ['a', 'b'])");
+        buildAttribute("a1",
+            "b = provider()",
+            "attr.label_list(allow_files = True, providers = ['a', b])");
     assertThat(attr.getMandatoryProvidersList())
-        .containsExactly(ImmutableSet.of(legacy("a"), legacy("b")));
-  }
-
-  private static SkylarkProviderIdentifier legacy(String legacyId) {
-    return SkylarkProviderIdentifier.forLegacy(legacyId);
+        .containsExactly(ImmutableSet.of(legacy("a"), declared("b")));
   }
 
   @Test
   public void testAttrWithProvidersList() throws Exception {
     Attribute attr =
-        buildAttribute("a1", "attr.label_list(allow_files = True,"
-            + " providers = [['a', 'b'], ['c']])");
+        buildAttribute("a1",
+            "b = provider()",
+            "attr.label_list(allow_files = True, providers = [['a', b], ['c']])");
     assertThat(attr.getMandatoryProvidersList()).containsExactly(
-        ImmutableSet.of(legacy("a"), legacy("b")),
+        ImmutableSet.of(legacy("a"), declared("b")),
         ImmutableSet.of(legacy("c")));
+  }
+
+  private void checkAttributeError(String expectedMessage, String... lines) throws Exception {
+    ev.setFailFast(false);
+    buildAttribute("fakeAttribute", lines);
+    MoreAsserts.assertContainsEvent(ev.getEventCollector(), expectedMessage);
   }
 
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
-    checkErrorContains(
-        "element in 'providers' is of unexpected type."
-            + " Should be list of string, but got list with an element of type int.",
+    checkAttributeError(
+        "element in 'providers' is of unexpected type. Either all elements should be providers,"
+            + " or all elements should be lists of providers,"
+            + " but got list with an element of type int.",
         "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
 
-    checkErrorContains(
-        "element in 'providers' is of unexpected type."
-            + " Should be list of string, but got string.",
-        "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
+    checkAttributeError(
+        "element in 'providers' is of unexpected type. Either all elements should be providers,"
+            + " or all elements should be lists of providers,"
+            + " but got an element of type string.",
+        "b = provider()",
+        "attr.label_list(allow_files = True,  providers = [['a', b], 'c'])");
+
+    checkAttributeError(
+        "element in 'providers' is of unexpected type. Either all elements should be providers,"
+            + " or all elements should be lists of providers,"
+            + " but got an element of type string.",
+        "c = provider()",
+        "attr.label_list(allow_files = True,  providers = [['a', b], c])");
+
   }
 
   @Test
@@ -1163,7 +1194,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def _impl(target, ctx):",
         "   pass",
-        "my_aspect = aspect(_impl, required_aspect_providers=['java', 'cc'])"
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_aspect_providers=['java', cc])"
     );
     SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
@@ -1172,7 +1204,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
     assertThat(requiredProviders.isSatisfiedBy(
         AdvertisedProviderSet.builder()
-            .addSkylark("cc")
+            .addSkylark(declared("cc"))
             .addSkylark("java")
             .build()))
         .isTrue();
@@ -1188,7 +1220,8 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     evalAndExport(
         "def _impl(target, ctx):",
         "   pass",
-        "my_aspect = aspect(_impl, required_aspect_providers=[['java'], ['cc']])"
+        "cc = provider()",
+        "my_aspect = aspect(_impl, required_aspect_providers=[['java'], [cc]])"
     );
     SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
     RequiredProviders requiredProviders = myAspect.getDefinition(AspectParameters.EMPTY)
@@ -1202,7 +1235,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         .isTrue();
     assertThat(requiredProviders.isSatisfiedBy(
         AdvertisedProviderSet.builder()
-            .addSkylark("cc")
+            .addSkylark(declared("cc"))
             .build()))
         .isTrue();
     assertThat(requiredProviders.isSatisfiedBy(
@@ -1239,6 +1272,38 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.ANY)).isFalse();
     assertThat(requiredProviders.isSatisfiedBy(AdvertisedProviderSet.EMPTY)).isFalse();
   }
+
+  @Test
+  public void aspectProvides() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "y = provider()",
+        "my_aspect = aspect(_impl, provides = ['x', y])"
+    );
+    SkylarkAspect myAspect = (SkylarkAspect) lookup("my_aspect");
+    AdvertisedProviderSet advertisedProviders = myAspect.getDefinition(AspectParameters.EMPTY)
+        .getAdvertisedProviders();
+    assertThat(advertisedProviders.canHaveAnyProvider()).isFalse();
+    assertThat(advertisedProviders.getSkylarkProviders())
+        .containsExactly(legacy("x"), declared("y"));
+  }
+
+  @Test
+  public void aspectProvidesError() throws Exception {
+    ev.setFailFast(false);
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "y = provider()",
+        "my_aspect = aspect(_impl, provides = ['x', 1])"
+    );
+    MoreAsserts.assertContainsEvent(ev.getEventCollector(),
+        " Illegal argument: element in 'provides' is of unexpected type."
+            + " Should be list of providers, but got int. ");
+  }
+
+
 
   @Test
   public void fancyExports() throws Exception {

@@ -300,9 +300,7 @@ public final class AspectDefinition {
      */
     public Builder advertiseProvider(ImmutableList<SkylarkProviderIdentifier> providers) {
       for (SkylarkProviderIdentifier provider : providers) {
-        // todo(dslomov,vladmos): support declared providers
-        Preconditions.checkState(provider.isLegacy());
-        advertisedProviders.addSkylark(provider.getLegacyId());
+        advertisedProviders.addSkylark(provider);
       }
       return this;
     }
