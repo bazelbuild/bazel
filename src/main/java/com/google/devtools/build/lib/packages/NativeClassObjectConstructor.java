@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -132,6 +133,17 @@ public abstract class NativeClassObjectConstructor extends ClassObjectConstructo
       throws EvalException {
     throw new EvalException(loc,
         String.format("'%s' cannot be constructed from Skylark", getPrintableName()));
+  }
+
+  public static Pair<String, String> getSerializedRepresentationForNativeKey(NativeKey key) {
+    return Pair.of(key.name, key.aClass.getName());
+  }
+
+  public static NativeKey getNativeKeyFromSerializedRepresentation(Pair<String, String> serialized)
+      throws ClassNotFoundException {
+    Class<? extends NativeClassObjectConstructor> aClass =
+        Class.forName(serialized.second).asSubclass(NativeClassObjectConstructor.class);
+    return new NativeKey(serialized.first, aClass);
   }
 
   /**

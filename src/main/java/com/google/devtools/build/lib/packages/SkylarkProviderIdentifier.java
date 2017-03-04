@@ -88,7 +88,7 @@ public final class SkylarkProviderIdentifier {
 
   @Override
   public int hashCode() {
-    return Objects.hash(legacyId, key);
+    return legacyId != null ? legacyId.hashCode() * 2 : key.hashCode();
   }
 
   @Override
