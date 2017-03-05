@@ -68,15 +68,17 @@ Add the following lines to your `WORKSPACE` file:
 android_sdk_repository(
     name = "androidsdk",
     # Replace with your installed Android SDK API level
-    api_level = 25,
-    # Replace with your installed Android SDK build-tools version
-    build_tools_version="25.0.1"
+    api_level = 25
 )
 ```
 
 This will use the Android SDK specified referenced by the `ANDROID_HOME`
-environment variable. Alternatively, you can explicitly specify which Android
-SDK to use by including a `path` argument:
+environment variable, and automatically detect the latest build tools
+version installed within that location.
+
+Alternatively, you can explicitly specify the location of the Android
+SDK and build tools version to use by including a `path` and
+`build_tools_version` arguments:
 
 ```python
 android_sdk_repository(
