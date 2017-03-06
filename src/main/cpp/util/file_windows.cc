@@ -531,8 +531,7 @@ bool AsShortWindowsPath(const string& path, string* result) {
     // Join all segments.
     std::wostringstream builder;
     bool first = true;
-    for (std::vector<wstring>::const_reverse_iterator& it = segments.crbegin();
-         it != segments.crend(); ++it) {
+    for (auto it = segments.crbegin(); it != segments.crend(); ++it) {
       if (!first || !IsRootDirectoryW(wpath)) {
         builder << L'\\' << *it;
       } else {
