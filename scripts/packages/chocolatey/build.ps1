@@ -27,13 +27,17 @@ if ($mode -eq "release") {
 }
 
 if ($fixPackage -eq $true) {
-  $tvPackageFixVersion = "-$((get-date).tostring("yyyyMMdd-hhmmss"))"
+  $prefix = "-"
+  if ($mode -eq "release") {
+    $prefix = "."
+  }
+  $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd"))"
 }
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
 rm -force -ErrorAction SilentlyContinue ./tools/LICENSE
-rm -force -ErrorAction SilentlyContinue ./tools/params.json
 rm -force -ErrorAction SilentlyContinue ./tools/*.orig
+rm -force -ErrorAction SilentlyContinue "./tools/params.*"
 if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip
 }
@@ -63,13 +67,10 @@ From: https://github.com/bazelbuild/bazel/blob/master/LICENSE
 add-content -value $licenseHeader -path "./tools/LICENSE"
 add-content -value (get-content "../../../LICENSE") -path "./tools/LICENSE"
 
-$params = @{
-  package = @{
-    uri = $tvUri;
-    checksum = $tvChecksum;
-    checksumType = "sha256";
-  }
-}
-add-content -value (ConvertTo-Json $params) -path "./tools/params.json"
+$params = @"
+$tvUri
+$tvChecksum
+"@
+add-content -value $params -path "./tools/params.txt"
 
 choco pack ./bazel.nuspec

@@ -2,22 +2,18 @@ $ErrorActionPreference = 'Stop'; # stop on all errors
 $packageName = 'bazel'
 
 $toolsDir = Split-Path -parent $MyInvocation.MyCommand.Definition
-$json = gc "$toolsDir\params.json"
-$p = (($json) -join "`n") | convertfrom-json
+$paramsText = get-content "$($toolsDir)\params.txt"
+$p = $paramsText.Split("`n")
 
 $packageDir = Split-Path -parent $toolsDir
-$binRoot = (Get-ToolsLocation) -replace "\\", "/"
 
-write-host "Read params from json"
-write-host (convertto-json $p)
+write-host "Read params from text file"
+write-host $p
 
 Install-ChocolateyZipPackage -PackageName "$packageName" `
-  -Url "$($p.package.uri)" `
-  -Checksum "$($p.package.checksum)" `
-  -ChecksumType "$($p.package.checksumType)" `
-  -Url64bit "$($p.package.uri)" `
-  -Checksum64 "$($p.package.checksum)" `
-  -Checksum64Type "$($p.package.checksumType)" `
+  -Url64bit "$($p[0])" `
+  -Checksum64 "$($p[1])" `
+  -Checksum64Type "sha256" `
   -UnzipLocation "$packageDir"
 
 write-host "Ensure that msys2 dll is present in PATH to allow bazel to be run from non-msys2 shells"
