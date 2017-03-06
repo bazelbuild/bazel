@@ -362,6 +362,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     env.put("TEST_SIZE", getTestProperties().getSize().toString());
     env.put("TEST_TIMEOUT", Integer.toString(timeoutInSeconds));
     env.put("TEST_WORKSPACE", getRunfilesPrefix());
+    env.put(
+        "TEST_BINARY",
+        getExecutionSettings().getExecutable().getRootRelativePath().getCallablePathString());
 
     // When we run test multiple times, set different TEST_RANDOM_SEED values for each run.
     // Don't override any previous setting.
