@@ -48,6 +48,12 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       category = "version",
       help = "Local path to the Python3 executable.")
     public String python3Path;
+
+    @Option(name = "experimental_python_import_all_repositories",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Do not use.")
+    public boolean experimentalPythonImportAllRepositories;
   }
 
   /**
@@ -84,5 +90,9 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
 
   public String getPython3Path() {
     return options.python3Path;
+  }
+
+  public boolean getImportAllRepositories() {
+    return options.experimentalPythonImportAllRepositories;
   }
 }

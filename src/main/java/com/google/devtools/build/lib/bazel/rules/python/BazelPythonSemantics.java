@@ -144,7 +144,9 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%python_binary%", pythonBinary),
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                  Substitution.of("%is_zipfile%", "False")),
+                  Substitution.of("%is_zipfile%", "False"),
+                  Substitution.of("%import_all%",
+                      config.getImportAllRepositories() ? "True" : "False")),
               true));
     } else {
       Artifact zipFile = getPythonZipArtifact(ruleContext, executable);
@@ -160,7 +162,9 @@ public class BazelPythonSemantics implements PythonSemantics {
                   Substitution.of("%python_binary%", pythonBinary),
                   Substitution.of("%imports%", Joiner.on(":").join(imports)),
                   Substitution.of("%workspace_name%", ruleContext.getWorkspaceName()),
-                  Substitution.of("%is_zipfile%", "True")),
+                  Substitution.of("%is_zipfile%", "True"),
+                  Substitution.of("%import_all%",
+                      config.getImportAllRepositories() ? "True" : "False")),
               true));
 
       ruleContext.registerAction(
