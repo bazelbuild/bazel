@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -24,10 +25,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
-import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
@@ -37,7 +37,7 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
   public static final ClassObjectConstructor JAVA_PROVIDER =
       new NativeClassObjectConstructor("java_common.provider") { };
 
-  private static final Set<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
+  private static final ImmutableSet<Class<? extends TransitiveInfoProvider>> ALLOWED_PROVIDERS =
       ImmutableSet.of(
         JavaCompilationArgsProvider.class,
         JavaSourceJarsProvider.class,
@@ -129,10 +129,10 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
 
   private JavaProvider(TransitiveInfoProviderMap providers) {
     super(JAVA_PROVIDER, ImmutableMap.<String, Object>of(
-        "transitive_runtime_jars", SkylarkList.createImmutable(
+        "transitive_runtime_jars", SkylarkNestedSet.of(
+            Artifact.class,
             providers.getProvider(JavaCompilationArgsProvider.class)
-                .getRecursiveJavaCompilationArgs()
-                .getRuntimeJars())
+                .getRecursiveJavaCompilationArgs().getRuntimeJars())
     ));
     this.providers = providers;
   }
