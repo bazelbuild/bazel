@@ -1,12 +1,13 @@
 param(
-  [switch] $prerelease
+  [switch] $prerelease,
+  [string] $sources = "."
 )
 
 choco uninstall bazel --force -y
 if ($prerelease) {
-  choco install bazel --verbose --debug --prerelease --force -y -s ".;https://chocolatey.org/api/v2/"
+  choco install bazel --verbose --debug --prerelease --force -y -s $sources
 } else {
-  choco install bazel --verbose --debug --force -y -s ".;https://chocolatey.org/api/v2/"
+  choco install bazel --verbose --debug --force -y -s $sources
 }
 
 if ($LASTEXITCODE -ne 0)
