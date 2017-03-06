@@ -98,8 +98,6 @@ file:
 ```python
 android_ndk_repository(
     name = "androidndk",
-    # Replace with path to Android NDK on your system
-    path = "/Users/username/Library/Android/ndk",
     # Replace with the Android NDK API level
     api_level = 21
 )
@@ -110,6 +108,9 @@ android_ndk_repository(
 the API levels to the same value for the SDK and NDK.
 [This web page](https://developer.android.com/ndk/guides/stable_apis.html)
 contains a map from Android releases to NDK-supported API levels.
+
+Similar to `android_sdk_repository`, the path to the ndk can be explicitly
+specified with a `path` parameter.
 
 ## Create a BUILD file
 
