@@ -78,14 +78,14 @@ version installed within that location.
 
 Alternatively, you can explicitly specify the location of the Android
 SDK and build tools version to use by including a `path` and
-`build_tools_version` arguments:
+`build_tools_version` attributes:
 
 ```python
 android_sdk_repository(
     name = "androidsdk",
     path = "/path/to/Android/sdk",
     api_level = 25,
-    build_tools_version="25.0.1"
+    build_tools_version = "25.0.1"
 )
 ```
 
@@ -109,8 +109,9 @@ the API levels to the same value for the SDK and NDK.
 [This web page](https://developer.android.com/ndk/guides/stable_apis.html)
 contains a map from Android releases to NDK-supported API levels.
 
-Similar to `android_sdk_repository`, the path to the ndk can be explicitly
-specified with a `path` parameter.
+Similar to `android_sdk_repository`, the path to the Android NDK if inferred from 
+the `ANDROID_NDK_HOME` environment variable by default. The path can also be 
+explicitly specified with a `path` attribute on `android_ndk_repository`.
 
 ## Create a BUILD file
 
