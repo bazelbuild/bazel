@@ -13,22 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.skylark.SkylarkBuiltinMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkJavaMethodDoc;
+import com.google.devtools.build.docgen.skylark.SkylarkMethodDoc;
 import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * A class to assemble documentation for Skylark.
- */
+/** A class to assemble documentation for Skylark. */
 public final class SkylarkDocumentationProcessor {
+
+  private static final ImmutableList<SkylarkModuleCategory> GLOBAL_CATEGORIES =
+      ImmutableList.<SkylarkModuleCategory>of(
+          SkylarkModuleCategory.NONE, SkylarkModuleCategory.TOP_LEVEL_TYPE);
+
   private SkylarkDocumentationProcessor() {}
 
   /** Generates the Skylark documentation to the given output directory. */
@@ -58,6 +64,50 @@ public final class SkylarkDocumentationProcessor {
     writeCategoryPage(SkylarkModuleCategory.BUILTIN, outputDir, modulesByCategory);
     writeCategoryPage(SkylarkModuleCategory.PROVIDER, outputDir, modulesByCategory);
     writeNavPage(outputDir, modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE));
+
+    // In the code, there are two SkylarkModuleCategory instances that have no heading:
+    // TOP_LEVEL_TYPE and NONE.
+
+    // TOP_LEVEL_TYPE also contains the "global" module.
+    // We remove both categories and the "global" module from the map and display them manually:
+    // - Methods in the "global" module are displayed under "Global Methods and Constants".
+    // - Modules in both categories are displayed under "Global Modules" (except for the global
+    // module itself).
+    List<String> globalFunctions = new ArrayList<>();
+    SkylarkModuleDoc globalModule = findGlobalModule(modulesByCategory);
+    for (SkylarkMethodDoc method : globalModule.getMethods()) {
+      if (method.documented()) {
+        globalFunctions.add(method.getName());
+      }
+    }
+
+    List<String> globalModules = new ArrayList<>();
+    for (SkylarkModuleCategory globalCategory : GLOBAL_CATEGORIES) {
+      List<SkylarkModuleDoc> allGlobalModules = modulesByCategory.remove(globalCategory);
+      for (SkylarkModuleDoc module : allGlobalModules) {
+        if (!module.getName().equals(globalModule.getName())) {
+          globalModules.add(module.getName());
+        }
+      }
+    }
+
+    Collections.sort(globalModules);
+    writeOverviewPage(
+        outputDir, globalModule.getName(), globalFunctions, globalModules, modulesByCategory);
+  }
+
+  private static SkylarkModuleDoc findGlobalModule(
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesByCategory) {
+    List<SkylarkModuleDoc> topLevelModules =
+        modulesByCategory.get(SkylarkModuleCategory.TOP_LEVEL_TYPE);
+    String globalModuleName = SkylarkDocumentationCollector.getTopLevelModule().name();
+    for (SkylarkModuleDoc module : topLevelModules) {
+      if (module.getName().equals(globalModuleName)) {
+        return module;
+      }
+    }
+
+    throw new IllegalStateException("No globals module in the top level category.");
   }
 
   private static void writePage(String outputDir, SkylarkModuleDoc module) throws IOException {
@@ -85,6 +135,22 @@ public final class SkylarkDocumentationProcessor {
     Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_NAV_TEMPLATE);
     page.add("modules", navModules);
     page.write(navFile);
+  }
+
+  private static void writeOverviewPage(
+      String outputDir,
+      String globalModuleName,
+      List<String> globalFunctions,
+      List<String> globalModules,
+      Map<SkylarkModuleCategory, List<SkylarkModuleDoc>> modulesPerCategory)
+      throws IOException {
+    File skylarkDocPath = new File(outputDir + "/skylark-overview.html");
+    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);
+    page.add("global_name", globalModuleName);
+    page.add("global_functions", globalFunctions);
+    page.add("global_modules", globalModules);
+    page.add("modules", modulesPerCategory);
+    page.write(skylarkDocPath);
   }
 
   /**
