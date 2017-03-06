@@ -481,6 +481,11 @@ static vector<string> GetArgumentArray() {
     result.push_back("--use_custom_exit_code_on_abrupt_exit=false");
   }
 
+  if (!globals->options->GetExplicitHostJavabase().empty()) {
+    result.push_back("--host_javabase=" +
+                     globals->options->GetExplicitHostJavabase());
+  }
+
   // This is only for Blaze reporting purposes; the real interpretation of the
   // jvm flags occurs when we set up the java command line.
   if (globals->options->host_jvm_debug) {

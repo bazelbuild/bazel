@@ -348,8 +348,17 @@ string StartupOptions::GetDefaultHostJavabase() const {
 
 string StartupOptions::GetHostJavabase() {
   if (host_javabase.empty()) {
-    host_javabase = GetDefaultHostJavabase();
+    if (default_host_javabase.empty()) {
+      default_host_javabase = GetDefaultHostJavabase();
+    }
+
+    return default_host_javabase;
+  } else {
+    return host_javabase;
   }
+}
+
+string StartupOptions::GetExplicitHostJavabase() const {
   return host_javabase;
 }
 
