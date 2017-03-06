@@ -184,7 +184,15 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeCreateProcess(
       AddUncPrefixMaybe(GetJavaWstring(env, java_stdout_redirect));
   std::wstring stderr_redirect =
       AddUncPrefixMaybe(GetJavaWstring(env, java_stderr_redirect));
-  std::string cwd = GetJavaUTFString(env, java_cwd);
+  std::string cwd;
+  error_msg = windows_util::AsShortPath(
+      GetJavaUTFString(env, java_cwd),
+      [env, java_cwd]() { return GetJavaWstring(env, java_cwd); },
+      &cwd);
+  if (!error_msg.empty()) {
+    result->error_ = error_msg;
+    return PtrAsJlong(result);
+  }
 
   std::unique_ptr<char[]> mutable_commandline(new char[commandline.size() + 1]);
   strncpy(mutable_commandline.get(), commandline.c_str(),

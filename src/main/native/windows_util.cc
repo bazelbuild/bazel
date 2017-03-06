@@ -64,9 +64,8 @@ static void QuotePath(const string& path, string* result) {
   *result = string("\"") + path + "\"";
 }
 
-string AsExecutablePathForCreateProcess(const string& path,
-                                        function<wstring()> path_as_wstring,
-                                        string* result) {
+string AsShortPath(const string& path, function<wstring()> path_as_wstring,
+                   string* result) {
   if (path.empty()) {
     return string("argv[0] should not be empty");
   }
@@ -93,10 +92,7 @@ string AsExecutablePathForCreateProcess(const string& path,
 
   // Fast-track: the path is already short.
   if (path.size() < MAX_PATH) {
-    // Quote the path in case it's something like "c:\foo\app name.exe".
-    // Do this unconditionally, there's no harm in quoting. Quotes are not
-    // allowed inside paths so we don't need to escape quotes.
-    QuotePath(path, result);
+    *result = path;
     return "";
   }
   // At this point we know that the path is at least MAX_PATH long and that it's
@@ -139,8 +135,21 @@ string AsExecutablePathForCreateProcess(const string& path,
   }
   mbs_short[mbs_size] = 0;
 
-  QuotePath(mbs_short, result);
+  *result = mbs_short;
   return "";
+}
+
+string AsExecutablePathForCreateProcess(const string& path,
+                                        function<wstring()> path_as_wstring,
+                                        string* result) {
+  string error = AsShortPath(path, path_as_wstring, result);
+  if (error.empty()) {
+    // Quote the path in case it's something like "c:\foo\app name.exe".
+    // Do this unconditionally, there's no harm in quoting. Quotes are not
+    // allowed inside paths so we don't need to escape quotes.
+    QuotePath(*result, result);
+  }
+  return error;
 }
 
 }  // namespace windows_util

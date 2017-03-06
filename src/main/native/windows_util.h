@@ -48,6 +48,10 @@ struct AutoHandle {
 
 string GetLastErrorString(const string& cause);
 
+// Same as `AsExecutablePathForCreateProcess` except it won't quote the result.
+string AsShortPath(const string& path, function<wstring()> path_as_wstring,
+                   string* result);
+
 // Computes a path suitable as the executable part in CreateProcessA's cmdline.
 //
 // The null-terminated executable path for CreateProcessA has to fit into
