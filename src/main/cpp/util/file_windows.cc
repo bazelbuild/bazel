@@ -599,6 +599,11 @@ int ReadFromHandle(file_handle_type handle, void* data, size_t size,
 }
 
 bool ReadFile(const string& filename, string* content, int max_size) {
+  if (IsDevNull(filename)) {
+    // mimic read(2) behavior: we can always read 0 bytes from /dev/null
+    content->clear();
+    return true;
+  }
   HANDLE handle;
   if (!OpenFileForReading(filename, &handle)) {
     return false;
@@ -613,6 +618,10 @@ bool ReadFile(const string& filename, string* content, int max_size) {
 }
 
 bool ReadFile(const string& filename, void* data, size_t size) {
+  if (IsDevNull(filename)) {
+    // mimic read(2) behavior: we can always read 0 bytes from /dev/null
+    return true;
+  }
   HANDLE handle;
   if (!OpenFileForReading(filename, &handle)) {
     return false;

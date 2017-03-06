@@ -105,9 +105,9 @@ TEST(FileTest, TestReadFileIntoBuffer) {
   ASSERT_TRUE(ReadFile(filename, buffer, 30));
   ASSERT_EQ(string("hello world"), string(buffer));
 
-  memset(buffer, 0, 30);
+  buffer[0] = 'x';
   ASSERT_TRUE(ReadFile("/dev/null", buffer, 42));
-  ASSERT_EQ(string(""), string(buffer));
+  ASSERT_EQ('x', buffer[0]);
 }
 
 TEST(FileTest, TestWriteFile) {
