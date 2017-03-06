@@ -107,6 +107,10 @@ static void AddUncPrefixMaybe(wstring* path) {
   }
 }
 
+static const wchar_t* RemoveUncPrefixMaybe(const wchar_t* ptr) {
+  return ptr + (windows_util::HasUncPrefix(ptr) ? 4 : 0);
+}
+
 class WindowsPipe : public IPipe {
  public:
   WindowsPipe(const HANDLE& read_handle, const HANDLE& write_handle)
@@ -505,24 +509,57 @@ bool AsShortWindowsPath(const string& path, string* result) {
 
   result->clear();
   wstring wpath;
+  wstring wsuffix;
   if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
     return false;
   }
   DWORD size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
   if (size == 0) {
-    return false;
+    // GetShortPathNameW can fail if `wpath` does not exist. This is expected
+    // when we are about to create a file at that path, so instead of failing,
+    // walk up in the path until we find a prefix that exists and can be
+    // shortened, or is a root directory. Save the non-existent tail in
+    // `wsuffix`, we'll add it back later.
+    std::vector<wstring> segments;
+    while (size == 0 && !IsRootDirectoryW(wpath)) {
+      pair<wstring, wstring> split = SplitPathW(wpath);
+      wpath = split.first;
+      segments.push_back(split.second);
+      size = ::GetShortPathNameW(wpath.c_str(), nullptr, 0);
+    }
+
+    // Join all segments.
+    std::wostringstream builder;
+    bool first = true;
+    for (std::vector<wstring>::const_reverse_iterator& it = segments.crbegin();
+         it != segments.crend(); ++it) {
+      if (!first || !IsRootDirectoryW(wpath)) {
+        builder << L'\\' << *it;
+      } else {
+        builder << *it;
+      }
+      first = false;
+    }
+    wsuffix = builder.str();
   }
 
-  unique_ptr<WCHAR[]> wshort(new WCHAR[size]);  // size includes null-terminator
-  if (size - 1 != ::GetShortPathNameW(wpath.c_str(), wshort.get(), size)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "AsShortWindowsPath(%s): GetShortPathNameW(%S) failed, err=%d",
-         path.c_str(), wpath.c_str(), GetLastError());
+  wstring wresult;
+  if (IsRootDirectoryW(wpath)) {
+    // Strip the UNC prefix from `wpath`, and the leading "\" from `wsuffix`.
+    wresult = wstring(RemoveUncPrefixMaybe(wpath.c_str())) + wsuffix;
+  } else {
+    unique_ptr<WCHAR[]> wshort(
+        new WCHAR[size]);  // size includes null-terminator
+    if (size - 1 != ::GetShortPathNameW(wpath.c_str(), wshort.get(), size)) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "AsShortWindowsPath(%s): GetShortPathNameW(%S) failed, err=%d",
+           path.c_str(), wpath.c_str(), GetLastError());
+    }
+    // GetShortPathNameW may preserve the UNC prefix in the result, so strip it.
+    wresult = wstring(RemoveUncPrefixMaybe(wshort.get())) + wsuffix;
   }
-  // GetShortPathNameW may preserve the UNC prefix in the result, so strip it.
-  WCHAR* result_ptr = wshort.get() + (HasUncPrefix(wshort.get()) ? 4 : 0);
 
-  result->assign(WstringToCstring(result_ptr).get());
+  result->assign(WstringToCstring(wresult.c_str()).get());
   ToLower(result);
   return true;
 }
@@ -911,9 +948,7 @@ string MakeCanonical(const char* path) {
   size_t size = wcslen(long_realpath.get()) -
                 (windows_util::HasUncPrefix(long_realpath.get()) ? 4 : 0);
   unique_ptr<WCHAR[]> lcase_realpath(new WCHAR[size + 1]);
-  const WCHAR* p_from =
-      long_realpath.get() +
-      (windows_util::HasUncPrefix(long_realpath.get()) ? 4 : 0);
+  const WCHAR* p_from = RemoveUncPrefixMaybe(long_realpath.get());
   WCHAR* p_to = lcase_realpath.get();
   while (size-- > 0) {
     *p_to++ = towlower(*p_from++);
@@ -1093,9 +1128,7 @@ static unique_ptr<WCHAR[]> GetCwdW() {
 }
 
 string GetCwd() {
-  unique_ptr<WCHAR[]> cwd(GetCwdW());
-  return string(
-      WstringToCstring(cwd.get() + (HasUncPrefix(cwd.get()) ? 4 : 0)).get());
+  return string(WstringToCstring(RemoveUncPrefixMaybe(GetCwdW().get())).get());
 }
 
 bool ChangeDirectory(const string& path) {

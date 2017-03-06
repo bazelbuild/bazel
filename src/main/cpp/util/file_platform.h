@@ -208,7 +208,9 @@ void ForEachDirectoryEntry(const std::string &path,
 bool AsWindowsPathWithUncPrefix(const std::string &path, std::wstring *wpath);
 
 // Same as `AsWindowsPath`, but returns a lowercase 8dot3 style shortened path.
-// Result will never have a UNC prefix.
+// Result will never have a UNC prefix, nor a trailing "/" or "\".
+// Works also for non-existent paths; shortens as much of them as it can.
+// Also works for non-existent drives.
 bool AsShortWindowsPath(const std::string &path, std::string *result);
 #endif  // defined(COMPILER_MSVC) || defined(__CYGWIN__)
 
