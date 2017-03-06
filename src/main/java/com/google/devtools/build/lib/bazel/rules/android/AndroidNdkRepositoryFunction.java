@@ -95,14 +95,18 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws InterruptedException, RepositoryFunctionException {
-    declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+    Map<String, String> environ =
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+    if (environ == null) {
+      return null;
+    }
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       pathFragment = getTargetPath(rule, directories.getWorkspace());
-    } else if (clientEnvironment.containsKey(PATH_ENV_VAR)) {
-      pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), clientEnvironment);
+    } else if (environ.containsKey(PATH_ENV_VAR)) {
+      pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
           new EvalException(
