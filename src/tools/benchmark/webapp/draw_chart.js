@@ -1,4 +1,4 @@
-google.charts.load('current', {packages: ['corechart']});
+google.charts.load('current', {packages: ['corechart', 'controls', 'table']});
 google.charts.setOnLoadCallback(drawAllChart);
 
 /**
@@ -6,6 +6,10 @@ google.charts.setOnLoadCallback(drawAllChart);
  */
 function drawAllChart() {
   $.get('file_list?v=' + Date.now(), function(data) {
+    /** @type {!Array<Dashboard>} */
+    const dashboard = [];
+    /** @type {!Array<ControlWrapper>} */
+    const control = [];
     /** @type {!Array<LineChart>} */
     const chart = [];
     const options = [];
@@ -32,7 +36,7 @@ function drawAllChart() {
 
         if (!chartInit) {
           targetNum = data.buildTargetResults.length;
-          initChartData(data.buildTargetResults, chart, tableData, options);
+          initChartData(data.buildTargetResults, dashboard, control, chart, tableData, options);
           chartInit = true;
         }
 
@@ -41,7 +45,7 @@ function drawAllChart() {
           addRowsFromData(tableData[i], data.buildTargetResults[i].buildEnvResults);
         }
       }
-      afterChartData(targetNum, chart, columns, tableData, options);
+      afterChartData(targetNum, dashboard, control, chart, columns, tableData, options);
     });
   });
 }
@@ -49,23 +53,51 @@ function drawAllChart() {
 /**
  * Initialize all the chart data (columns, options, divs and chart objects)
  * @param {!Array<Object>} buildTargetResults results for all build targets
+ * @param {!Array<Dashboard>} dashboard all dashboards
+ * @param {!Array<Control>} control all controls
  * @param {!Array<LineChart>} chart all charts
  * @param {!Array<DataTable>} tableData data for all charts
  * @param {!Array<Object>} options options for all charts
  */
-function initChartData (buildTargetResults, chart, tableData, options) {
+function initChartData (buildTargetResults, dashboard, control, chart, tableData, options) {
   for (let i = 0; i < buildTargetResults.length; ++i) {
     const buildEnvResults = buildTargetResults[i].buildEnvResults;
 
     // add divs to #content
     $('<div id="target' + i + '" style="width: 100%; height: 600px"></div>')
         .appendTo('#content');
+    $('<div id="control' + i + '" style="width: 100%; height: 100px"></div>')
+        .appendTo('#content');
+
+    // Dashboard
+    dashboard[i] = new google.visualization.Dashboard(
+      document.getElementById('target' + i));
+
+    // Control
+    control[i] = new google.visualization.ControlWrapper({
+      'controlType': 'ChartRangeFilter',
+      'containerId': 'control' + i,
+      'options': {
+        // Filter by the date axis.
+        'filterColumnIndex': 1,
+        'ui': {
+          'chartType': 'LineChart',
+          'chartOptions': {
+            'chartArea': {'width': '70%'},
+            'hAxis': {'baselineColor': 'none'}
+          },
+          'chartView': {
+            'columns': [0, 2, 6]
+          }
+        }
+      }
+    });
 
     // Options for each chart (including title)
     options[i] = {
       title: buildTargetResults[i].buildTargetConfig.description,
       vAxis: { title: 'Elapsed time (s)' },
-      hAxis: { title: 'Changes' },
+      hAxis: { title: 'Changes with pushed time' },
       tooltip: { isHtml: true, trigger: 'both' },
       intervals: { style: 'bars' },
       chartArea: {  width: '70%' }
@@ -76,23 +108,30 @@ function initChartData (buildTargetResults, chart, tableData, options) {
     addColumnsFromBuildEnv(tableData[i], buildEnvResults);
 
     // Create chart objects
-    chart[i] = new google.visualization.LineChart(
-        document.getElementById('target' + i));
+    chart[i] = new google.visualization.ChartWrapper({
+      'chartType': 'LineChart',
+      'containerId': 'target' + i,
+      'options': options[i],
+      'view': { columns: [0, 2, 3, 4, 5, 6, 7, 8, 9] }
+    });
   }
 }
 
 /**
  * Called after getting and filling chart data, draw all charts
  * @param {!number} targetNum number of target configs (charts)
+ * @param {!Array<Dashboard>} dashboard all dashboards
+ * @param {!Array<Control>} control all controls
  * @param {!Array<LineChart>} chart all charts
  * @param {!Array<Column>} columns columns of all charts
  * @param {!Array<DataTable>} tableData data for all charts
  * @param {!Array<Object>} options options for all charts
  */
-function afterChartData (targetNum, chart, columns, tableData, options) {
+function afterChartData (targetNum, dashboard, control, chart, columns, tableData, options) {
   // final steps to draw charts
   for (let i = 0; i < targetNum; ++i) {
-    chart[i].draw(tableData[i], options[i]);
+    dashboard[i].bind(control[i], chart[i]);
+    dashboard[i].draw(tableData[i]);
 
     // event
     columns[i] = [];
@@ -103,7 +142,7 @@ function afterChartData (targetNum, chart, columns, tableData, options) {
     google.visualization.events.addListener(
         chart[i], 'select', (function (x) {
           return function () {
-            hideOrShow(chart[x], columns[x], tableData[x], options[x]);
+            hideOrShow(dashboard[x], chart[x], columns[x], tableData[x], options[x]);
           };
         })(i));
   }
@@ -115,7 +154,10 @@ function afterChartData (targetNum, chart, columns, tableData, options) {
  * @param {!Array<Object>} buildEnvResults build results
  */
 function addColumnsFromBuildEnv (lineChart, buildEnvResults) {
-  lineChart.addColumn('string', 'version');
+  // Using datetime value as hAxis label makes intervals different,
+  // so we use number instead.
+  lineChart.addColumn('string', 'label index');
+  lineChart.addColumn('number', 'numeric index');
   for (let buildEnvResult of buildEnvResults) {
     lineChart.addColumn(
         'number', buildEnvResult.config.description);
@@ -132,8 +174,10 @@ function addColumnsFromBuildEnv (lineChart, buildEnvResults) {
  * @param {!Array<Object>} buildEnvResults build results
  */
 function addRowsFromData (lineChart, buildEnvResults) {
+  const rowNum = lineChart.getNumberOfRows();
   for (let j = 0; j < buildEnvResults[0].results.length; ++j) {
-    const row = [buildEnvResults[0].results[j].datetime];
+    const row = [buildEnvResults[0].results[j].datetime, rowNum + j];
+
     for (let buildEnvResult of buildEnvResults) {
       const singleBuildResult = buildEnvResult.results[j];
 
@@ -195,19 +239,22 @@ function createCustomHTMLContent(arr, codeVersion) {
 
 /**
  * Hide or show one column/line in a chart.
+ * @param {!Dashboard} dashboard the dashboard to operate
  * @param {!LineChart} chart the chart to operate
  * @param {!Column} columns columns of current chart
  * @param {!DataTable} tableData data for current chart
  * @param {!Object} options options for current chart
  */
-function hideOrShow(chart, columns, tableData, options) {
-  const sel = chart.getSelection();
+function hideOrShow(dashboard, chart, columns, tableData, options) {
+  const sel = chart.getChart().getSelection();
   // If selection length is 0, we deselected an element
   if (sel.length <= 0 || sel[0].row !== null) {
     return;
   }
 
-  const col = sel[0].column;
+  // Since real col[1] is hidden (numeric index),
+  // the col that we are looking for should +1
+  const col = sel[0].column + 1;
   if (columns[col] == col) {
     // Hide the data series
     columns[col] = {
@@ -223,5 +270,5 @@ function hideOrShow(chart, columns, tableData, options) {
   }
   const view = new google.visualization.DataView(tableData);
   view.setColumns(columns);
-  chart.draw(view, options);
+  dashboard.draw(view);
 }
