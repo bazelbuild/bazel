@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
@@ -34,6 +35,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -189,8 +192,9 @@ public class AarGeneratorAction {
       zipOut.write(Files.readAllBytes(classes));
       zipOut.closeEntry();
 
-      Files.walkFileTree(
-          data.getResourceDir(), new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res"));
+      ZipDirectoryWriter resWriter = new ZipDirectoryWriter(zipOut, data.getResourceDir(), "res");
+      Files.walkFileTree(data.getResourceDir(), resWriter);
+      resWriter.writeEntries();
 
       ZipEntry r = new ZipEntry("R.txt");
       r.setTime(EPOCH);
@@ -199,8 +203,10 @@ public class AarGeneratorAction {
       zipOut.closeEntry();
 
       if (Files.exists(data.getAssetDir()) && data.getAssetDir().toFile().list().length > 0) {
-        Files.walkFileTree(
-            data.getAssetDir(), new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets"));
+        ZipDirectoryWriter assetWriter =
+            new ZipDirectoryWriter(zipOut, data.getAssetDir(), "assets");
+        Files.walkFileTree(data.getAssetDir(), assetWriter);
+        assetWriter.writeEntries();
       }
     }
     aar.toFile().setLastModified(EPOCH);
@@ -210,6 +216,8 @@ public class AarGeneratorAction {
     private final ZipOutputStream zipOut;
     private final Path root;
     private final String dirName;
+    private final Collection<Path> directories = new ArrayList<>();
+    private final Collection<Path> files = new ArrayList<>();
 
     public ZipDirectoryWriter(ZipOutputStream zipOut, Path root, String dirName) {
       this.zipOut = zipOut;
@@ -219,23 +227,40 @@ public class AarGeneratorAction {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
-      entry.setTime(EPOCH);
-      zipOut.putNextEntry(entry);
-      zipOut.write(Files.readAllBytes(file));
-      zipOut.closeEntry();
+      files.add(file);
       return FileVisitResult.CONTINUE;
     }
 
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
         throws IOException {
+      directories.add(dir);
+      return FileVisitResult.CONTINUE;
+    }
+
+    void writeEntries() throws IOException {
+      for (Path dir : Ordering.natural().immutableSortedCopy(directories)) {
+        writeDirectoryEntry(dir);
+      }
+      for (Path file : Ordering.natural().immutableSortedCopy(files)) {
+        writeFileEntry(file);
+      }
+    }
+
+    private void writeFileEntry(Path file) throws IOException {
+      ZipEntry entry = new ZipEntry(new File(dirName, root.relativize(file).toString()).toString());
+      entry.setTime(EPOCH);
+      zipOut.putNextEntry(entry);
+      zipOut.write(Files.readAllBytes(file));
+      zipOut.closeEntry();
+    }
+
+    private void writeDirectoryEntry(Path dir) throws IOException {
       ZipEntry entry =
           new ZipEntry(new File(dirName, root.relativize(dir).toString()).toString() + "/");
       entry.setTime(EPOCH);
       zipOut.putNextEntry(entry);
       zipOut.closeEntry();
-      return FileVisitResult.CONTINUE;
     }
   }
 }

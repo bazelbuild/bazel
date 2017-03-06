@@ -56,6 +56,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -339,6 +340,7 @@ public class AndroidResourceProcessor {
         SymbolFileSrcJarBuildingVisitor visitor =
             new SymbolFileSrcJarBuildingVisitor(zip, generatedSourcesRoot, staticIds);
         Files.walkFileTree(generatedSourcesRoot, visitor);
+        visitor.writeEntries();
       }
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
@@ -357,6 +359,7 @@ public class AndroidResourceProcessor {
           new BufferedOutputStream(Files.newOutputStream(classJar)))) {
         ClassJarBuildingVisitor visitor = new ClassJarBuildingVisitor(zip, generatedClassesRoot);
         Files.walkFileTree(generatedClassesRoot, visitor);
+        visitor.writeEntries();
         visitor.writeManifestContent();
       }
       // Set to the epoch for caching purposes.
@@ -401,11 +404,13 @@ public class AndroidResourceProcessor {
         ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, resourcesRoot, "res");
         visitor.setCompress(compress);
         Files.walkFileTree(resourcesRoot, visitor);
+        visitor.writeEntries();
       }
       if (Files.exists(assetsRoot)) {
         ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, assetsRoot, "assets");
         visitor.setCompress(compress);
         Files.walkFileTree(assetsRoot, visitor);
+        visitor.writeEntries();
       }
     }
   }
@@ -1279,6 +1284,7 @@ public class AndroidResourceProcessor {
     protected final Path root;
     private final String directoryPrefix;
     private int storageMethod = ZipEntry.STORED;
+    private final Collection<Path> paths = new ArrayList<>();
 
     ZipBuilderVisitor(ZipOutputStream zip, Path root, String directory) {
       this.zip = zip;
@@ -1288,6 +1294,17 @@ public class AndroidResourceProcessor {
 
     public void setCompress(boolean compress) {
       storageMethod = compress ? ZipEntry.DEFLATED : ZipEntry.STORED;
+    }
+
+    /**
+     * Iterate through collected file paths in a deterministic order and write to the zip.
+     *
+     * @throws IOException if there is an error reading from the source or writing to the zip.
+     */
+    void writeEntries() throws IOException {
+      for (Path path : Ordering.natural().immutableSortedCopy(paths)) {
+        writeFileEntry(path);
+      }
     }
 
     /**
@@ -1321,9 +1338,13 @@ public class AndroidResourceProcessor {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      paths.add(file);
+      return FileVisitResult.CONTINUE;
+    }
+
+    protected void writeFileEntry(Path file) throws IOException {
       byte[] content = Files.readAllBytes(file);
       addEntry(file, content);
-      return FileVisitResult.CONTINUE;
     }
   }
 
@@ -1375,7 +1396,7 @@ public class AndroidResourceProcessor {
     }
 
     @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+    protected void writeFileEntry(Path file) throws IOException {
       if (file.getFileName().endsWith("R.java")) {
         byte[] content = Files.readAllBytes(file);
         if (staticIds) {
@@ -1385,7 +1406,6 @@ public class AndroidResourceProcessor {
         }
         addEntry(file, content);
       }
-      return FileVisitResult.CONTINUE;
     }
   }
 
@@ -1399,14 +1419,13 @@ public class AndroidResourceProcessor {
     }
 
     @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+    protected void writeFileEntry(Path file) throws IOException {
       Path filename = file.getFileName();
       String name = filename.toString();
       if (name.endsWith(".class")) {
         byte[] content = Files.readAllBytes(file);
         addEntry(file, content);
       }
-      return FileVisitResult.CONTINUE;
     }
 
     private byte[] manifestContent() throws IOException {
