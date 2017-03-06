@@ -27,7 +27,11 @@ if ($mode -eq "release") {
 }
 
 if ($fixPackage -eq $true) {
-  $tvPackageFixVersion = "-$((get-date).tostring("yyyyMMdd-hhmmss"))"
+  $prefix = "-"
+  if ($mode -eq "release") {
+    $prefix = "."
+  }
+  $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd"))"
 }
 rm -force -ErrorAction SilentlyContinue ./*.nupkg
 rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
