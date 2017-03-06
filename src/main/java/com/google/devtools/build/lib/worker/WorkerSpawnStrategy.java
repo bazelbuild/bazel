@@ -61,6 +61,7 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -167,10 +168,13 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   public static final String ERROR_MESSAGE_PREFIX =
       "Worker strategy cannot execute this %s action, ";
   public static final String REASON_NO_FLAGFILE =
-      "because the last argument does not contain a @flagfile";
+      "because the command-line arguments do not contain at least one @flagfile or --flagfile=";
   public static final String REASON_NO_TOOLS = "because the action has no tools";
   public static final String REASON_NO_EXECUTION_INFO =
       "because the action's execution info does not contain 'supports-workers=1'";
+
+  /** Pattern for @flagfile.txt and --flagfile=flagfile.txt */
+  private static final Pattern FLAG_FILE_PATTERN = Pattern.compile("(?:@|--?flagfile=)(.+)");
 
   private final WorkerPool workers;
   private final Path execRoot;
@@ -241,11 +245,22 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       executor.reportSubcommand(spawn);
     }
 
-    // We assume that the spawn to be executed always gets a @flagfile argument, which contains the
-    // flags related to the work itself (as opposed to start-up options for the executed tool).
-    // Thus, we can extract the last element from its args (which will be the @flagfile), expand it
-    // and put that into the WorkRequest instead.
-    if (!Iterables.getLast(spawn.getArguments()).startsWith("@")) {
+    // We assume that the spawn to be executed always gets at least one @flagfile.txt or
+    // --flagfile=flagfile.txt argument, which contains the flags related to the work itself (as
+    // opposed to start-up options for the executed tool). Thus, we can extract those elements from
+    // its args and put them into the WorkRequest instead.
+    List<String> flagfiles = new ArrayList<>();
+    List<String> startupArgs = new ArrayList<>();
+
+    for (String arg : spawn.getArguments()) {
+      if (FLAG_FILE_PATTERN.matcher(arg).matches()) {
+        flagfiles.add(arg);
+      } else {
+        startupArgs.add(arg);
+      }
+    }
+
+    if (flagfiles.isEmpty()) {
       throw new UserExecException(
           String.format(ERROR_MESSAGE_PREFIX + REASON_NO_FLAGFILE, spawn.getMnemonic()));
     }
@@ -259,7 +274,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
     ImmutableList<String> args =
         ImmutableList.<String>builder()
-            .addAll(spawn.getArguments().subList(0, spawn.getArguments().size() - 1))
+            .addAll(startupArgs)
             .add("--persistent_worker")
             .addAll(
                 MoreObjects.firstNonNull(
@@ -287,7 +302,9 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
               writeOutputFiles != null);
 
       WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
-      expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
+      for (String flagfile : flagfiles) {
+        expandArgument(requestBuilder, flagfile);
+      }
 
       List<ActionInput> inputs =
           ActionInputHelper.expandArtifacts(
@@ -329,7 +346,8 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
 
   /**
    * Recursively expands arguments by replacing @filename args with the contents of the referenced
-   * files. The @ itself can be escaped with @@.
+   * files. The @ itself can be escaped with @@. This deliberately does not expand --flagfile= style
+   * arguments, because we want to get rid of the expansion entirely at some point in time.
    *
    * @param requestBuilder the WorkRequest.Builder that the arguments should be added to.
    * @param arg the argument to expand.

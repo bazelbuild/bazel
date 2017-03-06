@@ -100,19 +100,35 @@ def _impl(ctx):
   worker = ctx.executable.worker
   output = ctx.outputs.out
 
-  # Generate the "@"-file containing the command-line args for the unit of work.
-  argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input" % ctx.label.name)
-  argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
-  ctx.file_action(output=argfile, content=argfile_contents)
+  argfile_inputs = []
+  argfile_arguments = []
+  if ctx.attr.multiflagfiles:
+    # Generate one flagfile per command-line arg, alternate between @ and --flagfile= style.
+    # This is used to test the code that handles multiple flagfiles and the --flagfile= style.
+    idx = 1
+    for arg in ["--output_file=" + output.path] + ctx.attr.args:
+      argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input_%s" % (ctx.label.name, idx))
+      ctx.file_action(output=argfile, content=arg)
+      argfile_inputs.append(argfile)
+      flagfile_prefix = "@" if (idx % 2 == 0) else "--flagfile="
+      argfile_arguments.append(flagfile_prefix + argfile.path)
+      idx += 1
+  else:
+    # Generate the "@"-file containing the command-line args for the unit of work.
+    argfile = ctx.new_file(ctx.bin_dir, "%s_worker_input" % ctx.label.name)
+    argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
+    ctx.file_action(output=argfile, content=argfile_contents)
+    argfile_inputs.append(argfile)
+    argfile_arguments.append("@" + argfile.path)
 
   ctx.action(
-      inputs=[argfile] + ctx.files.srcs,
+      inputs=argfile_inputs + ctx.files.srcs,
       outputs=[output],
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
       mnemonic="Work",
       execution_requirements={"supports-workers": "1"},
-      arguments=ctx.attr.worker_args + ["@" + argfile.path],
+      arguments=ctx.attr.worker_args + argfile_arguments,
   )
 
 work = rule(
@@ -122,6 +138,7 @@ work = rule(
         "worker_args": attr.string_list(),
         "args": attr.string_list(),
         "srcs": attr.label_list(allow_files=True),
+        "multiflagfiles": attr.bool(default=False),
     },
     outputs = {"out": "%{name}.out"},
 )
@@ -170,6 +187,22 @@ EOF
   bazel build  :hello_world_uppercase &> $TEST_log \
     || fail "build failed"
   assert_equals "HELLO WORLD" "$(cat $BINS/hello_world_uppercase.out)"
+}
+
+function test_multiple_flagfiles() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "multi_hello_world",
+  worker = ":worker",
+  args = ["hello", "world", "nice", "to", "meet", "you"],
+  multiflagfiles = True,
+)
+EOF
+
+  bazel build  :multi_hello_world &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello world nice to meet you" "$(cat $BINS/multi_hello_world.out)"
 }
 
 function test_workers_quit_after_build() {
