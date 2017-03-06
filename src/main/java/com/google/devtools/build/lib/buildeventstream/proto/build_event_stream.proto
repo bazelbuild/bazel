@@ -253,6 +253,22 @@ message TestResult {
 // TODO(aehlig): extend event with additional information as soon as we known
 // which additional information we need for test summaries.
 message TestSummary {
+  enum TestStatus {
+    NO_STATUS = 0;
+    PASSED = 1;
+    FLAKY = 2;
+    TIMEOUT = 3;
+    FAILED = 4;
+    INCOMPLETE = 5;
+    REMOTE_FAILURE = 6;
+    FAILED_TO_BUILD = 7;
+    BLAZE_HALTED_BEFORE_TESTING = 8;
+  };
+
+  // Wrapper around BlazeTestStatus to support importing that enum to proto3.
+  // Overall status of test, accumulated over all runs, shards, and attempts.
+  TestStatus overall_status = 5;
+
   // Total number of runs
   int32 total_run_count = 1;
 

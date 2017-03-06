@@ -94,11 +94,15 @@ function test_test_summary() {
   # Requesting a test, we expect
   # - precisely one test summary (for the single test we run)
   # - that is properly chained (no additional progress events)
+  # - the correct overall status being reported
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log_once '^test_summary '
   expect_log_once '^progress '
   expect_not_log 'aborted'
+  expect_log_once 'status.*PASSED'
+  expect_not_log 'status.*FAILED'
+  expect_not_log 'status.*FLAKY'
 }
 
 function test_test_inidivual_results() {
@@ -120,12 +124,17 @@ function test_test_attempts() {
   # Run a failing test declared as flaky.
   # We expect to see 3 attempts to happen, and also find the 3 xml files
   # mentioned in the stream.
+  # Moreover, as the test consistently fails, we expect the overall status
+  # to be reported as failure.
   ( bazel test --experimental_build_event_text_file=$TEST_log pkg:flaky \
     && fail "test failure expected" ) || true
   expect_log 'attempt.*1$'
   expect_log 'attempt.*2$'
   expect_log 'attempt.*3$'
   expect_log_once '^test_summary '
+  expect_log_once 'status.*FAILED'
+  expect_not_log 'status.*PASSED'
+  expect_not_log 'status.*FLAKY'
   expect_log_once '^progress '
   expect_not_log 'aborted'
   expect_log '^test_result'

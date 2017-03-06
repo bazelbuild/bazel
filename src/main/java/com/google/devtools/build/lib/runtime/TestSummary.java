@@ -463,10 +463,44 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
     return ImmutableList.of();
   }
 
+  /**
+   * Map BlazeTestStatus to TestSummary.TestStatus.
+   *
+   * <p>TODO(aehlig): remove once proto to proto dependencies are available and pass through the
+   * BlazeTestStatus.
+   */
+  private BuildEventStreamProtos.TestSummary.TestStatus bepStatus() {
+    switch (status) {
+      case NO_STATUS:
+        return BuildEventStreamProtos.TestSummary.TestStatus.NO_STATUS;
+      case PASSED:
+        return BuildEventStreamProtos.TestSummary.TestStatus.PASSED;
+      case FLAKY:
+        return BuildEventStreamProtos.TestSummary.TestStatus.FLAKY;
+      case FAILED:
+        return BuildEventStreamProtos.TestSummary.TestStatus.FAILED;
+      case TIMEOUT:
+        return BuildEventStreamProtos.TestSummary.TestStatus.TIMEOUT;
+      case INCOMPLETE:
+        return BuildEventStreamProtos.TestSummary.TestStatus.INCOMPLETE;
+      case REMOTE_FAILURE:
+        return BuildEventStreamProtos.TestSummary.TestStatus.REMOTE_FAILURE;
+      case BLAZE_HALTED_BEFORE_TESTING:
+        return BuildEventStreamProtos.TestSummary.TestStatus.BLAZE_HALTED_BEFORE_TESTING;
+      default:
+        // Not used as the above is a complete case distinction; however, by the open
+        // nature of protobuf enums, we need the clause to convice java, that we always
+        // have a return statement.
+        return BuildEventStreamProtos.TestSummary.TestStatus.NO_STATUS;
+    }
+  }
+
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
-        BuildEventStreamProtos.TestSummary.newBuilder().setTotalRunCount(totalRuns());
+        BuildEventStreamProtos.TestSummary.newBuilder()
+            .setOverallStatus(bepStatus())
+            .setTotalRunCount(totalRuns());
     for (Path path : getFailedLogs()) {
       summaryBuilder.addFailed(
           BuildEventStreamProtos.File.newBuilder().setUri(pathConverter.apply(path)).build());
