@@ -99,6 +99,13 @@ def CreateModuleSpace():
   zf.extractall(temp_dir)
   return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
 
+# Returns repository roots to add to the import path.
+def GetRepositoriesImports(module_space, import_all):
+  if import_all:
+    repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
+    return [d for d in repo_dirs if os.path.isdir(d)]
+  return [os.path.join(module_space, "%workspace_name%")]
+
 def Main():
   args = sys.argv[1:]
 
@@ -111,10 +118,7 @@ def Main():
 
   python_imports = '%imports%'
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
-
-  repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
-  repositories = [d for d in repo_dirs if os.path.isdir(d)]
-  python_path_entries += repositories
+  python_path_entries += GetRepositoriesImports(module_space, %import_all%)
 
   old_python_path = os.environ.get('PYTHONPATH')
   python_path = os.pathsep.join(python_path_entries)
