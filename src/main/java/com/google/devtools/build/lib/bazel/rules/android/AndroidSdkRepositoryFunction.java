@@ -82,16 +82,20 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws SkyFunctionException, InterruptedException {
-    declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+    Map<String, String> environ =
+        declareEnvironmentDependencies(markerData, env, PATH_ENV_VAR_AS_LIST);
+    if (environ == null) {
+      return null;
+    }
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       androidSdkPath = fs.getPath(getTargetPath(rule, directories.getWorkspace()));
-    } else if (clientEnvironment.containsKey(PATH_ENV_VAR)){
+    } else if (environ.containsKey(PATH_ENV_VAR)){
       androidSdkPath =
-          fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), clientEnvironment));
+          fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
     } else {
       throw new RepositoryFunctionException(
           new EvalException(
