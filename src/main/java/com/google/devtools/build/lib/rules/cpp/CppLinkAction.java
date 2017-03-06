@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
@@ -32,10 +33,13 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -52,6 +56,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -220,6 +225,12 @@ public final class CppLinkAction extends AbstractAction
               .getParentDirectory()
               .getPathString());
     }
+
+    if (!needsToRunOnMac()) {
+      // This prevents gcc from writing the unpredictable (and often irrelevant)
+      // value of getcwd() into the debug info.
+      result.put("PWD", "/proc/self/cwd");
+    }
     return ImmutableMap.copyOf(result);
   }
 
@@ -298,6 +309,10 @@ public final class CppLinkAction extends AbstractAction
     return allLTOBackendArtifacts;
   }
 
+  private boolean needsToRunOnMac() {
+    return getHostSystemName().equals(CppConfiguration.MAC_SYSTEM_NAME);
+  }
+
   @Override
   @ThreadCompatible
   public void execute(
@@ -307,10 +322,27 @@ public final class CppLinkAction extends AbstractAction
       executeFake();
     } else {
       Executor executor = actionExecutionContext.getExecutor();
-
       try {
-        executor.getContext(CppLinkActionContext.class).exec(
-            this, actionExecutionContext);
+        // Collect input files
+        List<ActionInput> allInputs = new ArrayList<>();
+        Artifact.addExpandedArtifacts(
+            getMandatoryInputs(), allInputs, actionExecutionContext.getArtifactExpander());
+
+        ImmutableMap<String, String> executionInfo = ImmutableMap.of();
+        if (needsToRunOnMac()) {
+          executionInfo = ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "");
+        }
+
+        Spawn spawn = new SimpleSpawn(
+            this,
+            ImmutableList.copyOf(getCommandLine()),
+            getEnvironment(),
+            executionInfo,
+            ImmutableList.copyOf(allInputs),
+            getOutputs().asList(),
+            estimateResourceConsumptionLocal());
+        executor.getSpawnActionContext(getMnemonic()).exec(
+            spawn, actionExecutionContext);
       } catch (ExecException e) {
         throw e.toActionExecutionException("Linking of rule '" + getOwner().getLabel() + "'",
             executor.getVerboseFailures(), this);

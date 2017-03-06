@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
 import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.cpp.SpawnGccStrategy;
-import com.google.devtools.build.lib.rules.cpp.SpawnLinkStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -88,7 +87,6 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
             verboseFailures,
             env.getRuntime().getProductName()),
         new DummyIncludeScanningContext(),
-        new SpawnLinkStrategy(),
         new SpawnGccStrategy(),
         testStrategy,
         new ExclusiveTestStrategy(testStrategy),

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.bazel.rules.BazelRulesModule.BazelExecution
 import com.google.devtools.build.lib.exec.ActionContextConsumer;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
-import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import java.util.Map;
 import java.util.TreeMap;
@@ -73,7 +72,6 @@ public class BazelActionContextConsumer implements ActionContextConsumer {
   public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
     return ImmutableMultimap.<Class<? extends ActionContext>, String>builder()
         .put(CppCompileActionContext.class, "")
-        .put(CppLinkActionContext.class, "")
         .put(IncludeScanningContext.class, "")
         .put(FileWriteActionContext.class, "")
         .put(WriteAdbArgsActionContext.class, "")
