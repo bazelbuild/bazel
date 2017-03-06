@@ -6,7 +6,6 @@ $paramsText = get-content "$($toolsDir)\params.txt"
 $p = $paramsText.Split("`n")
 
 $packageDir = Split-Path -parent $toolsDir
-$binRoot = (Get-ToolsLocation) -replace "\\", "/"
 
 write-host "Read params from text file"
 write-host $p
