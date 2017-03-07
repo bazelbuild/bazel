@@ -353,8 +353,8 @@ This gets rid of the duplicates, but it makes the order of the command line
 arguments (and therefore the contents of the files) unspecified, although still
 deterministic.
 
-Moreover, both this approach and the list-based are asymptotically worse than
-the depset-based approach. Consider the case where there is a long chain of
+Moreover, both this approach and the list-based one are asymptotically worse
+than the depset-based approach. Consider the case where there is a long chain of
 dependencies on Foo libraries. Processing every rule requires copying all of the
 transitive sources that came before it into a new data structure. This means
 that the time and space cost for analyzing an individual library or binary
