@@ -105,7 +105,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     PathFragment pathFragment;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       pathFragment = getTargetPath(rule, directories.getWorkspace());
-    } else if (environ.containsKey(PATH_ENV_VAR)) {
+    } else if (environ.get(PATH_ENV_VAR) != null) {
       pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
     } else {
       throw new RepositoryFunctionException(
