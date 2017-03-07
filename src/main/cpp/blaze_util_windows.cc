@@ -799,12 +799,15 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 string ListSeparator() { return ";"; }
 
 string PathAsJvmFlag(const string& path) {
+  string spath;
+  if (!blaze_util::AsShortWindowsPath(path, &spath)) {
+    pdie(255, "PathAsJvmFlag(%s): AsShortWindowsPath failed", path.c_str());
+  }
   // Convert backslashes to forward slashes, in order to avoid the JVM parsing
   // Windows paths as if they contained escaped characters.
   // See https://github.com/bazelbuild/bazel/issues/2576
-  string result(path);
-  std::replace(result.begin(), result.end(), '\\', '/');
-  return result;
+  std::replace(spath.begin(), spath.end(), '\\', '/');
+  return spath;
 }
 
 string ConvertPath(const string& path) {
@@ -828,6 +831,11 @@ string ConvertPath(const string& path) {
 
 // Convert a Unix path list to Windows path list
 string ConvertPathList(const string& path_list) {
+#ifdef COMPILER_MSVC
+  // In the MSVC version we use the actual %PATH% value which is separated by
+  // ";" and contains Windows paths.
+  return path_list;
+#else   // not COMPILER_MSVC
   string w_list = "";
   int start = 0;
   int pos;
@@ -839,6 +847,7 @@ string ConvertPathList(const string& path_list) {
     w_list += ConvertPath(path_list.substr(start));
   }
   return w_list;
+#endif  // COMPILER_MSVC
 }
 
 static string ConvertPathToPosix(const string& win_path) {
