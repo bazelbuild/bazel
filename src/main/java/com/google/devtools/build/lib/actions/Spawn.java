@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
@@ -104,12 +103,6 @@ public interface Spawn {
    * stable so it can be cached.
    */
   Collection<? extends ActionInput> getOutputFiles();
-
-  /**
-   * Instructs the spawn strategy to try to fetch these optional output files in addition to the
-   * usual output artifacts. The PathFragments should be relative to the exec root.
-   */
-  Collection<PathFragment> getOptionalOutputFiles();
 
   /**
    * Returns the resource owner for local fallback.

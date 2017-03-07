@@ -16,13 +16,13 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -112,15 +112,20 @@ public class StandaloneTestStrategy extends TestStrategy {
     info.putAll(action.getTestProperties().getExecutionInfo());
 
     Spawn spawn =
-        new BaseSpawn(
+        new SimpleSpawn(
+            action,
             getArgs(COLLECT_COVERAGE, action),
-            env,
-            info,
+            ImmutableMap.copyOf(env),
+            ImmutableMap.copyOf(info),
             new RunfilesSupplierImpl(
                 runfilesDir.asFragment(), action.getExecutionSettings().getRunfiles()),
-            action,
-            action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs()),
-            ImmutableSet.of(resolvedPaths.getXmlOutputPath().relativeTo(execRoot)));
+            /*inputs=*/ImmutableList.copyOf(action.getInputs()),
+            /*tools=*/ImmutableList.<Artifact>of(),
+            /*filesetManifests=*/ImmutableList.<Artifact>of(),
+            ImmutableList.copyOf(action.getSpawnOutputs()),
+            action
+                .getTestProperties()
+                .getLocalResourceUsage(executionOptions.usingLocalTestJobs()));
 
     Executor executor = actionExecutionContext.getExecutor();
 

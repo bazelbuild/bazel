@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -36,7 +34,6 @@ public final class SimpleSpawn implements Spawn {
   private final RunfilesSupplier runfilesSupplier;
   private final ImmutableList<Artifact> filesetManifests;
   private final ImmutableList<? extends ActionInput> outputs;
-  private final ImmutableSet<PathFragment> optionalOutputFiles;
   private final ResourceSet localResources;
 
   public SimpleSpawn(
@@ -49,7 +46,6 @@ public final class SimpleSpawn implements Spawn {
       ImmutableList<? extends ActionInput> tools,
       ImmutableList<Artifact> filesetManifests,
       ImmutableList<? extends ActionInput> outputs,
-      ImmutableSet<PathFragment> optionalOutputFiles,
       ResourceSet localResources) {
     this.owner = Preconditions.checkNotNull(owner);
     this.arguments = Preconditions.checkNotNull(arguments);
@@ -61,7 +57,6 @@ public final class SimpleSpawn implements Spawn {
         runfilesSupplier == null ? EmptyRunfilesSupplier.INSTANCE : runfilesSupplier;
     this.filesetManifests = Preconditions.checkNotNull(filesetManifests);
     this.outputs = Preconditions.checkNotNull(outputs);
-    this.optionalOutputFiles = Preconditions.checkNotNull(optionalOutputFiles);
     this.localResources = Preconditions.checkNotNull(localResources);
   }
 
@@ -83,7 +78,6 @@ public final class SimpleSpawn implements Spawn {
         ImmutableList.<Artifact>of(),
         ImmutableList.<Artifact>of(),
         outputs,
-        ImmutableSet.<PathFragment>of(),
         localResources);
   }
 
@@ -135,11 +129,6 @@ public final class SimpleSpawn implements Spawn {
   @Override
   public ImmutableList<? extends ActionInput> getOutputFiles() {
     return outputs;
-  }
-
-  @Override
-  public ImmutableSet<PathFragment> getOptionalOutputFiles() {
-    return optionalOutputFiles;
   }
 
   @Override

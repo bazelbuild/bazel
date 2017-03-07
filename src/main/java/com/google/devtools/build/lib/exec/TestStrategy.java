@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.exec;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
@@ -158,7 +159,7 @@ public abstract class TestStrategy implements TestActionContext {
    * @return the command line as string list.
    * @throws ExecException 
    */
-  protected List<String> getArgs(String coverageScript, TestRunnerAction testAction)
+  protected ImmutableList<String> getArgs(String coverageScript, TestRunnerAction testAction)
       throws ExecException {
     List<String> args = Lists.newArrayList();
     // TODO(ulfjack): This is incorrect for remote execution, where we need to consider the target
@@ -187,7 +188,7 @@ public abstract class TestStrategy implements TestActionContext {
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
     args.add(execSettings.getExecutable().getRootRelativePath().getCallablePathString());
     args.addAll(execSettings.getArgs());
-    return args;
+    return ImmutableList.copyOf(args);
   }
 
   private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {

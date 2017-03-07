@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -31,7 +30,6 @@ public class BaseSpawn implements Spawn {
   private final ImmutableList<String> arguments;
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
-  private final ImmutableSet<PathFragment> optionalOutputFiles;
   private final RunfilesSupplier runfilesSupplier;
   private final ActionExecutionMetadata action;
   private final ResourceSet localResources;
@@ -42,39 +40,15 @@ public class BaseSpawn implements Spawn {
       Map<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
       ActionExecutionMetadata action,
-      ResourceSet localResources,
-      Collection<PathFragment> optionalOutputFiles) {
+      ResourceSet localResources) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
     this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
-    this.optionalOutputFiles = ImmutableSet.copyOf(optionalOutputFiles);
   }
 
-  /**
-   * Returns a new Spawn. The caller must not modify the parameters after the call; neither will
-   * this method.
-   */
-  public BaseSpawn(
-      List<String> arguments,
-      Map<String, String> environment,
-      Map<String, String> executionInfo,
-      RunfilesSupplier runfilesSupplier,
-      ActionExecutionMetadata action,
-      ResourceSet localResources) {
-    this(
-        arguments,
-        environment,
-        executionInfo,
-        runfilesSupplier,
-        action,
-        localResources,
-        ImmutableSet.<PathFragment>of());
-  }
-
-  /** Returns a new Spawn. */
   public BaseSpawn(
       List<String> arguments,
       Map<String, String> environment,
@@ -167,11 +141,6 @@ public class BaseSpawn implements Spawn {
   @Override
   public Collection<? extends ActionInput> getOutputFiles() {
     return action.getOutputs();
-  }
-
-  @Override
-  public Collection<PathFragment> getOptionalOutputFiles() {
-    return optionalOutputFiles;
   }
 
   @Override

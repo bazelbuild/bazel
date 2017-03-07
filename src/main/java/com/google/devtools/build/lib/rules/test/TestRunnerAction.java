@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -42,7 +44,9 @@ import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -186,6 +190,29 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   @Override
   public boolean showsOutputUnconditionally() {
     return true;
+  }
+
+  public List<ActionInput> getSpawnOutputs() {
+    final List<ActionInput> outputs = new ArrayList<>();
+    outputs.add(ActionInputHelper.fromPath(getXmlOutputPath()));
+    outputs.add(ActionInputHelper.fromPath(getExitSafeFile()));
+    if (isSharded()) {
+      outputs.add(ActionInputHelper.fromPath(getTestShard()));
+    }
+    outputs.add(ActionInputHelper.fromPath(getTestWarningsPath()));
+    outputs.add(ActionInputHelper.fromPath(getSplitLogsPath()));
+    outputs.add(ActionInputHelper.fromPath(getUnusedRunfilesLogPath()));
+    outputs.add(ActionInputHelper.fromPath(getInfrastructureFailureFile()));
+    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsZipPath()));
+    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
+    outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
+    if (isCoverageMode()) {
+      outputs.add(getCoverageData());
+      if (isMicroCoverageMode()) {
+        outputs.add(getMicroCoverageData());
+      }
+    }
+    return outputs;
   }
 
   @Override

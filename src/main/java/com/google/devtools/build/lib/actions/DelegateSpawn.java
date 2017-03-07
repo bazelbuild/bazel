@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 
 /**
@@ -79,11 +78,6 @@ public class DelegateSpawn implements Spawn {
   @Override
   public Collection<? extends ActionInput> getOutputFiles() {
     return spawn.getOutputFiles();
-  }
-
-  @Override
-  public Collection<PathFragment> getOptionalOutputFiles() {
-    return spawn.getOptionalOutputFiles();
   }
 
   @Override
