@@ -147,7 +147,7 @@ function bazel_build() {
       cp bazel-bin/scripts/packages/debian/bazel-debian.deb $1/bazel_${release_label}.deb
       cp -f bazel-genfiles/scripts/packages/debian/bazel.dsc $1/bazel.dsc
       cp -f bazel-genfiles/scripts/packages/debian/bazel.tar.gz $1/bazel.tar.gz
-      if [ "${JAVA_VERSION}" = "1.8"]; then
+      if [ "${JAVA_VERSION}" = "1.8" ]; then
         cp bazel-genfiles/bazel-distfile.zip $1/bazel-${release_label}-dist.zip
       fi
     fi
