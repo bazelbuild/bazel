@@ -56,7 +56,7 @@ directory.  Add the following lines to this BUILD file:
 java_binary(
     name = "my-runner",
     srcs = glob(["**/*.java"]),
-    main_class = "com.example.ProjectRunner",
+    main_class = "ProjectRunner",
 )
 {% endhighlight %}
 
@@ -64,7 +64,7 @@ java_binary(
 `glob(["**/*.java"])` is a handy shorthand for "recursively include every file
 that ends with .java" (see the
 [build encyclopedia](/docs/be/functions.html#glob) for more information about
-globbing). `com.example.ProjectRunner` specifies the class that contains the
+globbing). `ProjectRunner` specifies the class that contains the
 main method.
 
 Now you are ready to build your Java binary:
@@ -99,7 +99,7 @@ to the `BUILD` file:
 java_binary(
     name = "my-other-runner",
     srcs = ["src/main/java/com/example/ProjectRunner.java"],
-    main_class = "com.example.ProjectRunner",
+    main_class = "ProjectRunner",
     deps = [":greeter"],
 )
 
