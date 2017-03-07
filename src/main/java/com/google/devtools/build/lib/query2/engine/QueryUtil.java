@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import java.util.Collections;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Several query utilities to make easier to work with query callbacks and uniquifiers. */
 public final class QueryUtil {
@@ -86,53 +87,84 @@ public final class QueryUtil {
     return callback.getResult();
   }
 
-  /** A trivial {@link Uniquifier} base class. */
-  public abstract static class AbstractUniquifier<T, K>
-      extends AbstractUniquifierBase<T, K> {
-    private final CompactHashSet<K> alreadySeen = CompactHashSet.create();
-
-    @Override
-    public final boolean unique(T element) {
-      return alreadySeen.add(extractKey(element));
-    }
-
-    /**
-     * Extracts an unique key that can be used to dedupe the given {@code element}.
-     *
-     * <p>Depending on the choice of {@code K}, this enables potential memory optimizations.
-     */
-    protected abstract K extractKey(T element);
-  }
-
-  /** A trivial {@link ThreadSafeUniquifier} base class. */
-  public abstract static class AbstractThreadSafeUniquifier<T, K>
-      extends AbstractUniquifierBase<T, K> implements ThreadSafeUniquifier<T> {
-    private final Set<K> alreadySeen;
-
-    protected AbstractThreadSafeUniquifier(int concurrencyLevel) {
-      this.alreadySeen = Collections.newSetFromMap(
-          new MapMaker().concurrencyLevel(concurrencyLevel).<K, Boolean>makeMap());
-    }
-
-    @Override
-    public final boolean unique(T element) {
-      return alreadySeen.add(extractKey(element));
-    }
-
-    /**
-     * Extracts an unique key that can be used to dedupe the given {@code element}.
-     *
-     * <p>Depending on the choice of {@code K}, this enables potential memory optimizations.
-     */
-    protected abstract K extractKey(T element);
-  }
-
   private abstract static class AbstractUniquifierBase<T, K> implements Uniquifier<T> {
     @Override
     public final ImmutableList<T> unique(Iterable<T> newElements) {
       ImmutableList.Builder<T> result = ImmutableList.builder();
       for (T element : newElements) {
         if (unique(element)) {
+          result.add(element);
+        }
+      }
+      return result.build();
+    }
+  }
+
+  /** A trivial {@link Uniquifier} implementation. */
+  public static class UniquifierImpl<T, K> extends AbstractUniquifierBase<T, K> {
+    private final KeyExtractor<T, K> extractor;
+    private final CompactHashSet<K> alreadySeen = CompactHashSet.create();
+
+    public UniquifierImpl(KeyExtractor<T, K> extractor) {
+      this.extractor = extractor;
+    }
+
+    @Override
+    public final boolean unique(T element) {
+      return alreadySeen.add(extractor.extractKey(element));
+    }
+  }
+
+  /** A trvial {@link ThreadSafeUniquifier} implementation. */
+  public static class ThreadSafeUniquifierImpl<T, K>
+      extends AbstractUniquifierBase<T, K> implements ThreadSafeUniquifier<T> {
+    private final KeyExtractor<T, K> extractor;
+    private final Set<K> alreadySeen;
+
+    public ThreadSafeUniquifierImpl(KeyExtractor<T, K> extractor, int concurrencyLevel) {
+      this.extractor = extractor;
+      this.alreadySeen = Collections.newSetFromMap(
+          new MapMaker().concurrencyLevel(concurrencyLevel).<K, Boolean>makeMap());
+    }
+
+    @Override
+    public final boolean unique(T element) {
+      return alreadySeen.add(extractor.extractKey(element));
+    }
+  }
+
+  /** A trivial {@link ThreadSafeMinDepthUniquifier} implementation. */
+  public static class ThreadSafeMinDepthUniquifierImpl<T, K>
+      implements ThreadSafeMinDepthUniquifier<T> {
+    private final KeyExtractor<T, K> extractor;
+    private final ConcurrentMap<K, AtomicInteger> alreadySeenAtDepth;
+
+    public ThreadSafeMinDepthUniquifierImpl(
+        KeyExtractor<T, K> extractor, int concurrencyLevel) {
+      this.extractor = extractor;
+      this.alreadySeenAtDepth = new MapMaker().concurrencyLevel(concurrencyLevel).makeMap();
+    }
+
+    @Override
+    public final ImmutableList<T> uniqueAtDepthLessThanOrEqualTo(
+        Iterable<T> newElements, int depth) {
+      ImmutableList.Builder<T> result = ImmutableList.builder();
+      for (T element : newElements) {
+        AtomicInteger newDepth = new AtomicInteger(depth);
+        AtomicInteger previousDepth =
+            alreadySeenAtDepth.putIfAbsent(extractor.extractKey(element), newDepth);
+        if (previousDepth != null) {
+          if (depth < previousDepth.get()) {
+            synchronized (previousDepth) {
+              if (depth < previousDepth.get()) {
+                // We've seen the element before, but never at a depth this shallow.
+                previousDepth.set(depth);
+                result.add(element);
+              }
+            }
+          }
+        } else {
+          // We've never seen the element before.
           result.add(element);
         }
       }

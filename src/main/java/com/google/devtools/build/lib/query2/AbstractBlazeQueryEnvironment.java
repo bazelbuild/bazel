@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.query2.engine.KeyExtractor;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -293,5 +294,18 @@ public abstract class AbstractBlazeQueryEnvironment<T>
   @Override
   public QueryExpressionEvalListener<T> getEvalListener() {
     return evalListener;
+  }
+
+  /** A {@link KeyExtractor} that extracts {@code Label}s out of {@link Target}s. */
+  protected static class TargetKeyExtractor implements KeyExtractor<Target, Label> {
+    protected static final TargetKeyExtractor INSTANCE = new TargetKeyExtractor();
+
+    private TargetKeyExtractor() {
+    }
+
+    @Override
+    public Label extractKey(Target element) {
+      return element.getLabel();
+    }
   }
 }

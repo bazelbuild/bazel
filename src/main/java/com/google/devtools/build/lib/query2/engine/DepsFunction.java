@@ -60,7 +60,7 @@ final class DepsFunction implements QueryFunction {
       List<Argument> args,
       final Callback<T> callback) throws QueryException, InterruptedException {
     final int depthBound = args.size() > 1 ? args.get(1).getInteger() : Integer.MAX_VALUE;
-    final Uniquifier<T> uniquifier = env.createUniquifier();
+    final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
     env.eval(args.get(0).getExpression(), context, new Callback<T>() {
       @Override
       public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
@@ -72,7 +72,8 @@ final class DepsFunction implements QueryFunction {
           // Filter already visited nodes: if we see a node in a later round, then we don't need to
           // visit it again, because the depth at which we see it at must be greater than or equal
           // to the last visit.
-          ImmutableList<T> toProcess = uniquifier.unique(current);
+          ImmutableList<T> toProcess =
+              minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(current, i);
           callback.process(toProcess);
           current = ImmutableList.copyOf(env.getFwdDeps(toProcess));
           if (current.isEmpty()) {

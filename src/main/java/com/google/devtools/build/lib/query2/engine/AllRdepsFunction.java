@@ -74,7 +74,7 @@ public class AllRdepsFunction implements QueryFunction {
       ((StreamableQueryEnvironment<T>) env)
           .getAllRdeps(args.get(0).getExpression(), universe, context, callback, depth);
     } else {
-      final Uniquifier<T> uniquifier = env.createUniquifier();
+      final MinDepthUniquifier<T> minDepthUniquifier = env.createMinDepthUniquifier();
       env.eval(
           args.get(0).getExpression(),
           context,
@@ -91,7 +91,8 @@ public class AllRdepsFunction implements QueryFunction {
                 // Filter already visited nodes: if we see a node in a later round, then we don't
                 // need to visit it again, because the depth at which we see it must be greater
                 // than or equal to the last visit.
-                next.addAll(env.getReverseDeps(uniquifier.unique(currentInUniverse)));
+                next.addAll(env.getReverseDeps(
+                    minDepthUniquifier.uniqueAtDepthLessThanOrEqualTo(currentInUniverse, i)));
                 callback.process(currentInUniverse);
                 if (next.isEmpty()) {
                   // Exit when there are no more nodes to visit.
