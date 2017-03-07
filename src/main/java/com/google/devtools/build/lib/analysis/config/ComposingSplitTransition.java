@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
@@ -22,40 +23,65 @@ import com.google.devtools.build.lib.packages.Attribute.Transition;
 import java.util.List;
 
 /**
- * A split transition that combines a Transition with a {@link PatchTransition}.  The patch is
- * applied first, followed by the Transition.
+ * A configuration transition that composes two other transitions in an ordered sequence.
  *
- * <p>We implement a {@link SplitTransition} here since that abstraction can capture all possible
- * composed transitions - both those that produce multiple output configurations and those that
- * do not.
+ * <p>Example:
+ * <pre>
+ *   transition1: { someSetting = $oldVal + " foo" }
+ *   transition2: { someSetting = $oldVal + " bar" }
+ *   ComposingSplitTransition(transition1, transition2): { someSetting = $oldVal + " foo bar" }
+ * </pre>
+ *
+ * <p>Child transitions can be {@link SplitTransition}s, {@link PatchTransition}s, or any
+ * combination thereof. We implement this class as a {@link SplitTransition} since that abstraction
+ * captures all possible combinations.
  */
 public class ComposingSplitTransition implements SplitTransition<BuildOptions> {
-
-  private PatchTransition patch;
-  private Transition transition;
+  private Transition transition1;
+  private Transition transition2;
 
   /**
-   * Creates a {@link ComposingSplitTransition} with the given {@link Transition} and
-   * {@link PatchTransition}.
+   * Creates a {@link ComposingSplitTransition} that applies the sequence:
+   * {@code fromOptions -> transition1 -> transition2 -> toOptions  }.
    */
-  public ComposingSplitTransition(PatchTransition patch, Transition transition) {
-    this.patch = patch;
-    this.transition = transition;
+  public ComposingSplitTransition(Transition transition1, Transition transition2) {
+    this.transition1 = verifySupported(transition1);
+    this.transition2 = verifySupported(transition2);
   }
 
   @Override
   public List<BuildOptions> split(BuildOptions buildOptions) {
-    BuildOptions patchedOptions = patch.apply(buildOptions);
+    ImmutableList.Builder<BuildOptions> toOptions = ImmutableList.builder();
+    for (BuildOptions transition1Options : apply(buildOptions, transition1)) {
+      toOptions.addAll(apply(transition1Options, transition2));
+    }
+    return toOptions.build();
+  }
+
+  /**
+   * Verifies support for the given transition type. Throws an {@link IllegalArgumentException} if
+   * unsupported.
+   */
+  private Transition verifySupported(Transition transition) {
+    Preconditions.checkArgument(transition instanceof PatchTransition
+        || transition instanceof SplitTransition<?>);
+    return transition;
+  }
+
+  /**
+   * Applies the given transition over the given {@link BuildOptions}, returns the result.
+   */
+  private List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
     if (transition == ConfigurationTransition.NONE) {
-      return ImmutableList.<BuildOptions>of(patchedOptions);
+      return ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {
-      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(patchedOptions));
+      return ImmutableList.<BuildOptions>of(((PatchTransition) transition).apply(fromOptions));
     } else if (transition instanceof SplitTransition) {
       SplitTransition split = (SplitTransition<BuildOptions>) transition;
-      List<BuildOptions> splitOptions = split.split(patchedOptions);
+      List<BuildOptions> splitOptions = split.split(fromOptions);
       if (splitOptions.isEmpty()) {
         Verify.verify(split.defaultsToSelf());
-        return ImmutableList.of(patchedOptions);
+        return ImmutableList.<BuildOptions>of(fromOptions);
       } else {
         return splitOptions;
       }

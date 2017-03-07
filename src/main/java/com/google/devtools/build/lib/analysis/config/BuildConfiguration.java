@@ -1298,7 +1298,7 @@ public final class BuildConfiguration {
    * Sorts fragments by class name. This produces a stable order which, e.g., facilitates
    * consistent output from buildMneumonic.
    */
-  private final static Comparator lexicalFragmentSorter =
+  private static final Comparator lexicalFragmentSorter =
       new Comparator<Class<? extends Fragment>>() {
         @Override
         public int compare(Class<? extends Fragment> o1, Class<? extends Fragment> o2) {
@@ -1588,7 +1588,7 @@ public final class BuildConfiguration {
      * Accepts the given split transition. The implementation decides how to turn this into
      * actual configurations.
      */
-    void split(SplitTransition<?> splitTransition);
+    void split(SplitTransition<BuildOptions> splitTransition);
 
     /**
      * Returns whether or not all configuration(s) represented by the current state of this
@@ -1651,7 +1651,7 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public void split(SplitTransition<?> splitTransition) {
+    public void split(SplitTransition<BuildOptions> splitTransition) {
       // Split transitions can't be nested, so if we're splitting we must be doing it over
       // a single config.
       toConfigurations =
@@ -1723,15 +1723,20 @@ public final class BuildConfiguration {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
+    // TODO(gregce): remove this when Attribute.Configurator is refactored to read BuildOptions
+    // instead of BuildConfiguration.
     private final BuildConfiguration originalConfiguration;
-    // The transition this applier applies to dep rules. May change multiple times. However,
-    // composed transitions (e.g. fromConfig -> FooTransition -> BarTransition) are not currently
-    // supported, in the name of keeping the model simple. We can always revisit that assumption
-    // if needed.
+    private final Transitions transitionsManager;
+    private boolean splitApplied = false;
+
+    // The transition this applier applies to dep rules. When multiple transitions are requested,
+    // this is a ComposingSplitTransition, which encapsulates the sequence into a single instance
+    // so calling code doesn't need special logic to support combinations.
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
     private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
       this.originalConfiguration = originalConfiguration;
+      this.transitionsManager = originalConfiguration.getTransitions();
     }
 
     @Override
@@ -1741,36 +1746,48 @@ public final class BuildConfiguration {
 
     @Override
     public void applyTransition(Transition transitionToApply) {
-      if (transitionToApply == Attribute.ConfigurationTransition.NONE
-          // Outside of LIPO, data transitions are a no-op. Since dynamic configs don't yet support
-          // LIPO, just return fast as a no-op. This isn't just convenient: evaluateTransition
-          // calls configurationHook after standard attribute transitions. If configurationHook
-          // triggers a data transition, that undoes the earlier transitions (because of lack of
-          // composed transition support). That's dangerous and especially pointless for non-LIPO
-          // builds. Hence this check.
-          // TODO(gregce): add LIPO support and/or make this special case unnecessary.
-          || transitionToApply == Attribute.ConfigurationTransition.DATA
-          // This means it's not possible to transition back out of a host transition. We may
-          // need to revise this when we properly support multiple host configurations.
+      if (currentTransition == Attribute.ConfigurationTransition.NULL
           || currentTransition == HostTransition.INSTANCE) {
+        return; // HOST and NULL transitions are final.
+      } else if (transitionToApply == Attribute.ConfigurationTransition.NONE) {
+        return;
+      } else if (transitionToApply == Attribute.ConfigurationTransition.NULL) {
+        // A NULL transition can just replace earlier transitions: no need to compose them.
+        currentTransition = Attribute.ConfigurationTransition.NULL;
+        return;
+      } else if (transitionToApply == Attribute.ConfigurationTransition.HOST) {
+        // A HOST transition can just replace earlier transitions: no need to compose them.
+        // But it also improves performance: host transitions are common, and
+        // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried
+        // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
+        currentTransition = HostTransition.INSTANCE;
         return;
       }
-
-      // Since we don't support composed transitions, we need to be careful applying a transition
-      // when another transition has already been applied (the latter will simply overwrite the
-      // former). All allowed cases should be explicitly asserted here.
-      Verify.verify(currentTransition == Attribute.ConfigurationTransition.NONE
-          // LIPO transitions are okay because they're no-ops outside LIPO builds. And dynamic
-          // configs don't yet support LIPO builds.
-          || currentTransition.toString().contains("LipoDataTransition"));
-      currentTransition = getCurrentTransitions().getDynamicTransition(transitionToApply);
+      Transition dynamicTransition = transitionToApply instanceof PatchTransition
+          ? transitionToApply
+          : transitionsManager.getDynamicTransition(transitionToApply);
+      currentTransition = currentTransition == Attribute.ConfigurationTransition.NONE
+          ? dynamicTransition
+          : new ComposingSplitTransition(currentTransition, dynamicTransition);
     }
 
     @Override
-    public void split(SplitTransition<?> splitTransition) {
-      Verify.verify(currentTransition == Attribute.ConfigurationTransition.NONE,
-          "split transitions aren't expected to mix with other transitions");
-      currentTransition = splitTransition;
+    // TODO(gregce): fold this into applyTransition during the static config code removal cleanup
+    public void split(SplitTransition<BuildOptions> splitTransition) {
+      // This "single split" check doesn't come from any design restriction. Its purpose is to
+      // protect against runaway graph explosion, e.g. applying split[1,2,3] -> split[4,5,6] -> ...
+      // and getting 3^n versions of a dep. So it's fine to loosen or lift this restriction
+      // for a principled use case.
+      Preconditions.checkState(!splitApplied,
+          "dependency edges may apply at most one split transition");
+      Preconditions.checkState(currentTransition != Attribute.ConfigurationTransition.NULL,
+          "cannot apply splits after null transitions (null transitions are expected to be final)");
+      Preconditions.checkState(currentTransition != HostTransition.INSTANCE,
+          "cannot apply splits after host transitions (host transitions are expected to be final)");
+      currentTransition = currentTransition == Attribute.ConfigurationTransition.NONE
+          ? splitTransition
+          : new ComposingSplitTransition(currentTransition, splitTransition);
+      splitApplied = true;
     }
 
     @Override
@@ -1797,7 +1814,7 @@ public final class BuildConfiguration {
       if (isNull()) {
         return;
       }
-      getCurrentTransitions().configurationHook(fromRule, attribute, toTarget, this);
+      transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
 
       Rule associatedRule = toTarget.getAssociatedRule();
       PatchTransition ruleClassTransition = (PatchTransition)
@@ -1807,12 +1824,13 @@ public final class BuildConfiguration {
         if (currentTransition == ConfigurationTransition.NONE) {
           currentTransition = ruleClassTransition;
         } else {
-          currentTransition = new ComposingSplitTransition(ruleClassTransition, currentTransition);
+          currentTransition = new ComposingSplitTransition(ruleClassTransition,
+              currentTransition);
         }
       }
 
-      // We don't support rule class configurators (which might imply composed transitions).
-      // The only current use of that is LIPO, which can't currently be invoked with dynamic
+      // We don't support rule class configurators (which may need intermediate configurations to
+      // apply). The only current use of that is LIPO, which can't currently be invoked with dynamic
       // configurations (e.g. this code can never get called for LIPO builds). So check that
       // if there is a configurator, it's for LIPO, in which case we can ignore it.
       if (associatedRule != null) {
@@ -1821,10 +1839,6 @@ public final class BuildConfiguration {
             associatedRule.getRuleClassObject().getConfigurator();
         Verify.verify(func == RuleClass.NO_CHANGE || func.getCategory().equals("lipo"));
       }
-    }
-
-    private Transitions getCurrentTransitions() {
-      return originalConfiguration.getTransitions();
     }
 
     @Override
@@ -1904,9 +1918,12 @@ public final class BuildConfiguration {
       return;
     }
 
+    // TODO(gregce): make the below transitions composable (i.e. take away the "else" clauses) once
+    // the static config code path is removed. They can be mixed freely with dynamic configurations.
     if (attribute.hasSplitConfigurationTransition()) {
       Preconditions.checkState(attribute.getConfigurator() == null);
-      transitionApplier.split(attribute.getSplitTransition(fromRule));
+      transitionApplier.split(
+          (SplitTransition<BuildOptions>) attribute.getSplitTransition(fromRule));
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.
