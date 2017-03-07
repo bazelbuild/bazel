@@ -71,6 +71,7 @@ public class J2ObjcLibraryRule implements RuleDefinition {
                 .direct_compile_time_input()
                 .allowedRuleClasses("j2objc_library", "java_library", "java_import")
                 .allowedFileTypes())
+        .cfg(AppleCrosstoolTransition.APPLE_CROSSTOOL_TRANSITION)
         .build();
   }
 
