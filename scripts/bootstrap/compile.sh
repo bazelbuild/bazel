@@ -327,7 +327,6 @@ function run_bazel_jar() {
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
-      --ignore_client_env \
       --client_cwd=${PWD} \
       "${@}"
 }

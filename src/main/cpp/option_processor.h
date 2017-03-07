@@ -142,7 +142,7 @@ class OptionProcessor {
     int index_;
   };
 
-  void AddRcfileArgsAndOptions(bool batch, const std::string& cwd);
+  void AddRcfileArgsAndOptions(const std::string& cwd);
   blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
 
   std::vector<RcFile*> blazercs_;
