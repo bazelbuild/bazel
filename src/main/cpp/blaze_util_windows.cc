@@ -387,7 +387,7 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
     if (first) {
       first = false;
       // Skip first argument, instead use quoted executable name.
-      cmdline << '\"' << exe << '\"';
+      cmdline << '\"' << short_exe << '\"';
       continue;
     } else {
       cmdline << ' ';
