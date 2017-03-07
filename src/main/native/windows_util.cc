@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <windows.h>
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
@@ -64,32 +65,44 @@ static void QuotePath(const string& path, string* result) {
   *result = string("\"") + path + "\"";
 }
 
-string AsShortPath(const string& path, function<wstring()> path_as_wstring,
+static bool IsSeparator(char c) { return c == '/' || c == '\\'; }
+
+static bool HasSeparator(const string& s) {
+  return s.find_first_of('/') != string::npos ||
+         s.find_first_of('\\') != string::npos;
+}
+
+static bool Contains(const string& s, const char* substr) {
+  return s.find(substr) != string::npos;
+}
+
+string AsShortPath(string path, function<wstring()> path_as_wstring,
                    string* result) {
   if (path.empty()) {
-    return string("argv[0] should not be empty");
+    result->clear();
+    return "";
   }
   if (path[0] == '"') {
-    return string("argv[0] should not be quoted");
+    return string("path should not be quoted");
   }
-  if (path[0] == '\\' ||                 // absolute, but without drive letter
-      path.find("/") != string::npos ||  // has "/"
-      path.find("\\.\\") != string::npos ||   // not normalized
-      path.find("\\..\\") != string::npos ||  // not normalized
-      // at least MAX_PATH long, but just a file name
-      (path.size() >= MAX_PATH && path.find_first_of('\\') == string::npos) ||
-      // not just a file name, but also not absolute
-      (path.find_first_of('\\') != string::npos &&
-       !(isalpha(path[0]) && path[1] == ':' && path[2] == '\\'))) {
-    return string("argv[0]='" + path +
-                  "'; should have been either an absolute, "
-                  "normalized, Windows-style path with drive letter (e.g. "
-                  "'c:\\foo\\bar.exe'), or just a file name (e.g. "
-                  "'cmd.exe') shorter than MAX_PATH.");
+  if (IsSeparator(path[0])) {
+    return string("path='") + path + "' is absolute";
+  }
+  if (Contains(path, "/./") || Contains(path, "\\.\\") ||
+      Contains(path, "/..") || Contains(path, "\\..")) {
+    return string("path='") + path + "' is not normalized";
+  }
+  if (path.size() >= MAX_PATH && !HasSeparator(path)) {
+    return string("path='") + path + "' is just a file name but too long";
+  }
+  if (HasSeparator(path) &&
+      !(isalpha(path[0]) && path[1] == ':' && IsSeparator(path[2]))) {
+    return string("path='") + path + "' is not an absolute path";
   }
   // At this point we know the path is either just a file name (shorter than
   // MAX_PATH), or an absolute, normalized, Windows-style path (of any length).
 
+  std::replace(path.begin(), path.end(), '/', '\\');
   // Fast-track: the path is already short.
   if (path.size() < MAX_PATH) {
     *result = path;
@@ -142,6 +155,9 @@ string AsShortPath(const string& path, function<wstring()> path_as_wstring,
 string AsExecutablePathForCreateProcess(const string& path,
                                         function<wstring()> path_as_wstring,
                                         string* result) {
+  if (path.empty()) {
+    return string("path should not be empty");
+  }
   string error = AsShortPath(path, path_as_wstring, result);
   if (error.empty()) {
     // Quote the path in case it's something like "c:\foo\app name.exe".
