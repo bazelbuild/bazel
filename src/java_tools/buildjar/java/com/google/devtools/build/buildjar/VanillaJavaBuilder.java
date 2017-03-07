@@ -198,11 +198,15 @@ public class VanillaJavaBuilder implements Closeable {
     }
 
     for (Diagnostic<? extends JavaFileObject> diagnostic : diagnosticCollector.getDiagnostics()) {
-      StringBuilder message = new StringBuilder(diagnostic.getSource().getName());
-      if (diagnostic.getLineNumber() != -1) {
-        message.append(':').append(diagnostic.getLineNumber());
+      StringBuilder message = new StringBuilder();
+      if (diagnostic.getSource() != null) {
+        message.append(diagnostic.getSource().getName());
+        if (diagnostic.getLineNumber() != -1) {
+          message.append(':').append(diagnostic.getLineNumber());
+        }
+        message.append(": ");
       }
-      message.append(": ").append(diagnostic.getKind().toString().toLowerCase(ENGLISH));
+      message.append(diagnostic.getKind().toString().toLowerCase(ENGLISH));
       message.append(": ").append(diagnostic.getMessage(ENGLISH)).append(System.lineSeparator());
       output.write(message.toString());
     }

@@ -145,4 +145,42 @@ public class VanillaJavaBuilderTest {
     assertThat(result.ok()).isFalse();
     assertThat(Files.exists(output)).isFalse();
   }
+
+  @Test
+  public void diagnosticWithoutSource() throws Exception {
+    Path source = temporaryFolder.newFile("Test.java").toPath();
+    Path output = temporaryFolder.newFolder().toPath().resolve("out.jar");
+    Files.write(
+        source,
+        ImmutableList.of(
+            "import java.util.ArrayList;",
+            "import java.util.List;",
+            "abstract class A {",
+            "  abstract void f(List<String> xs);",
+            "  {",
+            "    f(new ArrayList<>());",
+            "  }",
+            "}"),
+        UTF_8);
+
+    VanillaJavaBuilderResult result =
+        run(
+            ImmutableList.of(
+                "--javacopts",
+                "-source",
+                "7",
+                "-Xlint:none",
+                "--sources",
+                source.toString(),
+                "--output",
+                output.toString(),
+                "--bootclasspath",
+                Paths.get(System.getProperty("java.home")).resolve("lib/rt.jar").toString(),
+                "--classdir",
+                temporaryFolder.newFolder().toString()));
+
+    assertThat(result.output()).contains("note: Some messages have been simplified");
+    assertThat(result.ok()).isFalse();
+    assertThat(Files.exists(output)).isFalse();
+  }
 }
