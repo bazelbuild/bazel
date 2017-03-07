@@ -101,25 +101,26 @@ public class SymlinkForestTest {
     FileSystemUtils.createEmptyFile(file5);
   }
 
-  private static String longestPathPrefixStr(String path, String... prefixStrs) {
+  private static PathFragment longestPathPrefix(String path, String... prefixStrs) {
     ImmutableSet.Builder<PackageIdentifier> prefixes = ImmutableSet.builder();
     for (String prefix : prefixStrs) {
       prefixes.add(PackageIdentifier.createInMainRepo(prefix));
     }
     PackageIdentifier longest = SymlinkForest.longestPathPrefix(
         PackageIdentifier.createInMainRepo(path), prefixes.build());
-    return longest != null ? longest.getPackageFragment().getPathString() : null;
+    return longest != null ? longest.getPackageFragment() : null;
   }
 
   @Test
   public void testLongestPathPrefix() {
-    assertEquals("A", longestPathPrefixStr("A/b", "A", "B")); // simple parent
-    assertEquals("A", longestPathPrefixStr("A", "A", "B")); // self
-    assertEquals("A/B", longestPathPrefixStr("A/B/c", "A", "A/B"));  // want longest
-    assertNull(longestPathPrefixStr("C/b", "A", "B"));  // not found in other parents
-    assertNull(longestPathPrefixStr("A", "A/B", "B"));  // not found in child
-    assertEquals("A/B/C", longestPathPrefixStr("A/B/C/d/e/f.h", "A/B/C", "B/C/d"));
-    assertEquals("", longestPathPrefixStr("A/f.h", "", "B/C/d"));
+    PathFragment a = new PathFragment("A");
+    assertEquals(a, longestPathPrefix("A/b", "A", "B")); // simple parent
+    assertEquals(a, longestPathPrefix("A", "A", "B")); // self
+    assertEquals(a.getRelative("B"), longestPathPrefix("A/B/c", "A", "A/B"));  // want longest
+    assertNull(longestPathPrefix("C/b", "A", "B"));  // not found in other parents
+    assertNull(longestPathPrefix("A", "A/B", "B"));  // not found in child
+    assertEquals(a.getRelative("B/C"), longestPathPrefix("A/B/C/d/e/f.h", "A/B/C", "B/C/d"));
+    assertEquals(PathFragment.EMPTY_FRAGMENT, longestPathPrefix("A/f.h", "", "B/C/d"));
   }
 
   @Test
