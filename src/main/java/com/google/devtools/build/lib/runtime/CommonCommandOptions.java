@@ -20,7 +20,6 @@ import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -128,7 +127,11 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(name = "ignore_client_env",
       defaultValue = "false",
       category = "hidden",
-      help = "If true, ignore the '--client_env' flag, and use the JVM environment instead")
+      deprecationWarning = "Deprecated, no-op.",
+      help = "Deprecated, no-op."
+  )
+  // TODO(laszlocsomor, dslomov) 2017-03-07: remove this flag after 2017-06-01 (~3 months from now)
+  // and all of its occurrences.
   public boolean ignoreClientEnv;
 
   @Option(name = "client_cwd",

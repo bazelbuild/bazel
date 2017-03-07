@@ -316,6 +316,15 @@ fi
 function run_bazel_jar() {
   local command=$1
   shift
+  local client_env=""
+  # Propagate important environment variables to bootstrapped Bazel.
+  for varname in PATH CC BAZEL_VC BAZEL_VS BAZEL_PYTHON CPLUS_INCLUDEPATH; do
+    eval value=\$$varname
+    if [ ${value} ]; then
+      client_env="${client_env} --client_env=${varname}=${value}"
+    fi
+  done
+
   "${JAVA_HOME}/bin/java" \
       -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
@@ -334,7 +343,7 @@ function run_bazel_jar() {
       --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 \
-      --ignore_client_env \
+      ${client_env} \
       --client_cwd=${PWD} \
       "${@}"
 }

@@ -372,7 +372,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
 
   command_ = args[startup_args_ + 1];
 
-  AddRcfileArgsAndOptions(parsed_startup_options_->batch, cwd);
+  AddRcfileArgsAndOptions(cwd);
   for (unsigned int cmd_arg = startup_args_ + 2;
        cmd_arg < args.size(); cmd_arg++) {
     command_arguments_.push_back(args[cmd_arg]);
@@ -463,7 +463,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
 // and also splices in some additional terminal and environment options between
 // the command and the arguments. NB: Keep the options added here in sync with
 // BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
-void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
+void OptionProcessor::AddRcfileArgsAndOptions(const string& cwd) {
   // Provide terminal options as coming from the least important rc file.
   command_arguments_.push_back("--rc_source=client");
   command_arguments_.push_back("--default_override=0:common=--isatty=" +
@@ -495,25 +495,21 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
     }
   }
 
-  // Pass the client environment to the server in server mode.
-  if (batch) {
-    command_arguments_.push_back("--ignore_client_env");
-  } else {
-    for (char** env = environ; *env != NULL; env++) {
-      string env_str(*env);
-      int pos = env_str.find("=");
-      if (pos != string::npos) {
-        string name = env_str.substr(0, pos);
-        if (name == "PATH") {
-          env_str = "PATH=" + ConvertPathList(env_str.substr(pos + 1));
-        } else if (name == "TMP") {
-          // A valid Windows path "c:/foo" is also a valid Unix path list of
-          // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
-          env_str = "TMP=" + ConvertPath(env_str.substr(pos + 1));
-        }
+  // Pass the client environment to the server.
+  for (char** env = environ; *env != NULL; env++) {
+    string env_str(*env);
+    int pos = env_str.find("=");
+    if (pos != string::npos) {
+      string name = env_str.substr(0, pos);
+      if (name == "PATH") {
+        env_str = "PATH=" + ConvertPathList(env_str.substr(pos + 1));
+      } else if (name == "TMP") {
+        // A valid Windows path "c:/foo" is also a valid Unix path list of
+        // ["c", "/foo"] so must use ConvertPath here. See GitHub issue #1684.
+        env_str = "TMP=" + ConvertPath(env_str.substr(pos + 1));
       }
-      command_arguments_.push_back("--client_env=" + env_str);
     }
+    command_arguments_.push_back("--client_env=" + env_str);
   }
   command_arguments_.push_back("--client_cwd=" + blaze::ConvertPath(cwd));
 
