@@ -425,6 +425,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     Path path = outputBase.getRelative(new PathFragment(primaryOutput));
     Artifact artifact = new Artifact(path, Root.asSourceRoot(path));
     ActionExecutionMetadata actionMetadata = Mockito.mock(ActionExecutionMetadata.class);
+    when(actionMetadata.getOwner()).thenReturn(Mockito.mock(ActionOwner.class));
     when(actionMetadata.getPrimaryOutput()).thenReturn(artifact);
 
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
