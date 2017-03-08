@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /** An enum that can be used to distinguish between various apple platforms. */
@@ -43,19 +42,19 @@ public enum Platform {
   WATCHOS_DEVICE("watchos_device", "WatchOS", PlatformType.WATCHOS, true),
   WATCHOS_SIMULATOR("watchos_simulator", "WatchSimulator", PlatformType.WATCHOS, false);
 
-  private static final Set<String> IOS_SIMULATOR_TARGET_CPUS =
+  private static final ImmutableSet<String> IOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("ios_x86_64", "ios_i386");
-  private static final Set<String> IOS_DEVICE_TARGET_CPUS =
+  private static final ImmutableSet<String> IOS_DEVICE_TARGET_CPUS =
           ImmutableSet.of("ios_armv6", "ios_arm64", "ios_armv7", "ios_armv7s");
-  private static final Set<String> WATCHOS_SIMULATOR_TARGET_CPUS =
+  private static final ImmutableSet<String> WATCHOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("watchos_i386");
-  private static final Set<String> WATCHOS_DEVICE_TARGET_CPUS =
+  private static final ImmutableSet<String> WATCHOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("watchos_armv7k");
-  private static final Set<String> TVOS_SIMULATOR_TARGET_CPUS =
+  private static final ImmutableSet<String> TVOS_SIMULATOR_TARGET_CPUS =
       ImmutableSet.of("tvos_x86_64");
-  private static final Set<String> TVOS_DEVICE_TARGET_CPUS =
+  private static final ImmutableSet<String> TVOS_DEVICE_TARGET_CPUS =
       ImmutableSet.of("tvos_arm64");
-  private static final Set<String> MACOS_TARGET_CPUS =
+  private static final ImmutableSet<String> MACOS_TARGET_CPUS =
       ImmutableSet.of("darwin_x86_64");
 
   private final String skylarkKey;
