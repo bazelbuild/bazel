@@ -354,6 +354,18 @@ EOF
     "build with --android_sdk failed"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/2621.
+function test_android_sdk_repository_returns_null_if_env_vars_missing() {
+  create_new_workspace
+  setup_android_sdk_support
+  ANDROID_HOME=/does_not_exist_1 bazel build @androidsdk//:files || \
+    fail "Build failed"
+  sed -i -e 's/path =/#path =/g' WORKSPACE
+  ANDROID_HOME=/does_not_exist_2 bazel build @androidsdk//:files && \
+    fail "Build should have failed"
+  ANDROID_HOME=$ANDROID_SDK bazel build @androidsdk//:files || "Build failed"
+}
+
 # ndk r10 and earlier
 if [[ ! -r "${TEST_SRCDIR}/androidndk/ndk/RELEASE.TXT" ]]; then
   # ndk r11 and later
