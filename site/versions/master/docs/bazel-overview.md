@@ -19,7 +19,7 @@ rules. You can modify rules to tweak the build process, or write new rules to
 extend Bazel to work with any language or platform.
 
 Below is the content of one of the BUILD files from a Hello World program. The
-two rules used here are cc_library and cc_binary.
+two rules used here are `cc_library` and `cc_binary`.
 
 ```
 cc_library(
@@ -38,7 +38,7 @@ cc_binary(
 )
 ```
 
-## The Dependency Graph Describes the Entire System
+## The dependency graph describes the entire system
 
 Build dependencies are declared explicitly in the BUILD files, allowing Bazel
 to create an accurate dependency graph of the entire source code. The graph is
@@ -54,7 +54,7 @@ Bazel’s query language allows you to produce images of the graph like the one
 above. You can also use the query language to access information about build
 dependencies and their relationships.
 
-## Build and Tests are Fast, Correct, and Reproducible
+## Build and tests are fast, correct, and reproducible
 
 Hermetic rules and sandboxing allows Bazel to produce correct, reproducible
 artifacts and test results. Caching allows reuse of build artifacts and test
