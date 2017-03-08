@@ -4,7 +4,7 @@ default_target_cpu: "same_as_host"
 
 default_toolchain {
   cpu: "%{cpu}"
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{default_toolchain_name}"
 }
 
 default_toolchain {
@@ -14,7 +14,12 @@ default_toolchain {
 
 default_toolchain {
   cpu: "x64_windows_msvc"
-  toolchain_identifier: "vc_14_0_x64"
+  toolchain_identifier: "msvc_x64"
+}
+
+default_toolchain {
+  cpu: "x64_windows_msys"
+  toolchain_identifier: "msys_x64"
 }
 
 default_toolchain {
@@ -93,7 +98,7 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{toolchain_name}"
 %{content}
 
   compilation_mode_flags {
@@ -110,13 +115,13 @@ toolchain {
 }
 
 toolchain {
-  toolchain_identifier: "vc_14_0_x64"
+  toolchain_identifier: "msvc_x64"
   host_system_name: "local"
   target_system_name: "local"
 
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "x64_windows_msvc"
+  target_cpu: "x64_windows"
   compiler: "cl"
   target_libc: "msvcrt140"
   default_python_version: "python2.7"

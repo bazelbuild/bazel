@@ -301,7 +301,7 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   }
 
 # TODO(pcloudy): Remove this after MSVC CROSSTOOL becomes default on Windows
-def _get_windows_crosstool_content(repository_ctx):
+def _get_windows_msys_crosstool_content(repository_ctx):
   """Return the content of msys crosstool which is still the default CROSSTOOL on Windows."""
   bazel_sh = _get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
   tokens = bazel_sh.rsplit("/", 1)
@@ -327,7 +327,7 @@ def _get_windows_crosstool_content(repository_ctx):
       '   host_system_name: "local"\n' +
       "   needsPic: false\n" +
       '   target_libc: "local"\n' +
-      '   target_cpu: "x64_windows"\n' +
+      '   target_cpu: "x64_windows_msys"\n' +
       '   target_system_name: "local"\n' +
       '   tool_path { name: "ar" path: "%susr/bin/ar" }\n' % msys_root +
       '   tool_path { name: "compat-ld" path: "%susr/bin/ld" }\n' % msys_root +
@@ -718,7 +718,9 @@ def _impl(repository_ctx):
         cxx_include_directories.append(("cxx_builtin_include_directory: \"%s\"" % path))
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
-        "%{content}": _get_windows_crosstool_content(repository_ctx),
+        "%{default_toolchain_name}": "msvc_x64",
+        "%{toolchain_name}": "msys_x64",
+        "%{content}": _get_windows_msys_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
         "%{cxx_builtin_include_directory}": "\n".join(cxx_include_directories),
@@ -743,6 +745,8 @@ def _impl(repository_ctx):
         "cc_wrapper.sh")
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
+        "%{default_toolchain_name}": "local",
+        "%{toolchain_name}": "local",
         "%{content}": _build_crosstool(crosstool_content) + "\n" +
                       _build_tool_path(tool_paths),
         "%{opt_content}": _build_crosstool(opt_content, "    "),
