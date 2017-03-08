@@ -237,7 +237,9 @@ public final class ConcurrentMapFactory {
   }
 
   private static boolean isHazelcastOptions(RemoteOptions options) {
-    return options.hazelcastNode != null || options.hazelcastClientConfig != null;
+    return options.hazelcastNode != null
+        || options.hazelcastClientConfig != null
+        || options.hazelcastStandaloneListenPort != 0;
   }
 
   private static boolean isRestUrlOptions(RemoteOptions options) {

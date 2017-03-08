@@ -10,10 +10,3 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/remote_worker/src/main/java/com/google/devtools/build/remote"],
 )
-
-java_binary(
-    name = "remote_cache",
-    main_class = "com.google.devtools.build.remote.RemoteCache",
-    visibility = ["//visibility:public"],
-    runtime_deps = ["//src/tools/remote_worker/src/main/java/com/google/devtools/build/remote"],
-)

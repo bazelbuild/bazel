@@ -125,27 +125,26 @@ startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
 
 #### Running the sample gRPC cache server
 
-Bazel currently provides a sample gRPC CAS implementation with Hazelcast as caching backend.
+Bazel currently provides a sample gRPC CAS implementation with a ConcurrentHashMap or Hazelcast as caching backend.
 To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it.
 ```
-bazel build //src/tools/remote_worker:remote_cache
+bazel build //src/tools/remote_worker:all
 ```
 
-The following command will then start the cache server listening on port 8081 with the default
-Hazelcast settings.
+The following command will then start the cache server listening on port 8080 using a local in-memory cache.
 ```
-bazel-bin/src/tools/remote_worker/remote_cache --listen_port 8081
+bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080
 ```
 
-To run everything in a single command.
+To connect to a running instance of Hazelcast instead, use.
 ```
-bazel run //src/tools/remote_worker:remote_cache -- --listen_port 8081
+bazel run //src/tools/remote_worker:remote_worker -- --listen_port=8080 --hazelcast_node=address:port
 ```
 
 If you want to change Hazelcast settings to enable distributed memory cache you can provide your
 own hazelcast.xml with the following command.
 ```
-bazel-bin/src/tools/remote_worker/remote_cache --jvm_flags=-Dhazelcast.config=/path/to/hz.xml --listen_port 8081
+bazel-bin/src/tools/remote_worker/remote_worker --jvm_flags=-Dhazelcast.config=/path/to/hz.xml --listen_port 8080
 ```
 You can copy and edit the [default](https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-default.xml) Hazelcast configuration. Refer to Hazelcast [manual](http://docs.hazelcast.org/docs/3.6/manual/html-single/index.html#checking-configuration)
 for more details.
@@ -153,10 +152,10 @@ for more details.
 #### Using the gRPC CAS endpoint
 
 Use the following build options to use the gRPC CAS endpoint for sharing build artifacts. Change
-`address:8081` to the correct server address and port number.
+`address:8080` to the correct server address and port number.
 
 ```
-build --spawn_strategy=remote --remote_cache=address:8081
+build --spawn_strategy=remote --remote_cache=address:8080
 ```
 
 ### Distributed caching with Hazelcast (TO BE REMOVED)
@@ -201,19 +200,13 @@ following line:
 startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
 ```
 
-## Running the sample gRPC cache server
-```
-bazel build //src/tools/remote_worker:remote_cache
-bazel-bin/src/tools/remote_worker/remote_cache --listen_port 8081
-```
-
-## Running the sample gRPC remote worker
+## Running the sample gRPC remote worker / cache server
 ```
 bazel build //src/tools/remote_worker:remote_worker
-bazel-bin/src/tools/remote_worker/remote_cache --work_path=/tmp --listen_port 8080
+bazel-bin/src/tools/remote_worker/remote_worker --work_path=/tmp --listen_port 8080
 ```
 
-The sample gRPC cache server and gRPC remote worker both use Hazelcast and shares the **same
+The sample gRPC cache server and gRPC remote worker share the **same
 distributed memory cluster** for storing and accessing CAS objects. It is important the CAS objects
 are shared between the two server processes.
 
@@ -225,5 +218,5 @@ memory cluster.
 
 Use the following build options.
 ```
-build --spawn_strategy=remote --remote_worker=localhost:8080 --remote_cache=localhost:8081
+build --spawn_strategy=remote --remote_worker=localhost:8080 --remote_cache=localhost:8080
 ```

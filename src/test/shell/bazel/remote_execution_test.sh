@@ -71,9 +71,9 @@ function test_cc_binary() {
 
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
     --spawn_strategy=remote \
-    --hazelcast_node=localhost:${hazelcast_port} \
     --remote_worker=localhost:${worker_port} \
-    //a:test >& $TEST_log \
+    --remote_cache=localhost:${worker_port} \
+        //a:test >& $TEST_log \
     || fail "Failed to build //a:test with remote execution"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
     || fail "Remote execution generated different result"
