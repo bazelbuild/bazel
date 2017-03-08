@@ -337,6 +337,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'strip_debug_symbols'
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
      implies: 'input_param_flags'
@@ -350,6 +351,7 @@ toolchain {
      tool {
          tool_path: 'wrapper/bin/msvc_link.bat'
      }
+     implies: 'strip_debug_symbols'
      implies: 'shared_flag'
      implies: 'linkstamps'
      implies: 'output_execpath_flags'
@@ -407,11 +409,25 @@ toolchain {
     tool {
       tool_path: 'wrapper/bin/msvc_link.bat'
     }
+    implies: 'strip_debug_symbols'
     implies: 'linker_param_file'
   }
 
   feature {
     name: 'has_configured_linker_path'
+  }
+
+  feature {
+    name: 'strip_debug_symbols'
+    flag_set {
+      action: 'c++-link-executable'
+      action: 'c++-link-dynamic-library'
+      action: 'c++-link-interface-dynamic-library'
+      flag_group {
+        expand_if_all_available: 'strip_debug_symbols'
+        flag: '-Wl,-S'
+      }
+    }
   }
 
   feature {

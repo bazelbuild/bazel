@@ -124,6 +124,9 @@ public class CppLinkActionBuilder {
   /** A build variable whose presence indicates that PIC code should be generated. */
   public static final String FORCE_PIC_VARIABLE = "force_pic";
 
+  /** A build variable whose presence indicates that the debug symbols should be stripped. */
+  public static final String STRIP_DEBUG_SYMBOLS_VARIABLE = "strip_debug_symbols";
+
   /** A build variable whose presence indicates that this action is a cc_test linking action. */
   public static final String IS_CC_TEST_LINK_ACTION_VARIABLE = "is_cc_test_link_action";
 
@@ -1311,6 +1314,10 @@ public class CppLinkActionBuilder {
       // pic
       if (cppConfiguration.forcePic()) {
         buildVariables.addStringVariable(FORCE_PIC_VARIABLE, "");
+      }
+
+      if (cppConfiguration.shouldStripBinaries()) {
+        buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
       }
 
       if (useTestOnlyFlags()) {

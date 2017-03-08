@@ -266,4 +266,29 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     assertThat(binaryVariables.isAvailable(CppLinkActionBuilder.IS_CC_TEST_LINK_ACTION_VARIABLE))
         .isFalse();
   }
+
+  @Test
+  public void testStripBinariesIsEnabledWhenStripModeIsAlwaysNoMatterWhat() throws Exception {
+    scratch.file("x/BUILD", "cc_binary(name = 'foo', srcs = ['a.cc'])");
+    scratch.file("x/a.cc");
+
+    assertStripBinaryVariableIsPresent("always", "opt", true);
+    assertStripBinaryVariableIsPresent("always", "fastbuild", true);
+    assertStripBinaryVariableIsPresent("always", "dbg", true);
+    assertStripBinaryVariableIsPresent("sometimes", "opt", false);
+    assertStripBinaryVariableIsPresent("sometimes", "fastbuild", true);
+    assertStripBinaryVariableIsPresent("sometimes", "dbg", false);
+    assertStripBinaryVariableIsPresent("never", "opt", false);
+    assertStripBinaryVariableIsPresent("never", "fastbuild", false);
+    assertStripBinaryVariableIsPresent("never", "dbg", false);
+  }
+
+  private void assertStripBinaryVariableIsPresent(
+      String stripMode, String compilationMode, boolean isEnabled) throws Exception {
+    useConfiguration("--strip=" + stripMode, "--compilation_mode=" + compilationMode);
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    assertThat(variables.isAvailable(CppLinkActionBuilder.STRIP_DEBUG_SYMBOLS_VARIABLE))
+        .isEqualTo(isEnabled);
+  }
 }

@@ -1115,10 +1115,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     List<String> result = new ArrayList<>();
     result.addAll(commonLinkOptions);
 
-    if (stripBinaries) {
-      result.add("-Wl,-S");
-    }
-
     result.addAll(linkOptionsFromCompilationMode.get(compilationMode));
     result.addAll(linkOptionsFromLipoMode.get(lipoMode));
     result.addAll(linkOptionsFromLinkingMode.get(linkingMode));
