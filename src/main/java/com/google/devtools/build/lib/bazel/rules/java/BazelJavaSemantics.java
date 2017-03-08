@@ -80,6 +80,11 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final String JACOCO_COVERAGE_RUNNER_MAIN_CLASS =
       "com.google.testing.coverage.JacocoCoverageRunner";
+  private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
+      "com.google.testing.junit.runner.BazelTestRunner";
+  private static final String EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS =
+      "com.google.testing.junit.runner.ExperimentalTestRunner";
+  private static final String EXPERIMENTAL_TESTRUNNER_TAG = "experimental_testrunner";
 
   private BazelJavaSemantics() {
   }
@@ -120,11 +125,18 @@ public class BazelJavaSemantics implements JavaSemantics {
     if (mainClass.isEmpty()) {
       if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
           && !useLegacyJavaTest(ruleContext)) {
-        return "com.google.testing.junit.runner.BazelTestRunner";
+        return useExperimentalTestRunner(ruleContext)
+            ? EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS
+            : BAZEL_TEST_RUNNER_MAIN_CLASS;
       }
       mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
     }
     return mainClass;
+  }
+
+  private static boolean useExperimentalTestRunner(RuleContext ruleContext) {
+    List<String> tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
+    return tags.contains(EXPERIMENTAL_TESTRUNNER_TAG);
   }
 
   private void checkMainClass(RuleContext ruleContext, ImmutableList<Artifact> sources) {
@@ -294,7 +306,9 @@ public class BazelJavaSemantics implements JavaSemantics {
 
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     if (createExecutable && ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-      return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
+      String testSupport =
+          useExperimentalTestRunner(ruleContext) ? "$experimental_testsupport" : "$testsupport";
+      return Iterables.getOnlyElement(ruleContext.getPrerequisites(testSupport, Mode.TARGET));
     } else {
       return null;
     }

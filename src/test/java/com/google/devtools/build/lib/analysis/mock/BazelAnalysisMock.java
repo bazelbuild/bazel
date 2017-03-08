@@ -111,7 +111,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='jacoco-blaze-agent', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
-        "               'turbine_deploy.jar'])");
+        "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])");
 
 
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();

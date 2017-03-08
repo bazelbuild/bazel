@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All Rights Reserved.
+// Copyright 2017 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,23 +14,23 @@
 
 package com.google.testing.junit.runner;
 
-import com.google.testing.junit.runner.util.Factory;
+import com.google.testing.junit.runner.model.AntXmlResultWriter;
+import com.google.testing.junit.runner.model.XmlResultWriter;
 import java.io.PrintStream;
 
 /**
- * A factory that supplies {@link PrintStream} for stdout.
+ * Originally a Dagger module extracted out of {@link BazelTestRunner}.
  */
-public enum StdoutStreamFactory implements Factory<PrintStream> {
-  INSTANCE;
-
-  @Override
-  public PrintStream get() {
-    PrintStream printStream = BazelTestRunnerModule.stdoutStream();
-    assert printStream != null;
-    return printStream;
+class BazelTestRunnerModule {
+  static XmlResultWriter resultWriter(AntXmlResultWriter impl) {
+    return impl;
   }
 
-  public static Factory<PrintStream> create() {
-    return INSTANCE;
+  static PrintStream stdoutStream() {
+    return System.out;
+  }
+
+  static PrintStream stderrStream() {
+    return System.err;
   }
 }

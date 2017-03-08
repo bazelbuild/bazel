@@ -32,8 +32,7 @@ public final class ResultWriterFactory implements Factory<XmlResultWriter> {
 
   @Override
   public XmlResultWriter get() {
-    XmlResultWriter xmlResultWriter =
-        BazelTestRunner.BazelTestRunnerModule.resultWriter(implSupplier.get());
+    XmlResultWriter xmlResultWriter = BazelTestRunnerModule.resultWriter(implSupplier.get());
     assert xmlResultWriter != null;
     return xmlResultWriter;
   }

@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All Rights Reserved.
+// Copyright 2017 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,28 +25,17 @@ import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A class to run JUnit tests in a controlled environment.
- *
- * <p>Currently sets up a security manager to catch undesirable behaviour;
- * System.exit. Also has nice command line options - run with "-help" for
- * details.
- *
- * <p>This class traps writes to <code>System.err.println()</code> and
- * <code>System.out.println()</code> including the output of failed tests in
- * the error report.
- *
- * <p>It also traps SIGTERM signals to make sure that the test report is
- * written when the signal is closed by the unit test framework for running
- * over time.
+ * For now the same as {@link BazelTestRunner} but intended to be a testbed to try out new features,
+ * without breeaking existing tests.
  */
-public class BazelTestRunner {
+public class ExperimentalTestRunner {
   /**
    * If no arguments are passed on the command line, use this System property to
    * determine which test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
 
-  private BazelTestRunner() {
+  private ExperimentalTestRunner() {
     // utility class; should not be instantiated
   }
 
@@ -69,6 +58,7 @@ public class BazelTestRunner {
     PrintStream stderr = System.err;
 
     String suiteClassName = System.getProperty(TEST_SUITE_PROPERTY_NAME);
+    System.out.println("WARNING: RUNNING EXPERIMENTAL TEST RUNNER");
 
     if (args.length >= 1 && args[args.length - 1].equals("--persistent_test_runner")) {
       System.err.println("Requested test strategy is currently unsupported.");
@@ -81,7 +71,7 @@ public class BazelTestRunner {
 
     int exitCode = runTestsInSuite(suiteClassName, args);
 
-    System.err.printf("%nBazelTestRunner exiting with a return value of %d%n", exitCode);
+    System.err.printf("%nExperimentalTestRunner exiting with a return value of %d%n", exitCode);
     System.err.println("JVM shutdown hooks (if any) will run now.");
     System.err.println("The JVM will exit once they complete.");
     System.err.println();
@@ -109,12 +99,12 @@ public class BazelTestRunner {
       System.err.println();
       System.err.println("This property is set automatically when running with Bazel like such:");
       System.err.printf("  java -D%s=[test-suite-class] %s%n",
-          TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
+          TEST_SUITE_PROPERTY_NAME, ExperimentalTestRunner.class.getName());
       System.err.printf("  java -D%s=[test-suite-class] -jar [deploy-jar]%n",
           TEST_SUITE_PROPERTY_NAME);
       System.err.println("E.g.:");
       System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests %s%n",
-          TEST_SUITE_PROPERTY_NAME, BazelTestRunner.class.getName());
+          TEST_SUITE_PROPERTY_NAME, ExperimentalTestRunner.class.getName());
       System.err.printf("  java -D%s=org.example.testing.junit.runner.SmallTests "
               + "-jar SmallTests_deploy.jar%n",
           TEST_SUITE_PROPERTY_NAME);
@@ -170,7 +160,7 @@ public class BazelTestRunner {
         out.println("JVM still up after five seconds. Dumping stack traces for all threads.");
         StackTraces.printAll(out);
       }
-    }, "BazelTestRunner: Print stack traces if JVM exit hangs");
+    }, "ExperimentalTestRunner: Print stack traces if JVM exit hangs");
 
     thread.setDaemon(true);
     thread.start();

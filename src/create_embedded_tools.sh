@@ -48,6 +48,7 @@ for i in $*; do
     *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
+    *ExperimentalRunner_deploy.jar) OUTPUT_PATH=tools/jdk/ExperimentalTestRunner_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
     *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
     *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
