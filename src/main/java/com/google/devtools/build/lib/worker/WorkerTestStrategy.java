@@ -87,7 +87,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       throw new UserExecException("Tests that do not use the default test runner are incompatible"
           + " with the persistent worker test strategy. Please use another test strategy");
     }
-    if (!action.isCoverageMode()) {
+    if (action.isCoverageMode()) {
       throw new UserExecException("Coverage is currently incompatible"
           + " with the persistent worker test strategy. Please use another test strategy");
     }
@@ -96,7 +96,7 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     return execInWorker(
         action,
         actionExecutionContext,
-        spawn.getEnvironment(),
+        addPersistentRunnerVars(spawn.getEnvironment()),
         startupArgs,
         actionExecutionContext.getExecutor().getExecRoot(),
         maxRetries);
@@ -111,6 +111,14 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       int retriesLeft)
       throws ExecException, InterruptedException, IOException {
     Executor executor = actionExecutionContext.getExecutor();
+
+    // TODO(kush): Remove once we're out of the experimental phase.
+    executor
+        .getEventHandler()
+        .handle(
+            Event.warn(
+                "RUNNING TEST IN AN EXPERIMENTAL PERSISTENT WORKER. RESULTS MAY BE INACCURATE"));
+
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     Path testLogPath = action.getTestLog().getPath();
@@ -195,6 +203,19 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     }
   }
 
+  private static Map<String, String> addPersistentRunnerVars(Map<String, String> originalEnv)
+      throws UserExecException {
+    if (originalEnv.containsKey("PERSISTENT_TEST_RUNNER")) {
+      throw new UserExecException(
+          "Found clashing environment variable with persistent_test_runner."
+              + " Please use another test strategy");
+    }
+    return ImmutableMap.<String, String>builder()
+        .putAll(originalEnv)
+        .put("PERSISTENT_TEST_RUNNER", "true")
+        .build();
+  }
+
   private List<String> getStartUpArgs(TestRunnerAction action) throws ExecException {
     List<String> args = getArgs(/*coverageScript=*/ "coverage-is-not-supported", action);
     ImmutableList.Builder<String> startupArgs = ImmutableList.builder();
@@ -202,8 +223,6 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
     startupArgs.add(args.get(0)).add("--no_echo");
     // Add remaining of the original args.
     startupArgs.addAll(args.subList(1, args.size()));
-    // Make the Test runner run persistently.
-    startupArgs.add("--persistent_test_runner");
     // Add additional flags requested for this invocation.
     startupArgs.addAll(MoreObjects.firstNonNull(
             extraFlags.get(action.getMnemonic()), ImmutableList.<String>of()));

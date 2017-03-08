@@ -22,7 +22,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-function DISABLED_test_simple_scenario() {
+function test_simple_scenario() {
   mkdir -p java/testrunners || fail "mkdir failed"
 
   cat > java/testrunners/TestsPass.java <<EOF
@@ -63,12 +63,14 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "TestsPass",
           srcs = ['TestsPass.java'],
-          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
+          tags = ["experimental_testrunner"],
+          deps = ['@bazel_tools//tools/jdk:ExperimentalTestRunner_deploy.jar'],
 )
 
 java_test(name = "TestsFail",
           srcs = ['TestsFail.java'],
-          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
+          tags = ["experimental_testrunner"],
+          deps = ['@bazel_tools//tools/jdk:ExperimentalTestRunner_deploy.jar'],
 )
 EOF
 
