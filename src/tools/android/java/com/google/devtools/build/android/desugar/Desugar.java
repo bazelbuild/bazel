@@ -50,55 +50,66 @@ import org.objectweb.asm.ClassWriter;
  */
 class Desugar {
 
-  /**
-   * Commandline options for {@link Desugar}.
-   */
+  /** Commandline options for {@link Desugar}. */
   public static class Options extends OptionsBase {
-    @Option(name = "input",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input Jar with classes to desugar.")
+    @Option(
+      name = "input",
+      defaultValue = "null",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      abbrev = 'i',
+      help = "Input Jar with classes to desugar."
+    )
     public Path inputJar;
 
-    @Option(name = "classpath_entry",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Ordered classpath to resolve symbols in the --input Jar, like javac's -cp flag.")
+    @Option(
+      name = "classpath_entry",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      help = "Ordered classpath to resolve symbols in the --input Jar, like javac's -cp flag."
+    )
     public List<Path> classpath;
 
-    @Option(name = "bootclasspath_entry",
-        allowMultiple = true,
-        defaultValue = "",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        help = "Bootclasspath that was used to compile the --input Jar with, like javac's "
-            + "-bootclasspath flag. If no bootclasspath is explicitly given then the tool's own "
-            + "bootclasspath is used.")
+    @Option(
+      name = "bootclasspath_entry",
+      allowMultiple = true,
+      defaultValue = "",
+      category = "input",
+      converter = ExistingPathConverter.class,
+      help =
+          "Bootclasspath that was used to compile the --input Jar with, like javac's "
+              + "-bootclasspath flag. If no bootclasspath is explicitly given then the tool's own "
+              + "bootclasspath is used."
+    )
     public List<Path> bootclasspath;
 
-    @Option(name = "allow_empty_bootclasspath",
-        defaultValue = "false",
-        category = "misc",
-        help = "Don't use the tool's bootclasspath if no bootclasspath is given.")
+    @Option(
+      name = "allow_empty_bootclasspath",
+      defaultValue = "false",
+      category = "misc",
+      help = "Don't use the tool's bootclasspath if no bootclasspath is given."
+    )
     public boolean allowEmptyBootclasspath;
 
-    @Option(name = "output",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help = "Output Jar to write desugared classes into.")
+    @Option(
+      name = "output",
+      defaultValue = "null",
+      category = "output",
+      converter = PathConverter.class,
+      abbrev = 'o',
+      help = "Output Jar to write desugared classes into."
+    )
     public Path outputJar;
 
-    @Option(name = "verbose",
-        defaultValue = "false",
-        category = "misc",
-        abbrev = 'v',
-        help = "Enables verbose debugging output.")
+    @Option(
+      name = "verbose",
+      defaultValue = "false",
+      category = "misc",
+      abbrev = 'v',
+      help = "Enables verbose debugging output."
+    )
     public boolean verbose;
 
     @Option(
@@ -109,10 +120,12 @@ class Desugar {
     )
     public int minSdkVersion;
 
-    @Option(name = "core_library",
-        defaultValue = "false",
-        category = "undocumented",
-        help = "Enables rewriting to desugar java.* classes.")
+    @Option(
+      name = "core_library",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Enables rewriting to desugar java.* classes."
+    )
     public boolean coreLibrary;
   }
 
@@ -133,8 +146,7 @@ class Desugar {
       args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
     }
 
-    OptionsParser optionsParser =
-        OptionsParser.newOptionsParser(Options.class);
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
 
@@ -159,10 +171,11 @@ class Desugar {
     ClassLoader loader =
         createClassLoader(
             rewriter, options.bootclasspath, options.inputJar, options.classpath, parent);
-
+    boolean allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     try (ZipFile in = new ZipFile(options.inputJar.toFile());
-        ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(
-            Files.newOutputStream(options.outputJar)))) {
+        ZipOutputStream out =
+            new ZipOutputStream(
+                new BufferedOutputStream(Files.newOutputStream(options.outputJar)))) {
       LambdaClassMaker lambdas = new LambdaClassMaker(dumpDirectory);
       ClassReaderFactory readerFactory = new ClassReaderFactory(in, rewriter);
 
@@ -188,6 +201,9 @@ class Desugar {
                 new LambdaDesugaring(
                     visitor, loader, lambdas, interfaceLambdaMethodCollector, allowDefaultMethods);
 
+            if (!allowCallsToObjectsNonNull) {
+              visitor = new ObjectsRequireNonNullMethodInliner(visitor);
+            }
             reader.accept(visitor, 0);
 
             writeStoredEntry(out, entry.getName(), writer.toByteArray());
@@ -204,7 +220,8 @@ class Desugar {
 
       ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
       if (allowDefaultMethods) {
-        checkState(interfaceLambdaMethods.isEmpty(),
+        checkState(
+            interfaceLambdaMethods.isEmpty(),
             "Desugaring with default methods enabled moved interface lambdas");
       }
 
@@ -231,9 +248,13 @@ class Desugar {
                   allowDefaultMethods);
           // Send lambda classes through desugaring to make sure there's no invokedynamic
           // instructions in generated lambda classes (checkState below will fail)
-          reader.accept(
-              new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods),
-              0);
+          visitor = new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods);
+          if (!allowCallsToObjectsNonNull) {
+            // Not sure whether there will be implicit null check emitted by javac, so we rerun the
+            // inliner again
+            visitor = new ObjectsRequireNonNullMethodInliner(visitor);
+          }
+          reader.accept(visitor, 0);
           String filename =
               rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
           writeStoredEntry(out, filename, writer.toByteArray());
@@ -264,9 +285,13 @@ class Desugar {
     out.closeEntry();
   }
 
-  private static ClassLoader createClassLoader(CoreLibraryRewriter rewriter,
-      List<Path> bootclasspath, Path inputJar, List<Path> classpath,
-      ClassLoader parent) throws IOException {
+  private static ClassLoader createClassLoader(
+      CoreLibraryRewriter rewriter,
+      List<Path> bootclasspath,
+      Path inputJar,
+      List<Path> classpath,
+      ClassLoader parent)
+      throws IOException {
     // Prepend classpath with input jar itself so LambdaDesugaring can load classes with lambdas.
     // Note that inputJar and classpath need to be in the same classloader because we typically get
     // the header Jar for inputJar on the classpath and having the header Jar in a parent loader
@@ -282,8 +307,7 @@ class Desugar {
 
   private static class ThrowingClassLoader extends ClassLoader {
     @Override
-    protected Class<?> loadClass(String name, boolean resolve)
-        throws ClassNotFoundException {
+    protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
       if (name.startsWith("java.")) {
         // Use system class loader for java. classes, since ClassLoader.defineClass gets
         // grumpy when those don't come from the standard place.
