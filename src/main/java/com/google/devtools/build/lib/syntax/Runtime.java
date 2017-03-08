@@ -111,7 +111,7 @@ public final class Runtime {
           + "  return PACKAGE_NAME</pre>"
           + "In this case, <code>extension()</code> can be called from a BUILD file (even "
           + "indirectly), but not in a file-level expression in the .bzl file. "
-          + "When implementing a rule, use <a href=\"ctx.html#label>ctx.label</a> to know where "
+          + "When implementing a rule, use <a href=\"ctx.html#label\">ctx.label</a> to know where "
           + "the rule comes from. ")
   public static final String PKG_NAME = "PACKAGE_NAME";
 
