@@ -225,6 +225,7 @@ sh_test(
     size = "medium",
     srcs = ["build_event_stream_test.sh"],
     data = [":test-deps"],
+    shard_count = 2,
 )
 
 sh_test(

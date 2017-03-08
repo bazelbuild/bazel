@@ -37,10 +37,20 @@ EOF
 exit 1
 EOF
   chmod 755 pkg/false.sh
+  cat > pkg/slowtest.sh <<EOF
+#!/bin/sh
+sleep 1
+exit 0
+EOF
+  chmod 755 pkg/slowtest.sh
   cat > pkg/BUILD <<EOF
 sh_test(
   name = "true",
   srcs = ["true.sh"],
+)
+sh_test(
+  name = "slow",
+  srcs = ["slowtest.sh"],
 )
 test_suite(
   name = "suite",
@@ -144,6 +154,18 @@ function test_test_attempts() {
   expect_log 'flaky/.*test.xml'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
+}
+
+function test_test_runtime() {
+  bazel test --experimental_build_event_text_file=$TEST_log pkg:slow \
+    || fail "bazel test failed"
+  expect_log 'pkg:slow'
+  expect_log '^test_result'
+  expect_log 'test_attempt_duration_millis.*[1-9]'
+  expect_log 'build_finished'
+  expect_log 'overall_success: true'
+  expect_log 'finish_time'
+  expect_not_log 'aborted'
 }
 
 function test_test_attempts_multi_runs() {

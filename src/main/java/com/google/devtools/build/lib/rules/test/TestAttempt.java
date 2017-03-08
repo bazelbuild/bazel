@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
 
 /** This event is raised whenever a an individual test attempt is completed. */
@@ -32,6 +33,7 @@ public class TestAttempt implements BuildEvent {
   private final int attempt;
   private final boolean lastAttempt;
   private final Collection<Pair<String, Path>> files;
+  private final long durationMillis;
 
   /**
    * Construct the event given the test action and attempt number.
@@ -43,13 +45,24 @@ public class TestAttempt implements BuildEvent {
       TestRunnerAction testAction,
       Integer attempt,
       boolean success,
+      long durationMillis,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
     this.testAction = testAction;
     this.attempt = attempt;
     this.success = success;
+    this.durationMillis = durationMillis;
     this.files = files;
     this.lastAttempt = lastAttempt;
+  }
+
+  public TestAttempt(
+      TestRunnerAction testAction,
+      Integer attempt,
+      boolean success,
+      Collection<Pair<String, Path>> files,
+      boolean lastAttempt) {
+    this(testAction, attempt, success, 0, files, lastAttempt);
   }
 
   public TestAttempt(
@@ -61,8 +74,10 @@ public class TestAttempt implements BuildEvent {
   }
 
   public static TestAttempt fromCachedTestResult(TestResult result) {
+    TestResultData data = result.getData();
     return new TestAttempt(
-        result.getTestAction(), 1, result.getData().getTestPassed(), result.getFiles(), true);
+        result.getTestAction(), 1, data.getTestPassed(), data.getRunDurationMillis(),
+        result.getFiles(), true);
   }
 
   @Override
@@ -93,6 +108,7 @@ public class TestAttempt implements BuildEvent {
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setSuccess(success);
+    builder.setTestAttemptDurationMillis(durationMillis);
     for (Pair<String, Path> file : files) {
       builder.addTestActionOutput(
           BuildEventStreamProtos.File.newBuilder()
