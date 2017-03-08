@@ -891,6 +891,19 @@ public class CcCommonTest extends BuildViewTestCase {
         "header 'third_party/a/v1/b.h' is not under the specified strip prefix 'third_party/a/v2'");
   }
 
+  @Test
+  public void testSymlinkActionIsNotRegisteredWhenIncludePrefixDoesntChangePath() throws Exception {
+    scratch.file(
+        "third_party/BUILD",
+        "licenses(['notice'])",
+        "cc_library(name='a', hdrs=['a.h'], include_prefix='third_party')");
+
+    CppCompilationContext context =
+        getConfiguredTarget("//third_party:a").getProvider(CppCompilationContext.class);
+    assertThat(ActionsTestUtil.prettyArtifactNames(context.getDeclaredIncludeSrcs()))
+        .doesNotContain("third_party/_virtual_includes/a/third_party/a.h");
+  }
+
   /**
    * A {@code toolchain_lookup} rule for testing that only supports C++.
    */

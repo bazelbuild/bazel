@@ -1242,12 +1242,20 @@ public final class CcLibraryHelper {
         includePath = prefix.getRelative(includePath);
       }
 
-      Artifact virtualHeader = ruleContext.getUniqueDirectoryArtifact("_virtual_includes",
-          includePath, ruleContext.getBinOrGenfilesDirectory());
-      ruleContext.registerAction(new SymlinkAction(
-          ruleContext.getActionOwner(), originalHeader, virtualHeader,
-          "Symlinking virtual headers for " + ruleContext.getLabel()));
-      moduleHeadersBuilder.add(virtualHeader);
+      if (!originalHeader.getExecPath().equals(includePath)) {
+        Artifact virtualHeader =
+            ruleContext.getUniqueDirectoryArtifact(
+                "_virtual_includes", includePath, ruleContext.getBinOrGenfilesDirectory());
+        ruleContext.registerAction(
+            new SymlinkAction(
+                ruleContext.getActionOwner(),
+                originalHeader,
+                virtualHeader,
+                "Symlinking virtual headers for " + ruleContext.getLabel()));
+        moduleHeadersBuilder.add(virtualHeader);
+      } else {
+        moduleHeadersBuilder.add(originalHeader);
+      }
     }
 
     ImmutableList<Artifact> moduleMapHeaders = moduleHeadersBuilder.build();
