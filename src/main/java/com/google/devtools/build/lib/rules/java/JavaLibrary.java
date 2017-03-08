@@ -174,7 +174,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     JavaRuleOutputJarsProvider ruleOutputJarsProvider =
         JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, srcJar)
+            .addOutputJar(classJar, iJar, ImmutableList.of(srcJar))
             .setJdeps(outputDepsProto)
             .build();
     JavaCompilationArgsProvider compilationArgsProvider =

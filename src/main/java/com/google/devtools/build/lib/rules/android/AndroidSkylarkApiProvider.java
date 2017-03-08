@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -215,10 +216,11 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
         return null;
       }
 
+      Artifact idlSourceJar = getIdeInfoProvider().getIdlSourceJar();
       return new OutputJar(
           getIdeInfoProvider().getIdlClassJar(),
           null,
-          getIdeInfoProvider().getIdlSourceJar()
+          idlSourceJar == null ? ImmutableList.<Artifact>of() : ImmutableList.of(idlSourceJar)
       );
     }
   }

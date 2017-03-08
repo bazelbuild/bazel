@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -335,7 +336,7 @@ public class AndroidStudioInfoAspect extends NativeAspectClass implements Config
 
     // Java rules
     JavaRuleOutputJarsProvider outputJarsProvider =
-        base.getProvider(JavaRuleOutputJarsProvider.class);
+        JavaProvider.getProvider(JavaRuleOutputJarsProvider.class, base);
     if (outputJarsProvider != null && !androidStudioInfoSemantics.suppressJavaRuleInfo(base)) {
       JavaIdeInfo javaIdeInfo =
           makeJavaIdeInfo(base, ruleContext, outputJarsProvider, providerBuilder);

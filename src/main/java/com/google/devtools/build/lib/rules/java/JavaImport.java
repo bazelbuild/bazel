@@ -145,7 +145,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         JavaRuleOutputJarsProvider.builder();
     for (Artifact jar : jars) {
       ruleOutputJarsProviderBuilder.addOutputJar(
-          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJar);
+          jar, compilationToRuntimeJarMap.inverse().get(jar), srcJars);
     }
 
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();

@@ -133,7 +133,7 @@ public class JavaSkylarkCommon {
     MiddlemanProvider hostJavabaseProvider = hostJavabase.getProvider(MiddlemanProvider.class);
 
     NestedSet<Artifact> hostJavabaseArtifacts =
-        hostJavabase == null
+        hostJavabaseProvider == null
             ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
             : hostJavabaseProvider.getMiddlemanArtifact();
     JavaToolchainProvider javaToolchainProvider =
@@ -144,11 +144,16 @@ public class JavaSkylarkCommon {
             javaToolchainProvider,
             hostJavabaseArtifacts,
             SkylarkList.createImmutable(ImmutableList.<Artifact>of()));
+    JavaRuleOutputJarsProvider javaRuleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder().addOutputJar(
+            new JavaRuleOutputJarsProvider.OutputJar(outputJar, /* ijar */ null, sourceJars))
+        .build();
     return JavaProvider.Builder.create()
              .addProvider(
                  JavaCompilationArgsProvider.class,
                  helper.buildCompilationArgsProvider(artifacts, true))
              .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
+             .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
              .build();
   }
 
