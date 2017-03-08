@@ -23,14 +23,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.QueryExpressionEvalListener;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -150,7 +149,7 @@ public final class QueryCommand implements BlazeCommand {
     expr = queryEnv.transformParsedQuery(expr);
 
     OutputStream out = env.getReporter().getOutErr().getOutputStream();
-    OutputFormatterCallback<Target> callback;
+    ThreadSafeOutputFormatterCallback<Target> callback;
     if (streamResults) {
       disableAnsiCharactersFiltering(env);
 
@@ -161,7 +160,7 @@ public final class QueryCommand implements BlazeCommand {
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
-      callback = QueryUtil.newAggregateAllOutputFormatterCallback();
+      callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
     }
     boolean catastrophe = true;
     try {
@@ -207,8 +206,7 @@ public final class QueryCommand implements BlazeCommand {
 
       // 3. Output results:
       try {
-        Set<Target> targets =
-            ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
+        Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getResult();
         QueryOutputUtils.output(
             queryOptions,
             result,
@@ -277,7 +275,6 @@ public final class QueryCommand implements BlazeCommand {
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
-            QueryExpressionEvalListener.NullListener.<Target>instance(),
             env.getPackageManager().getPackagePath());
   }
 }

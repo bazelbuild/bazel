@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -29,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
-import com.google.devtools.build.lib.concurrent.MoreFutures;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -51,9 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -61,7 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @ThreadCompatible
 public class RecursivePackageProviderBackedTargetPatternResolver
-    implements TargetPatternResolver<Target> {
+    extends TargetPatternResolver<Target> {
 
   // TODO(janakr): Move this to a more generic place and unify with SkyQueryEnvironment's value?
   private static final int MAX_PACKAGES_BULK_GET = 1000;
@@ -194,56 +193,64 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       BatchCallback<Target, E> callback,
       Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException {
-    findTargetsBeneathDirectoryParImpl(
+    try {
+      findTargetsBeneathDirectoryAsyncImpl(
+          repository,
+          originalPattern,
+          directory,
+          rulesOnly,
+          excludedSubdirectories,
+          new SynchronizedBatchCallback<Target, E>(callback),
+          MoreExecutors.newDirectExecutorService()).get();
+    } catch (ExecutionException e) {
+      Throwable cause = e.getCause();
+      Throwables.propagateIfPossible(cause, TargetParsingException.class, exceptionClass);
+      throw new IllegalStateException(e.getCause());
+    }
+  }
+
+  @Override
+  public <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsync(
+      RepositoryName repository,
+      String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<PathFragment> excludedSubdirectories,
+      ThreadSafeBatchCallback<Target, E> callback,
+      Class<E> exceptionClass,
+      ListeningExecutorService executor) {
+    return findTargetsBeneathDirectoryAsyncImpl(
         repository,
         originalPattern,
         directory,
         rulesOnly,
         excludedSubdirectories,
         new SynchronizedBatchCallback<Target, E>(callback),
-        exceptionClass,
-        MoreExecutors.newDirectExecutorService());
+        executor);
   }
 
-  @Override
-  public <E extends Exception> void findTargetsBeneathDirectoryPar(
+  private <E extends Exception> ListenableFuture<Void> findTargetsBeneathDirectoryAsyncImpl(
       final RepositoryName repository,
       final String originalPattern,
       String directory,
       boolean rulesOnly,
       ImmutableSet<PathFragment> excludedSubdirectories,
       final ThreadSafeBatchCallback<Target, E> callback,
-      Class<E> exceptionClass,
-      ForkJoinPool forkJoinPool)
-      throws TargetParsingException, E, InterruptedException {
-    findTargetsBeneathDirectoryParImpl(
-        repository,
-        originalPattern,
-        directory,
-        rulesOnly,
-        excludedSubdirectories,
-        callback,
-        exceptionClass,
-        forkJoinPool);
-  }
-
-  private <E extends Exception> void findTargetsBeneathDirectoryParImpl(
-      final RepositoryName repository,
-      final String originalPattern,
-      String directory,
-      boolean rulesOnly,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      final ThreadSafeBatchCallback<Target, E> callback,
-      Class<E> exceptionClass,
-      ExecutorService executor)
-      throws TargetParsingException, E, InterruptedException {
+      ListeningExecutorService executor) {
     final FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-    PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-    Iterable<PathFragment> packagesUnderDirectory =
-        recursivePackageProvider.getPackagesUnderDirectory(
-            repository, pathFragment, excludedSubdirectories);
+    final PathFragment pathFragment;
+    Iterable<PathFragment> packagesUnderDirectory;
+    try {
+      pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
+      packagesUnderDirectory = recursivePackageProvider.getPackagesUnderDirectory(
+          repository, pathFragment, excludedSubdirectories);
+    } catch (TargetParsingException e) {
+      return Futures.immediateFailedFuture(e);
+    } catch (InterruptedException e) {
+      return Futures.immediateCancelledFuture();
+    }
 
     Iterable<PackageIdentifier> pkgIds = Iterables.transform(packagesUnderDirectory,
             new Function<PathFragment, PackageIdentifier>() {
@@ -258,9 +265,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     // into batches.
     List<List<PackageIdentifier>> partitions =
         ImmutableList.copyOf(Iterables.partition(pkgIds, MAX_PACKAGES_BULK_GET));
-    ArrayList<Future<Void>> tasks = new ArrayList<>(partitions.size());
+    ArrayList<ListenableFuture<Void>> futures = new ArrayList<>(partitions.size());
     for (final Iterable<PackageIdentifier> pkgIdBatch : partitions) {
-      tasks.add(executor.submit(new Callable<Void>() {
+      futures.add(executor.submit(new Callable<Void>() {
           @Override
           public Void call() throws E, TargetParsingException, InterruptedException {
             ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(pkgIdBatch);
@@ -288,17 +295,15 @@ public class RecursivePackageProviderBackedTargetPatternResolver
           }
         }));
     }
-    try {
-      MoreFutures.waitForAllInterruptiblyFailFast(tasks);
-    } catch (ExecutionException e) {
-      Throwables.propagateIfPossible(e.getCause(), exceptionClass);
-      Throwables.propagateIfPossible(
-          e.getCause(), TargetParsingException.class, InterruptedException.class);
-      throw new IllegalStateException(e);
-    }
-    if (!foundTarget.get()) {
-      throw new TargetParsingException("no targets found beneath '" + pathFragment + "'");
-    }
+    return Futures.whenAllSucceed(futures).call(new Callable<Void>() {
+      @Override
+      public Void call() throws TargetParsingException {
+        if (!foundTarget.get()) {
+          throw new TargetParsingException("no targets found beneath '" + pathFragment + "'");
+        }
+        return null;
+      }
+    });
   }
 
   private static <T> int calculateSize(Iterable<ResolvedTargets<T>> resolvedTargets) {
@@ -308,5 +313,6 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     }
     return size;
   }
+
 }
 

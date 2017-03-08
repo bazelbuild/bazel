@@ -22,14 +22,12 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
-import com.google.devtools.build.lib.query2.engine.ThreadSafeCallback;
 import com.google.devtools.build.lib.query2.engine.VariableContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 
 /**
  * An "rbuildfiles" query expression, which computes the set of packages (as represented by their
@@ -69,36 +67,19 @@ public class RBuildFilesFunction implements QueryFunction {
 
   @Override
   @SuppressWarnings("unchecked") // Cast from <Target> to <T>. This will only be used with <Target>.
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       List<Argument> args,
-      Callback<T> callback) throws QueryException, InterruptedException {
+      Callback<T> callback) {
     if (!(env instanceof SkyQueryEnvironment)) {
-      throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
+      return env.immediateFailedFuture(
+          new QueryException("rbuildfiles can only be used with SkyQueryEnvironment"));
     }
-    ((SkyQueryEnvironment) env)
-        .getRBuildFiles(
-            Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT), (Callback<Target>) callback);
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    if (!(env instanceof SkyQueryEnvironment)) {
-      throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
-    }
-    ((SkyQueryEnvironment) env)
-        .getRBuildFilesParallel(
-            Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT),
-            (ThreadSafeCallback<Target>) callback,
-            forkJoinPool);
+    SkyQueryEnvironment skyEnv = ((SkyQueryEnvironment) env);
+    return skyEnv.getRBuildFilesParallel(
+        Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT),
+        (Callback<Target>) callback);
   }
 }

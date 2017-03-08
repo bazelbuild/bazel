@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
 import java.util.Set;
 
@@ -54,16 +56,31 @@ public final class RdepsFunction extends AllRdepsFunction {
    * towards the universe while staying within the transitive closure.
    */
   @Override
-  public <T> void eval(QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args, Callback<T> callback)
-      throws QueryException,
-      InterruptedException {
-    Set<T> universeValue = QueryUtil.evalAll(env, context, args.get(0).getExpression());
-    env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
-
-    Predicate<T> universe = Predicates.in(env.getTransitiveClosure(universeValue));
-    eval(env, context, args.subList(1, args.size()), callback, universe);
+  public <T> QueryTaskFuture<Void> eval(
+      final QueryEnvironment<T> env,
+      final VariableContext<T> context,
+      final QueryExpression expression,
+      final List<Argument> args,
+      final Callback<T> callback) {
+    QueryTaskFuture<Set<T>> universeValueFuture =
+        QueryUtil.evalAll(env, context, args.get(0).getExpression());
+    Function<Set<T>, QueryTaskFuture<Void>> evalInUniverseAsyncFunction =
+        new Function<Set<T>, QueryTaskFuture<Void>>() {
+          @Override
+          public QueryTaskFuture<Void> apply(Set<T> universeValue) {
+            Predicate<T> universe;
+            try {
+              env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
+              universe = Predicates.in(env.getTransitiveClosure(universeValue));
+            } catch (InterruptedException e) {
+              return env.immediateCancelledFuture();
+            } catch (QueryException e) {
+              return env.immediateFailedFuture(e);
+            }
+            return RdepsFunction.this.eval(
+                env, context, args.subList(1, args.size()), callback, Optional.of(universe));
+          }
+        };
+    return env.transformAsync(universeValueFuture, evalInUniverseAsyncFunction);
   }
 }

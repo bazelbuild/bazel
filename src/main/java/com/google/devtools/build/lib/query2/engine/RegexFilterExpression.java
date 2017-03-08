@@ -18,9 +18,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
-
+import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -33,25 +32,24 @@ public abstract class RegexFilterExpression implements QueryFunction {
   }
 
   @Override
-  public <T> void eval(
+  public <T> QueryTaskFuture<Void> eval(
       final QueryEnvironment<T> env,
       VariableContext<T> context,
       QueryExpression expression,
       final List<Argument> args,
-      Callback<T> callback)
-      throws QueryException, InterruptedException {
+      Callback<T> callback) {
     String rawPattern = getPattern(args);
     final Pattern compiledPattern;
     try {
       compiledPattern = Pattern.compile(rawPattern);
     } catch (PatternSyntaxException e) {
-      throw new QueryException(
+      return env.immediateFailedFuture(new QueryException(
           expression,
           String.format(
               "illegal '%s' pattern regexp '%s': %s",
               getName(),
               rawPattern,
-              e.getMessage()));
+              e.getMessage())));
     }
 
     // Note that Patttern#matcher is thread-safe and so this Predicate can safely be used
@@ -68,21 +66,10 @@ public abstract class RegexFilterExpression implements QueryFunction {
       }
     };
 
-    env.eval(
+    return env.eval(
         Iterables.getLast(args).getExpression(),
         context,
-        filteredCallback(callback, matchFilter));
-  }
-
-  @Override
-  public <T> void parEval(
-      QueryEnvironment<T> env,
-      VariableContext<T> context,
-      QueryExpression expression,
-      List<Argument> args,
-      ThreadSafeCallback<T> callback,
-      ForkJoinPool forkJoinPool) throws QueryException, InterruptedException {
-    eval(env, context, expression, args, callback);
+        new FilteredCallback<>(callback, matchFilter));
   }
 
   /**
@@ -111,21 +98,6 @@ public abstract class RegexFilterExpression implements QueryFunction {
 
   protected abstract String getPattern(List<Argument> args);
 
-  /**
-   * Returns a new {@link Callback} that forwards values that satisfies the given {@link Predicate}
-   * to the given {@code parentCallback}.
-   *
-   * <p>The returned {@link Callback} will be a {@link ThreadSafeCallback} iff
-   * {@code parentCallback} is as well.
-   */
-  private static <T> Callback<T> filteredCallback(
-      final Callback<T> parentCallback,
-      final Predicate<T> retainIfTrue) {
-    return (parentCallback instanceof ThreadSafeCallback)
-        ? new ThreadSafeFilteredCallback<>((ThreadSafeCallback<T>) parentCallback, retainIfTrue)
-        : new FilteredCallback<>(parentCallback, retainIfTrue);
-  }
-
   private static class FilteredCallback<T> implements Callback<T> {
     private final Callback<T> parentCallback;
     private final Predicate<T> retainIfTrue;
@@ -146,14 +118,6 @@ public abstract class RegexFilterExpression implements QueryFunction {
     @Override
     public String toString() {
       return "filtered parentCallback of : " + retainIfTrue;
-    }
-  }
-
-  private static class ThreadSafeFilteredCallback<T>
-      extends FilteredCallback<T> implements ThreadSafeCallback<T> {
-    private ThreadSafeFilteredCallback(
-        ThreadSafeCallback<T> parentCallback, Predicate<T> retainIfTrue) {
-      super(parentCallback, retainIfTrue);
     }
   }
 }
