@@ -199,6 +199,11 @@ def _is_gold_supported(repository_ctx, cc):
       "-fuse-ld=gold",
       "-o",
       "/dev/null",
+      # Some macos clang versions don't fail when setting -fuse-ld=gold, adding
+      # these lines to force it to. This also means that we will not detect
+      # gold when only a very old (year 2010 and older) is present.
+      "-Wl,--start-lib",
+      "-Wl,--end-lib",
       str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
   return result.return_code == 0
