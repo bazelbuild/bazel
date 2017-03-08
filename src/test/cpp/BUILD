@@ -15,6 +15,10 @@ cc_test(
             "blaze_util_test.cc",
             "blaze_util_windows_test.cc",
         ],
+        "//src:windows_msys": [
+            "blaze_util_test.cc",
+            "blaze_util_windows_test.cc",
+        ],
         "//src:windows_msvc": [
             "blaze_util_windows_test.cc",
         ],

@@ -35,6 +35,9 @@ cc_library(
         "//src:windows": [
             "file_windows.cc",
         ],
+        "//src:windows_msys": [
+            "file_windows.cc",
+        ],
         "//src:windows_msvc": [
             "file_windows.cc",
         ],
@@ -57,6 +60,7 @@ cc_library(
         ":strings",
     ] + select({
         "//src:windows": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
         "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
         "//conditions:default": [],
     }),
@@ -66,6 +70,7 @@ cc_library(
     name = "errors",
     srcs = ["errors.cc"] + select({
         "//src:windows": ["errors_windows.cc"],
+        "//src:windows_msys": ["errors_windows.cc"],
         "//src:windows_msvc": ["errors_windows.cc"],
         "//conditions:default": ["errors_posix.cc"],
     }),

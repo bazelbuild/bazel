@@ -23,7 +23,9 @@ cc_test(
     size = "small",
     srcs = ["file_test.cc"] + select({
         "//src:windows": [
-            "file_posix_test.cc",
+            "file_windows_test.cc",
+        ],
+        "//src:windows_msys": [
             "file_windows_test.cc",
         ],
         "//src:windows_msvc": [
@@ -40,6 +42,10 @@ cc_test(
         "//third_party:gtest",
     ] + select({
         "//src:windows": [
+            ":windows_test_util",
+            "//src/main/native:windows_jni_lib",
+        ],
+        "//src:windows_msys": [
             ":windows_test_util",
             "//src/main/native:windows_jni_lib",
         ],
@@ -86,11 +92,13 @@ cc_library(
     testonly = 1,
     srcs = select({
         "//src:windows": ["windows_test_util.cc"],
+        "//src:windows_msys": ["windows_test_util.cc"],
         "//src:windows_msvc": ["windows_test_util.cc"],
         "//conditions:default": [],
     }),
     hdrs = select({
         "//src:windows": ["windows_test_util.h"],
+        "//src:windows_msys": ["windows_test_util.h"],
         "//src:windows_msvc": ["windows_test_util.h"],
         "//conditions:default": [],
     }),
@@ -105,11 +113,16 @@ cc_test(
     size = "small",
     srcs = select({
         "//src:windows": ["windows_test_util_test.cc"],
+        "//src:windows_msys": ["windows_test_util_test.cc"],
         "//src:windows_msvc": ["windows_test_util_test.cc"],
         "//conditions:default": ["dummy_test.cc"],
     }),
     deps = select({
         "//src:windows": [
+            ":windows_test_util",
+            "//third_party:gtest",
+        ],
+        "//src:windows_msys": [
             ":windows_test_util",
             "//third_party:gtest",
         ],

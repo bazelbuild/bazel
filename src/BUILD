@@ -9,6 +9,7 @@ filegroup(
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
         ":windows": ["//src/main/native:windows_jni.dll"],
+        ":windows_msys": ["//src/main/native:windows_jni.dll"],
         ":windows_msvc": ["//src/main/native:windows_jni.dll"],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
@@ -276,6 +277,12 @@ config_setting(
 config_setting(
     name = "windows_msvc",
     values = {"cpu": "x64_windows_msvc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "windows_msys",
+    values = {"cpu": "x64_windows_msys"},
     visibility = ["//visibility:public"],
 )
 

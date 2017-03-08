@@ -32,6 +32,7 @@ cc_binary(
         "//src:darwin_x86_64": ["dummy-sandbox.c"],
         "//src:freebsd": ["dummy-sandbox.c"],
         "//src:windows": ["dummy-sandbox.c"],
+        "//src:windows_msys": ["dummy-sandbox.c"],
         "//src:windows_msvc": ["dummy-sandbox.c"],
         "//conditions:default": [
             "linux-sandbox.cc",

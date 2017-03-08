@@ -26,6 +26,9 @@ cc_library(
         "//src:windows": [
             "blaze_util_windows.cc",
         ],
+        "//src:windows_msys": [
+            "blaze_util_windows.cc",
+        ],
         "//src:windows_msvc": [
             "blaze_util_windows.cc",
         ],
@@ -60,6 +63,7 @@ cc_library(
         "//src/main/cpp/util:blaze_exit_code",
     ] + select({
         "//src:windows": ["//src/main/native:windows_jni_lib"],
+        "//src:windows_msys": ["//src/main/native:windows_jni_lib"],
         "//src:windows_msvc": ["//src/main/native:windows_jni_lib"],
         "//conditions:default": [],
     }),

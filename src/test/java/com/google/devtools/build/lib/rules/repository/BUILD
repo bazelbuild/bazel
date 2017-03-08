@@ -8,6 +8,7 @@ java_test(
     name = "RepositoryTests",
     srcs = select({
         "//src:windows": [":RepositoryTests_windows_srcs"],
+        "//src:windows_msys": [":RepositoryTests_windows_srcs"],
         "//src:windows_msvc": [":RepositoryTests_windows_srcs"],
         "//conditions:default": glob(["*.java"]),
     }),

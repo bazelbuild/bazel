@@ -113,6 +113,12 @@ if [[ $PLATFORM == "darwin" ]] && \
     xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
+
+case "${PLATFORM}" in
+msys*|mingw*)
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cpu=x64_windows_msys --host_cpu=x64_windows_msys"
+esac
+
 source scripts/bootstrap/bootstrap.sh
 
 if [ $DO_COMPILE ]; then

@@ -16,6 +16,10 @@ cc_test(
             "windows_util_test.cc",
             "windows_file_operations_test.cc",
         ],
+        "//src:windows_msys": [
+            "windows_util_test.cc",
+            "windows_file_operations_test.cc",
+        ],
         "//src:windows_msvc": [
             "windows_util_test.cc",
             "windows_file_operations_test.cc",
@@ -24,6 +28,11 @@ cc_test(
     }),
     deps = select({
         "//src:windows": [
+            "//src/main/native:windows_jni_lib",
+            "//src/test/cpp/util:windows_test_util",
+            "//third_party:gtest",
+        ],
+        "//src:windows_msys": [
             "//src/main/native:windows_jni_lib",
             "//src/test/cpp/util:windows_test_util",
             "//third_party:gtest",
