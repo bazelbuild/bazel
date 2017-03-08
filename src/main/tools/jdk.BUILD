@@ -21,6 +21,11 @@ filegroup(
 )
 
 filegroup(
+    name = "jni_md_header-windows",
+    srcs = ["include/win32/jni_md.h"],
+)
+
+filegroup(
     name = "java",
     srcs = select({
        ":windows" : ["bin/java.exe"],
