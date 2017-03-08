@@ -134,19 +134,30 @@ public enum Platform {
   }
 
   /**
+   * Returns the platform cpu string for the given target cpu and platform type.
+   *
+   * @param platformType platform type that the given cpu value is implied for
+   * @param arch architecture representation, such as 'arm64'
+   * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
+   */
+  public static String cpuStringForTarget(PlatformType platformType, String arch) {
+    switch (platformType) {
+      case MACOS:
+        return String.format("darwin_%s", arch);
+      default:
+        return String.format("%s_%s", platformType.toString(), arch);
+    }
+  }
+
+  /**
    * Returns the platform for the given target cpu and platform type.
-   * 
+   *
    * @param platformType platform type that the given cpu value is implied for
    * @param arch architecture representation, such as 'arm64'
    * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
    */
   public static Platform forTarget(PlatformType platformType, String arch) {
-    switch (platformType) {
-      case MACOS:
-        return forTargetCpu(String.format("darwin_%s", arch));
-      default:
-        return forTargetCpu(String.format("%s_%s", platformType.toString(), arch));
-    }
+    return forTargetCpu(cpuStringForTarget(platformType, arch));
   }
 
  /**
@@ -164,7 +175,7 @@ public enum Platform {
           "No supported apple platform registered for target cpu " + targetCpu);
     }
   }
-  
+
   /**
    * Returns true if the given target cpu is an apple platform.
    */

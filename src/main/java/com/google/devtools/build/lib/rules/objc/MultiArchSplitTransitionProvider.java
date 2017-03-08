@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.MultiArchPlatformRule;
 import java.util.List;
@@ -44,7 +45,8 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       "Unsupported platform type \"%s\"";
   
   private static final ImmutableSet<PlatformType> SUPPORTED_PLATFORM_TYPES =
-      ImmutableSet.of(PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS);
+      ImmutableSet.of(
+          PlatformType.IOS, PlatformType.WATCHOS, PlatformType.TVOS, PlatformType.MACOS);
 
   /**
    * Returns the apple platform type in the current rule context.
@@ -80,11 +82,12 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
     }
   }
 
-  private static final ImmutableMap<PlatformType, AppleBinaryTransition>
-      SPLIT_TRANSITIONS_BY_TYPE = ImmutableMap.<PlatformType, AppleBinaryTransition>builder()
+  private static final ImmutableMap<PlatformType, AppleBinaryTransition> SPLIT_TRANSITIONS_BY_TYPE =
+      ImmutableMap.<PlatformType, AppleBinaryTransition>builder()
           .put(PlatformType.IOS, new AppleBinaryTransition(PlatformType.IOS))
           .put(PlatformType.WATCHOS, new AppleBinaryTransition(PlatformType.WATCHOS))
           .put(PlatformType.TVOS, new AppleBinaryTransition(PlatformType.TVOS))
+          .put(PlatformType.MACOS, new AppleBinaryTransition(PlatformType.MACOS))
           .build();
 
   @Override
@@ -149,6 +152,13 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           }
           configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_TVOS;
           break;
+        case MACOS:
+          cpus = buildOptions.get(AppleCommandLineOptions.class).macosCpus;
+          if (cpus.isEmpty()) {
+            cpus = ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU);
+          }
+          configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_MACOS;
+          break;
         default:
           throw new IllegalArgumentException("Unsupported platform type " + platformType);
       }
@@ -169,7 +179,7 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
           // This helps users of the iOS rules who do not depend on CC rules as these CPU values
           // require additional flags to work (e.g. a custom crosstool) which now only need to be
           // set if this feature is explicitly requested.
-          String platformCpu = String.format("%s_%s", platformType, cpu);
+          String platformCpu = Platform.cpuStringForTarget(platformType, cpu);
           AppleCrosstoolTransition.setAppleCrosstoolTransitionConfiguration(buildOptions,
               splitOptions, platformCpu);
         }

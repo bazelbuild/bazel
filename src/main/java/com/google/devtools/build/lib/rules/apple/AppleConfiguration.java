@@ -712,6 +712,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     APPLEBIN_WATCHOS("applebin_watchos"),
     /** Distinguisher for {@code apple_binary} rule with "tvos" platform_type. */
     APPLEBIN_TVOS("applebin_tvos"),
+    /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
+    APPLEBIN_MACOS("applebin_macos"),
     /**
      * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory
      * names instead of "apple_crosstool" to avoid oversized path names, which can be problematic
