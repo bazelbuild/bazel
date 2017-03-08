@@ -399,8 +399,8 @@ void StartupOptions::AddJVMArgumentSuffix(const string &real_install_dir,
                                           const string &jar_path,
     std::vector<string> *result) const {
   result->push_back("-jar");
-  result->push_back(blaze::ConvertPath(
-      blaze_util::JoinPath(real_install_dir, jar_path)));
+  result->push_back(
+      blaze::PathAsJvmFlag(blaze_util::JoinPath(real_install_dir, jar_path)));
 }
 
 blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(

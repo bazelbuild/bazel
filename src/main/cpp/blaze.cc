@@ -350,7 +350,7 @@ static vector<string> GetArgumentArray() {
 
   result.push_back("-XX:+HeapDumpOnOutOfMemoryError");
   string heap_crash_path = globals->options->output_base;
-  result.push_back("-XX:HeapDumpPath=" + ConvertPath(heap_crash_path));
+  result.push_back("-XX:HeapDumpPath=" + blaze::PathAsJvmFlag(heap_crash_path));
 
   result.push_back("-Xverify:none");
 
@@ -382,7 +382,7 @@ static vector<string> GetArgumentArray() {
         java_library_path += blaze::ListSeparator();
       }
       first = false;
-      java_library_path += blaze::ConvertPath(
+      java_library_path += blaze::PathAsJvmFlag(
           blaze_util::JoinPath(real_install_dir, blaze_util::Dirname(it)));
     }
   }
