@@ -54,6 +54,9 @@ public class JavaSkylarkCommon {
 
   @SkylarkCallable(
     name = "compile",
+    doc = "Compiles Java source files/jars from the implementation of a Skylark rule and returns a "
+      + "provider that represents the results of the compilation and can be added to the set of "
+      + "providers emitted by this rule.",
     // There is one mandatory positional: the Skylark rule context.
     mandatoryPositionals = 1,
     parameters = {
@@ -63,7 +66,9 @@ public class JavaSkylarkCommon {
           named = true,
           type = SkylarkList.class,
           generic1 = Artifact.class,
-          defaultValue = "[]"
+          defaultValue = "[]",
+          doc = "A list of the jars to be compiled. At least one of `source_jars` or `source_files`"
+            + " should be specified."
       ),
       @Param(
         name = "source_files",
@@ -71,7 +76,9 @@ public class JavaSkylarkCommon {
         named = true,
         type = SkylarkList.class,
         generic1 = Artifact.class,
-        defaultValue = "[]"
+        defaultValue = "[]",
+        doc = "A list of the Java source files to be compiled. At least one of `source_jars` or "
+          + "`source_files` should be specified."
       ),
       @Param(name = "output", positional = false, named = true, type = Artifact.class),
       @Param(
@@ -79,33 +86,41 @@ public class JavaSkylarkCommon {
         positional = false,
         named = true,
         type = SkylarkList.class,
-        generic1 = String.class
+        generic1 = String.class,
+        doc = "A list of the desired javac options. Optional."
       ),
       @Param(
         name = "deps",
         positional = false,
         named = true,
         type = SkylarkList.class,
-        generic1 = JavaProvider.class
+        generic1 = JavaProvider.class,
+        doc = "A list of dependencies. Optional."
       ),
       @Param(
         name = "strict_deps",
         defaultValue = "OFF",
         positional = false,
         named = true,
-        type = String.class
+        type = String.class,
+        doc = "A string that specifies how to handle strict deps. Possible values: 'OFF' (silently"
+          + " allowing referencing transitive dependencies) and 'ERROR' (failing to build when"
+          + " transitive dependencies are used directly). By default 'OFF'."
       ),
       @Param(
         name = "java_toolchain",
         positional = false,
         named = true,
-        type = ConfiguredTarget.class
+        type = ConfiguredTarget.class,
+        doc = "A label pointing to a java_toolchain rule to be used for this compilation. "
+          + "Mandatory."
       ),
       @Param(
         name = "host_javabase",
         positional = false,
         named = true,
-        type = ConfiguredTarget.class
+        type = ConfiguredTarget.class,
+        doc = "A label pointing to a JDK to be used for this compilation. Mandatory."
       ),
     }
   )
@@ -190,6 +205,7 @@ public class JavaSkylarkCommon {
 
   @SkylarkCallable(
     name = "merge",
+    doc = "Merges the given providers into a single `java_common.provider`.",
     // We have one positional argument: the list of providers to merge.
     mandatoryPositionals = 1
   )
