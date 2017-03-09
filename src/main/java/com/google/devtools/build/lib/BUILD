@@ -190,6 +190,7 @@ java_library(
     deps = [
         ":clock",
         ":concurrent",
+        ":os_util",
         ":preconditions",
         ":unix",
         ":vfs",

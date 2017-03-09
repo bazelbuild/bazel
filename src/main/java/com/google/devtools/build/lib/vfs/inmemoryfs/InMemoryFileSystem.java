@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.vfs.inmemoryfs;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.JavaClock;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -23,7 +24,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.ScopeEscapableFileSystem;
 import com.google.devtools.build.lib.vfs.Symlinks;
-
 import java.io.ByteArrayInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -32,9 +32,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import java.util.Stack;
-
 import javax.annotation.Nullable;
 
 /**
@@ -661,7 +659,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
 
   @Override
   public boolean isFilePathCaseSensitive() {
-    return true;
+    return OS.getCurrent() != OS.WINDOWS;
   }
 
   /**
@@ -763,7 +761,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
           throw new IOException("Directory is not readable");
         }
 
-        Set<String> allChildren = dirInfo.getAllChildren();
+        Collection<String> allChildren = dirInfo.getAllChildren();
         List<Path> result = new ArrayList<>(allChildren.size());
         for (String child : allChildren) {
           if (!(child.equals(".") || child.equals(".."))) {
