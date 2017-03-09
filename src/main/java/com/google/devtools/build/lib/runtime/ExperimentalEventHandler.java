@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
@@ -30,6 +29,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteE
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Clock;
@@ -346,7 +346,7 @@ public class ExperimentalEventHandler implements EventHandler {
   }
 
   @Subscribe
-  public void downloadProgress(DownloadProgressEvent event) {
+  public void downloadProgress(FetchProgress event) {
     stateTracker.downloadProgress(event);
     refresh();
   }

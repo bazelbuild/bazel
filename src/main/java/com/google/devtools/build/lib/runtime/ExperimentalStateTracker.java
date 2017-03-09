@@ -19,13 +19,13 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
@@ -79,7 +79,7 @@ class ExperimentalStateTracker {
   // access.
   private final Deque<String> runningDownloads;
   private final Map<String, Long> downloadNanoStartTimes;
-  private final Map<String, DownloadProgressEvent> downloads;
+  private final Map<String, FetchProgress> downloads;
 
   // For each test, the list of actions (again identified by the path of the
   // primary output) currently running for that test (identified by its label),
@@ -190,8 +190,8 @@ class ExperimentalStateTracker {
     buildComplete(event, "");
   }
 
-  synchronized void downloadProgress(DownloadProgressEvent event) {
-    String url = event.getOriginalUrl().toString();
+  synchronized void downloadProgress(FetchProgress event) {
+    String url = event.getResourceIdentifier();
     if (event.isFinished()) {
       // a download is finished, clean it up
       runningDownloads.remove(url);
@@ -565,12 +565,13 @@ class ExperimentalStateTracker {
 
     String postfix = "";
 
-    DownloadProgressEvent download = downloads.get(url);
+    FetchProgress download = downloads.get(url);
     long nanoDownloadTime = nanoTime - downloadNanoStartTimes.get(url);
     long downloadSeconds = nanoDownloadTime / NANOS_PER_SECOND;
 
-    if (download.getBytesRead() > 0) {
-      postfix = postfix + " " + download.getBytesRead() + "b";
+    String progress = download.getProgress();
+    if (progress.length() > 0) {
+      postfix = postfix + " " + progress;
     }
     if (downloadSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
       postfix = postfix + " " + downloadSeconds + "s";

@@ -31,4 +31,21 @@ public interface ExtendedEventHandler extends EventHandler {
    * failure) and hence should not be stored and replayed.
    */
   public interface ProgressLike extends Postable {}
+
+  /** Interface for progress events that report about fetching from a remote site */
+  public interface FetchProgress extends ProgressLike {
+
+    /**
+     * The resource that was originally requested and uniquely determines the fetch source. The
+     * actual fetching may use mirrors, proxies, or similar. The resource need not be an URL, but it
+     * has to uniquely identify the particular fetch among all fetch events.
+     */
+    String getResourceIdentifier();
+
+    /** Human readable description of the progress */
+    String getProgress();
+
+    /** Wether the fetch progress reported about is finished already */
+    boolean isFinished();
+  }
 }
