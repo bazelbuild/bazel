@@ -2,6 +2,15 @@
 #   singlejar C++ implementation.
 package(default_visibility = ["//src:__subpackages__"])
 
+JAR_TOOL_PATH_COPT_TPL = "-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar%s\\\""
+
+JAR_TOOL_PATH_COPTS = select({
+    "//src:windows": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msvc": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//src:windows_msys": [JAR_TOOL_PATH_COPT_TPL % ".exe"],
+    "//conditions:default": [JAR_TOOL_PATH_COPT_TPL % ""],
+})
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -76,7 +85,7 @@ cc_test(
         "input_jar_scan_entries_test.h",
         "input_jar_scan_jartool_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
         "@local_jdk//:jar",
         "@local_jdk//:jdk",
@@ -151,7 +160,7 @@ cc_test(
     srcs = [
         "output_jar_simple_test.cc",
     ],
-    copts = ["-DJAR_TOOL_PATH=\\\"external/local_jdk/bin/jar\\\""],
+    copts = JAR_TOOL_PATH_COPTS,
     data = [
         ":data1",
         ":data2",
