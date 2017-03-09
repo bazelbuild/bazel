@@ -81,7 +81,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -1772,11 +1771,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * set with an old SDK, we will exit with an error to alert the developer that his application
    * might not run on devices that the used SDK still supports.
    */
-  private static final Set<String> RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING = ImmutableSet.of(
-      "/android_sdk_linux/platforms/android_10/", "/android_sdk_linux/platforms/android_13/",
-      "/android_sdk_linux/platforms/android_15/", "/android_sdk_linux/platforms/android_16/",
-      "/android_sdk_linux/platforms/android_17/", "/android_sdk_linux/platforms/android_18/",
-      "/android_sdk_linux/platforms/android_19/", "/android_sdk_linux/platforms/android_20/");
+  private static final ImmutableSet<String> RUNTIMES_THAT_DONT_SUPPORT_NATIVE_MULTIDEXING =
+      ImmutableSet.of(
+          "/android_sdk_linux/platforms/android_10/", "/android_sdk_linux/platforms/android_13/",
+          "/android_sdk_linux/platforms/android_15/", "/android_sdk_linux/platforms/android_16/",
+          "/android_sdk_linux/platforms/android_17/", "/android_sdk_linux/platforms/android_18/",
+          "/android_sdk_linux/platforms/android_19/", "/android_sdk_linux/platforms/android_20/");
 
   /**
    * Returns true if the runtime contained in the Android SDK used to build this rule supports the

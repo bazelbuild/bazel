@@ -616,16 +616,14 @@ public abstract class TargetPattern implements Serializable {
      * The set of target-pattern suffixes which indicate wildcards over all <em>rules</em> in a
      * single package.
      */
-    private static final List<String> ALL_RULES_IN_SUFFIXES = ImmutableList.of(
-        "all");
+    private static final ImmutableList<String> ALL_RULES_IN_SUFFIXES = ImmutableList.of("all");
 
     /**
      * The set of target-pattern suffixes which indicate wildcards over all <em>targets</em> in a
      * single package.
      */
-    private static final List<String> ALL_TARGETS_IN_SUFFIXES = ImmutableList.of(
-        "*",
-        "all-targets");
+    private static final ImmutableList<String> ALL_TARGETS_IN_SUFFIXES =
+        ImmutableList.of("*", "all-targets");
 
     private static final List<String> SUFFIXES;
 

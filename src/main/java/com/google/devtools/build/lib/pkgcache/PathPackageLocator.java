@@ -28,13 +28,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -47,7 +45,8 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class PathPackageLocator implements Serializable {
 
-  public static final Set<String> DEFAULT_TOP_LEVEL_EXCLUDES = ImmutableSet.of("experimental");
+  public static final ImmutableSet<String> DEFAULT_TOP_LEVEL_EXCLUDES =
+      ImmutableSet.of("experimental");
 
   private final ImmutableList<Path> pathEntries;
   // Transient because this is an injected value in Skyframe, and as such, its serialized
