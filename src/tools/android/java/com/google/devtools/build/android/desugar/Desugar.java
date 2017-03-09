@@ -121,6 +121,14 @@ class Desugar {
     public int minSdkVersion;
 
     @Option(
+      name = "copy_bridges_from_classpath",
+      defaultValue = "false",
+      category = "misc",
+      help = "Copy bridges from classpath to desugared classes."
+    )
+    public boolean copyBridgesFromClasspath;
+
+    @Option(
       name = "core_library",
       defaultValue = "false",
       category = "undocumented",
@@ -168,16 +176,22 @@ class Desugar {
     CoreLibraryRewriter rewriter =
         new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
 
+    IndexedJars appIndexedJar = new IndexedJars(ImmutableList.of(options.inputJar));
+    IndexedJars appAndClasspathIndexedJars = new IndexedJars(options.classpath, appIndexedJar);
     ClassLoader loader =
-        createClassLoader(
-            rewriter, options.bootclasspath, options.inputJar, options.classpath, parent);
+        createClassLoader(rewriter, options.bootclasspath, appAndClasspathIndexedJars, parent);
     boolean allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
     try (ZipFile in = new ZipFile(options.inputJar.toFile());
         ZipOutputStream out =
             new ZipOutputStream(
                 new BufferedOutputStream(Files.newOutputStream(options.outputJar)))) {
       LambdaClassMaker lambdas = new LambdaClassMaker(dumpDirectory);
-      ClassReaderFactory readerFactory = new ClassReaderFactory(in, rewriter);
+      ClassReaderFactory readerFactory =
+          new ClassReaderFactory(
+              (options.copyBridgesFromClasspath && !allowDefaultMethods)
+                  ? appAndClasspathIndexedJars
+                  : appIndexedJar,
+              rewriter);
 
       ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
 
@@ -288,21 +302,19 @@ class Desugar {
   private static ClassLoader createClassLoader(
       CoreLibraryRewriter rewriter,
       List<Path> bootclasspath,
-      Path inputJar,
-      List<Path> classpath,
+      IndexedJars appAndClasspathIndexedJars,
       ClassLoader parent)
       throws IOException {
+    // Use a classloader that as much as possible uses the provided bootclasspath instead of
+    // the tool's system classloader.  Unfortunately we can't do that for java. classes.
+    if (!bootclasspath.isEmpty()) {
+      parent = new HeaderClassLoader(new IndexedJars(bootclasspath), rewriter, parent);
+    }
     // Prepend classpath with input jar itself so LambdaDesugaring can load classes with lambdas.
     // Note that inputJar and classpath need to be in the same classloader because we typically get
     // the header Jar for inputJar on the classpath and having the header Jar in a parent loader
     // means the header version is preferred over the real thing.
-    classpath = ImmutableList.<Path>builder().add(inputJar).addAll(classpath).build();
-    // Use a classloader that as much as possible uses the provided bootclasspath instead of
-    // the tool's system classloader.  Unfortunately we can't do that for java. classes.
-    if (!bootclasspath.isEmpty()) {
-      parent = HeaderClassLoader.fromClassPath(bootclasspath, rewriter, parent);
-    }
-    return HeaderClassLoader.fromClassPath(classpath, rewriter, parent);
+    return new HeaderClassLoader(appAndClasspathIndexedJars, rewriter, parent);
   }
 
   private static class ThrowingClassLoader extends ClassLoader {

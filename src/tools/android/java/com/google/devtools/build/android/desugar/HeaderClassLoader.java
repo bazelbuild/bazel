@@ -16,12 +16,6 @@ package com.google.devtools.build.android.desugar;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import org.objectweb.asm.ClassReader;
@@ -41,44 +35,20 @@ import org.objectweb.asm.Opcodes;
  */
 class HeaderClassLoader extends ClassLoader {
 
-  private final Map<String, JarFile> jarfiles;
+  private final IndexedJars indexedJars;
   private final CoreLibraryRewriter rewriter;
 
-  /** Creates a classloader from the given classpath with the given parent. */
-  public static HeaderClassLoader fromClassPath(
-      List<Path> classpath, CoreLibraryRewriter rewriter, ClassLoader parent) throws IOException {
-    return new HeaderClassLoader(indexJars(classpath), rewriter, parent);
-  }
-
-  /**
-   * Opens the given list of Jar files and returns an index of all classes in them, to avoid
-   * scanning all Jars over and over for each class in {@link #findClass}.
-   */
-  private static Map<String, JarFile> indexJars(List<Path> classpath) throws IOException {
-    HashMap<String, JarFile> result = new HashMap<>();
-    for (Path jarfile : classpath) {
-      JarFile jar = new JarFile(jarfile.toFile());
-      for (Enumeration<JarEntry> cur = jar.entries(); cur.hasMoreElements(); ) {
-        JarEntry entry = cur.nextElement();
-        if (entry.getName().endsWith(".class") && !result.containsKey(entry.getName())) {
-          result.put(entry.getName(), jar);
-        }
-      }
-    }
-    return result;
-  }
-
-  private HeaderClassLoader(
-      Map<String, JarFile> jarfiles, CoreLibraryRewriter rewriter, ClassLoader parent) {
+  public HeaderClassLoader(
+      IndexedJars indexedJars, CoreLibraryRewriter rewriter, ClassLoader parent) {
     super(parent);
     this.rewriter = rewriter;
-    this.jarfiles = jarfiles;
+    this.indexedJars = indexedJars;
   }
 
   @Override
   protected Class<?> findClass(String name) throws ClassNotFoundException {
     String filename = rewriter.unprefix(name.replace('.', '/') + ".class");
-    JarFile jarfile = jarfiles.get(filename);
+    JarFile jarfile = indexedJars.getJarFile(filename);
     if (jarfile == null) {
       throw new ClassNotFoundException();
     }
