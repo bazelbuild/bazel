@@ -27,9 +27,6 @@ MY_LOCATION=${MY_LOCATION:-"$0.runfiles/bazel_tools/tools/objc"}
 REALPATH="${MY_LOCATION}/realpath"
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-CMD_ARGS=("$@")
-
-TOOL_ARGS=()
 while [[ $# -gt 0 ]]; do
   ARG="$1"
   shift
@@ -49,29 +46,39 @@ while [[ $# -gt 0 ]]; do
       shift
       TOOLCHAIN=${ARG}
       ;;
-    # Remaining args are swift-stdlib-tool args
-    *)
-     TOOL_ARGS+=("$ARG")
-     ;;
+    --scan-executable)
+      ARG="$1"
+      shift
+      BINARY=${ARG}
+      ;;
+    --platform)
+      ARG="$1"
+      shift
+      PLATFORM=${ARG}
+      ;;
     esac
 done
 
+# Prepare destination directory
 TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/swiftstdlibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 FULLPATH="$TEMPDIR/$PATH_INSIDE_ZIP"
-
-XCRUN_ARGS=()
+mkdir -p "${FULLPATH}"
 
 if [ -n "${TOOLCHAIN:-}" ]; then
-  XCRUN_ARGS+=(--toolchain "$TOOLCHAIN")
+  readonly swiftc_dir=$(dirname "$("${WRAPPER}" -f swiftc --toolchain "${TOOLCHAIN}")")
+else
+  readonly swiftc_dir=$(dirname "$("${WRAPPER}" -f swiftc)")
 fi
 
-XCRUN_ARGS+=(swift-stdlib-tool --copy --verbose )
-XCRUN_ARGS+=(--destination "$FULLPATH")
-XCRUN_ARGS+=( "${TOOL_ARGS[@]}" )
+# Each toolchain has swift libraries directory located at
+# /path/to/swiftc/../../lib/swift/<platform>/
+# This is the same relative path that Xcode uses and is considered to be stable.
+readonly platform_dir="${swiftc_dir}/../lib/swift/${PLATFORM}"
 
-$WRAPPER "${XCRUN_ARGS[@]}"
+# Always use macOS system Python as it comes with macholib module.
+/usr/bin/python "${MY_LOCATION}/swift_stdlib_tool.py" "${BINARY}" "${platform_dir}" "${FULLPATH}"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.

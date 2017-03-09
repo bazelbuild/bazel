@@ -95,6 +95,7 @@ sh_binary(
     srcs = [":swiftstdlibtoolwrapper.sh"],
     data = [
         ":realpath",
+        ":swift_stdlib_tool.py",
         ":xcrunwrapper",
     ],
 )
