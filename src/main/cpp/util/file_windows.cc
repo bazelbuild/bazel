@@ -101,8 +101,8 @@ static bool HasDriveSpecifierPrefix(const char_type* ch) {
   return CharTraits<char_type>::IsAlpha(ch[0]) && ch[1] == ':';
 }
 
-static void AddUncPrefixMaybe(wstring* path) {
-  if (path->size() >= MAX_PATH && !HasUncPrefix(path->c_str())) {
+static void AddUncPrefixMaybe(wstring* path, size_t max_path = MAX_PATH) {
+  if (path->size() >= max_path && !HasUncPrefix(path->c_str())) {
     *path = wstring(L"\\\\?\\") + *path;
   }
 }
@@ -483,7 +483,8 @@ bool AsWindowsPath(const string& path, wstring* result) {
   return true;
 }
 
-bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
+bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath,
+                                size_t max_path) {
   if (IsDevNull(path)) {
     wpath->assign(L"NUL");
     return true;
@@ -497,7 +498,7 @@ bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath) {
   if (!IsAbsolute(path)) {
     wpath->assign(wstring(GetCwdW().get()) + L"\\" + *wpath);
   }
-  AddUncPrefixMaybe(wpath);
+  AddUncPrefixMaybe(wpath, max_path);
   return true;
 }
 
@@ -1120,7 +1121,9 @@ bool MakeDirectories(const string& path, unsigned int mode) {
     return false;
   }
   wstring wpath;
-  if (!AsWindowsPathWithUncPrefix(path, &wpath)) {
+  // According to MSDN, CreateDirectory's limit without the UNC prefix is
+  // 248 characters (so it could fit another filename before reaching MAX_PATH).
+  if (!AsWindowsPathWithUncPrefix(path, &wpath, 248)) {
     return false;
   }
   return MakeDirectoriesW(wpath);
