@@ -143,6 +143,18 @@ public class AppleSkylarkCommon {
   }
 
   @SkylarkCallable(
+    name = AppleDebugOutputsProvider.SKYLARK_NAME,
+    doc =
+        "Returns the provider constructor for AppleDebugOutputsProvider. If a target propagates "
+            + "the AppleDebugOutputsProvider provider, use this as the key with which to retrieve "
+            + "it.",
+    structField = true
+  )
+  public ClassObjectConstructor getAppleDebugOutputsConstructor() {
+    return AppleDebugOutputsProvider.SKYLARK_CONSTRUCTOR;
+  }
+
+  @SkylarkCallable(
     name = AppleLoadableBundleBinaryProvider.SKYLARK_NAME,
     doc =
         "Returns the provider constructor for AppleLoadableBundleBinaryProvider. If a target "

@@ -49,7 +49,10 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
     BITCODE_SYMBOLS,
 
     /** A single-architecture DWARF binary with debug symbols. */
-    DSYM_BINARY;
+    DSYM_BINARY,
+
+    /** A single-architecture linkmap. */
+    LINKMAP;
 
     @Override
     public String toString() {
@@ -57,8 +60,12 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
     }
   }
 
-  public static final ClassObjectConstructor SKYLARK_PROVIDER =
-      new NativeClassObjectConstructor("AppleDebugOutputs") { };
+  /** Skylark name for the AppleDebugOutputsProvider. */
+  public static final String SKYLARK_NAME = "AppleDebugOutputs";
+
+  /** Skylark constructor and identifier for AppleDebugOutputsProvider. */
+  public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
+      new NativeClassObjectConstructor(SKYLARK_NAME) { };
 
   /**
    * Creates a new provider instance.
@@ -76,7 +83,7 @@ public final class AppleDebugOutputsProvider extends SkylarkClassObject
    *     </ul>
    */
   private AppleDebugOutputsProvider(ImmutableMap<String, ImmutableMap<String, Artifact>> map) {
-    super(SKYLARK_PROVIDER, ImmutableMap.<String, Object>of("outputs_map", map));
+    super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of("outputs_map", map));
   }
 
   /** A builder for {@link AppleDebugOutputsProvider}. */
