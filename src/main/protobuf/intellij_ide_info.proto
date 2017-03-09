@@ -118,15 +118,6 @@ message JavaToolchainIdeInfo {
   string target_version = 2;
 }
 
-message IntellijPluginDeployFile {
-  ArtifactLocation src = 1;
-  string deploy_location = 2;
-}
-
-message IntellijPluginDeployInfo {
-  repeated IntellijPluginDeployFile deploy_files = 1;
-}
-
 message TargetKey {
   string label = 1;
   repeated string aspect_ids = 3;
@@ -171,5 +162,5 @@ message TargetIdeInfo {
 
   repeated Dependency deps = 20;
 
-  IntellijPluginDeployInfo intellij_plugin_deploy_info = 21;
+  // Next available: 22
 }
