@@ -64,13 +64,11 @@ EOF
 java_test(name = "TestsPass",
           srcs = ['TestsPass.java'],
           tags = ["experimental_testrunner"],
-          deps = ['@bazel_tools//tools/jdk:ExperimentalTestRunner_deploy.jar'],
 )
 
 java_test(name = "TestsFail",
           srcs = ['TestsFail.java'],
           tags = ["experimental_testrunner"],
-          deps = ['@bazel_tools//tools/jdk:ExperimentalTestRunner_deploy.jar'],
 )
 EOF
 
@@ -107,7 +105,6 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
 )
 EOF
 
@@ -194,7 +191,6 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
 )
 EOF
 

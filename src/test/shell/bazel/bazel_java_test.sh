@@ -246,7 +246,6 @@ java_library(name = "test_runner",
 
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
           main_class = "testrunners.TestRunner",
           runtime_deps = [':test_runner']
 )
