@@ -273,19 +273,18 @@ static function<wstring()> MakeConversionFunc(const char* input) {
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessBadInputs) {
   ASSERT_SHORTENING_FAILS("", "should not be empty");
   ASSERT_SHORTENING_FAILS("\"cmd.exe\"", "should not be quoted");
-  ASSERT_SHORTENING_FAILS("/dev/null", "Windows-style path");
-  ASSERT_SHORTENING_FAILS("/usr/bin/bash", "Windows-style path");
+  ASSERT_SHORTENING_FAILS("/dev/null", "path='/dev/null' is absolute");
+  ASSERT_SHORTENING_FAILS("/usr/bin/bash", "path='/usr/bin/bash' is absolute");
   ASSERT_SHORTENING_FAILS("foo\\bar.exe", "absolute");
   ASSERT_SHORTENING_FAILS("foo\\..\\bar.exe", "normalized");
-  ASSERT_SHORTENING_FAILS("c:/bar.exe", "Windows-style");
-  ASSERT_SHORTENING_FAILS("\\bar.exe", "drive letter");
+  ASSERT_SHORTENING_FAILS("\\bar.exe", "path='\\bar.exe' is absolute");
 
   string dummy = "hello";
   while (dummy.size() < MAX_PATH) {
     dummy += dummy;
   }
   dummy += ".exe";
-  ASSERT_SHORTENING_FAILS(dummy.c_str(), "shorter than MAX_PATH");
+  ASSERT_SHORTENING_FAILS(dummy.c_str(), "a file name but too long");
 }
 
 TEST(WindowsUtilTest, TestAsExecutablePathForCreateProcessConversions) {
