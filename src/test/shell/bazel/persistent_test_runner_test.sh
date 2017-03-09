@@ -154,6 +154,7 @@ EOF
 java_test(name = "TestWithoutRunner",
           srcs = ['TestWithoutRunner.java'],
           use_testrunner = 0,
+          tags = ["experimental_testrunner"],
           main_class = "testrunners.TestWithoutRunner"
 )
 EOF
@@ -167,7 +168,46 @@ EOF
       || true
 
   expect_log \
-      "Tests that do not use the default test runner are incompatible with the persistent worker"
+      "Tests that do not use the experimental test runner are incompatible with the persistent worker"
+}
+
+function test_fail_without_experimental_testrunner() {
+  mkdir -p java/testrunners || fail "mkdir failed"
+
+  cat > java/testrunners/Tests.java <<EOF
+package testrunners;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.junit.Test;
+
+@RunWith(JUnit4.class)
+public class Tests {
+
+  @Test
+  public void testPass() {
+    // This passes
+  }
+}
+EOF
+
+  cat > java/testrunners/BUILD <<EOF
+java_test(name = "Tests",
+          srcs = ['Tests.java'],
+          deps = ['@bazel_tools//tools/jdk:TestRunner_deploy.jar'],
+)
+EOF
+
+  bazel test --no_cache_test_results //java/testrunners:Tests >& $TEST_log \
+      || fail "Normal test execution should pass."
+
+  bazel test --no_cache_test_results --test_strategy=experimental_worker >& $TEST_log \
+      //java/testrunners:Tests \
+      && fail "Test should have failed when running with an experimental runner." \
+      || true
+
+  expect_log \
+      "Tests that do not use the experimental test runner are incompatible with the persistent worker"
 }
 
 run_suite "Persistent Test Runner tests"

@@ -83,9 +83,10 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
-    if (!action.useTestRunner()) {
-      throw new UserExecException("Tests that do not use the default test runner are incompatible"
-          + " with the persistent worker test strategy. Please use another test strategy");
+    if (!action.useExperimentalTestRunner()) {
+      throw new UserExecException(
+          "Tests that do not use the experimental test runner are incompatible with the persistent"
+              + " worker test strategy. Please use another test strategy");
     }
     if (action.isCoverageMode()) {
       throw new UserExecException("Coverage is currently incompatible"
