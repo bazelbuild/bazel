@@ -417,7 +417,7 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
                              "java.util.logging.FileHandler.pattern=" +
                                  java_log +
                                  "\n"
-                                 "java.util.logging.FileHandler.limit=50000\n"
+                                 "java.util.logging.FileHandler.limit=1024000\n"
                                  "java.util.logging.FileHandler.count=1\n"
                                  "java.util.logging.FileHandler.formatter=" +
                                  java_logging_formatter + "\n",
