@@ -53,9 +53,6 @@ final class MipsCrosstools {
                     CppConfiguration.Tool.DWP))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips64"));
 
-    //List<CToolchain.Builder> toolchains = toolchainsListBuilder.build();
-    ndkPaths.addToolchainIncludePaths(
-        mips64Clang, "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9.x");
     stlImpl.addStlImpl(mips64Clang, "4.9");
     return mips64Clang;
   }
@@ -76,8 +73,6 @@ final class MipsCrosstools {
                     CppConfiguration.Tool.GCOVTOOL))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-    ndkPaths.addToolchainIncludePaths(
-        mipsClang, "mipsel-linux-android-4.9", "mipsel-linux-android", "4.9.x");
     stlImpl.addStlImpl(mipsClang, "4.9");
 
     return mipsClang;
@@ -91,6 +86,9 @@ final class MipsCrosstools {
 
     return CToolchain.newBuilder()
         .setCompiler("clang3.8")
+        .addCxxBuiltinIncludeDirectory(
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
+                AndroidNdkCrosstoolsR13.CLANG_VERSION))
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")

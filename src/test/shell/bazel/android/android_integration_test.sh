@@ -215,10 +215,18 @@ function test_android_binary() {
   check_soname
 }
 
+is_ndk_10() {
+  if [[ -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 function test_android_binary_clang() {
   # clang3.8 is only available on NDK r11
-  # TODO(ahumesky): This is only distinguishing between r10 and r11+.
-  if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/source.properties" ]]; then
+  if is_ndk_10; then
+    echo "Not running test_android_binary_clang because it requires NDK11 or later"
     return
   fi
   create_new_workspace
@@ -234,6 +242,33 @@ function test_android_binary_clang() {
       || fail "build failed"
   check_num_sos
   check_soname
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/2601.
+function test_clang_include_paths() {
+  if is_ndk_10; then
+    echo "Not running test_clang_include_paths because it requires NDK11 or later"
+    return
+  fi
+  create_new_workspace
+  setup_android_ndk_support
+  cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    copts = ["-mfpu=neon"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <arm_neon.h>
+int main() { return 0; }
+EOF
+  bazel build //:foo \
+    --compiler=clang3.8 \
+    --cpu=armeabi-v7a \
+    --crosstool_top=//external:android/crosstool \
+    --host_crosstool_top=@bazel_tools//tools/cpp:toolchain \
+    || fail "build failed"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/1928.

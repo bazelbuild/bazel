@@ -87,7 +87,7 @@ class ArmCrosstools {
                     .addCompilerFlag("-O0")
                     .addCompilerFlag("-UNDEBUG"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -142,7 +142,6 @@ class ArmCrosstools {
                     .addCompilerFlag("-O0")
                     .addCompilerFlag("-UNDEBUG"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -207,7 +206,7 @@ class ArmCrosstools {
             .addCompilerFlag("-O0")
             .addCompilerFlag("-UNDEBUG"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     return toolchain;
   }
 
@@ -250,6 +249,9 @@ class ArmCrosstools {
             .setTargetSystemName("arm-linux-androideabi")
             .setCompiler("clang3.8")
             .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
+            .addCxxBuiltinIncludeDirectory(
+                ndkPaths.createClangToolchainBuiltinIncludeDirectory(
+                    AndroidNdkCrosstoolsR12.CLANG_VERSION))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
             // Compiler flags
@@ -283,7 +285,6 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-strict-aliasing")
             .addCompilerFlag("-O0")
             .addCompilerFlag("-UNDEBUG"));
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     return toolchain;
   }
 }

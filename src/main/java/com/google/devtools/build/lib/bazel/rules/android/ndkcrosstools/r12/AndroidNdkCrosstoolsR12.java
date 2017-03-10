@@ -27,6 +27,9 @@ import java.util.Map.Entry;
 
 /** Generates a CrosstoolRelease proto for the Android NDK. */
 final class AndroidNdkCrosstoolsR12 {
+  /** {@code ./ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/clang --version} */
+  static final String CLANG_VERSION = "3.8.256229";
+
   private AndroidNdkCrosstoolsR12() {}
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the

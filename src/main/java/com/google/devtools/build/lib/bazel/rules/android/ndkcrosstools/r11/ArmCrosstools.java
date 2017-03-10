@@ -110,7 +110,7 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -169,7 +169,6 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -186,13 +185,13 @@ class ArmCrosstools {
               .addCompilerFlag("-march=armv5te")
               .addCompilerFlag("-mtune=xscale")
               .addCompilerFlag("-msoft-float"),
-    
+
         createBaseArmeabiToolchain(thumb, excludedTools)
             .setToolchainIdentifier(
                 createArmeabiName("arm-linux-androideabi-4.9-v7a", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi-v7a", thumb))
 
-            .addCompilerFlag("-march=armv7-a") 
+            .addCompilerFlag("-march=armv7-a")
             .addCompilerFlag("-mfpu=vfpv3-d16")
             .addCompilerFlag("-mfloat-abi=softfp")
 
@@ -203,12 +202,12 @@ class ArmCrosstools {
             .setToolchainIdentifier(
                 createArmeabiName("arm-linux-androideabi-4.9-v7a-hard", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi-v7a-hard", thumb))
-    
-            .addCompilerFlag("-march=armv7-a") 
+
+            .addCompilerFlag("-march=armv7-a")
             .addCompilerFlag("-mfpu=vfpv3-d16")
             .addCompilerFlag("-mhard-float")
             .addCompilerFlag("-D_NDK_MATH_NO_SOFTFP=1")
-    
+
             .addLinkerFlag("-march=armv7-a")
             .addLinkerFlag("-Wl,--fix-cortex-a8")
             .addLinkerFlag("-Wl,--no-warn-mismatch")
@@ -287,7 +286,7 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     return toolchain;
   }
 
@@ -297,13 +296,13 @@ class ArmCrosstools {
         createBaseArmeabiClangToolchain(thumb)
             .setToolchainIdentifier(createArmeabiName("arm-linux-androideabi-clang3.8", thumb))
             .setTargetCpu(createArmeabiCpuName("armeabi", thumb))
-    
+
             .addCompilerFlag("-target")
             .addCompilerFlag("armv5te-none-linux-androideabi") // LLVM_TRIPLE
             .addCompilerFlag("-march=armv5te")
             .addCompilerFlag("-mtune=xscale")
             .addCompilerFlag("-msoft-float")
-    
+
             .addLinkerFlag("-target")
             // LLVM_TRIPLE
             .addLinkerFlag("armv5te-none-linux-androideabi"),
@@ -311,29 +310,29 @@ class ArmCrosstools {
       createBaseArmeabiClangToolchain(thumb)
           .setToolchainIdentifier(createArmeabiName("arm-linux-androideabi-clang3.8-v7a", thumb))
           .setTargetCpu(createArmeabiCpuName("armeabi-v7a", thumb))
-  
+
           .addCompilerFlag("-target")
           .addCompilerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-          .addCompilerFlag("-march=armv7-a") 
+          .addCompilerFlag("-march=armv7-a")
           .addCompilerFlag("-mfloat-abi=softfp")
           .addCompilerFlag("-mfpu=vfpv3-d16")
-  
+
           .addLinkerFlag("-target")
           .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
           .addLinkerFlag("-Wl,--fix-cortex-a8"),
-  
+
       createBaseArmeabiClangToolchain(thumb)
           .setToolchainIdentifier(
               createArmeabiName("arm-linux-androideabi-clang3.8-v7a-hard", thumb))
           .setTargetCpu(createArmeabiCpuName("armeabi-v7a-hard", thumb))
-  
+
           .addCompilerFlag("-target")
           .addCompilerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
-          .addCompilerFlag("-march=armv7-a") 
+          .addCompilerFlag("-march=armv7-a")
           .addCompilerFlag("-mfpu=vfpv3-d16")
           .addCompilerFlag("-mhard-float")
           .addCompilerFlag("-D_NDK_MATH_NO_SOFTFP=1")
-  
+
           .addLinkerFlag("-target")
           .addLinkerFlag("armv7-none-linux-androideabi") // LLVM_TRIPLE
           .addLinkerFlag("-Wl,--fix-cortex-a8")
@@ -355,7 +354,9 @@ class ArmCrosstools {
         .setCompiler("clang3.8")
 
         .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
-
+        .addCxxBuiltinIncludeDirectory(
+            ndkPaths.createClangToolchainBuiltinIncludeDirectory(
+                AndroidNdkCrosstoolsR11.CLANG_VERSION))
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
         // Compiler flags
@@ -411,7 +412,6 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.8");
     return toolchain;
   }
 
