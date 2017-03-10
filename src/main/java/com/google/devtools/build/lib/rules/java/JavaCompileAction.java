@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -65,23 +64,15 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.view.proto.Deps;
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /**
  * Action that represents a Java compilation.
@@ -95,14 +86,9 @@ public final class JavaCompileAction extends AbstractAction {
   private static final ResourceSet LOCAL_RESOURCES =
       ResourceSet.createWithRamCpuIo(750 /*MB*/, 0.5 /*CPU*/, 0.0 /*IO*/);
 
-  /** Default number of unused jars below which we ignore minimum classpath optimization. */
-  private static final int MINIMUM_REDUCTION_TO_SAVE_USED_INPUTS = 0;
-
   /** A {@link clientEnvironmentVariables} entry that sets the UTF-8 charset. */
   static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
       ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
-
-  private static final Logger logger = Logger.getLogger(JavaCompileAction.class.getName());
 
   private final CommandLine javaCompileCommandLine;
   private final CommandLine commandLine;
@@ -180,20 +166,6 @@ public final class JavaCompileAction extends AbstractAction {
    */
   private final ImmutableList<Artifact> compileTimeDependencyArtifacts;
 
-  /** Saved copy of the baseInputs needed to reconstruct the full inputs. */
-  private final Iterable<Artifact> baseInputs;
-
-  /** If non-null, use this command line base for calling JavaBuilder with minimum classpath. */
-  private final CommandLine minimumCommandLineBase;
-
-  private final String pathDelimiter;
-
-  /** Inputs that were actually used for the previous compilation, if successful. */
-  private Iterable<Artifact> usedInputs;
-
-  /** Actual, complete command line for minimum compile optimization. */
-  private CommandLine minCommandLine;
-
   /**
    * Constructs an action to compile a set of Java source files to class files.
    *
@@ -206,7 +178,6 @@ public final class JavaCompileAction extends AbstractAction {
    *     written to the parameter file, but other parts (for example, ide_build_info) need access to
    *     the data
    * @param commandLine the actual invocation command line
-   * @param minimumCommandLineBase minimum classpath invocation command line, without inputs
    * @param resourceCount the count of all resource inputs
    */
   private JavaCompileAction(
@@ -233,8 +204,6 @@ public final class JavaCompileAction extends AbstractAction {
       Map<String, String> executionInfo,
       BuildConfiguration.StrictDepsMode strictJavaDeps,
       Collection<Artifact> compileTimeDependencyArtifacts,
-      CommandLine minimumCommandLineBase,
-      String pathDelimiter,
       int resourceCount) {
     super(
         owner,
@@ -266,9 +235,6 @@ public final class JavaCompileAction extends AbstractAction {
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
     this.strictJavaDeps = strictJavaDeps;
     this.compileTimeDependencyArtifacts = ImmutableList.copyOf(compileTimeDependencyArtifacts);
-    this.baseInputs = ImmutableList.copyOf(baseInputs);
-    this.minimumCommandLineBase = minimumCommandLineBase;
-    this.pathDelimiter = pathDelimiter;
     this.resourceCount = resourceCount;
   }
 
@@ -397,20 +363,12 @@ public final class JavaCompileAction extends AbstractAction {
 
   /** Returns the command and arguments for a java compile action. */
   public List<String> getCommand() {
-    // If available, use the saved minCommandLine, otherwise use the command line with full inputs.
-    return ImmutableList.copyOf(
-        (minCommandLine != null ? minCommandLine : commandLine).arguments());
+    return ImmutableList.copyOf(commandLine.arguments());
   }
 
   @VisibleForTesting
   Spawn createSpawn() {
-    return new BaseSpawn(getCommand(), UTF8_ENVIRONMENT, executionInfo, this, LOCAL_RESOURCES) {
-      @Override
-      public Iterable<? extends ActionInput> getInputFiles() {
-        // Reduce inputs for minclasspath compile. Requires use of minCommandLine.
-        return usedInputs != null ? usedInputs : super.getInputFiles();
-      }
-    };
+    return new BaseSpawn(getCommand(), UTF8_ENVIRONMENT, executionInfo, this, LOCAL_RESOURCES);
   }
 
   @Override
@@ -418,71 +376,13 @@ public final class JavaCompileAction extends AbstractAction {
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    boolean executeFullCompile = true;
-    if (usedInputs != null) {
-      try {
-        getContext(executor).exec(createSpawn(), actionExecutionContext);
-        executeFullCompile = false;
-      } catch (ExecException e) {
-        logger.info("Minimum classpath failed for " + getOwner().getLabel().toShorthandString());
-        minCommandLine = null;
-        usedInputs = null;
-      }
-    }
-    if (executeFullCompile) {
-      try {
-        getContext(executor).exec(createSpawn(), actionExecutionContext);
-      } catch (ExecException e) {
-        throw e.toActionExecutionException(
-            "Java compilation in rule '" + getOwner().getLabel() + "'",
-            executor.getVerboseFailures(),
-            this);
-      }
-    }
-    maybeSaveUsedInputs();
-  }
-  /**
-   * If enabled, read and save the contents of the output '.jdeps' file for minimum classpath
-   * incremental compile on the next call to execute.
-   */
-  @VisibleForTesting
-  void maybeSaveUsedInputs() {
-    minCommandLine = null;
-    usedInputs = null;
-    if (minimumCommandLineBase != null) {
-      // Find the actually needed dependencies from the just-generated jdeps file.
-      // TODO(b/30902566): Cache jdeps md5, avoid rereading and recreating command when unchanged.
-      Set<String> usedInputJars = readJdeps(outputJar);
-      if (usedInputJars == null) {
-        return;
-      }
-      List<Artifact> orderedClasspath = classpathEntries.toList();
-      // Only continue if we anticipate the added work and memory will pay off.
-      if (orderedClasspath.size() - usedInputJars.size() <= MINIMUM_REDUCTION_TO_SAVE_USED_INPUTS) {
-        return;
-      }
-      ImmutableList.Builder<Artifact> minInputsBuilder = ImmutableList.builder();
-      for (Artifact artifact : orderedClasspath) {
-        if (usedInputJars.contains(artifact.getExecPathString())) {
-          minInputsBuilder.add(artifact);
-        }
-      }
-      final ImmutableList<Artifact> minimumInputs = minInputsBuilder.build();
-      // The two things needed to enable minimum incremental classpath compile - command & inputs
-      CustomCommandLine.Builder minCommandLineBuilder = CustomCommandLine.builder();
-      minCommandLineBuilder.add(minimumCommandLineBase.arguments());
-      if (!minimumInputs.isEmpty()) {
-        minCommandLineBuilder.addJoinExecPaths("--classpath", pathDelimiter, minimumInputs);
-      }
-      minCommandLineBuilder
-          .add("--strict_java_deps")
-          .add(strictJavaDeps.toString())
-          .add(new JarsToTargetsArgv(minimumInputs, directJars));
-      minCommandLine = minCommandLineBuilder.build();
-
-      // Keep in sync with inputs in constructor call to 'super', except do not
-      // include compileTimeDependencyArtifacts or paramFile, which are unneeded here.
-      usedInputs = Iterables.concat(minimumInputs, baseInputs, getTools());
+    try {
+      getContext(executor).exec(createSpawn(), actionExecutionContext);
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(
+          "Java compilation in rule '" + getOwner().getLabel() + "'",
+          executor.getVerboseFailures(),
+          this);
     }
   }
 
@@ -490,7 +390,6 @@ public final class JavaCompileAction extends AbstractAction {
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    f.addBoolean(minimumCommandLineBase != null);
     f.addStrings(commandLine.arguments());
     return f.hexDigestAndReset();
   }
@@ -741,7 +640,7 @@ public final class JavaCompileAction extends AbstractAction {
       result.add(new JarsToTargetsArgv(classpath, directJars));
 
       if (configuration.getFragment(JavaConfiguration.class).getReduceJavaClasspath()
-          != JavaClasspathMode.OFF) {
+          == JavaClasspathMode.JAVABUILDER) {
         result.add("--reduce_classpath");
 
         if (!compileTimeDependencyArtifacts.isEmpty()) {
@@ -860,31 +759,6 @@ public final class JavaCompileAction extends AbstractAction {
         return builder.build().arguments();
       }
     };
-  }
-
-  @VisibleForTesting
-  static Set<String> readJdeps(Artifact outputJar) {
-    Set<String> jdeps = new HashSet<>();
-    Path jdepsFile = FileSystemUtils.replaceExtension(outputJar.getPath(), ".jdeps");
-    String label = outputJar.getOwnerLabel().toShorthandString();
-    if (!jdepsFile.exists() || !jdepsFile.isFile()) {
-      logger.warning("Jdeps file missing for " + label);
-      return null;
-    }
-    try (InputStream bis = new BufferedInputStream(jdepsFile.getInputStream())) {
-      Deps.Dependencies deps = Deps.Dependencies.parseFrom(bis);
-      if (!deps.hasSuccess() || !deps.getSuccess() || !deps.hasRuleLabel()) {
-        logger.warning("Cannot use jdeps file for " + label);
-        return null;
-      }
-      for (Deps.Dependency dep : deps.getDependencyList()) {
-        jdeps.add(dep.getPath());
-      }
-    } catch (IOException e) {
-      logger.warning("Failed to read jdeps file for " + label);
-      return null;
-    }
-    return jdeps;
   }
 
   /**
@@ -1142,16 +1016,6 @@ public final class JavaCompileAction extends AbstractAction {
               .addAll(instrumentationJars)
               .build();
 
-      // Minimum compile command line null unless explicitly enabled via JavaClasspathMode.
-      CommandLine minimumCommandLineBase = null;
-      if (javaConfiguration.getReduceJavaClasspath() == JavaClasspathMode.EXPERIMENTAL_BLAZE) {
-        minimumCommandLineBase =
-            CustomCommandLine.builder()
-                .add(spawnCommandLineBase)
-                .add(commonJavaBuilderArgs)
-                .build();
-      }
-
       return new JavaCompileAction(
           owner,
           tools,
@@ -1176,8 +1040,6 @@ public final class JavaCompileAction extends AbstractAction {
           executionInfo,
           strictJavaDeps,
           compileTimeDependencyArtifacts,
-          minimumCommandLineBase,
-          pathSeparator,
           resources.size() + classpathResources.size() + translations.size());
     }
 
