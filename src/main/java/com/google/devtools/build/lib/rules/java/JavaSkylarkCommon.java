@@ -53,6 +53,45 @@ public class JavaSkylarkCommon {
   }
 
   @SkylarkCallable(
+      name = "create_provider",
+      documented = false,
+      parameters = {
+          @Param(
+              name = "compile_time_jars",
+              positional = false,
+              named = true,
+              type = SkylarkList.class,
+              generic1 = Artifact.class,
+              defaultValue = "[]"
+          ),
+          @Param(
+              name = "runtime_jars",
+              positional = false,
+              named = true,
+              type = SkylarkList.class,
+              generic1 = Artifact.class,
+              defaultValue = "[]"
+          )
+      }
+  )
+  public JavaProvider create(
+      SkylarkList<Artifact> compileTimeJars,
+      SkylarkList<Artifact> runtimeJars) {
+    JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.builder()
+        .addCompileTimeJars(compileTimeJars)
+        .addRuntimeJars(runtimeJars)
+        .build();
+    JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.builder()
+        .addCompileTimeJars(compileTimeJars)
+        .addRuntimeJars(runtimeJars).build();
+    JavaProvider javaProvider = JavaProvider.Builder.create().addProvider(
+              JavaCompilationArgsProvider.class,
+              JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
+          .build();
+    return javaProvider;
+  }
+
+  @SkylarkCallable(
     name = "compile",
     doc = "Compiles Java source files/jars from the implementation of a Skylark rule and returns a "
       + "provider that represents the results of the compilation and can be added to the set of "
