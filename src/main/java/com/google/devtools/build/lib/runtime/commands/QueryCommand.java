@@ -275,6 +275,7 @@ public final class QueryCommand implements BlazeCommand {
             env.getReporter(),
             settings,
             env.getRuntime().getQueryFunctions(),
-            env.getPackageManager().getPackagePath());
+            env.getPackageManager().getPackagePath(),
+            /*blockUniverseEvaluationErrors=*/ false);
   }
 }

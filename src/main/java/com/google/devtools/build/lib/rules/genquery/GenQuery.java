@@ -304,20 +304,25 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
       // cores.
-      BlazeQueryEnvironment queryEnvironment = (BlazeQueryEnvironment) QUERY_ENVIRONMENT_FACTORY
-          .create(
-              /*transitivePackageLoader=*/null, /*graph=*/null, packageProvider,
-              evaluator,
-              /*keepGoing=*/false,
-              ruleContext.attributes().get("strict", Type.BOOLEAN),
-              /*orderedResults=*/!QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
-              /*universeScope=*/ImmutableList.<String>of(),
-              /*loadingPhaseThreads=*/4,
-              labelFilter,
-              getEventHandler(ruleContext),
-              settings,
-              ImmutableList.<QueryFunction>of(),
-              /*packagePath=*/null);
+      BlazeQueryEnvironment queryEnvironment =
+          (BlazeQueryEnvironment)
+              QUERY_ENVIRONMENT_FACTORY.create(
+                  /*transitivePackageLoader=*/ null,
+                  /*graph=*/ null,
+                  packageProvider,
+                  evaluator,
+                  /*keepGoing=*/ false,
+                  ruleContext.attributes().get("strict", Type.BOOLEAN),
+                  /*orderedResults=*/ !QueryOutputUtils.shouldStreamResults(
+                      queryOptions, formatter),
+                  /*universeScope=*/ ImmutableList.<String>of(),
+                  /*loadingPhaseThreads=*/ 4,
+                  labelFilter,
+                  getEventHandler(ruleContext),
+                  settings,
+                  ImmutableList.<QueryFunction>of(),
+                  /*packagePath=*/ null,
+                  /*blockUniverseEvaluationErrors=*/ false);
       queryResult = (DigraphQueryEvalResult<Target>) queryEnvironment.evaluateQuery(query, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction

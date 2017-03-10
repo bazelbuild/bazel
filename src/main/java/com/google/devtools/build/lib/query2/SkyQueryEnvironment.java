@@ -44,7 +44,9 @@ import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -146,6 +148,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final int loadingPhaseThreads;
   protected final WalkableGraphFactory graphFactory;
   protected final ImmutableList<String> universeScope;
+  protected boolean blockUniverseEvaluationErrors;
+  protected ExtendedEventHandler universeEvalEventHandler;
+
   protected final String parserPrefix;
   protected final PathPackageLocator pkgPath;
   private final int queryEvaluationParallelismLevel;
@@ -169,7 +174,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       String parserPrefix,
       WalkableGraphFactory graphFactory,
       List<String> universeScope,
-      PathPackageLocator pkgPath) {
+      PathPackageLocator pkgPath,
+      boolean blockUniverseEvaluationErrors) {
     this(
         keepGoing,
         loadingPhaseThreads,
@@ -182,7 +188,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         parserPrefix,
         graphFactory,
         universeScope,
-        pkgPath);
+        pkgPath,
+        blockUniverseEvaluationErrors);
   }
 
   protected SkyQueryEnvironment(
@@ -195,7 +202,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       String parserPrefix,
       WalkableGraphFactory graphFactory,
       List<String> universeScope,
-      PathPackageLocator pkgPath) {
+      PathPackageLocator pkgPath,
+      boolean blockUniverseEvaluationErrors) {
     super(
         keepGoing,
         /*strictScope=*/ true,
@@ -212,7 +220,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         !universeScope.isEmpty(), "No queries can be performed with an empty universe");
     this.queryEvaluationParallelismLevel = queryEvaluationParallelismLevel;
     this.universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
-    universeTargetPatternKeys =
+    this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
+    this.universeEvalEventHandler =
+        this.blockUniverseEvaluationErrors
+            ? new ErrorBlockingForwardingEventHandler(this.eventHandler)
+            : this.eventHandler;
+    this.universeTargetPatternKeys =
         PrepareDepsOfPatternsFunction.getTargetPatternKeys(
             PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
   }
@@ -224,7 +237,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       // to date.
       EvaluationResult<SkyValue> result;
       try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", LOG)) {
-        result = graphFactory.prepareAndGet(universeKey, loadingPhaseThreads, eventHandler);
+        result =
+            graphFactory.prepareAndGet(universeKey, loadingPhaseThreads, universeEvalEventHandler);
       }
       checkEvaluationResult(result);
 
@@ -1227,7 +1241,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // TODO(nharmata): Now that we know the wrapped callback is ThreadSafe, there's no correctness
     // concern that requires the prohibition of concurrent uses of the callback; the only concern is
     // memory. We should have a threshold for when to invoke the callback with a batch, and also a
-    // separate, larger, bound on the number of targets being processed at the same time. 
+    // separate, larger, bound on the number of targets being processed at the same time.
     private final ThreadSafeOutputFormatterCallback<Target> callback;
     private final Uniquifier<Target> uniquifier =
         new UniquifierImpl<>(TargetKeyExtractor.INSTANCE, DEFAULT_THREAD_COUNT);
@@ -1448,6 +1462,34 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         callback.process(uniqueChildren);
         reverseDepsQueue.addAll(
             graph.getReverseDeps(makeTransitiveTraversalKeys(uniqueChildren)).entrySet());
+      }
+    }
+  }
+
+  /**
+   * Query evaluation behavior is specified with respect to errors it emits. (Or at least it should
+   * be. Tools rely on it.) Notably, errors that occur during evaluation of a query's universe must
+   * not be emitted during query command evaluation. Consider the case of a simple single target
+   * query when {@code //...} is the universe: errors in far flung parts of the workspace should not
+   * be emitted when that query command is evaluated.
+   *
+   * <p>Non-error message events are not specified. For instance, it's useful (and expected by some
+   * unit tests that should know better) for query commands to emit {@link EventKind#PROGRESS}
+   * events during package loading.
+   *
+   * <p>Therefore, this class is used to forward only non-{@link EventKind#ERROR} events during
+   * universe loading to the {@link SkyQueryEnvironment}'s {@link ExtendedEventHandler}.
+   */
+  protected static class ErrorBlockingForwardingEventHandler extends DelegatingEventHandler {
+
+    public ErrorBlockingForwardingEventHandler(ExtendedEventHandler delegate) {
+      super(delegate);
+    }
+
+    @Override
+    public void handle(Event e) {
+      if (!e.getKind().equals(EventKind.ERROR)) {
+        super.handle(e);
       }
     }
   }

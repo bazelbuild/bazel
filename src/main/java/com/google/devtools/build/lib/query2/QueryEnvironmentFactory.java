@@ -47,7 +47,8 @@ public class QueryEnvironmentFactory {
       ExtendedEventHandler eventHandler,
       Set<Setting> settings,
       Iterable<QueryFunction> functions,
-      @Nullable PathPackageLocator packagePath) {
+      @Nullable PathPackageLocator packagePath,
+      boolean blockUniverseEvaluationErrors) {
     Preconditions.checkNotNull(universeScope);
     if (canUseSkyQuery(orderedResults, universeScope, packagePath, strictScope, labelFilter)) {
       return new SkyQueryEnvironment(
@@ -59,7 +60,8 @@ public class QueryEnvironmentFactory {
           targetPatternEvaluator.getOffset(),
           graphFactory,
           universeScope,
-          packagePath);
+          packagePath,
+          blockUniverseEvaluationErrors);
     } else {
       return new BlazeQueryEnvironment(transitivePackageLoader, targetProvider,
           targetPatternEvaluator, keepGoing, strictScope, loadingPhaseThreads, labelFilter,
