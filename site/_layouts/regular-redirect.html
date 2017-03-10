@@ -1,0 +1,7 @@
+<html>
+  <head>
+    <script>
+      window.location.replace("{{ page.redirect }}" + window.location.hash);
+    </script>
+  </head>
+</html>
