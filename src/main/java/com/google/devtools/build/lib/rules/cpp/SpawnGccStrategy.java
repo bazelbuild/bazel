@@ -14,18 +14,18 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
+import com.google.devtools.build.lib.actions.UserExecException;
 
 /**
  * A context for C++ compilation that calls into a {@link SpawnActionContext}.
@@ -35,26 +35,6 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
   name = {"spawn"}
 )
 public class SpawnGccStrategy implements CppCompileActionContext {
-
-  /**
-   * A {@link Spawn} that wraps a {@link CppCompileAction} and adds its
-   * {@code additionalInputs} (potential files included) to its inputs.
-   */
-  private static class GccSpawn extends BaseSpawn {
-    private final Iterable<? extends ActionInput> inputs;
-
-    public GccSpawn(CppCompileAction action, ResourceSet resources) {
-      super(action.getArgv(), action.getEnvironment(), action.getExecutionInfo(), action,
-          resources);
-      this.inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
-    }
-
-    @Override
-    public Iterable<? extends ActionInput> getInputFiles() {
-      return ImmutableSet.copyOf(inputs);
-    }
-  }
-
   @Override
   public Iterable<Artifact> findAdditionalInputs(
       CppCompileAction action,
@@ -68,10 +48,27 @@ public class SpawnGccStrategy implements CppCompileActionContext {
   public CppCompileActionContext.Reply execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
-    Spawn spawn = new GccSpawn(action, action.estimateResourceConsumptionLocal());
-    spawnActionContext.exec(spawn, actionExecutionContext);
+    if (action.getDotdFile() != null && action.getDotdFile().artifact() == null) {
+      throw new UserExecException("cannot execute remotely or locally: "
+          + action.getPrimaryInput().getExecPathString());
+    }
+    Iterable<Artifact> inputs = Iterables.concat(action.getInputs(), action.getAdditionalInputs());
+    Spawn spawn = new SimpleSpawn(
+        action,
+        ImmutableList.copyOf(action.getArgv()),
+        ImmutableMap.copyOf(action.getEnvironment()),
+        ImmutableMap.copyOf(action.getExecutionInfo()),
+        EmptyRunfilesSupplier.INSTANCE,
+        ImmutableList.<Artifact>copyOf(inputs),
+        /*tools=*/ImmutableList.<Artifact>of(),
+        /*filesetManifests=*/ImmutableList.<Artifact>of(),
+        action.getOutputs().asList(),
+        action.estimateResourceConsumptionLocal());
+
+    actionExecutionContext
+        .getExecutor()
+        .getSpawnActionContext(action.getMnemonic())
+        .exec(spawn, actionExecutionContext);
     return null;
   }
 
