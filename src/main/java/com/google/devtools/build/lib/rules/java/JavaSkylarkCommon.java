@@ -53,6 +53,45 @@ public class JavaSkylarkCommon {
   }
 
   @SkylarkCallable(
+      name = "create_provider",
+      documented = false,
+      parameters = {
+          @Param(
+              name = "compile_time_jars",
+              positional = false,
+              named = true,
+              type = SkylarkList.class,
+              generic1 = Artifact.class,
+              defaultValue = "[]"
+          ),
+          @Param(
+              name = "runtime_jars",
+              positional = false,
+              named = true,
+              type = SkylarkList.class,
+              generic1 = Artifact.class,
+              defaultValue = "[]"
+          )
+      }
+  )
+  public JavaProvider create(
+      SkylarkList<Artifact> compileTimeJars,
+      SkylarkList<Artifact> runtimeJars) {
+    JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.builder()
+        .addCompileTimeJars(compileTimeJars)
+        .addRuntimeJars(runtimeJars)
+        .build();
+    JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.builder()
+        .addCompileTimeJars(compileTimeJars)
+        .addRuntimeJars(runtimeJars).build();
+    JavaProvider javaProvider = JavaProvider.Builder.create().addProvider(
+              JavaCompilationArgsProvider.class,
+              JavaCompilationArgsProvider.create(javaCompilationArgs, recursiveJavaCompilationArgs))
+          .build();
+    return javaProvider;
+  }
+
+  @SkylarkCallable(
     name = "compile",
     // There is one mandatory positional: the Skylark rule context.
     mandatoryPositionals = 1,

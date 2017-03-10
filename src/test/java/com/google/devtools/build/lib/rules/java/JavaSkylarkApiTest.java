@@ -85,19 +85,120 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void cannotConstructJavaProvider() throws Exception {
+  public void constructJavaProvider() throws Exception {
     scratch.file(
         "foo/extension.bzl",
-        "my_provider = provider()",
         "def _impl(ctx):",
-        "  java_p = java_common.provider",
-        "  dep_params = java_p()",
-        "  return [my_provider(p = dep_params)]",
-        "my_rule = rule(_impl, attrs = { 'dep' : attr.label() })");
-    scratch.file("foo/BUILD", "load(':extension.bzl', 'my_rule')", "my_rule(name = 'r')");
-    reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//foo:r")).isNull();
-    assertContainsEvent("'java_common.provider' cannot be constructed from Skylark");
+        "  my_provider = java_common.create_provider(",
+        "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        runtime_jars = ctx.files.runtime_jars)",
+        "  return [my_provider]",
+        "my_rule = rule(_impl, ",
+        "    attrs = { ",
+        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'runtime_jars': attr.label_list(allow_files=['.jar'])",
+        "})");
+    scratch.file("foo/liba.jar");
+    scratch.file("foo/libb.jar");
+    scratch.file("foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'myrule',",
+        "    compile_time_jars = ['liba.jar'],",
+        "    runtime_jars = ['libb.jar']",
+        ")"
+    );
+    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
+    JavaCompilationArgsProvider provider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+    assertThat(provider).isNotNull();
+    List<String> compileTimeJars =
+        prettyJarNames(provider.getJavaCompilationArgs().getCompileTimeJars());
+    assertThat(compileTimeJars).containsExactly("foo/liba.jar");
+
+    List<String> runtimeJars = prettyJarNames(
+        provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
+    assertThat(runtimeJars).containsExactly("foo/libb.jar");
+  }
+
+  @Test
+  public void constructJavaProviderWithAnotherJavaProvider() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  transitive_provider = java_common.merge(",
+        "      [dep[java_common.provider] for dep in ctx.attr.deps])",
+        "  my_provider = java_common.create_provider(",
+        "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        runtime_jars = ctx.files.runtime_jars)",
+        "  return [java_common.merge([my_provider, transitive_provider])]",
+        "my_rule = rule(_impl, ",
+        "    attrs = { ",
+        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'runtime_jars': attr.label_list(allow_files=['.jar']),",
+        "        'deps': attr.label_list()",
+        "})");
+    scratch.file("foo/liba.jar");
+    scratch.file("foo/libb.jar");
+    scratch.file("foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "java_library(name = 'java_dep',",
+        "    srcs = ['A.java'])",
+        "my_rule(name = 'myrule',",
+        "    compile_time_jars = ['liba.jar'],",
+        "    runtime_jars = ['libb.jar'],",
+        "    deps = [':java_dep']",
+        ")"
+    );
+    ConfiguredTarget target = getConfiguredTarget("//foo:myrule");
+    JavaCompilationArgsProvider provider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+    assertThat(provider).isNotNull();
+    List<String> compileTimeJars =
+        prettyJarNames(provider.getJavaCompilationArgs().getCompileTimeJars());
+    assertThat(compileTimeJars).containsExactly("foo/liba.jar", "foo/libjava_dep-hjar.jar");
+
+    List<String> runtimeJars = prettyJarNames(
+        provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
+    assertThat(runtimeJars).containsExactly("foo/libb.jar", "foo/libjava_dep.jar");
+  }
+
+  @Test
+  public void constructJavaProviderJavaLibrary() throws Exception {
+    scratch.file(
+        "foo/extension.bzl",
+        "def _impl(ctx):",
+        "  my_provider = java_common.create_provider(",
+        "        compile_time_jars = ctx.files.compile_time_jars,",
+        "        runtime_jars = ctx.files.runtime_jars)",
+        "  return [my_provider]",
+        "my_rule = rule(_impl, ",
+        "    attrs = { ",
+        "        'compile_time_jars' : attr.label_list(allow_files=['.jar']),",
+        "        'runtime_jars': attr.label_list(allow_files=['.jar'])",
+        "})");
+    scratch.file("foo/liba.jar");
+    scratch.file("foo/libb.jar");
+    scratch.file("foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'myrule',",
+        "    compile_time_jars = ['liba.jar'],",
+        "    runtime_jars = ['libb.jar']",
+        ")",
+        "java_library(name = 'java_lib',",
+        "    srcs = ['C.java'],",
+        "    deps = [':myrule']",
+        ")"
+    );
+    ConfiguredTarget target = getConfiguredTarget("//foo:java_lib");
+    JavaCompilationArgsProvider provider =
+        JavaProvider.getProvider(JavaCompilationArgsProvider.class, target);
+    List<String> compileTimeJars = prettyJarNames(
+        provider.getRecursiveJavaCompilationArgs().getCompileTimeJars());
+    assertThat(compileTimeJars).containsExactly("foo/libjava_lib-hjar.jar", "foo/liba.jar");
+
+    List<String> runtimeJars = prettyJarNames(
+        provider.getRecursiveJavaCompilationArgs().getRuntimeJars());
+    assertThat(runtimeJars).containsExactly("foo/libjava_lib.jar", "foo/libb.jar");
   }
 
   @Test
