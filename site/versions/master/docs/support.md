@@ -5,10 +5,12 @@ title: Get Support
 
 # Get Support
 
-* [User mailing list](https://groups.google.com/forum/#!forum/bazel-discuss)
-* [Issue tracker](https://github.com/bazelbuild/bazel/issues)
-* [Twitter](http://www.twitter.com/bazelbuild)
-* [IRC](http://webchat.freenode.net) (irc.freenode.net#bazel)
+* Ask questions on [Stack Overflow](http://stackoverflow.com/questions/tagged/bazel) using the
+`bazel` tag.
+* Discuss on the [User mailing list](https://groups.google.com/forum/#!forum/bazel-discuss).
+* Report bugs or feature requests in our [GitHub issue tracker](https://github.com/bazelbuild/bazel/issues).
+* Find other Bazel contributors on [IRC](http://webchat.freenode.net)
+(irc.freenode.net#bazel).
 
 # Support Policy
 

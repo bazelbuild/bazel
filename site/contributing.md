@@ -13,7 +13,8 @@ machine to develop Bazel and, when you've made a patch, how to submit it.</p>
 In general, we prefer contributions that fix bugs or add features (as opposed to
 stylistic, refactoring, or "cleanup" changes). Please check with us on the
 [dev list](https://groups.google.com/forum/#!forum/bazel-dev) before investing
-a lot of time in a patch.
+a lot of time in a patch. Meet other Bazel contributors on [IRC](http://webchat.freenode.net)
+(irc.freenode.net#bazel).
 
 ### Patch Acceptance Process
 
