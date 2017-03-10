@@ -18,6 +18,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.Map;
 
 /** Provider for a platform, which is a group of constraints and values. */
 @AutoValue
@@ -25,8 +26,20 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 public abstract class PlatformProvider implements TransitiveInfoProvider {
   public abstract ImmutableMap<ConstraintSettingProvider, ConstraintValueProvider> constraints();
 
-  public static PlatformProvider create(
-      ImmutableMap<ConstraintSettingProvider, ConstraintValueProvider> constraints) {
-    return new AutoValue_PlatformProvider(constraints);
+  public abstract ImmutableMap<String, String> remoteExecutionProperties();
+
+  public static Builder builder() {
+    return new AutoValue_PlatformProvider.Builder();
+  }
+
+  /** A Builder instance to configure a new {@link PlatformProvider}. */
+  @AutoValue.Builder
+  public abstract static class Builder {
+    public abstract Builder constraints(
+        Map<ConstraintSettingProvider, ConstraintValueProvider> constraints);
+
+    public abstract Builder remoteExecutionProperties(Map<String, String> properties);
+
+    public abstract PlatformProvider build();
   }
 }

@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.syntax.Type;
+import java.util.Map;
 
 /** Defines a platform for execution contexts. */
 public class Platform implements RuleConfiguredTargetFactory {
@@ -45,11 +47,18 @@ public class Platform implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    PlatformProvider.Builder platformProviderBuilder = PlatformProvider.builder();
+    platformProviderBuilder.constraints(constraints);
+
+    Map<String, String> remoteExecutionProperties =
+        ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT);
+    platformProviderBuilder.remoteExecutionProperties(remoteExecutionProperties);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addProvider(PlatformProvider.class, PlatformProvider.create(constraints))
+        .addProvider(PlatformProvider.class, platformProviderBuilder.build())
         .build();
   }
 

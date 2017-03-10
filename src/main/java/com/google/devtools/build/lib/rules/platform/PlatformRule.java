@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 public class PlatformRule implements RuleDefinition {
   public static final String RULE_NAME = "platform";
   public static final String CONSTRAINT_VALUES_ATTR = "constraint_values";
+  public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -47,6 +48,7 @@ public class PlatformRule implements RuleDefinition {
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
                         ConstraintValueProvider.class)))
+        .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT))
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule is part of constraint definition")

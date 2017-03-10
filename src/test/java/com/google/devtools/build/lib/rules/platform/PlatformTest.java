@@ -53,6 +53,7 @@ public class PlatformTest extends BuildViewTestCase {
     assertThat(provider.constraints())
         .containsExactlyEntriesIn(
             ImmutableMap.of(constraintSettingProvider, constraintValueProvider));
+    assertThat(provider.remoteExecutionProperties()).isEmpty();
   }
 
   @Test
@@ -74,5 +75,32 @@ public class PlatformTest extends BuildViewTestCase {
         "       ':foo',",
         "       ':bar',",
         "    ])");
+  }
+
+  @Test
+  public void testPlatform_remoteExecution() throws Exception {
+    scratch.file(
+        "constraint/BUILD",
+        "constraint_setting(name = 'basic')",
+        "constraint_value(name = 'foo',",
+        "    constraint_setting = ':basic',",
+        "    )",
+        "platform(name = 'plat1',",
+        "    constraint_values = [",
+        "       ':foo',",
+        "    ],",
+        "    remote_execution_properties = {",
+        "        'foo': 'val1',",
+        "        'bar': 'val2',",
+        "    },",
+        ")");
+
+    ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
+    assertThat(platform).isNotNull();
+
+    PlatformProvider provider = platform.getProvider(PlatformProvider.class);
+    assertThat(provider).isNotNull();
+    assertThat(provider.remoteExecutionProperties())
+        .containsExactlyEntriesIn(ImmutableMap.of("foo", "val1", "bar", "val2"));
   }
 }
