@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -108,28 +109,37 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   private static final String JUNIT4_RUNNER = "org.junit.runner.JUnitCore";
 
+  @Nullable
   private String getMainClassInternal(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (!ruleContext.attributes().get("create_executable", Type.BOOLEAN)) {
       return null;
     }
-    String mainClass = ruleContext.attributes().get("main_class", Type.STRING);
-
-    // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
-    // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
-    if (mainClass.isEmpty()
-        && useLegacyJavaTest(ruleContext)
-        && "java_test".equals(ruleContext.getRule().getRuleClass())) {
-      mainClass = JUNIT4_RUNNER;
-    }
+    String mainClass = getMainClassFromRule(ruleContext);
 
     if (mainClass.isEmpty()) {
-      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
-          && !useLegacyJavaTest(ruleContext)) {
+      mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
+    }
+    return mainClass;
+  }
+
+  private String getMainClassFromRule(RuleContext ruleContext) {
+    String mainClass = ruleContext.attributes().get("main_class", Type.STRING);
+    if (!mainClass.isEmpty()) {
+      return mainClass;
+    }
+
+    if (useLegacyJavaTest(ruleContext)) {
+      // Legacy behavior for java_test rules: main_class defaulted to JUnit4 runner.
+      // TODO(dmarting): remove once we drop the legacy bazel java_test behavior.
+      if ("java_test".equals(ruleContext.getRule().getRuleClass())) {
+        return JUNIT4_RUNNER;
+      }
+    } else {
+      if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
         return useExperimentalTestRunner(ruleContext)
             ? EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS
             : BAZEL_TEST_RUNNER_MAIN_CLASS;
       }
-      mainClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
     }
     return mainClass;
   }
@@ -176,10 +186,55 @@ public class BazelJavaSemantics implements JavaSemantics {
     return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
   }
 
+  /**
+   * Used to generate the Classpaths contained within the stub.
+   */
+  private static class ComputedClasspathSubstitution extends ComputedSubstitution {
+    private final NestedSet<Artifact> jars;
+    private final String workspacePrefix;
+    private final boolean isRunfilesEnabled;
+
+    ComputedClasspathSubstitution(
+        String key, NestedSet<Artifact> jars, String workspacePrefix, boolean isRunfilesEnabled) {
+      super(key);
+      this.jars = jars;
+      this.workspacePrefix = workspacePrefix;
+      this.isRunfilesEnabled = isRunfilesEnabled;
+    }
+
+    /**
+     * Builds a class path by concatenating the root relative paths of the artifacts. Each relative
+     * path entry is prepended with "${RUNPATH}" which will be expanded by the stub script at
+     * runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
+     */
+    @Override
+    public String getValue() {
+      StringBuilder buffer = new StringBuilder();
+      buffer.append("\"");
+      for (Artifact artifact : jars) {
+        if (buffer.length() > 1) {
+          buffer.append(File.pathSeparatorChar);
+        }
+        if (!isRunfilesEnabled) {
+          buffer.append("$(rlocation ");
+          PathFragment runfilePath =
+              new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
+          buffer.append(runfilePath.normalize().getPathString());
+          buffer.append(")");
+        } else {
+          buffer.append("${RUNPATH}");
+          buffer.append(artifact.getRunfilesPath().getPathString());
+        }
+      }
+      buffer.append("\"");
+      return buffer.toString();
+    }
+  }
+
   @Override
   public Artifact createStubAction(
       RuleContext ruleContext,
-      final JavaCommon javaCommon,
+      JavaCommon javaCommon,
       List<String> jvmFlags,
       Artifact executable,
       String javaStartClass,
@@ -200,18 +255,11 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%javabin%", javaExecutable));
     arguments.add(Substitution.of("%needs_runfiles%",
         ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
+
+    NestedSet<Artifact> classpath = javaCommon.getRuntimeClasspath();
     arguments.add(
-        new ComputedSubstitution("%classpath%") {
-          @Override
-          public String getValue() {
-            StringBuilder buffer = new StringBuilder();
-            Iterable<Artifact> jars = javaCommon.getRuntimeClasspath();
-            char delimiter = File.pathSeparatorChar;
-            appendRunfilesRelativeEntries(
-                buffer, jars, workspacePrefix, delimiter, isRunfilesEnabled);
-            return buffer.toString();
-          }
-        });
+        new ComputedClasspathSubstitution(
+            "%classpath%", classpath, workspacePrefix, isRunfilesEnabled));
 
     JavaCompilationArtifacts javaArtifacts = javaCommon.getJavaCompilationArtifacts();
     String path =
@@ -262,40 +310,7 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
   }
 
-  /**
-   * Builds a class path by concatenating the root relative paths of the artifacts separated by the
-   * delimiter. Each relative path entry is prepended with "${RUNPATH}" which will be expanded by
-   * the stub script at runtime, to either "${JAVA_RUNFILES}/" or if we are lucky, the empty string.
-   *
-   * @param buffer the buffer to use for concatenating the entries
-   * @param artifacts the entries to concatenate in the buffer
-   * @param delimiter the delimiter character to separate the entries
-   */
-  private static void appendRunfilesRelativeEntries(
-      StringBuilder buffer,
-      Iterable<Artifact> artifacts,
-      String workspacePrefix,
-      char delimiter,
-      boolean isRunfilesEnabled) {
-    buffer.append("\"");
-    for (Artifact artifact : artifacts) {
-      if (buffer.length() > 1) {
-        buffer.append(delimiter);
-      }
-      if (!isRunfilesEnabled) {
-        buffer.append("$(rlocation ");
-        PathFragment runfilePath =
-            new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
-        buffer.append(runfilePath.normalize().getPathString());
-        buffer.append(")");
-      } else {
-        buffer.append("${RUNPATH}");
-        buffer.append(artifact.getRunfilesPath().getPathString());
-      }
-    }
-    buffer.append("\"");
-  }
-
+  @Nullable
   private TransitiveInfoCollection getTestSupport(RuleContext ruleContext) {
     if (!isJavaBinaryOrJavaTest(ruleContext)) {
       return null;
