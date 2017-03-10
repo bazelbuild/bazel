@@ -97,7 +97,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
 
   private Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
           throws NoSuchPackageException, InterruptedException {
-    return recursivePackageProvider.bulkGetPackages(eventHandler, pkgIds);
+    return recursivePackageProvider.bulkGetPackages(pkgIds);
   }
 
   @Override
@@ -244,8 +244,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     Iterable<PathFragment> packagesUnderDirectory;
     try {
       pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
-      packagesUnderDirectory = recursivePackageProvider.getPackagesUnderDirectory(
-          repository, pathFragment, excludedSubdirectories);
+      packagesUnderDirectory =
+          recursivePackageProvider.getPackagesUnderDirectory(
+              eventHandler, repository, pathFragment, excludedSubdirectories);
     } catch (TargetParsingException e) {
       return Futures.immediateFailedFuture(e);
     } catch (InterruptedException e) {

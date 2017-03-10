@@ -35,14 +35,12 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import java.util.Map;
 
 /**
- * RecursiveDirectoryTraversalFunction traverses the subdirectories of a directory, looking for
- * and loading packages, and builds up a value from these packages in a manner customized by
- * classes that derive from it.
+ * RecursiveDirectoryTraversalFunction traverses the subdirectories of a directory, looking for and
+ * loading packages, and builds up a value from the packages and package loading errors in a manner
+ * customized by classes that derive from it.
  */
-abstract class RecursiveDirectoryTraversalFunction
-    <TVisitor extends RecursiveDirectoryTraversalFunction.Visitor, TReturn> {
-  private static final String SENTINEL_FILE_NAME_FOR_NOT_TRAVERSING_SYMLINKS =
-      "DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN";
+abstract class RecursiveDirectoryTraversalFunction<
+    TVisitor extends RecursiveDirectoryTraversalFunction.Visitor, TReturn> {
 
   private final ProcessPackageDirectory processPackageDirectory;
 
@@ -105,6 +103,18 @@ abstract class RecursiveDirectoryTraversalFunction
      * afterwards.
      */
     void visitPackageValue(Package pkg, Environment env) throws InterruptedException;
+
+    /**
+     * Called iff the directory contains a BUILD file but *not* a package, which can happen under
+     * the following circumstances:
+     *
+     * <ol>
+     *   <li>The BUILD file contains a Skylark load statement that is in error
+     *   <li>TODO(mschaller), not yet implemented: The BUILD file is a symlink that points into a
+     *       cycle
+     * </ol>
+     */
+    void visitPackageError(NoSuchPackageException e, Environment env) throws InterruptedException;
   }
 
   /**
@@ -159,8 +169,11 @@ abstract class RecursiveDirectoryTraversalFunction
       } catch (NoSuchPackageException e) {
         // The package had errors, but don't fail-fast as there might be subpackages below the
         // current directory.
-        env.getListener()
-            .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
+        env.getListener().handle(Event.error(e.getMessage()));
+        visitor.visitPackageError(e, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
       }
       if (pkg != null) {
         visitor.visitPackageValue(pkg, env);

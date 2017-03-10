@@ -34,8 +34,8 @@ public interface PackageProvider extends TargetProvider {
    * pkg.containsErrors() == true</code>. Such packages may be missing some rules. Any rules that
    * are present may soundly be used for builds, though.
    *
-   * @param eventHandler the eventHandler on which to report warning and errors; if the package has
-   *     been loaded by another thread, this eventHandler won't see any warnings or errors
+   * @param eventHandler the eventHandler on which to report warnings and errors associated with
+   *     loading the package, but only if the package has not already been loaded
    * @param packageName a legal package name.
    * @throws NoSuchPackageException if the package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
@@ -56,7 +56,8 @@ public interface PackageProvider extends TargetProvider {
    * <p>If these don't hold, then attempting to read the package with {@link #getPackage} may fail
    * or may return a package containing errors.
    *
-   * @param eventHandler the eventHandler on which to report warnings and errors
+   * @param eventHandler if {@code packageName} specifies a package that could not be looked up
+   *     because of a symlink cycle or IO error, the error is reported here
    * @param packageName the name of the package.
    */
   boolean isPackage(ExtendedEventHandler eventHandler, PackageIdentifier packageName)

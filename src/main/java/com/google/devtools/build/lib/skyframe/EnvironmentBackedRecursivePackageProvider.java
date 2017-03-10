@@ -41,9 +41,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods
- * may throw {@link MissingDepException} if the package values this depends on haven't been
- * calculated and added to its environment.
+ * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods may throw {@link
+ * MissingDepException} if the package values this depends on haven't been calculated and added to
+ * its environment.
+ *
+ * <p>This implementation never emits events through the {@link ExtendedEventHandler}s passed to its
+ * methods. Instead, it emits events through its environment's {@link Environment#getListener()}.
  */
 public final class EnvironmentBackedRecursivePackageProvider implements RecursivePackageProvider {
 
@@ -80,12 +83,11 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(
-      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException {
     ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
     for (PackageIdentifier pkgId : pkgIds) {
-      builder.put(pkgId, getPackage(eventHandler, pkgId));
+      builder.put(pkgId, getPackage(env.getListener(), pkgId));
     }
     return builder.build();
   }
@@ -103,13 +105,14 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       }
       return packageLookupValue.packageExists();
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
-      eventHandler.handle(Event.error(e.getMessage()));
+      env.getListener().handle(Event.error(e.getMessage()));
       return false;
     }
   }
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories)

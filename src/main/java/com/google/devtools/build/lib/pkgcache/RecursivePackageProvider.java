@@ -31,15 +31,17 @@ public interface RecursivePackageProvider extends PackageProvider {
   /**
    * Returns the names of all the packages under a given directory.
    *
-   * <p>Packages returned by this method and passed into {@link
-   * #bulkGetPackages(ExtendedEventHandler, Iterable)} are expected to return successful {@link
-   * Package} values.
+   * <p>Packages returned by this method and passed into {@link #bulkGetPackages(Iterable)} are
+   * expected to return successful {@link Package} values.
    *
+   * @param eventHandler any errors emitted during package lookup and loading for {@code directory}
+   *     and non-excluded directories beneath it will be reported here
    * @param directory a {@link RootedPath} specifying the directory to search
    * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath {@code
    *     directory}, specifying transitive subdirectories to exclude
    */
   Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
@@ -54,13 +56,10 @@ public interface RecursivePackageProvider extends PackageProvider {
    * pkg.containsErrors() == true</code>. Such packages may be missing some rules. Any rules that
    * are present may soundly be used for builds, though.
    *
-   * @param eventHandler the eventHandler on which to report warning and errors; if the package has
-   *     been loaded by another thread, this eventHandler won't see any warnings or errors
    * @param pkgIds an Iterable of PackageIdentifier objects.
    * @throws NoSuchPackageException if any package could not be found.
    * @throws InterruptedException if the package loading was interrupted.
    */
-  Map<PackageIdentifier, Package> bulkGetPackages(
-      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+  Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException;
 }

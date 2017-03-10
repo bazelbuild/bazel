@@ -99,8 +99,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   }
 
   @Override
-  public Map<PackageIdentifier, Package> bulkGetPackages(
-      ExtendedEventHandler eventHandler, Iterable<PackageIdentifier> pkgIds)
+  public Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
       throws NoSuchPackageException, InterruptedException {
     Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
 
@@ -164,6 +163,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
   @Override
   public Iterable<PathFragment> getPackagesUnderDirectory(
+      ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
       ImmutableSet<PathFragment> excludedSubdirectories)
@@ -175,11 +175,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
-      PackageIdentifier packageIdentifier = PackageIdentifier.create(
-          repository, directory);
-      if (isTBD
-          && pattern.containsAllTransitiveSubdirectoriesForTBD(
-              packageIdentifier)) {
+      PackageIdentifier packageIdentifier = PackageIdentifier.create(repository, directory);
+      if (isTBD && pattern.containsAllTransitiveSubdirectoriesForTBD(packageIdentifier)) {
         inUniverse = true;
         break;
       }
@@ -210,12 +207,13 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     for (Path root : roots) {
       RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
       TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
-      collectPackagesUnder(repository, ImmutableSet.of(info), builder);
+      collectPackagesUnder(eventHandler, repository, ImmutableSet.of(info), builder);
     }
     return builder.build();
   }
 
   private void collectPackagesUnder(
+      ExtendedEventHandler eventHandler,
       final RepositoryName repository,
       Set<TraversalInfo> traversals,
       ImmutableList.Builder<PathFragment> builder)
@@ -244,8 +242,12 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           builder.add(info.rootedDir.getRelativePath());
         }
 
+        if (collectPackagesValue.getErrorMessage() != null) {
+          eventHandler.handle(Event.error(collectPackagesValue.getErrorMessage()));
+        }
+
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-            collectPackagesValue.getSubdirectoryTransitivelyContainsPackages();
+            collectPackagesValue.getSubdirectoryTransitivelyContainsPackagesOrErrors();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
@@ -261,7 +263,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
     if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(repository, subdirTraversals, builder);
+      collectPackagesUnder(eventHandler, repository, subdirTraversals, builder);
     }
   }
 

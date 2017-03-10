@@ -89,6 +89,13 @@ public class RecursivePkgFunction implements SkyFunction {
       packages.add(pkg.getName());
     }
 
+    @Override
+    public void visitPackageError(NoSuchPackageException e, Environment env)
+        throws InterruptedException {
+      // Nothing to do because the RecursiveDirectoryTraversalFunction has already emitted an error
+      // event.
+    }
+
     void addTransitivePackages(NestedSet<String> transitivePackages) {
       packages.addTransitive(transitivePackages);
     }
