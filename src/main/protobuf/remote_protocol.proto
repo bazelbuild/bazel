@@ -32,12 +32,14 @@ message FileMetadata {
   bool executable = 3;
 }
 
+// A Platform is defined by a set of opaque name-value pairs.
 message Platform {
-  // The contents of this message will be determined later, with the purpose of
-  // specifying everything that is required for the action execution, but cannot
-  // be uploaded as part of the inputs.
-  // It will likely contain fields as architecture, vendor, OS + version,
-  // ABI, etc.
+  message Property {
+    string name = 1;
+    string value = 2;
+  }
+  // Entries are sorted by name,value to ensure a canonical form.
+  repeated Property entry = 1;
 }
 
 // All the fields of this message have the following in common: they are
