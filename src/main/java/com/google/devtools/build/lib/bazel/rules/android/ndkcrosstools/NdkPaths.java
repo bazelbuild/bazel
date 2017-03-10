@@ -115,18 +115,27 @@ public class NdkPaths {
         .replace("%hostPlatform%", hostPlatform);
   }
 
-  public void addToolchainIncludePaths(
+  /**
+   * Adds {@code cxx_builtin_include_directory} to the toolchain and also sets -isystem for that
+   * directory. Note that setting -isystem should be entirely unnecessary since builtin include
+   * directories are on the compiler search path by default by definition. This should be cleaned
+   * up (b/36091573).
+   *
+   * <p>Note also that this method is only for gcc include paths. The clang include paths follow a
+   * different path template and are not separated by architecture.
+   */
+  public void addGccToolchainIncludePaths(
       List<CToolchain.Builder> toolchains,
       String toolchainName,
       String targetPlatform,
       String gccVersion) {
 
     for (CToolchain.Builder toolchain : toolchains) {
-      addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
+      addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
     }
   }
 
-  public void addToolchainIncludePaths(
+  public void addGccToolchainIncludePaths(
       CToolchain.Builder toolchain,
       String toolchainName,
       String targetPlatform,
@@ -140,6 +149,24 @@ public class NdkPaths {
       toolchain.addUnfilteredCxxFlag("-isystem");
       toolchain.addUnfilteredCxxFlag(includePath);
     }
+  }
+
+  /**
+   * Gets the clang NDK builtin includes directories that exist in the NDK. These directories are
+   * always searched for header files by clang and should be added to the CROSSTOOL in the
+   * cxx_builtin_include_directories list.
+   *
+   * <p>You can see the list of directories and the order that they are searched in by running
+   * {@code clang -E -x c++ - -v < /dev/null}. Note that the same command works for {@code gcc}.
+   */
+  public String createClangToolchainBuiltinIncludeDirectory(String clangVersion) {
+    String clangBuiltinIncludeDirectoryPathTemplate =
+        "external/%repositoryName%/ndk/toolchains/llvm/prebuilt/%hostPlatform%/lib64/clang/"
+            + "%clangVersion%/include";
+    return clangBuiltinIncludeDirectoryPathTemplate
+        .replace("%repositoryName%", repositoryName)
+        .replace("%hostPlatform%", hostPlatform)
+        .replace("%clangVersion%", clangVersion);
   }
   
   private ImmutableList<String> createToolchainIncludePaths(

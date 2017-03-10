@@ -126,7 +126,7 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -186,7 +186,7 @@ class ArmCrosstools {
             .addCompilerFlag("-fno-omit-frame-pointer")
             .addCompilerFlag("-fno-strict-aliasing"));
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -309,7 +309,7 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
     return toolchain;
   }
 
@@ -442,7 +442,7 @@ class ArmCrosstools {
           .addCompilerFlag("-fno-strict-aliasing"));
     }
 
-    ndkPaths.addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.8");
+    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.8");
     return toolchain;
   }
 

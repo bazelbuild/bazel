@@ -81,7 +81,7 @@ class MipsCrosstools {
     }
 
     List<CToolchain.Builder> toolchains = toolchainsListBuilder.build();
-    ndkPaths.addToolchainIncludePaths(
+    ndkPaths.addGccToolchainIncludePaths(
         toolchains, "mips64el-linux-android-4.9", "mips64el-linux-android", "4.9");
     stlImpl.addStlImpl(toolchains, "4.9");
     return toolchains;
@@ -114,7 +114,7 @@ class MipsCrosstools {
     
           .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-      ndkPaths.addToolchainIncludePaths(
+      ndkPaths.addGccToolchainIncludePaths(
           mipsClang, "mipsel-linux-android-4.8", "mipsel-linux-android", "4.8");
       stlImpl.addStlImpl(mipsClang, "4.8");
       toolchainsListBuilder.add(mipsClang);
@@ -138,7 +138,7 @@ class MipsCrosstools {
     
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("mips"));
 
-    ndkPaths.addToolchainIncludePaths(
+    ndkPaths.addGccToolchainIncludePaths(
         toolchain, "mipsel-linux-android-" + gccVersion, "mipsel-linux-android", gccVersion);
     stlImpl.addStlImpl(toolchain, gccVersion);
     return toolchain;
