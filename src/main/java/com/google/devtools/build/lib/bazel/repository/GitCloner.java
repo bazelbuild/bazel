@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.bazel.repository.downloader.ProxyHelper;
-import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
@@ -93,7 +93,9 @@ public class GitCloner {
   }
 
   public static SkyValue clone(
-      Rule rule, Path outputDirectory, EventHandler eventHandler,
+      Rule rule,
+      Path outputDirectory,
+      ExtendedEventHandler eventHandler,
       Map<String, String> clientEnvironment)
       throws RepositoryFunctionException {
     WorkspaceAttributeMapper mapper = WorkspaceAttributeMapper.of(rule);
@@ -143,14 +145,17 @@ public class GitCloner {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
       }
-      git = Git.cloneRepository()
-          .setURI(descriptor.remote)
-          .setCredentialsProvider(new NetRCCredentialsProvider())
-          .setDirectory(descriptor.directory.getPathFile())
-          .setCloneSubmodules(false)
-          .setNoCheckout(true)
-          .setProgressMonitor(new GitProgressMonitor("Cloning " + descriptor.remote, eventHandler))
-          .call();
+      git =
+          Git.cloneRepository()
+              .setURI(descriptor.remote)
+              .setCredentialsProvider(new NetRCCredentialsProvider())
+              .setDirectory(descriptor.directory.getPathFile())
+              .setCloneSubmodules(false)
+              .setNoCheckout(true)
+              .setProgressMonitor(
+                  new GitProgressMonitor(
+                      descriptor.remote, "Cloning " + descriptor.remote, eventHandler))
+              .call();
       git.checkout()
           .setCreateBranch(true)
           .setName("bazel-checkout")
@@ -167,7 +172,7 @@ public class GitCloner {
         git.submoduleUpdate()
             .setProgressMonitor(
                 new GitProgressMonitor(
-                    "Cloning submodules for " + descriptor.remote, eventHandler))
+                    descriptor.remote, "Cloning submodules for " + descriptor.remote, eventHandler))
             .call();
       }
     } catch (InvalidRemoteException e) {
