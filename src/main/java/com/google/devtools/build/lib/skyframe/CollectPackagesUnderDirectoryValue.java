@@ -62,7 +62,8 @@ public abstract class CollectPackagesUnderDirectoryValue implements SkyValue {
   public static class NoErrorCollectPackagesUnderDirectoryValue
       extends CollectPackagesUnderDirectoryValue {
     public static final NoErrorCollectPackagesUnderDirectoryValue EMPTY =
-        new NoErrorCollectPackagesUnderDirectoryValue(false, ImmutableMap.of());
+        new NoErrorCollectPackagesUnderDirectoryValue(
+            false, ImmutableMap.<RootedPath, Boolean>of());
 
     private final boolean isDirectoryPackage;
 
