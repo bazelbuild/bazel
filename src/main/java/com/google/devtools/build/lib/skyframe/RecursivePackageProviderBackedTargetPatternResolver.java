@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.util.BatchCallback;
-import com.google.devtools.build.lib.util.SynchronizedBatchCallback;
 import com.google.devtools.build.lib.util.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -183,6 +182,24 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return target.getTargetKind();
   }
 
+  /**
+   * A {@link ThreadSafeBatchCallback} that trivially delegates to a {@link BatchCallback} in a
+   * synchronized manner.
+   */
+  private static class SynchronizedBatchCallback<T, E extends Exception>
+      implements ThreadSafeBatchCallback<T, E> {
+    private final BatchCallback<T, E> delegate;
+
+    public SynchronizedBatchCallback(BatchCallback<T, E> delegate) {
+      this.delegate = delegate;
+    }
+
+    @Override
+    public synchronized void process(Iterable<T> partialResult) throws E, InterruptedException {
+      delegate.process(partialResult);
+    }
+  }
+
   @Override
   public <E extends Exception> void findTargetsBeneathDirectory(
       final RepositoryName repository,
@@ -225,7 +242,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
         directory,
         rulesOnly,
         excludedSubdirectories,
-        new SynchronizedBatchCallback<Target, E>(callback),
+        callback,
         executor);
   }
 
