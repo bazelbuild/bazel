@@ -123,7 +123,7 @@ public class CppCompileAction extends AbstractAction
    * A string constant for the c++ compilation action.
    */
   public static final String CPP_COMPILE = "c++-compile";
-  
+
   /** A string constant for the c++ module compile action. */
   public static final String CPP_MODULE_CODEGEN = "c++-module-codegen";
 
@@ -376,10 +376,6 @@ public class CppCompileAction extends AbstractAction
     return builtinIncludeFiles;
   }
 
-  public String getHostSystemName() {
-    return cppConfiguration.getHostSystemName();
-  }
-
   @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return mandatoryInputs;
@@ -431,7 +427,7 @@ public class CppCompileAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Iterable<Artifact> initialResult;
-    
+
     actionExecutionContext
         .getExecutor()
         .getEventBus()
@@ -776,7 +772,7 @@ public class CppCompileAction extends AbstractAction
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;
   }
-  
+
   /**
    * Enforce that the includes actually visited during the compile were properly
    * declared in the rules.
