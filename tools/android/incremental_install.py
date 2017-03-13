@@ -46,15 +46,18 @@ gflags.DEFINE_integer("adb_jobs", 2,
                       "The number of instances of adb to use in parallel to "
                       "update files on the device",
                       lower_bound=1)
-gflags.DEFINE_enum("start", "no", ["no", "cold", "warm"], "Whether/how to "
-                   "start the app after installing it. 'cold' and 'warm' will "
-                   "both cause the app to be started, 'warm' will start it "
-                   "with previously saved application state.")
+gflags.DEFINE_enum("start", "no", ["no", "cold", "warm", "debug"],
+                   "Whether/how to start the app after installing it. 'cold' "
+                   "and 'warm' will both cause the app to be started, 'warm' "
+                   "will start it with previously saved application state, "
+                   "'debug' will wait for the debugger before a clean start.")
 gflags.DEFINE_boolean("start_app", False, "Deprecated, use 'start'.")
 gflags.DEFINE_string("user_home_dir", None, "Path to the user's home directory")
 gflags.DEFINE_string("flagfile", None,
                      "Path to a file to read additional flags from")
 gflags.DEFINE_string("verbosity", None, "Logging verbosity")
+gflags.DEFINE_string("activity_name_file", None, "Path to the file that "
+                     "contains the name of the main activity to start")
 
 FLAGS = gflags.FLAGS
 
