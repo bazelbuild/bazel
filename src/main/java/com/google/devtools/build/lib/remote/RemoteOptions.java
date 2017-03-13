@@ -130,4 +130,12 @@ public final class RemoteOptions extends OptionsBase {
     help = "Whether to upload action results to the remote cache after executing locally."
   )
   public boolean remoteLocalExecUploadResults;
+
+  @Option(
+    name = "experimental_remote_platform_override",
+    defaultValue = "null",
+    category = "remote",
+    help = "Temporary, for testing only. Manually set a Platform to pass to remote execution."
+  )
+  public String experimentalRemotePlatformOverride;
 }
