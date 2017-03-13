@@ -22,6 +22,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
@@ -31,6 +32,7 @@ import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
+import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -41,11 +43,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Iterator;
 import java.util.Objects;
 import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.Attribute;
 import javax.xml.stream.events.StartElement;
 
 /**
@@ -85,7 +89,29 @@ public class DataResourceXml implements DataResource {
               StandardCharsets.UTF_8.toString());
     try {
       // TODO(corysmith): Make the xml parsing more readable.
-      while (XmlResourceValues.moveToResources(eventReader)) {
+      for (StartElement resources = XmlResourceValues.moveToResources(eventReader);
+          resources != null;
+          resources = XmlResourceValues.moveToResources(eventReader)) {
+        // Record attributes on the <resources> tag.
+        Iterator<Attribute> attributes = XmlResourceValues.iterateAttributesFrom(resources);
+        while (attributes.hasNext()) {
+          Attribute attribute = attributes.next();
+          Namespaces namespaces = Namespaces.from(attribute.getName());
+          String attributeName =
+              attribute.getName().getNamespaceURI().isEmpty()
+                  ? attribute.getName().getLocalPart()
+                  : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
+          overwritingConsumer.consume(
+            fqnFactory.create(
+                VirtualType.RESOURCES_ATTRIBUTE,
+                attributeName),
+            DataResourceXml.createWithNamespaces(
+                path,
+                ResourcesAttribute.of(attributeName, attribute.getValue()),
+                namespaces)
+            );
+        }
+        // Process resource declarations.
         for (StartElement start = XmlResourceValues.findNextStart(eventReader);
             start != null;
             start = XmlResourceValues.findNextStart(eventReader)) {
@@ -163,6 +189,8 @@ public class DataResourceXml implements DataResource {
         return StyleXmlResourceValue.from(proto);
       case STYLEABLE:
         return StyleableXmlResourceValue.from(proto);
+      case RESOURCES_ATTRIBUTE:
+        return ResourcesAttribute.from(proto);
       default:
         throw new IllegalArgumentException();
     }
@@ -307,7 +335,7 @@ public class DataResourceXml implements DataResource {
   @Override
   public DataResource combineWith(DataResource resource) {
     if (!(resource instanceof DataResourceXml)) {
-      throw new IllegalArgumentException(resource + " is not a combinable with " + this);
+      throw new IllegalArgumentException(resource + " is not combinable with " + this);
     }
     DataResourceXml xmlResource = (DataResourceXml) resource;
     return createWithNamespaces(

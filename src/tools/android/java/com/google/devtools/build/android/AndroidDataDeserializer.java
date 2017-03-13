@@ -43,8 +43,8 @@ public class AndroidDataDeserializer {
    * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
    *
    * @param inPath The path to the serialized protocol buffer.
-   * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt; {@link
-   *     DataValue}.
+   * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt;
+   *     {@link DataValue}.
    * @throws DeserializationException Raised for an IOException or when the inPath is not a valid
    *     proto buffer.
    */
@@ -80,7 +80,7 @@ public class AndroidDataDeserializer {
         FullyQualifiedName resourceName = FullyQualifiedName.fromProto(protoKey);
         keys.put(
             resourceName,
-            FullyQualifiedName.isOverwritable(resourceName)
+            resourceName.isOverwritable()
                 ? consumers.overwritingConsumer
                 : consumers.combiningConsumer);
       } else {

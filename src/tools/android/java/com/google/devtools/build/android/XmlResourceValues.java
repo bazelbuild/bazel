@@ -409,14 +409,14 @@ public class XmlResourceValues {
     return null;
   }
 
-  static boolean moveToResources(XMLEventReader eventReader) throws XMLStreamException {
+  static StartElement moveToResources(XMLEventReader eventReader) throws XMLStreamException {
     while (eventReader.hasNext()) {
       StartElement next = findNextStart(eventReader);
       if (next != null && next.getName().equals(TAG_RESOURCES)) {
-        return true;
+        return next;
       }
     }
-    return false;
+    return null;
   }
 
   public static SerializeFormat.DataValue.Builder newSerializableDataValueBuilder(int sourceId) {

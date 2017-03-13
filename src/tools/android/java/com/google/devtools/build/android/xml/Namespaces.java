@@ -97,6 +97,17 @@ public class Namespaces implements Iterable<Entry<String, String>> {
     return new Namespaces(ImmutableMap.copyOf(prefixToUri));
   }
 
+  /**
+   * Create a {@link Namespaces} containing the singular namespace used by the name, or an empty
+   * one.
+   */
+  public static Namespaces from(QName name) {
+    if (name.getPrefix().isEmpty()) {
+      return empty();
+    }
+    return new Namespaces(ImmutableMap.of(name.getPrefix(), name.getNamespaceURI()));
+  }
+
   public static Namespaces empty() {
     return EMPTY_INSTANCE;
   }

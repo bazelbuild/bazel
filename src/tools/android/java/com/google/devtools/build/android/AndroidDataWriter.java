@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -254,7 +255,15 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     }
     return valueTags.get(valuesPath).resource(fqn);
   }
-  
+
+  @Override
+  public void defineAttribute(FullyQualifiedName fqn, String value) {
+    String valuesPath = fqn.valuesPath();
+    if (!valueTags.containsKey(valuesPath)) {
+      valueTags.put(valuesPath, new ResourceValuesDefinitions());
+    }
+    valueTags.get(valuesPath).addAttribute(fqn.name(), value);
+  }
 
   @Override
   public void defineNamespacesFor(FullyQualifiedName fqn, Namespaces namespaces) {
@@ -276,14 +285,17 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
       private final Multimap<FullyQualifiedName, Segment> segments;
       private final Set<FullyQualifiedName> adopted;
       private final Namespaces namespaces;
+      private final Map<String, String> attributes;
 
       private WritingTask(
           Path valuesPath,
           Namespaces namespaces,
+          Map<String, String> attributes,
           Set<FullyQualifiedName> adopted,
           Multimap<FullyQualifiedName, Segment> segments) {
         this.valuesPath = valuesPath;
         this.namespaces = namespaces;
+        this.attributes = attributes;
         this.adopted = adopted;
         this.segments = segments;
       }
@@ -306,6 +318,13 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
             writer.write(prefixToUri.getValue());
             writer.write("\"");
           }
+          for (Entry<String, String> attribute : attributes.entrySet()) {
+            writer.write(" ");
+            writer.write(attribute.getKey());
+            writer.write("=\"");
+            writer.write(attribute.getValue());
+            writer.write("\"");
+          }
           writer.write(">");
           writer.write(LINE_END);
           Path previousSource = null;
@@ -325,9 +344,14 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
     final Multimap<FullyQualifiedName, Segment> segments = ArrayListMultimap.create();
     final Set<FullyQualifiedName> adopted = new HashSet<>();
     Namespaces namespaces = Namespaces.empty();
+    final Map<String, String> attributes = Maps.newHashMap();
 
     private ValueResourceDefinitionMetadata resource(final FullyQualifiedName fqn) {
       return new StringValueResourceDefinitionMetadata(segments, adopted, fqn);
+    }
+
+    public void addAttribute(String name, String value) {
+      this.attributes.put(name, value);
     }
 
     public void addAllNamespaces(Namespaces namespaces) {
@@ -336,7 +360,7 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
 
     /** Generates a {@link Callable} that will write the {@link Segment} to the provided path. */
     public Callable<Boolean> createWritingTask(final Path valuesPath) {
-      return new WritingTask(valuesPath, namespaces, adopted, segments);
+      return new WritingTask(valuesPath, namespaces, attributes, adopted, segments);
     }
   }
 

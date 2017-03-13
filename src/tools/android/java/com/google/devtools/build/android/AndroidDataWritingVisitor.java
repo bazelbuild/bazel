@@ -50,6 +50,15 @@ public interface AndroidDataWritingVisitor extends Flushable {
   void copyResource(Path source, String relativeDestinationPath) throws MergingException;
 
   /**
+   * Adds the provided attribute to the root &lt;resources&gt; tag.
+   *
+   * @param fqn The fully qualified name of the attribute indicating both the name of the attribute
+   *     and which qualified values.xml file to be associated with.
+   * @param value The value of the attribute.
+   */
+  void defineAttribute(FullyQualifiedName fqn, String value);
+
+  /**
    * Adds the namespaces associated with a {@link FullyQualifiedName}.
    *
    * <p>An xml namespace consists of a prefix and a uri. They are common declared on the root
