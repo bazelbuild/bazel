@@ -1158,8 +1158,8 @@ public class AndroidResourceProcessor {
       @Nullable final AndroidResourceClassWriter rclassWriter)
       throws MergingException {
     final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataSerializer serializer = AndroidDataSerializer.create();
-    primary.deserialize(serializer, primaryBuilder.consumers());
+    final AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    primary.deserialize(deserializer, primaryBuilder.consumers());
     ParsedAndroidData primaryData = primaryBuilder.build();
     return mergeData(
         primaryData,
@@ -1250,7 +1250,7 @@ public class AndroidResourceProcessor {
   /** Deserializes a list of serialized resource paths to a {@link ParsedAndroidData}. */
   public ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths)
       throws IOException, MergingException {
-    AndroidDataSerializer serializer = AndroidDataSerializer.create();
+    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
     final ListeningExecutorService executorService =
         MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
     final Builder deserializedDataBuilder = ParsedAndroidData.Builder.newBuilder();
@@ -1259,7 +1259,7 @@ public class AndroidResourceProcessor {
       for (final Path symbolPath : symbolPaths) {
         deserializing.add(
             executorService.submit(
-                new Deserialize(serializer, symbolPath, deserializedDataBuilder)));
+                new Deserialize(deserializer, symbolPath, deserializedDataBuilder)));
       }
       FailedFutureAggregator<MergingException> aggregator =
           FailedFutureAggregator.createForMergingExceptionWithMessage(
@@ -1452,11 +1452,11 @@ public class AndroidResourceProcessor {
     private final Path symbolPath;
 
     private final Builder finalDataBuilder;
-    private AndroidDataSerializer serializer;
+    private final AndroidDataDeserializer deserializer;
 
     private Deserialize(
-        AndroidDataSerializer serializer, Path symbolPath, Builder finalDataBuilder) {
-      this.serializer = serializer;
+        AndroidDataDeserializer deserializer, Path symbolPath, Builder finalDataBuilder) {
+      this.deserializer = deserializer;
       this.symbolPath = symbolPath;
       this.finalDataBuilder = finalDataBuilder;
     }
@@ -1464,7 +1464,7 @@ public class AndroidResourceProcessor {
     @Override
     public Boolean call() throws Exception {
       final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
-      serializer.read(symbolPath, parsedDataBuilder.consumers());
+      deserializer.read(symbolPath, parsedDataBuilder.consumers());
       // The builder isn't threadsafe, so synchronize the copyTo call.
       synchronized (finalDataBuilder) {
         // All the resources are sorted before writing, so they can be aggregated in

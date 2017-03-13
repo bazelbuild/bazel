@@ -14,16 +14,12 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Maps;
-import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -116,82 +112,6 @@ public class AndroidDataSerializer {
     outStream.write(sourceTableBytes);
     // write the values to the output stream.
     outStream.write(valuesOutputStream.toByteArray());
-  }
-
-  /**
-   * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
-   *
-   * @param inPath The path to the serialized protocol buffer.
-   * @param consumers The {@link KeyValueConsumers} for the entries {@link DataKey} -&gt;
-   *    {@link DataValue}.
-   * @throws DeserializationException Raised for an IOException or when the inPath is not a valid
-   *    proto buffer.
-   */
-  public void read(Path inPath, KeyValueConsumers consumers) throws DeserializationException {
-    Stopwatch timer = Stopwatch.createStarted();
-    try (InputStream in = Files.newInputStream(inPath, StandardOpenOption.READ)) {
-      FileSystem currentFileSystem = inPath.getFileSystem();
-      Header header = Header.parseDelimitedFrom(in);
-      if (header == null) {
-        throw new DeserializationException("No Header found in " + inPath);
-      }
-      readEntriesSegment(consumers, in, currentFileSystem, header);
-    } catch (IOException e) {
-      throw new DeserializationException(e);
-    } finally {
-      logger.fine(
-          String.format("Deserialized in merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    }
-  }
-
-  private void readEntriesSegment(
-      KeyValueConsumers consumers,
-      InputStream in,
-      FileSystem currentFileSystem,
-      Header header)
-      throws IOException {
-    int numberOfEntries = header.getEntryCount();
-    Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>> keys =
-        Maps.newLinkedHashMapWithExpectedSize(numberOfEntries);
-    for (int i = 0; i < numberOfEntries; i++) {
-      SerializeFormat.DataKey protoKey = SerializeFormat.DataKey.parseDelimitedFrom(in);
-      if (protoKey.hasResourceType()) {
-        FullyQualifiedName resourceName = FullyQualifiedName.fromProto(protoKey);
-        keys.put(
-            resourceName,
-            FullyQualifiedName.isOverwritable(resourceName)
-                ? consumers.overwritingConsumer
-                : consumers.combiningConsumer);
-      } else {
-        keys.put(RelativeAssetPath.fromProto(protoKey, currentFileSystem), consumers.assetConsumer);
-      }
-    }
-
-    // Read back the sources table.
-    DataSourceTable sourceTable = DataSourceTable.read(in, currentFileSystem, header);
-
-    // TODO(corysmith): Make this a lazy read of the values.
-    for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
-      SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
-      DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
-      if (protoValue.hasXmlValue()) {
-        // TODO(corysmith): Figure out why the generics are wrong.
-        // If I use Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>>, I can put
-        // consumers into the map, but I can't call consume.
-        // If I use Map<DataKey, KeyValueConsumer<DataKey, ? super DataValue>>, I can consume
-        // but I can't put.
-        // Same for below.
-        @SuppressWarnings("unchecked")
-        KeyValueConsumer<DataKey, DataValue> value =
-            (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.consume(entry.getKey(), DataResourceXml.from(protoValue, source));
-      } else {
-        @SuppressWarnings("unchecked")
-        KeyValueConsumer<DataKey, DataValue> value =
-            (KeyValueConsumer<DataKey, DataValue>) entry.getValue();
-        value.consume(entry.getKey(), DataValueFile.of(source));
-      }
-    }
   }
 
   /** Queues the key and value for serialization as a entries entry. */

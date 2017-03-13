@@ -37,21 +37,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /** Handles the Merging of ParsedAndroidData. */
-public class AndroidDataMerger {
+class AndroidDataMerger {
 
   private static final Logger logger = Logger.getLogger(AndroidDataMerger.class.getCanonicalName());
 
-  private static final class ParseDependencyDataTask implements Callable<Boolean> {
-
-    private final AndroidDataSerializer serializer;
+  private final class ParseDependencyDataTask implements Callable<Boolean> {
 
     private final SerializedAndroidData dependency;
 
     private final Builder targetBuilder;
 
-    private ParseDependencyDataTask(
-        AndroidDataSerializer serializer, SerializedAndroidData dependency, Builder targetBuilder) {
-      this.serializer = serializer;
+    private ParseDependencyDataTask(SerializedAndroidData dependency, Builder targetBuilder) {
       this.dependency = dependency;
       this.targetBuilder = targetBuilder;
     }
@@ -60,7 +56,7 @@ public class AndroidDataMerger {
     public Boolean call() throws Exception {
       final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
       try {
-        dependency.deserialize(serializer, parsedDataBuilder.consumers());
+        dependency.deserialize(deserializer, parsedDataBuilder.consumers());
       } catch (DeserializationException e) {
         if (!e.isLegacy()) {
           throw MergingException.wrapException(e).build();
@@ -141,25 +137,26 @@ public class AndroidDataMerger {
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
+  private final AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaults() {
+  static AndroidDataMerger createWithDefaults() {
     return createWithDefaultThreadPool(NoopSourceChecker.create());
   }
 
   /** Creates a merger with a custom deduplicator and a default {@link ExecutorService}. */
-  public static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
+  static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
     return new AndroidDataMerger(deDuplicator, MoreExecutors.newDirectExecutorService());
   }
 
   /** Creates a merger with a custom deduplicator and an {@link ExecutorService}. */
-  public static AndroidDataMerger create(
+  static AndroidDataMerger create(
       SourceChecker deDuplicator, ListeningExecutorService executorService) {
     return new AndroidDataMerger(deDuplicator, executorService);
   }
 
   /** Creates a merger with a file contents hashing deduplicator. */
-  public static AndroidDataMerger createWithPathDeduplictor(
+  static AndroidDataMerger createWithPathDeduplictor(
       ListeningExecutorService executorService) {
     return create(ContentComparingChecker.create(), executorService);
   }
@@ -187,17 +184,13 @@ public class AndroidDataMerger {
     try {
       final ParsedAndroidData.Builder directBuilder = ParsedAndroidData.Builder.newBuilder();
       final ParsedAndroidData.Builder transitiveBuilder = ParsedAndroidData.Builder.newBuilder();
-      final AndroidDataSerializer serializer = AndroidDataSerializer.create();
       final List<ListenableFuture<Boolean>> tasks = new ArrayList<>();
       for (final SerializedAndroidData dependency : direct) {
-        tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, directBuilder)));
+        tasks.add(executorService.submit(new ParseDependencyDataTask(dependency, directBuilder)));
       }
       for (final SerializedAndroidData dependency : transitive) {
         tasks.add(
-            executorService.submit(
-                new ParseDependencyDataTask(serializer, dependency, transitiveBuilder)));
+            executorService.submit(new ParseDependencyDataTask(dependency, transitiveBuilder)));
       }
       // Wait for all the parsing to complete.
       FailedFutureAggregator<MergingException> aggregator =
@@ -314,7 +307,7 @@ public class AndroidDataMerger {
       final KeyValueConsumers primaryConsumers = primaryBuilder.consumers();
 
       final Set<MergeConflict> conflicts = new HashSet<>();
-      
+
       // Find all internal conflicts.
       conflicts.addAll(parsedPrimary.conflicts());
       for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
