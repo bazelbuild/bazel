@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.skylarkinterface;
 public enum SkylarkModuleCategory {
   CONFIGURATION_FRAGMENT("Configuration Fragments",
       "Configuration fragments give rules access to "
-      + "language-specific parts of <a href=\"/docs/skylark/lib/configuration.html\">"
+      + "language-specific parts of <a href=\"configuration.html\">"
       + "configuration</a>. "
       + "<p>Rule implementations can get them using "
       + "<code><a href=\"ctx.html#fragments\">ctx."
