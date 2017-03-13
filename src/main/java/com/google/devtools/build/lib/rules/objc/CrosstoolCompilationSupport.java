@@ -74,6 +74,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   private static final String OBJC_MODULE_FEATURE_NAME = "use_objc_modules";
   private static final String NO_ENABLE_MODULES_FEATURE_NAME = "no_enable_modules";
   private static final String DEAD_STRIP_FEATURE_NAME = "dead_strip";
+  private static final String RUN_COVERAGE_FEATURE_NAME = "run_coverage";
+  /** Produce artifacts for coverage in llvm coverage mapping format. */
+  private static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
+  /** Produce artifacts for coverage in gcc coverage mapping format. */
+  private static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
 
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
@@ -375,6 +380,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     if (ruleContext.attributes().has("pch", BuildType.LABEL)
         && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
       activatedCrosstoolSelectables.add("pch");
+    }
+    if (configuration.isCodeCoverageEnabled()) {
+      activatedCrosstoolSelectables.add(RUN_COVERAGE_FEATURE_NAME);
+    }
+    if (configuration.isLLVMCoverageMapFormatEnabled()) {
+      activatedCrosstoolSelectables.add(LLVM_COVERAGE_MAP_FORMAT);
+    } else {
+      activatedCrosstoolSelectables.add(GCC_COVERAGE_MAP_FORMAT);
     }
     return configuration
         .getFragment(CppConfiguration.class)

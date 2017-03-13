@@ -1232,7 +1232,14 @@ public class CppCompileAction extends AbstractAction
   }
 
   @Override
-  public String getMnemonic() { return "CppCompile"; }
+  public String getMnemonic() {
+    if (CppFileTypes.OBJC_SOURCE.matches(sourceFile.getExecPath())
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFile.getExecPath())) {
+      return "ObjcCompile";
+    } else {
+      return "CppCompile";
+    }
+  }
 
   @Override
   public String describeKey() {
