@@ -106,7 +106,7 @@ public class JavaSkylarkCommon {
           type = SkylarkList.class,
           generic1 = Artifact.class,
           defaultValue = "[]",
-          doc = "A list of the jars to be compiled. At least one of `source_jars` or `source_files`"
+          doc = "A list of the jars to be compiled. At least one of source_jars or source_files"
             + " should be specified."
       ),
       @Param(
@@ -116,8 +116,8 @@ public class JavaSkylarkCommon {
         type = SkylarkList.class,
         generic1 = Artifact.class,
         defaultValue = "[]",
-        doc = "A list of the Java source files to be compiled. At least one of `source_jars` or "
-          + "`source_files` should be specified."
+        doc = "A list of the Java source files to be compiled. At least one of source_jars or "
+          + "source_files should be specified."
       ),
       @Param(name = "output", positional = false, named = true, type = Artifact.class),
       @Param(
@@ -244,7 +244,7 @@ public class JavaSkylarkCommon {
 
   @SkylarkCallable(
     name = "merge",
-    doc = "Merges the given providers into a single `java_common.provider`.",
+    doc = "Merges the given providers into a single java_common.provider.",
     // We have one positional argument: the list of providers to merge.
     mandatoryPositionals = 1
   )
