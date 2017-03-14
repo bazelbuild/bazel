@@ -342,13 +342,23 @@ public class CppHelper {
         src.getRoot());
   }
 
-  /** Returns the linked artifact for linux. */
-  public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType) {
-    return getLinuxLinkedArtifact(ruleContext, linkType, "");
+  /**
+   * Returns the linked artifact for linux.
+   *
+   * @param ruleContext the ruleContext to be used to scope the artifact
+   * @param config the configuration to be used to scope the artifact
+   * @param linkType the type of artifact, used to determine extension
+   */
+  public static Artifact getLinuxLinkedArtifact(
+      RuleContext ruleContext, BuildConfiguration config, LinkTargetType linkType) {
+    return getLinuxLinkedArtifact(ruleContext, config, linkType, "");
   }
 
   /** Returns the linked artifact with the given suffix for linux. */
-  public static Artifact getLinuxLinkedArtifact(RuleContext ruleContext, LinkTargetType linkType,
+  public static Artifact getLinuxLinkedArtifact(
+      RuleContext ruleContext,
+      BuildConfiguration config,
+      LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
@@ -356,7 +366,8 @@ public class CppHelper {
           "lib" + name.getBaseName() + linkedArtifactNameSuffix  + linkType.getExtension());
     }
 
-    return ruleContext.getBinArtifact(name);
+    return ruleContext.getPackageRelativeArtifact(
+        name, config.getBinDirectory(ruleContext.getRule().getRepository()));
   }
 
   /**
