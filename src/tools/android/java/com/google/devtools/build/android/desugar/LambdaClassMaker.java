@@ -54,7 +54,7 @@ class LambdaClassMaker {
   }
 
   /**
-   * Returns relative paths to .class files generated since the last call to this method together
+   * Returns absolute paths to .class files generated since the last call to this method together
    * with a string descriptor of the factory method.
    */
   public Map<Path, LambdaInfo> drain() {
@@ -68,12 +68,12 @@ class LambdaClassMaker {
     // will not contain '/' and searches will fail.  So, construct an absolute path from the given
     // string and use its string representation to find the file we need regardless of host
     // system's file system
-    final String rootPathPrefixStr = rootDirectory.resolve(pathPrefix).toString();
+    Path rootPathPrefix = rootDirectory.resolve(pathPrefix);
+    final String rootPathPrefixStr = rootPathPrefix.toString();
 
-    // TODO(kmb): Investigate making this faster in the case of many lambdas
     // TODO(bazel-team): This could be much nicer with lambdas
-    try (Stream<Path> results =
-        Files.walk(rootDirectory)
+    try (Stream<Path> paths =
+        Files.list(rootPathPrefix.getParent())
             .filter(
                 new Predicate<Path>() {
                   @Override
@@ -82,7 +82,7 @@ class LambdaClassMaker {
                         && !generatedClasses.containsKey(path);
                   }
                 })) {
-      return Iterators.getOnlyElement(results.iterator());
+      return Iterators.getOnlyElement(paths.iterator());
     }
   }
 }

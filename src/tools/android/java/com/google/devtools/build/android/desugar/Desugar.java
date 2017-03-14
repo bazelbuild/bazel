@@ -235,8 +235,7 @@ class Desugar {
 
       // Write out the lambda classes we generated along the way
       for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdas.drain().entrySet()) {
-        try (InputStream bytecode =
-            Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
+        try (InputStream bytecode = Files.newInputStream(lambdaClass.getKey())) {
           ClassReader reader = rewriter.reader(bytecode);
           CoreLibraryRewriter.UnprefixingClassWriter writer =
               rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
