@@ -249,7 +249,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     }
     SimpleXmlResourceValue other = (SimpleXmlResourceValue) obj;
     return Objects.equals(valueType, other.valueType)
-        && Objects.equals(attributes, attributes)
+        && Objects.equals(attributes, other.attributes)
         && Objects.equals(value, other.value);
   }
 
