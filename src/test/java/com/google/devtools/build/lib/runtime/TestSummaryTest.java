@@ -38,17 +38,15 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
-
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 @RunWith(JUnit4.class)
 public class TestSummaryTest {
@@ -57,7 +55,7 @@ public class TestSummaryTest {
   private static final String PATH = "package";
   private static final String TARGET_NAME = "name";
   private ConfiguredTarget stubTarget;
-  private static final List<Long> SMALL_TIMING = ImmutableList.of(1L, 2L, 3L, 4L);
+  private static final ImmutableList<Long> SMALL_TIMING = ImmutableList.of(1L, 2L, 3L, 4L);
 
   private static final int CACHED = SMALL_TIMING.size();
   private static final int NOT_CACHED = 0;

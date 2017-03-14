@@ -445,24 +445,19 @@ public class RuleClass {
       }
     }
 
-    /**
-     * List of required attributes for normal rules, name and type.
-     */
-    public static final List<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES = ImmutableList.of(
-        attr("tags", Type.STRING_LIST).build()
-    );
+    /** List of required attributes for normal rules, name and type. */
+    public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
+        ImmutableList.of(attr("tags", Type.STRING_LIST).build());
 
-    /**
-     * List of required attributes for test rules, name and type.
-     */
-    public static final List<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS = ImmutableList.of(
-        attr("tags", Type.STRING_LIST).build(),
-        attr("size", Type.STRING).build(),
-        attr("timeout", Type.STRING).build(),
-        attr("flaky", Type.BOOLEAN).build(),
-        attr("shard_count", Type.INTEGER).build(),
-        attr("local", Type.BOOLEAN).build()
-    );
+    /** List of required attributes for test rules, name and type. */
+    public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_TESTS =
+        ImmutableList.of(
+            attr("tags", Type.STRING_LIST).build(),
+            attr("size", Type.STRING).build(),
+            attr("timeout", Type.STRING).build(),
+            attr("flaky", Type.BOOLEAN).build(),
+            attr("shard_count", Type.INTEGER).build(),
+            attr("local", Type.BOOLEAN).build());
 
     private String name;
     private final RuleClassType type;

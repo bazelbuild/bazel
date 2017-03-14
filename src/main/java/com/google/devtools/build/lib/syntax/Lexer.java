@@ -44,7 +44,7 @@ public final class Lexer {
 
   // Characters that can come immediately prior to an '=' character to generate
   // a different token
-  private static final Map<Character, TokenKind> EQUAL_TOKENS =
+  private static final ImmutableMap<Character, TokenKind> EQUAL_TOKENS =
       ImmutableMap.<Character, TokenKind>builder()
           .put('=', TokenKind.EQUALS_EQUALS)
           .put('!', TokenKind.NOT_EQUALS)

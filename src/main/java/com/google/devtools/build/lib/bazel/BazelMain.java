@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
 import java.util.Properties;
 
 /**
@@ -36,7 +35,7 @@ public final class BazelMain {
    * <p>Example: To make the "standalone" execution strategy the default for spawns, put it after
    * all the other modules that provider spawn strategies (e.g. WorkerModule and SandboxModule).
    */
-  public static final List<Class<? extends BlazeModule>> BAZEL_MODULES =
+  public static final ImmutableList<Class<? extends BlazeModule>> BAZEL_MODULES =
       ImmutableList.of(
           com.google.devtools.build.lib.runtime.mobileinstall.MobileInstallModule.class,
           com.google.devtools.build.lib.bazel.BazelWorkspaceStatusModule.class,
