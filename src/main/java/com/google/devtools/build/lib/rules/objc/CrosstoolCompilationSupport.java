@@ -184,8 +184,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         .addVariableCategory(VariableCategory.FULLY_LINK_VARIABLES)
         .build();
     CppLinkAction fullyLinkAction =
-        new CppLinkActionBuilder(
-                ruleContext, outputArchive, ccToolchain, fdoSupport.getFdoSupport())
+        new CppLinkActionBuilder(ruleContext, outputArchive, ccToolchain, fdoSupport)
             .addActionInputs(objcProvider.getObjcLibraries())
             .addActionInputs(objcProvider.getCcLibraries())
             .addActionInputs(objcProvider.get(IMPORTED_LIBRARY).toSet())
@@ -249,7 +248,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     CcToolchainProvider ccToolchain = CppHelper.getToolchain(ruleContext, ":cc_toolchain");
     FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
     CppLinkAction executableLinkAction =
-        new CppLinkActionBuilder(ruleContext, binaryToLink, ccToolchain, fdoSupport.getFdoSupport())
+        new CppLinkActionBuilder(ruleContext, binaryToLink, ccToolchain, fdoSupport)
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
             .addActionInputs(objcProvider.getCcLibraries())

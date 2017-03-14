@@ -1146,23 +1146,15 @@ public final class CppModel {
     if (!ccOutputs.getLtoBitcodeFiles().isEmpty()
         && featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       linkActionBuilder.setLTOIndexing(true);
+      linkActionBuilder.setUsePicForLTOBackendActions(usePicForSharedLibs);
+      // If support is ever added for generating a dwp file for shared
+      // library targets (e.g. when linkstatic=0), then this should change
+      // to generate dwo files when cppConfiguration.useFission(),
+      // and the dwp generating action for the shared library should
+      // include all of the resulting dwo files.
+      linkActionBuilder.setUseFissionForLTOBackendActions(false);
       CppLinkAction indexAction = linkActionBuilder.build();
       env.registerAction(indexAction);
-
-      for (LTOBackendArtifacts ltoArtifacts : indexAction.getAllLTOBackendArtifacts()) {
-        ltoArtifacts.scheduleLTOBackendAction(
-            ruleContext,
-            featureConfiguration,
-            ccToolchain,
-            fdoSupport,
-            usePicForSharedLibs,
-            // If support is ever added for generating a dwp file for shared
-            // library targets (e.g. when linkstatic=0), then this should change
-            // to generate dwo files when cppConfiguration.useFission(),
-            // and the dwp generating action for the shared library should
-            // include all of the resulting dwo files.
-            /*generateDwo=*/ false);
-      }
 
       linkActionBuilder.setLTOIndexing(false);
     }
@@ -1202,8 +1194,7 @@ public final class CppModel {
   }
 
   private CppLinkActionBuilder newLinkActionBuilder(Artifact outputArtifact) {
-    return new CppLinkActionBuilder(
-            ruleContext, outputArtifact, ccToolchain, fdoSupport.getFdoSupport())
+    return new CppLinkActionBuilder(ruleContext, outputArtifact, ccToolchain, fdoSupport)
         .setCrosstoolInputs(ccToolchain.getLink())
         .addNonCodeInputs(context.getTransitiveCompilationPrerequisites());
   }

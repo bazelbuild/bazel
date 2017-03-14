@@ -236,7 +236,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         determineLinkerArguments(
             ruleContext,
             ccToolchain,
-            fdoSupport.getFdoSupport(),
+            fdoSupport,
             common,
             precompiledFiles,
             info,
@@ -287,19 +287,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     if (featureConfiguration.isEnabled(CppRuleClasses.THIN_LTO)) {
       linkActionBuilder.setLTOIndexing(true);
+      linkActionBuilder.setUsePicForLTOBackendActions(usePic);
+      linkActionBuilder.setUseFissionForLTOBackendActions(cppConfiguration.useFission());
       CppLinkAction indexAction = linkActionBuilder.build();
       ruleContext.registerAction(indexAction);
 
       ltoBackendArtifacts = indexAction.getAllLTOBackendArtifacts();
-      for (LTOBackendArtifacts ltoArtifacts : ltoBackendArtifacts) {
-        ltoArtifacts.scheduleLTOBackendAction(
-            ruleContext,
-            featureConfiguration,
-            ccToolchain,
-            fdoSupport,
-            usePic,
-            /*generateDwo=*/ cppConfiguration.useFission());
-      }
 
       linkActionBuilder.setLTOIndexing(false);
     }
@@ -444,7 +437,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static CppLinkActionBuilder determineLinkerArguments(
       RuleContext context,
       CcToolchainProvider toolchain,
-      FdoSupport fdoSupport,
+      FdoSupportProvider fdoSupport,
       CcCommon common,
       PrecompiledFiles precompiledFiles,
       CcLibraryHelper.Info info,

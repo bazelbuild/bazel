@@ -145,7 +145,7 @@ public class CppLinkActionBuilder {
 
   // can be null for CppLinkAction.createTestBuilder()
   @Nullable private final CcToolchainProvider toolchain;
-  private final FdoSupport fdoSupport;
+  private final FdoSupportProvider fdoSupport;
   private Artifact interfaceOutput;
   private Artifact symbolCounts;
   private PathFragment runtimeSolibDir;
@@ -178,6 +178,8 @@ public class CppLinkActionBuilder {
   private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
 
   private boolean isLTOIndexing = false;
+  private boolean usePicForLTOBackendActions = false;
+  private boolean useFissionForLTOBackendActions = false;
   private Iterable<LTOBackendArtifacts> allLTOArtifacts = null;
   
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
@@ -191,8 +193,11 @@ public class CppLinkActionBuilder {
    * @param toolchain the C++ toolchain provider
    * @param fdoSupport the C++ FDO optimization support
    */
-  public CppLinkActionBuilder(RuleContext ruleContext, Artifact output,
-      CcToolchainProvider toolchain, FdoSupport fdoSupport) {
+  public CppLinkActionBuilder(
+      RuleContext ruleContext,
+      Artifact output,
+      CcToolchainProvider toolchain,
+      FdoSupportProvider fdoSupport) {
     this(
         ruleContext,
         output,
@@ -216,7 +221,7 @@ public class CppLinkActionBuilder {
       Artifact output,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
-      FdoSupport fdoSupport) {
+      FdoSupportProvider fdoSupport) {
     this(ruleContext, output, configuration, ruleContext.getAnalysisEnvironment(), toolchain,
         fdoSupport);
   }
@@ -237,7 +242,7 @@ public class CppLinkActionBuilder {
       BuildConfiguration configuration,
       AnalysisEnvironment analysisEnvironment,
       CcToolchainProvider toolchain,
-      FdoSupport fdoSupport) {
+      FdoSupportProvider fdoSupport) {
     this.ruleContext = ruleContext;
     this.analysisEnvironment = Preconditions.checkNotNull(analysisEnvironment);
     this.output = Preconditions.checkNotNull(output);
@@ -267,7 +272,7 @@ public class CppLinkActionBuilder {
       Context linkContext,
       BuildConfiguration configuration,
       CcToolchainProvider toolchain,
-      FdoSupport fdoSupport) {
+      FdoSupportProvider fdoSupport) {
     // These Builder-only fields get set in the constructor:
     //   ruleContext, analysisEnvironment, outputPath, configuration, runtimeSolibDir
     this(
@@ -666,7 +671,7 @@ public class CppLinkActionBuilder {
             .setUseTestOnlyFlags(useTestOnlyFlags)
             .setParamFile(paramFile)
             .setToolchain(toolchain)
-            .setFdoSupport(fdoSupport)
+            .setFdoSupport(fdoSupport.getFdoSupport())
             .setBuildVariables(buildVariables)
             .setToolPath(getToolPath())
             .setFeatureConfiguration(featureConfiguration);
@@ -736,6 +741,14 @@ public class CppLinkActionBuilder {
         argv.addAll(cppConfiguration.getLinkOptions());
         argv.addAll(cppConfiguration.getCompilerOptions(features));
         a.setCommandLine(argv);
+
+        a.scheduleLTOBackendAction(
+            ruleContext,
+            featureConfiguration,
+            toolchain,
+            fdoSupport,
+            usePicForLTOBackendActions,
+            useFissionForLTOBackendActions);
       }
     }
 
@@ -910,6 +923,18 @@ public class CppLinkActionBuilder {
    */
   public CppLinkActionBuilder setLTOIndexing(boolean ltoIndexing) {
     this.isLTOIndexing = ltoIndexing;
+    return this;
+  }
+
+  /** Sets flag for using PIC in any scheduled LTO Backend actions. */
+  public CppLinkActionBuilder setUsePicForLTOBackendActions(boolean usePic) {
+    this.usePicForLTOBackendActions = usePic;
+    return this;
+  }
+
+  /** Sets flag for using Fission in any scheduled LTO Backend actions. */
+  public CppLinkActionBuilder setUseFissionForLTOBackendActions(boolean useFission) {
+    this.useFissionForLTOBackendActions = useFission;
     return this;
   }
 
@@ -1398,7 +1423,7 @@ public class CppLinkActionBuilder {
       buildVariables
           .addAllStringVariables(toolchain.getBuildVariables())
           .build();
-      fdoSupport.getLinkOptions(featureConfiguration, buildVariables);
+      fdoSupport.getFdoSupport().getLinkOptions(featureConfiguration, buildVariables);
     }
 
     private boolean isLTOIndexing() {

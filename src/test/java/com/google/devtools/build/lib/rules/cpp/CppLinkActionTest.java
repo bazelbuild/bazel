@@ -272,8 +272,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ruleContext,
                     (i & 2) == 0 ? dynamicOutputFile : staticOutputFile,
                     CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
-                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
-                };
+                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain")) {};
             builder.addCompilationInputs(
                 (i & 1) == 0 ? ImmutableList.of(oFile) : ImmutableList.of(oFile2));
             if ((i & 2) == 0) {
@@ -320,8 +319,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                     ruleContext,
                     (i & 2) == 0 ? staticOutputFile : dynamicOutputFile,
                     CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
-                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport()) {
-                };
+                    CppHelper.getFdoSupport(ruleContext, ":cc_toolchain")) {};
             builder.addCompilationInputs(
                 (i & 1) == 0 ? ImmutableList.of(oFile) : ImmutableList.of(oFile2));
             builder.setLinkType(
@@ -344,9 +342,12 @@ public class CppLinkActionTest extends BuildViewTestCase {
         new PathFragment("output/path.ifso"), getTargetConfiguration().getBinDirectory(
             RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
-    CppLinkActionBuilder builder = new CppLinkActionBuilder(
-        ruleContext, output, CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
-        CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport());
+    CppLinkActionBuilder builder =
+        new CppLinkActionBuilder(
+            ruleContext,
+            output,
+            CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
+            CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"));
     builder.setLinkType(LinkTargetType.STATIC_LIBRARY);
     assertTrue(builder.canSplitCommandLine());
 
@@ -435,7 +436,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
                 CppHelper.getToolchain(ruleContext, ":cc_toolchain"),
-                CppHelper.getFdoSupport(ruleContext, ":cc_toolchain").getFdoSupport())
+                CppHelper.getFdoSupport(ruleContext, ":cc_toolchain"))
             .addObjectFiles(nonLibraryInputs)
             .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
             .setLinkType(type)
