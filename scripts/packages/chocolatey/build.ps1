@@ -33,10 +33,10 @@ if ($fixPackage -eq $true) {
   }
   $tvPackageFixVersion = "$($prefix)$((get-date).tostring("yyyyMMdd"))"
 }
-rm -force -ErrorAction SilentlyContinue ./*.nupkg
-rm -force -ErrorAction SilentlyContinue ./bazel.nuspec
-rm -force -ErrorAction SilentlyContinue ./tools/LICENSE
-rm -force -ErrorAction SilentlyContinue ./tools/*.orig
+rm -force -ErrorAction SilentlyContinue "./*.nupkg"
+rm -force -ErrorAction SilentlyContinue "./bazel.nuspec"
+rm -force -ErrorAction SilentlyContinue "./tools/LICENSE*"
+rm -force -ErrorAction SilentlyContinue "./tools/*.orig"
 rm -force -ErrorAction SilentlyContinue "./tools/params.*"
 if ($checksum -eq "") {
   rm -force -ErrorAction SilentlyContinue ./*.zip

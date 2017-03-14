@@ -3,16 +3,18 @@ $packageName = 'bazel'
 
 $toolsDir = Split-Path -parent $MyInvocation.MyCommand.Definition
 $paramsText = get-content "$($toolsDir)\params.txt"
-$p = $paramsText.Split("`n")
+write-host "Content of $($toolsDir)\params.txt:"
+write-host $paramsText
+write-host "url:  $($paramsText[0])"
+write-host "hash: $($paramsText[1])"
+write-host "Type: $($paramsText.GetType())"
 
 $packageDir = Split-Path -parent $toolsDir
 
-write-host "Read params from text file"
-write-host $p
 
 Install-ChocolateyZipPackage -PackageName "$packageName" `
-  -Url64bit "$($p[0])" `
-  -Checksum64 "$($p[1])" `
+  -Url64bit "$($paramsText[0])" `
+  -Checksum64 "$($paramsText[1])" `
   -Checksum64Type "sha256" `
   -UnzipLocation "$packageDir"
 
