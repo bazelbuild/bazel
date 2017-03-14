@@ -928,8 +928,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setDerivedJarFunction(desugaredJars)
         .build();
 
-    Artifact stubDex = getDxArtifact(ruleContext,
-        split ? "split_stub_application.dex" : "stub_application.dex");
+    Artifact stubDex =
+        getDxArtifact(
+            ruleContext,
+            split ? "split_stub_application/classes.dex" : "stub_application/classes.dex");
     AndroidCommon.createDexAction(
         ruleContext,
         stubDeployJar,

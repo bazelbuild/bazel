@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
 
@@ -67,9 +68,12 @@ public class ApkActionsBuilder {
   /**
    * Sets the dex file to be included in the APK.
    *
-   * <p>Can be either a plain .dex or a .zip file containing dexes.
+   * <p>Can be either a plain classes.dex or a .zip file containing dexes.
    */
   public ApkActionsBuilder setClassesDex(Artifact classesDex) {
+    Preconditions.checkArgument(
+        classesDex.getFilename().endsWith(".zip")
+            || classesDex.getFilename().equals("classes.dex"));
     this.classesDex = classesDex;
     return this;
   }
