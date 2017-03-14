@@ -339,6 +339,20 @@ public class CppCompileActionBuilder {
     prunableInputBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     prunableInputBuilder.addTransitive(cppSemantics.getAdditionalPrunableIncludes());
 
+    Iterable<IncludeScannable> lipoScannables = getLipoScannables(realMandatoryInputs);
+    // We need to add "legal generated scanner files" coming through LIPO scannables here. These
+    // usually contain pre-grepped source files, i.e. files just containing the #include lines
+    // extracted from generated files. With LIPO, some of these files can be accessed, even though
+    // there is no direct dependency on them. Adding the artifacts as inputs to this compile
+    // action ensures that the action generating them is actually executed.
+    for (IncludeScannable lipoScannable : lipoScannables) {
+      for (Artifact value : lipoScannable.getLegalGeneratedScannerFileMap().values()) {
+        if (value != null) {
+          prunableInputBuilder.add(value);
+        }
+      }
+    }
+
     NestedSet<Artifact> prunableInputs = prunableInputBuilder.build();
 
     // Copying the collections is needed to make the builder reusable.
@@ -415,6 +429,8 @@ public class CppCompileActionBuilder {
   NestedSet<Artifact> buildMandatoryInputs() {
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
+    realMandatoryInputsBuilder.addAll(ccToolchain.getBuiltinIncludeFiles());
+    realMandatoryInputsBuilder.addAll(context.getTransitiveCompilationPrerequisites());
     if (useHeaderModules() && !shouldPruneModules()) {
       realMandatoryInputsBuilder.addTransitive(context.getTransitiveModules(usePic));
     }
@@ -431,22 +447,7 @@ public class CppCompileActionBuilder {
     if (optionalSourceFile != null) {
       builder.add(optionalSourceFile);
     }
-    builder.addAll(context.getTransitiveCompilationPrerequisites());
-    builder.addAll(ccToolchain.getBuiltinIncludeFiles());
     builder.addTransitive(mandatoryInputs);
-    Iterable<IncludeScannable> lipoScannables = getLipoScannables(mandatoryInputs);
-    // We need to add "legal generated scanner files" coming through LIPO scannables here. These
-    // usually contain pre-grepped source files, i.e. files just containing the #include lines
-    // extracted from generated files. With LIPO, some of these files can be accessed, even though
-    // there is no direct dependency on them. Adding the artifacts as inputs to this compile
-    // action ensures that the action generating them is actually executed.
-    for (IncludeScannable lipoScannable : lipoScannables) {
-      for (Artifact value : lipoScannable.getLegalGeneratedScannerFileMap().values()) {
-        if (value != null) {
-          builder.add(value);
-        }
-      }
-    }
     return builder.build();
   }
 

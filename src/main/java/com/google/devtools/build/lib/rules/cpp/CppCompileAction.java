@@ -956,7 +956,6 @@ public class CppCompileAction extends AbstractAction
       if (optionalSourceFile != null) {
         inputs.add(optionalSourceFile);
       }
-      inputs.addAll(context.getTransitiveCompilationPrerequisites());
       inputs.addTransitive(discoveredInputs);
       updateInputs(inputs.build());
     } finally {
