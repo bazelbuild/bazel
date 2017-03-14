@@ -638,8 +638,8 @@ public final class Runfiles {
    * Returns if there are no runfiles.
    */
   public boolean isEmpty() {
-    return unconditionalArtifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty() &&
-        pruningManifests.isEmpty();
+    return unconditionalArtifacts.isEmpty() && symlinks.isEmpty() && rootSymlinks.isEmpty()
+        && pruningManifests.isEmpty();
   }
 
   /**
@@ -1047,7 +1047,15 @@ public final class Runfiles {
      * Add the other {@link Runfiles} object transitively.
      */
     public Builder merge(Runfiles runfiles) {
-      return merge(runfiles, true);
+      return merge(runfiles, true, true);
+    }
+
+    /**
+     * Add the other {@link Runfiles} object transitively, but don't merge
+     * unconditional artifacts.
+     */
+    public Builder mergeExceptUnconditionalArtifacts(Runfiles runfiles) {
+      return merge(runfiles, false, true);
     }
 
     /**
@@ -1055,14 +1063,15 @@ public final class Runfiles {
      * pruning manifests.
      */
     public Builder mergeExceptPruningManifests(Runfiles runfiles) {
-      return merge(runfiles, false);
+      return merge(runfiles, true, false);
     }
 
     /**
      * Add the other {@link Runfiles} object transitively, with the option to include or exclude
      * pruning manifests in the merge.
      */
-    private Builder merge(Runfiles runfiles, boolean includePruningManifests) {
+    private Builder merge(Runfiles runfiles, boolean includeUnconditionalArtifacts,
+        boolean includePruningManifests) {
       // Propagate the most strict conflict checking from merged-in runfiles
       if (runfiles.conflictPolicy.compareTo(conflictPolicy) > 0) {
         conflictPolicy = runfiles.conflictPolicy;
@@ -1073,7 +1082,9 @@ public final class Runfiles {
       // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
       // may have an empty suffix, but that is covered above.
       Preconditions.checkArgument(suffix.equals(runfiles.suffix));
-      artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
+      if (includeUnconditionalArtifacts) {
+        artifactsBuilder.addTransitive(runfiles.getUnconditionalArtifacts());
+      }
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
       if (includePruningManifests) {
