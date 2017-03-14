@@ -80,7 +80,9 @@ public final class ExtraAction extends SpawnAction {
     super(
         shadowedAction.getOwner(),
         ImmutableList.<Artifact>of(),
-        createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier),
+        createInputs(
+            shadowedAction.getInputs(), ImmutableList.<Artifact>of(), extraActionInputs,
+            runfilesSupplier),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,
         argv,
@@ -121,20 +123,29 @@ public final class ExtraAction extends SpawnAction {
 
     // We need to update our inputs to take account of any additional
     // inputs the shadowed action may need to do its work.
-    updateInputs(createInputs(shadowedAction.getInputs(), extraActionInputs, runfilesSupplier));
-    return Sets.difference(ImmutableSet.copyOf(shadowedAction.getInputs()),
-        ImmutableSet.copyOf(originalShadowedActionInputs));
+    Iterable<Artifact> oldInputs = getInputs();
+    updateInputs(createInputs(
+        shadowedAction.getInputs(),
+        shadowedAction.getInputFilesForExtraAction(actionExecutionContext),
+        extraActionInputs,
+        runfilesSupplier));
+    return Sets.<Artifact>difference(
+        ImmutableSet.<Artifact>copyOf(getInputs()), ImmutableSet.<Artifact>copyOf(oldInputs));
   }
 
   private static NestedSet<Artifact> createInputs(
       Iterable<Artifact> shadowedActionInputs,
+      Iterable<Artifact> inputFilesForExtraAction,
       ImmutableSet<Artifact> extraActionInputs,
       RunfilesSupplier extraActionRunfilesSupplier) {
     NestedSetBuilder<Artifact> result = new NestedSetBuilder<>(Order.STABLE_ORDER);
-    if (shadowedActionInputs instanceof NestedSet) {
-      result.addTransitive((NestedSet<Artifact>) shadowedActionInputs);
-    } else {
-      result.addAll(shadowedActionInputs);
+    for (Iterable<Artifact> inputSet : ImmutableList.of(
+        shadowedActionInputs, inputFilesForExtraAction)) {
+      if (inputSet instanceof NestedSet) {
+        result.addTransitive((NestedSet<Artifact>) inputSet);
+      } else {
+        result.addAll(inputSet);
+      }
     }
     result.addAll(extraActionRunfilesSupplier.getArtifacts());
     return result.addAll(extraActionInputs).build();

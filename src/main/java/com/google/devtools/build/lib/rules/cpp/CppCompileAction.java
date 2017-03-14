@@ -1231,6 +1231,31 @@ public class CppCompileAction extends AbstractAction
     }
   }
 
+  /**
+   * When compiling with modules, the C++ compile action only has the {@code .pcm} files on its
+   * inputs, which is not enough for extra actions that parse header files. Thus, re-run include
+   * scanning and add headers to the inputs of the extra action, too.
+   */
+  @Override
+  public Iterable<Artifact> getInputFilesForExtraAction(
+      ActionExecutionContext actionExecutionContext)
+      throws ActionExecutionException, InterruptedException {
+    Iterable<Artifact> scannedIncludes;
+    try {
+      scannedIncludes = actionExecutionContext.getExecutor().getContext(actionContext)
+          .findAdditionalInputs(this, actionExecutionContext,  cppSemantics.getIncludeProcessing());
+    } catch (ExecException e) {
+      throw e.toActionExecutionException(this);
+    }
+
+    if (scannedIncludes == null) {
+      return ImmutableList.of();
+    }
+
+    return Sets.<Artifact>difference(
+        ImmutableSet.<Artifact>copyOf(scannedIncludes), ImmutableSet.<Artifact>copyOf(getInputs()));
+  }
+
   @Override
   public String getMnemonic() {
     if (CppFileTypes.OBJC_SOURCE.matches(sourceFile.getExecPath())
