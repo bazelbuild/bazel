@@ -121,8 +121,24 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
 
   @Override
   public QueryTaskFuture<Void> eval(
-      QueryExpression expr, VariableContext<T> context, Callback<T> callback) {
-    return expr.eval(this, context, callback);
+      QueryExpression expr, VariableContext<T> context, final Callback<T> callback) {
+    // Not all QueryEnvironment implementations embrace the async+streaming evaluation framework. In
+    // particular, the streaming callbacks employed by functions like 'deps' use
+    // QueryEnvironment#buildTransitiveClosure. So if the implementation of that method does some
+    // heavyweight blocking work, then it's best to do this blocking work in a single batch.
+    // Importantly, the callback we pass in needs to maintain order.
+    final QueryUtil.AggregateAllCallback<T> aggregateAllCallback =
+        QueryUtil.newOrderedAggregateAllOutputFormatterCallback();
+    QueryTaskFuture<Void> evalAllFuture = expr.eval(this, context, aggregateAllCallback);
+    return whenSucceedsCall(
+        evalAllFuture,
+        new QueryTaskCallable<Void>() {
+          @Override
+          public Void call() throws QueryException, InterruptedException {
+            callback.process(aggregateAllCallback.getResult());
+            return null;
+          }
+        });
   }
 
   @Override
