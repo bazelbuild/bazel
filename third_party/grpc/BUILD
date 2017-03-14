@@ -10,6 +10,7 @@ filegroup(
 java_import(
     name = "grpc-jar",
     jars = [
+        "grpc-auth-0.15.0.jar",
         "grpc-netty-0.15.0.jar",
         "grpc-protobuf-0.15.0.jar",
         "grpc-protobuf-lite-0.15.0.jar",

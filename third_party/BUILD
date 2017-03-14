@@ -146,6 +146,19 @@ java_import(
 )
 
 java_import(
+    name = "api_client",
+    jars = [
+        "api_client/google-api-client-1.22.0.jar",
+        "api_client/google-api-client-jackson2-1.22.0.jar",
+        "api_client/google-http-client-1.22.0.jar",
+        "api_client/google-http-client-jackson2-1.22.0.jar",
+    ],
+    runtime_deps = [
+        ":jackson2",
+    ],
+)
+
+java_import(
     name = "asm",
     jars = ["asm/asm-5.1.jar"],
 )
@@ -172,6 +185,18 @@ java_import(
     name = "asm-util",
     jars = ["asm/asm-util-5.1.jar"],
     runtime_deps = [":asm-tree"],
+)
+
+java_import(
+    name = "auth",
+    jars = [
+        "auth/google-auth-library-oauth2-http-0.6.0.jar",
+        "auth/google-auth-library-credentials-0.6.0.jar",
+    ],
+    runtime_deps = [
+        ":api_client",
+        ":guava",
+    ],
 )
 
 java_plugin(
@@ -327,6 +352,13 @@ java_import(
 )
 
 java_import(
+    name = "jackson2",
+    jars = [
+        "jackson2/jackson-core-2.8.6.jar",
+    ],
+)
+
+java_import(
     name = "jcip_annotations",
     jars = [
         "jcip_annotations/jcip-annotations-1.0-1.jar",
@@ -436,6 +468,11 @@ java_import(
 java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.0.CR6.jar"],
+)
+
+java_import(
+    name = "netty_tcnative",
+    jars = ["netty_tcnative/netty-tcnative-boringssl-static-1.1.33.Fork26.jar"],
 )
 
 java_import(
