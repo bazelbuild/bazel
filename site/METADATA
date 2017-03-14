@@ -1,0 +1,4 @@
+# ensure alphasource-docs@ is added to Bazel docs/site reviews
+presubmit: {
+  review_notify: "alphasource-docs+reviews"
+}
