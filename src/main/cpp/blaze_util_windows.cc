@@ -964,26 +964,18 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
   }
 }
 
-// TODO(laszlocsomor): use IsAbsolute from file_windows.cc
-static bool IsAbsoluteWindowsPath(const string& p) {
-  if (p.size() < 3) {
-    return false;
-  }
-
-  if (p.substr(1, 2) == ":/") {
-    return true;
-  }
-
-  if (p.substr(1, 2) == ":\\") {
-    return true;
-  }
-
-  return false;
-}
-
 bool CompareAbsolutePaths(const string& a, const string& b) {
-  string a_real = IsAbsoluteWindowsPath(a) ? ConvertPathToPosix(a) : a;
-  string b_real = IsAbsoluteWindowsPath(b) ? ConvertPathToPosix(b) : b;
+  // `a` and `b` may not be Windows-style and may not be normalized, so convert
+  // them both before comparing them.
+  wstring a_real, b_real;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(a, &a_real)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "CompareAbsolutePaths(a=%s, b=%s)", a.c_str(), b.c_str());
+  }
+  if (!blaze_util::AsWindowsPathWithUncPrefix(b, &b_real)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "CompareAbsolutePaths(a=%s, b=%s)", a.c_str(), b.c_str());
+  }
   return a_real == b_real;
 }
 
@@ -1001,9 +993,9 @@ bool KillServerProcess(int pid) {
     return false;
   }
 
-  bool result = TerminateProcess(process, /*uExitCode*/0);
+  BOOL result = TerminateProcess(process, /*uExitCode*/ 0);
   if (!result) {
-    fprintf(stderr, "Cannot terminate server process with PID %d\n", pid);
+    blaze_util::PrintError("Cannot terminate server process with PID %d", pid);
   }
 
   CloseHandle(process);
