@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.Set;
 
 /**
  * Rule class definitions for Java rules.
@@ -126,7 +125,7 @@ public class BazelJavaRuleClasses {
     }
   }
 
-  static final Set<String> ALLOWED_RULES_IN_DEPS =
+  static final ImmutableSet<String> ALLOWED_RULES_IN_DEPS =
       ImmutableSet.of(
           "cc_binary", // NB: linkshared=1
           "cc_library",
