@@ -114,6 +114,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
         checkNotNull(base.getProvider(ProtoSupportDataProvider.class)).getSupportData();
 
     Impl impl = new Impl(ruleContext, supportData, javaSemantics, rpcSupport);
+    if (impl.shouldGenerateCode() && ActionReuser.reuseExistingActions(base, ruleContext, aspect)) {
+      return aspect.build();
+    }
     impl.addProviders(aspect);
     return aspect.build();
   }
