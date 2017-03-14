@@ -215,7 +215,14 @@ def create_android_device_rules(system_image_dirs):
   for system_image_dir in system_image_dirs:
     name = "_".join(system_image_dir.split("/")[1:])
 
+    # TODO(ajmichael): Remove this target after unified_launcher's tests are
+    # updated to use the emulator_images_%s filegroups instead.
     native.filegroup(
         name = "%s_files" % name,
+        srcs = native.glob(["%s/**" % system_image_dir]),
+    )
+
+    native.filegroup(
+        name = "emulator_images_%s" % name,
         srcs = native.glob(["%s/**" % system_image_dir]),
     )
