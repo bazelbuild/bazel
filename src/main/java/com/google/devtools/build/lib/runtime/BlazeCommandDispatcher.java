@@ -76,13 +76,20 @@ public class BlazeCommandDispatcher {
     ERROR_OUT,  // Return with an error
   }
   // Keep in sync with options added in OptionProcessor::AddRcfileArgsAndOptions()
-  private static final Set<String> INTERNAL_COMMAND_OPTIONS = ImmutableSet.of(
-      "rc_source", "default_override", "isatty", "terminal_columns", "ignore_client_env",
-      "client_env", "client_cwd");
+  private static final ImmutableSet<String> INTERNAL_COMMAND_OPTIONS =
+      ImmutableSet.of(
+          "rc_source",
+          "default_override",
+          "isatty",
+          "terminal_columns",
+          "ignore_client_env",
+          "client_env",
+          "client_cwd");
 
   private static final ImmutableList<String> HELP_COMMAND = ImmutableList.of("help");
 
-  private static final Set<String> ALL_HELP_OPTIONS = ImmutableSet.of("--help", "-help", "-h");
+  private static final ImmutableSet<String> ALL_HELP_OPTIONS =
+      ImmutableSet.of("--help", "-help", "-h");
 
   /**
    * By throwing this exception, a command indicates that it wants to shutdown
