@@ -112,6 +112,11 @@ class BuildGroupRunner {
     }
     lastIsIncremental = envConfig.getIncremental();
 
+    // Builder's clean method, only clean before the first target
+    if (targetIndex == 0 && envConfig.getCleanBeforeBuild()) {
+      builder.clean();
+    }
+
     if (removeFirstResult) {
       buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
     }
@@ -129,11 +134,6 @@ class BuildGroupRunner {
   private double buildTargetAndGetElapsedTime(
       Path buildBinary, BuildEnvConfig envConfig, BuildTargetConfig targetConfig)
       throws CommandException {
-    // Builder's clean method
-    if (envConfig.getCleanBeforeBuild()) {
-      builder.clean();
-    }
-
     // Run build
     double elapsedTime =
         builder.buildAndGetElapsedTime(
