@@ -58,7 +58,7 @@ class Desugar {
       category = "input",
       converter = ExistingPathConverter.class,
       abbrev = 'i',
-      help = "Input Jar with classes to desugar."
+      help = "Input Jar with classes to desugar (required)."
     )
     public Path inputJar;
 
@@ -78,18 +78,15 @@ class Desugar {
       defaultValue = "",
       category = "input",
       converter = ExistingPathConverter.class,
-      help =
-          "Bootclasspath that was used to compile the --input Jar with, like javac's "
-              + "-bootclasspath flag. If no bootclasspath is explicitly given then the tool's own "
-              + "bootclasspath is used."
+      help = "Bootclasspath that was used to compile the --input Jar with, like javac's "
+          + "-bootclasspath flag (required)."
     )
     public List<Path> bootclasspath;
 
     @Option(
       name = "allow_empty_bootclasspath",
       defaultValue = "false",
-      category = "misc",
-      help = "Don't use the tool's bootclasspath if no bootclasspath is given."
+      category = "undocumented"
     )
     public boolean allowEmptyBootclasspath;
 
@@ -99,7 +96,7 @@ class Desugar {
       category = "output",
       converter = PathConverter.class,
       abbrev = 'o',
-      help = "Output Jar to write desugared classes into."
+      help = "Output Jar to write desugared classes into (required)."
     )
     public Path outputJar;
 
@@ -132,6 +129,7 @@ class Desugar {
       name = "core_library",
       defaultValue = "false",
       category = "undocumented",
+      implicitRequirements = "--allow_empty_bootclasspath",
       help = "Enables rewriting to desugar java.* classes."
     )
     public boolean coreLibrary;
@@ -155,15 +153,18 @@ class Desugar {
     }
 
     OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    optionsParser.setAllowResidue(false);
     optionsParser.parseAndExitUponError(args);
     Options options = optionsParser.getOptions(Options.class);
+
+    checkState(options.inputJar != null, "--input is required");
+    checkState(options.outputJar != null, "--output is required");
+    checkState(!options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
+        "Bootclasspath required to desugar %s", options.inputJar);
 
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
-
-    checkState(!options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
-        "Bootclasspath required to desugar %s", options.inputJar);
 
     CoreLibraryRewriter rewriter =
         new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
