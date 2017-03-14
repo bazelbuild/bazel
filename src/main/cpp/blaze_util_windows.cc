@@ -520,6 +520,7 @@ string GetJvmVersion(const string& java_exe) {
   return ReadJvmVersion(result);
 }
 
+#ifndef COMPILER_MSVC
 // If we pass DETACHED_PROCESS to CreateProcess(), cmd.exe appropriately
 // returns the command prompt when the client terminates. msys2, however, in
 // its infinite wisdom, waits until the *server* terminates and cannot be
@@ -528,10 +529,6 @@ string GetJvmVersion(const string& java_exe) {
 // So, we first pretend to be a POSIX daemon so that msys2 knows about our
 // intentions and *then* we call CreateProcess(). Life ain't easy.
 static bool DaemonizeOnWindows() {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team) 2016-11-18: implement this.
-  return false;
-#else  // not COMPILER_MSVC
   if (fork() > 0) {
     // We are the original client process.
     return true;
@@ -548,8 +545,8 @@ static bool DaemonizeOnWindows() {
   // descriptors here. CreateProcess() will take care of that and it's useful
   // to see the error messages in ExecuteDaemon() on the console of the client.
   return false;
-#endif  // COMPILER_MSVC
 }
+#endif  // not COMPILER_MSVC
 
 // Keeping an eye on the server process on Windows is not implemented yet.
 // TODO(lberki): Implement this, because otherwise if we can't start up a server
@@ -564,11 +561,15 @@ class DummyBlazeServerStartup : public BlazeServerStartup {
 void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                    const string& daemon_output, const string& server_dir,
                    BlazeServerStartup** server_startup) {
+#ifdef COMPILER_MSVC
+  *server_startup = new DummyBlazeServerStartup();
+#else   // not COMPILER_MSVC
   if (DaemonizeOnWindows()) {
     // We are the client process
     *server_startup = new DummyBlazeServerStartup();
     return;
   }
+#endif  // COMPILER_MSVC
 
   wstring wdaemon_output;
   if (!blaze_util::AsWindowsPathWithUncPrefix(daemon_output, &wdaemon_output)) {
@@ -661,7 +662,9 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   CloseHandle(processInfo.hProcess);
   CloseHandle(processInfo.hThread);
 
+#ifndef COMPILER_MSVC
   exit(0);
+#endif  // COMPILER_MSVC
 }
 
 void BatchWaiterThread(HANDLE java_handle) {
