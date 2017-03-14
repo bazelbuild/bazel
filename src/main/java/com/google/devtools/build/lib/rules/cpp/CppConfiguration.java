@@ -1632,11 +1632,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   public boolean isLipoOptimization() {
     // The LIPO optimization bits are set in the LIPO context collector configuration, too.
-    return cppOptions.isLipoOptimization() && !isLipoContextCollector();
+    return cppOptions.isLipoOptimization();
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
-    return cppOptions.isLipoOptimizationOrInstrumentation() && !isLipoContextCollector();
+    return cppOptions.isLipoOptimizationOrInstrumentation();
   }
 
   /**

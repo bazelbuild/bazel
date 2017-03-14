@@ -71,7 +71,8 @@ public class ComposingSplitTransition implements SplitTransition<BuildOptions> {
   /**
    * Applies the given transition over the given {@link BuildOptions}, returns the result.
    */
-  private List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
+  // TODO(gregce): move this somewhere more general. This isn't intrinsic to composed splits.
+  static List<BuildOptions> apply(BuildOptions fromOptions, Transition transition) {
     if (transition == ConfigurationTransition.NONE) {
       return ImmutableList.<BuildOptions>of(fromOptions);
     } else if (transition instanceof PatchTransition) {

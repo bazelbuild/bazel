@@ -702,12 +702,16 @@ public class CppOptions extends FragmentOptions {
   }
 
   public boolean isLipoOptimization() {
-    return lipoMode == LipoMode.BINARY && fdoOptimize != null && lipoContext != null;
+    return lipoMode == LipoMode.BINARY
+        && fdoOptimize != null
+        && lipoContext != null
+        && !lipoCollector;
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
     return lipoMode == LipoMode.BINARY
-        && ((fdoOptimize != null && lipoContext != null) || fdoInstrument != null);
+        && ((fdoOptimize != null && lipoContext != null) || fdoInstrument != null)
+        && !lipoCollector;
   }
 
   public Label getLipoContextLabel() {

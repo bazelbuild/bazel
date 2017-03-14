@@ -1599,7 +1599,7 @@ public final class BuildConfiguration {
     /**
      * Applies the given attribute configurator to the current configuration(s).
      */
-    void applyAttributeConfigurator(Attribute attribute, Rule fromRule, Target toTarget);
+    void applyAttributeConfigurator(Configurator<BuildOptions> configurator);
 
     /**
      * Calls {@link Transitions#configurationHook} on the current configuration(s) represent by
@@ -1666,17 +1666,11 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public void applyAttributeConfigurator(Attribute attribute, Rule fromRule, Target toTarget) {
-      // Checks that evaluateTransition never applies an attribute configurator and split
-      // transition in the same call.
-      Verify.verify(toConfigurations.size() == 1);
-      @SuppressWarnings("unchecked")
-      Configurator<BuildConfiguration, Rule> configurator =
-          (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
-      Verify.verifyNotNull(configurator);
-      toConfigurations = ImmutableList.<BuildConfiguration>of(
-          configurator.apply(fromRule, Iterables.getOnlyElement(toConfigurations), attribute,
-              toTarget));
+    public void applyAttributeConfigurator(Configurator<BuildOptions> configurator) {
+      // There should only be one output configuration at this point: splits don't occur down
+      // attributes with attribute configurators. We can lift this restriction later if desired.
+      BuildOptions toOptions = Iterables.getOnlyElement(toConfigurations).getOptions();
+      applyTransition(configurator.apply(toOptions));
     }
 
     @Override
@@ -1723,9 +1717,7 @@ public final class BuildConfiguration {
    * transitions that the caller subsequently creates configurations from.
    */
   private static class DynamicTransitionApplier implements TransitionApplier {
-    // TODO(gregce): remove this when Attribute.Configurator is refactored to read BuildOptions
-    // instead of BuildConfiguration.
-    private final BuildConfiguration originalConfiguration;
+    private final BuildOptions originalOptions;
     private final Transitions transitionsManager;
     private boolean splitApplied = false;
 
@@ -1735,7 +1727,7 @@ public final class BuildConfiguration {
     private Transition currentTransition = Attribute.ConfigurationTransition.NONE;
 
     private DynamicTransitionApplier(BuildConfiguration originalConfiguration) {
-      this.originalConfiguration = originalConfiguration;
+      this.originalOptions = originalConfiguration.getOptions();
       this.transitionsManager = originalConfiguration.getTransitions();
     }
 
@@ -1744,31 +1736,45 @@ public final class BuildConfiguration {
       return new DynamicTransitionApplier(configuration);
     }
 
+    /**
+     * Returns true if the given transition should not be modifiable by subsequent ones, i.e.
+     * once this transition is applied it's the final word on the output configuration.
+     */
+    private static boolean isFinal(Transition transition) {
+      return (transition == Attribute.ConfigurationTransition.NULL
+          || transition == HostTransition.INSTANCE);
+    }
+
     @Override
     public void applyTransition(Transition transitionToApply) {
-      if (currentTransition == Attribute.ConfigurationTransition.NULL
-          || currentTransition == HostTransition.INSTANCE) {
-        return; // HOST and NULL transitions are final.
-      } else if (transitionToApply == Attribute.ConfigurationTransition.NONE) {
-        return;
-      } else if (transitionToApply == Attribute.ConfigurationTransition.NULL) {
-        // A NULL transition can just replace earlier transitions: no need to compose them.
-        currentTransition = Attribute.ConfigurationTransition.NULL;
-        return;
-      } else if (transitionToApply == Attribute.ConfigurationTransition.HOST) {
+      currentTransition = composeTransitions(currentTransition, transitionToApply);
+    }
+
+    /**
+     * Composes two transitions together efficiently.
+     */
+    private Transition composeTransitions(Transition transition1, Transition transition2) {
+      if (isFinal(transition1)) {
+        return transition1;
+      } else if (transition2 == Attribute.ConfigurationTransition.NONE) {
+        return transition1;
+      } else if (transition2 == Attribute.ConfigurationTransition.NULL) {
+        // A NULL transition can just replace earlier transitions: no need to cfpose them.
+        return Attribute.ConfigurationTransition.NULL;
+      } else if (transition2 == Attribute.ConfigurationTransition.HOST) {
         // A HOST transition can just replace earlier transitions: no need to compose them.
         // But it also improves performance: host transitions are common, and
         // ConfiguredTargetFunction has special optimized logic to handle them. If they were buried
         // in the last segment of a ComposingSplitTransition, those optimizations wouldn't trigger.
-        currentTransition = HostTransition.INSTANCE;
-        return;
+        return HostTransition.INSTANCE;
       }
-      Transition dynamicTransition = transitionToApply instanceof PatchTransition
-          ? transitionToApply
-          : transitionsManager.getDynamicTransition(transitionToApply);
-      currentTransition = currentTransition == Attribute.ConfigurationTransition.NONE
+      // TODO(gregce): remove this dynamic transition mapping when static configs are removed.
+      Transition dynamicTransition = (transition2 instanceof PatchTransition)
+          ? transition2
+          : transitionsManager.getDynamicTransition(transition2);
+      return transition1 == Attribute.ConfigurationTransition.NONE
           ? dynamicTransition
-          : new ComposingSplitTransition(currentTransition, dynamicTransition);
+          : new ComposingSplitTransition(transition1, dynamicTransition);
     }
 
     @Override
@@ -1795,23 +1801,45 @@ public final class BuildConfiguration {
       return currentTransition == Attribute.ConfigurationTransition.NULL;
     }
 
+    /**
+     * A {@link PatchTransition} that applies an attribute configurator over some input options
+     * to determine which transition to use, then applies that transition over those options
+     * for the final output.
+     */
+    private static final class AttributeConfiguratorTransition implements PatchTransition {
+      private final Configurator<BuildOptions> configurator;
+
+      AttributeConfiguratorTransition(Configurator<BuildOptions> configurator) {
+        this.configurator = configurator;
+      }
+
+      @Override
+      public BuildOptions apply(BuildOptions options) {
+        return Iterables.getOnlyElement(
+            ComposingSplitTransition.apply(options, configurator.apply(options)));
+      }
+
+      @Override
+      public boolean defaultsToSelf() {
+        return false;
+      }
+    }
+    /**
+     * Unlike the static config version, this one can be composed with arbitrary transitions
+     * (including splits).
+     */
     @Override
-    public void applyAttributeConfigurator(Attribute attribute, Rule fromRule, Target toTarget) {
-      // We don't support meaningful attribute configurators (since they produce configurations,
-      // and we're only interested in generating transitions so the calling code can realize
-      // configurations from them). So just check that the configurator is just a no-op.
-      @SuppressWarnings("unchecked")
-      Configurator<BuildConfiguration, Rule> configurator =
-          (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
-      Verify.verifyNotNull(configurator);
-      BuildConfiguration toConfiguration =
-          configurator.apply(fromRule, originalConfiguration, attribute, toTarget);
-      Verify.verify(toConfiguration == originalConfiguration);
+    public void applyAttributeConfigurator(Configurator<BuildOptions> configurator) {
+      if (isFinal(currentTransition)) {
+        return;
+      }
+      currentTransition =
+          composeTransitions(currentTransition, new AttributeConfiguratorTransition(configurator));
     }
 
     @Override
     public void applyConfigurationHook(Rule fromRule, Attribute attribute, Target toTarget) {
-      if (isNull()) {
+      if (isFinal(currentTransition)) {
         return;
       }
       transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
@@ -1928,10 +1956,13 @@ public final class BuildConfiguration {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.
       @SuppressWarnings("unchecked")
-      Configurator<BuildConfiguration, Rule> configurator =
-          (Configurator<BuildConfiguration, Rule>) attribute.getConfigurator();
+      Configurator<BuildOptions> configurator =
+          (Configurator<BuildOptions>) attribute.getConfigurator();
       if (configurator != null) {
-        transitionApplier.applyAttributeConfigurator(attribute, fromRule, toTarget);
+        // TODO(gregce): remove this branch when static config logic is removed. Attribute
+        // configurators can just be implemented as standard attribute transitions, via
+        // applyTransition.
+        transitionApplier.applyAttributeConfigurator(configurator);
       } else {
         transitionApplier.applyTransition(attribute.getConfigurationTransition());
       }
@@ -2465,7 +2496,7 @@ public final class BuildConfiguration {
    */
   public BuildConfiguration getArtifactOwnerConfiguration() {
     // Dynamic configurations inherit transitions objects from other configurations exclusively
-    // for use of Transitions.getDynamicTransitions. No other calls to transitions should be
+    // for use of Transitions.getDynamicTransition. No other calls to transitions should be
     // made for dynamic configurations.
     // TODO(bazel-team): enforce the above automatically (without having to explicitly check
     // for dynamic configuration mode).
