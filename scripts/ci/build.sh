@@ -424,12 +424,19 @@ function deploy_release() {
   local github_args=()
   # Filters out README.md for github releases
   for i in "$@"; do
-    if ! ( [[ "$i" =~ README.md$ ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] ) ; then
+    if ! ( [[ "$i" =~ README.md$ ]] || [[ "$i" =~ bazel.dsc ]] || [[ "$i" =~ bazel.tar.gz ]] || [[ "$i" =~ .nobuild$ ]] ) ; then
       github_args+=("$i")
     fi
   done
+  local gcs_args=()
+  # Filters out perf.bazel.*.nobuild
+  for i in "$@"; do
+    if ! [[ "$i" =~ .nobuild$ ]] ; then
+      gcs_args+=("$i")
+    fi
+  done
   release_to_github "${github_args[@]}"
-  release_to_gcs "$@"
+  release_to_gcs "${gcs_args[@]}"
   release_to_apt
 }
 
