@@ -601,7 +601,7 @@ public final class BuildConfiguration {
       defaultValue = "",
       category = "semantics",
       help =
-          "Specifies the set of environment variables available available to actions. "
+          "Specifies the set of environment variables available to actions. "
               + "Variables can be either specified by name, in which case the value will be "
               + "taken from the invocation environment, or by the name=value pair which sets "
               + "the value independent of the invocation environment. This option can be used "
