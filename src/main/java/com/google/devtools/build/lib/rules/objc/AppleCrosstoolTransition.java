@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcCommandLineOptions.ObjcCrosstoolMode;
 
@@ -48,10 +49,9 @@ public class AppleCrosstoolTransition implements PatchTransition {
 
     // TODO(b/29355778): Once ios_cpu is retired, introduce another top-level flag (perhaps
     // --apple_cpu) for toolchain selection in top-level consuming rules.
-    String cpu = String.format("%s_%s",
+    String cpu = Platform.cpuStringForTarget(
         buildOptions.get(AppleCommandLineOptions.class).applePlatformType,
         buildOptions.get(AppleCommandLineOptions.class).getSingleArchitecture());
-
     setAppleCrosstoolTransitionConfiguration(buildOptions, result, cpu);
     return result;
   }

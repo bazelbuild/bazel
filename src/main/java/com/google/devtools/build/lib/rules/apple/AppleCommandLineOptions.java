@@ -38,6 +38,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @VisibleForTesting
   public static final String DEFAULT_MINIMUM_IOS = "7.0";
+  public static final String DEFAULT_MINIMUM_MACOS = "10.10";
 
   @Option(
     name = "xcode_version",
@@ -117,7 +118,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "macos_minimum_os",
-      defaultValue = "null",
+      defaultValue = DEFAULT_MINIMUM_MACOS,
       category = "flags",
       converter = DottedVersionConverter.class,
       help = "Minimum compatible macOS version for targets."
