@@ -414,7 +414,7 @@ cc_library(
     ],
     copts = [
         "-std=gnu99",
-        "-Wno-implicit-function-declaration",
+        "-Wimplicit-function-declaration",
     ],
     includes = [
         ".",
