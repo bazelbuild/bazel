@@ -13,7 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
+import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
+import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -21,25 +32,32 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Collection;
 
-/**
- * This event is fired as soon as a top-level aspect is either built or fails.
- */
-public class AspectCompleteEvent implements SkyValue {
+/** This event is fired as soon as a top-level aspect is either built or fails. */
+public class AspectCompleteEvent implements SkyValue, BuildEventWithOrderConstraint {
   private final AspectValue aspectValue;
   private final NestedSet<Cause> rootCauses;
+  private final Collection<BuildEventId> postedAfter;
+  private final ArtifactsToBuild artifacts;
 
-  private AspectCompleteEvent(AspectValue aspectValue, NestedSet<Cause> rootCauses) {
+  private AspectCompleteEvent(
+      AspectValue aspectValue, NestedSet<Cause> rootCauses, ArtifactsToBuild artifacts) {
     this.aspectValue = aspectValue;
     this.rootCauses =
         (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+    ImmutableList.Builder postedAfterBuilder = ImmutableList.builder();
+    for (Cause cause : getRootCauses()) {
+      postedAfterBuilder.add(BuildEventId.fromCause(cause));
+    }
+    this.postedAfter = postedAfterBuilder.build();
+    this.artifacts = artifacts;
   }
 
-  /**
-   * Construct a successful target completion event.
-   */
-  public static AspectCompleteEvent createSuccessful(AspectValue value) {
-    return new AspectCompleteEvent(value, null);
+  /** Construct a successful target completion event. */
+  public static AspectCompleteEvent createSuccessful(
+      AspectValue value, ArtifactsToBuild artifacts) {
+    return new AspectCompleteEvent(value, null, artifacts);
   }
 
   /**
@@ -47,7 +65,7 @@ public class AspectCompleteEvent implements SkyValue {
    */
   public static AspectCompleteEvent createFailed(AspectValue value, NestedSet<Cause> rootCauses) {
     Preconditions.checkArgument(!Iterables.isEmpty(rootCauses));
-    return new AspectCompleteEvent(value, rootCauses);
+    return new AspectCompleteEvent(value, rootCauses, null);
   }
 
   /**
@@ -67,5 +85,43 @@ public class AspectCompleteEvent implements SkyValue {
   /** Get the root causes of the target. May be empty. */
   public Iterable<Cause> getRootCauses() {
     return rootCauses;
+  }
+
+  @Override
+  public BuildEventId getEventId() {
+    return BuildEventId.aspectCompleted(
+        aspectValue.getLabel(), aspectValue.getAspect().getDescriptor().getDescription());
+  }
+
+  @Override
+  public Collection<BuildEventId> postedAfter() {
+    return postedAfter;
+  }
+
+  @Override
+  public Collection<BuildEventId> getChildrenEvents() {
+    return ImmutableList.of();
+  }
+
+  @Override
+  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
+    BuildEventStreamProtos.TargetComplete.Builder builder =
+        BuildEventStreamProtos.TargetComplete.newBuilder();
+    builder.setSuccess(!failed());
+    if (artifacts != null) {
+      for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
+        OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
+        groupBuilder.setName(artifactsInGroup.getOutputGroup());
+
+        File.Builder fileBuilder = File.newBuilder();
+        for (Artifact artifact : artifactsInGroup.getArtifacts()) {
+          String name = artifact.getFilename();
+          String uri = pathConverter.apply(artifact.getPath());
+          groupBuilder.addOutputFile(fileBuilder.setName(name).setUri(uri).build());
+        }
+        builder.addOutputGroup(groupBuilder.build());
+      }
+    }
+    return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 }

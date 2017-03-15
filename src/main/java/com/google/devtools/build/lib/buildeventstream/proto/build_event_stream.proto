@@ -63,6 +63,10 @@ message BuildEventId {
   // does not include running the test if the target is a test target.
   message TargetCompletedId {
     string label = 1;
+
+    // If not empty, the id refers to the completion of the target for a given
+    // aspect.
+    string aspect = 2;
   }
 
   // Identifier of an event reporting that an action was completed (not all

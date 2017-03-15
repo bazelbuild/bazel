@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsTo
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
@@ -120,7 +121,10 @@ public final class ExecutionProgressReceiver
     } else if (type.equals(SkyFunctions.ASPECT_COMPLETION)) {
       AspectCompletionValue value = (AspectCompletionValue) skyValueSupplier.get();
       if (value != null) {
-        eventBus.post(AspectCompleteEvent.createSuccessful(value.getAspectValue()));
+        AspectValue aspectValue = value.getAspectValue();
+        ArtifactsToBuild artifacts =
+            TopLevelArtifactHelper.getAllArtifactsToBuild(aspectValue, topLevelArtifactContext);
+        eventBus.post(AspectCompleteEvent.createSuccessful(aspectValue, artifacts));
       }
     } else if (type.equals(SkyFunctions.ACTION_EXECUTION)) {
       // Remember all completed actions, even those in error, regardless of having been cached or

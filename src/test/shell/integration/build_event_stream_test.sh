@@ -73,6 +73,19 @@ genrule(
   tags = ["tag1", "tag2"]
 )
 EOF
+cat > simpleaspect.bzl <<EOF
+def _simple_aspect_impl(target, ctx):
+    for orig_out in ctx.rule.attr.outs:
+        aspect_out = ctx.new_file(orig_out.name + ".aspect")
+        ctx.file_action(
+            output=aspect_out,
+            content = "Hello from aspect")
+    return struct(output_groups={
+        "aspect-out" : set([aspect_out]) })
+
+simple_aspect = aspect(implementation=_simple_aspect_impl)
+EOF
+touch BUILD
 }
 
 #### TESTS #############################################################
@@ -221,6 +234,17 @@ function test_target_complete() {
   expect_log 'out1.txt'
   expect_log 'tag1'
   expect_log 'tag2'
+}
+
+function test_aspect_artifacts() {
+  bazel build --experimental_build_event_text_file=$TEST_log \
+    --aspects=simpleaspect.bzl%simple_aspect \
+    --output_groups=aspect-out \
+    pkg:output_files_and_tags || fail "bazel build failed"
+  expect_log 'aspect.*simple_aspect'
+  expect_log 'name.*aspect-out'
+  expect_log 'name.*out1.txt.aspect'
+  expect_not_log 'aborted'
 }
 
 function test_build_only() {

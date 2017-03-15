@@ -117,6 +117,16 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setTargetCompleted(targetId).build());
   }
 
+  public static BuildEventId aspectCompleted(Label target, String aspect) {
+    BuildEventStreamProtos.BuildEventId.TargetCompletedId targetId =
+        BuildEventStreamProtos.BuildEventId.TargetCompletedId.newBuilder()
+            .setLabel(target.toString())
+            .setAspect(aspect)
+            .build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setTargetCompleted(targetId).build());
+  }
+
   public static BuildEventId fromCause(Cause cause) {
     return new BuildEventId(cause.getIdProto());
   }
