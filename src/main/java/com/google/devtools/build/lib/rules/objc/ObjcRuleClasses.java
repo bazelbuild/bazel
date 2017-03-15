@@ -70,8 +70,10 @@ public class ObjcRuleClasses {
    * Name of the attribute used for implicit dependency on the libtool wrapper.
    */
   public static final String LIBTOOL_ATTRIBUTE = "$libtool";
-  /** Name of the attribute used for implicit dependency on the header_scanner wrapper. */
+  /** Name of the attribute used for implicit dependency on the header_scanner tool. */
   public static final String HEADER_SCANNER_ATTRIBUTE = ":header_scanner";
+  /** Name of attribute used for implicit dependency on the apple SDKs. */
+  public static final String APPLE_SDK_ATTRIBUTE = ":apple_sdk";
 
   static final String CLANG = "clang";
   static final String CLANG_PLUSPLUS = "clang++";
@@ -762,6 +764,22 @@ public class ObjcRuleClasses {
                           return configuration
                               .getFragment(ObjcConfiguration.class)
                               .getObjcHeaderScannerTool();
+                        }
+                      }))
+          .add(
+              attr(APPLE_SDK_ATTRIBUTE, LABEL)
+                  .value(
+                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
+                        @Override
+                        public Label resolve(
+                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                          ObjcConfiguration objcConfiguration =
+                              configuration.getFragment(ObjcConfiguration.class);
+                          // Apple SDKs are currently only used by ObjC header thinning feature
+                          if (objcConfiguration.useExperimentalHeaderThinning()) {
+                            return objcConfiguration.getAppleSdk();
+                          }
+                          return null;
                         }
                       }))
           .build();

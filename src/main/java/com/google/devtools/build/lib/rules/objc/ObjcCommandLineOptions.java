@@ -305,6 +305,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public Label objcHeaderScannerTool;
 
+  @Option(
+    name = "apple_sdk",
+    defaultValue = "null",
+    category = "undocumented",
+    converter = LabelConverter.class,
+    help =
+        "Location of target that will provide the appropriate Apple SDK for the current build "
+            + "configuration."
+  )
+  public Label appleSdk;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     ObjcCommandLineOptions host = (ObjcCommandLineOptions) super.getHost(fallback);

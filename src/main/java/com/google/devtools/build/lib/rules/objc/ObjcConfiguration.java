@@ -82,6 +82,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final HeaderDiscovery.DotdPruningMode dotdPruningPlan;
   private final boolean experimentalHeaderThinning;
   private final Label objcHeaderScannerTool;
+  private final Label appleSdk;
   private final boolean generateXcodeProject;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -123,6 +124,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
             : HeaderDiscovery.DotdPruningMode.DO_NOT_USE;
     this.experimentalHeaderThinning = objcOptions.experimentalObjcHeaderThinning;
     this.objcHeaderScannerTool = objcOptions.objcHeaderScannerTool;
+    this.appleSdk = objcOptions.appleSdk;
     this.generateXcodeProject = objcOptions.generateXcodeProject;
   }
 
@@ -363,6 +365,11 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /** Returns the label for the ObjC header scanner tool. */
   public Label getObjcHeaderScannerTool() {
     return objcHeaderScannerTool;
+  }
+
+  /** Returns the label for the Apple SDK for current build configuration. */
+  public Label getAppleSdk() {
+    return appleSdk;
   }
 
   /**
