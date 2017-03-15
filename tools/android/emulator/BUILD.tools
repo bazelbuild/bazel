@@ -44,7 +44,7 @@ alias(
 # android_device to work.
 alias(
     name = "unified_launcher",
-    actual = "@org_unified_launcher//tools/android/emulator:unified_launcher_head",
+    actual = "@android_test_support//tools/android/emulator:unified_launcher_head",
 )
 
 filegroup(
