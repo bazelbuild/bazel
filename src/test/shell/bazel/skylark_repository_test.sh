@@ -381,11 +381,14 @@ def _impl(repository_ctx):
   if result.stdout != "":
     fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
   print(result.stderr)
+  repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo shhhh >&2"], quiet = False)
+
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "erf"
+  expect_log "shhhh"
 }
 
 function test_skylark_repository_execute_env_and_workdir() {

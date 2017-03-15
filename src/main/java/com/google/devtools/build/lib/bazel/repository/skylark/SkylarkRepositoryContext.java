@@ -361,39 +361,47 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
-    name = "execute",
-    doc =
-        "Executes the command given by the list of arguments. The execution time of the command"
-            + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-            + " returns an <code>exec_result</code> structure containing the output of the"
-            + " command. The <code>environment</code> map can be used to override some environment"
-            + " variables to be passed to the process.",
-    parameters = {
-      @Param(
-        name = "arguments",
-        type = SkylarkList.class,
-        doc =
-            "List of arguments, the first element should be the path to the program to "
-                + "execute."
-      ),
-      @Param(
-        name = "timeout",
-        type = Integer.class,
-        named = true,
-        defaultValue = "600",
-        doc = "maximum duration of the command in seconds (default is 600 seconds)."
-      ),
-      @Param(
-        name = "environment",
-        type = SkylarkDict.class,
-        defaultValue = "{}",
-        named = true,
-        doc = "force some environment variables to be set to be passed to the process."
-      ),
-    }
+      name = "execute",
+      doc =
+          "Executes the command given by the list of arguments. The execution time of the command"
+              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
+              + " returns an <code>exec_result</code> structure containing the output of the"
+              + " command. The <code>environment</code> map can be used to override some"
+              + " environment variables to be passed to the process.",
+      parameters = {
+          @Param(
+              name = "arguments",
+              type = SkylarkList.class,
+              doc =
+                  "List of arguments, the first element should be the path to the program to "
+                      + "execute."
+          ),
+          @Param(
+              name = "timeout",
+              type = Integer.class,
+              named = true,
+              defaultValue = "600",
+              doc = "maximum duration of the command in seconds (default is 600 seconds)."
+          ),
+          @Param(
+              name = "environment",
+              type = SkylarkDict.class,
+              defaultValue = "{}",
+              named = true,
+              doc = "force some environment variables to be set to be passed to the process."
+          ),
+          @Param(
+              name = "quiet",
+              type = Boolean.class,
+              defaultValue = "True",
+              named = true,
+              doc = "If stdout and stderr should be printed to the terminal."
+          ),
+      }
   )
   public SkylarkExecutionResult execute(
-      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment)
+      SkylarkList<Object> arguments, Integer timeout, SkylarkDict<String, String> environment,
+      boolean quiet)
       throws EvalException, RepositoryFunctionException {
     createDirectory(outputDirectory);
     return SkylarkExecutionResult.builder(osObject.getEnvironmentVariables())
@@ -401,6 +409,7 @@ public class SkylarkRepositoryContext {
         .setDirectory(outputDirectory.getPathFile())
         .addEnvironmentVariables(environment)
         .setTimeout(timeout.longValue() * 1000)
+        .setQuiet(quiet)
         .execute();
   }
 
