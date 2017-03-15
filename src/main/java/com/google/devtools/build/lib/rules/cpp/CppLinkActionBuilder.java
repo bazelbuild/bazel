@@ -289,6 +289,7 @@ public class CppLinkActionBuilder {
     this.nonCodeInputs.addAll(linkContext.nonCodeInputs);
     this.libraries.addTransitive(linkContext.libraries);
     this.crosstoolInputs = linkContext.crosstoolInputs;
+    this.ltoBitcodeFiles.addAll(linkContext.ltoBitcodeFiles);
     this.runtimeMiddleman = linkContext.runtimeMiddleman;
     this.runtimeInputs = linkContext.runtimeInputs;
     this.runtimeType = linkContext.runtimeType;
