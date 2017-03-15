@@ -220,7 +220,7 @@ class LambdaDesugaring extends ClassVisitor {
       return result; // we're already queued up a bridge method for this method reference
     }
 
-    String name = "bridge$lambda$" + bridgeMethods.size();
+    String name = uniqueInPackage(internalName, "bridge$lambda$" + bridgeMethods.size());
     Handle bridgeMethod;
     switch (invokedMethod.getTag()) {
       case Opcodes.H_INVOKESTATIC:
