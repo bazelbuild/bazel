@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import javax.annotation.Nullable;
 
 /**
  * Bazel-specific configuration fragment.
@@ -78,8 +79,7 @@ public class BazelConfiguration extends Fragment {
 
   @Override
   public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
-    String path = System.getenv("PATH");
-    builder.put("PATH", path == null ? "/bin:/usr/bin" : path);
+    builder.put("PATH", pathOrDefault(System.getenv("PATH"), getShellExecutable()));
 
     String ldLibraryPath = System.getenv("LD_LIBRARY_PATH");
     if (ldLibraryPath != null) {
@@ -90,5 +90,30 @@ public class BazelConfiguration extends Fragment {
     if (tmpdir != null) {
       builder.put("TMPDIR", tmpdir);
     }
+  }
+
+  private static String pathOrDefault(@Nullable String path, @Nullable PathFragment sh) {
+    if (OS.getCurrent() != OS.WINDOWS) {
+      return path == null ? "/bin:/usr/bin" : path;
+    }
+
+    // Attempt to compute the MSYS root (the real Windows path of "/") from `sh`.
+    String newPath = "";
+    if (sh != null && sh.getParentDirectory() != null) {
+      newPath = sh.getParentDirectory().getPathString();
+      if (sh.getParentDirectory().endsWith(new PathFragment("usr/bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().getParentDirectory().replaceName("bin").getPathString();
+      } else if (sh.getParentDirectory().endsWith(new PathFragment("bin"))) {
+        newPath +=
+            ";" + sh.getParentDirectory().replaceName("usr").getRelative("bin").getPathString();
+      }
+      newPath = newPath.replace('/', '\\');
+
+      if (path != null) {
+        newPath += ";" + path;
+      }
+    }
+    return newPath;
   }
 }
