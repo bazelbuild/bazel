@@ -164,8 +164,6 @@ public class AndroidResourceMergingAction {
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
 
-    final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
-
     Preconditions.checkNotNull(options.primaryData);
     Preconditions.checkNotNull(options.primaryManifest);
     Preconditions.checkNotNull(options.classJarOutput);
@@ -189,7 +187,7 @@ public class AndroidResourceMergingAction {
       resourceClassWriter.setIncludeJavaFile(false);
 
       final MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.primaryData,
               options.primaryManifest,
               options.directData,
@@ -208,18 +206,19 @@ public class AndroidResourceMergingAction {
       // the manifests compatible with the old manifest merger.
       if (options.manifestOutput != null) {
         MergedAndroidData processedData =
-            resourceProcessor.processManifest(
-                packageType,
-                options.packageForR,
-                null, /* applicationId */
-                -1, /* versionCode */
-                null, /* versionName */
-                mergedData,
-                processedManifest);
-        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+            AndroidManifestProcessor.with(stdLogger)
+                .processManifest(
+                    packageType,
+                    options.packageForR,
+                    null, /* applicationId */
+                    -1, /* versionCode */
+                    null, /* versionName */
+                    mergedData,
+                    processedManifest);
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
-      resourceProcessor.createClassJar(generatedSources, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
 
       logger.fine(
           String.format("Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -235,11 +234,8 @@ public class AndroidResourceMergingAction {
 
         // For now, try compressing the library resources that we pass to the validator. This takes
         // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
-        resourceProcessor.createResourcesZip(
-            resourcesDir,
-            mergedData.getAssetDir(),
-            options.resourcesOutput,
-            true /* compress */);
+        AndroidResourceOutputs.createResourcesZip(
+            resourcesDir, mergedData.getAssetDir(), options.resourcesOutput, true /* compress */);
         logger.fine(
             String.format(
                 "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -250,8 +246,6 @@ public class AndroidResourceMergingAction {
     } catch (Exception e) {
       logger.log(Level.SEVERE, "Unexpected", e);
       throw e;
-    } finally {
-      resourceProcessor.shutdown();
     }
     logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }

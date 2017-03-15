@@ -106,7 +106,7 @@ public class LibraryRClassGeneratorAction {
       logger.fine(
           String.format("R writing finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      resourceProcessor.createClassJar(scopedTmp.getPath(), options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(scopedTmp.getPath(), options.classJarOutput);
       logger.fine(
           String.format(
               "Creating class jar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));

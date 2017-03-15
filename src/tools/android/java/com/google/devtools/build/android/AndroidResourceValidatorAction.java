@@ -145,10 +145,10 @@ public class AndroidResourceValidatorAction {
           null /* publicResourcesOut */);
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-      resourceProcessor.copyRToOutput(
+      AndroidResourceOutputs.copyRToOutput(
           generatedSources, options.rOutput, VariantType.LIBRARY == packageType);
 
-      resourceProcessor.createSrcJar(
+      AndroidResourceOutputs.createSrcJar(
           generatedSources, options.srcJarOutput, VariantType.LIBRARY == packageType);
     } catch (Exception e) {
       logger.log(java.util.logging.Level.SEVERE, "Unexpected", e);

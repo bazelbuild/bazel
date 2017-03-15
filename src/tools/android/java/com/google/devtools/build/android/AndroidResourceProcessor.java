@@ -28,35 +28,18 @@ import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.ExecutorSingleton;
 import com.android.ide.common.internal.LoggedErrorException;
-import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.res2.MergingException;
 import com.android.io.FileWrapper;
 import com.android.io.StreamException;
-import com.android.manifmerger.ManifestMerger2;
-import com.android.manifmerger.ManifestMerger2.Invoker;
-import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
-import com.android.manifmerger.ManifestMerger2.MergeFailureException;
-import com.android.manifmerger.ManifestMerger2.MergeType;
-import com.android.manifmerger.ManifestMerger2.SystemProperty;
-import com.android.manifmerger.MergingReport;
-import com.android.manifmerger.MergingReport.MergedManifestKind;
-import com.android.manifmerger.PlaceholderHandler;
 import com.android.repository.Revision;
 import com.android.utils.ILogger;
-import com.android.utils.Pair;
 import com.android.utils.StdLogger;
 import com.android.xml.AndroidManifest;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Stopwatch;
-import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -70,60 +53,31 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.zip.CRC32;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-import javax.xml.stream.FactoryConfigurationError;
-import javax.xml.stream.XMLEventFactory;
-import javax.xml.stream.XMLEventReader;
-import javax.xml.stream.XMLEventWriter;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLOutputFactory;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.events.Attribute;
-import javax.xml.stream.events.StartElement;
-import javax.xml.stream.events.XMLEvent;
 import javax.xml.xpath.XPathExpressionException;
 
 /**
  * Provides a wrapper around the AOSP build tools for resource processing.
  */
 public class AndroidResourceProcessor {
-  private static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
+  static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
   /**
    * Options class containing flags for Aapt setup.
@@ -256,163 +210,10 @@ public class AndroidResourceProcessor {
     }
   }
 
-  /** Shutdowns and verifies that no tasks are running in the executor service. */
-  private static final class ExecutorServiceCloser implements Closeable {
-    private final ListeningExecutorService executorService;
-    private ExecutorServiceCloser(ListeningExecutorService executorService) {
-      this.executorService = executorService;
-    }
-
-    @Override
-    public void close() throws IOException {
-      List<Runnable> unfinishedTasks = executorService.shutdownNow();
-      if (!unfinishedTasks.isEmpty()) {
-        throw new IOException(
-            "Shutting down the executor with unfinished tasks:" + unfinishedTasks);
-      }
-    }
-
-    public static Closeable createWith(ListeningExecutorService executorService) {
-      return new ExecutorServiceCloser(executorService);
-    }
-  }
-
-  private static final ImmutableMap<SystemProperty, String> SYSTEM_PROPERTY_NAMES = Maps.toMap(
-      Arrays.asList(SystemProperty.values()), new Function<SystemProperty, String>() {
-        @Override
-        public String apply(SystemProperty property) {
-          if (property == SystemProperty.PACKAGE) {
-            return "applicationId";
-          } else {
-            return property.toCamelCase();
-          }
-        }
-      });
-
-  private static final Pattern HEX_REGEX = Pattern.compile("0x[0-9A-Fa-f]{8}");
   private final StdLogger stdLogger;
 
   public AndroidResourceProcessor(StdLogger stdLogger) {
     this.stdLogger = stdLogger;
-  }
-
-  /**
-   * Copies the R.txt to the expected place.
-   *
-   * @param generatedSourceRoot The path to the generated R.txt.
-   * @param rOutput The Path to write the R.txt.
-   * @param staticIds Boolean that indicates if the ids should be set to 0x1 for caching purposes.
-   */
-  public void copyRToOutput(Path generatedSourceRoot, Path rOutput, boolean staticIds) {
-    try {
-      Files.createDirectories(rOutput.getParent());
-      final Path source = generatedSourceRoot.resolve("R.txt");
-      if (Files.exists(source)) {
-        if (staticIds) {
-          String contents =
-              HEX_REGEX
-                  .matcher(Joiner.on("\n").join(Files.readAllLines(source, UTF_8)))
-                  .replaceAll("0x1");
-          Files.write(rOutput, contents.getBytes(UTF_8));
-        } else {
-          Files.copy(source, rOutput);
-        }
-      } else {
-        // The R.txt wasn't generated, create one for future inheritance, as Bazel always requires
-        // outputs. This state occurs when there are no resource directories.
-        Files.createFile(rOutput);
-      }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(rOutput, FileTime.fromMillis(0L));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Creates a zip archive from all found R.java files.
-   */
-  public void createSrcJar(Path generatedSourcesRoot, Path srcJar, boolean staticIds) {
-    try {
-      Files.createDirectories(srcJar.getParent());
-      try (final ZipOutputStream zip = new ZipOutputStream(
-          new BufferedOutputStream(Files.newOutputStream(srcJar)))) {
-        SymbolFileSrcJarBuildingVisitor visitor =
-            new SymbolFileSrcJarBuildingVisitor(zip, generatedSourcesRoot, staticIds);
-        Files.walkFileTree(generatedSourcesRoot, visitor);
-        visitor.writeEntries();
-      }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Creates a zip archive from all found R.class (and inner class) files.
-   */
-  public void createClassJar(Path generatedClassesRoot, Path classJar) {
-    try {
-      Files.createDirectories(classJar.getParent());
-      try (final ZipOutputStream zip = new ZipOutputStream(
-          new BufferedOutputStream(Files.newOutputStream(classJar)))) {
-        ClassJarBuildingVisitor visitor = new ClassJarBuildingVisitor(zip, generatedClassesRoot);
-        Files.walkFileTree(generatedClassesRoot, visitor);
-        visitor.writeEntries();
-        visitor.writeManifestContent();
-      }
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(classJar, FileTime.fromMillis(0L));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Copies the AndroidManifest.xml to the specified output location.
-   *
-   * @param androidData The MergedAndroidData which contains the manifest to be written to
-   *    manifestOut.
-   * @param manifestOut The Path to write the AndroidManifest.xml.
-   */
-  public void copyManifestToOutput(MergedAndroidData androidData, Path manifestOut) {
-    try {
-      Files.createDirectories(manifestOut.getParent());
-      Files.copy(androidData.getManifest(), manifestOut);
-      // Set to the epoch for caching purposes.
-      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
-   * Creates a zip file containing the provided android resources and assets.
-   *
-   * @param resourcesRoot The root containing android resources to be written.
-   * @param assetsRoot The root containing android assets to be written.
-   * @param output The path to write the zip file
-   * @param compress Whether or not to compress the content
-   * @throws IOException
-   */
-  public void createResourcesZip(Path resourcesRoot, Path assetsRoot, Path output, boolean compress)
-      throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(
-        new BufferedOutputStream(Files.newOutputStream(output)))) {
-      if (Files.exists(resourcesRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, resourcesRoot, "res");
-        visitor.setCompress(compress);
-        Files.walkFileTree(resourcesRoot, visitor);
-        visitor.writeEntries();
-      }
-      if (Files.exists(assetsRoot)) {
-        ZipBuilderVisitor visitor = new ZipBuilderVisitor(zout, assetsRoot, "assets");
-        visitor.setCompress(compress);
-        Files.walkFileTree(assetsRoot, visitor);
-        visitor.writeEntries();
-      }
-    }
   }
 
   // TODO(bazel-team): Clean up this method call -- 13 params is too many.
@@ -847,77 +648,8 @@ public class AndroidResourceProcessor {
     return outputPaths.build();
   }
 
-  public MergedAndroidData processManifest(
-      VariantType variantType,
-      String customPackageForR,
-      String applicationId,
-      int versionCode,
-      String versionName,
-      MergedAndroidData primaryData,
-      Path processedManifest)
-      throws IOException {
-
-    ManifestMerger2.MergeType mergeType =
-        variantType == VariantType.DEFAULT
-            ? ManifestMerger2.MergeType.APPLICATION
-            : ManifestMerger2.MergeType.LIBRARY;
-
-    String newManifestPackage =
-        variantType == VariantType.DEFAULT ? applicationId : customPackageForR;
-
-    if (versionCode != -1 || versionName != null || newManifestPackage != null) {
-      Files.createDirectories(processedManifest.getParent());
-
-      // The generics on Invoker don't make sense, so ignore them.
-      @SuppressWarnings("unchecked")
-      Invoker<?> manifestMergerInvoker =
-          ManifestMerger2.newMerger(primaryData.getManifest().toFile(), stdLogger, mergeType);
-      // Stamp new package
-      if (newManifestPackage != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
-      }
-      // Stamp version and applicationId (if provided) into the manifest
-      if (versionCode > 0) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_CODE, String.valueOf(versionCode));
-      }
-      if (versionName != null) {
-        manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
-      }
-
-      MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
-      if (mergeType == ManifestMerger2.MergeType.APPLICATION) {
-        manifestMergerInvoker.withFeatures(Invoker.Feature.REMOVE_TOOLS_DECLARATIONS);
-      }
-
-      try {
-        MergingReport mergingReport = manifestMergerInvoker.merge();
-        switch (mergingReport.getResult()) {
-          case WARNING:
-            mergingReport.log(stdLogger);
-            writeMergedManifest(mergedManifestKind, mergingReport, processedManifest);
-            break;
-          case SUCCESS:
-            writeMergedManifest(mergedManifestKind, mergingReport, processedManifest);
-            break;
-          case ERROR:
-            mergingReport.log(stdLogger);
-            throw new RuntimeException(mergingReport.getReportString());
-          default:
-            throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
-        }
-      } catch (IOException | MergeFailureException e) {
-        throw new RuntimeException(e);
-      }
-      return new MergedAndroidData(
-          primaryData.getResourceDir(), primaryData.getAssetDir(), processedManifest);
-    }
-    return primaryData;
-  }
-
-  /**
-   * A logger that will print messages to a target OutputStream.
-   */
-  private static final class PrintStreamLogger implements ILogger {
+  /** A logger that will print messages to a target OutputStream. */
+  static final class PrintStreamLogger implements ILogger {
     private final PrintStream out;
 
     public PrintStreamLogger(PrintStream stream) {
@@ -950,110 +682,6 @@ public class AndroidResourceProcessor {
     }
   }
 
-  /**
-   * Merge several manifests into one and perform placeholder substitutions. This operation uses
-   * Gradle semantics.
-   *
-   * @param manifest The primary manifest of the merge.
-   * @param mergeeManifests Manifests to be merged into {@code manifest}.
-   * @param mergeType Whether the merger should operate in application or library mode.
-   * @param values A map of strings to be used as manifest placeholders and overrides. packageName
-   *     is the only disallowed value and will be ignored.
-   * @param output The path to write the resultant manifest to.
-   * @param logFile The path to write the merger log to.
-   * @return The path of the resultant manifest, either {@code output}, or {@code manifest} if no
-   *     merging was required.
-   * @throws IOException if there was a problem writing the merged manifest.
-   */
-  public Path mergeManifest(
-      Path manifest,
-      Map<Path, String> mergeeManifests,
-      MergeType mergeType,
-      Map<String, String> values,
-      Path output,
-      Path logFile)
-      throws IOException {
-    if (mergeeManifests.isEmpty() && values.isEmpty()) {
-      return manifest;
-    }
-
-    Invoker<?> manifestMerger = ManifestMerger2.newMerger(manifest.toFile(), stdLogger, mergeType);
-    MergedManifestKind mergedManifestKind = MergedManifestKind.MERGED;
-    if (mergeType == MergeType.APPLICATION) {
-      manifestMerger.withFeatures(Feature.REMOVE_TOOLS_DECLARATIONS);
-    }
-
-    // Add mergee manifests
-    List<Pair<String, File>> libraryManifests = new ArrayList<>();
-    for (Entry<Path, String> mergeeManifest : mergeeManifests.entrySet()) {
-      libraryManifests.add(Pair.of(mergeeManifest.getValue(), mergeeManifest.getKey().toFile()));
-    }
-    manifestMerger.addLibraryManifests(libraryManifests);
-
-    // Extract SystemProperties from the provided values.
-    Map<String, Object> placeholders = new HashMap<>();
-    placeholders.putAll(values);
-    for (SystemProperty property : SystemProperty.values()) {
-      if (values.containsKey(SYSTEM_PROPERTY_NAMES.get(property))) {
-        manifestMerger.setOverride(property, values.get(SYSTEM_PROPERTY_NAMES.get(property)));
-
-        // The manifest merger does not allow explicitly specifying either applicationId or
-        // packageName as placeholders if SystemProperty.PACKAGE is specified. It forces these
-        // placeholders to have the same value as specified by SystemProperty.PACKAGE.
-        if (property == SystemProperty.PACKAGE) {
-          placeholders.remove(PlaceholderHandler.APPLICATION_ID);
-          placeholders.remove(PlaceholderHandler.PACKAGE_NAME);
-        }
-      }
-    }
-
-    // Add placeholders for all values.
-    // packageName is populated from either the applicationId override or from the manifest itself;
-    // it cannot be manually specified.
-    placeholders.remove(PlaceholderHandler.PACKAGE_NAME);
-    manifestMerger.setPlaceHolderValues(placeholders);
-
-    try {
-      MergingReport mergingReport = manifestMerger.merge();
-
-      if (logFile != null) {
-        logFile.getParent().toFile().mkdirs();
-        try (PrintStream stream = new PrintStream(logFile.toFile())) {
-          mergingReport.log(new PrintStreamLogger(stream));
-        }
-      }
-      switch (mergingReport.getResult()) {
-        case WARNING:
-          mergingReport.log(stdLogger);
-          Files.createDirectories(output.getParent());
-          writeMergedManifest(mergedManifestKind, mergingReport, output);
-          break;
-        case SUCCESS:
-          Files.createDirectories(output.getParent());
-          writeMergedManifest(mergedManifestKind, mergingReport, output);
-          break;
-        case ERROR:
-          mergingReport.log(stdLogger);
-          throw new RuntimeException(mergingReport.getReportString());
-        default:
-          throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
-      }
-    } catch (MergeFailureException e) {
-      throw new RuntimeException(e);
-    }
-
-    return output;
-  }
-
-  private void writeMergedManifest(
-      MergedManifestKind mergedManifestKind, MergingReport mergingReport, Path manifestOut)
-      throws IOException {
-    String manifestContents = mergingReport.getMergedDocument(mergedManifestKind);
-    String annotatedDocument = mergingReport.getMergedDocument(MergedManifestKind.BLAME);
-    stdLogger.verbose(annotatedDocument);
-    Files.write(manifestOut, manifestContents.getBytes(UTF_8));
-  }
-
   public void writeDummyManifestForAapt(Path dummyManifest, String packageForR) throws IOException {
     Files.createDirectories(dummyManifest.getParent());
     Files.write(dummyManifest, String.format(
@@ -1061,173 +689,6 @@ public class AndroidResourceProcessor {
             + "<manifest xmlns:android=\"http://schemas.android.com/apk/res/android\""
             + " package=\"%s\">"
             + "</manifest>", packageForR).getBytes(UTF_8));
-  }
-
-  /**
-   * Overwrite the package attribute of {@code <manifest>} in an AndroidManifest.xml file.
-   *
-   * @param manifest The input manifest.
-   * @param customPackage The package to write to the manifest.
-   * @param output The output manifest to generate.
-   * @return The output manifest if generated or the input manifest if no overwriting is required.
-   */
-  /* TODO(apell): switch from custom xml parsing to Gradle merger with NO_PLACEHOLDER_REPLACEMENT
-   * set when android common is updated to version 2.5.0.
-   */
-  public Path writeManifestPackage(Path manifest, String customPackage, Path output) {
-    if (Strings.isNullOrEmpty(customPackage)) {
-      return manifest;
-    }
-    try {
-      Files.createDirectories(output.getParent());
-      XMLEventReader reader =
-          XMLInputFactory.newInstance()
-              .createXMLEventReader(Files.newInputStream(manifest), UTF_8.name());
-      XMLEventWriter writer =
-          XMLOutputFactory.newInstance()
-              .createXMLEventWriter(Files.newOutputStream(output), UTF_8.name());
-      XMLEventFactory eventFactory = XMLEventFactory.newInstance();
-      while (reader.hasNext()) {
-        XMLEvent event = reader.nextEvent();
-        if (event.isStartElement()
-            && event.asStartElement().getName().toString().equalsIgnoreCase("manifest")) {
-          StartElement element = event.asStartElement();
-          @SuppressWarnings("unchecked")
-          Iterator<Attribute> attributes = element.getAttributes();
-          ImmutableList.Builder<Attribute> newAttributes = ImmutableList.builder();
-          while (attributes.hasNext()) {
-            Attribute attr = attributes.next();
-            if (attr.getName().toString().equalsIgnoreCase("package")) {
-              newAttributes.add(eventFactory.createAttribute("package", customPackage));
-            } else {
-              newAttributes.add(attr);
-            }
-          }
-          writer.add(
-              eventFactory.createStartElement(
-                  element.getName(), newAttributes.build().iterator(), element.getNamespaces()));
-        } else {
-          writer.add(event);
-        }
-      }
-      writer.flush();
-    } catch (XMLStreamException | FactoryConfigurationError | IOException e) {
-      throw new RuntimeException(e);
-    }
-
-    return output;
-  }
-
-  /**
-   * Merges all secondary resources with the primary resources, given that the primary resources
-   * have not yet been parsed and serialized.
-   */
-  public MergedAndroidData mergeData(
-      final UnvalidatedAndroidData primary,
-      final List<? extends SerializedAndroidData> direct,
-      final List<? extends SerializedAndroidData> transitive,
-      final Path resourcesOut,
-      final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
-      final VariantType type,
-      @Nullable final Path symbolsOut)
-      throws MergingException {
-    try {
-      final ParsedAndroidData parsedPrimary = ParsedAndroidData.from(primary);
-      return mergeData(parsedPrimary, primary.getManifest(), direct, transitive,
-          resourcesOut, assetsOut, cruncher, type, symbolsOut, null /* rclassWriter */);
-    } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
-    }
-  }
-
-  /**
-   * Merges all secondary resources with the primary resources, given that the primary resources
-   * have been separately parsed and serialized.
-   */
-  public MergedAndroidData mergeData(
-      final SerializedAndroidData primary,
-      final Path primaryManifest,
-      final List<? extends SerializedAndroidData> direct,
-      final List<? extends SerializedAndroidData> transitive,
-      final Path resourcesOut,
-      final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
-      final VariantType type,
-      @Nullable final Path symbolsOut,
-      @Nullable final AndroidResourceClassWriter rclassWriter)
-      throws MergingException {
-    final ParsedAndroidData.Builder primaryBuilder = ParsedAndroidData.Builder.newBuilder();
-    final AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
-    primary.deserialize(deserializer, primaryBuilder.consumers());
-    ParsedAndroidData primaryData = primaryBuilder.build();
-    return mergeData(
-        primaryData,
-        primaryManifest,
-        direct,
-        transitive,
-        resourcesOut,
-        assetsOut,
-        cruncher,
-        type,
-        symbolsOut,
-        rclassWriter);
-  }
-
-  /**
-   * Merges all secondary resources with the primary resources.
-   */
-  private MergedAndroidData mergeData(
-      final ParsedAndroidData primary,
-      final Path primaryManifest,
-      final List<? extends SerializedAndroidData> direct,
-      final List<? extends SerializedAndroidData> transitive,
-      final Path resourcesOut,
-      final Path assetsOut,
-      @Nullable final PngCruncher cruncher,
-      final VariantType type,
-      @Nullable final Path symbolsOut,
-      @Nullable AndroidResourceClassWriter rclassWriter)
-      throws MergingException {
-    Stopwatch timer = Stopwatch.createStarted();
-    final ListeningExecutorService executorService =
-        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
-    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-      AndroidDataMerger merger = AndroidDataMerger.createWithPathDeduplictor(executorService);
-      UnwrittenMergedAndroidData merged =
-          merger.loadAndMerge(
-              transitive,
-              direct,
-              primary,
-              primaryManifest,
-              type != VariantType.LIBRARY);
-      logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-      timer.reset().start();
-      if (symbolsOut != null) {
-        AndroidDataSerializer serializer = AndroidDataSerializer.create();
-        merged.serializeTo(serializer);
-        serializer.flushTo(symbolsOut);
-        logger.fine(
-            String.format(
-                "serialize merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
-      }
-      if (rclassWriter != null) {
-        merged.writeResourceClass(rclassWriter);
-        logger.fine(
-            String.format("write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
-      }
-      AndroidDataWriter writer =
-          AndroidDataWriter.createWith(
-              resourcesOut.getParent(), resourcesOut, assetsOut, cruncher, executorService);
-      return merged.write(writer);
-    } catch (IOException e) {
-      throw MergingException.wrapException(e).build();
-    } finally {
-      logger.fine(
-          String.format("write merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    }
   }
 
   /**
@@ -1267,183 +728,6 @@ public class AndroidResourceProcessor {
       aggregator.aggregateAndMaybeThrow(deserializing);
     }
     return deserializedDataBuilder.build();
-  }
-
-  /**
-   * A FileVisitor that will add all files to be stored in a zip archive.
-   */
-  private static class ZipBuilderVisitor extends SimpleFileVisitor<Path> {
-
-    // The earliest date representable in a zip file, 1-1-1980 (the DOS epoch).
-    private static final long ZIP_EPOCH = 315561600000L;
-    // ZIP timestamps have a resolution of 2 seconds.
-    // see http://www.info-zip.org/FAQ.html#limits
-    private static final long MINIMUM_TIMESTAMP_INCREMENT = 2000L;
-
-    private final ZipOutputStream zip;
-    protected final Path root;
-    private final String directoryPrefix;
-    private int storageMethod = ZipEntry.STORED;
-    private final Collection<Path> paths = new ArrayList<>();
-
-    ZipBuilderVisitor(ZipOutputStream zip, Path root, String directory) {
-      this.zip = zip;
-      this.root = root;
-      this.directoryPrefix = directory;
-    }
-
-    public void setCompress(boolean compress) {
-      storageMethod = compress ? ZipEntry.DEFLATED : ZipEntry.STORED;
-    }
-
-    /**
-     * Iterate through collected file paths in a deterministic order and write to the zip.
-     *
-     * @throws IOException if there is an error reading from the source or writing to the zip.
-     */
-    void writeEntries() throws IOException {
-      for (Path path : Ordering.natural().immutableSortedCopy(paths)) {
-        writeFileEntry(path);
-      }
-    }
-
-    /**
-     * Normalize timestamps for deterministic builds. Stamp .class files to be a bit newer
-     * than .java files. See:
-     * {@link com.google.devtools.build.buildjar.jarhelper.JarHelper#normalizedTimestamp(String)}
-     */
-    protected long normalizeTime(String filename) {
-      if (filename.endsWith(".class")) {
-        return ZIP_EPOCH + MINIMUM_TIMESTAMP_INCREMENT;
-      } else {
-        return ZIP_EPOCH;
-      }
-    }
-
-    protected void addEntry(Path file, byte[] content) throws IOException {
-      String prefix = directoryPrefix != null ? (directoryPrefix + "/") : "";
-      String relativeName = root.relativize(file).toString();
-      ZipEntry entry = new ZipEntry(prefix + relativeName);
-      entry.setMethod(storageMethod);
-      entry.setTime(normalizeTime(relativeName));
-      entry.setSize(content.length);
-      CRC32 crc32 = new CRC32();
-      crc32.update(content);
-      entry.setCrc(crc32.getValue());
-
-      zip.putNextEntry(entry);
-      zip.write(content);
-      zip.closeEntry();
-    }
-
-    @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      paths.add(file);
-      return FileVisitResult.CONTINUE;
-    }
-
-    protected void writeFileEntry(Path file) throws IOException {
-      byte[] content = Files.readAllBytes(file);
-      addEntry(file, content);
-    }
-  }
-
-  /**
-   * A FileVisitor that will add all R.java files to be stored in a zip archive.
-   */
-  private static final class SymbolFileSrcJarBuildingVisitor extends ZipBuilderVisitor {
-
-    static final Pattern PACKAGE_PATTERN =
-        Pattern.compile("\\s*package ([a-zA-Z_$][a-zA-Z\\d_$]*(?:\\.[a-zA-Z_$][a-zA-Z\\d_$]*)*)");
-    static final Pattern ID_PATTERN =
-        Pattern.compile("public static int ([\\w\\.]+)=0x[0-9A-fa-f]+;");
-    static final Pattern INNER_CLASS =
-        Pattern.compile("public static class ([a-z_]*) \\{(.*?)\\}", Pattern.DOTALL);
-
-    private final boolean staticIds;
-
-    private SymbolFileSrcJarBuildingVisitor(ZipOutputStream zip, Path root, boolean staticIds) {
-      super(zip, root, null);
-      this.staticIds = staticIds;
-    }
-
-    private String replaceIdsWithStaticIds(String contents) {
-      Matcher packageMatcher = PACKAGE_PATTERN.matcher(contents);
-      if (!packageMatcher.find()) {
-        return contents;
-      }
-      String pkg = packageMatcher.group(1);
-      StringBuffer out = new StringBuffer();
-      Matcher innerClassMatcher = INNER_CLASS.matcher(contents);
-      while (innerClassMatcher.find()) {
-        String resourceType = innerClassMatcher.group(1);
-        Matcher idMatcher = ID_PATTERN.matcher(innerClassMatcher.group(2));
-        StringBuffer resourceIds = new StringBuffer();
-        while (idMatcher.find()) {
-          String javaId = idMatcher.group(1);
-          idMatcher.appendReplacement(
-              resourceIds,
-              String.format(
-                  "public static int %s=0x%08X;", javaId, Objects.hash(pkg, resourceType, javaId)));
-        }
-        idMatcher.appendTail(resourceIds);
-        innerClassMatcher.appendReplacement(
-            out,
-            String.format("public static class %s {%s}", resourceType, resourceIds.toString()));
-      }
-      innerClassMatcher.appendTail(out);
-      return out.toString();
-    }
-
-    @Override
-    protected void writeFileEntry(Path file) throws IOException {
-      if (file.getFileName().endsWith("R.java")) {
-        byte[] content = Files.readAllBytes(file);
-        if (staticIds) {
-          content =
-              replaceIdsWithStaticIds(UTF_8.decode(ByteBuffer.wrap(content)).toString())
-                  .getBytes(UTF_8);
-        }
-        addEntry(file, content);
-      }
-    }
-  }
-
-  /**
-   * A FileVisitor that will add all R class files to be stored in a zip archive.
-   */
-  private static final class ClassJarBuildingVisitor extends ZipBuilderVisitor {
-
-    ClassJarBuildingVisitor(ZipOutputStream zip, Path root) {
-      super(zip, root, null);
-    }
-
-    @Override
-    protected void writeFileEntry(Path file) throws IOException {
-      Path filename = file.getFileName();
-      String name = filename.toString();
-      if (name.endsWith(".class")) {
-        byte[] content = Files.readAllBytes(file);
-        addEntry(file, content);
-      }
-    }
-
-    private byte[] manifestContent() throws IOException {
-      Manifest manifest = new Manifest();
-      Attributes attributes = manifest.getMainAttributes();
-      attributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
-      Attributes.Name createdBy = new Attributes.Name("Created-By");
-      if (attributes.getValue(createdBy) == null) {
-        attributes.put(createdBy, "bazel");
-      }
-      ByteArrayOutputStream out = new ByteArrayOutputStream();
-      manifest.write(out);
-      return out.toByteArray();
-    }
-
-    void writeManifestContent() throws IOException {
-      addEntry(root.resolve(JarFile.MANIFEST_NAME), manifestContent());
-    }
   }
 
   /** Task to deserialize resources from a path. */

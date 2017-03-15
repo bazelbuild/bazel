@@ -245,7 +245,7 @@ public class AndroidResourceProcessingAction {
               .asList();
 
       final MergedAndroidData mergedData =
-          resourceProcessor.mergeData(
+          AndroidResourceMerger.mergeData(
               options.primaryData,
               options.directData,
               options.transitiveData,
@@ -268,18 +268,19 @@ public class AndroidResourceProcessingAction {
               "Density filtering finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       MergedAndroidData processedData =
-          resourceProcessor.processManifest(
-              options.packageType,
-              options.packageForR,
-              options.applicationId,
-              options.versionCode,
-              options.versionName,
-              filteredData,
-              processedManifest);
+          AndroidManifestProcessor.with(STD_LOGGER)
+              .processManifest(
+                  options.packageType,
+                  options.packageForR,
+                  options.applicationId,
+                  options.versionCode,
+                  options.versionName,
+                  filteredData,
+                  processedManifest);
 
       // Write manifestOutput now before the dummy manifest is created.
       if (options.manifestOutput != null) {
-        resourceProcessor.copyManifestToOutput(processedData, options.manifestOutput);
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
       }
 
       if (options.packageType == VariantType.LIBRARY) {
@@ -313,19 +314,15 @@ public class AndroidResourceProcessingAction {
       logger.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.srcJarOutput != null) {
-        resourceProcessor.createSrcJar(
-            generatedSources,
-            options.srcJarOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.createSrcJar(
+            generatedSources, options.srcJarOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.rOutput != null) {
-        resourceProcessor.copyRToOutput(
-            generatedSources,
-            options.rOutput,
-            VariantType.LIBRARY == options.packageType);
+        AndroidResourceOutputs.copyRToOutput(
+            generatedSources, options.rOutput, VariantType.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        resourceProcessor.createResourcesZip(
+        AndroidResourceOutputs.createResourcesZip(
             processedData.getResourceDir(),
             processedData.getAssetDir(),
             options.resourcesOutput,

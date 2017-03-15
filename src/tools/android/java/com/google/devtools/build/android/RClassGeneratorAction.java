@@ -150,7 +150,7 @@ public class RClassGeneratorAction {
       }
       // We write .class files to temp, then jar them up after (we create a dummy jar, even if
       // there are no class files).
-      resourceProcessor.createClassJar(classOutPath, options.classJarOutput);
+      AndroidResourceOutputs.createClassJar(classOutPath, options.classJarOutput);
       logger.fine(
           String.format("createClassJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
     } finally {
