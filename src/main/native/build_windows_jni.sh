@@ -51,10 +51,19 @@ if [ -z "${BAZEL_VS+set}" ]; then
 fi
 VSVARS="${BAZEL_VS}/VC/VCVARSALL.BAT"
 
-# Check if Visual Studio 2017 is installed. Look for it at the default location.
+# Check if Visual Studio 2017 is installed. Look for it at the default
+# locations.
 if [ ! -f "${VSVARS}" ]; then
-  VSVARS="C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/VC/"
-  VSVARS+="Auxiliary/Build/VCVARSALL.BAT"
+  VSVARS="C:/Program Files (x86)/Microsoft Visual Studio/2017/"
+  VSEDITION="BuildTools"
+  if [ -d "${VSVARS}Enterprise" ]; then
+    VSEDITION="Enterprise"
+  elif [ -d "${VSVARS}Professional" ]; then
+    VSEDITION="Professional"
+  elif [ -d "${VSVARS}Community" ]; then
+    VSEDITION="Community"
+  fi
+  VSVARS+="$VSEDITION/VC/Auxiliary/Build/VCVARSALL.BAT"
 fi
 
 if [ ! -f "${VSVARS}" ]; then
@@ -81,6 +90,7 @@ done
 cat > "${VSTEMP}/windows_jni.bat" <<EOF
 @echo OFF
 @call "${VSVARS}" amd64
+@cd $(cygpath -a -w "${PWD}")
 @set TMP=$(cygpath -a -w "${VSTEMP}")
 @CL /O2 /EHsc /LD /Fe:"$(cygpath -a -w ${DLL})" /I "${JAVAINCLUDES}" /I "${JAVAINCLUDES}/win32" /I . ${WINDOWS_SOURCES[*]}
 EOF
