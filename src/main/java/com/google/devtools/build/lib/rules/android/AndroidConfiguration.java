@@ -136,32 +136,22 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * Which APK signing method to use with the debug key for rules that build APKs.
    *
    * <ul>
-   * <li>LEGACY_V1 uses the signer inside the deprecated apkbuilder tool.
    * <li>V1 uses the apksigner attribute from the android_sdk and signs the APK as a JAR.
    * <li>V2 uses the apksigner attribute from the android_sdk and signs the APK according to the APK
    * Signing Schema V2 that is only supported on Android N and later.
    * </ul>
    */
   public enum ApkSigningMethod {
-    LEGACY_V1(true, false, false),
-    V1(false, true, false),
-    V2(false, false, true),
-    V1_V2(false, true, true);
+    V1(true, false),
+    V2(false, true),
+    V1_V2(true, true);
 
-    private final boolean signLegacy;
     private final boolean signV1;
     private final boolean signV2;
 
-    ApkSigningMethod(boolean signLegacy, boolean signV1, boolean signV2) {
-      // If signLegacy is true, the other two values will be ignored.
-      this.signLegacy = signLegacy;
+    ApkSigningMethod(boolean signV1, boolean signV2) {
       this.signV1 = signV1;
       this.signV2 = signV2;
-    }
-
-    /** Whether to sign with the signer inside the deprecated apkbuilder tool. */
-    public boolean signLegacy() {
-      return signLegacy;
     }
 
     /** Whether to JAR sign the APK with the apksigner tool. */
