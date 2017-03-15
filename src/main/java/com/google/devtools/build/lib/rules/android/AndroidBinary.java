@@ -123,6 +123,44 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
+  /**
+   * Checks expected rule invariants, throws rule errors if anything is set wrong.
+   */
+  private static void validateRuleContext(RuleContext ruleContext)
+      throws InterruptedException, RuleErrorException {
+    if (getMultidexMode(ruleContext) != MultidexMode.LEGACY
+        && ruleContext.attributes().isAttributeValueExplicitlySpecified(
+            "main_dex_proguard_specs")) {
+      ruleContext.throwWithAttributeError("main_dex_proguard_specs", "The "
+          + "'main_dex_proguard_specs' attribute is only allowed if 'multidex' is set to 'legacy'");
+    }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proguard_apply_mapping")
+        && ruleContext.attributes()
+            .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+            .isEmpty()) {
+      ruleContext.throwWithAttributeError("proguard_apply_mapping",
+          "'proguard_apply_mapping' can only be used when 'proguard_specs' is also set");
+    }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rex_package_map")
+        && !ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN)) {
+      ruleContext.throwWithAttributeError(
+          "rex_package_map",
+          "'rex_package_map' can only be used when 'rewrite_dexes_with_rex' is also set");
+    }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rex_package_map")
+        && ruleContext.attributes()
+        .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+        .isEmpty()) {
+      ruleContext.throwWithAttributeError("rex_package_map",
+          "'rex_package_map' can only be used when 'proguard_specs' is also set");
+    }
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")
+      && DataBinding.isEnabled(ruleContext)) {
+      ruleContext.throwWithRuleError("Data binding doesn't work with the \"resources\" attribute. "
+          + "Use \"resource_files\" instead.");
+    }
+  }
+
   private static RuleConfiguredTargetBuilder init(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
@@ -133,35 +171,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidSemantics androidSemantics)
       throws InterruptedException, RuleErrorException {
 
-    if (getMultidexMode(ruleContext) != MultidexMode.LEGACY
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified(
-            "main_dex_proguard_specs")) {
-      ruleContext.throwWithAttributeError("main_dex_proguard_specs", "The "
-          + "'main_dex_proguard_specs' attribute is only allowed if 'multidex' is set to 'legacy'");
-    }
-
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proguard_apply_mapping")
-        && ruleContext.attributes()
-            .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
-            .isEmpty()) {
-      ruleContext.throwWithAttributeError("proguard_apply_mapping",
-          "'proguard_apply_mapping' can only be used when 'proguard_specs' is also set");
-    }
-
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rex_package_map")
-        && !ruleContext.attributes().get("rewrite_dexes_with_rex", Type.BOOLEAN)) {
-      ruleContext.throwWithAttributeError(
-          "rex_package_map",
-          "'rex_package_map' can only be used when 'rewrite_dexes_with_rex' is also set");
-    }
-
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("rex_package_map")
-        && ruleContext.attributes()
-        .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
-        .isEmpty()) {
-      ruleContext.throwWithAttributeError("rex_package_map",
-          "'rex_package_map' can only be used when 'proguard_specs' is also set");
-    }
+    validateRuleContext(ruleContext);
 
     // TODO(bazel-team): Find a way to simplify this code.
     // treeKeys() means that the resulting map sorts the entries by key, which is necessary to

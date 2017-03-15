@@ -944,7 +944,11 @@ public class AndroidCommon {
 
     ImmutableList<Artifact> srcs =
         ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
-    if (useDataBinding) {
+    if (useDataBinding
+        && LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
+      // Add this rule's annotation processor input if this rule has direct resources. If it
+      // doesn't have direct resources, it doesn't produce data binding output so there's no
+      // input for the annotation processor.
       srcs = ImmutableList.<Artifact>builder().addAll(srcs)
           .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
     }

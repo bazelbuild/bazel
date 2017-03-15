@@ -77,22 +77,20 @@ public final class LocalResourceContainer {
       throws RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("assets")
         ^ ruleContext.attributes().isAttributeValueExplicitlySpecified("assets_dir")) {
-      ruleContext.ruleError(
+      ruleContext.throwWithRuleError(
           "'assets' and 'assets_dir' should be either both empty or both non-empty");
-      throw new RuleErrorException();
     }
   }
 
   /**
-   * Validates that there are no resources defined if there are resource attribute defined.
+   * Validates that there are no resources defined if there are resource attributes defined.
    */
   private static void validateNoResourcesAttribute(RuleContext ruleContext)
       throws RuleErrorException {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("resources")) {
-      ruleContext.attributeError("resources",
+      ruleContext.throwWithAttributeError("resources",
           String.format("resources cannot be set when any of %s are defined.",
               Joiner.on(", ").join(RESOURCES_ATTRIBUTES)));
-      throw new RuleErrorException();
     }
   }
 
@@ -105,17 +103,15 @@ public final class LocalResourceContainer {
     Iterable<AndroidResourcesProvider> resources =
         ruleContext.getPrerequisites("srcs", Mode.TARGET, AndroidResourcesProvider.class);
     for (AndroidResourcesProvider provider : resources) {
-      ruleContext.attributeError("srcs",
+      ruleContext.throwWithAttributeError("srcs",
           String.format("srcs should not contain android_resource label %s", provider.getLabel()));
-      throw new RuleErrorException();
     }
   }
 
   private static void validateManifest(RuleContext ruleContext) throws RuleErrorException {
     if (ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET) == null) {
-      ruleContext.attributeError("manifest",
+      ruleContext.throwWithAttributeError("manifest",
           "manifest is required when resource_files or assets are defined.");
-      throw new RuleErrorException();
     }
   }
 
