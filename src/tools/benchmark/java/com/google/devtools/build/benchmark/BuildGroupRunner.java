@@ -119,6 +119,7 @@ class BuildGroupRunner {
 
     if (removeFirstResult) {
       buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
+      builder.clean();
     }
     double elapsedTime = buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
 
