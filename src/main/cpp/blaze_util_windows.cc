@@ -714,13 +714,16 @@ static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
       || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion <= 1;
 }
 
-// Run the given program in the current working directory,
-// using the given argument vector.
+// Run the given program in the current working directory, using the given
+// argument vector, wait for it to finish, then exit ourselves with the exitcode
+// of that program.
 void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
   CmdLine cmdline;
   CreateCommandLine(&cmdline, exe, args_vector);
 
   STARTUPINFOA startupInfo = {0};
+  startupInfo.cb = sizeof(STARTUPINFOA);
+
   PROCESS_INFORMATION processInfo = {0};
 
   // Propagate BAZEL_SH environment variable to a sub-process.
@@ -730,18 +733,17 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
 
   HANDLE job = CreateJobObject(NULL, NULL);
   if (job == NULL) {
-    pdie(255, "Error %u while creating job\n", GetLastError());
+    pdie(255, "ExecuteProgram/CreateJobObject: error %u\n", GetLastError());
   }
 
-  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = { 0 };
+  JOBOBJECT_EXTENDED_LIMIT_INFORMATION job_info = {0};
   job_info.BasicLimitInformation.LimitFlags =
       JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-  if (!SetInformationJobObject(
-      job,
-      JobObjectExtendedLimitInformation,
-      &job_info,
-      sizeof(job_info))) {
-    pdie(255, "Error %u while setting up job\n", GetLastError());
+
+  if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation,
+                               &job_info, sizeof(job_info))) {
+    pdie(255, "ExecuteProgram/SetInformationJobObject: error %u\n",
+         GetLastError());
   }
 
   BOOL success = CreateProcessA(
@@ -750,10 +752,7 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
       /* lpProcessAttributes */ NULL,
       /* lpThreadAttributes */ NULL,
       /* bInheritHandles */ TRUE,
-      /* dwCreationFlags */
-      CREATE_NEW_PROCESS_GROUP         // So that Ctrl-Break does not affect it
-          | CREATE_BREAKAWAY_FROM_JOB  // We'll put it in a new job
-          | CREATE_SUSPENDED,  // So that it doesn't start a new job itself
+      /* dwCreationFlags */ CREATE_SUSPENDED,
       /* lpEnvironment */ NULL,
       /* lpCurrentDirectory */ NULL,
       /* lpStartupInfo */ &startupInfo,
@@ -764,18 +763,22 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector) {
          GetLastError(), cmdline.cmdline);
   }
 
-  if (!AssignProcessToJobObject(job, processInfo.hProcess)) {
-    if (!IsFailureDueToNestedJobsNotSupported(processInfo.hProcess)) {
-      pdie(255, "Error %u while assigning process to job\n", GetLastError());
-    }
-
-    // Otherwise, the OS doesn't support nested jobs so we'll just have to
-    // make do without.
+  // We will try to put the launched process into a Job object. This will make
+  // Windows reliably kill all child processes that the process itself may
+  // launch once the process exits. On Windows systems that don't support nested
+  // jobs, this may fail if we are already running inside a job ourselves. In
+  // this case, we'll continue anyway, because we assume that our parent is
+  // handling process management for us.
+  if (!AssignProcessToJobObject(job, processInfo.hProcess) &&
+      !IsFailureDueToNestedJobsNotSupported(processInfo.hProcess)) {
+    pdie(255, "ExecuteProgram/AssignProcessToJobObject: error %u\n",
+         GetLastError());
   }
 
-  // Now that we put the process in a new job object, we can start executing it
+  // Now that we potentially put the process into a new job object, we can start
+  // running it.
   if (ResumeThread(processInfo.hThread) == -1) {
-    pdie(255, "Error %u while starting Java process\n", GetLastError());
+    pdie(255, "ExecuteProgram/ResumeThread: error %u\n", GetLastError());
   }
 
   // msys doesn't deliver signals while a Win32 call is pending so we need to
