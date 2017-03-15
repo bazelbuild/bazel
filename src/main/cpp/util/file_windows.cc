@@ -1117,7 +1117,7 @@ static bool MakeDirectoriesW(const wstring& path) {
 bool MakeDirectories(const string& path, unsigned int mode) {
   // TODO(laszlocsomor): respect `mode` to the extent that it's possible on
   // Windows; it's currently ignored.
-  if (path.empty() || IsDevNull(path) || IsRootDirectory(path)) {
+  if (path.empty() || IsDevNull(path)) {
     return false;
   }
   wstring wpath;

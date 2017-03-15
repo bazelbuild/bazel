@@ -38,7 +38,6 @@ using std::wstring;
 
 // Methods defined in file_windows.cc that are only visible for testing.
 bool AsWindowsPath(const string& path, wstring* result);
-bool AsWindowsPathWithUncPrefix(const string& path, wstring* wpath);
 void ResetMsysRootForTesting();
 string NormalizeWindowsPath(string path);
 
@@ -421,9 +420,9 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   // Test that we can create come directories, can't create others.
   ASSERT_FALSE(MakeDirectories("", 0777));
   ASSERT_FALSE(MakeDirectories("/dev/null", 0777));
-  ASSERT_FALSE(MakeDirectories("c:/", 0777));
-  ASSERT_FALSE(MakeDirectories("c:\\", 0777));
-  ASSERT_FALSE(MakeDirectories("/", 0777));
+  ASSERT_TRUE(MakeDirectories("c:/", 0777));
+  ASSERT_TRUE(MakeDirectories("c:\\", 0777));
+  ASSERT_TRUE(MakeDirectories("/", 0777));
   ASSERT_TRUE(MakeDirectories("/foo", 0777));
   ASSERT_TRUE(MakeDirectories(".", 0777));
   ASSERT_TRUE(MakeDirectories(tmpdir, 0777));
