@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>  // PATH_MAX
@@ -39,6 +40,7 @@ namespace blaze {
 
 using blaze_util::die;
 using blaze_util::pdie;
+using blaze_exit_code::INTERNAL_ERROR;
 
 using std::string;
 using std::vector;
@@ -170,6 +172,35 @@ bool SymlinkDirectories(const string &target, const string &link) {
   return symlink(target.c_str(), link.c_str()) == 0;
 }
 
+static void CheckSingleThreaded() {
+#ifdef __linux__
+  DIR *dir = opendir("/proc/self/task");
+  if (!dir) pdie(INTERNAL_ERROR, "can't list /proc/self/task");
+  vector<string> tids;
+  while (dirent *dent = readdir(dir)) {
+    if (dent->d_name[0] != '.') tids.push_back(dent->d_name);
+  }
+  closedir(dir);
+  if (tids.size() == 1) return;
+
+  // If there are multiple threads, show their names as a debugging aid.
+  fprintf(stderr, "Trying to fork, but found %zu threads:\n", tids.size());
+  for (const string &t : tids) {
+    string path = string("/proc/self/task/") + t + "/comm";
+    if (FILE *f = fopen(path.c_str(), "r")) {
+      char comm[4096];
+      int len = fread(comm, 1, sizeof comm, f);
+      fprintf(stderr, "  Thread %s: %.*s", t.c_str(), len, comm);
+      fclose(f);
+    } else {
+      fprintf(stderr, "can't open %s", path.c_str());
+    }
+  }
+  die(INTERNAL_ERROR, "can't fork() after creating threads");
+#endif
+  // This can probably be checked on darwin via <sys/proc_info.h>.
+}
+
 // Causes the current process to become a daemon (i.e. a child of
 // init, detached from the terminal, in its own session.)  We don't
 // change cwd, though.
@@ -179,6 +210,7 @@ static void Daemonize(const string& daemon_output) {
   // anything that can possibly fail. :)
 
   signal(SIGHUP, SIG_IGN);
+  CheckSingleThreaded();
   if (fork() > 0) {
     // This second fork is required iff there's any chance cmd will
     // open an specific tty explicitly, e.g., open("/dev/tty23"). If
@@ -238,6 +270,7 @@ void ExecuteDaemon(const string& exe,
   if (pipe(fds)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
   }
+  CheckSingleThreaded();
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
@@ -276,6 +309,7 @@ static string RunProgram(const string& exe,
   int recv_socket = fds[0];
   int send_socket = fds[1];
 
+  CheckSingleThreaded();
   int child = fork();
   if (child == -1) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
