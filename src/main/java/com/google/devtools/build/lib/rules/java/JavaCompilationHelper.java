@@ -173,7 +173,7 @@ public final class JavaCompilationHelper {
     JavaCompileAction.Builder builder = createJavaCompileActionBuilder(semantics);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
     builder.addResources(attributes.getResources());
-    builder.addResourceJars(attributes.getResourceJars());
+    builder.setResourceJars(attributes.getResourceJars());
     builder.addClasspathResources(attributes.getClassPathResources());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setExtdirInputs(getExtdirInputs());
