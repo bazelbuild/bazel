@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
@@ -94,6 +95,15 @@ class Desugar {
       category = "undocumented"
     )
     public boolean allowEmptyBootclasspath;
+
+    @Option(
+      name = "only_desugar_javac9_for_lint",
+      defaultValue = "false",
+      help =
+          "A temporary flag specifically for android lint, subject to removal anytime (DO NOT USE)",
+      category = "undocumented"
+    )
+    public boolean onlyDesugarJavac9ForLint;
 
     @Option(
       name = "output",
@@ -217,15 +227,19 @@ class Desugar {
               CoreLibraryRewriter.UnprefixingClassWriter writer =
                   rewriter.writer(ClassWriter.COMPUTE_MAXS /*for bridge methods*/);
               ClassVisitor visitor = writer;
-              if (!allowDefaultMethods) {
-                visitor = new Java7Compatibility(visitor, readerFactory);
+              if (!options.onlyDesugarJavac9ForLint) {
+                if (!allowDefaultMethods) {
+                  visitor = new Java7Compatibility(visitor, readerFactory);
+                }
+
+                visitor =
+                    new LambdaDesugaring(
+                        visitor,
+                        loader,
+                        lambdas,
+                        interfaceLambdaMethodCollector,
+                        allowDefaultMethods);
               }
-
-              visitor =
-                  new LambdaDesugaring(
-                      visitor, loader, lambdas, interfaceLambdaMethodCollector,
-                      allowDefaultMethods);
-
               if (!allowCallsToObjectsNonNull) {
                 visitor = new ObjectsRequireNonNullMethodInliner(visitor);
               }
@@ -244,14 +258,19 @@ class Desugar {
         }
 
         ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
-        if (allowDefaultMethods) {
-          checkState(
-              interfaceLambdaMethods.isEmpty(),
-              "Desugaring with default methods enabled moved interface lambdas");
-        }
+
+        checkState(
+            !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
+            "Desugaring with default methods enabled moved interface lambdas");
 
         // Write out the lambda classes we generated along the way
-        for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdas.drain().entrySet()) {
+        ImmutableMap<Path, LambdaInfo> lambdaClasses = lambdas.drain();
+        checkState(
+            !options.onlyDesugarJavac9ForLint || lambdaClasses.isEmpty(),
+            "There should be no lambda classes generated: %s",
+            lambdaClasses.keySet());
+
+        for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
           try (InputStream bytecode =
               Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
             ClassReader reader = rewriter.reader(bytecode);
