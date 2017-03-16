@@ -388,6 +388,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     } else {
       activatedCrosstoolSelectables.add(GCC_COVERAGE_MAP_FORMAT);
     }
+    activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
+
     return configuration
         .getFragment(CppConfiguration.class)
         .getFeatures()

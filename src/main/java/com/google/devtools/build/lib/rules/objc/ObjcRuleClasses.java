@@ -23,7 +23,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -138,10 +137,6 @@ public class ObjcRuleClasses {
   public static boolean isInstrumentable(Artifact sourceArtifact) {
     return !ASSEMBLY_SOURCES.matches(sourceArtifact.getFilename());
   }
-
-  @VisibleForTesting
-  static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
-      new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**
    * Label of a filegroup that contains all crosstool and grte files for all configurations,

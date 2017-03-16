@@ -230,8 +230,6 @@ final class CompilationAttributes {
     private static void addSdkAttributesFromRuleContext(Builder builder, RuleContext ruleContext) {
       if (ruleContext.attributes().has("sdk_frameworks", Type.STRING_LIST)) {
         NestedSetBuilder<SdkFramework> frameworks = NestedSetBuilder.stableOrder();
-        // TODO(bazel-team): Move the inclusion of the default frameworks to CompilationSupport.
-        frameworks.addAll(ObjcRuleClasses.AUTOMATIC_SDK_FRAMEWORKS);
         for (String explicit : ruleContext.attributes().get("sdk_frameworks", Type.STRING_LIST)) {
           frameworks.add(new SdkFramework(explicit));
         }

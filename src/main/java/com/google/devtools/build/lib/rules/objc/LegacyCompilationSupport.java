@@ -35,6 +35,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_S
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -69,7 +70,9 @@ import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -79,6 +82,13 @@ import javax.annotation.Nullable;
  * TODO(b/28403953): Deprecate in favor of {@link CrosstoolCompilationSupport} in all objc rules.
  */
 public class LegacyCompilationSupport extends CompilationSupport {
+
+  /**
+   * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
+   */
+  @VisibleForTesting
+  static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
+      ImmutableList.of(new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**
    * A mapper that maps input ObjC source {@link Artifact.TreeFileArtifact}s to output object file
@@ -631,6 +641,14 @@ public class LegacyCompilationSupport extends CompilationSupport {
     if (objcConfiguration.shouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(commandLine));
     }
+  }
+
+  @Override
+  protected Set<String> frameworkNames(ObjcProvider objcProvider) {
+    Set<String> names = new LinkedHashSet<>();
+    Iterables.addAll(names, SdkFramework.names(AUTOMATIC_SDK_FRAMEWORKS));
+    names.addAll(super.frameworkNames(objcProvider));
+    return names;
   }
 
   private CommandLine linkCommandLine(
