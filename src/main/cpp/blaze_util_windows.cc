@@ -1115,7 +1115,7 @@ void SetupStdStreams() {
 #ifdef COMPILER_MSVC
   static const DWORD stdhandles[] = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
                                      STD_ERROR_HANDLE};
-  for (int i = 0; i < 2; ++i) {
+  for (int i = 0; i <= 2; ++i) {
     HANDLE handle = ::GetStdHandle(stdhandles[i]);
     if (handle == INVALID_HANDLE_VALUE || handle == NULL) {
       // Ensure we have open fds to each std* stream. Otherwise we can end up
@@ -1346,18 +1346,17 @@ int GetTerminalColumns() {
     }
   }
 
-#ifdef COMPILER_MSVC
-  // This code path is MSVC-only because when running under MSYS there's no
-  // Windows console attached so GetConsoleScreenBufferInfo fails.
-  windows_util::AutoHandle stdout_handle(::GetStdHandle(STD_OUTPUT_HANDLE));
-  CONSOLE_SCREEN_BUFFER_INFO screen_info;
-  if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
-    int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
-    if (width > 1) {
-      return width;
+  HANDLE stdout_handle = ::GetStdHandle(STD_OUTPUT_HANDLE);
+  if (stdout_handle != INVALID_HANDLE_VALUE) {
+    // stdout_handle may be invalid when stdout is redirected.
+    CONSOLE_SCREEN_BUFFER_INFO screen_info;
+    if (GetConsoleScreenBufferInfo(stdout_handle, &screen_info)) {
+      int width = 1 + screen_info.srWindow.Right - screen_info.srWindow.Left;
+      if (width > 1) {
+        return width;
+      }
     }
   }
-#endif  // COMPILER_MSVC
 
   return 80;  // default if not a terminal.
 }
