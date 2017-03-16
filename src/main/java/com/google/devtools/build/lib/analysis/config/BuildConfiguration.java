@@ -2144,10 +2144,35 @@ public final class BuildConfiguration {
         "A dictionary representing the static local shell environment. It maps variables "
             + "to their values (strings)."
   )
+  /**
+   * Return the "fixed" part of the actions' environment variables.
+   *
+   * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
+   * part. The "fixed" variables are independent of the Bazel client's own environment, and are
+   * returned by this function. The "variable" ones are inherited from the Bazel client's own
+   * environment, and are returned by {@link getVariableShellEnvironment}.
+   *
+   * <p>Since values of the "fixed" variables are already known at analysis phase, it is returned
+   * here as a map.
+   */
   public ImmutableMap<String, String> getLocalShellEnvironment() {
     return localShellEnvironment;
   }
 
+  /**
+   * Return the "variable" part of the actions' environment variables.
+   *
+   * <p>An action's full set of environment variables consist of a "fixed" part and of a "variable"
+   * part. The "fixed" variables are independent of the Bazel client's own environment, and are
+   * returned by {@link #getLocalShellEnvironment}. The "variable" ones are inherited from the Bazel
+   * client's own environment, and are returned by this function.
+   *
+   * <p>The values of the "variable" variables are tracked in Skyframe via the {@link
+   * com.google.devtools.build.lib.skyframe.SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE} skyfunction.
+   * This method only returns the names of those variables to be inherited, if set in the client's
+   * environment. (Variables where the name is not returned in this set should not be taken from the
+   * client environment.)
+   */
   public ImmutableSet<String> getVariableShellEnvironment() {
     return envVariables;
   }
