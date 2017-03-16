@@ -205,4 +205,17 @@ public class ExecutionOptions extends OptionsBase {
     help = "Print the contents of the SpawnActionContext and ContextProviders maps."
   )
   public boolean debugPrintActionContexts;
+
+  @Option(
+    name = "cache_computed_file_digests",
+    defaultValue = "50000",
+    category = "undocumented",
+    help =
+        "If greater than 0, configures Blaze to cache file digests in memory based on their "
+            + "metadata instead of recomputing the digests from disk every time they are needed. "
+            + "Setting this to 0 ensures correctness because not all file changes can be noted "
+            + "from file metadata. When not 0, the number indicates the size of the cache as the "
+            + "number of file digests to be cached."
+  )
+  public long cacheSizeForComputedFileDigests;
 }

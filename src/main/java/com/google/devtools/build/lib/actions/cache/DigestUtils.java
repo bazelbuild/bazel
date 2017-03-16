@@ -13,14 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheStats;
 import com.google.common.io.BaseEncoding;
+import com.google.common.primitives.Longs;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.VarInt;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
@@ -30,6 +37,12 @@ import java.util.logging.Level;
 
 /**
  * Utility class for getting md5 digests of files.
+ *
+ * <p>This class implements an optional cache of file digests when the computation of the digests is
+ * costly (i.e. when {@link Path#getFastDigest()} is not available). The cache can be enabled via
+ * the {@link #configureCache(long)} function, but note that enabling this cache might have an
+ * impact on correctness because not all changes to files can be purely detected from their
+ * metadata.
  *
  * <p>Note that this class is responsible for digesting file metadata in an order-independent
  * manner. Care must be taken to do this properly. The digest must be a function of the set of
@@ -44,6 +57,76 @@ public class DigestUtils {
   // Object to synchronize on when serializing large file reads.
   private static final Object DIGEST_LOCK = new Object();
   private static final AtomicBoolean MULTI_THREADED_DIGEST = new AtomicBoolean(false);
+
+  /**
+   * Keys used to cache the values of the digests for files where we don't have fast digests.
+   *
+   * <p>The cache keys are derived from many properties of the file metadata in an attempt to be
+   * able to detect most file changes.
+   */
+  private static class CacheKey {
+    /** Path to the file. */
+    private final PathFragment path;
+
+    /** File system identifier of the file (typically the inode number). */
+    private final long nodeId;
+
+    /** Last modification time of the file. */
+    private final long modifiedTime;
+
+    /** Size of the file. */
+    private final long size;
+
+    /**
+     * Constructs a new cache key.
+     *
+     * @param path path to the file
+     * @param status file status data from which to obtain the cache key properties
+     * @throws IOException if reading the file status data fails
+     */
+    public CacheKey(Path path, FileStatus status) throws IOException {
+      this.path = path.asFragment();
+      this.nodeId = status.getNodeId();
+      this.modifiedTime = status.getLastModifiedTime();
+      this.size = status.getSize();
+    }
+
+    @Override
+    public boolean equals(Object object) {
+      if (object == this) {
+        return true;
+      } else if (!(object instanceof CacheKey)) {
+        return false;
+      } else {
+        CacheKey key = (CacheKey) object;
+        return path.equals(key.path)
+            && nodeId == key.nodeId
+            && modifiedTime == key.modifiedTime
+            && size == key.size;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      int result = 17;
+      result = 31 * result + path.hashCode();
+      result = 31 * result + Longs.hashCode(nodeId);
+      result = 31 * result + Longs.hashCode(modifiedTime);
+      result = 31 * result + Longs.hashCode(size);
+      return result;
+    }
+  }
+
+  /**
+   * Global cache of files to their digests.
+   *
+   * <p>This is null when the cache is disabled.
+   *
+   * <p>Note that we do not use a {@link com.google.common.cache.LoadingCache} because our keys
+   * represent the paths as strings, not as {@link Path} instances. As a result, the loading
+   * function cannot actually compute the digests of the files so we have to handle this externally.
+   */
+  private static volatile Cache<CacheKey, byte[]> globalCache = null;
 
   /** Private constructor to prevent instantiation of utility class. */
   private DigestUtils() {}
@@ -76,6 +159,35 @@ public class DigestUtils {
   }
 
   /**
+   * Enables the caching of file digests based on file status data.
+   *
+   * <p>If the cache was already enabled, this causes the cache to be reinitialized thus losing all
+   * contents. If the given size is zero, the cache is disabled altogether.
+   *
+   * @param maximumSize maximumSize of the cache in number of entries
+   */
+  public static void configureCache(long maximumSize) {
+    if (maximumSize == 0) {
+      globalCache = null;
+    } else {
+      globalCache = CacheBuilder.newBuilder().maximumSize(maximumSize).recordStats().build();
+    }
+  }
+
+  /**
+   * Obtains cache statistics.
+   *
+   * <p>The cache must have previously been enabled by a call to {@link #configureCache(long)}.
+   *
+   * @return an immutable snapshot of the cache statistics
+   */
+  public static CacheStats getCacheStats() {
+    Cache<CacheKey, byte[]> cache = globalCache;
+    Preconditions.checkNotNull(cache, "configureCache() must have been called with a size >= 0");
+    return cache.stats();
+  }
+
+  /**
    * Enable or disable multi-threaded digesting even for large files.
    */
   public static void setMultiThreadedDigest(boolean multiThreadedDigest) {
@@ -104,19 +216,45 @@ public class DigestUtils {
       digest = null;
     }
 
+    // At this point, either we could not get a fast digest or the fast digest we got is corrupt.
+    // Attempt a cache lookup if the cache is enabled and return the cached digest if found.
+    Cache<CacheKey, byte[]> cache = globalCache;
+    CacheKey key = null;
+    if (cache != null && digest == null) {
+      key = new CacheKey(path, path.stat());
+      digest = cache.getIfPresent(key);
+    }
     if (digest != null) {
       return digest;
-    } else if (fileSize > 4096 && !MULTI_THREADED_DIGEST.get()) {
+    }
+
+    // All right, we have neither a fast nor a cached digest. Let's go through the costly process of
+    // computing it from the file contents.
+    if (fileSize > 4096 && !MULTI_THREADED_DIGEST.get()) {
       // We'll have to read file content in order to calculate the digest. In that case
       // it would be beneficial to serialize those calculations since there is a high
       // probability that MD5 will be requested for multiple output files simultaneously.
       // Exception is made for small (<=4K) files since they will not likely to introduce
       // significant delays (at worst they will result in two extra disk seeks by
       // interrupting other reads).
-      return getDigestInExclusiveMode(path);
+      digest = getDigestInExclusiveMode(path);
     } else {
-      return getDigestInternal(path);
+      digest = getDigestInternal(path);
     }
+
+    Preconditions.checkNotNull(
+        digest,
+        "We should have gotten a digest for %s at this point but we still don't have one",
+        path);
+    if (cache != null) {
+      Preconditions.checkNotNull(
+          key,
+          "We should have computed a cache key earlier for %s because the cache is enabled and we"
+              + " did not get a fast digest for this file, but we don't have a key here",
+          path);
+      cache.put(key, digest);
+    }
+    return digest;
   }
 
   /**

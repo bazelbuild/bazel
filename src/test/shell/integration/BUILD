@@ -46,6 +46,13 @@ sh_test(
 )
 
 sh_test(
+    name = "execution_phase_tests",
+    size = "large",
+    srcs = ["execution_phase_tests.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "experimental_ui_test",
     size = "large",
     srcs = ["experimental_ui_test.sh"],

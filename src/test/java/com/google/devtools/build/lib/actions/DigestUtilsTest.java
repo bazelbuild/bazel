@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.actions;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
+import com.google.common.cache.CacheStats;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -29,21 +32,27 @@ import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.annotation.CheckReturnValue;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for DigestUtils.
  */
 @RunWith(JUnit4.class)
 public class DigestUtilsTest {
+
+  @After
+  public void tearDown() {
+    DigestUtils.configureCache(0);
+  }
 
   private static void assertDigestCalculationConcurrency(boolean expectConcurrent,
       final boolean fastDigest, final int fileSize1, final int fileSize2,
@@ -135,8 +144,7 @@ public class DigestUtilsTest {
     }
   }
 
-  @Test
-  public void testRecoverFromMalformedDigest() throws Exception {
+  public void assertRecoverFromMalformedDigest(HashFunction... hashFunctions) throws Exception {
     final byte[] malformed = {0, 0, 0};
     FileSystem myFS = new InMemoryFileSystem(BlazeClock.instance()) {
       @Override
@@ -147,12 +155,132 @@ public class DigestUtilsTest {
     };
     Path path = myFS.getPath("/file");
     FileSystemUtils.writeContentAsLatin1(path, "a");
-    for (HashFunction hf : Arrays.asList(HashFunction.MD5, HashFunction.SHA1)) {
+    for (HashFunction hf : hashFunctions) {
       FileSystem.setDigestFunctionForTesting(hf);
       byte[] result = DigestUtils.getDigestOrFail(path, 1);
       assertArrayEquals(path.getDigest(), result);
       assertNotSame(malformed, result);
       assertTrue(path.isValidDigest(result));
     }
+  }
+
+  @Test
+  public void testRecoverFromMalformedDigestWithoutCache() throws Exception {
+    try {
+      DigestUtils.getCacheStats();
+      fail("Digests cache should remain disabled until configureCache is called");
+    } catch (NullPointerException expected) {
+    }
+    assertRecoverFromMalformedDigest(HashFunction.MD5, HashFunction.SHA1);
+    try {
+      DigestUtils.getCacheStats();
+      fail("Digests cache was unexpectedly enabled through the test");
+    } catch (NullPointerException expected) {
+    }
+  }
+
+  @Test
+  public void testRecoverFromMalformedDigestWithCache() throws Exception {
+    DigestUtils.configureCache(10);
+    assertNotNull(DigestUtils.getCacheStats()); // Ensure the cache is enabled.
+
+    // When using the cache, we cannot run our test using different hash functions because the
+    // hash function is not part of the cache key. This is intentional: the hash function is
+    // essentially final and can only be changed for tests. Therefore, just test the same hash
+    // function twice to further exercise the cache code.
+    assertRecoverFromMalformedDigest(HashFunction.MD5, HashFunction.MD5);
+
+    assertNotNull(DigestUtils.getCacheStats()); // Ensure the cache remains enabled.
+  }
+
+  /** Helper class to assert the cache statistics. */
+  private static class CacheStatsChecker {
+    /** Cache statistics, grabbed at construction time. */
+    private final CacheStats stats;
+
+    private int expectedEvictionCount;
+    private int expectedHitCount;
+    private int expectedMissCount;
+
+    CacheStatsChecker() {
+      this.stats = DigestUtils.getCacheStats();
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker evictionCount(int count) {
+      expectedEvictionCount = count;
+      return this;
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker hitCount(int count) {
+      expectedHitCount = count;
+      return this;
+    }
+
+    @CheckReturnValue
+    CacheStatsChecker missCount(int count) {
+      expectedMissCount = count;
+      return this;
+    }
+
+    void check() throws Exception {
+      assertEquals(expectedEvictionCount, stats.evictionCount());
+      assertEquals(expectedHitCount, stats.hitCount());
+      assertEquals(expectedMissCount, stats.missCount());
+    }
+  }
+
+  @Test
+  public void testCache() throws Exception {
+    final AtomicInteger getFastDigestCounter = new AtomicInteger(0);
+    final AtomicInteger getDigestCounter = new AtomicInteger(0);
+
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(BlazeClock.instance()) {
+          @Override
+          protected byte[] getFastDigest(Path path, HashFunction hashFunction) throws IOException {
+            getFastDigestCounter.incrementAndGet();
+            return null;
+          }
+
+          @Override
+          protected byte[] getDigest(Path path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(2);
+
+    final Path file1 = tracingFileSystem.getPath("/1.txt");
+    final Path file2 = tracingFileSystem.getPath("/2.txt");
+    final Path file3 = tracingFileSystem.getPath("/3.txt");
+    FileSystemUtils.writeContentAsLatin1(file1, "some contents");
+    FileSystemUtils.writeContentAsLatin1(file2, "some other contents");
+    FileSystemUtils.writeContentAsLatin1(file3, "and something else");
+
+    byte[] digest1 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    assertEquals(1, getFastDigestCounter.get());
+    assertEquals(1, getDigestCounter.get());
+    new CacheStatsChecker().evictionCount(0).hitCount(0).missCount(1).check();
+
+    byte[] digest2 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    assertEquals(2, getFastDigestCounter.get());
+    assertEquals(1, getDigestCounter.get());
+    new CacheStatsChecker().evictionCount(0).hitCount(1).missCount(1).check();
+
+    assertArrayEquals(digest1, digest2);
+
+    // Evict the digest for the previous file.
+    DigestUtils.getDigestOrFail(file2, file2.getFileSize());
+    DigestUtils.getDigestOrFail(file3, file3.getFileSize());
+    new CacheStatsChecker().evictionCount(1).hitCount(1).missCount(3).check();
+
+    // And now try to recompute it.
+    byte[] digest3 = DigestUtils.getDigestOrFail(file1, file1.getFileSize());
+    new CacheStatsChecker().evictionCount(2).hitCount(1).missCount(4).check();
+
+    assertArrayEquals(digest1, digest3);
   }
 }
