@@ -41,7 +41,7 @@ import java.util.Properties;
  * An action that creates a Java properties file containing the build informations.
  */
 public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
-  private static final String GUID = "922949ca-1391-4046-a300-74810618dcdc";
+  private static final String GUID = "19e543c2-3ce4-4aef-80f5-4f8abf4b064f";
 
   private final ImmutableList<Artifact> valueArtifacts;
   private final BuildInfoPropertiesTranslator keyTranslations;

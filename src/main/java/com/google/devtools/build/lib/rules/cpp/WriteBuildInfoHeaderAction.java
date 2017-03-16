@@ -41,7 +41,7 @@ import java.util.Map;
  */
 @Immutable
 public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
-  private static final String GUID = "b0798174-1352-4a54-854a-9785aaea491b";
+  private static final String GUID = "62be38ad-1243-46b9-9948-9bdfa81f8918";
 
   private final ImmutableList<Artifact> valueArtifacts;
 
