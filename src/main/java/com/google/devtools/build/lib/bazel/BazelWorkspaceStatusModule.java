@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel;
 
 import static com.google.common.base.StandardSystemProperty.USER_NAME;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -120,11 +122,23 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                           + options.workspaceStatusCommand));
           CommandResult result = this.getWorkspaceStatusCommand.execute();
           if (result.getTerminationStatus().success()) {
-            return new String(result.getStdout());
+            return new String(result.getStdout(), UTF_8);
           }
-          throw new ActionExecutionException(
-              "workspace status command failed: " + result.getTerminationStatus(), this, true);
+          throw new BadExitStatusException(
+              this.getWorkspaceStatusCommand,
+              result,
+              "workspace status command failed: " + result.getTerminationStatus());
         }
+      } catch (BadExitStatusException e) {
+        String errorMessage = e.getMessage();
+        try {
+          actionExecutionContext.getFileOutErr().getOutputStream().write(
+              e.getResult().getStdout());
+          actionExecutionContext.getFileOutErr().getErrorStream().write(e.getResult().getStderr());
+        } catch (IOException e2) {
+          errorMessage = errorMessage + " and could not get stdout/stderr: " + e2.getMessage();
+        }
+        throw new ActionExecutionException(errorMessage, e, this, true);
       } catch (CommandException e) {
         throw new ActionExecutionException(e, this, true);
       }
