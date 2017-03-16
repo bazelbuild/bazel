@@ -531,6 +531,25 @@ class IncrementalInstallTest(unittest.TestCase):
     self.assertTrue(("monkey -p %s -c android.intent.category.LAUNCHER 1" %
                      self._APP_PACKAGE) in self._mock_adb.shell_cmdlns)
 
+  def testDebugStart(self):
+    self._CreateZip()
+
+    with open("dex1", "w") as f:
+      f.write("content3")
+
+    self._CreateLocalManifest(
+        "zip1 zp1 ip1 0",
+        "zip1 zp2 ip2 0",
+        "dex1 - ip3 0")
+
+    self._CallIncrementalInstall(incremental=False, start_type="debug")
+    enable_debug_cmd = ("am set-debug-app -w --persistent %s" %
+                        self._APP_PACKAGE)
+    start_app_cmd = ("monkey -p %s -c android.intent.category.LAUNCHER 1" %
+                     self._APP_PACKAGE)
+    self.assertTrue(enable_debug_cmd in self._mock_adb.shell_cmdlns)
+    self.assertTrue(start_app_cmd in self._mock_adb.shell_cmdlns)
+
   def testColdStop(self):
     self._CreateRemoteManifest(
         "zip1 zp1 ip1 0",

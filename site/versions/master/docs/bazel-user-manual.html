@@ -3134,12 +3134,23 @@ in an environment closer to the current shell environment. Note that none of the
   Starts the app in a clean state after installing. Equivalent to
   <code>--start=COLD</code>.
 </p>
-<h4 id='flag--start'><code class='flag'>--start (NO|COLD|WARM)</code></h4>
+<h4 id='flag--debug_app'><code class='flag'>--debug_app</code></h4>
 <p>
-  How the app should be started after installing it. Set to <code>WARM</code> to
-  preserve and restore application state on incremental installs. Set to
-  <code>COLD</code> to start the app from a clean state after install. Defaults
-  <code>NO</code> which does not start the app.
+  Waits for debugger to be attached before starting the app in a clean state after installing.
+  Equivalent to <code>--start=DEBUG</code>.
+</p>
+<h4 id='flag--start'><code class='flag'>--start=<i>start_type</i></code></h4>
+<p>
+  How the app should be started after installing it. Supported <i>start_type</i>s are:
+  <ul>
+    <li><code>NO</code> Does not start the app. This is the default.</li>
+    <li><code>COLD</code> Starts the app from a clean state after install.</li>
+    <li><code>WARM</code> Preserves and restores the application state on incremental installs.</li>
+    <li><code>DEBUG</code> Waits for the debugger before starting the app in a clean state after install.</li>
+  </ul>
+  Note that if more than one of <code class='flag'>--start=<i>start_type</i></code>,
+  <code class='flag'>--start_app</code> or
+  <code class='flag'>--debug_app</code> is set, the last value will be used.
 </p>
 <h4 id='flag--adb'><code class='flag'>--adb <var>path</var></code></h4>
 <p>

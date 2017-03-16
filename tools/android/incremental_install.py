@@ -46,10 +46,11 @@ gflags.DEFINE_integer("adb_jobs", 2,
                       "The number of instances of adb to use in parallel to "
                       "update files on the device",
                       lower_bound=1)
-gflags.DEFINE_enum("start", "no", ["no", "cold", "warm"], "Whether/how to "
-                   "start the app after installing it. 'cold' and 'warm' will "
-                   "both cause the app to be started, 'warm' will start it "
-                   "with previously saved application state.")
+gflags.DEFINE_enum("start", "no", ["no", "cold", "warm", "debug"],
+                   "Whether/how to start the app after installing it. 'cold' "
+                   "and 'warm' will both cause the app to be started, 'warm' "
+                   "will start it with previously saved application state, "
+                   "'debug' will wait for the debugger before a clean start.")
 gflags.DEFINE_boolean("start_app", False, "Deprecated, use 'start'.")
 gflags.DEFINE_string("user_home_dir", None, "Path to the user's home directory")
 gflags.DEFINE_string("flagfile", None,
@@ -275,8 +276,12 @@ class Adb(object):
     self._Shell("input keyevent KEYCODE_APP_SWITCH")
     self._Shell("am kill %s" % package)
 
-  def StartApp(self, package):
+  def StartApp(self, package, start_type):
     """Starts the app with the given package."""
+    if start_type == "debug":
+      self._Shell("am set-debug-app -w --persistent %s" % package)
+    else:
+      self._Shell("am clear-debug-app %s" % package)
     self._Shell("monkey -p %s -c android.intent.category.LAUNCHER 1" % package)
 
   def _Shell(self, cmd):
@@ -722,9 +727,9 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
         else:
           adb.StopApp(app_package)
 
-    if start_type in ["cold", "warm"]:
+    if start_type in ["cold", "warm", "debug"]:
       logging.info("Starting application %s", app_package)
-      adb.StartApp(app_package)
+      adb.StartApp(app_package, start_type)
 
     with file(output_marker, "w") as _:
       pass
