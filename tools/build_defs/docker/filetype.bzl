@@ -1,4 +1,4 @@
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Rules for manipulation Docker images."""
+"""Filetype constants."""
 
-load(":build.bzl", "docker_build")
-load(":bundle.bzl", "docker_bundle")
+# Filetype to restrict inputs
+tar = [".tar", ".tar.gz", ".tgz", ".tar.xz"]
+deb = [".deb", ".udeb"]
 
+# Docker files are tarballs, should we allow other extensions than tar?
+docker = tar

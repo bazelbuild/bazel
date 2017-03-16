@@ -1,4 +1,4 @@
-# Copyright 2015 The Bazel Authors. All rights reserved.
+# Copyright 2017 The Bazel Authors. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,8 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Rules for manipulation Docker images."""
+"""Methods for serializing objects."""
 
-load(":build.bzl", "docker_build")
-load(":bundle.bzl", "docker_bundle")
 
+def dict_to_associative_list(dict_value):
+  """Serializes a dict to an associative list."""
+  return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])
