@@ -20,17 +20,8 @@ def get_from_target(unused_ctx, target):
   if hasattr(target, "docker_layers"):
     return target.docker_layers
   else:
-    # TODO(mattmoor): This:
-    # return [{
-    #     "layer": target,
-    #     # TODO(mattmoor): WTF is this...
-    #     "id": None,
-    #     # TODO(mattmoor): Inject an action that cracks the tarball and
-    #     # emits a file with the "name".  This is:
-    #     #   with docker_image.FromTarball(...) as img:
-    #     #     print img.top()
-    #     "name": None,
-    # }]
+    # TODO(mattmoor): Use containerregistry.client's FromTarball
+    # to create an entry from a tarball base image.
     return []
 
 
