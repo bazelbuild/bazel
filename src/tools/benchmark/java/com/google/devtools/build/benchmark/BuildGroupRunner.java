@@ -107,7 +107,8 @@ class BuildGroupRunner {
           workspace.resolve(GENERATED_CODE_DIR));
     }
     if (!lastIsIncremental && envConfig.getIncremental()) {
-      JavaCodeGenerator.modifyExistingProject(
+      JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
+      javaCodeGenerator.modifyExistingProject(
           workspace.resolve(GENERATED_CODE_DIR).toString(), true, true, true, true);
     }
     lastIsIncremental = envConfig.getIncremental();

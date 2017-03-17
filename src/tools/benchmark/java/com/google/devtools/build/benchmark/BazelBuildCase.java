@@ -85,7 +85,8 @@ final class BazelBuildCase implements BuildCase {
   public void prepareGeneratedCode(Path copyDir, Path generatedCodePath) throws IOException {
     // Prepare generated code for copy
     if (!copyDir.toFile().exists()) {
-      JavaCodeGenerator.generateNewProject(
+      JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
+      javaCodeGenerator.generateNewProject(
           copyDir.toString(),
           INCLUDE_TARGET_A_FEW_FILES,
           INCLUDE_TARGET_MANY_FILES,

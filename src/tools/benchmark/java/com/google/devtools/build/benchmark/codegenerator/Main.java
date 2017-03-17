@@ -37,12 +37,15 @@ public class Main {
     }
 
     // Generate or modify Java code
+    CodeGenerator codeGenerator = new JavaCodeGenerator();
     if (opt.modificationMode) {
-      JavaCodeGenerator.modifyExistingProject(
-          opt.outputDir, opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
+      codeGenerator.modifyExistingProject(
+          opt.outputDir + codeGenerator.getDirSuffix(),
+          opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
     } else {
-      JavaCodeGenerator.generateNewProject(
-          opt.outputDir, opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
+      codeGenerator.generateNewProject(
+          opt.outputDir + codeGenerator.getDirSuffix(),
+          opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
     }
   }
 

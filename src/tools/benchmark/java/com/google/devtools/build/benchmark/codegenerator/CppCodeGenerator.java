@@ -19,10 +19,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-/** Create 4 types of Java project, or modify existing ones. */
-public class JavaCodeGenerator extends CodeGenerator {
+/** Create 4 types of Cpp project, or modify existing ones. */
+public class CppCodeGenerator extends CodeGenerator {
 
-  private static final String DIR_SUFFIX = "/java";
+  private static final String DIR_SUFFIX = "/cpp";
 
   @Override
   public String getDirSuffix() {
@@ -38,14 +38,11 @@ public class JavaCodeGenerator extends CodeGenerator {
 
     try {
       Files.createDirectories(projectPath);
-
       for (int i = 0; i < numberOfFiles; ++i) {
-        JavaCodeGeneratorHelper.writeRandomClassToDir(
-            /* addExtraMethod = */ false, "RandomClass" + i, "com.example.generated", projectPath);
+        CppCodeGeneratorHelper.createRandomClass("RandomClass" + i, projectPath);
       }
-
-      JavaCodeGeneratorHelper.writeMainClassToDir("com.example.generated", projectPath);
-      JavaCodeGeneratorHelper.buildFileWithMainClass(projectPath.getFileName().toString(), "", projectPath);
+      CppCodeGeneratorHelper.writeBuildFileWithAllFilesToDir(
+          projectPath.getFileName().toString(), projectPath);
     } catch (IOException e) {
       System.err.println("Error creating target with some files: " + e.getMessage());
     }
@@ -60,9 +57,9 @@ public class JavaCodeGenerator extends CodeGenerator {
           "Project dir (%s) does not contain code for modification.\n", projectPath.toString());
       return;
     }
+
     try {
-      JavaCodeGeneratorHelper.writeRandomClassToDir(
-          /* addExtraMethod = */ true, "RandomClass0", "com.example.generated", projectPath);
+      CppCodeGeneratorHelper.createRandomClassExtra("RandomClass0", projectPath);
     } catch (IOException e) {
       System.err.println("Error modifying targets some files: " + e.getMessage());
     }
@@ -80,20 +77,18 @@ public class JavaCodeGenerator extends CodeGenerator {
 
       int count = SIZE_LONG_CHAINED_DEPS;
 
-      // Call next one for 0..(count-2)
-      for (int i = 0; i < count - 1; ++i) {
-        JavaCodeGeneratorHelper.targetWithNextHelper(i, true, projectPath);
-        JavaCodeGeneratorHelper.buildFileWithNextDeps(
-            i, "    deps=[ \":Deps" + (i + 1) + "\" ],\n", projectPath);
+      // Call next one for 1..(count-2)
+      for (int i = 1; i < count - 1; ++i) {
+        CppCodeGeneratorHelper.createClassAndBuildFileWithDepsNext(i, projectPath);
       }
       // Don't call next one for (count-1)
-      JavaCodeGeneratorHelper.targetWithNextHelper(count - 1, false, projectPath);
-      JavaCodeGeneratorHelper.buildFileWithNextDeps(count - 1, "", projectPath);
+      CppCodeGeneratorHelper.createRandomClass("Deps" + (count - 1), projectPath);
+      CppCodeGeneratorHelper.appendTargetToBuildFile("Deps" + (count - 1), projectPath);
 
-      JavaCodeGeneratorHelper.writeMainClassToDir("com.example.generated", projectPath);
-
-      String deps = "    deps=[ \":Deps0\" ],\n";
-      JavaCodeGeneratorHelper.buildFileWithMainClass(TARGET_LONG_CHAINED_DEPS, deps, projectPath);
+      // Main
+      String deps = "    deps=[ ':Deps1' ],";
+      CppCodeGeneratorHelper.createMainClassAndBuildFileWithDeps(
+          TARGET_LONG_CHAINED_DEPS, deps, projectPath);
     } catch (IOException e) {
       System.err.println(
           "Error creating targets with a few long chained dependencies: " + e.getMessage());
@@ -109,9 +104,10 @@ public class JavaCodeGenerator extends CodeGenerator {
           "Project dir (%s) does not contain code for modification.\n", projectPath.toString());
       return;
     }
+
     try {
-      JavaCodeGeneratorHelper.targetWithNextExtraHelper(
-          (SIZE_LONG_CHAINED_DEPS + 1) >> 1, true, projectPath);
+      CppCodeGeneratorHelper.createClassWithDepsNextExtra(
+          (SIZE_LONG_CHAINED_DEPS + 1) >> 1, projectPath);
     } catch (IOException e) {
       System.err.println(
           "Error modifying targets with a few long chained dependencies: " + e.getMessage());
@@ -132,20 +128,18 @@ public class JavaCodeGenerator extends CodeGenerator {
 
       // parallel dependencies B~Z
       for (int i = 1; i < count; ++i) {
-        JavaCodeGeneratorHelper.writeRandomClassToDir(
-            false, "Deps" + i, "com.example.deps" + i, projectPath);
-        JavaCodeGeneratorHelper.buildFileWithNextDeps(i, "", projectPath);
+        CppCodeGeneratorHelper.createRandomClass("Deps" + i, projectPath);
+        CppCodeGeneratorHelper.appendTargetToBuildFile("Deps" + i, projectPath);
       }
 
       // A(Main)
-      JavaCodeGeneratorHelper.parallelDepsMainClassHelper(count, projectPath);
-
       String deps = "    deps=[ ";
       for (int i = 1; i < count; ++i) {
         deps += "\":Deps" + i + "\", ";
       }
-      deps += "], \n";
-      JavaCodeGeneratorHelper.buildFileWithMainClass(TARGET_PARALLEL_DEPS, deps, projectPath);
+      deps += "],";
+      CppCodeGeneratorHelper.createMainClassAndBuildFileWithDeps(
+          TARGET_PARALLEL_DEPS, deps, projectPath);
     } catch (IOException e) {
       System.err.println(
           "Error creating targets with lots of parallel dependencies: " + e.getMessage());
@@ -162,8 +156,7 @@ public class JavaCodeGenerator extends CodeGenerator {
       return;
     }
     try {
-      JavaCodeGeneratorHelper.writeRandomClassToDir(
-          true, "Deps1", "com.example.deps1", projectPath);
+      CppCodeGeneratorHelper.createRandomClassExtra("Deps1", projectPath);
     } catch (IOException e) {
       System.err.println(
           "Error creating targets with lots of parallel dependencies: " + e.getMessage());

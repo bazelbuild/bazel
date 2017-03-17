@@ -15,7 +15,6 @@
 package com.google.devtools.build.benchmark.codegenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -28,9 +27,9 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Test for {@link JavaCodeGenerator}. */
+/** Test for {@link CppCodeGenerator}. */
 @RunWith(JUnit4.class)
-public class JavaCodeGeneratorTest {
+public class CppCodeGeneratorTest {
 
   @Rule public TemporaryFolder folder = new TemporaryFolder();
 
@@ -38,35 +37,30 @@ public class JavaCodeGeneratorTest {
   public void testGenerateNewProject() throws IOException {
     File createdFolder = folder.newFolder("GenerateNewProject");
     Path dir = createdFolder.toPath();
-    JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
-    javaCodeGenerator.generateNewProject(dir.toString(), true, true, true, true);
+    (new CppCodeGenerator()).generateNewProject(dir.toString(), true, true, true, true);
 
     // Check dir contains 4 project directories
     File[] filesList = dir.toFile().listFiles();
-    assertNotNull(filesList);
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     assertThat(filenames).containsExactly(
-        JavaCodeGenerator.TARGET_A_FEW_FILES,
-        JavaCodeGenerator.TARGET_LONG_CHAINED_DEPS,
-        JavaCodeGenerator.TARGET_MANY_FILES,
-        JavaCodeGenerator.TARGET_PARALLEL_DEPS);
+        CppCodeGenerator.TARGET_A_FEW_FILES,
+        CppCodeGenerator.TARGET_LONG_CHAINED_DEPS,
+        CppCodeGenerator.TARGET_MANY_FILES,
+        CppCodeGenerator.TARGET_PARALLEL_DEPS);
 
     // Target 1: a few files
-    checkProjectPathContains(dir, JavaCodeGenerator.TARGET_A_FEW_FILES);
     checkSimpleTarget(
         dir, JavaCodeGenerator.TARGET_A_FEW_FILES, JavaCodeGenerator.SIZE_A_FEW_FILES);
 
     // Target 2: many files
-    checkProjectPathContains(dir, JavaCodeGenerator.TARGET_MANY_FILES);
     checkSimpleTarget(dir, JavaCodeGenerator.TARGET_MANY_FILES, JavaCodeGenerator.SIZE_MANY_FILES);
 
     // Target 3: long chained deps
-    checkProjectPathContains(dir, JavaCodeGenerator.TARGET_LONG_CHAINED_DEPS);
     checkDepsTarget(
         dir, JavaCodeGenerator.TARGET_LONG_CHAINED_DEPS, JavaCodeGenerator.SIZE_LONG_CHAINED_DEPS);
 
     // Target 4: parallel deps
-    checkProjectPathContains(dir, JavaCodeGenerator.TARGET_PARALLEL_DEPS);
     checkDepsTarget(
         dir, JavaCodeGenerator.TARGET_PARALLEL_DEPS, JavaCodeGenerator.SIZE_PARALLEL_DEPS);
   }
@@ -79,47 +73,34 @@ public class JavaCodeGeneratorTest {
     return builder.build();
   }
 
-  private static void checkProjectPathContains(Path root, String targetName) {
-    // Check project dir contains BUILD and com
-    File[] filesList = root.resolve(targetName).toFile().listFiles();
-    assertNotNull(filesList);
-    ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
-    assertThat(filenames).containsExactly("BUILD", "com");
-
-    // Check project dir contains com/example
-    filesList = root.resolve(targetName).resolve("com").toFile().listFiles();
-    assertNotNull(filesList);
-    filenames = fileArrayToImmutableSet(filesList);
-    assertThat(filenames).containsExactly("example");
-  }
-
   private static void checkSimpleTarget(Path root, String targetName, int targetSize) {
-    // Check Java files
+    // Check all files including BUILD, .cc, .h
     File[] filesList =
-        root.resolve(targetName).resolve("com/example/generated").toFile().listFiles();
-    assertNotNull(filesList);
+        root.resolve(targetName).toFile().listFiles();
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
     ImmutableSet.Builder<String> randomClassNames = ImmutableSet.builder();
-    randomClassNames.add("Main.java");
+    randomClassNames.add("BUILD");
     for (int i = 0; i < targetSize; ++i) {
-      randomClassNames.add("RandomClass" + i + ".java");
+      randomClassNames.add("RandomClass" + i + ".h");
+      randomClassNames.add("RandomClass" + i + ".cc");
     }
     assertThat(filenames).containsExactlyElementsIn(randomClassNames.build());
   }
 
   private static void checkDepsTarget(Path root, String targetName, int targetSize) {
-    // Check Java files
-    for (int i = 1; i < targetSize; ++i) {
-      File[] filesList =
-          root.resolve(targetName).resolve("com/example/deps" + i).toFile().listFiles();
-      assertNotNull(filesList);
-      ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
-      assertThat(filenames).containsExactly("Deps" + i + ".java");
-    }
+    // Check all files including BUILD, .cc, .h
     File[] filesList =
-        root.resolve(targetName).resolve("com/example/generated").toFile().listFiles();
-    assertNotNull(filesList);
+        root.resolve(targetName).toFile().listFiles();
+    assertThat(filesList).isNotNull();
     ImmutableSet<String> filenames = fileArrayToImmutableSet(filesList);
-    assertThat(filenames).containsExactly("Main.java");
+    ImmutableSet.Builder<String> randomClassNames = ImmutableSet.builder();
+    randomClassNames.add("BUILD");
+    randomClassNames.add("Main.cc");
+    for (int i = 1; i < targetSize; ++i) {
+      randomClassNames.add("Deps" + i + ".h");
+      randomClassNames.add("Deps" + i + ".cc");
+    }
+    assertThat(filenames).containsExactlyElementsIn(randomClassNames.build());
   }
 }
