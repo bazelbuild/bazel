@@ -50,7 +50,7 @@ public final class JavaLibraryHelper {
    */
   private final List<JavaCompilationArgsProvider> deps = new ArrayList<>();
   private ImmutableList<String> javacOpts = ImmutableList.of();
-
+  private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
   private StrictDepsMode strictDepsMode = StrictDepsMode.OFF;
   private JavaClasspathMode classpathMode = JavaClasspathMode.OFF;
 
@@ -113,6 +113,11 @@ public final class JavaLibraryHelper {
     return this;
   }
 
+  public JavaLibraryHelper setSourcePathEntries(List<Artifact> sourcepathEntries) {
+    this.sourcePathEntries = ImmutableList.copyOf(sourcepathEntries);
+    return this;
+  }
+
   /**
    * When in strict mode, compiling the source-jars passed to this JavaLibraryHelper will break if
    * they depend on classes not in any of the {@link
@@ -145,6 +150,7 @@ public final class JavaLibraryHelper {
     attributes.setStrictJavaDeps(strictDepsMode);
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
+    attributes.setSourcePath(sourcePathEntries);
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
       JavaCompilationHelper.addDependencyArtifactsToAttributes(

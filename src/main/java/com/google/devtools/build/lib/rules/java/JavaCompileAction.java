@@ -110,6 +110,9 @@ public final class JavaCompileAction extends AbstractAction {
   /** The list of bootclasspath entries to specify to javac. */
   private final ImmutableList<Artifact> bootclasspathEntries;
 
+  /** The list of sourcepath entries to specify to javac. */
+  private final ImmutableList<Artifact> sourcePathEntries;
+
   /**
    * The path to the extdir to specify to javac.
    */
@@ -193,6 +196,7 @@ public final class JavaCompileAction extends AbstractAction {
       Artifact outputJar,
       NestedSet<Artifact> classpathEntries,
       ImmutableList<Artifact> bootclasspathEntries,
+      ImmutableList<Artifact> sourcePathEntries,
       ImmutableList<Artifact> extdirInputs,
       List<Artifact> processorPath,
       List<String> processorNames,
@@ -224,6 +228,7 @@ public final class JavaCompileAction extends AbstractAction {
     this.outputJar = outputJar;
     this.classpathEntries = classpathEntries;
     this.bootclasspathEntries = ImmutableList.copyOf(bootclasspathEntries);
+    this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
     this.extdirInputs = extdirInputs;
     this.processorPath = ImmutableList.copyOf(processorPath);
     this.processorNames = ImmutableList.copyOf(processorNames);
@@ -273,6 +278,12 @@ public final class JavaCompileAction extends AbstractAction {
   @VisibleForTesting
   Collection<Artifact> getBootclasspath() {
     return bootclasspathEntries;
+  }
+
+  /** Returns the list of paths that represents the sourcepath. */
+  @VisibleForTesting
+  public Collection<Artifact> getSourcePathEntries() {
+    return sourcePathEntries;
   }
 
   /**
@@ -639,6 +650,7 @@ public final class JavaCompileAction extends AbstractAction {
     private NestedSet<Artifact> classpathEntries =
         NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private ImmutableList<Artifact> bootclasspathEntries = ImmutableList.of();
+    private ImmutableList<Artifact> sourcePathEntries = ImmutableList.of();
     private ImmutableList<Artifact> extdirInputs = ImmutableList.of();
     private Artifact javaBuilderJar;
     private Artifact langtoolsJar;
@@ -721,6 +733,7 @@ public final class JavaCompileAction extends AbstractAction {
           classpathResources,
           javabaseInputs,
           bootclasspathEntries,
+          sourcePathEntries,
           extdirInputs));
 
       Preconditions.checkState(javaExecutable != null, owner);
@@ -779,6 +792,7 @@ public final class JavaCompileAction extends AbstractAction {
           outputJar,
           classpathEntries,
           bootclasspathEntries,
+          sourcePathEntries,
           extdirInputs,
           processorPath,
           processorNames,
@@ -828,6 +842,9 @@ public final class JavaCompileAction extends AbstractAction {
       if (!bootclasspathEntries.isEmpty()) {
         result.addJoinExecPaths(
             "--bootclasspath", pathSeparator, bootclasspathEntries);
+      }
+      if (!sourcePathEntries.isEmpty()) {
+        result.addJoinExecPaths("--sourcepath", pathSeparator, sourcePathEntries);
       }
       if (!processorPath.isEmpty() || !processorPathDirs.isEmpty()) {
         ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
@@ -1046,6 +1063,11 @@ public final class JavaCompileAction extends AbstractAction {
 
     public Builder setBootclasspathEntries(Iterable<Artifact> bootclasspathEntries) {
       this.bootclasspathEntries = ImmutableList.copyOf(bootclasspathEntries);
+      return this;
+    }
+
+    public Builder setSourcePathEntries(Iterable<Artifact> sourcePathEntries) {
+      this.sourcePathEntries = ImmutableList.copyOf(sourcePathEntries);
       return this;
     }
 

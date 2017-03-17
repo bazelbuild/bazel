@@ -105,11 +105,9 @@ function test_build_hello_world() {
   bazel build //java/main:main &> $TEST_log || fail "build failed"
 }
 
-# Regression test for #2606: support for passing -sourcepath
-# TODO(#2606): Update when a final solution is found for #2606.
-function test_build_with_sourcepath() {
-  mkdir -p g
-  cat >g/A.java <<'EOF'
+ function test_java_common_compile_sourcepath() {
+   mkdir -p g
+   cat >g/A.java <<'EOF'
 package g;
 public class A {
    public A() {
@@ -126,7 +124,8 @@ public class B {
 }
 EOF
 
-  cat >g/BUILD <<'EOF'
+   cat >g/BUILD <<'EOF'
+load(':java_custom_library.bzl', 'java_custom_library')
 genrule(
   name = "stub",
   srcs = ["B.java"],
@@ -134,15 +133,49 @@ genrule(
   cmd = "zip $@ $(SRCS)",
 )
 
-java_library(
+java_custom_library(
   name = "test",
   srcs = ["A.java"],
-  javacopts = ["-sourcepath $(GENDIR)/$(location :stub)", "-implicit:none"],
-  deps = [":stub"]
+  sourcepath = [":stub"]
 )
 EOF
-  bazel build //g:test >$TEST_log || fail "Failed to build //g:test"
-}
+
+  cat >g/java_custom_library.bzl <<'EOF'
+def _impl(ctx):
+  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+
+  compilation_provider = java_common.compile(
+    ctx,
+    source_files = ctx.files.srcs,
+    output = output_jar,
+    javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain"),
+    deps = [],
+    sourcepath = ctx.files.sourcepath,
+    strict_deps = "ERROR",
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
+  )
+  return struct(
+    files = set([output_jar]),
+    providers = [compilation_provider]
+  )
+
+java_custom_library = rule(
+  implementation = _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files=True),
+    "sourcepath": attr.label_list(),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+  },
+  fragments = ["java"]
+)
+EOF
+
+  # TODO(elenairina): Check that B.jar is not on the output jar after -implicit:none will be turned
+  # on by default.
+   bazel build //g:test >$TEST_log || fail "Failed to build //g:test"
+ }
 
 # Runfiles is disabled by default on Windows, but we can test it on Unix by
 # adding flag --experimental_enable_runfiles=0

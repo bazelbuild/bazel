@@ -161,6 +161,14 @@ public class JavaSkylarkCommon {
         type = ConfiguredTarget.class,
         doc = "A label pointing to a JDK to be used for this compilation. Mandatory."
       ),
+      @Param(
+        name = "sourcepath",
+        positional = false,
+        named = true,
+        type = SkylarkList.class,
+        generic1 = Artifact.class,
+        defaultValue = "[]"
+      )
     }
   )
   public JavaProvider createJavaCompileAction(
@@ -172,12 +180,15 @@ public class JavaSkylarkCommon {
       SkylarkList<JavaProvider> deps,
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
-      ConfiguredTarget hostJavabase) {
+      ConfiguredTarget hostJavabase,
+      SkylarkList<Artifact> sourcepathEntries) {
+
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
             .setOutput(outputJar)
             .addSourceJars(sourceJars)
             .addSourceFiles(sourceFiles)
+            .setSourcePathEntries(sourcepathEntries)
             .setJavacOpts(javacOpts);
 
     List<JavaCompilationArgsProvider> compilationArgsProviders =

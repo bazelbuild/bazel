@@ -110,7 +110,6 @@ public final class OptionsParser {
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
           bootClassPathFromJavacOpts();
-          sourcePathFromJavacOpts();
           break;
         case "--direct_dependency":
           {
@@ -333,19 +332,6 @@ public final class OptionsParser {
       if (curr.equals("-bootclasspath") && it.hasNext()) {
         it.remove();
         bootClassPath = it.next();
-        it.remove();
-      }
-    }
-  }
-
-  // TODO(#970): Delete that function (either set --sourcepath from Bazel or just drop support).
-  private void sourcePathFromJavacOpts() {
-    Iterator<String> it = javacOpts.iterator();
-    while (it.hasNext()) {
-      String curr = it.next();
-      if (curr.equals("-sourcepath") && it.hasNext()) {
-        it.remove();
-        sourcePath = it.next();
         it.remove();
       }
     }

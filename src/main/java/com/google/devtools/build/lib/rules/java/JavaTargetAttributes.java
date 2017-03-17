@@ -67,6 +67,7 @@ public class JavaTargetAttributes {
         NestedSetBuilder.naiveLinkOrder();
 
     private final List<Artifact> bootClassPath = new ArrayList<>();
+    private final List<Artifact> sourcePath = new ArrayList<>();
     private final List<Artifact> nativeLibraries = new ArrayList<>();
 
     private final Set<Artifact> processorPath = new LinkedHashSet<>();
@@ -204,6 +205,16 @@ public class JavaTargetAttributes {
       Preconditions.checkArgument(!jars.isEmpty());
       Preconditions.checkState(bootClassPath.isEmpty());
       bootClassPath.addAll(jars);
+      return this;
+    }
+
+    /**
+     * Sets the sourcepath to be passed to the Java compiler.
+     */
+    public Builder setSourcePath(List<Artifact> artifacts) {
+      Preconditions.checkArgument(!built);
+      Preconditions.checkArgument(sourcePath.isEmpty());
+      sourcePath.addAll(artifacts);
       return this;
     }
 
@@ -361,6 +372,7 @@ public class JavaTargetAttributes {
           runtimeClassPath,
           compileTimeClassPath,
           bootClassPath,
+          sourcePath,
           nativeLibraries,
           processorPath,
           processorPathDirs,
@@ -414,6 +426,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> compileTimeClassPath;
 
   private final ImmutableList<Artifact> bootClassPath;
+  private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
   private final ImmutableSet<Artifact> processorPath;
@@ -448,6 +461,7 @@ public class JavaTargetAttributes {
       NestedSetBuilder<Artifact> runtimeClassPath,
       NestedSetBuilder<Artifact> compileTimeClassPath,
       List<Artifact> bootClassPath,
+      List<Artifact> sourcePath,
       List<Artifact> nativeLibraries,
       Set<Artifact> processorPath,
       Set<PathFragment> processorPathDirs,
@@ -476,6 +490,7 @@ public class JavaTargetAttributes {
             .addTransitive(compileTimeClassPath.build())
             .build();
     this.bootClassPath = ImmutableList.copyOf(bootClassPath);
+    this.sourcePath = ImmutableList.copyOf(sourcePath);
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
     this.processorPath = ImmutableSet.copyOf(processorPath);
     this.processorPathDirs = ImmutableSet.copyOf(processorPathDirs);
@@ -563,6 +578,10 @@ public class JavaTargetAttributes {
 
   public ImmutableList<Artifact> getBootClassPath() {
     return bootClassPath;
+  }
+
+  public ImmutableList<Artifact> getSourcePath() {
+    return sourcePath;
   }
 
   public ImmutableSet<Artifact> getProcessorPath() {

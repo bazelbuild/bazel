@@ -176,6 +176,7 @@ public final class JavaCompilationHelper {
     builder.setResourceJars(attributes.getResourceJars());
     builder.addClasspathResources(attributes.getClassPathResources());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
+    builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setExtdirInputs(getExtdirInputs());
     builder.setLangtoolsJar(javaToolchain.getJavac());
     builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
