@@ -131,7 +131,7 @@ The following Python features are not supported:
 
 *   implicit string concatenation (use explicit `+` operator)
 *   `class` (see [`struct`](lib/globals.html#struct) function)
-*   `import` (see [`load`](#loading-a-skylark-extension) statement)
+*   `import` (see [`load`](concepts.md#loading-an-extension) statement)
 *   `while`, `yield`
 *   float and set types
 *   generators and generator expressions
