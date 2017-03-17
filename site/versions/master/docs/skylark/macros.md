@@ -8,7 +8,7 @@ title: Macros
 
 A macro is a function called from the BUILD file that can instantiate rules.
 Macros don't give additional power, they are just used for encapsulation and
-code reuse. By the end of the [loading phase](concepts.html#evaluation-model),
+code reuse. By the end of the [loading phase](concepts.md#evaluation-model),
 macros don't exist anymore, and Bazel sees only the set of rules they created.
 
 Native rules (i.e. rules that don't need a `load()` statement) can be
