@@ -23,15 +23,14 @@ import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for Digest.
@@ -63,7 +62,7 @@ public class DigestTest {
         "8b1a9953c4611296a827abf8c47804d7",
         Digest.fromContent("Hello".getBytes(UTF_8)).toStringUtf8());
 
-    assertEquals(UGLY_DIGEST, Digest.fromContent(UGLY.getBytes()).toStringUtf8());
+    assertEquals(UGLY_DIGEST, Digest.fromContent(UGLY.getBytes(UTF_8)).toStringUtf8());
 
     // ByteBuffer digest not idempotent because ByteBuffer manages a "position" internally.
     ByteBuffer buffer = ByteBuffer.wrap(UGLY.getBytes(UTF_8));
@@ -106,6 +105,11 @@ public class DigestTest {
 
               @Override
               public String getExecPathString() {
+                throw new UnsupportedOperationException();
+              }
+
+              @Override
+              public PathFragment getExecPath() {
                 throw new UnsupportedOperationException();
               }
             });

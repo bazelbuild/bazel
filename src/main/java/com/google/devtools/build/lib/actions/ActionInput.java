@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.vfs.PathFragment;
+
 /**
  * Represents an input file to a build action, with an appropriate relative path and digest
  * value.
@@ -35,5 +37,10 @@ public interface ActionInput {
   /**
    * @return the relative path to the input file.
    */
-  public String getExecPathString();
+  String getExecPathString();
+
+  /**
+   * @return the relative path to the input file.
+   */
+  PathFragment getExecPath();
 }
