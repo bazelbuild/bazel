@@ -453,38 +453,43 @@ public final class ApplicationManifest {
     if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
       // android_library should only build the APK one way (!incremental).
       Preconditions.checkArgument(!incremental);
-      Artifact rJavaClassJar = ruleContext.getImplicitOutputArtifact(
-          AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
+      Artifact rJavaClassJar =
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
-      if (resourceContainer.getSymbols() != null) {
-        new AndroidResourceParsingActionBuilder(ruleContext)
-            .withPrimary(resourceContainer)
-            .setParse(data)
-            .setOutput(resourceContainer.getSymbols())
-            .build(ruleContext);
-      }
-
-      AndroidResourceMergingActionBuilder resourcesMergerBuilder =
-          new AndroidResourceMergingActionBuilder(ruleContext)
-              .setJavaPackage(resourceContainer.getJavaPackage())
+      ResourceContainer parsed =
+          new AndroidResourceParsingActionBuilder(ruleContext)
+              .setParse(data)
               .withPrimary(resourceContainer)
+              .setOutput(resourceContainer.getSymbols())
+              .build(ruleContext);
+
+      ResourceContainer generated =
+          new LibraryRGeneratorActionBuilder()
+              .setJavaPackage(resourceContainer.getJavaPackage())
+              .withPrimary(parsed)
+              .withDependencies(resourceDeps)
+              .setClassJarOut(rJavaClassJar)
+              .build(ruleContext);
+
+      ResourceContainer merged =
+          new AndroidResourceMergingActionBuilder(ruleContext)
+              .setJavaPackage(generated.getJavaPackage())
+              .withPrimary(generated)
               .withDependencies(resourceDeps)
               .setMergedResourcesOut(mergedResources)
               .setManifestOut(manifestOut)
-              .setClassJarOut(rJavaClassJar)
-              .setDataBindingInfoZip(dataBindingInfoZip);
-      ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
+              .setDataBindingInfoZip(dataBindingInfoZip)
+              .build(ruleContext);
 
-      AndroidResourceValidatorActionBuilder validatorBuilder =
+      processed =
           new AndroidResourceValidatorActionBuilder(ruleContext)
               .setJavaPackage(merged.getJavaPackage())
-              .setDebug(
-                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .setMergedResources(mergedResources)
               .withPrimary(merged)
               .setSourceJarOut(merged.getJavaSourceJar())
-              .setRTxtOut(merged.getRTxt());
-      processed = validatorBuilder.build(ruleContext);
+              .setRTxtOut(merged.getRTxt())
+              .build(ruleContext);
     } else {
       AndroidResourcesProcessorBuilder builder =
           new AndroidResourcesProcessorBuilder(ruleContext)
@@ -630,14 +635,16 @@ public final class ApplicationManifest {
     aaptActionHelper.createGenerateApkAction(resourceApk,
         resourceContainer.getRenameManifestPackage(), additionalAaptOpts.build(), densities);
 
-    ResourceContainer updatedResources = resourceContainer.toBuilder()
-        .setLabel(ruleContext.getLabel())
-        .setApk(resourceApk)
-        .setManifest(getManifest())
-        .setJavaSourceJar(javaSourcesJar)
-        .setJavaClassJar(null)
-        .setSymbols(null)
-        .build();
+    ResourceContainer updatedResources =
+        resourceContainer
+            .toBuilder()
+            .setLabel(ruleContext.getLabel())
+            .setApk(resourceApk)
+            .setManifest(getManifest())
+            .setJavaSourceJar(javaSourcesJar)
+            .setJavaClassJar(null)
+            .setSymbols(null)
+            .build();
 
     aaptActionHelper.createGenerateProguardAction(proguardCfg, mainDexProguardCfg);
 
