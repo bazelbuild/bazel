@@ -30,14 +30,29 @@ function is_windows() {
   fi
 }
 
-# Set some enviornment variables needed on Windows.
+# Set some environment variables needed on Windows.
 if is_windows; then
-  # Changing TEST_TMPDIR to avoid long path issue on Windows
-  TEST_TMPDIR="/c/tmp"
+  # TODO(philwo) remove this once we have a Bazel release that includes the CL
+  # moving the Windows-specific TEST_TMPDIR into TestStrategy.
+  TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
+  export TEST_TMPDIR="c:/temp/${TEST_TMPDIR_BASENAME}"
+
+  # Bazel (TMPDIR) and Windows (TEMP, TMP) have three envvars that specify the
+  # location of the temp directory...
+  export TMPDIR="$TEST_TMPDIR"
+  export TEMP="$TEST_TMPDIR"
+  export TMP="$TEST_TMPDIR"
+
   export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
   export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
   export BAZEL_VC="c:/Program Files (x86)/Microsoft Visual Studio 14.0/VC"
-  export TMPDIR="c:/tmp"
+  if [ -x /c/Python27/python.exe ]; then
+    export BAZEL_PYTHON="C:/Python27/python.exe"
+    export PATH="/c/Python27:$PATH"
+  elif [ -x /c/python_27_amd64/files/python.exe ]; then
+    export BAZEL_PYTHON="C:/python_27_amd64/files/python.exe"
+    export PATH="/c/python_27_amd64/files:$PATH"
+  fi
 fi
 
 # Make the command "bazel" available for tests.

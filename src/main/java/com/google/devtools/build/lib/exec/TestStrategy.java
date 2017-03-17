@@ -286,9 +286,18 @@ public abstract class TestStrategy implements TestActionContext {
    * --test_tmpdir. This does not create the directory.
    */
   public static Path getTmpRoot(Path workspace, Path execRoot, ExecutionOptions executionOptions) {
-    return executionOptions.testTmpDir != null
-        ? workspace.getRelative(executionOptions.testTmpDir).getRelative(TEST_TMP_ROOT)
-        : execRoot.getRelative(TEST_TMP_ROOT);
+    if (executionOptions.testTmpDir != null) {
+      return workspace.getRelative(executionOptions.testTmpDir).getRelative(TEST_TMP_ROOT);
+    }
+    switch (OS.getCurrent()) {
+      case WINDOWS:
+        // TODO(philwo) find a better way to do this
+        // Hardcoding this to c:/temp isn't great, but if we use a longer path, we trip the MAX_PATH
+        // limit of the Windows API when running bazel inside shell integration tests.
+        return workspace.getFileSystem().getPath("c:/temp");
+      default:
+        return execRoot.getRelative(TEST_TMP_ROOT);
+    }
   }
 
   /**

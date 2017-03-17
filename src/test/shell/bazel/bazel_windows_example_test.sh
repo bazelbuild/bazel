@@ -33,7 +33,6 @@ fi
 
 function set_up() {
   copy_examples
-  export PATH=/c/python_27_amd64/files:$PATH
   EXTRA_BAZELRC="build --cpu=x64_windows_msvc"
   setup_bazelrc
 }
