@@ -427,6 +427,13 @@ sh_test(
     shard_count = 2,
 )
 
+sh_test(
+    name = "help_test",
+    size = "small",
+    srcs = ["help_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
