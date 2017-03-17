@@ -39,8 +39,6 @@ import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
-import com.google.devtools.build.lib.testutil.BuildRuleBuilder;
-import com.google.devtools.build.lib.testutil.BuildRuleWithDefaultsBuilder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -111,7 +109,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "filegroup(name='jacoco-blaze-agent', srcs = [])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
-        "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])");
+        "               'turbine_deploy.jar','ExperimentalTestRunner_deploy.jar'])",
+        "sh_binary(name = 'proguard_whitelister', srcs = ['empty.sh'])");
 
 
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();
@@ -157,13 +156,29 @@ public final class BazelAnalysisMock extends AnalysisMock {
   private ImmutableList<String> createAndroidBuildContents() {
     ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
-    BuildRuleWithDefaultsBuilder ruleBuilder =
-        new BuildRuleWithDefaultsBuilder("android_sdk", "sdk")
-            .populateAttributes("", false);
-    androidBuildContents.add(ruleBuilder.build());
-    for (BuildRuleBuilder generatedRuleBuilder : ruleBuilder.getRulesToGenerate()) {
-      androidBuildContents.add(generatedRuleBuilder.build());
-    }
+    androidBuildContents.add(
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = ':static_aapt_tool',",
+        "    adb = ':static_adb_tool',",
+        "    aidl = ':static_aidl_tool',",
+        "    android_jar = ':android_runtime_jar',",
+        "    annotations_jar = ':annotations_jar',",
+        "    apkbuilder = ':ApkBuilderMainBinary',",
+        "    apksigner = ':ApkSignerBinary',",
+        "    dx = ':dx_binary',",
+        "    framework_aidl = ':aidl_framework',",
+        "    jack = ':jack',",
+        "    jill = ':jill',",
+        "    main_dex_classes = ':mainDexClasses.rules',",
+        "    main_dex_list_creator = ':main_dex_list_creator',",
+        "    proguard = ':ProGuard',",
+        "    resource_extractor = ':resource_extractor',",
+        "    shrinked_android_jar = ':shrinkedAndroid.jar',",
+        "    zipalign = ':zipalign',",
+        ")",
+        "filegroup(name = 'android_runtime_jar', srcs = ['android.jar'])",
+        "filegroup(name = 'dx_binary', srcs = ['dx_binary.jar'])");
 
     androidBuildContents
         .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
