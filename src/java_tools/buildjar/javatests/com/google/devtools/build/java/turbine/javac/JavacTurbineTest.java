@@ -55,6 +55,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
@@ -437,7 +438,7 @@ public class JavacTurbineTest {
   }
 
   private void compileLib(
-      Path jar, Iterable<Path> classpath, Iterable<? extends JavaFileObject> units)
+      Path jar, Collection<Path> classpath, Iterable<? extends JavaFileObject> units)
       throws IOException {
     final Path outdir = temp.newFolder().toPath();
     JavacFileManager fm = new JavacFileManager(new Context(), false, UTF_8);
