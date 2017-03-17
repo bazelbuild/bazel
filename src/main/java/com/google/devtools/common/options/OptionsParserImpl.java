@@ -621,11 +621,14 @@ class OptionsParserImpl {
       throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
     }
 
-    if (field == null) {
+    Option option = field == null ? null : field.getAnnotation(Option.class);
+
+    if (option == null
+        || OptionsParser.documentationLevel(option.category())
+            == OptionsParser.DocumentationLevel.INTERNAL) {
+      // This also covers internal options, which are treated as if they did not exist.
       throw new OptionsParsingException("Unrecognized option: " + arg, arg);
     }
-
-    Option option = field.getAnnotation(Option.class);
 
     if (value == null) {
       // Special-case boolean to supply value based on presence of "no" prefix.

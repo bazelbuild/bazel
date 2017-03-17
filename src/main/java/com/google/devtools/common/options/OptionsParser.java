@@ -395,7 +395,8 @@ public class OptionsParser implements OptionsProvider {
     }
 
     public boolean isHidden() {
-      return documentationLevel() == DocumentationLevel.HIDDEN;
+      return documentationLevel() == DocumentationLevel.HIDDEN
+          || documentationLevel() == DocumentationLevel.INTERNAL;
     }
 
     boolean isExpansion() {
@@ -455,9 +456,11 @@ public class OptionsParser implements OptionsProvider {
    *
    * <p>We use 'hidden' so that options that form the protocol between the
    * client and the server are not logged.
+   *
+   * <p>Options which are 'internal' are not recognized by the parser at all.
    */
   enum DocumentationLevel {
-    DOCUMENTED, UNDOCUMENTED, HIDDEN
+    DOCUMENTED, UNDOCUMENTED, HIDDEN, INTERNAL
   }
 
   /**
@@ -614,6 +617,8 @@ public class OptionsParser implements OptionsProvider {
       return DocumentationLevel.UNDOCUMENTED;
     } else if ("hidden".equals(category)) {
       return DocumentationLevel.HIDDEN;
+    } else if ("internal".equals(category)) {
+      return DocumentationLevel.INTERNAL;
     } else {
       return DocumentationLevel.DOCUMENTED;
     }

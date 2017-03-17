@@ -465,7 +465,7 @@ public final class BuildConfiguration {
      */
     @Option(name = "experimental multi cpu distinguisher",
         defaultValue = "",
-        category = "undocumented")
+        category = "internal")
     public String experimentalMultiCpuDistinguisher;
 
     @Option(name = "min_param_file_size",
@@ -563,9 +563,9 @@ public final class BuildConfiguration {
      * to a constant, so that the output files for the host are completely independent of those for
      * the target, no matter what options are in force (k8/piii, opt/dbg, etc).
      */
-    @Option(name = "output directory name", // (Spaces => can't be specified on command line.)
+    @Option(name = "output directory name",
         defaultValue = "null",
-        category = "undocumented")
+        category = "internal")
     public String outputDirectoryName;
 
     @Option(name = "platform_suffix",
@@ -847,7 +847,7 @@ public final class BuildConfiguration {
 
     @Option(name = "is host configuration",
         defaultValue = "false",
-        category = "undocumented",
+        category = "internal",
         help = "Shows whether these options are set for host configuration.")
     public boolean isHost;
 
@@ -1449,6 +1449,10 @@ public final class BuildConfiguration {
         for (Field field : options.getClass().getFields()) {
           if (field.isAnnotationPresent(Option.class)) {
             Option option = field.getAnnotation(Option.class);
+            if (option.category().equals("internal")) {
+              // ignore internal options
+              continue;
+            }
             Object value = field.get(options);
             if (value == null) {
               if (lateBoundDefaults.containsKey(option.name())) {

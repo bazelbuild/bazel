@@ -78,12 +78,44 @@ public class ConfigSettingTest extends BuildViewTestCase {
     }
   }
 
+  /**
+   * Test option which is private.
+   */
+  public static class InternalTestOptions extends FragmentOptions {
+    public InternalTestOptions() {}
+
+    @Option(name = "internal_option", defaultValue = "super secret", category = "internal")
+    public String optwithDefault;
+  }
+
+  private static class InternalTestOptionsFragment extends BuildConfiguration.Fragment {}
+
+  private static class InternalTestOptionsLoader implements ConfigurationFragmentFactory {
+    @Override
+    public BuildConfiguration.Fragment create(ConfigurationEnvironment env,
+        BuildOptions buildOptions) throws InvalidConfigurationException {
+      return new InternalTestOptionsFragment();
+    }
+
+    @Override
+    public Class<? extends BuildConfiguration.Fragment> creates() {
+      return InternalTestOptionsFragment.class;
+    }
+
+    @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
+      return ImmutableSet.<Class<? extends FragmentOptions>>of(InternalTestOptions.class);
+    }
+  }
+
   @Override
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationOptions(LateBoundTestOptions.class);
     builder.addConfigurationFragment(new LateBoundTestOptionsLoader());
+    builder.addConfigurationOptions(InternalTestOptions.class);
+    builder.addConfigurationFragment(new InternalTestOptionsLoader());
     return builder.build();
   }
 
@@ -147,6 +179,18 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "config_setting(",
         "    name = 'badoption',",
         "    values = {'not_an_option': 'bar'})");
+  }
+
+  /**
+   * Tests that rule analysis fails on internal options.
+   */
+  @Test
+  public void internalOption() throws Exception {
+    checkError("foo", "badoption",
+        "unknown option: 'internal_option'",
+        "config_setting(",
+        "    name = 'badoption',",
+        "    values = {'internal_option': 'bar'})");
   }
 
   /**

@@ -193,11 +193,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * Android configuration options.
    */
   public static class Options extends FragmentOptions {
-    // Spaces make it impossible to specify this on the command line
     @Option(name = "Android configuration distinguisher",
         defaultValue = "MAIN",
         converter = ConfigurationDistinguisherConverter.class,
-        category = "undocumented")
+        category = "internal")
     public ConfigurationDistinguisher configurationDistinguisher;
 
     // For deploying incremental installation of native libraries. Do not use on the command line.

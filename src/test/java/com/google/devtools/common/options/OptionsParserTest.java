@@ -109,6 +109,26 @@ public class OptionsParserTest {
     public String boom;
   }
 
+  /**
+   * Example with internal options
+   */
+  public static class ExampleInternalOptions extends OptionsBase {
+    @Option(name = "internal_boolean",
+            category = "internal",
+            defaultValue = "true")
+    public boolean privateBoolean;
+
+    @Option(name = "internal_string",
+            category = "internal",
+            defaultValue = "super secret")
+    public String privateString;
+
+    @Option(name = "public string",
+            category = "undocumented",
+            defaultValue = "not a secret")
+    public String publicString;
+  }
+
   public static class StringConverter implements Converter<String> {
     @Override
     public String convert(String input) {
@@ -464,6 +484,84 @@ public class OptionsParserTest {
       assertEquals("Unrecognized option: --unknown", e.getMessage());
       assertNotNull(parser.getOptions(ExampleFoo.class));
       assertNotNull(parser.getOptions(ExampleBaz.class));
+    }
+  }
+
+  @Test
+  public void parsingFailsWithInternalBooleanOptionAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_boolean");
+    try {
+      parser.parse(internalOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertEquals("--internal_boolean", e.getInvalidArgument());
+      assertEquals("Unrecognized option: --internal_boolean", e.getMessage());
+      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
+    }
+  }
+
+  @Test
+  public void parsingFailsWithNegatedInternalBooleanOptionAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--nointernal_boolean");
+    try {
+      parser.parse(internalOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertEquals("--nointernal_boolean", e.getInvalidArgument());
+      assertEquals("Unrecognized option: --nointernal_boolean", e.getMessage());
+      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
+    }
+  }
+
+  @Test
+  public void parsingFailsWithUnderscoredNegatedInternalBooleanOptionAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--no_internal_boolean");
+    try {
+      parser.parse(internalOpts);
+      fail();
+    } catch (OptionsParsingException e) {
+      assertEquals("--no_internal_boolean", e.getInvalidArgument());
+      assertEquals("Unrecognized option: --no_internal_boolean", e.getMessage());
+      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
+    }
+  }
+
+  @Test
+  public void parsingSucceedsWithSpacesInFlagName() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> spacedOpts = asList("--public string=value with spaces");
+    parser.parse(spacedOpts);
+    assertEquals(parser.getOptions(ExampleInternalOptions.class).publicString, "value with spaces");
+  }
+
+  @Test
+  public void parsingFailsForInternalOptionWithValueInSameArgAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_string=any_value");
+    try {
+      parser.parse(internalOpts);
+      fail("parsing should have failed for including a private option");
+    } catch (OptionsParsingException e) {
+      assertEquals("--internal_string=any_value", e.getInvalidArgument());
+      assertEquals("Unrecognized option: --internal_string=any_value", e.getMessage());
+      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
+    }
+  }
+
+  @Test
+  public void parsingFailsForInternalOptionWithValueInSeparateArgAsIfUnknown() {
+    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
+    List<String> internalOpts = asList("--internal_string", "any_value");
+    try {
+      parser.parse(internalOpts);
+      fail("parsing should have failed for including a private option");
+    } catch (OptionsParsingException e) {
+      assertEquals("--internal_string", e.getInvalidArgument());
+      assertEquals("Unrecognized option: --internal_string", e.getMessage());
+      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
     }
   }
 
