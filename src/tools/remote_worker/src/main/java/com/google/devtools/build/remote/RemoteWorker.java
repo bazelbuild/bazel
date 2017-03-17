@@ -48,9 +48,11 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheSetRequ
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
+import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.shell.TimeoutKillableObserver;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -61,6 +63,8 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Duration;
+import com.google.protobuf.util.Durations;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -70,6 +74,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -318,9 +323,18 @@ public class RemoteWorker {
     }
   }
 
+  // How long to wait for the uid command.
+  private static final Duration uidTimeout = Durations.fromMicros(30);
+
   class ExecutionServer extends ExecuteServiceImplBase {
     private final Path workPath;
     private final RemoteWorkerOptions options;
+
+    //The name of the container image entry in the Platform proto
+    // (see src/main/protobuf/remote_protocol.proto and
+    // experimental_remote_platform_override in
+    // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
+    public static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
 
     public ExecutionServer(Path workPath, RemoteWorkerOptions options) {
       this.workPath = workPath;
@@ -335,8 +349,103 @@ public class RemoteWorker {
       return result;
     }
 
+    // Gets the uid of the current user. If uid could not be successfully fetched (e.g., on other
+    // platforms, if for some reason the timeout was not met, if "id -u" returned non-numeric
+    // number, etc), logs a WARNING and return -1.
+    // This is used to set "-u UID" flag for commands running inside Docker containers. There are
+    // only a small handful of cases where uid is vital (e.g., if strict permissions are set on the
+    // output files), so most use cases would work without setting uid.
+    private long getUid() {
+      Command cmd = new Command(new String[] {"id", "-u"});
+      try {
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        cmd.execute(
+            Command.NO_INPUT,
+            new TimeoutKillableObserver(Durations.toMicros(uidTimeout)),
+            stdout,
+            stderr);
+        return Long.parseLong(stdout.toString().trim());
+      } catch (CommandException | NumberFormatException e) {
+        LOG.warning("Could not get UID for passing to Docker container. Proceeding without it.");
+        LOG.warning("Error: " + e.toString());
+        return -1;
+      }
+    }
+
+    // Checks Action for docker container definition. If no docker container specified, returns
+    // null. Otherwise returns docker container name from the parameters.
+    private String dockerContainer(Action action) throws IllegalArgumentException {
+      String result = null;
+      List<Platform.Property> entries = action.getPlatform().getEntryList();
+
+      for (Platform.Property entry : entries) {
+        if (entry.getName().equals(CONTAINER_IMAGE_ENTRY_NAME)) {
+          if (result == null) {
+            result = entry.getValue();
+          } else {
+            // Multiple container name entries
+            throw new IllegalArgumentException(
+                "Multiple entries for " + CONTAINER_IMAGE_ENTRY_NAME + " in action.Platform");
+          }
+        }
+      }
+      return result;
+    }
+
+    // Takes an Action and parameters that can be used to create a Command. Returns the Command.
+    // If no docker container is specified inside Action, creates a Command straight from the
+    // arguments. Otherwise, returns a Command that would run the specified command inside the
+    // specified docker container.
+    private Command getCommand(
+        Action action,
+        String[] commandLineElements,
+        Map<String, String> environmentVariables,
+        String pathString)
+        throws IllegalArgumentException {
+      String container = dockerContainer(action);
+      if (container == null) {
+        // Was not asked to Dokerize.
+        return new Command(commandLineElements, environmentVariables, new File(pathString));
+      }
+
+      // Run command inside a docker container.
+      ArrayList<String> newCommandLineElements = new ArrayList<String>();
+      newCommandLineElements.add("docker");
+      newCommandLineElements.add("run");
+
+      long uid = getUid();
+      if (uid >= 0) {
+        newCommandLineElements.add("-u");
+        newCommandLineElements.add(Long.toString(uid));
+      }
+
+      final String dockerPathString = pathString + "-docker";
+      newCommandLineElements.add("-v");
+      newCommandLineElements.add(pathString + ":" + dockerPathString);
+      newCommandLineElements.add("-w");
+      newCommandLineElements.add(dockerPathString);
+
+      for (Map.Entry<String, String> entry : environmentVariables.entrySet()) {
+        String key = entry.getKey();
+        String value = entry.getValue();
+
+        newCommandLineElements.add("-e");
+        newCommandLineElements.add(key + "=" + value);
+      }
+
+      newCommandLineElements.add(container);
+
+      newCommandLineElements.addAll(Arrays.asList(commandLineElements));
+
+      return new Command(
+          newCommandLineElements.toArray(new String[newCommandLineElements.size()]),
+          null,
+          new File(pathString));
+    }
+
     public ExecuteReply execute(Action action, Path execRoot)
-        throws IOException, InterruptedException {
+        throws IOException, InterruptedException, IllegalArgumentException {
       ByteArrayOutputStream stdout = new ByteArrayOutputStream();
       ByteArrayOutputStream stderr = new ByteArrayOutputStream();
       try {
@@ -356,10 +465,11 @@ public class RemoteWorker {
 
         // TODO(olaola): time out after specified server-side deadline.
         Command cmd =
-            new Command(
+            getCommand(
+                action,
                 command.getArgvList().toArray(new String[] {}),
                 getEnvironmentVariables(command),
-                new File(execRoot.getPathString()));
+                execRoot.getPathString());
         cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdout, stderr, true);
 
         // Execute throws a CommandException on non-zero return values, so action has succeeded.
