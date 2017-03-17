@@ -16,7 +16,6 @@ package com.google.devtools.common.options;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +28,171 @@ import java.util.regex.PatternSyntaxException;
  * blaze.
  */
 public final class Converters {
+
+  /** Standard converter for booleans. Accepts common shorthands/synonyms. */
+  public static class BooleanConverter implements Converter<Boolean> {
+    @Override
+    public Boolean convert(String input) throws OptionsParsingException {
+      if (input == null) {
+        return false;
+      }
+      input = input.toLowerCase();
+      if (input.equals("true")
+          || input.equals("1")
+          || input.equals("yes")
+          || input.equals("t")
+          || input.equals("y")) {
+        return true;
+      }
+      if (input.equals("false")
+          || input.equals("0")
+          || input.equals("no")
+          || input.equals("f")
+          || input.equals("n")) {
+        return false;
+      }
+      throw new OptionsParsingException("'" + input + "' is not a boolean");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a boolean";
+    }
+  }
+
+  /** Standard converter for Strings. */
+  public static class StringConverter implements Converter<String> {
+    @Override
+    public String convert(String input) {
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a string";
+    }
+  }
+
+  /** Standard converter for integers. */
+  public static class IntegerConverter implements Converter<Integer> {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      try {
+        return Integer.decode(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
+  }
+
+  /** Standard converter for longs. */
+  public static class LongConverter implements Converter<Long> {
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      try {
+        return Long.decode(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not a long");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a long integer";
+    }
+  }
+
+  /** Standard converter for doubles. */
+  public static class DoubleConverter implements Converter<Double> {
+    @Override
+    public Double convert(String input) throws OptionsParsingException {
+      try {
+        return Double.parseDouble(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not a double");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a double";
+    }
+  }
+
+  /** Standard converter for TriState values. */
+  public static class TriStateConverter implements Converter<TriState> {
+    @Override
+    public TriState convert(String input) throws OptionsParsingException {
+      if (input == null) {
+        return TriState.AUTO;
+      }
+      input = input.toLowerCase();
+      if (input.equals("auto")) {
+        return TriState.AUTO;
+      }
+      if (input.equals("true")
+          || input.equals("1")
+          || input.equals("yes")
+          || input.equals("t")
+          || input.equals("y")) {
+        return TriState.YES;
+      }
+      if (input.equals("false")
+          || input.equals("0")
+          || input.equals("no")
+          || input.equals("f")
+          || input.equals("n")) {
+        return TriState.NO;
+      }
+      throw new OptionsParsingException("'" + input + "' is not a boolean");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a tri-state (auto, yes, no)";
+    }
+  }
+
+  /**
+   * Standard "converter" for Void. Should not actually be invoked. For instance, expansion flags
+   * are usually Void-typed and do not invoke the converter.
+   */
+  public static class VoidConverter implements Converter<Void> {
+    @Override
+    public Void convert(String input) throws OptionsParsingException {
+      if (input == null) {
+        return null; // expected input, return is unused so null is fine.
+      }
+      throw new OptionsParsingException("'" + input + "' unexpected");
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "";
+    }
+  }
+
+  /**
+   * The converters that are available to the options parser by default. These are used if the
+   * {@code @Option} annotation does not specify its own {@code converter}, and its type is one of
+   * the following.
+   */
+  static final Map<Class<?>, Converter<?>> DEFAULT_CONVERTERS = Maps.newHashMap();
+
+  static {
+    DEFAULT_CONVERTERS.put(String.class, new Converters.StringConverter());
+    DEFAULT_CONVERTERS.put(int.class, new Converters.IntegerConverter());
+    DEFAULT_CONVERTERS.put(long.class, new Converters.LongConverter());
+    DEFAULT_CONVERTERS.put(double.class, new Converters.DoubleConverter());
+    DEFAULT_CONVERTERS.put(boolean.class, new Converters.BooleanConverter());
+    DEFAULT_CONVERTERS.put(TriState.class, new Converters.TriStateConverter());
+    DEFAULT_CONVERTERS.put(Void.class, new Converters.VoidConverter());
+  }
 
   /**
    * Join a list of words as in English.  Examples:
@@ -92,7 +256,7 @@ public final class Converters {
 
   public static class LogLevelConverter implements Converter<Level> {
 
-    public static Level[] LEVELS = new Level[] {
+    public static final Level[] LEVELS = new Level[] {
       Level.OFF, Level.SEVERE, Level.WARNING, Level.INFO, Level.FINE,
       Level.FINER, Level.FINEST
     };
@@ -292,34 +456,6 @@ public final class Converters {
   public static class HelpVerbosityConverter extends EnumConverter<OptionsParser.HelpVerbosity> {
     public HelpVerbosityConverter() {
       super(OptionsParser.HelpVerbosity.class, "--help_verbosity setting");
-    }
-  }
-
-  /**
-   * A converter for boolean values. This is already one of the defaults, so clients
-   * should not typically need to add this.
-   */
-  public static class BooleanConverter implements Converter<Boolean> {
-    @Override
-    public Boolean convert(String input) throws OptionsParsingException {
-      if (input == null) {
-        return false;
-      }
-      input = input.toLowerCase();
-      if (input.equals("true") || input.equals("1") || input.equals("yes") ||
-          input.equals("t") || input.equals("y")) {
-        return true;
-      }
-      if (input.equals("false") || input.equals("0") || input.equals("no") ||
-          input.equals("f") || input.equals("n")) {
-        return false;
-      }
-      throw new OptionsParsingException("'" + input + "' is not a boolean");
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a boolean";
     }
   }
 

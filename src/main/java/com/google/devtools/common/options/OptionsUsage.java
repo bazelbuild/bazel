@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
-import static com.google.devtools.common.options.OptionsParserImpl.findConverter;
-
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.escape.Escaper;
-
 import java.lang.reflect.Field;
 import java.text.BreakIterator;
 import java.util.Collections;
@@ -138,8 +135,7 @@ class OptionsUsage {
     Option annotation = optionField.getAnnotation(Option.class);
     usage.append("<dt><code><a name=\"flag--").append(plainFlagName).append("\"></a>--");
     usage.append(flagName);
-    if (OptionsParserImpl.isBooleanField(optionField)
-        || OptionsParserImpl.isVoidField(optionField)) {
+    if (OptionsData.isBooleanField(optionField) || OptionsData.isVoidField(optionField)) {
       // Nothing for boolean, tristate, boolean_or_enum, or void options.
     } else if (!valueDescription.isEmpty()) {
       usage.append("=").append(escaper.escape(valueDescription));
@@ -157,7 +153,7 @@ class OptionsUsage {
     } else {
       // Don't call the annotation directly (we must allow overrides to certain defaults).
       String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
-      if (OptionsParserImpl.isVoidField(optionField)) {
+      if (OptionsData.isVoidField(optionField)) {
         // Void options don't have a default.
       } else if (OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)) {
         usage.append(" default: see description");
@@ -259,12 +255,12 @@ class OptionsUsage {
   };
 
   private static String getTypeDescription(Field optionsField) {
-    return findConverter(optionsField).getTypeDescription();
+    return OptionsData.findConverter(optionsField).getTypeDescription();
   }
 
   static String getFlagName(Field field) {
     String name = field.getAnnotation(Option.class).name();
-    return OptionsParserImpl.isBooleanField(field) ? "[no]" + name : name;
+    return OptionsData.isBooleanField(field) ? "[no]" + name : name;
   }
 
 }

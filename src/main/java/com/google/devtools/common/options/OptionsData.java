@@ -28,7 +28,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -66,7 +65,7 @@ final class OptionsData extends OpaqueOptionsData {
   /**
    * Mapping from each Option-annotated field to the proper converter.
    *
-   * @see OptionsParserImpl#findConverter
+   * @see #findConverter
    */
   private final Map<Field, Converter<?>> converters;
 
@@ -130,6 +129,73 @@ final class OptionsData extends OpaqueOptionsData {
     return allowMultiple.get(field);
   }
 
+  /**
+   * For an option that does not use {@link Option#allowMultiple}, returns its type. For an option
+   * that does use it, asserts that the type is a {@code List<T>} and returns its element type
+   * {@code T}.
+   */
+  private static Type getFieldSingularType(Field field, Option annotation) {
+    Type fieldType = field.getGenericType();
+    if (annotation.allowMultiple()) {
+      // If the type isn't a List<T>, this is an error in the option's declaration.
+      if (!(fieldType instanceof ParameterizedType)) {
+        throw new AssertionError("Type of multiple occurrence option must be a List<...>");
+      }
+      ParameterizedType pfieldType = (ParameterizedType) fieldType;
+      if (pfieldType.getRawType() != List.class) {
+        throw new AssertionError("Type of multiple occurrence option must be a List<...>");
+      }
+      fieldType = pfieldType.getActualTypeArguments()[0];
+    }
+    return fieldType;
+  }
+
+  /**
+   * Returns whether a field should be considered as boolean.
+   *
+   * <p>Can be used for usage help and controlling whether the "no" prefix is allowed.
+   */
+  static boolean isBooleanField(Field field) {
+    return field.getType().equals(boolean.class)
+        || field.getType().equals(TriState.class)
+        || findConverter(field) instanceof BoolOrEnumConverter;
+  }
+
+  /** Returns whether a field has Void type. */
+  static boolean isVoidField(Field field) {
+    return field.getType().equals(Void.class);
+  }
+
+  /**
+   * Given an {@code @Option}-annotated field, retrieves the {@link Converter} that will be used,
+   * taking into account the default converters if an explicit one is not specified.
+   */
+  static Converter<?> findConverter(Field optionField) {
+    Option annotation = optionField.getAnnotation(Option.class);
+    if (annotation.converter() == Converter.class) {
+      // No converter provided, use the default one.
+      Type type = getFieldSingularType(optionField, annotation);
+      Converter<?> converter = Converters.DEFAULT_CONVERTERS.get(type);
+      if (converter == null) {
+        throw new AssertionError(
+            "No converter found for "
+                + type
+                + "; possible fix: add "
+                + "converter=... to @Option annotation for "
+                + optionField.getName());
+      }
+      return converter;
+    }
+    try {
+      // Instantiate the given Converter class.
+      Class<?> converter = annotation.converter();
+      Constructor<?> constructor = converter.getConstructor(new Class<?>[0]);
+      return (Converter<?>) constructor.newInstance(new Object[0]);
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
   private static List<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
     List<Field> allFields = Lists.newArrayList();
     for (Field field : optionsClass.getFields()) {
@@ -144,7 +210,7 @@ final class OptionsData extends OpaqueOptionsData {
   }
 
   private static Object retrieveDefaultFromAnnotation(Field optionField) {
-    Converter<?> converter = OptionsParserImpl.findConverter(optionField);
+    Converter<?> converter = findConverter(optionField);
     String defaultValueAsString = OptionsParserImpl.getDefaultOptionString(optionField);
     // Special case for "null"
     if (OptionsParserImpl.isSpecialNullDefault(defaultValueAsString, optionField)) {
@@ -194,27 +260,13 @@ final class OptionsData extends OpaqueOptionsData {
       for (Field field : fields) {
         Option annotation = field.getAnnotation(Option.class);
 
-        // Check that the field type is a List, and that the converter
-        // type matches the element type of the list.
-        Type fieldType = field.getGenericType();
-        if (annotation.allowMultiple()) {
-          if (!(fieldType instanceof ParameterizedType)) {
-            throw new AssertionError("Type of multiple occurrence option must be a List<...>");
-          }
-          ParameterizedType pfieldType = (ParameterizedType) fieldType;
-          if (pfieldType.getRawType() != List.class) {
-            // Throw an assertion, because this indicates an undetected type
-            // error in the code.
-            throw new AssertionError("Type of multiple occurrence option must be a List<...>");
-          }
-          fieldType = pfieldType.getActualTypeArguments()[0];
-        }
+        Type fieldType = getFieldSingularType(field, annotation);
 
         // Get the converter return type.
         @SuppressWarnings("rawtypes")
         Class<? extends Converter> converter = annotation.converter();
         if (converter == Converter.class) {
-          Converter<?> actualConverter = OptionsParserImpl.DEFAULT_CONVERTERS.get(fieldType);
+          Converter<?> actualConverter = Converters.DEFAULT_CONVERTERS.get(fieldType);
           if (actualConverter == null) {
             throw new AssertionError("Cannot find converter for field of type "
                 + field.getType() + " named " + field.getName()
@@ -282,7 +334,7 @@ final class OptionsData extends OpaqueOptionsData {
 
         optionDefaultsBuilder.put(field, retrieveDefaultFromAnnotation(field));
 
-        convertersBuilder.put(field, OptionsParserImpl.findConverter(field));
+        convertersBuilder.put(field, findConverter(field));
 
         allowMultipleBuilder.put(field, annotation.allowMultiple());
       }
