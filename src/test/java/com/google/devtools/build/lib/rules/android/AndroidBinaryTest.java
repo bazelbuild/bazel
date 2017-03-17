@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -877,9 +878,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     SpawnAction proguardAction = (SpawnAction) actionsTestUtil().getActionForArtifactEndingWith(
         getFilesToBuild(output), "_proguard.jar");
+    Artifact jkrunchyExecutable =
+        getHostConfiguredTarget("//java/com/google/devtools/build/jkrunchy")
+            .getProvider(FilesToRunProvider.class)
+            .getExecutable();
     assertEquals("ProGuard implementation was not correctly taken from the configuration",
-        getHostConfiguration().getBinDirectory(RepositoryName.MAIN).getExecPath()
-            .getRelative("java/com/google/devtools/build/jkrunchy/jkrunchy").toString(),
+        jkrunchyExecutable.getExecPathString(),
         proguardAction.getCommandFilename());
   }
 
