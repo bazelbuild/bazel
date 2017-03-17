@@ -208,4 +208,16 @@ function test_cache_computed_file_digests_ui() {
       "Digests cache not reenabled"
 }
 
+function test_jobs_default_auto() {
+  mkdir -p package || fail "mkdir failed"
+  echo "cc_library(name = 'foo', srcs = ['foo.cc'])" >package/BUILD
+  echo "int foo(void) { return 0; }" >package/foo.cc
+
+  local java_log="$(bazel info output_base 2>/dev/null)/java.log"
+
+  bazel build package:foo >>"${TEST_log}" 2>&1 || fail "Should build"
+  assert_last_log "BuildRequest" 'Flag "jobs" was set to "auto"' "${java_log}" \
+      "--jobs was not set to auto by default"
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using the execution phase."

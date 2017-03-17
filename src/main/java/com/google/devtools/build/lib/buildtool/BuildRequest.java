@@ -13,12 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -36,11 +38,13 @@ import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -50,6 +54,8 @@ import java.util.regex.Pattern;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsClassProvider {
+  private static final Logger log = Logger.getLogger(BuildRequest.class.getName());
+
   /**
    * Options interface--can be used to parse command-line arguments.
    *
@@ -60,14 +66,21 @@ public class BuildRequest implements OptionsClassProvider {
 
     /* "Execution": options related to the execution of a build: */
 
-    @Option(name = "jobs",
-            abbrev = 'j',
-            defaultValue = "200",
-            category = "strategy",
-            help = "The number of concurrent jobs to run. "
-                + "0 means build sequentially. Values above " + MAX_JOBS
-                + " are not allowed, and values above "
-                + JOBS_TOO_HIGH_WARNING + " may cause memory issues.")
+    @Option(
+      name = "jobs",
+      abbrev = 'j',
+      defaultValue = "auto",
+      category = "strategy",
+      converter = JobsConverter.class,
+      help =
+          "The number of concurrent jobs to run. 0 means build sequentially."
+              + " \"auto\" means to use a reasonable value derived from the machine's hardware"
+              + " profile (e.g. the number of processors). Values above "
+              + MAX_JOBS
+              + " are not allowed, and values above "
+              + JOBS_TOO_HIGH_WARNING
+              + " may cause memory issues."
+    )
     public int jobs;
 
     @Option(name = "progress_report_interval",
@@ -274,6 +287,38 @@ public class BuildRequest implements OptionsClassProvider {
     public boolean useActionCache;
   }
 
+  /** Converter for jobs: [0, MAX_JOBS] or "auto". */
+  public static class JobsConverter extends RangeConverter {
+    public JobsConverter() {
+      super(0, MAX_JOBS);
+    }
+
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if (input.equals("auto")) {
+        int jobs = (int) Math.ceil(LocalHostCapacity.getLocalHostCapacity().getCpuUsage());
+        if (jobs > MAX_JOBS) {
+          log.warning(
+              "Detected "
+                  + jobs
+                  + " processors, which exceed the maximum allowed number of jobs of "
+                  + MAX_JOBS
+                  + "; something seems wrong");
+          jobs = MAX_JOBS;
+        }
+        log.info("Flag \"jobs\" was set to \"auto\"; using " + jobs + " jobs");
+        return jobs;
+      } else {
+        return super.convert(input);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "\"auto\" or " + super.getTypeDescription();
+    }
+  }
+
   /**
    * Converter for progress_report_interval: [0, 3600].
    */
@@ -283,7 +328,7 @@ public class BuildRequest implements OptionsClassProvider {
     }
   }
 
-  private static final int MAX_JOBS = 2000;
+  @VisibleForTesting public static final int MAX_JOBS = 2000;
   private static final int JOBS_TOO_HIGH_WARNING = 1000;
 
   private final UUID id;
@@ -473,13 +518,6 @@ public class BuildRequest implements OptionsClassProvider {
    */
   public List<String> validateOptions() throws InvalidConfigurationException {
     List<String> warnings = new ArrayList<>();
-    // Validate "jobs".
-    int jobs = getBuildOptions().jobs;
-    if (jobs < 0 || jobs > MAX_JOBS) {
-      throw new InvalidConfigurationException(String.format(
-          "Invalid parameter for --jobs: %d. Only values 0 <= jobs <= %d are allowed.", jobs,
-          MAX_JOBS));
-    }
 
     int localTestJobs = getExecutionOptions().localTestJobs;
     if (localTestJobs < 0) {
@@ -487,6 +525,7 @@ public class BuildRequest implements OptionsClassProvider {
           "Invalid parameter for --local_test_jobs: %d. Only values 0 or greater are "
               + "allowed.", localTestJobs));
     }
+    int jobs = getBuildOptions().jobs;
     if (localTestJobs > jobs) {
       warnings.add(
           String.format("High value for --local_test_jobs: %d. This exceeds the value for --jobs: "
