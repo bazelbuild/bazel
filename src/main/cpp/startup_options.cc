@@ -347,9 +347,19 @@ string StartupOptions::GetDefaultHostJavabase() const {
 }
 
 string StartupOptions::GetHostJavabase() {
+  // 1) Allow overriding the host_javabase via --host_javabase.
   if (host_javabase.empty()) {
     if (default_host_javabase.empty()) {
-      default_host_javabase = GetDefaultHostJavabase();
+      string bundled_jre_path = blaze_util::JoinPath(
+          install_base, "_embedded_binaries/embedded_tools/jdk");
+      if (blaze_util::CanExecuteFile(blaze_util::JoinPath(
+              bundled_jre_path, GetJavaBinaryUnderJavabase()))) {
+        // 2) Use a bundled JVM if we have one.
+        default_host_javabase = bundled_jre_path;
+      } else {
+        // 3) Otherwise fall back to using the default system JVM.
+        default_host_javabase = GetDefaultHostJavabase();
+      }
     }
 
     return default_host_javabase;

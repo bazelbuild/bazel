@@ -217,6 +217,13 @@ _Notice_: Bazel installers contain binaries licensed under the GPLv2 with
 Classpath exception. Those installers should always be redistributed along with
 the source code.
 
+Some versions of Bazel contain a bundled version of OpenJDK. The license of the
+bundled OpenJDK and other open-source components can be displayed by running
+the command `bazel license`. The vendor and version information of the bundled
+OpenJDK can be displayed by running the command `bazel info java-runtime`.
+The binaries and source-code of the bundled OpenJDK can be
+[downloaded from our mirror server](https://bazel-mirror.storage.googleapis.com/openjdk/index.html).
+
 _Security_: All our binaries are signed with our
 [public key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 "

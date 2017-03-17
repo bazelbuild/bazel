@@ -391,6 +391,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_with_jdk_test",
+    size = "medium",
+    srcs = ["bazel_with_jdk_test.sh"],
+    data = [
+        ":test-deps",
+        "//src:bazel_with_jdk",
+    ],
+)
+
+sh_test(
     name = "build_files_test",
     size = "medium",
     srcs = ["build_files_test.sh"],

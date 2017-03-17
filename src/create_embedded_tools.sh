@@ -63,6 +63,8 @@ for i in $*; do
     *xcode*xcode-locator) OUTPUT_PATH=tools/objc/xcode-locator ;;
     *src/tools/xcode/*.sh) OUTPUT_PATH=tools/objc/${i##*/} ;;
     *src/tools/xcode/*) OUTPUT_PATH=tools/objc/${i##*/}.sh ;;
+    *external/openjdk_*/file/*.tar.gz) OUTPUT_PATH=jdk.tar.gz ;;
+    *external/openjdk_*/file/*.zip) OUTPUT_PATH=jdk.zip ;;
     *) OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__') ;;
   esac
 
@@ -70,6 +72,18 @@ for i in $*; do
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
   chmod u+w "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
+
+if [ -f ${PACKAGE_DIR}/jdk.tar.gz ]; then
+  tar xz -C ${PACKAGE_DIR} -f ${PACKAGE_DIR}/jdk.tar.gz
+  rm ${PACKAGE_DIR}/jdk.tar.gz
+  mv ${PACKAGE_DIR}/zulu* ${PACKAGE_DIR}/jdk
+fi
+
+if [ -f ${PACKAGE_DIR}/jdk.zip ]; then
+  unzip -d ${PACKAGE_DIR} ${PACKAGE_DIR}/jdk.zip > /dev/null
+  rm ${PACKAGE_DIR}/jdk.zip
+  mv ${PACKAGE_DIR}/zulu* ${PACKAGE_DIR}/jdk
+fi
 
 if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac-9-dev-r3297-4.jar ]; then
   cp ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac7.jar \

@@ -40,6 +40,7 @@ filegroup(
     }),
 ) for suffix, embedded_tools in {
     "": [":embedded_tools"],
+    "_with_jdk": [":embedded_tools_with_jdk"],
     "_notools": [],
 }.items()]
 
@@ -127,8 +128,8 @@ filegroup(
     ],
 )
 
-genrule(
-    name = "embedded_tools",
+[genrule(
+    name = "embedded_tools" + suffix,
     srcs = [
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
@@ -171,14 +172,33 @@ genrule(
         "//conditions:default": [
             "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_deploy.jar",
         ],
-    }),
-    outs = ["embedded_tools.zip"],
+    }) + (select({
+        ":darwin": [
+            "@openjdk_macos//file",
+        ],
+        ":darwin_x86_64": [
+            "@openjdk_macos//file",
+        ],
+        ":windows": [
+            "@openjdk_win//file",
+        ],
+        ":windows_msvc": [
+            "@openjdk_win//file",
+        ],
+        "//conditions:default": [
+            "@openjdk_linux//file",
+        ],
+    }) if (suffix == "_with_jdk") else []),
+    outs = ["embedded_tools" + suffix + ".zip"],
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
-)
+) for suffix in [
+    "",
+    "_with_jdk",
+]]
 
 [genrule(
     name = "package-zip" + suffix,
-    srcs = ([":embedded_tools.zip"] if embed else []) + [
+    srcs = ([":embedded_tools" + suffix + ".zip"] if embed else []) + [
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
@@ -199,6 +219,7 @@ genrule(
 ) for suffix, embed in [
     ("", True),
     ("_notools", False),
+    ("_with_jdk", True),
 ]]
 
 [genrule(
@@ -223,6 +244,7 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
+    "_with_jdk",
 ]]
 
 # Build an executable named `bazel.exe`.
@@ -243,6 +265,7 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
+    "_with_jdk",
 ]]
 
 config_setting(
