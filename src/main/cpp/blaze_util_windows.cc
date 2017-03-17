@@ -1122,19 +1122,6 @@ void SetupStdStreams() {
       // with bizarre things like stdout going to the lock file, etc.
       _open("NUL", (i == 0) ? _O_RDONLY : _O_WRONLY);
     }
-    DWORD mode = 0;
-    if (i > 0 && handle != INVALID_HANDLE_VALUE && handle != NULL &&
-        ::GetConsoleMode(handle, &mode)) {
-      DWORD newmode = mode | ENABLE_PROCESSED_OUTPUT |
-                      ENABLE_WRAP_AT_EOL_OUTPUT |
-                      ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-      if (mode != newmode) {
-        // We don't care about the success of this. Worst that can happen if
-        // this method fails is that the console won't understand control
-        // characters like color change or carriage return.
-        ::SetConsoleMode(handle, newmode);
-      }
-    }
   }
 #else  // not COMPILER_MSVC
   // Set non-buffered output mode for stderr/stdout. The server already
@@ -1326,18 +1313,9 @@ bool IsEmacsTerminal() {
 // environment variables).
 bool IsStandardTerminal() {
 #ifdef COMPILER_MSVC
-  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
-    DWORD mode = 0;
-    HANDLE handle = ::GetStdHandle(i);
-    // handle may be invalid when std{out,err} is redirected
-    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
-        !(mode & ENABLE_PROCESSED_OUTPUT) ||
-        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
-        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
-      return false;
-    }
-  }
-  return true;
+  // TODO(bazel-team): Implement this method properly. We may return true if
+  // stdout and stderr are not redirected.
+  return false;
 #else  // not COMPILER_MSVC
   string term = GetEnv("TERM");
   if (term.empty() || term == "dumb" || term == "emacs" ||
