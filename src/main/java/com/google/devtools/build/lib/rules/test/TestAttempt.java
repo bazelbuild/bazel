@@ -30,6 +30,7 @@ public class TestAttempt implements BuildEvent {
 
   private final TestRunnerAction testAction;
   private final boolean success;
+  private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
   private final Collection<Pair<String, Path>> files;
@@ -38,10 +39,12 @@ public class TestAttempt implements BuildEvent {
   /**
    * Construct the event given the test action and attempt number.
    *
+   * @param cachedLocally True if the reported attempt is taken from the tool's local cache.
    * @param testAction The test that was run.
    * @param attempt The number of the attempt for this action.
    */
   public TestAttempt(
+      boolean cachedLocally,
       TestRunnerAction testAction,
       Integer attempt,
       boolean success,
@@ -51,9 +54,20 @@ public class TestAttempt implements BuildEvent {
     this.testAction = testAction;
     this.attempt = attempt;
     this.success = success;
+    this.cachedLocally = cachedLocally;
     this.durationMillis = durationMillis;
     this.files = files;
     this.lastAttempt = lastAttempt;
+  }
+
+  public TestAttempt(
+      TestRunnerAction testAction,
+      Integer attempt,
+      boolean success,
+      long durationMillis,
+      Collection<Pair<String, Path>> files,
+      boolean lastAttempt) {
+    this(false, testAction, attempt, success, durationMillis, files, lastAttempt);
   }
 
   public TestAttempt(
@@ -76,8 +90,13 @@ public class TestAttempt implements BuildEvent {
   public static TestAttempt fromCachedTestResult(TestResult result) {
     TestResultData data = result.getData();
     return new TestAttempt(
-        result.getTestAction(), 1, data.getTestPassed(), data.getRunDurationMillis(),
-        result.getFiles(), true);
+        true,
+        result.getTestAction(),
+        1,
+        data.getTestPassed(),
+        data.getRunDurationMillis(),
+        result.getFiles(),
+        true);
   }
 
   @Override
@@ -108,6 +127,7 @@ public class TestAttempt implements BuildEvent {
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setSuccess(success);
+    builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptDurationMillis(durationMillis);
     for (Pair<String, Path> file : files) {
       builder.addTestActionOutput(

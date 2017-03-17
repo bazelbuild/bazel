@@ -217,12 +217,14 @@ function test_cached_test_results() {
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
   expect_log_once '^progress '
+  expect_not_log 'cached_locally'
   expect_not_log 'aborted'
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "Second testing of pkg:true failed"
   expect_log '^test_result'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
+  expect_log 'cached_locally'
   expect_log_once '^progress '
   expect_not_log 'aborted'
 }
