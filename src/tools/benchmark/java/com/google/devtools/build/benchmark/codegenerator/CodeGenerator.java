@@ -15,6 +15,7 @@
 package com.google.devtools.build.benchmark.codegenerator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,45 +38,47 @@ public abstract class CodeGenerator {
   @VisibleForTesting static final String TARGET_PARALLEL_DEPS = "ParallelDeps";
   @VisibleForTesting static final int SIZE_PARALLEL_DEPS = 20;
 
-  public void generateNewProject(
-      String outputDir,
-      boolean aFewFiles,
-      boolean manyFiles,
-      boolean longChainedDeps,
-      boolean parallelDeps) {
+  public void generateNewProject(String outputDir, ImmutableSet<String> projectNames) {
     Path dir = Paths.get(outputDir);
-    if (aFewFiles) {
-      createTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES), SIZE_A_FEW_FILES);
-    }
-    if (manyFiles) {
-      createTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES), SIZE_MANY_FILES);
-    }
-    if (longChainedDeps) {
-      createTargetWithLongChainedDeps(dir.resolve(TARGET_LONG_CHAINED_DEPS));
-    }
-    if (parallelDeps) {
-      createTargetWithParallelDeps(dir.resolve(TARGET_PARALLEL_DEPS));
+    for (String projectName : projectNames) {
+      switch (projectName) {
+        case TARGET_A_FEW_FILES:
+          createTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES), SIZE_A_FEW_FILES);
+          break;
+        case TARGET_MANY_FILES:
+          createTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES), SIZE_MANY_FILES);
+          break;
+        case TARGET_LONG_CHAINED_DEPS:
+          createTargetWithLongChainedDeps(dir.resolve(TARGET_LONG_CHAINED_DEPS));
+          break;
+        case TARGET_PARALLEL_DEPS:
+          createTargetWithParallelDeps(dir.resolve(TARGET_PARALLEL_DEPS));
+          break;
+        default:
+          // Do nothing
+      }
     }
   }
 
-  public void modifyExistingProject(
-      String outputDir,
-      boolean aFewFiles,
-      boolean manyFiles,
-      boolean longChainedDeps,
-      boolean parallelDeps) {
+  public void modifyExistingProject(String outputDir, ImmutableSet<String> projectNames) {
     Path dir = Paths.get(outputDir);
-    if (aFewFiles) {
-      modifyTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES));
-    }
-    if (manyFiles) {
-      modifyTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES));
-    }
-    if (longChainedDeps) {
-      modifyTargetWithLongChainedDeps(dir.resolve(TARGET_LONG_CHAINED_DEPS));
-    }
-    if (parallelDeps) {
-      modifyTargetWithParallelDeps(dir.resolve(TARGET_PARALLEL_DEPS));
+    for (String projectName : projectNames) {
+      switch (projectName) {
+        case TARGET_A_FEW_FILES:
+          modifyTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES));
+          break;
+        case TARGET_MANY_FILES:
+          modifyTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES));
+          break;
+        case TARGET_LONG_CHAINED_DEPS:
+          modifyTargetWithLongChainedDeps(dir.resolve(TARGET_LONG_CHAINED_DEPS));
+          break;
+        case TARGET_PARALLEL_DEPS:
+          modifyTargetWithParallelDeps(dir.resolve(TARGET_PARALLEL_DEPS));
+          break;
+        default:
+          // Do nothing
+      }
     }
   }
 

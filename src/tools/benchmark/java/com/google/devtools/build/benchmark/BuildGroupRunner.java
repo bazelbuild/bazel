@@ -15,6 +15,7 @@
 package com.google.devtools.build.benchmark;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.benchmark.codegenerator.JavaCodeGenerator;
 import com.google.devtools.build.lib.shell.CommandException;
 import java.io.IOException;
@@ -109,7 +110,9 @@ class BuildGroupRunner {
     if (!lastIsIncremental && envConfig.getIncremental()) {
       JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
       javaCodeGenerator.modifyExistingProject(
-          workspace.resolve(GENERATED_CODE_DIR).toString(), true, true, true, true);
+          workspace.resolve(GENERATED_CODE_DIR).toString(), ImmutableSet.<String>of(
+              "AFewFiles", "ManyFiles", "LongChainedDeps", "ParallelDeps"));
+      // The above line is just for refactor purpose. This will be changed later.
     }
     lastIsIncremental = envConfig.getIncremental();
 

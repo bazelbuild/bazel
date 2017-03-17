@@ -37,7 +37,13 @@ public class CppCodeGeneratorTest {
   public void testGenerateNewProject() throws IOException {
     File createdFolder = folder.newFolder("GenerateNewProject");
     Path dir = createdFolder.toPath();
-    (new CppCodeGenerator()).generateNewProject(dir.toString(), true, true, true, true);
+    CppCodeGenerator cppCodeGenerator = new CppCodeGenerator();
+    cppCodeGenerator.generateNewProject(dir.toString(), ImmutableSet.of(
+        CppCodeGenerator.TARGET_A_FEW_FILES,
+        CppCodeGenerator.TARGET_LONG_CHAINED_DEPS,
+        CppCodeGenerator.TARGET_MANY_FILES,
+        CppCodeGenerator.TARGET_PARALLEL_DEPS
+    ));
 
     // Check dir contains 4 project directories
     File[] filesList = dir.toFile().listFiles();

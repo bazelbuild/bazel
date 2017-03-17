@@ -16,6 +16,8 @@ package com.google.devtools.build.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.benchmark.codegenerator.CodeGenerator;
 import com.google.devtools.build.benchmark.codegenerator.JavaCodeGenerator;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -33,13 +35,11 @@ final class BazelBuildCase implements BuildCase {
           "ManyFiles", "Target: Many Files",
           "LongChainedDeps", "Target: Long Chained Deps",
           "ParallelDeps", "Target: Parallel Deps");
+  private static final ImmutableSet<String> ALL_TARGET_NAMES = ImmutableSet.<String>of(
+      "AFewFiles", "ManyFiles", "LongChainedDeps", "ParallelDeps");
   private static final String WORKSPACE_FILE_NAME = "WORKSPACE";
   private static final ImmutableList<BuildTargetConfig> defaultBuildTargetConfigs =
       getDefaultBuildTargetConfigs();
-  private static final boolean INCLUDE_TARGET_A_FEW_FILES = true;
-  private static final boolean INCLUDE_TARGET_MANY_FILES = true;
-  private static final boolean INCLUDE_TARGET_LONG_CHAINED_DEPS = true;
-  private static final boolean INCLUDE_TARGET_PARALLEL_DEPS = true;
 
   private static final BuildEnvConfig FULL_CLEAN_BUILD_CONFIG =
       BuildEnvConfig.newBuilder()
@@ -85,13 +85,8 @@ final class BazelBuildCase implements BuildCase {
   public void prepareGeneratedCode(Path copyDir, Path generatedCodePath) throws IOException {
     // Prepare generated code for copy
     if (!copyDir.toFile().exists()) {
-      JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
-      javaCodeGenerator.generateNewProject(
-          copyDir.toString(),
-          INCLUDE_TARGET_A_FEW_FILES,
-          INCLUDE_TARGET_MANY_FILES,
-          INCLUDE_TARGET_LONG_CHAINED_DEPS,
-          INCLUDE_TARGET_PARALLEL_DEPS);
+      CodeGenerator codeGenerator = new JavaCodeGenerator();
+      codeGenerator.generateNewProject(copyDir.toString(), ALL_TARGET_NAMES);
     }
 
     // Clean generated code path

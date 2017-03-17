@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.benchmark.codegenerator;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.common.options.OptionsParsingException;
@@ -33,7 +33,7 @@ public class MainTest {
       Main.parseArgs(new String[]{});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertEquals("--output_dir should not be empty.", e.getMessage());
+      assertThat(e).hasMessage("--output_dir should not be empty.");
     }
   }
 
@@ -43,8 +43,7 @@ public class MainTest {
       Main.parseArgs(new String[]{"--modify=mango"});
       fail("Should throw OptionsParsingException");
     } catch (OptionsParsingException e) {
-      assertEquals(
-          "While parsing option --modify=mango: 'mango' is not a boolean", e.getMessage());
+      assertThat(e).hasMessage("While parsing option --modify=mango: 'mango' is not a boolean");
     }
   }
 
@@ -54,7 +53,7 @@ public class MainTest {
       Main.parseArgs(new String[]{"--modify"});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertEquals("--output_dir should not be empty.", e.getMessage());
+      assertThat(e).hasMessage("--output_dir should not be empty.");
     }
   }
 
@@ -64,7 +63,7 @@ public class MainTest {
       Main.parseArgs(new String[]{"--modify", "--output_dir=mango"});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertEquals("--output_dir (mango) does not contain code for modification.", e.getMessage());
+      assertThat(e).hasMessage("--output_dir (mango) does not contain code for modification.");
     }
   }
 
@@ -74,19 +73,20 @@ public class MainTest {
       Main.parseArgs(new String[]{"--output_dir=mango"});
       fail("Should throw IllegalArgumentException");
     } catch (IllegalArgumentException e) {
-      assertEquals("No type of package is specified.", e.getMessage());
+      assertThat(e).hasMessage("No type of package is specified.");
     }
   }
 
   @Test
   public void testParseArgsCorrect() throws OptionsParsingException, IOException {
     GeneratorOptions opt = Main.parseArgs(
-        new String[]{"--modify=false", "--output_dir=mango", "--a_few_files", "--parallel_deps"});
-    assertEquals(opt.modificationMode, false);
-    assertEquals(opt.outputDir, "mango");
-    assertEquals(opt.aFewFiles, true);
-    assertEquals(opt.manyFiles, false);
-    assertEquals(opt.longChainedDeps, false);
-    assertEquals(opt.parallelDeps, true);
+        new String[]{
+            "--modify=false",
+            "--output_dir=mango",
+            "--project_name=AFewFiles",
+            "--project_name=ParallelDeps"});
+    assertThat(opt.modificationMode).isFalse();
+    assertThat(opt.outputDir).isEqualTo("mango");
+    assertThat(opt.projectNames).containsExactly("AFewFiles", "ParallelDeps");
   }
 }

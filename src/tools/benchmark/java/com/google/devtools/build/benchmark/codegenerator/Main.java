@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.benchmark.codegenerator;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.File;
@@ -22,6 +23,12 @@ import java.util.logging.Logger;
 
 /** Main class for generating code. */
 public class Main {
+
+  private static final ImmutableSet<String> allowedProjectNames = ImmutableSet.of(
+      CodeGenerator.TARGET_A_FEW_FILES,
+      CodeGenerator.TARGET_MANY_FILES,
+      CodeGenerator.TARGET_LONG_CHAINED_DEPS,
+      CodeGenerator.TARGET_PARALLEL_DEPS);
 
   private static final Logger logger = Logger.getLogger(Main.class.getName());
 
@@ -38,15 +45,7 @@ public class Main {
 
     // Generate or modify Java code
     CodeGenerator codeGenerator = new JavaCodeGenerator();
-    if (opt.modificationMode) {
-      codeGenerator.modifyExistingProject(
-          opt.outputDir + codeGenerator.getDirSuffix(),
-          opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
-    } else {
-      codeGenerator.generateNewProject(
-          opt.outputDir + codeGenerator.getDirSuffix(),
-          opt.aFewFiles, opt.manyFiles, opt.longChainedDeps, opt.parallelDeps);
-    }
+    generateOrModifyProject(opt, codeGenerator);
   }
 
   public static GeneratorOptions parseArgs(String[] args) throws OptionsParsingException {
@@ -64,11 +63,26 @@ public class Main {
       }
     }
     // Check at least one type of package will be generated
-    if (!(opt.aFewFiles || opt.manyFiles || opt.longChainedDeps || opt.parallelDeps)) {
+    if (opt.projectNames.isEmpty()) {
       System.err.println(Options.getUsage(GeneratorOptions.class));
       throw new IllegalArgumentException("No type of package is specified.");
     }
+    for (String projectName : opt.projectNames) {
+      if (!allowedProjectNames.contains(projectName)) {
+        throw new IllegalArgumentException("Project name " + projectName + " is not allowed.");
+      }
+    }
 
     return opt;
+  }
+
+  private static void generateOrModifyProject(GeneratorOptions opt, CodeGenerator codeGenerator) {
+    if (opt.modificationMode) {
+      codeGenerator.modifyExistingProject(
+          opt.outputDir, ImmutableSet.copyOf(opt.projectNames));
+    } else {
+      codeGenerator.generateNewProject(
+          opt.outputDir, ImmutableSet.copyOf(opt.projectNames));
+    }
   }
 }

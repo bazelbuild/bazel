@@ -39,7 +39,11 @@ public class JavaCodeGeneratorTest {
     File createdFolder = folder.newFolder("GenerateNewProject");
     Path dir = createdFolder.toPath();
     JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
-    javaCodeGenerator.generateNewProject(dir.toString(), true, true, true, true);
+    javaCodeGenerator.generateNewProject(dir.toString(), ImmutableSet.of(
+        JavaCodeGenerator.TARGET_A_FEW_FILES,
+        JavaCodeGenerator.TARGET_LONG_CHAINED_DEPS,
+        JavaCodeGenerator.TARGET_MANY_FILES,
+        JavaCodeGenerator.TARGET_PARALLEL_DEPS));
 
     // Check dir contains 4 project directories
     File[] filesList = dir.toFile().listFiles();

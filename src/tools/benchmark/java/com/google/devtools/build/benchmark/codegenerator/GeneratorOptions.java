@@ -17,6 +17,8 @@ package com.google.devtools.build.benchmark.codegenerator;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
+import java.util.List;
+
 /** Class that contains arguments for the java files generator. */
 public class GeneratorOptions extends OptionsBase {
 
@@ -38,34 +40,12 @@ public class GeneratorOptions extends OptionsBase {
   public String outputDir;
 
   @Option(
-    name = "a_few_files",
-    defaultValue = "false",
-    category = "generator",
-    help = "if we generate a package with a few files."
+      name = "project_name",
+      defaultValue = "",
+      category = "generator",
+      allowMultiple = true,
+      help = "which project we should generate,"
+          + " available: AFewFiles, ManyFiles, LongChainedDeps, ParallelDeps"
   )
-  public boolean aFewFiles;
-
-  @Option(
-    name = "many_files",
-    defaultValue = "false",
-    category = "generator",
-    help = "if we generate a package with many files."
-  )
-  public boolean manyFiles;
-
-  @Option(
-    name = "long_chained_deps",
-    defaultValue = "false",
-    category = "generator",
-    help = "if we generate a package with long chained dependencies."
-  )
-  public boolean longChainedDeps;
-
-  @Option(
-    name = "parallel_deps",
-    defaultValue = "false",
-    category = "generator",
-    help = "if we generate a package with parallel dependencies."
-  )
-  public boolean parallelDeps;
+  public List<String> projectNames;
 }
