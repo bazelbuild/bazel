@@ -1,0 +1,15 @@
+FROM centos:centos6
+
+RUN yum -y upgrade
+
+RUN yum -y install \
+    java-1.8.0-openjdk-devel java-1.8.0-openjdk\
+    wget which findutils tar gzip \
+    zip unzip git clang zlib-devel 
+    
+
+RUN yum -y install centos-release-scl-rh
+RUN yum -y install devtoolset-3-gcc devtoolset-3-gcc-c++ devtoolset-3-binutils
+
+ENV JAVA_HOME /usr/lib/jvm/java-1.8.0
+ENV CC /opt/rh/devtoolset-3/root/usr/bin/gcc
