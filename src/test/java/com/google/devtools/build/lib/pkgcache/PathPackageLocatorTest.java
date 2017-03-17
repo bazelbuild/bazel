@@ -27,16 +27,15 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test package-path logic.
@@ -222,7 +221,12 @@ public class PathPackageLocatorTest extends FoundationTestCase {
       locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/D"));
       fail();
     } catch (BuildFileNotFoundException e) {
-      assertThat(e).hasMessage("no such package 'C/D': BUILD file not found on package path");
+      String message = e.getMessage();
+      assertThat(message)
+          .containsMatch(
+              Pattern.compile(
+                  "no such package 'C/D': BUILD file not found on package path",
+                  Pattern.CASE_INSENSITIVE));
     }
   }
 
