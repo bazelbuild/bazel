@@ -260,6 +260,26 @@ public class LabelTest {
   }
 
   @Test
+  public void testToShorthandString() throws Exception {
+    {
+      Label l = Label.parseAbsolute("//bar/baz:baz");
+      assertThat(l.toShorthandString()).isEqualTo("//bar/baz");
+    }
+    {
+      Label l = Label.parseAbsolute("//bar/baz:bat");
+      assertThat(l.toShorthandString()).isEqualTo("//bar/baz:bat");
+    }
+    {
+      Label l = Label.parseAbsolute("@foo//bar/baz:baz");
+      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz");
+    }
+    {
+      Label l = Label.parseAbsolute("@foo//bar/baz:bat");
+      assertThat(l.toShorthandString()).isEqualTo("@foo//bar/baz:bat");
+    }
+  }
+
+  @Test
   public void testDotDot() throws Exception {
     Label.parseAbsolute("//foo/bar:baz..gif");
   }
