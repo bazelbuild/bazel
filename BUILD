@@ -1,5 +1,7 @@
 package(default_visibility = ["//scripts/release:__pkg__"])
 
+exports_files(["LICENSE"])
+
 filegroup(
     name = "git",
     srcs = glob([".git/**"]),

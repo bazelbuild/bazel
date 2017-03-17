@@ -1089,12 +1089,25 @@ java_library(
     ],
 )
 
+genrule(
+    name = "merge_licenses",
+    srcs = [
+        "//:LICENSE",
+        "//third_party:srcs",
+    ],
+    outs = ["runtime/commands/LICENSE"],
+    cmd = "$(location merge_licenses.sh) $(SRCS) > \"$@\"",
+    tools = ["merge_licenses.sh"],
+)
+
 java_library(
     name = "bazel",
     resources = glob([
         "runtime/commands/*.txt",
         "runtime/mobileinstall/*.txt",
-    ]),
+    ]) + [
+        ":runtime/commands/LICENSE",
+    ],
     exports = [":runtime"],
 )
 
