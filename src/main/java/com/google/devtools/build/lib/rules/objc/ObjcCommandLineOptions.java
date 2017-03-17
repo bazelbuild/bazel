@@ -216,7 +216,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "deprecated_generate_xcode_project",
-      defaultValue = "true",
+      defaultValue = "false",
       category = "flags",
       help =
           "If set, will generate xcode project for targets that support this. Will be removed soon."

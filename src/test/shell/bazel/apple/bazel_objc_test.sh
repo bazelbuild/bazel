@@ -107,7 +107,6 @@ function test_build_app() {
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
@@ -117,8 +116,6 @@ function test_ios_test() {
 
   bazel build --test_output=all --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:PassingXcTest >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/PassingXcTest.xcodeproj \
-      || fail "should generate PassingXcTest.xcodeproj"
   ls bazel-bin/ios/PassingXcTest.ipa \
       || fail "should generate PassingXcTest.ipa"
 }
@@ -129,7 +126,6 @@ function test_valid_ios_sdk_version() {
 
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
@@ -145,7 +141,6 @@ function test_xcrun_cache() {
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
   bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
       //ios:app >$TEST_log 2>&1 || fail "should pass"
-  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
   ls bazel-out/__xcruncache || fail "xcrun cache should be present"
 
