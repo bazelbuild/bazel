@@ -26,13 +26,19 @@ else
   readonly MAGIC_TIMESTAMP="$(date --date=@0 "+%F %R")"
 fi
 
+function CONTAINS() {
+  local complete="${1}"
+  local substring="${2}"
+
+  echo "${complete}" | grep -Fsq -- "${substring}"
+}
+
 function EXPECT_CONTAINS() {
   local complete="${1}"
   local substring="${2}"
   local message="${3:-Expected '${substring}' not found in '${complete}'}"
 
-  echo "${complete}" | grep -Fsq -- "${substring}" \
-    || fail "$message"
+  CONTAINS "${complete}" "${substring}" || fail "$message"
 }
 
 function no_check() {
@@ -48,8 +54,9 @@ function check_property() {
 
   local metadata="$(tar xOf "${test_data}" "./${layer}/json")"
 
-  # This would be much more accurate if we had 'jq' everywhere.
-  EXPECT_CONTAINS "${metadata}" "\"${property}\": ${expected}"
+  # Expect that we see the property with or without a delimiting space.
+  CONTAINS "${metadata}" "\"${property}\":${expected}" || \
+    EXPECT_CONTAINS "${metadata}" "\"${property}\": ${expected}"
 }
 
 function check_manifest_property() {
@@ -147,8 +154,19 @@ function check_user() {
   check_property User "notop_${input}" "${@}"
 }
 
+function check_timestamp() {
+  listing="$1"
+  shift
+  # Check that all files in the layer, if any, have the magic timestamp
+  check_eq "$(echo "${listing}" | grep -Fv "${MAGIC_TIMESTAMP}" || true)" ""
+}
+
 function check_layers_aux() {
   local ancestry_check=${1}
+  shift 1
+  local size_check=${1}
+  shift 1
+  local timestamp_check=${1}
   shift 1
   local input=${1}
   shift 1
@@ -187,8 +205,7 @@ function check_layers_aux() {
 
     local listing="$(tar xOf "${test_data}" "./${layer}/layer.tar" | tar tv)"
 
-    # Check that all files in the layer, if any, have the magic timestamp
-    check_eq "$(echo "${listing}" | grep -Fv "${MAGIC_TIMESTAMP}" || true)" ""
+    "${timestamp_check}" "${listing}"
 
     check_id "${input}" "${layer}" "\"${layer}\""
 
@@ -199,7 +216,7 @@ function check_layers_aux() {
 
     # Check that the layer's size metadata matches the layer's tarball's size.
     local layer_size=$(tar xOf "${test_data}" "./${layer}/layer.tar" | wc -c | xargs)
-    check_size "${input}" "${layer}" "${layer_size}"
+    "${size_check}" "${input}" "${layer}" "${layer_size}"
 
     index=$((index + 1))
     parent=$layer
@@ -209,8 +226,8 @@ function check_layers_aux() {
 function check_layers() {
   local input=$1
   shift
-  check_layers_aux "check_parent" "$input" "$@"
-  check_layers_aux "check_parent" "notop_$input" "$@"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "$input" "$@"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "notop_$input" "$@"
 }
 
 function test_gen_image() {
@@ -221,7 +238,7 @@ function test_gen_image() {
 function test_dummy_repository() {
   local layer="0279f3ce8b08d10506abcf452393b3e48439f5eca41b836fae59a0d509fbafea"
   local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
-  check_layers_aux "check_parent" "dummy_repository" "$layer"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "dummy_repository" "$layer"
 
 
   local repositories="$(tar xOf "${test_data}" "./repositories")"
@@ -419,10 +436,10 @@ function test_data_path() {
   local absolute_data_path_sha="f196c42ab4f3eb850d9655b950b824db2c99c01527703ac486a7b48bb2a34f44"
   local root_data_path_sha="19d7fd26d67bfaeedd6232dcd441f14ee163bc81c56ed565cc20e73311c418b6"
 
-  check_layers_aux "check_parent" "no_data_path_image" "${no_data_path_sha}"
-  check_layers_aux "check_parent" "data_path_image" "${data_path_sha}"
-  check_layers_aux "check_parent" "absolute_data_path_image" "${absolute_data_path_sha}"
-  check_layers_aux "check_parent" "root_data_path_image" "${root_data_path_sha}"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "no_data_path_image" "${no_data_path_sha}"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "data_path_image" "${data_path_sha}"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "absolute_data_path_image" "${absolute_data_path_sha}"
+  check_layers_aux "check_parent" "check_size" "check_timestamp" "root_data_path_image" "${root_data_path_sha}"
 
   # Without data_path = "." the file will be inserted as `./test`
   # (since it is the path in the package) and with data_path = "."
@@ -480,7 +497,7 @@ function test_extras_with_deb() {
 function test_bundle() {
   # Check that we have these layers, but ignore the parent check, since
   # this is a tree not a list.
-  check_layers_aux "no_check" "bundle_test" \
+  check_layers_aux "no_check" "check_size" "check_timestamp" "bundle_test" \
     "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
     "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
     "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
@@ -497,6 +514,18 @@ function test_bundle() {
 
   check_manifest_property "RepoTags" "bundle_test" \
     "[\"bazel/${TEST_DATA_TARGET_BASE}:with_double_env\", \"gcr.io/google-containers/pause:2.0\"]"
+}
+
+function test_pause_based() {
+  # Check that when we add a single layer on top of a checked in tarball, that
+  # all of the layers from the original tarball are included.  We omit the
+  # ancestry check because its expectations of layer ordering don't match the
+  # order produced vai tarball imports.  We omit the timestamp check because
+  # the checked in tarball doesn't have scrubbed timestamps.
+  check_layers_aux "no_check" "no_check" "no_check" "pause_based" \
+    "9285c41a2f85a67c85185be04743004e806fd1e16777f2230166281f4e49cb4c" \
+    "9f80215bdc790bf80b2dfb5f148f506c903734790578355578052f9d4ac5db8f" \
+    "da7bd81140ca921a067c604a3ba3f54d4e0d51ba5276cd9f32ad6a28e588f470"
 }
 
 run_suite "build_test"

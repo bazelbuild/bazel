@@ -49,6 +49,7 @@ TEST_DATA = [
     "//tools/build_defs/docker/testdata:dummy_repository.tar",
     "//tools/build_defs/docker/testdata:extras_with_deb.tar",
     "//tools/build_defs/docker/testdata:bundle_test.tar",
+    "//tools/build_defs/docker/testdata:pause_based.tar",
 ]
 
 sh_test(

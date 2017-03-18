@@ -372,6 +372,12 @@ docker_build(
     },
 )
 
+docker_build(
+    name = "pause_based",
+    base = ":pause.tar",
+    files = ["foo"],
+)
+
 docker_bundle(
     name = "bundle_test",
     images = {
