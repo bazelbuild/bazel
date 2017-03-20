@@ -83,7 +83,7 @@ public final class SpellChecker {
   public static String suggest(String input, Iterable<String> words) {
     String best = null;
     // Heuristic: the expected number of typos depends on the length of the word.
-    int bestDistance = Math.min(5, input.length() / 2 + 1);
+    int bestDistance = Math.min(5, (input.length() + 1) / 2);
     input = input.toLowerCase();
     for (String candidate : words) {
       int d = editDistance(input, candidate.toLowerCase(), bestDistance);
