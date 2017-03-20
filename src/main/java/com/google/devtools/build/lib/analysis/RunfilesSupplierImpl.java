@@ -65,6 +65,7 @@ public class RunfilesSupplierImpl implements RunfilesSupplier {
       PathFragment runfilesDir,
       Runfiles runfiles,
       @Nullable Artifact manifest) {
+    Preconditions.checkArgument(!runfilesDir.isAbsolute());
     this.runfilesDir = Preconditions.checkNotNull(runfilesDir);
     this.runfiles = Preconditions.checkNotNull(runfiles);
     this.manifest = manifest;

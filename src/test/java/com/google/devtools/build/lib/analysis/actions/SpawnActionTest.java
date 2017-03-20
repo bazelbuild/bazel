@@ -353,7 +353,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addInput(manifest)
         .addRunfilesSupplier(
-            new RunfilesSupplierImpl(new PathFragment("/destination/"), Runfiles.EMPTY, manifest))
+            new RunfilesSupplierImpl(new PathFragment("destination"), Runfiles.EMPTY, manifest))
         .addOutput(getBinArtifactWithNoOwner("output"))
         .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")

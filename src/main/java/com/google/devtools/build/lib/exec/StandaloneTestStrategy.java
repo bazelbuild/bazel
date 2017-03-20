@@ -118,7 +118,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             ImmutableMap.copyOf(env),
             ImmutableMap.copyOf(info),
             new RunfilesSupplierImpl(
-                runfilesDir.asFragment(), action.getExecutionSettings().getRunfiles()),
+                runfilesDir.relativeTo(execRoot), action.getExecutionSettings().getRunfiles()),
             /*inputs=*/ImmutableList.copyOf(action.getInputs()),
             /*tools=*/ImmutableList.<Artifact>of(),
             /*filesetManifests=*/ImmutableList.<Artifact>of(),
