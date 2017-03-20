@@ -69,7 +69,6 @@ public final class ActionInputHelper {
    */
   private static class BasicActionInput implements ActionInput {
     private final String path;
-
     public BasicActionInput(String path) {
       this.path = Preconditions.checkNotNull(path);
     }
@@ -77,11 +76,6 @@ public final class ActionInputHelper {
     @Override
     public String getExecPathString() {
       return path;
-    }
-
-    @Override
-    public PathFragment getExecPath() {
-      return new PathFragment(path);
     }
 
     @Override

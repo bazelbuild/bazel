@@ -344,7 +344,6 @@ public class Artifact
     return root;
   }
 
-  @Override
   public final PathFragment getExecPath() {
     return execPath;
   }

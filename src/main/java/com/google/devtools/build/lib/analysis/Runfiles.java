@@ -134,8 +134,8 @@ public final class Runfiles {
     private final Artifact artifact;
 
     private SymlinkEntry(PathFragment path, Artifact artifact) {
-      this.path = Preconditions.checkNotNull(path);
-      this.artifact = Preconditions.checkNotNull(artifact);
+      this.path = path;
+      this.artifact = artifact;
     }
 
     public PathFragment getPath() {
@@ -146,12 +146,10 @@ public final class Runfiles {
       return artifact;
     }
 
-    @Override
     public boolean isImmutable() {
       return true;
     }
 
-    @Override
     public void write(Appendable buffer, char quotationMark) {
       Printer.append(buffer, "SymlinkEntry(path = ");
       Printer.write(buffer, getPath().toString(), quotationMark);
@@ -433,11 +431,11 @@ public final class Runfiles {
    * Returns the symlinks as a map from PathFragment to Artifact.
    *
    * @param eventHandler Used for throwing an error if we have an obscuring runlink within the
-   *    normal source tree entries, or runfile conflicts. May be null, in which case obscuring
-   *    symlinks are silently discarded, and conflicts are overwritten.
+   *     normal source tree entries, or runfile conflicts. May be null, in which case obscuring
+   *     symlinks are silently discarded, and conflicts are overwritten.
    * @param location Location for eventHandler warnings. Ignored if eventHandler is null.
    * @return Map<PathFragment, Artifact> path fragment to artifact, of normal source tree entries
-   *    and elements that live outside the source tree. Null values represent empty input files.
+   *     and elements that live outside the source tree. Null values represent empty input files.
    */
   public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler, Location location)
       throws IOException {
@@ -852,13 +850,13 @@ public final class Runfiles {
      * Adds a symlink.
      */
     public Builder addSymlink(PathFragment link, Artifact target) {
+      Preconditions.checkNotNull(link);
+      Preconditions.checkNotNull(target);
       symlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /**
-     * Adds several symlinks. Neither keys nor values may be null.
-     */
+    /** Adds several symlinks. */
     public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -878,13 +876,13 @@ public final class Runfiles {
      * Adds a root symlink.
      */
     public Builder addRootSymlink(PathFragment link, Artifact target) {
+      Preconditions.checkNotNull(link);
+      Preconditions.checkNotNull(target);
       rootSymlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /**
-     * Adds several root symlinks. Neither keys nor values may be null.
-     */
+    /** Adds several root symlinks. */
     public Builder addRootSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         rootSymlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
