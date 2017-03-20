@@ -43,8 +43,8 @@ import java.util.logging.Logger;
 public class BuildEventStreamer implements EventHandler {
   private final Collection<BuildEventTransport> transports;
   private Set<BuildEventId> announcedEvents;
-  private Set<BuildEventId> postedEvents;
-  private final Multimap<BuildEventId, BuildEvent> pendingEvents;
+  private final Set<BuildEventId> postedEvents = new HashSet<>();
+  private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
   private AbortReason abortReason = AbortReason.UNKNOWN;
   private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
@@ -52,9 +52,7 @@ public class BuildEventStreamer implements EventHandler {
   public BuildEventStreamer(Collection<BuildEventTransport> transports) {
     this.transports = transports;
     this.announcedEvents = null;
-    this.postedEvents = null;
     this.progressCount = 0;
-    this.pendingEvents = HashMultimap.create();
   }
 
   /**
@@ -71,7 +69,6 @@ public class BuildEventStreamer implements EventHandler {
     synchronized (this) {
       if (announcedEvents == null) {
         announcedEvents = new HashSet<>();
-        postedEvents = new HashSet<>();
         if (!event.getChildrenEvents().contains(ProgressEvent.INITIAL_PROGRESS_UPDATE)) {
           linkEvent = ProgressEvent.progressChainIn(progressCount, event.getEventId());
           progressCount++;
@@ -85,8 +82,8 @@ public class BuildEventStreamer implements EventHandler {
           announcedEvents.addAll(linkEvent.getChildrenEvents());
           postedEvents.add(linkEvent.getEventId());
         }
-        postedEvents.add(id);
       }
+      postedEvents.add(id);
       announcedEvents.addAll(event.getChildrenEvents());
     }
 

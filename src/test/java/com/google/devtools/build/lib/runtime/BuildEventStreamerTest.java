@@ -297,4 +297,29 @@ public class BuildEventStreamerTest {
     assertEquals(rootCauseId, allEventsSeen.get(3).getEventId());
     assertEquals(failedTarget.getEventId(), allEventsSeen.get(4).getEventId());
   }
+
+  @Test
+  public void testVeryFirstEventNeedsToWait() {
+    // Verify that we can handle an first event waiting for another event.
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+
+    BuildEventId initialId = testId("Initial");
+    BuildEventId waitId = testId("Waiting for initial event");
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            initialId,
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE, waitId));
+    BuildEvent waitingForStart =
+        new GenericOrderEvent(waitId, ImmutableSet.<BuildEventId>of(), ImmutableSet.of(initialId));
+
+    streamer.buildEvent(waitingForStart);
+    streamer.buildEvent(startEvent);
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    assertThat(allEventsSeen).hasSize(2);
+    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    assertEquals(waitingForStart.getEventId(), allEventsSeen.get(1).getEventId());
+  }
 }
