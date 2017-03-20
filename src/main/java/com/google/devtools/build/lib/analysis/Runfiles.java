@@ -134,8 +134,8 @@ public final class Runfiles {
     private final Artifact artifact;
 
     private SymlinkEntry(PathFragment path, Artifact artifact) {
-      this.path = path;
-      this.artifact = artifact;
+      this.path = Preconditions.checkNotNull(path);
+      this.artifact = Preconditions.checkNotNull(artifact);
     }
 
     public PathFragment getPath() {
@@ -146,10 +146,12 @@ public final class Runfiles {
       return artifact;
     }
 
+    @Override
     public boolean isImmutable() {
       return true;
     }
 
+    @Override
     public void write(Appendable buffer, char quotationMark) {
       Printer.append(buffer, "SymlinkEntry(path = ");
       Printer.write(buffer, getPath().toString(), quotationMark);
@@ -851,13 +853,11 @@ public final class Runfiles {
      * Adds a symlink.
      */
     public Builder addSymlink(PathFragment link, Artifact target) {
-      Preconditions.checkNotNull(link);
-      Preconditions.checkNotNull(target);
       symlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /** Adds several symlinks. */
+    /** Adds several symlinks. Neither keys nor values may be null. */
     public Builder addSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         symlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
@@ -877,13 +877,11 @@ public final class Runfiles {
      * Adds a root symlink.
      */
     public Builder addRootSymlink(PathFragment link, Artifact target) {
-      Preconditions.checkNotNull(link);
-      Preconditions.checkNotNull(target);
       rootSymlinksBuilder.add(new SymlinkEntry(link, target));
       return this;
     }
 
-    /** Adds several root symlinks. */
+    /** Adds several root symlinks. Neither keys nor values may be null. */
     public Builder addRootSymlinks(Map<PathFragment, Artifact> symlinks) {
       for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
         rootSymlinksBuilder.add(new SymlinkEntry(symlink.getKey(), symlink.getValue()));
