@@ -548,6 +548,82 @@ static bool DaemonizeOnWindows() {
 }
 #endif  // not COMPILER_MSVC
 
+static bool GetProcessStartupTime(HANDLE process, uint64_t* result) {
+  FILETIME creation_time, dummy1, dummy2, dummy3;
+  // GetProcessTimes cannot handle NULL arguments.
+  if (process == INVALID_HANDLE_VALUE ||
+      !::GetProcessTimes(process, &creation_time, &dummy1, &dummy2, &dummy3)) {
+    return false;
+  }
+  *result = static_cast<uint64_t>(creation_time.dwHighDateTime) << 32 |
+            creation_time.dwLowDateTime;
+  return true;
+}
+
+static void WriteProcessStartupTime(const string& server_dir, HANDLE process) {
+  uint64_t start_time = 0;
+  if (!GetProcessStartupTime(process, &start_time)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Cannot get start time of process in server dir %s",
+         server_dir.c_str());
+  }
+
+  string start_time_file = blaze_util::JoinPath(server_dir, "server.starttime");
+  if (!blaze_util::WriteFile(ToString(start_time), start_time_file)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "Cannot write start time in server dir %s", server_dir.c_str());
+  }
+}
+
+static HANDLE CreateJvmOutputFile(const wstring& path,
+                                  SECURITY_ATTRIBUTES* sa) {
+  // If the previous server process was asked to be shut down (but not killed),
+  // it takes a while for it to comply, so wait until the JVM output file that
+  // it held open is closed. There seems to be no better way to wait for a file
+  // to be closed on Windows.
+  static const unsigned int timeout_sec = 60;
+  for (unsigned int waited = 0; waited < timeout_sec; ++waited) {
+    HANDLE handle = ::CreateFileW(
+        /* lpFileName */ path.c_str(),
+        /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
+        // TODO(laszlocsomor): add FILE_SHARE_DELETE, that allows deleting
+        // jvm.out and maybe fixes
+        // https://github.com/bazelbuild/bazel/issues/2326 . Unfortunately
+        // however if a file that we opened with FILE_SHARE_DELETE is deleted
+        // while its still open, write operations will still succeed but have no
+        // effect, the file won't be recreated. (I haven't tried what happens
+        // with read operations.)
+        //
+        // FILE_SHARE_READ: So that the file can be read while the server is
+        // running
+        /* dwShareMode */ FILE_SHARE_READ,
+        /* lpSecurityAttributes */ sa,
+        /* dwCreationDisposition */ CREATE_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
+    if (handle != INVALID_HANDLE_VALUE) {
+      return handle;
+    }
+    if (GetLastError() != ERROR_SHARING_VIOLATION &&
+        GetLastError() != ERROR_LOCK_VIOLATION) {
+      // Some other error occurred than the file being open; bail out.
+      break;
+    }
+
+    // The file is still held open, the server is shutting down. There's a
+    // chance that another process holds it open, we don't know; in that case
+    // we just exit after the timeout expires.
+    if (waited == 5 || waited == 10 || waited == 30) {
+      fprintf(stderr,
+              "Waiting for previous Bazel server's log file to close "
+              "(waited %d seconds, waiting at most %d)\n",
+              waited, timeout_sec);
+    }
+    Sleep(1000);
+  }
+  return INVALID_HANDLE_VALUE;
+}
+
 // Keeping an eye on the server process on Windows is not implemented yet.
 // TODO(lberki): Implement this, because otherwise if we can't start up a server
 // process, the client will hang until it times out.
@@ -584,26 +660,11 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   sa.bInheritHandle = TRUE;
   sa.lpSecurityDescriptor = NULL;
 
-  HANDLE output_file = ::CreateFileW(
-      /* lpFileName */ wdaemon_output.c_str(),
-      /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
-      // TODO(laszlocsomor): add FILE_SHARE_DELETE, that allows deleting jvm.out
-      // and maybe fixes https://github.com/bazelbuild/bazel/issues/2326 .
-      // Unfortunately however if a file that we opened with FILE_SHARE_DELETE
-      // is deleted while its still open, write operations will still succeed
-      // but have no effect, the file won't be recreated. (I haven't tried what
-      // happens with read operations.)
-      //
-      // FILE_SHARE_READ: So that the file can be read while the server is
-      // running
-      /* dwShareMode */ FILE_SHARE_READ,
-      /* lpSecurityAttributes */ &sa,
-      /* dwCreationDisposition */ CREATE_ALWAYS,
-      /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
-      /* hTemplateFile */ NULL);
+  HANDLE output_file = CreateJvmOutputFile(wdaemon_output.c_str(), &sa);
 
   if (output_file == INVALID_HANDLE_VALUE) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateFile");
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateJvmOutputFile %ls",
+         wdaemon_output.c_str());
   }
 
   HANDLE pipe_read, pipe_write;
@@ -647,6 +708,8 @@ void ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
          "ExecuteDaemon/CreateProcess: error %u executing: %s\n",
          GetLastError(), cmdline.cmdline);
   }
+
+  WriteProcessStartupTime(server_dir, processInfo.hProcess);
 
   CloseHandle(output_file);
   CloseHandle(pipe_write);
@@ -985,16 +1048,38 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   return a_real == b_real;
 }
 
+// On Windows (and Linux) we use a combination of PID and start time to identify
+// the server process. That is supposed to be unique unless one can start more
+// processes than there are PIDs available within a single jiffy.
 bool VerifyServerProcess(
     int pid, const string& output_base, const string& install_base) {
-  // TODO(lberki): This might accidentally kill an unrelated process if the
-  // server died and the PID got reused.
-  return true;
+  windows_util::AutoHandle process(
+      ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
+  if (!process.IsValid()) {
+    // Cannot find the server process. Can happen if the PID file is stale.
+    return false;
+  }
+
+  uint64_t start_time = 0;
+  if (!GetProcessStartupTime(process, &start_time)) {
+    // Process died meantime, all is good. No stale server is present.
+    return false;
+  }
+
+  string recorded_start_time;
+  bool file_present = blaze_util::ReadFile(
+      blaze_util::JoinPath(output_base, "server/server.starttime"),
+      &recorded_start_time);
+
+  // If start time file got deleted, but PID file didn't, assume that this is an
+  // old Bazel process that doesn't know how to write start time files yet.
+  return !file_present || recorded_start_time == ToString(start_time);
 }
 
 bool KillServerProcess(int pid) {
-  HANDLE process = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
-  if (process == NULL) {
+  windows_util::AutoHandle process(
+      ::OpenProcess(PROCESS_TERMINATE, FALSE, pid));
+  if (!process.IsValid()) {
     // Cannot find the server process. Can happen if the PID file is stale.
     return false;
   }
