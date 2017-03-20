@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
+import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
@@ -35,13 +36,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -63,8 +62,8 @@ class Desugar {
       converter = ExistingPathConverter.class,
       abbrev = 'i',
       help =
-          "Input Jar with classes to desugar (required, the n-th input is paired with the n-th "
-              + "output)."
+        "Input Jar or directory with classes to desugar (required, the n-th input is paired with"
+        + "the n-th output)."
     )
     public List<Path> inputJars;
 
@@ -181,7 +180,12 @@ class Desugar {
         "Desugar requires the same number of inputs and outputs to pair them");
     checkState(!options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
         "At least one --bootclasspath_entry is required");
-
+    for (Path path : options.classpath) {
+      checkState(!Files.isDirectory(path), "Classpath entry must be a jar file: %s", path);
+    }
+    for (Path path : options.bootclasspath) {
+      checkState(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
+    }
     if (options.verbose) {
       System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
     }
@@ -196,37 +200,45 @@ class Desugar {
 
     // Process each input separately
     for (InputOutputPair inputOutputPair : toInputOutputPairs(options)) {
-      Path inputJar = inputOutputPair.getInput();
-      IndexedJars appIndexedJar = new IndexedJars(ImmutableList.of(inputJar));
-      IndexedJars appAndClasspathIndexedJars = new IndexedJars(options.classpath, appIndexedJar);
-      ClassLoader loader =
-          createClassLoader(rewriter, options.bootclasspath, appAndClasspathIndexedJars);
+      Path inputPath = inputOutputPair.getInput();
 
-      try (ZipFile in = new ZipFile(inputJar.toFile());
-          ZipOutputStream out =
-              new ZipOutputStream(
-                  new BufferedOutputStream(Files.newOutputStream(inputOutputPair.getOutput())))) {
+      try (Closer closer = Closer.create()) {
+        InputFileProvider appInputFiles = toInputFileProvider(closer, inputPath);
+        List<InputFileProvider> classpathInputFiles =
+            toInputFileProvider(closer, options.classpath);
+        IndexedInputs appIndexedInputs = new IndexedInputs(ImmutableList.of(appInputFiles));
+        IndexedInputs appAndClasspathIndexedInputs =
+            new IndexedInputs(classpathInputFiles, appIndexedInputs);
+        ClassLoader loader =
+            createClassLoader(
+                rewriter,
+                toInputFileProvider(closer, options.bootclasspath),
+                appAndClasspathIndexedInputs);
+
+        ZipOutputStream out = closer.register(new ZipOutputStream(
+            new BufferedOutputStream(Files.newOutputStream(inputOutputPair.getOutput()))));
+
         ClassReaderFactory readerFactory =
             new ClassReaderFactory(
                 (options.copyBridgesFromClasspath && !allowDefaultMethods)
-                    ? appAndClasspathIndexedJars
-                    : appIndexedJar,
+                    ? appAndClasspathIndexedInputs
+                    : appIndexedInputs,
                 rewriter);
 
         ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
 
-        // Process input Jar, desugaring as we go
-        for (Enumeration<? extends ZipEntry> entries = in.entries(); entries.hasMoreElements(); ) {
-          ZipEntry entry = entries.nextElement();
-          try (InputStream content = in.getInputStream(entry)) {
-            // We can write classes uncompressed since they need to be converted to .dex format for
-            // Android anyways. Resources are written as they were in the input jar to avoid any
-            // danger of accidentally uncompressed resources ending up in an .apk.
-            if (entry.getName().endsWith(".class")) {
+        // Process inputs, desugaring as we go
+        for (String filename : appInputFiles) {
+          try (InputStream content = appInputFiles.getInputStream(filename)) {
+            // We can write classes uncompressed since they need to be converted to .dex format
+            // for Android anyways. Resources are written as they were in the input jar to avoid
+            // any danger of accidentally uncompressed resources ending up in an .apk.
+            if (filename.endsWith(".class")) {
               ClassReader reader = rewriter.reader(content);
               CoreLibraryRewriter.UnprefixingClassWriter writer =
                   rewriter.writer(ClassWriter.COMPUTE_MAXS /*for bridge methods*/);
               ClassVisitor visitor = writer;
+
               if (!options.onlyDesugarJavac9ForLint) {
                 if (!allowDefaultMethods) {
                   visitor = new Java7Compatibility(visitor, readerFactory);
@@ -240,17 +252,16 @@ class Desugar {
                         interfaceLambdaMethodCollector,
                         allowDefaultMethods);
               }
+
               if (!allowCallsToObjectsNonNull) {
                 visitor = new ObjectsRequireNonNullMethodInliner(visitor);
               }
               reader.accept(visitor, 0);
 
-              writeStoredEntry(out, entry.getName(), writer.toByteArray());
+              writeStoredEntry(out, filename, writer.toByteArray());
             } else {
               // TODO(bazel-team): Avoid de- and re-compressing resource files
-              ZipEntry destEntry = new ZipEntry(entry);
-              destEntry.setCompressedSize(-1);
-              out.putNextEntry(destEntry);
+              out.putNextEntry(appInputFiles.getZipEntry(filename));
               ByteStreams.copy(content, out);
               out.closeEntry();
             }
@@ -258,7 +269,6 @@ class Desugar {
         }
 
         ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
-
         checkState(
             !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
             "Desugaring with default methods enabled moved interface lambdas");
@@ -311,7 +321,7 @@ class Desugar {
     }
   }
 
-   private static List<InputOutputPair> toInputOutputPairs(Options options) {
+  private static List<InputOutputPair> toInputOutputPairs(Options options) {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
                 outputIt = options.outputJars.iterator();
@@ -340,19 +350,22 @@ class Desugar {
     out.closeEntry();
   }
 
-  private static ClassLoader createClassLoader(CoreLibraryRewriter rewriter,
-      List<Path> bootclasspath, IndexedJars appAndClasspathIndexedJars) throws IOException {
+  private static ClassLoader createClassLoader(
+      CoreLibraryRewriter rewriter,
+      List<InputFileProvider> bootclasspath,
+      IndexedInputs appAndClasspathIndexedInputs)
+      throws IOException {
     // Use a classloader that as much as possible uses the provided bootclasspath instead of
     // the tool's system classloader.  Unfortunately we can't do that for java. classes.
     ClassLoader parent = new ThrowingClassLoader();
     if (!bootclasspath.isEmpty()) {
-      parent = new HeaderClassLoader(new IndexedJars(bootclasspath), rewriter, parent);
+      parent = new HeaderClassLoader(new IndexedInputs(bootclasspath), rewriter, parent);
     }
     // Prepend classpath with input jar itself so LambdaDesugaring can load classes with lambdas.
     // Note that inputJar and classpath need to be in the same classloader because we typically get
     // the header Jar for inputJar on the classpath and having the header Jar in a parent loader
     // means the header version is preferred over the real thing.
-    return new HeaderClassLoader(appAndClasspathIndexedJars, rewriter, parent);
+    return new HeaderClassLoader(appAndClasspathIndexedInputs, rewriter, parent);
   }
 
   private static class ThrowingClassLoader extends ClassLoader {
@@ -405,6 +418,26 @@ class Desugar {
     }
   }
 
+  /** Transform a Path to an InputFileProvider and register it to close it at the end of desugar */
+  private static InputFileProvider toInputFileProvider(Closer closer, Path path)
+      throws IOException {
+    if (Files.isDirectory(path)) {
+      return closer.register(new DirectoryInputFileProvider(path));
+    } else {
+      return closer.register(new ZipInputFileProvider(path));
+    }
+  }
+
+  private static ImmutableList<InputFileProvider> toInputFileProvider(
+      Closer closer, List<Path> paths) throws IOException {
+    ImmutableList.Builder<InputFileProvider> builder = new ImmutableList.Builder<>();
+    for (Path path : paths) {
+      checkState(!Files.isDirectory(path), "Directory is not supported: %s", path);
+      builder.add(closer.register(new ZipInputFileProvider(path)));
+    }
+    return builder.build();
+  }
+  
   /**
    * Pair input and output.
    */

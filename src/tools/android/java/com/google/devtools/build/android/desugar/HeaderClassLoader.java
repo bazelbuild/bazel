@@ -16,8 +16,6 @@ package com.google.devtools.build.android.desugar;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -35,26 +33,25 @@ import org.objectweb.asm.Opcodes;
  */
 class HeaderClassLoader extends ClassLoader {
 
-  private final IndexedJars indexedJars;
+  private final IndexedInputs indexedInputs;
   private final CoreLibraryRewriter rewriter;
 
   public HeaderClassLoader(
-      IndexedJars indexedJars, CoreLibraryRewriter rewriter, ClassLoader parent) {
+      IndexedInputs indexedInputs, CoreLibraryRewriter rewriter, ClassLoader parent) {
     super(parent);
     this.rewriter = rewriter;
-    this.indexedJars = indexedJars;
+    this.indexedInputs = indexedInputs;
   }
 
   @Override
   protected Class<?> findClass(String name) throws ClassNotFoundException {
     String filename = rewriter.unprefix(name.replace('.', '/') + ".class");
-    JarFile jarfile = indexedJars.getJarFile(filename);
-    if (jarfile == null) {
+    InputFileProvider inputFileProvider = indexedInputs.getInputFileProvider(filename);
+    if (inputFileProvider == null) {
       throw new ClassNotFoundException();
     }
-    ZipEntry entry = jarfile.getEntry(filename);
     byte[] bytecode;
-    try (InputStream content = jarfile.getInputStream(entry)) {
+    try (InputStream content = inputFileProvider.getInputStream(filename)) {
       ClassReader reader = rewriter.reader(content);
       // Have ASM compute maxs so we don't need to figure out how many formal parameters there are
       ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
