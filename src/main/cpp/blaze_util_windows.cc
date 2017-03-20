@@ -1111,6 +1111,21 @@ void SetEnv(const string& name, const string& value) {
 
 void UnsetEnv(const string& name) { SetEnv(name, ""); }
 
+#ifndef ENABLE_PROCESSED_OUTPUT
+// From MSDN about BOOL SetConsoleMode(HANDLE, DWORD).
+#define ENABLE_PROCESSED_OUTPUT 0x0001
+#endif  // not ENABLE_PROCESSED_OUTPUT
+
+#ifndef ENABLE_WRAP_AT_EOL_OUTPUT
+// From MSDN about BOOL SetConsoleMode(HANDLE, DWORD).
+#define ENABLE_WRAP_AT_EOL_OUTPUT 0x0002
+#endif  // not ENABLE_WRAP_AT_EOL_OUTPUT
+
+#ifndef ENABLE_VIRTUAL_TERMINAL_PROCESSING
+// From MSDN about BOOL SetConsoleMode(HANDLE, DWORD).
+#define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+#endif  // not ENABLE_VIRTUAL_TERMINAL_PROCESSING
+
 void SetupStdStreams() {
 #ifdef COMPILER_MSVC
   static const DWORD stdhandles[] = {STD_INPUT_HANDLE, STD_OUTPUT_HANDLE,
@@ -1121,6 +1136,19 @@ void SetupStdStreams() {
       // Ensure we have open fds to each std* stream. Otherwise we can end up
       // with bizarre things like stdout going to the lock file, etc.
       _open("NUL", (i == 0) ? _O_RDONLY : _O_WRONLY);
+    }
+    DWORD mode = 0;
+    if (i > 0 && handle != INVALID_HANDLE_VALUE && handle != NULL &&
+        ::GetConsoleMode(handle, &mode)) {
+      DWORD newmode = mode | ENABLE_PROCESSED_OUTPUT |
+                      ENABLE_WRAP_AT_EOL_OUTPUT |
+                      ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+      if (mode != newmode) {
+        // We don't care about the success of this. Worst that can happen if
+        // this method fails is that the console won't understand control
+        // characters like color change or carriage return.
+        ::SetConsoleMode(handle, newmode);
+      }
     }
   }
 #else  // not COMPILER_MSVC
@@ -1313,9 +1341,18 @@ bool IsEmacsTerminal() {
 // environment variables).
 bool IsStandardTerminal() {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): Implement this method properly. We may return true if
-  // stdout and stderr are not redirected.
-  return false;
+  for (DWORD i : {STD_OUTPUT_HANDLE, STD_ERROR_HANDLE}) {
+    DWORD mode = 0;
+    HANDLE handle = ::GetStdHandle(i);
+    // handle may be invalid when std{out,err} is redirected
+    if (handle == INVALID_HANDLE_VALUE || !::GetConsoleMode(handle, &mode) ||
+        !(mode & ENABLE_PROCESSED_OUTPUT) ||
+        !(mode & ENABLE_WRAP_AT_EOL_OUTPUT) ||
+        !(mode & ENABLE_VIRTUAL_TERMINAL_PROCESSING)) {
+      return false;
+    }
+  }
+  return true;
 #else  // not COMPILER_MSVC
   string term = GetEnv("TERM");
   if (term.empty() || term == "dumb" || term == "emacs" ||
