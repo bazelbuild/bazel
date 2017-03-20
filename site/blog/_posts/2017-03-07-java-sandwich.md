@@ -58,6 +58,7 @@ java_library(name = "bottom", deps = [":middle", ...], ...)
 ```
 
 In the BUILD file we load the Skylark rule and have the rules:
+
 ```python
 load(':java_skylark_library.bzl', 'java_skylark_library')
 
