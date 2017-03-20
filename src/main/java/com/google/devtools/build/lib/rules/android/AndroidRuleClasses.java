@@ -613,7 +613,6 @@ public final class AndroidRuleClasses {
                   .aspect(androidNeverlinkAspect)
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
                   .aspect(jackAspect))
-          // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(
               attr("$build_incremental_dexmanifest", LABEL)
                   .cfg(HOST)
