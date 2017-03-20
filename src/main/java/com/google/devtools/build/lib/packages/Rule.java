@@ -328,15 +328,18 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     return ruleClass.hasAttr(attrName, type);
   }
 
+  /**
+   * {@see #isAttributeValueExplicitlySpecified(String)}
+   */
   @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return attributes.isAttributeValueExplicitlySpecified(attribute);
   }
 
   /**
-   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file (as
-   * opposed to its default value). This also returns true if the value from the BUILD file is the
-   * same as the default value. In addition, this method return false if the rule has no attribute
+   * Returns true iff the value of the specified attribute is explicitly set in the BUILD file.
+   * This returns true also if the value explicity specified in the BUILD file is the same as the
+   * attribute's default value. In addition, this method return false if the rule has no attribute
    * with the given name.
    */
   public boolean isAttributeValueExplicitlySpecified(String attrName) {
