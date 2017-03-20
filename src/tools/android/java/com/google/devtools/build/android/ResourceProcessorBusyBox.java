@@ -29,7 +29,7 @@ import java.nio.file.FileSystems;
  *
  * <pre>
  * Example Usage:
- *   java/com/google/build/android/ResourceProcessorBusyBox\
+ *   java/com/google/devtools/build/android/ResourceProcessorBusyBox\
  *      --tool PACKAGE\
  *      --sdkRoot path/to/sdk\
  *      --aapt path/to/sdk/aapt\
