@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
-import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -50,8 +49,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Before;
 
 abstract class ArtifactFunctionTestCase {
-  protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
-  protected static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+  static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
 
   protected Predicate<PathFragment> allowedMissingInputsPredicate = Predicates.alwaysFalse();
 
@@ -146,7 +145,7 @@ abstract class ArtifactFunctionTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupKey {
     @Override
-    SkyKey getSkyKey() {
+    SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 

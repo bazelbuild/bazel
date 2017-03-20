@@ -15,9 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -26,21 +24,13 @@ import com.google.devtools.build.skyframe.SkyKey;
  * A SkyValue to store the coverage report Action and Artifacts.
  */
 public class CoverageReportValue extends ActionLookupValue {
-  private final ImmutableSet<Artifact> coverageReportArtifacts;
 
   // There should only ever be one CoverageReportValue value in the graph.
-  public static final SkyKey SKY_KEY =
-      SkyKey.create(SkyFunctions.COVERAGE_REPORT, "COVERAGE_REPORT");
   public static final ArtifactOwner ARTIFACT_OWNER = new CoverageReportKey();
+  static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.COVERAGE_REPORT, ARTIFACT_OWNER);
 
-  public CoverageReportValue(ImmutableSet<Artifact> coverageReportArtifacts,
-      ImmutableList <ActionAnalysisMetadata> coverageReportActions) {
+  CoverageReportValue(ImmutableList<ActionAnalysisMetadata> coverageReportActions) {
     super(coverageReportActions);
-    this.coverageReportArtifacts = coverageReportArtifacts;
-  }
-
-  public ImmutableSet<Artifact> getCoverageReportArtifacts() {
-    return coverageReportArtifacts;
   }
 
   private static class CoverageReportKey extends ActionLookupKey {
@@ -50,7 +40,7 @@ public class CoverageReportValue extends ActionLookupValue {
     }
 
     @Override
-    SkyKey getSkyKey() {
+    SkyKey getSkyKeyInternal() {
       return SKY_KEY;
     }
   }

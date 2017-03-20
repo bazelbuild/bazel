@@ -30,8 +30,8 @@ public class WorkspaceStatusValue extends ActionLookupValue {
   private final Artifact volatileArtifact;
 
   // There should only ever be one BuildInfo value in the graph.
-  public static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.BUILD_INFO, "BUILD_INFO");
   static final ArtifactOwner ARTIFACT_OWNER = new BuildInfoKey();
+  public static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.BUILD_INFO, ARTIFACT_OWNER);
 
   public WorkspaceStatusValue(Artifact stableArtifact, Artifact volatileArtifact,
       WorkspaceStatusAction action) {
@@ -55,7 +55,7 @@ public class WorkspaceStatusValue extends ActionLookupValue {
     }
 
     @Override
-    SkyKey getSkyKey() {
+    SkyKey getSkyKeyInternal() {
       return SKY_KEY;
     }
   }

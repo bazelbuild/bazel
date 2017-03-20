@@ -97,10 +97,9 @@ import org.junit.Before;
  * The common code that's shared between various builder tests.
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
-
-  private static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =
       new SingletonActionLookupKey();
+  private static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
 
@@ -440,7 +439,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
     @Override
-    SkyKey getSkyKey() {
+    SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 

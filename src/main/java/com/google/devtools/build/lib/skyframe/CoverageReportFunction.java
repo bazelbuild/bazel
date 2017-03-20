@@ -46,9 +46,7 @@ public class CoverageReportFunction implements SkyFunction {
       outputs.addAll(action.getOutputs());
     }
 
-    return new CoverageReportValue(
-        outputs.build(),
-        actions);
+    return new CoverageReportValue(actions);
   }
 
   @Override
