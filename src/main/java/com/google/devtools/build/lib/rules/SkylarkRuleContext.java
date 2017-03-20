@@ -527,7 +527,13 @@ public final class SkylarkRuleContext {
         }
       };
 
-  @SkylarkCallable(name = "default_provider", structField = true)
+  @SkylarkCallable(name = "default_provider", structField = true,
+      doc = "A provider that's provided by every rule, even if it's not returned explicitly. "
+          + "A <code>default_provider</code> accepts all special parameters that can be returned "
+          + "from rule implementation function in a struct, which are <code>runfiles</code>, "
+          + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
+          + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
+          + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules.")
   public static ClassObjectConstructor getDefaultProvider() {
     return DEFAULT_PROVIDER;
   }
@@ -541,7 +547,7 @@ public final class SkylarkRuleContext {
           + "will have to call this function again if you wish to inspect them. "
           + "<br/><br/>"
           + "This is intended to help write tests for rule-implementation helper functions, which "
-          + "may take in a<code>ctx</code> object and create actions on it.")
+          + "may take in a <code>ctx</code> object and create actions on it.")
   public Object createdActions() {
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(
