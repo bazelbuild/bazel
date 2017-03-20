@@ -666,38 +666,6 @@ java_test(
     ],
 )
 
-java_test(
-    name = "ideinfo_test",
-    srcs = glob([
-        "ideinfo/*.java",
-    ]),
-    tags = ["ideinfo"],
-    test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        ":analysis_testutil",
-        ":foundations_testutil",
-        ":test_runner",
-        ":testutil",
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:collect",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:ideinfo",
-        "//src/main/java/com/google/devtools/build/lib:packages",
-        "//src/main/java/com/google/devtools/build/lib:vfs",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/protobuf:intellij_ide_info_java_proto",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:mockito",
-        "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
 cc_binary(
     name = "shell/killmyself",
     srcs = ["shell/killmyself.cc"],
@@ -1281,7 +1249,6 @@ TEST_SUITES = [
     "shell",
     "server",
     "skyframe",
-    "ideinfo",
     "exec",
 ]
 

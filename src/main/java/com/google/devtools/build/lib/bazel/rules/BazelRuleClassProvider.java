@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.ideinfo.AndroidStudioInfoAspect;
-import com.google.devtools.build.lib.ideinfo.BazelAndroidStudioInfoSemantics;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -729,9 +728,7 @@ public class BazelRuleClassProvider {
       new RuleSet() {
         @Override
         public void init(Builder builder) {
-          String toolsRepository = checkNotNull(builder.getToolsRepository());
-          AndroidStudioInfoAspect androidStudioInfoAspect =
-              new AndroidStudioInfoAspect(toolsRepository, new BazelAndroidStudioInfoSemantics());
+          AndroidStudioInfoAspect androidStudioInfoAspect = new AndroidStudioInfoAspect();
           builder.addNativeAspectClass(androidStudioInfoAspect);
         }
 
