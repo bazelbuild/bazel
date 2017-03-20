@@ -293,6 +293,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
   private final Label ccToolchainLabel;
+  private final Label stlLabel;
 
   private final PathFragment sysroot;
   private final PathFragment runtimeSysroot;
@@ -356,6 +357,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.targetOS = toolchain.getCcTargetOs();
     this.crosstoolTop = params.crosstoolTop;
     this.ccToolchainLabel = params.ccToolchainLabel;
+    this.stlLabel = params.stlLabel;
     this.compilationMode = params.commonOptions.compilationMode;
     this.useLLVMCoverageMap = params.commonOptions.useLLVMCoverageMapFormat;
     this.lipoContextCollector = cppOptions.lipoCollector;
@@ -1616,7 +1618,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * otherwise.
    */
   public Label getStl() {
-    return cppOptions.stl;
+    return stlLabel;
   }
 
   /**

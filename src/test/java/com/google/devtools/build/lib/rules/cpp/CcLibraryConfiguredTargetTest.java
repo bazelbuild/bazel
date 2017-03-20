@@ -1172,4 +1172,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     // Should not crash
     scratchConfiguredTarget("a", "a", "cc_library(name='a', hdrs=['a.h'])");
   }
+
+  @Test
+  public void testStlWithAlias() throws Exception {
+    scratch.file("a/BUILD",
+        "cc_library(name='a')",
+        "alias(name='stl', actual=':realstl')",
+        "cc_library(name='realstl')");
+
+    useConfiguration("--experimental_stl=//a:stl");
+    getConfiguredTarget("//a:a");
+  }
 }

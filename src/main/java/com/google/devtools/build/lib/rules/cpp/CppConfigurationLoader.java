@@ -93,6 +93,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final CppOptions cppOptions;
     protected final Label crosstoolTop;
     protected final Label ccToolchainLabel;
+    protected final Label stlLabel;
     protected final Path fdoZip;
 
     CppConfigurationParameters(CrosstoolConfig.CToolchain toolchain,
@@ -100,7 +101,8 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
         BuildOptions buildOptions,
         Path fdoZip,
         Label crosstoolTop,
-        Label ccToolchainLabel) {
+        Label ccToolchainLabel,
+        Label stlLabel) {
       this.toolchain = toolchain;
       this.cacheKeySuffix = cacheKeySuffix;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -108,6 +110,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.fdoZip = fdoZip;
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
+      this.stlLabel = stlLabel;
     }
   }
 
@@ -125,6 +128,15 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       return null;
     }
 
+    CppOptions cppOptions = options.get(CppOptions.class);
+    Label stlLabel = null;
+    if (cppOptions.stl != null) {
+      stlLabel = RedirectChaser.followRedirects(env, cppOptions.stl, "stl");
+      if (stlLabel == null) {
+        return null;
+      }
+    }
+
     CrosstoolConfigurationLoader.CrosstoolFile file =
         CrosstoolConfigurationLoader.readCrosstool(env, crosstoolTopLabel);
     if (file == null) {
@@ -135,7 +147,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
 
     // FDO
     // TODO(bazel-team): move this to CppConfiguration.prepareHook
-    CppOptions cppOptions = options.get(CppOptions.class);
     Path fdoZip;
     if (cppOptions.fdoOptimize == null) {
       fdoZip = null;
@@ -211,6 +222,6 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     }
 
     return new CppConfigurationParameters(toolchain, file.getMd5(), options,
-        fdoZip, crosstoolTopLabel, ccToolchainLabel);
+        fdoZip, crosstoolTopLabel, ccToolchainLabel, stlLabel);
   }
 }
