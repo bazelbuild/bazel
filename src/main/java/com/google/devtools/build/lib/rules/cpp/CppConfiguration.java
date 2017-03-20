@@ -24,10 +24,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -63,6 +65,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
@@ -156,7 +159,89 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public static class LibcTop implements Serializable {
     private final Label label;
 
-    LibcTop(Label label) {
+    /**
+     * Result of trying to create LibcTop. Bundles whether or not it still needs values that aren't
+     * loaded yet.
+     */
+    public static class Result {
+      private final LibcTop libcTop;
+      private final boolean valuesMissing;
+
+      Result(LibcTop libcTop, boolean valuesMissing) {
+        this.libcTop = libcTop;
+        this.valuesMissing = valuesMissing;
+      }
+
+      @Nullable
+      public LibcTop getLibcTop() {
+        return libcTop;
+      }
+
+      public boolean valuesMissing() {
+        return valuesMissing;
+      }
+    };
+
+    /** Tries to create a LibcTop object and returns whether or not all were any missing values. */
+    public static LibcTop.Result createLibcTop(
+        CppOptions cppOptions, ConfigurationEnvironment env, CrosstoolConfig.CToolchain toolchain)
+        throws InterruptedException, InvalidConfigurationException {
+      Preconditions.checkArgument(env != null);
+
+      PathFragment defaultSysroot =
+          toolchain.getBuiltinSysroot().length() == 0
+              ? null
+              : new PathFragment(toolchain.getBuiltinSysroot());
+      if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
+        throw new InvalidConfigurationException(
+            "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
+      }
+
+      if ((cppOptions.libcTopLabel != null) && (defaultSysroot == null)) {
+        throw new InvalidConfigurationException(
+            "The selected toolchain "
+                + toolchain.getToolchainIdentifier()
+                + " does not support setting --grte_top.");
+      }
+
+      LibcTop libcTop = null;
+      if (cppOptions.libcTopLabel != null) {
+        libcTop = createLibcTop(cppOptions.libcTopLabel, env);
+        if (libcTop == null) {
+          return new Result(libcTop, true);
+        }
+      } else if (!toolchain.getDefaultGrteTop().isEmpty()) {
+        Label grteTopLabel = null;
+        try {
+          grteTopLabel =
+              new CppOptions.LibcTopLabelConverter().convert(toolchain.getDefaultGrteTop());
+        } catch (OptionsParsingException e) {
+          throw new InvalidConfigurationException(e.getMessage(), e);
+        }
+
+        libcTop = createLibcTop(grteTopLabel, env);
+        if (libcTop == null) {
+          return new Result(libcTop, true);
+        }
+      }
+      return new Result(libcTop, false);
+    }
+
+    @Nullable
+    private static LibcTop createLibcTop(Label label, ConfigurationEnvironment env)
+        throws InvalidConfigurationException, InterruptedException {
+      Preconditions.checkArgument(label != null);
+      Label trueLabel = label;
+      // Allow the sysroot to follow any redirects.
+      trueLabel = RedirectChaser.followRedirects(env, label, "libc_top");
+      if (trueLabel == null) {
+        // Happens if there's a reference to package that hasn't been loaded yet.
+        return null;
+      }
+      return new LibcTop(trueLabel);
+    }
+
+    private LibcTop(Label label) {
       Preconditions.checkArgument(label != null);
       this.label = label;
     }
@@ -526,18 +611,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           + "' is not normalized.");
     }
 
-    if ((cppOptions.libcTop != null) && (defaultSysroot == null)) {
-      throw new InvalidConfigurationException("The selected toolchain " + toolchainIdentifier
-          + " does not support setting --grte_top.");
-    }
-    LibcTop libcTop = cppOptions.libcTop;
-    if ((libcTop == null) && !toolchain.getDefaultGrteTop().isEmpty()) {
-      try {
-        libcTop = new CppOptions.LibcTopConverter().convert(toolchain.getDefaultGrteTop());
-      } catch (OptionsParsingException e) {
-        throw new InvalidConfigurationException(e.getMessage(), e);
-      }
-    }
+    LibcTop libcTop = params.libcTop;
     if ((libcTop != null) && (libcTop.getLabel() != null)) {
       libcLabel = libcTop.getLabel();
     } else {
@@ -1778,10 +1852,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   public boolean getParseHeadersVerifiesModules() {
     return cppOptions.parseHeadersVerifiesModules;
-  }
-
-  public LibcTop getLibcTop() {
-    return cppOptions.libcTop;
   }
 
   public boolean getUseInterfaceSharedObjects() {

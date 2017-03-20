@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.LibcTop;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -95,14 +96,17 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
     protected final Label ccToolchainLabel;
     protected final Label stlLabel;
     protected final Path fdoZip;
+    protected final LibcTop libcTop;
 
-    CppConfigurationParameters(CrosstoolConfig.CToolchain toolchain,
+    CppConfigurationParameters(
+        CrosstoolConfig.CToolchain toolchain,
         String cacheKeySuffix,
         BuildOptions buildOptions,
         Path fdoZip,
         Label crosstoolTop,
         Label ccToolchainLabel,
-        Label stlLabel) {
+        Label stlLabel,
+        LibcTop libcTop) {
       this.toolchain = toolchain;
       this.cacheKeySuffix = cacheKeySuffix;
       this.commonOptions = buildOptions.get(BuildConfiguration.Options.class);
@@ -111,6 +115,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
       this.crosstoolTop = crosstoolTop;
       this.ccToolchainLabel = ccToolchainLabel;
       this.stlLabel = stlLabel;
+      this.libcTop = libcTop;
     }
   }
 
@@ -221,7 +226,19 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
           "The label '%s' is not a cc_toolchain rule", ccToolchainLabel));
     }
 
-    return new CppConfigurationParameters(toolchain, file.getMd5(), options,
-        fdoZip, crosstoolTopLabel, ccToolchainLabel, stlLabel);
+    LibcTop.Result libcTopResult = LibcTop.createLibcTop(cppOptions, env, toolchain);
+    if (libcTopResult.valuesMissing()) {
+      return null;
+    }
+
+    return new CppConfigurationParameters(
+        toolchain,
+        file.getMd5(),
+        options,
+        fdoZip,
+        crosstoolTopLabel,
+        ccToolchainLabel,
+        stlLabel,
+        libcTopResult.getLibcTop());
   }
 }

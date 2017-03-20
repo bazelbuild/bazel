@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.LibcTop;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -90,12 +89,11 @@ public class CppOptions extends FragmentOptions {
   private static final String LIBC_RELATIVE_LABEL = ":everything";
 
   /**
-   * Converts a String, which is an absolute path or label into a LibcTop
-   * object.
+   * Converts a String, which is a package label into a label that can be used for a LibcTop object.
    */
-  public static class LibcTopConverter implements Converter<LibcTop> {
+  public static class LibcTopLabelConverter implements Converter<Label> {
     @Override
-    public LibcTop convert(String input) throws OptionsParsingException {
+    public Label convert(String input) throws OptionsParsingException {
       if (input.equals("default")) {
         // This is needed for defining config_setting() values, the syntactic form
         // of which must be a String, to match absence of a --grte_top option.
@@ -107,8 +105,7 @@ public class CppOptions extends FragmentOptions {
         throw new OptionsParsingException("Not a label");
       }
       try {
-        Label label = Label.parseAbsolute(input).getRelative(LIBC_RELATIVE_LABEL);
-        return new LibcTop(label);
+        return Label.parseAbsolute(input).getRelative(LIBC_RELATIVE_LABEL);
       } catch (LabelSyntaxException e) {
         throw new OptionsParsingException(e.getMessage());
       }
@@ -508,23 +505,23 @@ public class CppOptions extends FragmentOptions {
     name = "grte_top",
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
-    converter = LibcTopConverter.class,
+    converter = LibcTopLabelConverter.class,
     help =
         "A label to a checked-in libc library. The default value is selected by the crosstool "
             + "toolchain, and you almost never need to override it."
   )
-  public LibcTop libcTop;
+  public Label libcTopLabel;
 
   @Option(
     name = "host_grte_top",
     defaultValue = "null", // The default value is chosen by the toolchain.
     category = "version",
-    converter = LibcTopConverter.class,
+    converter = LibcTopLabelConverter.class,
     help =
         "If specified, this setting overrides the libc top-level directory (--grte_top) "
             + "for the host configuration."
   )
-  public LibcTop hostLibcTop;
+  public Label hostLibcTopLabel;
 
   @Option(
     name = "output_symbol_counts",
@@ -629,7 +626,7 @@ public class CppOptions extends FragmentOptions {
     // Only an explicit command-line option will change it.
     // The default is whatever the host's crosstool (which might have been specified
     // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
-    host.libcTop = hostLibcTop;
+    host.libcTopLabel = hostLibcTopLabel;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
@@ -652,14 +649,14 @@ public class CppOptions extends FragmentOptions {
       labelMap.put("crosstool", hostCrosstoolTop);
     }
 
-    if (libcTop != null) {
-      Label libcLabel = libcTop.getLabel();
+    if (libcTopLabel != null) {
+      Label libcLabel = libcTopLabel;
       if (libcLabel != null) {
         labelMap.put("crosstool", libcLabel);
       }
     }
-    if (hostLibcTop != null) {
-      Label libcLabel = hostLibcTop.getLabel();
+    if (hostLibcTopLabel != null) {
+      Label libcLabel = hostLibcTopLabel;
       if (libcLabel != null) {
         labelMap.put("crosstool", libcLabel);
       }
@@ -687,8 +684,8 @@ public class CppOptions extends FragmentOptions {
       crosstoolLabels.add(hostCrosstoolTop);
     }
 
-    if (libcTop != null) {
-      Label libcLabel = libcTop.getLabel();
+    if (libcTopLabel != null) {
+      Label libcLabel = libcTopLabel;
       if (libcLabel != null) {
         crosstoolLabels.add(libcLabel);
       }

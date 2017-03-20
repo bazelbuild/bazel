@@ -342,7 +342,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  builtin_sysroot: \"builtin-sysroot-A\"\n"
                 + "  default_python_top: \"python-top-A\"\n"
                 + "  default_python_version: \"python-version-A\"\n"
-                + "  default_grte_top: \"//some:labelA\""
+                + "  default_grte_top: \"//some\""
                 + "  debian_extra_requires: \"a\""
                 + "  debian_extra_requires: \"b\""
                 + "}\n"
@@ -446,7 +446,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  builtin_sysroot: \"builtin-sysroot-B\"\n"
                 + "  default_python_top: \"python-top-B\"\n"
                 + "  default_python_version: \"python-version-B\"\n"
-                + "  default_grte_top: \"//some:labelB\"\n"
+                + "  default_grte_top: \"//some\"\n"
                 + "  debian_extra_requires: \"c\""
                 + "  debian_extra_requires: \"d\""
                 + "}\n"
@@ -475,6 +475,12 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  tool_path { name: \"strip\" path: \"path/to/strip-C\" }"
                 + "  tool_path { name: \"dwp\" path: \"path/to/dwp\" }\n"
                 + "}");
+
+    mockToolsConfig.create(
+        "some/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "licenses(['unencumbered'])",
+        "filegroup(name = 'everything')");
 
     CppConfiguration toolchainA = create(loader, "--cpu=piii");
     assertEquals("toolchain-identifier-A", toolchainA.getToolchainIdentifier());
