@@ -90,26 +90,23 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (definesLocalResources) {
       ApplicationManifest applicationManifest = androidSemantics.getManifestForRule(ruleContext)
           .renamePackage(ruleContext, AndroidCommon.getJavaPackage(ruleContext));
-      resourceApk =
-          applicationManifest.packWithDataAndResources(
-              null, /* resourceApk -- not needed for library */
-              ruleContext,
-              true, /* isLibrary */
-              ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
-              ResourceConfigurationFilter.empty(ruleContext),
-              ImmutableList.<String>of(), /* uncompressedExtensions */
-              false, /* crunchPng */
-              ImmutableList.<String>of(), /* densities */
-              false, /* incremental */
-              null, /* proguardCfgOut */
-              null, /* mainDexProguardCfg */
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-              ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
-              DataBinding.isEnabled(ruleContext)
-                  ? DataBinding.getLayoutInfoFile(ruleContext)
-                  : null);
+      resourceApk = applicationManifest.packWithDataAndResources(
+          null, /* resourceApk -- not needed for library */
+          ruleContext,
+          true, /* isLibrary */
+          ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS),
+          ResourceConfigurationFilter.empty(ruleContext),
+          ImmutableList.<String>of(), /* uncompressedExtensions */
+          false, /* crunchPng */
+          ImmutableList.<String>of(), /* densities */
+          false, /* incremental */
+          null, /* proguardCfgOut */
+          null, /* mainDexProguardCfg */
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP),
+          DataBinding.isEnabled(ruleContext) ? DataBinding.getLayoutInfoFile(ruleContext) : null);
       if (ruleContext.hasErrors()) {
         return null;
       }

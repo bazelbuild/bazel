@@ -99,18 +99,17 @@ public class AarImport implements RuleConfiguredTargetFactory {
     Artifact resourcesZip =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
 
-    ResourceApk resourceApk =
-        androidManifest.packWithDataAndResources(
-            ruleContext,
-            new LocalResourceContainer.Builder(ruleContext)
-                .withResources(ImmutableList.of(resourcesProvider))
-                .build(),
-            ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LOCAL_SYMBOLS),
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
-            resourcesZip,
-            /* alwaysExportManifest = */ true);
+    ResourceApk resourceApk = androidManifest.packWithDataAndResources(
+        ruleContext,
+        new LocalResourceContainer.Builder(ruleContext)
+            .withResources(ImmutableList.of(resourcesProvider))
+            .build(),
+        ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS),
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_PROCESSED_MANIFEST),
+        resourcesZip,
+        /* alwaysExportManifest = */ true);
 
     // There isn't really any use case for building an aar_import target on its own, so the files to
     // build could be empty. The resources zip and merged jars are added here as a sanity check for

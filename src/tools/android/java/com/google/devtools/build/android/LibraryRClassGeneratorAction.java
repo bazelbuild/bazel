@@ -93,10 +93,11 @@ public class LibraryRClassGeneratorAction {
               Strings.nullToEmpty(options.packageForR));
       resourceClassWriter.setIncludeClassFile(true);
       resourceClassWriter.setIncludeJavaFile(false);
+      final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
       logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       final ParsedAndroidData data =
-          AndroidDataDeserializer.deserializeSymbolsToData(options.symbols);
+          resourceProcessor.deserializeSymbolsToData(options.symbols);
       logger.fine(
           String.format("Deserialization finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

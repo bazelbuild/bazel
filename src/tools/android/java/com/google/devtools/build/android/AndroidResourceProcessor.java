@@ -28,6 +28,7 @@ import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.ExecutorSingleton;
 import com.android.ide.common.internal.LoggedErrorException;
+import com.android.ide.common.res2.MergingException;
 import com.android.io.FileWrapper;
 import com.android.io.StreamException;
 import com.android.repository.Revision;
@@ -45,6 +46,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.RevisionConverter;
+import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.SplitConfigurationFilter.UnrecognizedSplitsException;
 import com.google.devtools.build.android.resources.RClassGenerator;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
@@ -704,5 +706,56 @@ public class AndroidResourceProcessor {
       return null;
     }
     return Files.createDirectories(out);
+  }
+
+  /** Deserializes a list of serialized resource paths to a {@link ParsedAndroidData}. */
+  public ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths)
+      throws IOException, MergingException {
+    AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+    final ListeningExecutorService executorService =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
+    final Builder deserializedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+      List<ListenableFuture<Boolean>> deserializing = new ArrayList<>();
+      for (final Path symbolPath : symbolPaths) {
+        deserializing.add(
+            executorService.submit(
+                new Deserialize(deserializer, symbolPath, deserializedDataBuilder)));
+      }
+      FailedFutureAggregator<MergingException> aggregator =
+          FailedFutureAggregator.createForMergingExceptionWithMessage(
+              "Failure(s) during dependency parsing");
+      aggregator.aggregateAndMaybeThrow(deserializing);
+    }
+    return deserializedDataBuilder.build();
+  }
+
+  /** Task to deserialize resources from a path. */
+  private static final class Deserialize implements Callable<Boolean> {
+
+    private final Path symbolPath;
+
+    private final Builder finalDataBuilder;
+    private final AndroidDataDeserializer deserializer;
+
+    private Deserialize(
+        AndroidDataDeserializer deserializer, Path symbolPath, Builder finalDataBuilder) {
+      this.deserializer = deserializer;
+      this.symbolPath = symbolPath;
+      this.finalDataBuilder = finalDataBuilder;
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+      deserializer.read(symbolPath, parsedDataBuilder.consumers());
+      // The builder isn't threadsafe, so synchronize the copyTo call.
+      synchronized (finalDataBuilder) {
+        // All the resources are sorted before writing, so they can be aggregated in
+        // whatever order here.
+        parsedDataBuilder.copyTo(finalDataBuilder);
+      }
+      return Boolean.TRUE;
+    }
   }
 }

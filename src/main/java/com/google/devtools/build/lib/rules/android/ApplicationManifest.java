@@ -453,43 +453,38 @@ public final class ApplicationManifest {
     if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
       // android_library should only build the APK one way (!incremental).
       Preconditions.checkArgument(!incremental);
-      Artifact rJavaClassJar =
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
+      Artifact rJavaClassJar = ruleContext.getImplicitOutputArtifact(
+          AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
 
-      ResourceContainer parsed =
-          new AndroidResourceParsingActionBuilder(ruleContext)
-              .setParse(data)
-              .withPrimary(resourceContainer)
-              .setOutput(resourceContainer.getSymbols())
-              .build(ruleContext);
+      if (resourceContainer.getSymbols() != null) {
+        new AndroidResourceParsingActionBuilder(ruleContext)
+            .withPrimary(resourceContainer)
+            .setParse(data)
+            .setOutput(resourceContainer.getSymbols())
+            .build(ruleContext);
+      }
 
-      ResourceContainer generated =
-          new LibraryRGeneratorActionBuilder()
-              .setJavaPackage(resourceContainer.getJavaPackage())
-              .withPrimary(parsed)
-              .withDependencies(resourceDeps)
-              .setClassJarOut(rJavaClassJar)
-              .build(ruleContext);
-
-      ResourceContainer merged =
+      AndroidResourceMergingActionBuilder resourcesMergerBuilder =
           new AndroidResourceMergingActionBuilder(ruleContext)
-              .setJavaPackage(generated.getJavaPackage())
-              .withPrimary(generated)
+              .setJavaPackage(resourceContainer.getJavaPackage())
+              .withPrimary(resourceContainer)
               .withDependencies(resourceDeps)
               .setMergedResourcesOut(mergedResources)
               .setManifestOut(manifestOut)
-              .setDataBindingInfoZip(dataBindingInfoZip)
-              .build(ruleContext);
+              .setClassJarOut(rJavaClassJar)
+              .setDataBindingInfoZip(dataBindingInfoZip);
+      ResourceContainer merged = resourcesMergerBuilder.build(ruleContext);
 
-      processed =
+      AndroidResourceValidatorActionBuilder validatorBuilder =
           new AndroidResourceValidatorActionBuilder(ruleContext)
               .setJavaPackage(merged.getJavaPackage())
-              .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+              .setDebug(
+                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
               .setMergedResources(mergedResources)
               .withPrimary(merged)
               .setSourceJarOut(merged.getJavaSourceJar())
-              .setRTxtOut(merged.getRTxt())
-              .build(ruleContext);
+              .setRTxtOut(merged.getRTxt());
+      processed = validatorBuilder.build(ruleContext);
     } else {
       AndroidResourcesProcessorBuilder builder =
           new AndroidResourcesProcessorBuilder(ruleContext)
@@ -635,16 +630,14 @@ public final class ApplicationManifest {
     aaptActionHelper.createGenerateApkAction(resourceApk,
         resourceContainer.getRenameManifestPackage(), additionalAaptOpts.build(), densities);
 
-    ResourceContainer updatedResources =
-        resourceContainer
-            .toBuilder()
-            .setLabel(ruleContext.getLabel())
-            .setApk(resourceApk)
-            .setManifest(getManifest())
-            .setJavaSourceJar(javaSourcesJar)
-            .setJavaClassJar(null)
-            .setSymbols(null)
-            .build();
+    ResourceContainer updatedResources = resourceContainer.toBuilder()
+        .setLabel(ruleContext.getLabel())
+        .setApk(resourceApk)
+        .setManifest(getManifest())
+        .setJavaSourceJar(javaSourcesJar)
+        .setJavaClassJar(null)
+        .setSymbols(null)
+        .build();
 
     aaptActionHelper.createGenerateProguardAction(proguardCfg, mainDexProguardCfg);
 

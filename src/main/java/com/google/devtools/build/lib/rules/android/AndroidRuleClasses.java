@@ -116,8 +116,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/R.txt");
   public static final SafeImplicitOutputsFunction ANDROID_LOCAL_SYMBOLS =
       fromTemplates("%{name}_symbols/local.bin");
-  public static final SafeImplicitOutputsFunction ANDROID_MERGED_SYMBOLS =
-      fromTemplates("%{name}_symbols/merged.bin");
+  public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS =
+      fromTemplates("%{name}_symbols/symbols.bin");
   public static final ImplicitOutputsFunction ANDROID_PROCESSED_MANIFEST =
       fromTemplates("%{name}_processed_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction MOBILE_INSTALL_STUB_APPLICATION_MANIFEST =
