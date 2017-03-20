@@ -556,7 +556,8 @@ public final class Runfiles {
     }
 
     private PathFragment checkForWorkspace(PathFragment path) {
-      sawWorkspaceName = sawWorkspaceName || path.getSegment(0).equals(workspaceName);
+      sawWorkspaceName = sawWorkspaceName
+          || path.getSegment(0).equals(workspaceName.getPathString());
       return path;
     }
 
