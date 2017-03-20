@@ -445,6 +445,22 @@ public class RuleClass {
       }
     }
 
+    /**
+     * A RuleTransitionFactory which always returns the same transition.
+     */
+    private static final class FixedTransitionFactory implements RuleTransitionFactory {
+      private final Transition transition;
+
+      private FixedTransitionFactory(Transition transition) {
+        this.transition = transition;
+      }
+
+      @Override
+      public Transition buildTransitionFor(Rule rule) {
+        return transition;
+      }
+    }
+
     /** List of required attributes for normal rules, name and type. */
     public static final ImmutableList<Attribute> REQUIRED_ATTRIBUTES_FOR_NORMAL_RULES =
         ImmutableList.of(attr("tags", Type.STRING_LIST).build());
@@ -470,7 +486,7 @@ public class RuleClass {
     private boolean outputsDefaultExecutable = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
-    private Transition transition;
+    private RuleTransitionFactory transitionFactory;
     private ConfiguredTargetFactory<?, ?> configuredTargetFactory = null;
     private PredicateWithMessage<Rule> validityPredicate =
         PredicatesWithMessage.<Rule>alwaysTrue();
@@ -584,7 +600,7 @@ public class RuleClass {
           outputsDefaultExecutable,
           implicitOutputsFunction,
           configurator,
-          transition,
+          transitionFactory,
           configuredTargetFactory,
           validityPredicate,
           preferredDependencyPredicate,
@@ -718,8 +734,9 @@ public class RuleClass {
     public Builder cfg(Configurator<?, ?> configurator) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(transition == null,
-          "Property cfg cannot be set to both a configurator and a transition");
+      Preconditions.checkState(this.transitionFactory == null && this.configurator == NO_CHANGE,
+          "Property cfg has already been set");
+      Preconditions.checkNotNull(configurator);
       this.configurator = configurator;
       return this;
     }
@@ -734,9 +751,20 @@ public class RuleClass {
     public Builder cfg(Transition transition) {
       Preconditions.checkState(type != RuleClassType.ABSTRACT,
           "Setting not inherited property (cfg) of abstract rule class '%s'", name);
-      Preconditions.checkState(configurator == NO_CHANGE,
-          "Property cfg cannot be set to both a configurator and a transition");
-      this.transition = transition;
+      Preconditions.checkState(this.transitionFactory == null && this.configurator == NO_CHANGE,
+          "Property cfg has already been set");
+      Preconditions.checkNotNull(transition);
+      this.transitionFactory = new FixedTransitionFactory(transition);
+      return this;
+    }
+
+    public Builder cfg(RuleTransitionFactory transitionFactory) {
+      Preconditions.checkState(type != RuleClassType.ABSTRACT,
+          "Setting not inherited property (cfg) of abstract rule class '%s'", name);
+      Preconditions.checkState(this.transitionFactory == null && this.configurator == NO_CHANGE,
+          "Property cfg has already been set");
+      Preconditions.checkNotNull(transitionFactory);
+      this.transitionFactory = transitionFactory;
       return this;
     }
 
@@ -1000,12 +1028,10 @@ public class RuleClass {
   private final Configurator<?, ?> configurator;
 
   /**
-   * A configuration transition that should be applied on any edge of the configured target graph
-   * that leads into a target of this rule class.
-   *
-   * <p>This transition must be a PatchTransition, but that class is not accessible in this package.
+   * A factory which will produce a configuration transition that should be applied on any edge of
+   * the configured target graph that leads into a target of this rule class.
    */
-  private final Transition transition;
+  private final RuleTransitionFactory transitionFactory;
 
   /**
    * The factory that creates configured targets from this rule.
@@ -1090,7 +1116,7 @@ public class RuleClass {
       boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
-      Transition transition,
+      RuleTransitionFactory transitionFactory,
       ConfiguredTargetFactory<?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
@@ -1112,7 +1138,7 @@ public class RuleClass {
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.configurator = Preconditions.checkNotNull(configurator);
-    this.transition = transition;
+    this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
     this.validityPredicate = validityPredicate;
     this.preferredDependencyPredicate = preferredDependencyPredicate;
@@ -1182,8 +1208,8 @@ public class RuleClass {
     return (Configurator<C, R>) configurator;
   }
 
-  public Transition getTransition() {
-    return transition;
+  public RuleTransitionFactory getTransitionFactory() {
+    return transitionFactory;
   }
 
   @SuppressWarnings("unchecked")

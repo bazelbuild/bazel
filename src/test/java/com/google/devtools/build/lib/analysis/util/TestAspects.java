@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -56,12 +57,15 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.packages.Attribute.Transition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.syntax.Type;
@@ -1034,6 +1038,65 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("rule_class_transition")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  private static class SetsTestFilterFromAttributePatchTransition implements PatchTransition {
+    private final String value;
+
+    public SetsTestFilterFromAttributePatchTransition(String value) {
+      this.value = value;
+    }
+
+    @Override
+    public BuildOptions apply(BuildOptions options) {
+      BuildOptions result = options.clone();
+      result.get(Options.class).testFilter = "SET BY PATCH FACTORY: " + value;
+      return result;
+    }
+
+    @Override
+    public boolean defaultsToSelf() {
+      return true;
+    }
+  }
+
+  private static class SetsTestFilterFromAttributeTransitionFactory
+      implements RuleTransitionFactory {
+    @Override
+    public Transition buildTransitionFor(Rule rule) {
+      NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+      String value = attributes.get("sets_test_filter_to", STRING);
+      if (Strings.isNullOrEmpty(value)) {
+        return null;
+      } else {
+        return new SetsTestFilterFromAttributePatchTransition(value);
+      }
+    }
+  }
+
+  /**
+   * Rule with a RuleTransitionFactory which sets the --test_filter flag according to its attribute.
+   */
+  public static class UsesRuleTransitionFactoryRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .cfg(new SetsTestFilterFromAttributeTransitionFactory())
+          .add(
+              attr("sets_test_filter_to", STRING)
+                  .nonconfigurable("used in RuleTransitionFactory")
+                  .value(""))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("uses_rule_transition_factory")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();

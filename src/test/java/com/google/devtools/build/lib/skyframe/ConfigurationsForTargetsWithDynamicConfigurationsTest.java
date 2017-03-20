@@ -148,6 +148,67 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
     assertThat(target.getConfiguration().getCpu()).isNotEqualTo("SET BY PATCH");
   }
 
+  @Test
+  public void ruleTransitionFactoryUsesNonconfigurableAttributesToGenerateTransition()
+      throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.AttributeTransitionRule(),
+        new TestAspects.UsesRuleTransitionFactoryRule());
+    useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
+    scratch.file(
+        "a/BUILD",
+        "attribute_transition(",
+        "   name='top',",
+        "   without_transition=':factory',",
+        ")",
+        "uses_rule_transition_factory(",
+        "   name='factory',",
+        "   sets_test_filter_to='funkiest',",
+        ")");
+    List<ConfiguredTarget> deps = getConfiguredDeps("//a:top", "without_transition");
+    BuildConfiguration config = Iterables.getOnlyElement(deps).getConfiguration();
+    assertThat(config.getTestFilter()).isEqualTo("SET BY PATCH FACTORY: funkiest");
+  }
+
+  @Test
+  public void ruleTransitionFactoryCanReturnNullToCauseNoTransition() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(),
+        new TestAspects.AttributeTransitionRule(),
+        new TestAspects.UsesRuleTransitionFactoryRule());
+    useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
+    scratch.file(
+        "a/BUILD",
+        "attribute_transition(",
+        "   name='top',",
+        "   without_transition=':factory',",
+        ")",
+        "uses_rule_transition_factory(",
+        "   name='factory',",
+        "   sets_test_filter_to='',",
+        ")");
+    List<ConfiguredTarget> deps = getConfiguredDeps("//a:top", "without_transition");
+    BuildConfiguration config = Iterables.getOnlyElement(deps).getConfiguration();
+    assertThat(config.getTestFilter()).isEqualTo("SET ON COMMAND LINE: original and best");
+  }
+
+  @Test
+  public void topLevelRuleTransitionFactoryUsesNonconfigurableAttributes() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new TestAspects.UsesRuleTransitionFactoryRule());
+    useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
+    scratch.file(
+        "a/BUILD",
+        "uses_rule_transition_factory(",
+        "   name='factory',",
+        "   sets_test_filter_to='Maximum Dance',",
+        ")");
+    ConfiguredTarget target = Iterables.getOnlyElement(update("//a:factory").getTargetsToBuild());
+    assertThat(target.getConfiguration().getTestFilter())
+        .isEqualTo("SET BY PATCH FACTORY: Maximum Dance");
+  }
+
   /**
    * Returns a custom {@link PatchTransition} with the given value added to
    * {@link BuildConfiguration.Options#testFilter}.

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -1849,15 +1850,18 @@ public final class BuildConfiguration {
       transitionsManager.configurationHook(fromRule, attribute, toTarget, this);
 
       Rule associatedRule = toTarget.getAssociatedRule();
-      PatchTransition ruleClassTransition = (PatchTransition)
-          associatedRule.getRuleClassObject().getTransition();
-
-      if (ruleClassTransition != null) {
-        if (currentTransition == ConfigurationTransition.NONE) {
-          currentTransition = ruleClassTransition;
-        } else {
-          currentTransition = new ComposingSplitTransition(ruleClassTransition,
-              currentTransition);
+      RuleTransitionFactory transitionFactory =
+          associatedRule.getRuleClassObject().getTransitionFactory();
+      if (transitionFactory != null) {
+        PatchTransition ruleClassTransition = (PatchTransition)
+            transitionFactory.buildTransitionFor(associatedRule);
+        if (ruleClassTransition != null) {
+          if (currentTransition == ConfigurationTransition.NONE) {
+            currentTransition = ruleClassTransition;
+          } else {
+            currentTransition = new ComposingSplitTransition(ruleClassTransition,
+                currentTransition);
+          }
         }
       }
 
