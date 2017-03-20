@@ -112,7 +112,7 @@ class ArtifactFunction implements SkyFunction {
         return createAggregatingValue(artifact, action,
             actionValue.getArtifactValue(artifact), env);
       } else {
-        return createSimpleFileArtifactValue(artifact, action, actionValue, env);
+        return createSimpleFileArtifactValue(artifact, actionValue);
       }
     }
   }
@@ -157,8 +157,8 @@ class ArtifactFunction implements SkyFunction {
           treeArtifact);
 
       for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
-        FileArtifactValue value  = createSimpleFileArtifactValue(
-            treeFileArtifact, expandedAction, actionExecutionValue, env);
+        FileArtifactValue value =
+            createSimpleFileArtifactValue(treeFileArtifact, actionExecutionValue);
         map.put(treeFileArtifact, value);
       }
     }
@@ -224,9 +224,8 @@ class ArtifactFunction implements SkyFunction {
 
   // Non-aggregating artifact -- should contain at most one piece of artifact data.
   // data may be null if and only if artifact is a middleman artifact.
-  private static FileArtifactValue createSimpleFileArtifactValue(Artifact artifact,
-      Action generatingAction, ActionExecutionValue actionValue, Environment env)
-      throws ArtifactFunctionException {
+  private static FileArtifactValue createSimpleFileArtifactValue(
+      Artifact artifact, ActionExecutionValue actionValue) throws ArtifactFunctionException {
     FileArtifactValue value = actionValue.getArtifactValue(artifact);
     if (value != null) {
       return value;
@@ -238,16 +237,10 @@ class ArtifactFunction implements SkyFunction {
         "%s %s", artifact, actionValue);
     Preconditions.checkNotNull(data.getDigest(),
           "Digest should already have been calculated for %s (%s)", artifact, data);
-
-    try {
-      return FileArtifactValue.create(artifact, data);
-    } catch (IOException e) {
-      ActionExecutionException ex = new ActionExecutionException(e, generatingAction,
-          /*catastrophe=*/false);
-      env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
-      // This is a transient error since we did the work that led to the IOException.
-      throw new ArtifactFunctionException(ex, Transience.TRANSIENT);
-    }
+    // Directories are special-cased because their mtimes are used, so should have been constructed
+    // during execution of the action (in ActionMetadataHandler#maybeStoreAdditionalData).
+    Preconditions.checkState(data.isFile(), "Unexpected not file %s (%s)", artifact, data);
+    return FileArtifactValue.createNormalFile(data.getDigest(), data.getSize());
   }
 
   private static AggregatingArtifactValue createAggregatingValue(

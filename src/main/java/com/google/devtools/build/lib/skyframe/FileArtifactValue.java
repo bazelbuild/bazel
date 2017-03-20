@@ -236,6 +236,10 @@ public abstract class FileArtifactValue implements SkyValue {
       return new DirectoryArtifactValue(artifact.getPath().getLastModifiedTime());
     }
     Preconditions.checkState(digest != null, artifact);
+    return createNormalFile(digest, size);
+  }
+
+  static FileArtifactValue createNormalFile(byte[] digest, long size) {
     return new RegularFileArtifactValue(digest, size);
   }
 
@@ -245,7 +249,7 @@ public abstract class FileArtifactValue implements SkyValue {
    */
   static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
-    return new RegularFileArtifactValue(digest, /*size=*/ 0);
+    return createNormalFile(digest, /*size=*/ 0);
   }
 
   /** Returns the digest of this value. Null for non-files, non-null for files. */
