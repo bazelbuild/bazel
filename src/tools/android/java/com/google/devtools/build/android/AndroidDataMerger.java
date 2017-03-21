@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import com.android.ide.common.res2.MergingException;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
@@ -137,33 +138,34 @@ class AndroidDataMerger {
 
   private final SourceChecker deDuplicator;
   private final ListeningExecutorService executorService;
-  private final AndroidDataDeserializer deserializer = AndroidDataDeserializer.create();
+  private final AndroidDataDeserializer deserializer;
 
   /** Creates a merger with no path deduplication and a default {@link ExecutorService}. */
+  @VisibleForTesting
   static AndroidDataMerger createWithDefaults() {
     return createWithDefaultThreadPool(NoopSourceChecker.create());
   }
 
   /** Creates a merger with a custom deduplicator and a default {@link ExecutorService}. */
+  @VisibleForTesting
   static AndroidDataMerger createWithDefaultThreadPool(SourceChecker deDuplicator) {
-    return new AndroidDataMerger(deDuplicator, MoreExecutors.newDirectExecutorService());
-  }
-
-  /** Creates a merger with a custom deduplicator and an {@link ExecutorService}. */
-  static AndroidDataMerger create(
-      SourceChecker deDuplicator, ListeningExecutorService executorService) {
-    return new AndroidDataMerger(deDuplicator, executorService);
+    return new AndroidDataMerger(
+        deDuplicator, MoreExecutors.newDirectExecutorService(), AndroidDataDeserializer.create());
   }
 
   /** Creates a merger with a file contents hashing deduplicator. */
   static AndroidDataMerger createWithPathDeduplictor(
-      ListeningExecutorService executorService) {
-    return create(ContentComparingChecker.create(), executorService);
+      ListeningExecutorService executorService, AndroidDataDeserializer deserializer) {
+    return new AndroidDataMerger(ContentComparingChecker.create(), executorService, deserializer);
   }
 
-  private AndroidDataMerger(SourceChecker deDuplicator, ListeningExecutorService executorService) {
+  private AndroidDataMerger(
+      SourceChecker deDuplicator,
+      ListeningExecutorService executorService,
+      AndroidDataDeserializer deserializer) {
     this.deDuplicator = deDuplicator;
     this.executorService = executorService;
+    this.deserializer = deserializer;
   }
 
   /**

@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
@@ -24,6 +25,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -33,11 +35,24 @@ import java.util.logging.Logger;
 public class AndroidDataDeserializer {
   private static final Logger logger = Logger.getLogger(AndroidDataDeserializer.class.getName());
 
-  public static AndroidDataDeserializer create() {
-    return new AndroidDataDeserializer();
+  private final ImmutableSet<String> filteredResources;
+
+  /**
+   * @param filteredResources resources that were filtered out of this target and should be ignored
+   *     if they are referenced in symbols files.
+   */
+  public static AndroidDataDeserializer withFilteredResources(
+      Collection<String> filteredResources) {
+    return new AndroidDataDeserializer(ImmutableSet.copyOf(filteredResources));
   }
 
-  private AndroidDataDeserializer() {}
+  public static AndroidDataDeserializer create() {
+    return new AndroidDataDeserializer(ImmutableSet.<String>of());
+  }
+
+  private AndroidDataDeserializer(ImmutableSet<String> filteredResources) {
+    this.filteredResources = filteredResources;
+  }
 
   /**
    * Reads the serialized {@link DataKey} and {@link DataValue} to the {@link KeyValueConsumers}.
@@ -95,6 +110,14 @@ public class AndroidDataDeserializer {
     for (Entry<DataKey, KeyValueConsumer<DataKey, ?>> entry : keys.entrySet()) {
       SerializeFormat.DataValue protoValue = SerializeFormat.DataValue.parseDelimitedFrom(in);
       DataSource source = sourceTable.sourceFromId(protoValue.getSourceId());
+      int nameCount = source.getPath().getNameCount();
+      String shortPath = source.getPath().subpath(nameCount - 2, nameCount).toString();
+      if (filteredResources.contains(shortPath)) {
+        // Skip files that were filtered out during analysis.
+        // TODO(asteinb): Properly filter out these files from android_library symbol files during
+        // analysis instead, and remove this list.
+        continue;
+      }
       if (protoValue.hasXmlValue()) {
         // TODO(corysmith): Figure out why the generics are wrong.
         // If I use Map<DataKey, KeyValueConsumer<DataKey, ? extends DataValue>>, I can put
@@ -115,3 +138,4 @@ public class AndroidDataDeserializer {
     }
   }
 }
+
