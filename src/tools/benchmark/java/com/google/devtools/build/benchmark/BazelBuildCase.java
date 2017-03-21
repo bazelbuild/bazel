@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.benchmark.codegenerator.CodeGenerator;
+import com.google.devtools.build.benchmark.codegenerator.CppCodeGenerator;
 import com.google.devtools.build.benchmark.codegenerator.JavaCodeGenerator;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -30,11 +31,16 @@ import java.nio.file.Path;
 final class BazelBuildCase implements BuildCase {
 
   private static final ImmutableMap<String, String> BUILD_TARGET_NAME_TO_DESCRIPTION =
-      ImmutableMap.of(
-          "AFewFiles", "Target: A Few Files",
-          "ManyFiles", "Target: Many Files",
-          "LongChainedDeps", "Target: Long Chained Deps",
-          "ParallelDeps", "Target: Parallel Deps");
+      ImmutableMap.<String, String>builder()
+          .put("java/AFewFiles", "Java Target: A Few Files")
+          .put("java/ManyFiles", "Java Target: Many Files")
+          .put("java/LongChainedDeps", "Java Target: Long Chained Deps")
+          .put("java/ParallelDeps", "Java Target: Parallel Deps")
+          .put("cpp/AFewFiles", "Cpp Target: A Few Files")
+          .put("cpp/ManyFiles", "Cpp Target: Many Files")
+          .put("cpp/LongChainedDeps", "Cpp Target: Long Chained Deps")
+          .put("cpp/ParallelDeps", "Cpp Target: Parallel Deps")
+          .build();
   private static final ImmutableSet<String> ALL_TARGET_NAMES = ImmutableSet.<String>of(
       "AFewFiles", "ManyFiles", "LongChainedDeps", "ParallelDeps");
   private static final String WORKSPACE_FILE_NAME = "WORKSPACE";
@@ -86,7 +92,10 @@ final class BazelBuildCase implements BuildCase {
     // Prepare generated code for copy
     if (!copyDir.toFile().exists()) {
       CodeGenerator codeGenerator = new JavaCodeGenerator();
-      codeGenerator.generateNewProject(copyDir.toString(), ALL_TARGET_NAMES);
+      codeGenerator.generateNewProject(copyDir + codeGenerator.getDirSuffix(), ALL_TARGET_NAMES);
+
+      codeGenerator = new CppCodeGenerator();
+      codeGenerator.generateNewProject(copyDir + codeGenerator.getDirSuffix(), ALL_TARGET_NAMES);
     }
 
     // Clean generated code path

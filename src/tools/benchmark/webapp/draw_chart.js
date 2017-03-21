@@ -33,9 +33,9 @@ function drawAllChart() {
       let responses = [].slice.call(arguments, 1);
       for (let response of responses) {
         let data = response[0];
+        targetNum = data.buildTargetResults.length;
 
         if (!chartInit) {
-          targetNum = data.buildTargetResults.length;
           initChartData(data.buildTargetResults, dashboard, control, chart, tableData, options);
           chartInit = true;
         }

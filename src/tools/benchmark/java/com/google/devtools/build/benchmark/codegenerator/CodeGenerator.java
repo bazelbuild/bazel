@@ -27,26 +27,19 @@ import java.nio.file.Paths;
 public abstract class CodeGenerator {
 
   @VisibleForTesting static final String TARGET_A_FEW_FILES = "AFewFiles";
-  @VisibleForTesting static final int SIZE_A_FEW_FILES = 10;
-
   @VisibleForTesting static final String TARGET_MANY_FILES = "ManyFiles";
-  @VisibleForTesting static final int SIZE_MANY_FILES = 1000;
-
   @VisibleForTesting static final String TARGET_LONG_CHAINED_DEPS = "LongChainedDeps";
-  @VisibleForTesting static final int SIZE_LONG_CHAINED_DEPS = 20;
-
   @VisibleForTesting static final String TARGET_PARALLEL_DEPS = "ParallelDeps";
-  @VisibleForTesting static final int SIZE_PARALLEL_DEPS = 20;
 
   public void generateNewProject(String outputDir, ImmutableSet<String> projectNames) {
     Path dir = Paths.get(outputDir);
     for (String projectName : projectNames) {
       switch (projectName) {
         case TARGET_A_FEW_FILES:
-          createTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES), SIZE_A_FEW_FILES);
+          createTargetWithSomeFiles(dir.resolve(TARGET_A_FEW_FILES), getSizeAFewFiles());
           break;
         case TARGET_MANY_FILES:
-          createTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES), SIZE_MANY_FILES);
+          createTargetWithSomeFiles(dir.resolve(TARGET_MANY_FILES), getSizeManyFiles());
           break;
         case TARGET_LONG_CHAINED_DEPS:
           createTargetWithLongChainedDeps(dir.resolve(TARGET_LONG_CHAINED_DEPS));
@@ -92,4 +85,8 @@ public abstract class CodeGenerator {
   abstract void modifyTargetWithParallelDeps(Path projectPath);
 
   public abstract String getDirSuffix();
+  public abstract int getSizeAFewFiles();
+  public abstract int getSizeManyFiles();
+  public abstract int getSizeLongChainedDeps();
+  public abstract int getSizeParallelDeps();
 }

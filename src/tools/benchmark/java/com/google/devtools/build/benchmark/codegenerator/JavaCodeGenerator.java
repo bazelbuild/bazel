@@ -22,12 +22,38 @@ import java.nio.file.Path;
 /** Create 4 types of Java project, or modify existing ones. */
 public class JavaCodeGenerator extends CodeGenerator {
 
+  private static final int SIZE_A_FEW_FILES = 10;
+  private static final int SIZE_MANY_FILES = 1000;
+  private static final int SIZE_LONG_CHAINED_DEPS = 20;
+  private static final int SIZE_PARALLEL_DEPS = 20;
+
   private static final String DIR_SUFFIX = "/java";
 
   @Override
   public String getDirSuffix() {
     return DIR_SUFFIX;
   }
+
+  @Override
+  public int getSizeAFewFiles() {
+    return SIZE_A_FEW_FILES;
+  }
+
+  @Override
+  public int getSizeManyFiles() {
+    return SIZE_MANY_FILES;
+  }
+
+  @Override
+  public int getSizeLongChainedDeps() {
+    return SIZE_LONG_CHAINED_DEPS;
+  }
+
+  @Override
+  public int getSizeParallelDeps() {
+    return SIZE_PARALLEL_DEPS;
+  }
+
 
   /** Target type 1/2: Create targets with some files */
   @Override

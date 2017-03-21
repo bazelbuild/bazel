@@ -46,6 +46,10 @@ public class Main {
     // Generate or modify Java code
     CodeGenerator codeGenerator = new JavaCodeGenerator();
     generateOrModifyProject(opt, codeGenerator);
+
+    // Generate or modify Cpp code
+    codeGenerator = new CppCodeGenerator();
+    generateOrModifyProject(opt, codeGenerator);
   }
 
   public static GeneratorOptions parseArgs(String[] args) throws OptionsParsingException {
@@ -79,10 +83,10 @@ public class Main {
   private static void generateOrModifyProject(GeneratorOptions opt, CodeGenerator codeGenerator) {
     if (opt.modificationMode) {
       codeGenerator.modifyExistingProject(
-          opt.outputDir, ImmutableSet.copyOf(opt.projectNames));
+          opt.outputDir + codeGenerator.getDirSuffix(), ImmutableSet.copyOf(opt.projectNames));
     } else {
       codeGenerator.generateNewProject(
-          opt.outputDir, ImmutableSet.copyOf(opt.projectNames));
+          opt.outputDir + codeGenerator.getDirSuffix(), ImmutableSet.copyOf(opt.projectNames));
     }
   }
 }

@@ -57,18 +57,18 @@ public class CppCodeGeneratorTest {
 
     // Target 1: a few files
     checkSimpleTarget(
-        dir, JavaCodeGenerator.TARGET_A_FEW_FILES, JavaCodeGenerator.SIZE_A_FEW_FILES);
+        dir, CppCodeGenerator.TARGET_A_FEW_FILES, cppCodeGenerator.getSizeAFewFiles());
 
     // Target 2: many files
-    checkSimpleTarget(dir, JavaCodeGenerator.TARGET_MANY_FILES, JavaCodeGenerator.SIZE_MANY_FILES);
+    checkSimpleTarget(dir, CppCodeGenerator.TARGET_MANY_FILES, cppCodeGenerator.getSizeManyFiles());
 
     // Target 3: long chained deps
     checkDepsTarget(
-        dir, JavaCodeGenerator.TARGET_LONG_CHAINED_DEPS, JavaCodeGenerator.SIZE_LONG_CHAINED_DEPS);
+        dir, CppCodeGenerator.TARGET_LONG_CHAINED_DEPS, cppCodeGenerator.getSizeLongChainedDeps());
 
     // Target 4: parallel deps
     checkDepsTarget(
-        dir, JavaCodeGenerator.TARGET_PARALLEL_DEPS, JavaCodeGenerator.SIZE_PARALLEL_DEPS);
+        dir, CppCodeGenerator.TARGET_PARALLEL_DEPS, cppCodeGenerator.getSizeParallelDeps());
   }
 
   private static ImmutableSet<String> fileArrayToImmutableSet(File[] files) {

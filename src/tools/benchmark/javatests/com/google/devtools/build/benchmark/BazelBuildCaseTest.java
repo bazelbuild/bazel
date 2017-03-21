@@ -71,9 +71,24 @@ public class BazelBuildCaseTest {
     ImmutableSet<String> destinationList =
         fileArrayToImmutableSet(destination.toFile().listFiles());
     assertThat(sourceList)
-        .containsExactly("AFewFiles", "LongChainedDeps", "ManyFiles", "ParallelDeps");
+        .containsExactly("cpp", "java");
     assertThat(destinationList)
-        .containsExactly("AFewFiles", "LongChainedDeps", "ManyFiles", "ParallelDeps", "WORKSPACE");
+        .containsExactly("cpp", "java", "WORKSPACE");
+
+    ImmutableSet<String> targets = ImmutableSet.of(
+        "AFewFiles", "LongChainedDeps", "ManyFiles", "ParallelDeps");
+    ImmutableSet<String> sourceCppList =
+        fileArrayToImmutableSet(source.resolve("cpp").toFile().listFiles());
+    ImmutableSet<String> sourceJavaList =
+        fileArrayToImmutableSet(source.resolve("java").toFile().listFiles());
+    ImmutableSet<String> destinationCppList =
+        fileArrayToImmutableSet(destination.resolve("cpp").toFile().listFiles());
+    ImmutableSet<String> destinationJavaList =
+        fileArrayToImmutableSet(destination.resolve("java").toFile().listFiles());
+    assertThat(sourceCppList).containsExactlyElementsIn(targets);
+    assertThat(sourceJavaList).containsExactlyElementsIn(targets);
+    assertThat(destinationCppList).containsExactlyElementsIn(targets);
+    assertThat(destinationJavaList).containsExactlyElementsIn(targets);
   }
 
   private static ImmutableSet<String> fileArrayToImmutableSet(File[] files) {

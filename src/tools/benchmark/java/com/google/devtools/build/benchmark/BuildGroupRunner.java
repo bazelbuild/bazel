@@ -16,6 +16,8 @@ package com.google.devtools.build.benchmark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.benchmark.codegenerator.CodeGenerator;
+import com.google.devtools.build.benchmark.codegenerator.CppCodeGenerator;
 import com.google.devtools.build.benchmark.codegenerator.JavaCodeGenerator;
 import com.google.devtools.build.lib.shell.CommandException;
 import java.io.IOException;
@@ -57,31 +59,38 @@ class BuildGroupRunner {
     BuildGroupResult.Builder buildGroupResultBuilder =
         getBuildGroupResultBuilder(buildTargetConfigs, buildEnvConfigs, codeVersions, datetimes);
 
-    boolean lastIsIncremental = true;
     for (int versionIndex = 0; versionIndex < codeVersions.size(); ++versionIndex) {
       String version = codeVersions.get(versionIndex);
       System.out.format("Benchmark for version %s started.\n", version);
 
       // Get builder binary (build Bazel binary)
-      Path buildBinary = buildBinary = builder.getBuildBinary(version);
+      Path buildBinary = builder.getBuildBinary(version);
 
       // Repeat several times to calculate average result
       for (int t = 0; t < REPEAT_TIMES; ++t) {
-        // Environment config
-        for (int envIndex = 0; envIndex < buildEnvConfigs.size(); ++envIndex) {
-          BuildEnvConfig envConfig = buildEnvConfigs.get(envIndex);
-          System.out.println("Started config: " + envConfig.getDescription());
+        // Prepare generated code for build
+        buildCase.prepareGeneratedCode(
+            workspace.resolve(GENERATED_CODE_FOR_COPY_DIR),
+            workspace.resolve(GENERATED_CODE_DIR));
 
-          // Target config
-          for (int targetIndex = 0; targetIndex < buildTargetConfigs.size(); ++targetIndex) {
-            lastIsIncremental = runForConfigAndReturnLastIsIncremental(
-                buildGroupResultBuilder,
-                buildCase,
-                buildBinary,
-                envConfig,
-                buildTargetConfigs,
-                versionIndex, envIndex, targetIndex,
-                lastIsIncremental, (t == 0 && envIndex == 0 && targetIndex == 0));
+        // Target config
+        for (int targetIndex = 0; targetIndex < buildTargetConfigs.size(); ++targetIndex) {
+          System.out.println(
+              "Started target: " + buildTargetConfigs.get(targetIndex).getDescription());
+
+          // Environment config
+          for (int envIndex = 0; envIndex < buildEnvConfigs.size(); ++envIndex) {
+            System.out.println("Started config: " + buildEnvConfigs.get(envIndex).getDescription());
+
+            double elapsedTime = buildSingleTargetAndGetElapsedTime(
+                buildTargetConfigs, buildEnvConfigs, buildBinary, targetIndex, envIndex);
+
+            // Store result
+            buildGroupResultBuilder
+                .getBuildTargetResultsBuilder(targetIndex)
+                .getBuildEnvResultsBuilder(envIndex)
+                .getResultsBuilder(versionIndex)
+                .addResults(elapsedTime);
           }
         }
       }
@@ -90,50 +99,41 @@ class BuildGroupRunner {
     return buildGroupResultBuilder.build();
   }
 
-  private boolean runForConfigAndReturnLastIsIncremental(
-      BuildGroupResult.Builder buildGroupResultBuilder,
-      BuildCase buildCase,
-      Path buildBinary,
-      BuildEnvConfig envConfig,
+  private double buildSingleTargetAndGetElapsedTime(
       ImmutableList<BuildTargetConfig> buildTargetConfigs,
-      int versionIndex, int envIndex, int targetIndex,
-      boolean lastIsIncremental, boolean removeFirstResult) throws IOException, CommandException{
+      ImmutableList<BuildEnvConfig> buildEnvConfigs,
+      Path buildBinary, int targetIndex, int envIndex) throws CommandException {
+
     BuildTargetConfig targetConfig = buildTargetConfigs.get(targetIndex);
-    System.out.println(targetConfig.getDescription());
+    BuildEnvConfig envConfig = buildEnvConfigs.get(envIndex);
 
-    // Prepare generated code for build
-    if (lastIsIncremental && !envConfig.getIncremental()) {
-      buildCase.prepareGeneratedCode(
-          workspace.resolve(GENERATED_CODE_FOR_COPY_DIR),
-          workspace.resolve(GENERATED_CODE_DIR));
-    }
-    if (!lastIsIncremental && envConfig.getIncremental()) {
-      JavaCodeGenerator javaCodeGenerator = new JavaCodeGenerator();
-      javaCodeGenerator.modifyExistingProject(
-          workspace.resolve(GENERATED_CODE_DIR).toString(), ImmutableSet.<String>of(
-              "AFewFiles", "ManyFiles", "LongChainedDeps", "ParallelDeps"));
-      // The above line is just for refactor purpose. This will be changed later.
-    }
-    lastIsIncremental = envConfig.getIncremental();
-
-    // Builder's clean method, only clean before the first target
-    if (targetIndex == 0 && envConfig.getCleanBeforeBuild()) {
+    // Clean if should
+    if (envConfig.getCleanBeforeBuild()) {
       builder.clean();
     }
 
-    if (removeFirstResult) {
+    // Modify generated code if should (only this target)
+    if (envConfig.getIncremental()) {
+      String targetName = targetConfig.getBuildTarget();
+      targetName = targetName.substring(targetName.lastIndexOf('/') + 1, targetName.length());
+
+      CodeGenerator codeGenerator = new JavaCodeGenerator();
+      codeGenerator.modifyExistingProject(
+          workspace.resolve(GENERATED_CODE_DIR) + codeGenerator.getDirSuffix(),
+          ImmutableSet.of(targetName));
+
+      codeGenerator = new CppCodeGenerator();
+      codeGenerator.modifyExistingProject(
+          workspace.resolve(GENERATED_CODE_DIR) + codeGenerator.getDirSuffix(),
+          ImmutableSet.of(targetName));
+    }
+
+    // Remove the first target since it's slow
+    if (targetIndex == 0 && envIndex == 0) {
       buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
       builder.clean();
     }
-    double elapsedTime = buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
-
-    // Store result
-    buildGroupResultBuilder
-        .getBuildTargetResultsBuilder(targetIndex)
-        .getBuildEnvResultsBuilder(envIndex)
-        .getResultsBuilder(versionIndex)
-        .addResults(elapsedTime);
-    return lastIsIncremental;
+    return buildTargetAndGetElapsedTime(buildBinary, envConfig, targetConfig);
   }
 
   private double buildTargetAndGetElapsedTime(
