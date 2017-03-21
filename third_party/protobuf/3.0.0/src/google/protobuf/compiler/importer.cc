@@ -32,9 +32,7 @@
 //  Based on original Protocol Buffers design by
 //  Sanjay Ghemawat, Jeff Dean, and others.
 
-#ifdef _MSC_VER
-#include <io.h>
-#else
+#ifndef _MSC_VER
 #include <unistd.h>
 #endif
 #include <sys/types.h>
@@ -51,6 +49,7 @@
 #include <google/protobuf/compiler/importer.h>
 
 #include <google/protobuf/compiler/parser.h>
+#include <google/protobuf/io/io_win32.h>
 #include <google/protobuf/io/tokenizer.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/stubs/strutil.h>
@@ -60,9 +59,6 @@ namespace protobuf {
 namespace compiler {
 
 #ifdef _WIN32
-#ifndef F_OK
-#define F_OK 00  // not defined by MSVC for whatever reason
-#endif
 #include <ctype.h>
 #endif
 

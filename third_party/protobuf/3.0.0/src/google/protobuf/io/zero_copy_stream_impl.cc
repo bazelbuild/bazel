@@ -44,6 +44,7 @@
 #include <iostream>
 #include <algorithm>
 
+#include <google/protobuf/io/io_win32.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/stubs/common.h>
 #include <google/protobuf/stubs/logging.h>

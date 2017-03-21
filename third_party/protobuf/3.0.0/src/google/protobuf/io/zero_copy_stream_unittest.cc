@@ -65,6 +65,7 @@
 
 #include <google/protobuf/testing/file.h>
 #include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/io_win32.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 
 #if HAVE_ZLIB
