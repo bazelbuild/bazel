@@ -1048,6 +1048,10 @@ bool CompareAbsolutePaths(const string& a, const string& b) {
   return a_real == b_real;
 }
 
+#ifndef STILL_ACTIVE
+#define STILL_ACTIVE (259)  // From MSDN about GetExitCodeProcess.
+#endif
+
 // On Windows (and Linux) we use a combination of PID and start time to identify
 // the server process. That is supposed to be unique unless one can start more
 // processes than there are PIDs available within a single jiffy.
@@ -1060,9 +1064,12 @@ bool VerifyServerProcess(
     return false;
   }
 
+  DWORD exit_code = 0;
   uint64_t start_time = 0;
-  if (!GetProcessStartupTime(process, &start_time)) {
-    // Process died meantime, all is good. No stale server is present.
+  if (!::GetExitCodeProcess(process, &exit_code) || exit_code != STILL_ACTIVE ||
+      !GetProcessStartupTime(process, &start_time)) {
+    // Process doesn't exist or died meantime, all is good. No stale server is
+    // present.
     return false;
   }
 
@@ -1077,10 +1084,13 @@ bool VerifyServerProcess(
 }
 
 bool KillServerProcess(int pid) {
-  windows_util::AutoHandle process(
-      ::OpenProcess(PROCESS_TERMINATE, FALSE, pid));
-  if (!process.IsValid()) {
-    // Cannot find the server process. Can happen if the PID file is stale.
+  windows_util::AutoHandle process(::OpenProcess(
+      PROCESS_TERMINATE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid));
+  DWORD exitcode = 0;
+  if (!process.IsValid() || !::GetExitCodeProcess(process, &exitcode) ||
+      exitcode != STILL_ACTIVE) {
+    // Cannot find the server process (can happen if the PID file is stale) or
+    // it already exited.
     return false;
   }
 
@@ -1088,8 +1098,6 @@ bool KillServerProcess(int pid) {
   if (!result) {
     blaze_util::PrintError("Cannot terminate server process with PID %d", pid);
   }
-
-  CloseHandle(process);
   return result;
 }
 
