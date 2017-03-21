@@ -84,6 +84,13 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setStarted(startedId).build());
   }
 
+  public static BuildEventId commandlineId() {
+    BuildEventStreamProtos.BuildEventId.CommandLineId commandLineId =
+        BuildEventStreamProtos.BuildEventId.CommandLineId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setCommandLine(commandLineId).build());
+  }
+
   private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
         BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()

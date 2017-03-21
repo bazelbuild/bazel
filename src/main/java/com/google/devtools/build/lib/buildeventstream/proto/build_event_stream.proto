@@ -49,6 +49,12 @@ message BuildEventId {
   message BuildStartedId {
   }
 
+  // Identifier on an event indicating the original commandline received by
+  // the bazel server.
+
+  message CommandLineId {
+  }
+
   // Identifier of an event indicating that a target pattern has been expanded
   // further.
   // Messages of this shape are also used to describe parts of a pattern that
@@ -101,6 +107,7 @@ message BuildEventId {
     UnknownBuildEventId unknown = 1;
     ProgressId progress = 2;
     BuildStartedId started = 3;
+    CommandLineId command_line = 11;
     PatternExpandedId pattern = 4;
     PatternExpandedId pattern_skipped = 10;
     TargetCompletedId target_completed = 5;
@@ -177,6 +184,16 @@ message BuildStarted {
 
   // The directory of the workspace.
   string workspace_directory = 7;
+}
+
+// Payload of an event reporting the command-line of the invocation as
+// originally received by the server. Note that this is not the command-line
+// given by the user, as the client adds information about the invocation,
+// like name and relevant entries of rc-files and client environment variables.
+// However, it does contain enough information to reproduce the build
+// invocation.
+message CommandLine {
+  repeated string args = 1;
 }
 
 // Payload of the event indicating the expansion of a target pattern.
@@ -313,6 +330,7 @@ message BuildEvent {
     Aborted aborted = 4;
     LoadingFailure loading_failed = 11;
     BuildStarted started = 5;
+    CommandLine command_line = 12;
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
     TargetComplete completed = 8;
