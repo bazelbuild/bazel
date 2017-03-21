@@ -88,6 +88,8 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
   private boolean crunchPng = true;
+  private Artifact featureOf;
+  private Artifact featureAfter;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -197,6 +199,16 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
     this.isLibrary = isLibrary;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setFeatureOf(Artifact featureOf) {
+    this.featureOf = featureOf;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setFeatureAfter(Artifact featureAfter) {
+    this.featureAfter = featureAfter;
     return this;
   }
 
@@ -313,6 +325,16 @@ public class AndroidResourcesProcessorBuilder {
       // Sets an alternative java package for the generated R.java
       // this allows android rules to generate resources outside of the java{,tests} tree.
       builder.add("--packageForR").add(customJavaPackage);
+    }
+
+    if (featureOf != null) {
+      builder.addExecPath("--featureOf", featureOf);
+      inputs.add(featureOf);
+    }
+
+    if (featureAfter != null) {
+      builder.addExecPath("--featureAfter", featureAfter);
+      inputs.add(featureAfter);
     }
 
     // Create the spawn action.

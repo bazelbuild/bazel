@@ -97,6 +97,20 @@ public class AndroidResourceProcessor {
         help = "Aapt tool location for resource packaging.")
     public Path aapt;
 
+    @Option(name = "featureOf",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "config",
+        help = "Base apk path.")
+    public Path featureOf;
+
+    @Option(name = "featureAfter",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "config",
+        help = "Apk path of previous split (if any).")
+    public Path featureAfter;
+
     @Option(name = "annotationJar",
         defaultValue = "null",
         converter = ExistingPathConverter.class,
@@ -206,8 +220,18 @@ public class AndroidResourceProcessor {
 
     @Override
     public List<String> getAdditionalParameters() {
-      return ImmutableList.of();
+      List<String> params = new java.util.ArrayList<String>();
+      if (options.featureOf != null) {
+         params.add("--feature-of");
+         params.add(options.featureOf.toString());
+      }
+      if (options.featureAfter != null) {
+         params.add("--feature-after");
+         params.add(options.featureAfter.toString());
+      }
+      return ImmutableList.copyOf(params);
     }
+
   }
 
   private final StdLogger stdLogger;
@@ -352,6 +376,9 @@ public class AndroidResourceProcessor {
         .add("-c", Joiner.on(',').join(resourceConfigs))
         // Split APKs if any splits were specified.
         .whenVersionIsAtLeast(new Revision(23)).thenAddRepeated("--split", splits);
+    for (String additional : aaptOptions.getAdditionalParameters()) {
+      commandBuilder.add(additional);
+    }
     try {
       new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
     } catch (LoggedErrorException e) {

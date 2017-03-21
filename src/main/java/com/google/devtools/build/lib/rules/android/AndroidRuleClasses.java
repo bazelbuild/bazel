@@ -614,6 +614,16 @@ public final class AndroidRuleClasses {
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
                   .aspect(jackAspect))
           .add(
+              attr("feature_of", LABEL)
+                .allowedRuleClasses("android_binary")
+                .allowedFileTypes()
+                .undocumented("experimental, see b/36226333"))
+          .add(
+              attr("feature_after", LABEL)
+                .allowedRuleClasses("android_binary")
+                .allowedFileTypes()
+                .undocumented("experimental, see b/36226333"))
+          .add(
               attr("$build_incremental_dexmanifest", LABEL)
                   .cfg(HOST)
                   .exec()
