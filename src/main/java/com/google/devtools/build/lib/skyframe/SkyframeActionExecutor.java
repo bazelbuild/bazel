@@ -131,8 +131,10 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private boolean keepGoing;
   private boolean hadExecutionError;
   private ActionInputFileCache perBuildFileCache;
+  /** These variables are nulled out between executions. */
   private ProgressSupplier progressSupplier;
   private ActionCompletedReceiver completionReceiver;
+
   private final AtomicReference<ActionExecutionStatusReporter> statusReporterRef;
   private OutputService outputService;
 
@@ -393,9 +395,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         // Tell the receiver that the action has completed *before* telling the reporter.
         // This way the latter will correctly show the number of completed actions when task
         // completion messages are enabled (--show_task_finish).
-        if (completionReceiver != null) {
-          completionReceiver.actionCompleted(action);
-        }
+        completionReceiver.actionCompleted(action);
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
     }
@@ -658,14 +658,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   private String prependExecPhaseStats(String message) {
-    if (progressSupplier != null) {
-      // Prints a progress message like:
-      //   [2608/6445] Compiling foo/bar.cc [host]
-      return progressSupplier.getProgressString() + " " + message;
-    } else {
-      // progressSupplier may be null in tests
-      return message;
-    }
+    // Prints a progress message like:
+    //   [2608/6445] Compiling foo/bar.cc [host]
+    return progressSupplier.getProgressString() + " " + message;
   }
 
   /**

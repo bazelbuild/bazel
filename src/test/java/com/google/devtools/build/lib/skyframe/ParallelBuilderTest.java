@@ -775,12 +775,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     buildArtifacts(baz);
     // Check that the percentages increase non-linearly, because foo has 10 input files
     List<String> expectedMessages = Lists.newArrayList(
-        "Test foo START",
-        "Test foo FINISH",
-        "Test bar START",
-        "Test bar FINISH",
-        "Test baz START",
-        "Test baz FINISH");
+        " Test foo START",
+        " Test foo FINISH",
+        " Test bar START",
+        " Test bar FINISH",
+        " Test baz START",
+        " Test baz FINISH");
     assertThat(messages).containsAllIn(expectedMessages);
 
     // Now do an incremental rebuild of bar and baz,
@@ -792,10 +792,10 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     // (in-memory) file system, rather than using cached entries.
     buildArtifacts(baz);
     expectedMessages = Lists.newArrayList(
-        "Test bar START",
-        "Test bar FINISH",
-        "Test baz START",
-        "Test baz FINISH");
+        " Test bar START",
+        " Test bar FINISH",
+        " Test baz START",
+        " Test baz FINISH");
     assertThat(messages).containsAllIn(expectedMessages);
   }
 }
