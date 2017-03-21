@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -222,15 +221,7 @@ public class ProtoCommon {
     if (attrValue == TriState.YES) {
       return true;
     }
-
-    ImmutableSet<String> pkgFeatures = ruleContext.getRule().getPackage().getFeatures();
-    if (pkgFeatures.contains("disable_strict_proto_deps_NO")) {
-      return false;
-    }
-    if (pkgFeatures.contains("disable_strict_proto_deps_YES")) {
-      return true;
-    }
-
+    
     return (flagValue == BuildConfiguration.StrictDepsMode.STRICT);
   }
 }
