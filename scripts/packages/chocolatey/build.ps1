@@ -13,6 +13,9 @@ if ($mode -eq "release") {
   $tvUri = "https://github.com/bazelbuild/bazel/releases/download/$($tvVersion)/$($tvFilename)"
   $tvReleaseNotesUri = "https://github.com/bazelbuild/bazel/releases/tag/$tvVersion"
 } elseif ($mode -eq "rc") {
+  if (($rc -eq $null) -or ($rc -lt 1)) {
+    throw "When mode is rc, Must supply rc parameter greater than 0"
+  }
   $tvVersion = "$($version)-rc$($rc)"
   $tvFilename = "bazel-$($version)rc$($rc)-windows-x86_64.zip"
   $tvUri = "https://storage.googleapis.com/bazel/$($version)/rc$($rc)/$($tvFilename)"

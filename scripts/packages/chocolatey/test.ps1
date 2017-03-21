@@ -20,6 +20,7 @@ It should not have had errors.
   exit 1
 }
 
+write-host "Trying out 'bazel version'"
 & bazel version
 if ($LASTEXITCODE -ne 0)
 {
@@ -31,6 +32,7 @@ It should have shown you bazel's version number.
   exit 1
 }
 
+write-host "Trying out 'bazel info'"
 & bazel info
 if ($LASTEXITCODE -ne 0)
 {
