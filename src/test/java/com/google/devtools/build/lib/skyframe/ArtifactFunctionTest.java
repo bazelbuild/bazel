@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
 import static org.junit.Assert.assertArrayEquals;
@@ -54,7 +55,6 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -165,19 +165,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testMiddlemanArtifact() throws Throwable {
-    Artifact output = createDerivedArtifact("output");
+    Artifact output = createMiddlemanArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     Action action =
         new DummyAction(
             ImmutableList.of(input1, input2), output, MiddlemanType.AGGREGATING_MIDDLEMAN);
-    // Overwrite default generating action with this one.
-    for (Iterator<ActionAnalysisMetadata> it = actions.iterator(); it.hasNext(); ) {
-      if (it.next().getOutputs().contains(output)) {
-        it.remove();
-        break;
-      }
-    }
     actions.add(action);
     file(input2.getPath(), "contents");
     file(input1.getPath(), "source contents");
@@ -405,6 +398,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
             fullPath, Root.asDerivedRoot(root, root.getRelative("out")), execPath, ALL_OWNER);
     actions.add(new DummyAction(ImmutableList.<Artifact>of(), output));
     return output;
+  }
+
+  private Artifact createMiddlemanArtifact(String path) {
+    Root middlemanRoot = Root.middlemanRoot(middlemanPath, middlemanPath.getRelative("out"));
+    Path fullPath = middlemanRoot.getPath().getRelative(path);
+    return new Artifact(
+        fullPath, middlemanRoot, fullPath.relativeTo(middlemanRoot.getExecRoot()), ALL_OWNER);
   }
 
   private Artifact createDerivedTreeArtifactWithAction(String path) {

@@ -60,6 +60,7 @@ abstract class ArtifactFunctionTestCase {
   protected SequentialBuildDriver driver;
   protected MemoizingEvaluator evaluator;
   protected Path root;
+  protected Path middlemanPath;
 
   /**
    * The test action execution function. The Skyframe evaluator's action execution function
@@ -119,9 +120,12 @@ abstract class ArtifactFunctionTestCase {
   }
 
   protected void setupRoot(CustomInMemoryFs fs) throws IOException {
-    root = fs.getPath(TestUtils.tmpDir());
+    Path tmpDir = fs.getPath(TestUtils.tmpDir());
+    root = tmpDir.getChild("root");
     FileSystemUtils.createDirectoryAndParents(root);
     FileSystemUtils.createEmptyFile(root.getRelative("WORKSPACE"));
+    middlemanPath = tmpDir.getChild("middlemanRoot");
+    FileSystemUtils.createDirectoryAndParents(middlemanPath);
   }
 
   protected static void writeFile(Path path, String contents) throws IOException {
