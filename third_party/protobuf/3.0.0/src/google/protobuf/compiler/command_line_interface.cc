@@ -35,6 +35,10 @@
 #include <google/protobuf/compiler/command_line_interface.h>
 #include <google/protobuf/stubs/platform_macros.h>
 
+#ifdef _MSC_VER
+#include <Windows.h>
+#endif
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -52,6 +56,7 @@
 
 #include <limits.h> //For PATH_MAX
 
+#include <string>
 #include <memory>
 #ifndef _SHARED_PTR_H
 #include <google/protobuf/stubs/shared_ptr.h>
@@ -86,7 +91,73 @@ namespace protobuf {
 namespace compiler {
 
 #if defined(_WIN32)
-#define mkdir(name, mode) mkdir(name)
+
+static bool is_path_absolute(const std::string& path) {
+  return ((path.size() > 2 && path[1] == ':') ||
+          (path.size() > 4 && path[0] == '\\' && path[1] == '\\' &&
+           path[2] == '?' && path[3] == '\\'));
+}
+
+static std::wstring as_windows_path(const std::string& path) {
+  // Convert `path` to WCHAR string.
+  int len =
+      ::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), path.size(), NULL, 0);
+  std::unique_ptr<WCHAR[]> wbuf(new WCHAR[len + 1]);
+  ::MultiByteToWideChar(CP_UTF8, 0, path.c_str(), path.size(), wbuf.get(),
+                        len + 1);
+  wbuf.get()[len] = 0;
+
+  // Replace all '/' with '\'.
+  for (WCHAR* p = wbuf.get(); *p != L'\0'; ++p) {
+    if (*p == L'/') {
+      *p = L'\\';
+    }
+  }
+
+  // Create a wstring of the WCHAR buffer.
+  std::wstring wpath(wbuf.get());
+
+  // Make the path absolute.
+  if (!is_path_absolute(path)) {
+    // Get the current working directory.
+    DWORD result = ::GetCurrentDirectoryW(0, NULL);
+    std::unique_ptr<WCHAR[]> cwd(new WCHAR[result]);
+    ::GetCurrentDirectoryW(result, cwd.get());
+    cwd.get()[result - 1] = 0;
+    std::wstring wcwd(cwd.get());
+    // Make the path absolute by appending it to the cwd.
+    wpath = wcwd.back() == L'\\' ? (wcwd + wpath) : (wcwd + L'\\' + wpath);
+  }
+
+  // Prepend UNC prefix if necessary.
+  if (wpath.size() >= MAX_PATH) {
+    wpath = std::wstring(L"\\\\?\\") + wpath;
+  }
+
+  return wpath;
+}
+
+#ifdef open
+#undef open
+#endif
+static int open(const char* path, int flags, int mode) {
+  return _wopen(as_windows_path(path).c_str(), flags, mode);
+}
+
+#ifdef mkdir
+#undef mkdir
+#endif
+static int mkdir(const char* name, int _mode) {
+  return _wmkdir(as_windows_path(name).c_str());
+}
+
+#ifdef access
+#undef access
+#endif
+static int access(const char* pathname, int mode) {
+  return _waccess(as_windows_path(pathname).c_str(), mode);
+}
+
 #ifndef W_OK
 #define W_OK 02  // not defined by MSVC for whatever reason
 #endif
@@ -99,7 +170,7 @@ namespace compiler {
 #ifndef STDOUT_FILENO
 #define STDOUT_FILENO 1
 #endif
-#endif
+#endif  // defined(_WIN32)
 
 #ifndef O_BINARY
 #ifdef _O_BINARY
