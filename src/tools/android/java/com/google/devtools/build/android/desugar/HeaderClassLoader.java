@@ -48,7 +48,7 @@ class HeaderClassLoader extends ClassLoader {
     String filename = rewriter.unprefix(name.replace('.', '/') + ".class");
     InputFileProvider inputFileProvider = indexedInputs.getInputFileProvider(filename);
     if (inputFileProvider == null) {
-      throw new ClassNotFoundException();
+      throw new ClassNotFoundException("Class " + name + " not found");
     }
     byte[] bytecode;
     try (InputStream content = inputFileProvider.getInputStream(filename)) {
