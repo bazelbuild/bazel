@@ -43,7 +43,7 @@ import java.util.TreeMap;
  * laid out.
  */
 public class SpawnInputExpander {
-  public static final ActionInput EMPTY_FILE = ActionInputHelper.fromPath("/dev/null");
+  public static final ActionInput EMPTY_FILE = null;
 
   private final boolean strict;
 
@@ -190,7 +190,7 @@ public class SpawnInputExpander {
 
   /**
    * Convert the inputs of the given spawn to a map from exec-root relative paths to action inputs.
-   * In some cases, this generates empty files, for which it uses {@link #EMPTY_FILE}.
+   * In some cases, this generates empty files, for which it uses {@code null}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn, ArtifactExpander artifactExpander, ActionInputFileCache actionInputFileCache,
