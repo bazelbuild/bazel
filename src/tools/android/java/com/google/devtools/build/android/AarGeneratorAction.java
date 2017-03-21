@@ -102,13 +102,6 @@ public class AarGeneratorAction {
         category = "output",
         help = "Path to write the archive.")
     public Path aarOutput;
-
-    // TODO: remove once blaze stops sending "--nostrictMerge" (since this is unused).
-    @Option(name = "strictMerge",
-        defaultValue = "true",
-        category = "option",
-        help = "Merge strategy for resources.")
-    public boolean strictMerge;
   }
 
   public static void main(String[] args) {
