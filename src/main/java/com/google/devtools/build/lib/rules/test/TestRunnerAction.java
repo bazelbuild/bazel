@@ -95,8 +95,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final boolean useExperimentalTestRunner;
 
   // Mutable state related to test caching.
-  private boolean checkedCaching = false;
-  private boolean unconditionalExecution = false;
+  private Boolean unconditionalExecution; // lazily initialized: null indicates unknown
 
   private ImmutableMap<String, String> testEnv;
 
@@ -240,8 +239,9 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
-    unconditionalExecution = updateExecuteUnconditionallyFromTestStatus();
-    checkedCaching = true;
+    if (unconditionalExecution == null) {
+      unconditionalExecution = computeExecuteUnconditionallyFromTestStatus();
+    }
     return unconditionalExecution;
   }
 
@@ -272,7 +272,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return null;
   }
 
-  private boolean updateExecuteUnconditionallyFromTestStatus() {
+  private boolean computeExecuteUnconditionallyFromTestStatus() {
     if (configuration.cacheTestResults() == TriState.NO || testProperties.isExternal()
         || (configuration.cacheTestResults() == TriState.AUTO
             && configuration.getRunsPerTestForLabel(getOwner().getLabel()) > 1)) {
@@ -298,19 +298,17 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   }
 
   /**
-   * May only be called after the dependency checked called executeUnconditionally().
    * Returns whether caching has been deemed safe by looking at the previous test run
    * (for local caching). If the previous run is not present, return "true" here, as
    * remote execution caching should be safe.
    */
   public boolean shouldCacheResult() {
-    Preconditions.checkState(checkedCaching);
-    return !unconditionalExecution;
+    return !executeUnconditionally();
   }
 
   @Override
   public void actionCacheHit(Executor executor) {
-    checkedCaching = false;
+    unconditionalExecution = null;
     try {
       executor.getEventBus().post(
           executor.getContext(TestActionContext.class).newCachedTestResult(
@@ -658,7 +656,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     } finally {
-      checkedCaching = false;
+      unconditionalExecution = null;
     }
   }
 
