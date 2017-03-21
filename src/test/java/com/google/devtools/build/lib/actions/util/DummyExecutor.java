@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsClassProvider;
@@ -28,7 +29,7 @@ import com.google.devtools.common.options.OptionsClassProvider;
 public final class DummyExecutor implements Executor {
 
   private final Path inputDir;
-  private final EventHandler eventHandler; 
+  private final EventHandler eventHandler;
 
   public DummyExecutor(Path inputDir) {
     this(inputDir, null);
@@ -42,7 +43,7 @@ public final class DummyExecutor implements Executor {
     this.inputDir = inputDir;
     this.eventHandler = eventHandler;
   }
-  
+
   @Override
   public Path getExecRoot() {
     return inputDir;
@@ -50,7 +51,7 @@ public final class DummyExecutor implements Executor {
 
   @Override
   public Clock getClock() {
-    throw new UnsupportedOperationException();
+    return BlazeClock.instance();
   }
 
   @Override
