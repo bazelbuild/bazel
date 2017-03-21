@@ -96,7 +96,7 @@ are a few differences:
  * Implicit string concatenation is not supported. Use the `+` operator.
    *Rationale*: `BUILD` files contain many string lists. It is easy to forget a
    comma, which leads to a complete different result. This has created many bugs
-   in the past. See also this discussion.
+   in the past. [See also this discussion.](https://lwn.net/Articles/551438/)
 
  * Use spaces around the `=` sign for keywords arguments in rules. *Rationale*:
    Named arguments are much more frequent than in Python and are always on a
