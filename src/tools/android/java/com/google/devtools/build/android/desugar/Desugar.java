@@ -20,14 +20,12 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitResult;
@@ -39,9 +37,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.CRC32;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -112,8 +107,8 @@ class Desugar {
       converter = PathConverter.class,
       abbrev = 'o',
       help =
-          "Output Jar to write desugared classes into (required, the n-th output is paired with "
-              + "the n-th input)."
+          "Output Jar or directory to write desugared classes into (required, the n-th output is "
+              + "paired with the n-th input, output must be a Jar if input is a Jar)."
     )
     public List<Path> outputJars;
 
@@ -201,8 +196,13 @@ class Desugar {
     // Process each input separately
     for (InputOutputPair inputOutputPair : toInputOutputPairs(options)) {
       Path inputPath = inputOutputPair.getInput();
-
-      try (Closer closer = Closer.create()) {
+      Path outputPath = inputOutputPair.getOutput();
+      checkState(
+          Files.isDirectory(inputPath) || !Files.isDirectory(outputPath),
+          "Input jar file requires an output jar file");
+      
+      try (Closer closer = Closer.create();
+          OutputFileProvider outputFileProvider = toOutputFileProvider(outputPath)) {
         InputFileProvider appInputFiles = toInputFileProvider(closer, inputPath);
         List<InputFileProvider> classpathInputFiles =
             toInputFileProvider(closer, options.classpath);
@@ -214,9 +214,6 @@ class Desugar {
                 rewriter,
                 toInputFileProvider(closer, options.bootclasspath),
                 appAndClasspathIndexedInputs);
-
-        ZipOutputStream out = closer.register(new ZipOutputStream(
-            new BufferedOutputStream(Files.newOutputStream(inputOutputPair.getOutput()))));
 
         ClassReaderFactory readerFactory =
             new ClassReaderFactory(
@@ -258,12 +255,9 @@ class Desugar {
               }
               reader.accept(visitor, 0);
 
-              writeStoredEntry(out, filename, writer.toByteArray());
+              outputFileProvider.write(filename, writer.toByteArray());
             } else {
-              // TODO(bazel-team): Avoid de- and re-compressing resource files
-              out.putNextEntry(appInputFiles.getZipEntry(filename));
-              ByteStreams.copy(content, out);
-              out.closeEntry();
+              outputFileProvider.copyFrom(filename, appInputFiles);
             }
           }
         }
@@ -311,7 +305,7 @@ class Desugar {
             reader.accept(visitor, 0);
             String filename =
                 rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
-            writeStoredEntry(out, filename, writer.toByteArray());
+            outputFileProvider.write(filename, writer.toByteArray());
           }
         }
 
@@ -329,25 +323,6 @@ class Desugar {
       ioPairListbuilder.add(InputOutputPair.create(inputIt.next(), outputIt.next()));
     }
     return ioPairListbuilder.build();
-  }
-
-  private static void writeStoredEntry(ZipOutputStream out, String filename, byte[] content)
-      throws IOException {
-    // Need to pre-compute checksum for STORED (uncompressed) entries)
-    CRC32 checksum = new CRC32();
-    checksum.update(content);
-
-    ZipEntry result = new ZipEntry(filename);
-    result.setTime(0L); // Use stable timestamp Jan 1 1980
-    result.setCrc(checksum.getValue());
-    result.setSize(content.length);
-    result.setCompressedSize(content.length);
-    // Write uncompressed, since this is just an intermediary artifact that we will convert to .dex
-    result.setMethod(ZipEntry.STORED);
-
-    out.putNextEntry(result);
-    out.write(content);
-    out.closeEntry();
   }
 
   private static ClassLoader createClassLoader(
@@ -415,6 +390,16 @@ class Desugar {
               return FileVisitResult.CONTINUE;
             }
           });
+    }
+  }
+
+  /** Transform a Path to an {@link OutputFileProvider} */
+  private static OutputFileProvider toOutputFileProvider(Path path)
+      throws IOException {
+    if (Files.isDirectory(path)) {
+      return new DirectoryOutputFileProvider(path);
+    } else {
+      return new ZipOutputFileProvider(path);
     }
   }
 
