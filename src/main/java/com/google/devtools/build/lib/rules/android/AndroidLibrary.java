@@ -72,7 +72,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
     NestedSetBuilder<Artifact> proguardConfigsbuilder = NestedSetBuilder.stableOrder();
     proguardConfigsbuilder.addTransitive(new ProguardLibrary(ruleContext).collectProguardSpecs());
-    AndroidIdlHelper.addSupportLibProguardConfigs(ruleContext, proguardConfigsbuilder);
+    AndroidIdlHelper.maybeAddSupportLibProguardConfigs(ruleContext, proguardConfigsbuilder);
     NestedSet<Artifact> transitiveProguardConfigs = proguardConfigsbuilder.build();
 
     JavaCommon javaCommon =

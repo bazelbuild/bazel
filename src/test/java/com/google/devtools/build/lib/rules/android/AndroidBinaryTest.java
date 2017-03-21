@@ -446,7 +446,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  srcs = ['dep.java'],",
         "  manifest = 'AndroidManifest.xml',",
         "  resource_files = glob(['res/**']),",
-        // "  idl_srcs = ['dep.aidl'],",  b/35630874 AIDL runtime linked in without IDL sources
+        "  idl_srcs = ['dep.aidl'],",
         ")",
         "android_binary(",
         "  name = 'top',",
@@ -467,6 +467,68 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     }
     assertThat(ActionsTestUtil.baseArtifactNames(shardAction.getInputs()))
         .contains("libaidl_runtime.jar.dex.zip");
+  }
+
+  /** Regression for b/35630874. */
+  @Test
+  public void testIncrementalDexingWithoutAidlRuntimeDependency() throws Exception {
+    useConfiguration(
+        "--incremental_dexing", "--incremental_dexing_binary_types=all", "--android_sdk=//sdk:sdk");
+
+    scratch.file("sdk/BUILD",
+        "android_sdk(",
+        "    name = 'sdk',",
+        "    aapt = 'aapt',",
+        "    adb = 'adb',",
+        "    aidl = 'aidl',",
+        "    android_jar = 'android.jar',",
+        "    annotations_jar = 'annotations_jar',",
+        "    apkbuilder = 'apkbuilder',",
+        "    apksigner = 'apksigner',",
+        "    dx = 'dx',",
+        "    framework_aidl = 'framework_aidl',",
+        // TODO(b/35630874): set aidl_lib in MockAndroidSupport once b/35630874 is fixed
+        "    aidl_lib = ':aidl_runtime',",
+        "    main_dex_classes = 'main_dex_classes',",
+        "    main_dex_list_creator = 'main_dex_list_creator',",
+        "    proguard = 'proguard',",
+        "    shrinked_android_jar = 'shrinked_android_jar',",
+        "    zipalign = 'zipalign',",
+        "    jack = 'jack',",
+        "    jill = 'jill',",
+        "    resource_extractor = 'resource_extractor'",
+        ")",
+        "java_library(",
+        "    name = 'aidl_runtime',",
+        "    srcs = ['AidlRuntime.java'],",
+        ")");
+    scratch.file(
+        "java/com/google/android/BUILD",
+        "android_library(",
+        "  name = 'dep',",
+        "  srcs = ['dep.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  resource_files = glob(['res/**']),",
+        ")",
+        "android_binary(",
+        "  name = 'top',",
+        "  srcs = ['foo.java', 'bar.srcjar'],",
+        "  manifest = 'AndroidManifest.xml',",
+        "  deps = [':dep'],",
+        ")");
+
+    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
+    assertNoEvents();
+
+    Action shardAction =
+        getGeneratingAction(getBinArtifact("_dx/top/classes.jar", topTarget));
+    for (String basename : ActionsTestUtil.baseArtifactNames(shardAction.getInputs())) {
+      // all jars are converted to dex archives
+      assertThat(!basename.contains(".jar") || basename.endsWith(".jar.dex.zip"))
+          .named(basename).isTrue();
+    }
+    assertThat(ActionsTestUtil.baseArtifactNames(shardAction.getInputs()))
+        .doesNotContain("libaidl_runtime.jar.dex.zip");
   }
 
   /** Regression test for http://b/33173461. */
