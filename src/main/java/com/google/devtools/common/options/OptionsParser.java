@@ -88,7 +88,7 @@ public class OptionsParser implements OptionsProvider {
       ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
     OptionsData result = optionsData.get(optionsClasses);
     if (result == null) {
-      result = OptionsData.of(optionsClasses);
+      result = OptionsData.from(optionsClasses);
       optionsData.put(optionsClasses, result);
     }
     return result;
@@ -139,10 +139,6 @@ public class OptionsParser implements OptionsProvider {
   private final OptionsParserImpl impl;
   private final List<String> residue = new ArrayList<String>();
   private boolean allowResidue = true;
-
-  OptionsParser(Collection<Class<? extends OptionsBase>> optionsClasses) {
-    this(OptionsData.of(optionsClasses));
-  }
 
   OptionsParser(OptionsData optionsData) {
     impl = new OptionsParserImpl(optionsData);
@@ -401,7 +397,8 @@ public class OptionsParser implements OptionsProvider {
 
     boolean isExpansion() {
       Option option = field.getAnnotation(Option.class);
-      return option.expansion().length > 0;
+      return (option.expansion().length > 0
+          || OptionsData.usesExpansionFunction(option));
     }
 
     boolean isImplicitRequirement() {
@@ -464,22 +461,19 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * Returns a description of all the options this parser can digest.
-   * In addition to {@link Option} annotations, this method also
-   * interprets {@link OptionsUsage} annotations which give an intuitive short
-   * description for the options.
+   * Returns a description of all the options this parser can digest. In addition to {@link Option}
+   * annotations, this method also interprets {@link OptionsUsage} annotations which give an
+   * intuitive short description for the options. Options of the same category (see {@link
+   * Option#category}) will be grouped together.
    *
-   * @param categoryDescriptions a mapping from category names to category
-   *   descriptions.  Options of the same category (see {@link
-   *   Option#category}) will be grouped together, preceded by the description
-   *   of the category.
-   * @param helpVerbosity if {@code long}, the options will be described
-   *   verbosely, including their types, defaults and descriptions.  If {@code
-   *   medium}, the descriptions are omitted, and if {@code short}, the options
-   *   are just enumerated.
+   * @param categoryDescriptions a mapping from category names to category descriptions.
+   *     Descriptions are optional; if omitted, a string based on the category name will be used.
+   * @param helpVerbosity if {@code long}, the options will be described verbosely, including their
+   *     types, defaults and descriptions. If {@code medium}, the descriptions are omitted, and if
+   *     {@code short}, the options are just enumerated.
    */
-  public String describeOptions(Map<String, String> categoryDescriptions,
-                                HelpVerbosity helpVerbosity) {
+  public String describeOptions(
+      Map<String, String> categoryDescriptions, HelpVerbosity helpVerbosity) {
     StringBuilder desc = new StringBuilder();
     if (!impl.getOptionsClasses().isEmpty()) {
       List<Field> allFields = Lists.newArrayList();
@@ -503,7 +497,7 @@ public class OptionsParser implements OptionsProvider {
         }
 
         if (documentationLevel(prevCategory) == DocumentationLevel.DOCUMENTED) {
-          OptionsUsage.getUsage(optionField, desc, helpVerbosity);
+          OptionsUsage.getUsage(optionField, desc, helpVerbosity, impl.getOptionsData());
         }
       }
     }
@@ -548,7 +542,7 @@ public class OptionsParser implements OptionsProvider {
         }
 
         if (level == DocumentationLevel.DOCUMENTED) {
-          OptionsUsage.getUsageHtml(optionField, desc, escaper);
+          OptionsUsage.getUsageHtml(optionField, desc, escaper, impl.getOptionsData());
         }
       }
       desc.append("</dl>\n");

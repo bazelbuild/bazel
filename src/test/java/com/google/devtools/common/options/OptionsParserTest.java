@@ -838,32 +838,116 @@ public class OptionsParserTest {
     fail();
   }
 
-  public static class ExpansionOptions extends OptionsBase {
-    @Option(name = "first",
-            expansion = { "--second=first" },
-            defaultValue = "null")
-    public Void first;
+  /** ConflictingExpansionOptions */
+  public static class ConflictingExpansionsOptions extends OptionsBase {
 
-    @Option(name = "second",
-            defaultValue = "null")
-    public String second;
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public String[] getExpansion(IsolatedOptionsData optionsData) {
+        return new String[] {"--yyy"};
+      }
+    }
+
+    @Option(
+      name = "badness",
+      expansion = {"--xxx"},
+      expansionFunction = ExpFunc.class,
+      defaultValue = "null"
+    )
+    public Void badness;
+  }
+
+  @Test
+  public void conflictingExpansions() throws Exception {
+    try {
+      OptionsParser.newOptionsParser(ConflictingExpansionsOptions.class);
+      fail("Should have failed due to specifying both expansion and expansionFunction");
+    } catch (AssertionError e) {
+      assertThat(e.getMessage())
+          .contains("Cannot set both expansion and expansionFunction for " + "option --badness");
+    }
+  }
+
+  /** NullExpansionOptions */
+  public static class NullExpansionsOptions extends OptionsBase {
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public String[] getExpansion(IsolatedOptionsData optionsData) {
+        return null;
+      }
+    }
+
+    @Option(name = "badness", expansionFunction = ExpFunc.class, defaultValue = "null")
+    public Void badness;
+  }
+
+  @Test
+  public void nullExpansions() throws Exception {
+    // Ensure that we get the NPE at the time of parser construction, not later when actually
+    // parsing.
+    try {
+      OptionsParser.newOptionsParser(NullExpansionsOptions.class);
+      fail("Should have failed due to null expansion function result");
+    } catch (NullPointerException e) {
+      assertThat(e.getMessage()).contains("null value in entry");
+    }
+  }
+
+  /** ExpansionOptions */
+  public static class ExpansionOptions extends OptionsBase {
+    @Option(name = "underlying", defaultValue = "null")
+    public String underlying;
+
+    @Option(
+      name = "expands",
+      expansion = {"--underlying=from_expansion"},
+      defaultValue = "null"
+    )
+    public Void expands;
+
+    /** ExpFunc */
+    public static class ExpFunc implements ExpansionFunction {
+      @Override
+      public String[] getExpansion(IsolatedOptionsData optionsData) {
+        return new String[] {"--expands"};
+      }
+    }
+
+    @Option(name = "expands_by_function", defaultValue = "null", expansionFunction = ExpFunc.class)
+    public Void expandsByFunction;
+  }
+
+  @Test
+  public void describeOptionsWithExpansion() throws Exception {
+    // We have to test this here rather than in OptionsTest because expansion functions require
+    // that an options parser be constructed.
+    OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
+    String usage =
+        parser.describeOptions(ImmutableMap.<String, String>of(), OptionsParser.HelpVerbosity.LONG);
+    assertThat(usage).contains("  --expands\n    Expands to: --underlying=from_expansion");
+    assertThat(usage).contains("  --expands_by_function\n    Expands to: --expands");
   }
 
   @Test
   public void overrideExpansionWithExplicit() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--first", "--second=second"));
+    parser.parse(
+        OptionPriority.COMMAND_LINE, null, Arrays.asList("--expands", "--underlying=direct_value"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertEquals("second", options.second);
+    assertEquals("direct_value", options.underlying);
     assertEquals(0, parser.getWarnings().size());
   }
 
   @Test
   public void overrideExplicitWithExpansion() throws Exception {
     OptionsParser parser = OptionsParser.newOptionsParser(ExpansionOptions.class);
-    parser.parse(OptionPriority.COMMAND_LINE, null, Arrays.asList("--second=second", "--first"));
+    parser.parse(
+        OptionPriority.COMMAND_LINE, null, Arrays.asList("--underlying=direct_value", "--expands"));
     ExpansionOptions options = parser.getOptions(ExpansionOptions.class);
-    assertEquals("first", options.second);
+    assertEquals("from_expansion", options.underlying);
   }
 
   @Test

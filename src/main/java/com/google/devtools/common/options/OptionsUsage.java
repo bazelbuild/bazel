@@ -23,6 +23,7 @@ import java.text.BreakIterator;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * A renderer for usage messages. For now this is very simple.
@@ -33,15 +34,17 @@ class OptionsUsage {
   private static final Joiner COMMA_JOINER = Joiner.on(",");
 
   /**
-   * Given an options class, render the usage string into the usage,
-   * which is passed in as an argument.
+   * Given an options class, render the usage string into the usage, which is passed in as an
+   * argument. This will not include information about expansions for options using expansion
+   * functions (it would be unsafe to report this as we cannot know what options from other {@link
+   * OptionsBase} subclasses they depend on until a complete parser is constructed).
    */
   static void getUsage(Class<? extends OptionsBase> optionsClass, StringBuilder usage) {
     List<Field> optionFields =
         Lists.newArrayList(OptionsParser.getAllAnnotatedFields(optionsClass));
     Collections.sort(optionFields, BY_NAME);
     for (Field optionField : optionFields) {
-      getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG);
+      getUsage(optionField, usage, OptionsParser.HelpVerbosity.LONG, null);
     }
   }
 
@@ -76,10 +79,35 @@ class OptionsUsage {
   }
 
   /**
-   * Append the usage message for a single option-field message to 'usage'.
+   * Returns the expansion for an option, to the extent known. Precisely, if an {@link OptionsData}
+   * object is supplied, the expansion is read from that. Otherwise, the annotation is inspected: If
+   * the annotation uses {@link Option#expansion} it is returned, and if it uses {@link
+   * Option#expansionFunction} null is returned, indicating a lack of definite information. In all
+   * cases, when the option is not an expansion option, an empty array is returned.
    */
-  static void getUsage(Field optionField, StringBuilder usage,
-                       OptionsParser.HelpVerbosity helpVerbosity) {
+  private static @Nullable String[] getExpansionIfKnown(
+      Field optionField, Option annotation, @Nullable OptionsData optionsData) {
+    if (optionsData != null) {
+      return optionsData.getEvaluatedExpansion(optionField);
+    } else {
+      if (OptionsData.usesExpansionFunction(annotation)) {
+        return null;
+      } else {
+        // Empty array if it's not an expansion option.
+        return annotation.expansion();
+      }
+    }
+  }
+
+  /**
+   * Appends the usage message for a single option-field message to 'usage'. If {@code optionsData}
+   * is not supplied, options that use expansion functions won't be fully described.
+   */
+  static void getUsage(
+      Field optionField,
+      StringBuilder usage,
+      OptionsParser.HelpVerbosity helpVerbosity,
+      @Nullable OptionsData optionsData) {
     String flagName = getFlagName(optionField);
     String typeDescription = getTypeDescription(optionField);
     Option annotation = optionField.getAnnotation(Option.class);
@@ -114,9 +142,12 @@ class OptionsUsage {
       usage.append(paragraphFill(annotation.help(), 4, 80)); // (indent, width)
       usage.append('\n');
     }
-    if (annotation.expansion().length > 0) {
+    String[] expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    if (expansion == null) {
+      usage.append("    Expands to unknown options.\n");
+    } else if (expansion.length > 0) {
       StringBuilder expandsMsg = new StringBuilder("Expands to: ");
-      for (String exp : annotation.expansion()) {
+      for (String exp : expansion) {
         expandsMsg.append(exp).append(" ");
       }
       usage.append(paragraphFill(expandsMsg.toString(), 4, 80)); // (indent, width)
@@ -125,9 +156,11 @@ class OptionsUsage {
   }
 
   /**
-   * Append the usage message for a single option-field message to 'usage'.
+   * Append the usage message for a single option-field message to 'usage'. If {@code optionsData}
+   * is not supplied, options that use expansion functions won't be fully described.
    */
-  static void getUsageHtml(Field optionField, StringBuilder usage, Escaper escaper) {
+  static void getUsageHtml(
+      Field optionField, StringBuilder usage, Escaper escaper, @Nullable OptionsData optionsData) {
     String plainFlagName = optionField.getAnnotation(Option.class).name();
     String flagName = getFlagName(optionField);
     String valueDescription = optionField.getAnnotation(Option.class).valueHelp();
@@ -167,10 +200,13 @@ class OptionsUsage {
       usage.append(paragraphFill(escaper.escape(annotation.help()), 0, 80)); // (indent, width)
       usage.append('\n');
     }
-    if (annotation.expansion().length > 0) {
+    String[] expansion = getExpansionIfKnown(optionField, annotation, optionsData);
+    if (expansion == null) {
+      usage.append("    Expands to unknown options.<br>\n");
+    } else if (expansion.length > 0) {
       usage.append("<br/>\n");
       StringBuilder expandsMsg = new StringBuilder("Expands to:<br/>\n");
-      for (String exp : annotation.expansion()) {
+      for (String exp : expansion) {
         // TODO(ulfjack): Can we link to the expanded flags here?
         expandsMsg
             .append("&nbsp;&nbsp;<code>")
