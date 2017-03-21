@@ -105,13 +105,43 @@ class WindowsClock {
 
 #ifdef COMPILER_MSVC
 
+BOOL WINAPI ConsoleCtrlHandler(_In_ DWORD ctrlType) {
+  static volatile int sigint_count = 0;
+  switch (ctrlType) {
+    case CTRL_C_EVENT:
+    case CTRL_BREAK_EVENT:
+      if (++sigint_count >= 3) {
+        SigPrintf(
+            "\n%s caught third Ctrl+C handler signal; killed.\n\n",
+            SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+        if (SignalHandler::Get().GetGlobals()->server_pid != -1) {
+          KillServerProcess(SignalHandler::Get().GetGlobals()->server_pid);
+        }
+        _exit(1);
+      }
+      SigPrintf(
+          "\n%s Ctrl+C handler; shutting down.\n\n",
+          SignalHandler::Get().GetGlobals()->options->product_name.c_str());
+      SignalHandler::Get().CancelServer();
+      return TRUE;
+
+    case CTRL_CLOSE_EVENT:
+      SignalHandler::Get().CancelServer();
+      return TRUE;
+  }
+  return false;
+}
+
 void SignalHandler::Install(GlobalVariables* globals,
                             SignalHandler::Callback cancel_server) {
-  // TODO(bazel-team): implement this.
+  _globals = globals;
+  _cancel_server = cancel_server;
+  ::SetConsoleCtrlHandler(&ConsoleCtrlHandler, TRUE);
 }
 
 ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
-  // TODO(bazel-team): implement this.
+  // We do not handle signals on Windows; always exit with exit_code.
+  exit(exit_code);
 }
 
 #else  // not COMPILER_MSVC
