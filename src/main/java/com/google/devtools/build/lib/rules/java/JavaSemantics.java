@@ -253,7 +253,7 @@ public interface JavaSemantics {
    * be used when creating both the {@code RunfilesProvider} and the {@code RunfilesSupport}. If
    * they are different, the new value should be used when creating the {@code RunfilesProvider} (so
    * it will be the stub script executed by "bazel run" for example), and the old value should be
-   * used when creasting the {@code RunfilesSupport} (so the runfiles directory will be named after
+   * used when creating the {@code RunfilesSupport} (so the runfiles directory will be named after
    * it).
    *
    * <p>For example on Windows we use a double dispatch approach: the launcher is a batch file (and
