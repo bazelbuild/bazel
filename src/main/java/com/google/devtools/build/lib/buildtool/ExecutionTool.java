@@ -19,6 +19,7 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -243,9 +244,10 @@ public class ExecutionTool {
         SpawnActionContext context =
             strategyConverter.getStrategy(SpawnActionContext.class, entry.getValue());
         if (context == null) {
+          String strategy = Strings.emptyToNull(entry.getKey());
           throw makeExceptionForInvalidStrategyValue(
               entry.getValue(),
-              "spawn",
+              Joiner.on(' ').skipNulls().join(strategy, "spawn"),
               strategyConverter.getValidValues(SpawnActionContext.class));
         }
         spawnStrategyMap.put(entry.getKey(), context);
