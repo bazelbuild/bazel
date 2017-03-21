@@ -33,8 +33,11 @@ fi
 
 function set_up() {
   copy_examples
-  EXTRA_BAZELRC="build --cpu=x64_windows_msvc"
   setup_bazelrc
+  cat >>"$TEST_TMPDIR/bazelrc" <<EOF
+startup --batch
+build --cpu=x64_windows_msvc
+EOF
 }
 
 # An assertion that execute a binary from a sub directory (to test runfiles)
@@ -139,6 +142,18 @@ function test_native_python() {
   expect_log "Fib(5) == 8"
   assert_test_ok //examples/py_native:test
   assert_test_fails //examples/py_native:fail
+}
+
+function test_native_python_with_python3() {
+  PYTHON3_PATH=${PYTHON3_PATH:-/c/Program Files/Anaconda3}
+  if [ ! -x "${PYTHON3_PATH}/python.exe" ]; then
+    warn "Python3 binary not found under $PYTHON3_PATH, please set PYTHON3_PATH correctly"
+  else
+    # Shutdown bazel to ensure python path get updated.
+    export BAZEL_PYTHON="${PYTHON3_PATH}/python.exe"
+    export PATH="${PYTHON3_PATH}:$PATH"
+    test_native_python
+  fi
 }
 
 run_suite "examples on Windows"

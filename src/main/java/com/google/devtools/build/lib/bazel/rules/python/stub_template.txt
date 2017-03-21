@@ -13,10 +13,13 @@ def IsWindows():
   return os.name == 'nt'
 
 def GetWindowsPathWithUNCPrefix(path):
-  """Changes the path, so that it uses unicode Windows paths"""
+  """
+  Adding UNC prefix after getting a normalized absolute Windows path,
+  it's no-op for non-Windows platforms or if running under python2.
+  """
   path = path.strip()
 
-  # No need to add prefix for non-Windows platforms,
+  # No need to add prefix for non-Windows platforms.
   # And \\?\ doesn't work in python 2
   if not IsWindows() or sys.version_info[0] < 3:
     return path
@@ -26,6 +29,7 @@ def GetWindowsPathWithUNCPrefix(path):
   if path.startswith(unicode_prefix):
     return path
 
+  # os.path.abspath returns a normalized absolute path
   return unicode_prefix + os.path.abspath(path)
 
 PYTHON_BINARY = '%python_binary%'
@@ -93,10 +97,8 @@ def FindModuleSpace():
 def CreateModuleSpace():
   ZIP_RUNFILES_DIRECTORY_NAME = "runfiles"
   temp_dir = tempfile.mkdtemp("", "Bazel.runfiles_")
-  # mkdtemp return absolute name
-  temp_dir = GetWindowsPathWithUNCPrefix(temp_dir)
   zf = zipfile.ZipFile(GetWindowsPathWithUNCPrefix(os.path.dirname(__file__)))
-  zf.extractall(temp_dir)
+  zf.extractall(GetWindowsPathWithUNCPrefix(temp_dir))
   return os.path.join(temp_dir, ZIP_RUNFILES_DIRECTORY_NAME)
 
 # Returns repository roots to add to the import path.
@@ -120,6 +122,8 @@ def Main():
   python_path_entries = CreatePythonPathEntries(python_imports, module_space)
   python_path_entries += GetRepositoriesImports(module_space, %import_all%)
 
+  python_path_entries = [GetWindowsPathWithUNCPrefix(d) for d in python_path_entries]
+
   old_python_path = os.environ.get('PYTHONPATH')
   python_path = os.pathsep.join(python_path_entries)
   if old_python_path:
@@ -138,6 +142,7 @@ def Main():
     rel_path = rel_path.replace("/", os.sep)
 
   main_filename = os.path.join(module_space, rel_path)
+  main_filename = GetWindowsPathWithUNCPrefix(main_filename)
   assert os.path.exists(main_filename), \
          'Cannot exec() %r: file not found.' % main_filename
   assert os.access(main_filename, os.R_OK), \
