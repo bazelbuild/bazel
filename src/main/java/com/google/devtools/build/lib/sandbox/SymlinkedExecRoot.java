@@ -92,7 +92,8 @@ public final class SymlinkedExecRoot implements SandboxExecRoot {
       throws IOException {
     for (PathFragment inputPath : inputs) {
       Path dir = sandboxExecRoot.getRelative(inputPath).getParentDirectory();
-      Preconditions.checkArgument(dir.startsWith(sandboxExecRoot));
+      Preconditions.checkArgument(
+          dir.startsWith(sandboxExecRoot), "Bad relative path: '%s'", inputPath);
       FileSystemUtils.createDirectoryAndParentsWithCache(createdDirs, dir);
     }
   }
