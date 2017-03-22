@@ -306,19 +306,13 @@ def _get_windows_msys_crosstool_content(repository_ctx):
   bazel_sh = _get_env_var(repository_ctx, "BAZEL_SH").replace("\\", "/").lower()
   tokens = bazel_sh.rsplit("/", 1)
   msys_root = None
-  # while-loops are not supported in order to avoid Turing-completeness.
-  # Use a for-loop, we know it'll halt in at most len(tokens[0]) steps.
-  for _ in range(len(tokens[0])):
-    if len(tokens) < 2:
-      break
-    if tokens[1].startswith("msys"):
-      msys_root = tokens[0] + "/" + tokens[1] + "/"
-      break
-    else:
-      tokens = tokens[0].rsplit("/", 1)
+  if tokens[0].endswith("/usr/bin"):
+    msys_root = tokens[0][:len(tokens[0]) - len("usr/bin")]
+  elif tokens[0].endswith("/bin"):
+    msys_root = tokens[0][:len(tokens[0]) - len("bin")]
   if not msys_root:
     auto_configure_fail(
-        "Could not determine MSYS root from BAZEL_SH (%s)" % bazel_sh)
+        "Could not determine MSYS/Cygwin root from BAZEL_SH (%s)" % bazel_sh)
   return (
       '   abi_version: "local"\n' +
       '   abi_libc_version: "local"\n' +
