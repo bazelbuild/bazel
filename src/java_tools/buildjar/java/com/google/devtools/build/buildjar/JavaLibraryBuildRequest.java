@@ -353,6 +353,8 @@ public final class JavaLibraryBuildRequest {
   /** Constructs a command line that can be used for a javac invocation. */
   ImmutableList<String> makeJavacArguments() {
     ImmutableList.Builder<String> javacArguments = ImmutableList.builder();
+    // default to -implicit:none, but allow the user to override with -implicit:class.
+    javacArguments.add("-implicit:none");
     javacArguments.addAll(getJavacOpts());
 
     if (!getProcessors().isEmpty() && !getSourceFiles().isEmpty()) {

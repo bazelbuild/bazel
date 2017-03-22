@@ -176,10 +176,87 @@ java_custom_library = rule(
   fragments = ["java"]
 )
 EOF
+   bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
+   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   expect_log "g/A.class"
+   expect_not_log "g/B.class"
+ }
 
-  # TODO(elenairina): Check that B.jar is not on the output jar after -implicit:none will be turned
-  # on by default.
-   bazel build //g:test >$TEST_log || fail "Failed to build //g:test"
+function test_java_common_compile_sourcepath_with_implicit_class() {
+   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
+   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+   if [ "${JAVA_VERSION}" = "1.7" ]; then
+     return 0
+   fi
+   mkdir -p g
+   cat >g/A.java <<'EOF'
+package g;
+public class A {
+   public A() {
+      new B();
+   }
+}
+EOF
+
+  cat >g/B.java <<'EOF'
+package g;
+public class B {
+   public B() {
+   }
+}
+EOF
+
+   cat >g/BUILD <<'EOF'
+load(':java_custom_library.bzl', 'java_custom_library')
+genrule(
+  name = "stub",
+  srcs = ["B.java"],
+  outs = ["B.jar"],
+  cmd = "zip $@ $(SRCS)",
+)
+
+java_custom_library(
+  name = "test",
+  srcs = ["A.java"],
+  sourcepath = [":stub"]
+)
+EOF
+
+  cat >g/java_custom_library.bzl <<'EOF'
+def _impl(ctx):
+  output_jar = ctx.new_file("lib" + ctx.label.name + ".jar")
+
+  compilation_provider = java_common.compile(
+    ctx,
+    source_files = ctx.files.srcs,
+    output = output_jar,
+    javac_opts = java_common.default_javac_opts(ctx, java_toolchain_attr = "_java_toolchain") + ["-implicit:class"],
+    deps = [],
+    sourcepath = ctx.files.sourcepath,
+    strict_deps = "ERROR",
+    java_toolchain = ctx.attr._java_toolchain,
+    host_javabase = ctx.attr._host_javabase
+  )
+  return struct(
+    files = set([output_jar]),
+    providers = [compilation_provider]
+  )
+
+java_custom_library = rule(
+  implementation = _impl,
+  attrs = {
+    "srcs": attr.label_list(allow_files=True),
+    "sourcepath": attr.label_list(),
+    "_java_toolchain": attr.label(default = Label("@bazel_tools//tools/jdk:toolchain")),
+    "_host_javabase": attr.label(default = Label("//tools/defaults:jdk"))
+  },
+  fragments = ["java"]
+)
+EOF
+   bazel build //g:test &> $TEST_log || fail "Failed to build //g:test"
+   jar tf bazel-bin/g/libtest.jar >> $TEST_log || fail "Failed to jar tf bazel-bin/g/libtest.jar"
+   expect_log "g/A.class"
+   expect_log "g/B.class"
  }
 
 # Runfiles is disabled by default on Windows, but we can test it on Unix by
@@ -371,7 +448,7 @@ EOF
 
   write_java_custom_rule
 
-  $PRODUCT_NAME run :Main > $TEST_log || fail "Java sandwich build failed"
+  bazel run :Main > $TEST_log || fail "Java sandwich build failed"
   expect_log "Message from A"
   expect_log "Message from B"
   expect_log "Message from C"
