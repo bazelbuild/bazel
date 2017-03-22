@@ -102,7 +102,7 @@ genrule(
         # runfiles trees. The Java launcher script looks in the runfiles tree
         # for the jars (and rightfully so), thus, invoking the binary directly
         # won't work.
-        "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ freebsd ]]; then",
+        "if [[ $$(uname -a) =~ MSYS ]] || [[ $$(uname -a) =~ CYGWIN ]] || [[ $$(uname -a) =~ freebsd ]]; then",
         "  cp \"$(location :JacocoCoverage_deploy.jar)\" \"$@\";",
         "else",
         "  \"$(JAVA)\" -jar \"$(location //third_party/java/jarjar:jarjar_bin_deploy.jar)\" process \"$(location :JacocoCoverage.jarjar)\" \"$(location :JacocoCoverage_deploy.jar)\" \"$@\"",
