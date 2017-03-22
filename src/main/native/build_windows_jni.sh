@@ -96,4 +96,5 @@ cat > "${VSTEMP}/windows_jni.bat" <<EOF
 EOF
 
 # Invoke the file and hopefully generate the .DLL .
+chmod +x "${VSTEMP}/windows_jni.bat"
 exec "${VSTEMP}/windows_jni.bat"
