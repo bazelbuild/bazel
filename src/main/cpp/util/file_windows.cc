@@ -407,19 +407,21 @@ bool MsysRoot::Get(string* path) {
     result = value2;
   }
 
-  ToLower(&result);
-
-  // BAZEL_SH is usually "c:\tools\msys64\usr\bin\bash.exe", we need to return
-  // "c:\tools\msys64". Look for the rightmost msys-looking component.
-  while (!IsRootDirectory(result) &&
-         Basename(result).find("msys") == string::npos) {
-    result = Dirname(result);
+  // BAZEL_SH is usually "c:\tools\msys64\usr\bin\bash.exe" but could also be
+  // "c:\cygwin64\bin\bash.exe", and may have forward slashes instead of
+  // backslashes. Either way, we just need to remove the "usr/bin/bash.exe" or
+  // "bin/bash.exe" suffix (we don't care about the basename being "bash.exe").
+  result = Dirname(result);
+  pair<string, string> parent(SplitPath(result));
+  pair<string, string> grandparent(SplitPath(parent.first));
+  if (AsLower(grandparent.second) == "usr" && AsLower(parent.second) == "bin") {
+    *path = grandparent.first;
+    return true;
+  } else if (AsLower(parent.second) == "bin") {
+    *path = parent.first;
+    return true;
   }
-  if (IsRootDirectory(result)) {
-    return false;
-  }
-  *path = result;
-  return true;
+  return false;
 }
 
 void MsysRoot::InitIfNecessary() {

@@ -173,7 +173,7 @@ TEST_F(FileWindowsTest, TestIsRootDirectory) {
 }
 
 TEST_F(FileWindowsTest, TestAsWindowsPath) {
-  SetEnvironmentVariableA("BAZEL_SH", "c:\\msys\\some\\long\\path\\bash.exe");
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\some\\long/path\\bin\\bash.exe");
   ResetMsysRootForTesting();
   wstring actual;
 
@@ -220,7 +220,7 @@ TEST_F(FileWindowsTest, TestAsWindowsPath) {
   ASSERT_EQ(wstring(L"d:\\progra~1\\micros~1"), actual);
 
   ASSERT_TRUE(AsWindowsPath("/foo", &actual));
-  ASSERT_EQ(wstring(L"c:\\msys\\foo"), actual);
+  ASSERT_EQ(wstring(L"c:\\some\\long\\path\\foo"), actual);
 
   wstring wlongpath(L"\\dummy_long_path");
   string longpath("dummy_long_path/");
@@ -287,15 +287,33 @@ TEST_F(FileWindowsTest, TestAsShortWindowsPath) {
 TEST_F(FileWindowsTest, TestMsysRootRetrieval) {
   wstring actual;
 
-  SetEnvironmentVariableA("BAZEL_SH", "c:/foo/msys/bar/qux.exe");
+  // We just need "bin/<something>" or "usr/bin/<something>".
+  // Forward slashes are converted to backslashes.
+  SetEnvironmentVariableA("BAZEL_SH", "c:/foo\\bin/some_bash.exe");
   ResetMsysRootForTesting();
   ASSERT_TRUE(AsWindowsPath("/blah", &actual));
-  ASSERT_EQ(wstring(L"c:\\foo\\msys\\blah"), actual);
+  ASSERT_EQ(wstring(L"c:\\foo\\blah"), actual);
 
-  SetEnvironmentVariableA("BAZEL_SH", "c:/foo/MSYS64/bar/qux.exe");
+  SetEnvironmentVariableA("BAZEL_SH", "c:\\foo/MSYS64/usr\\bin/dummy.exe");
   ResetMsysRootForTesting();
   ASSERT_TRUE(AsWindowsPath("/blah", &actual));
-  ASSERT_EQ(wstring(L"c:\\foo\\msys64\\blah"), actual);
+  ASSERT_EQ(wstring(L"c:\\foo\\MSYS64\\blah"), actual);
+
+  // We just need "bin/<something>" or "usr/bin/<something>".
+  SetEnvironmentVariableA("BAZEL_SH", "c:/bin/kitty.exe");
+  ResetMsysRootForTesting();
+  ASSERT_TRUE(AsWindowsPath("/blah", &actual));
+  ASSERT_EQ(wstring(L"c:\\blah"), actual);
+
+  // Just having "msys" in the path isn't enough.
+  SetEnvironmentVariableA("BAZEL_SH", "c:/msys/foo/bash.exe");
+  ResetMsysRootForTesting();
+  ASSERT_FALSE(AsWindowsPath("/blah", &actual));
+
+  // We need "bin/<something>" or "usr/bin/<something>", not "usr/<something>".
+  SetEnvironmentVariableA("BAZEL_SH", "c:/msys/usr/bash.exe");
+  ResetMsysRootForTesting();
+  ASSERT_FALSE(AsWindowsPath("/blah", &actual));
 
   SetEnvironmentVariableA("BAZEL_SH", "c:/qux.exe");
   ResetMsysRootForTesting();
@@ -316,14 +334,14 @@ TEST_F(FileWindowsTest, TestPathExistsWindows) {
   GET_TEST_TMPDIR(tmpdir);
   ASSERT_TRUE(PathExists(tmpdir));
 
-  // Create a fake msys root. We'll also use it as a junction target.
-  string fake_msys_root(tmpdir + "/fake_msys");
+  // Create junction target that'll double as the fake msys root.
+  string fake_msys_root(tmpdir + "/blah");
   ASSERT_EQ(0, mkdir(fake_msys_root.c_str()));
   ASSERT_TRUE(PathExists(fake_msys_root));
 
   // Set the BAZEL_SH root so we can resolve MSYS paths.
   SetEnvironmentVariableA("BAZEL_SH",
-                          (fake_msys_root + "/fake_bash.exe").c_str());
+                          (fake_msys_root + "/bin/fake_bash.exe").c_str());
   ResetMsysRootForTesting();
 
   // Assert existence check for MSYS paths.
@@ -355,14 +373,14 @@ TEST_F(FileWindowsTest, TestIsDirectory) {
 
   ASSERT_FALSE(IsDirectory("non.existent"));
   // Create a directory under `tempdir`, verify that IsDirectory reports true.
-  // Call it msys_dir1 so we can also use it as a mock msys root.
-  string dir1(JoinPath(tmpdir, "msys_dir1"));
+  string dir1(JoinPath(tmpdir, "dir1"));
   ASSERT_EQ(0, mkdir(dir1.c_str()));
   ASSERT_TRUE(IsDirectory(dir1));
 
   // Use dir1 as the mock msys root, verify that IsDirectory works for a MSYS
   // path.
-  SetEnvironmentVariableA("BAZEL_SH", JoinPath(dir1, "bash.exe").c_str());
+  SetEnvironmentVariableA("BAZEL_SH",
+                          JoinPath(dir1, "usr\\bin\\bash.exe").c_str());
   ResetMsysRootForTesting();
   ASSERT_TRUE(IsDirectory("/"));
 
@@ -412,7 +430,7 @@ TEST_F(FileWindowsTest, TestMakeDirectories) {
   ASSERT_LT(0, tmpdir.size());
 
   SetEnvironmentVariableA(
-      "BAZEL_SH", (JoinPath(tmpdir, "fake_msys/fake_bash.exe")).c_str());
+      "BAZEL_SH", (JoinPath(tmpdir, "fake_msys/bin/fake_bash.exe")).c_str());
   ResetMsysRootForTesting();
   ASSERT_EQ(0, mkdir(JoinPath(tmpdir, "fake_msys").c_str()));
   ASSERT_TRUE(IsDirectory(JoinPath(tmpdir, "fake_msys")));
