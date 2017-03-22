@@ -167,7 +167,7 @@ public class HeaderThinning implements IncludeProcessing {
     throw new UserExecException(
         String.format(
             "Unable to map header file (%s) found during header scanning of %s."
-                + " This is usually the result of a case mismatch.",
+                + " This is usually the result of a case mismatch",
             missingPath, sourceFile.getExecPathString()));
   }
 }

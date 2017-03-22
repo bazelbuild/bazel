@@ -274,8 +274,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   }
 
   private IncludeProcessing createIncludeProcessing(
-      Iterable<Artifact> potentialInputs, @Nullable Artifact pchHdr) {
+      Iterable<Artifact> privateHdrs, ObjcProvider objcProvider, @Nullable Artifact pchHdr) {
     if (isHeaderThinningEnabled()) {
+      Iterable<Artifact> potentialInputs =
+          Iterables.concat(
+              privateHdrs,
+              objcProvider.get(HEADER),
+              objcProvider.get(STATIC_FRAMEWORK_FILE),
+              objcProvider.get(DYNAMIC_FRAMEWORK_FILE));
       if (pchHdr != null) {
         potentialInputs = Iterables.concat(potentialInputs, ImmutableList.of(pchHdr));
       }
@@ -305,8 +311,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     ObjcCppSemantics semantics =
         new ObjcCppSemantics(
             objcProvider,
-            createIncludeProcessing(
-                Iterables.concat(privateHdrs, publicHdrs, objcProvider.get(HEADER)), pchHdr),
+            createIncludeProcessing(privateHdrs, objcProvider, pchHdr),
             ruleContext.getFragment(ObjcConfiguration.class),
             isHeaderThinningEnabled(),
             intermediateArtifacts);
