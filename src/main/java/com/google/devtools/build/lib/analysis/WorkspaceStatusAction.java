@@ -62,6 +62,14 @@ public abstract class WorkspaceStatusAction extends AbstractAction {
         help = "Embed source control revision or release label in binary")
     public String embedLabel;
 
+    @Option(
+      name = "experimental_embed_timestamp_epoch",
+      defaultValue = "-1",
+      category = "undocumented",
+      help = "Alternative timestamp to be used in stamping the binary"
+    )
+    public long embedTimestampEpoch;
+
     @Option(name = "workspace_status_command",
         defaultValue = "",
         category = "misc",

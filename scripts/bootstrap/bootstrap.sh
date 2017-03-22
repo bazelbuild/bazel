@@ -22,10 +22,14 @@
 
 : ${BAZELRC:="/dev/null"}
 : ${EMBED_LABEL:=""}
+: ${SOURCE_DATE_EPOCH:=""}
 
 EMBED_LABEL_ARG=()
 if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
+    if [ -n "${SOURCE_DATE_EPOCH}" ]; then
+        EMBED_LABEL_ARG+=(--experimental_embed_timestamp_epoch "${SOURCE_DATE_EPOCH}")
+    fi
 fi
 
 : ${JAVA_VERSION:="1.8"}

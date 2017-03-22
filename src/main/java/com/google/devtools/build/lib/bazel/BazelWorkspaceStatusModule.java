@@ -205,6 +205,18 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         stableMap.put(BuildInfo.BUILD_EMBED_LABEL, options.embedLabel);
         stableMap.put(BuildInfo.BUILD_HOST, hostname);
         stableMap.put(BuildInfo.BUILD_USER, username);
+        // TODO(#2240): We currently take the timestamp from an option. This is very
+        // explicit and in line with the way the embedded label is passed to bazel.
+        // While this approach solves the problem of properly packaging bazel, there is the
+        // expectation that the value be taken from the SOURCE_DATE_EPOCH environment variable.
+        // However, currently there is no clear understanding on which environment to be taken;
+        // it could be the client environment or the action environment which is controlled
+        // by the --action_env options. (We almost certainly do not want the server environment.)
+        // So, to avoid surprises, we take an explicit option till a satisfying design is found;
+        // the latter should be designed and implemented eventually.
+        if (options.embedTimestampEpoch >= 0) {
+          stableMap.put(BuildInfo.SOURCE_DATE_EPOCH, Long.toString(options.embedTimestampEpoch));
+        }
         volatileMap.put(BuildInfo.BUILD_TIMESTAMP, Long.toString(System.currentTimeMillis()));
 
         // Only update the stableStatus contents if they are different than what we have on disk.
@@ -323,13 +335,17 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
 
     @Override
     public ImmutableMap<String, Key> getStableKeys() {
-      return ImmutableMap.of(
-          BuildInfo.BUILD_EMBED_LABEL,
-          Key.of(KeyType.STRING, options.embedLabel, "redacted"),
-          BuildInfo.BUILD_HOST,
-          Key.of(KeyType.STRING, "hostname", "redacted"),
-          BuildInfo.BUILD_USER,
-          Key.of(KeyType.STRING, "username", "redacted"));
+      ImmutableMap.Builder<String, Key> builder = ImmutableMap.builder();
+      builder.put(
+          BuildInfo.BUILD_EMBED_LABEL, Key.of(KeyType.STRING, options.embedLabel, "redacted"));
+      builder.put(BuildInfo.BUILD_HOST, Key.of(KeyType.STRING, "hostname", "redacted"));
+      builder.put(BuildInfo.BUILD_USER, Key.of(KeyType.STRING, "username", "redacted"));
+      if (options.embedTimestampEpoch >= 0) {
+        builder.put(
+            BuildInfo.SOURCE_DATE_EPOCH,
+            Key.of(KeyType.STRING, Long.toString(options.embedTimestampEpoch), "0"));
+      }
+      return builder.build();
     }
 
     @Override

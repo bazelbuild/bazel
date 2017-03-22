@@ -920,6 +920,7 @@ java_library(
     ],
     deps = [
         ":build-base",
+        ":build-info",
         ":collect",
         ":concurrent",
         ":events",
