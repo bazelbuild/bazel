@@ -106,6 +106,11 @@ function test_build_hello_world() {
 }
 
  function test_java_common_compile_sourcepath() {
+   # TODO(bazel-team): Enable this for Java 7 when VanillaJavaBuilder supports --sourcepath.
+   JAVA_VERSION="1.$(bazel query  --output=build '@bazel_tools//tools/jdk:toolchain' | grep source_version | cut -d '"' -f 2)"
+   if [ "${JAVA_VERSION}" = "1.7" ]; then
+     return 0
+   fi
    mkdir -p g
    cat >g/A.java <<'EOF'
 package g;
