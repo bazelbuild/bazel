@@ -140,10 +140,17 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     return ImmutableList.copyOf(digests);
   }
 
+  private void checkBlobSize(long blobSizeKBytes, String type) {
+    Preconditions.checkArgument(
+        blobSizeKBytes < MAX_MEMORY_KBYTES,
+        type + ": maximum blob size exceeded: %sK > %sK.",
+        blobSizeKBytes, MAX_MEMORY_KBYTES);
+  }
+
   @Override
   public ContentDigest uploadBlob(byte[] blob) throws InterruptedException {
     int blobSizeKBytes = blob.length / 1024;
-    Preconditions.checkArgument(blobSizeKBytes < MAX_MEMORY_KBYTES);
+    checkBlobSize(blobSizeKBytes, "Upload");
     ContentDigest digest = ContentDigests.computeDigest(blob);
     uploadMemoryAvailable.acquire(blobSizeKBytes);
     try {
@@ -160,7 +167,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
       return new byte[0];
     }
     // This unconditionally downloads the whole blob into memory!
-    Preconditions.checkArgument((int) (digest.getSizeBytes() / 1024) < MAX_MEMORY_KBYTES);
+    checkBlobSize(digest.getSizeBytes() / 1024, "Download");
     byte[] data = cache.get(ContentDigests.toHexString(digest));
     if (data == null) {
       throw new CacheNotFoundException(digest);
