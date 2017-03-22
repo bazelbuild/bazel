@@ -47,6 +47,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           null,
           NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
           null,
@@ -69,6 +70,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final NestedSet<Artifact> link;
   private final Artifact interfaceSoBuilder;
   private final NestedSet<Artifact> dwp;
+  private final NestedSet<Artifact> coverage;
   private final NestedSet<Artifact> libcLink;
   private final NestedSet<Artifact> staticRuntimeLinkInputs;
   @Nullable private final Artifact staticRuntimeLinkMiddleman;
@@ -94,6 +96,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       NestedSet<Artifact> link,
       Artifact interfaceSoBuilder,
       NestedSet<Artifact> dwp,
+      NestedSet<Artifact> coverage,
       NestedSet<Artifact> libcLink,
       NestedSet<Artifact> staticRuntimeLinkInputs,
       @Nullable Artifact staticRuntimeLinkMiddleman,
@@ -117,6 +120,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.link = Preconditions.checkNotNull(link);
     this.interfaceSoBuilder = interfaceSoBuilder;
     this.dwp = Preconditions.checkNotNull(dwp);
+    this.coverage = Preconditions.checkNotNull(coverage);
     this.libcLink = Preconditions.checkNotNull(libcLink);
     this.staticRuntimeLinkInputs = Preconditions.checkNotNull(staticRuntimeLinkInputs);
     this.staticRuntimeLinkMiddleman = staticRuntimeLinkMiddleman;
@@ -177,6 +181,13 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
 
   public NestedSet<Artifact> getDwp() {
     return dwp;
+  }
+
+  /**
+   * Returns the files necessary for capturing code coverage.
+   */
+  public NestedSet<Artifact> getCoverage() {
+    return coverage;
   }
 
   public NestedSet<Artifact> getLibcLink() {

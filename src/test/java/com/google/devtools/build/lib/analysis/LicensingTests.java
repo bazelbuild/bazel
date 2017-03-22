@@ -215,7 +215,7 @@ public class LicensingTests extends BuildViewTestCase {
     License cLicense = getTarget(cTarget.getLabel()).getLicense();
     assertFalse(aLicense.equals(bLicense));
     assertEquals(License.parseLicense(Arrays.asList("unencumbered")), aLicense);
-    assertEquals(License.parseLicense(Arrays.asList("restricted","reciprocal")),
+    assertEquals(License.parseLicense(Arrays.asList("restricted", "reciprocal")),
         bLicense);
     assertEquals(License.parseLicense(Arrays.asList("unencumbered")), cLicense);
   }
@@ -463,6 +463,7 @@ public class LicensingTests extends BuildViewTestCase {
         "    cpu = 'cherry',",
         "    compiler_files = 'compile-cherry',",
         "    dwp_files = 'dwp-cherry',",
+        "    coverage_files = 'gcov-cherry',",
         "    linker_files = 'link-cherry',",
         "    strip_files = ':every-file',",
         "    objcopy_files = 'objcopy-cherry',",
@@ -485,7 +486,7 @@ public class LicensingTests extends BuildViewTestCase {
     License l3 = License.parseLicense(Arrays.asList("by_exception_only",
         "reciprocal", "exception=//a:a", "exception=//b:b"));
     assertEquals("[restricted] with exceptions [//a:a]", l1.toString());
-    assertEquals("[restricted, reciprocal] with exceptions [//a:a]",l2.toString());
+    assertEquals("[restricted, reciprocal] with exceptions [//a:a]", l2.toString());
     assertEquals("[by_exception_only, reciprocal] with exceptions [//a:a, //b:b]", l3.toString());
   }
 
@@ -497,9 +498,9 @@ public class LicensingTests extends BuildViewTestCase {
   protected static Map<Label, License> licenses(String... strings)
       throws LicenseParsingException, LabelSyntaxException {
     Map<Label, License> result = new HashMap<>();
-    for (int i=0; i < strings.length; i += 2) {
+    for (int i = 0; i < strings.length; i += 2) {
       String labelStr = strings[i];
-      String licStr = strings[i+1];
+      String licStr = strings[i + 1];
       Label label = Label.parseAbsolute(labelStr);
       List<String> splitLicenses =
           licStr.isEmpty() ? Arrays.<String>asList() : Arrays.asList(licStr.split(","));

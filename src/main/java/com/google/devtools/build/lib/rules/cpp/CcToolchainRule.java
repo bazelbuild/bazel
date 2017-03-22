@@ -70,6 +70,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("objcopy_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("linker_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
         .add(attr("dwp_files", LABEL).legacyAllowAnyFileType().cfg(HOST).mandatory())
+        .add(attr("coverage_files", LABEL).legacyAllowAnyFileType().cfg(HOST))
         .add(attr("static_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
         .add(attr("dynamic_runtime_libs", LABEL_LIST).legacyAllowAnyFileType().mandatory())
         .add(attr("module_map", LABEL).legacyAllowAnyFileType().cfg(HOST))

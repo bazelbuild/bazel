@@ -199,6 +199,11 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
           "FDO_DIR", cppConfiguration.getFdoInstrument().getPathString()));
     }
 
+    NestedSet<Artifact> coverage = getOptionalFiles(ruleContext, "coverage_files");
+    if (coverage.isEmpty()) {
+      coverage = crosstool;
+    }
+
     CcToolchainProvider provider =
         new CcToolchainProvider(
             cppConfiguration,
@@ -210,6 +215,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             fullInputsForLink(ruleContext, link),
             ruleContext.getPrerequisiteArtifact("$interface_library_builder", Mode.HOST),
             dwp,
+            coverage,
             libcLink,
             staticRuntimeLinkInputs,
             staticRuntimeLinkMiddleman,
@@ -241,7 +247,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     // :cc_toolchain attribute instead.
     final License outputLicense =
         ruleContext.getRule().getToolOutputLicense(ruleContext.attributes());
-    if (outputLicense != null && outputLicense != License.NO_LICENSE) {
+    if (outputLicense != null && !outputLicense.equals(License.NO_LICENSE)) {
       final NestedSet<TargetLicense> license = NestedSetBuilder.create(Order.STABLE_ORDER,
           new TargetLicense(ruleContext.getLabel(), outputLicense));
       LicensesProvider licensesProvider = new LicensesProvider() {
@@ -338,6 +344,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return middlemanProvider != null
         ? middlemanProvider.getMiddlemanArtifact()
         : dep.getProvider(FileProvider.class).getFilesToBuild();
+  }
+
+  private NestedSet<Artifact> getOptionalFiles(RuleContext context, String attribute) {
+    TransitiveInfoCollection dep = context.getPrerequisite(attribute, Mode.HOST);
+    return dep != null
+        ? getFiles(context, attribute)
+        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
   }
 
   /**

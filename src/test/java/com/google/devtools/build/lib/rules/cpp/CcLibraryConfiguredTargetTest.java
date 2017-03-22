@@ -139,6 +139,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    cpu = 'k8',",
         "    compiler_files = ':empty',",
         "    dwp_files = ':empty',",
+        "    coverage_files = ':empty',",
         "    linker_files = ':empty',",
         "    strip_files = ':empty',",
         "    objcopy_files = ':empty',",

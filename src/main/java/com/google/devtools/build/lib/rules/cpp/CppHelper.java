@@ -241,7 +241,7 @@ public class CppHelper {
   public static NestedSet<Artifact> getGcovFilesIfNeeded(
       RuleContext ruleContext, CcToolchainProvider toolchain) {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return toolchain.getCrosstool();
+      return toolchain.getCoverage();
     } else {
       return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     }
@@ -396,8 +396,8 @@ public class CppHelper {
       NestedSetBuilder<IncludeScannable> scannableBuilder) {
 
     TransitiveLipoInfoProvider stl = null;
-    if (ruleContext.getRule().getAttributeDefinition(":stl") != null &&
-        ruleContext.getPrerequisite(":stl", Mode.TARGET) != null) {
+    if (ruleContext.getRule().getAttributeDefinition(":stl") != null
+        && ruleContext.getPrerequisite(":stl", Mode.TARGET) != null) {
       // If the attribute is defined, it is never null.
       stl = ruleContext.getPrerequisite(":stl", Mode.TARGET)
           .getProvider(TransitiveLipoInfoProvider.class);
