@@ -244,6 +244,7 @@ public class BlazeCommandDispatcher {
    */
   int exec(List<String> args, OutErr outErr, LockingMode lockingMode, String clientDescription,
       long firstContactTime) throws ShutdownBlazeServerException, InterruptedException {
+    OriginalCommandLineEvent originalCommandLine = new OriginalCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
@@ -298,7 +299,8 @@ public class BlazeCommandDispatcher {
         outErr.printErrLn("Server shut down " + shutdownReason);
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
-      return execExclusively(args, outErr, firstContactTime, commandName, command, waitTimeInMs);
+      return execExclusively(
+          originalCommandLine, args, outErr, firstContactTime, commandName, command, waitTimeInMs);
     } catch (ShutdownBlazeServerException e) {
       shutdownReason = "explicitly by client " + currentClientDescription;
       throw e;
@@ -310,8 +312,14 @@ public class BlazeCommandDispatcher {
     }
   }
 
-  private int execExclusively(List<String> args, OutErr outErr, long firstContactTime,
-      String commandName, BlazeCommand command, long waitTimeInMs)
+  private int execExclusively(
+      OriginalCommandLineEvent originalCommandLine,
+      List<String> args,
+      OutErr outErr,
+      long firstContactTime,
+      String commandName,
+      BlazeCommand command,
+      long waitTimeInMs)
       throws ShutdownBlazeServerException {
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
 
@@ -482,6 +490,8 @@ public class BlazeCommandDispatcher {
       for (String warning : optionsParser.getWarnings()) {
         reporter.handle(Event.warn(warning));
       }
+
+      env.getEventBus().post(originalCommandLine);
 
       ExitCode outcome = command.exec(env, optionsParser);
       outcome = env.precompleteCommand(outcome);

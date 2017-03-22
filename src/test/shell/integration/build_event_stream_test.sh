@@ -95,13 +95,20 @@ function test_basic() {
   # - a completed target explicity requested should be reported
   # - after success the stream should close naturally, without any
   #   reports about aborted events.
+  # - no events occur in an unsolicited way
+  # - the command line is reported
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log 'pkg:true'
+  # Command line
+  expect_log 'args: "test"'
+  expect_log 'args: "--experimental_build_event_text_file='
+  expect_log 'args: "pkg:true"'
   # Build Finished
   expect_log 'build_finished'
   expect_log 'overall_success: true'
   expect_log 'finish_time'
+  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
