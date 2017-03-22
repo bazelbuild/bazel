@@ -14,20 +14,18 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.SetMultimap;
-import com.google.devtools.build.xcode.util.Mapping;
-
 import com.facebook.buck.apple.xcode.xcodeproj.PBXBuildFile;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXVariantGroup;
 import com.facebook.buck.apple.xcode.xcodeproj.XCVersionGroup;
-
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.xcode.util.Mapping;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -109,11 +107,11 @@ final class PBXBuildFiles implements HasProjectNavigatorFiles {
   /**
    * Returns new or cached instances of PBXBuildFiles corresponding to files that may or may not
    * belong to an aggregate reference (see {@link AggregateReferenceType}). Files specified by the
-   * {@code paths} argument are grouped into individual PBXBuildFiles using the given
-   * {@link AggregateReferenceType}. Files that are standalone are not put in an aggregate
-   * reference, but are put in a standalone PBXBuildFile in the returned sequence.
+   * {@code paths} argument are grouped into individual PBXBuildFiles using the given {@link
+   * AggregateReferenceType}. Files that are standalone are not put in an aggregate reference, but
+   * are put in a standalone PBXBuildFile in the returned sequence.
    */
-  public Iterable<PBXBuildFile> get(AggregateReferenceType type, Iterable<Path> paths) {
+  public Iterable<PBXBuildFile> get(AggregateReferenceType type, Collection<Path> paths) {
     ImmutableList.Builder<PBXBuildFile> result = new ImmutableList.Builder<>();
     SetMultimap<AggregateKey, Path> keyedPaths = type.aggregates(paths);
     for (Map.Entry<AggregateKey, Collection<Path>> aggregation : keyedPaths.asMap().entrySet()) {
@@ -144,10 +142,8 @@ final class PBXBuildFiles implements HasProjectNavigatorFiles {
     return buildFile;
   }
 
-  /**
-   * Applies {@link #fileReference(Path)} to each item in the sequence.
-   */
-  private final Iterable<PBXFileReference> fileReferences(Iterable<Path> paths) {
+  /** Applies {@link #fileReference(Path)} to each item in the sequence. */
+  private final Iterable<PBXFileReference> fileReferences(Collection<Path> paths) {
     ImmutableList.Builder<PBXFileReference> result = new ImmutableList.Builder<>();
     for (Path path : paths) {
       result.add(fileReference(path));

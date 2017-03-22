@@ -14,18 +14,17 @@
 
 package com.google.devtools.build.xcode.xcodegen;
 
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.SetMultimap;
-
 import com.facebook.buck.apple.xcode.xcodeproj.PBXFileReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXReference.SourceTree;
 import com.facebook.buck.apple.xcode.xcodeproj.PBXVariantGroup;
 import com.facebook.buck.apple.xcode.xcodeproj.XCVersionGroup;
-
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.SetMultimap;
 import java.nio.file.Path;
+import java.util.Collection;
 
 /**
  * An aggregate reference is a kind of PBXReference that contains one or more files, grouped by some
@@ -113,10 +112,8 @@ public enum AggregateReferenceType {
 
   public abstract Path pathInAggregate(Path path);
 
-  /**
-   * Groups a sequence of items according to their {@link #aggregateKey(Path)}.
-   */
-  public SetMultimap<AggregateKey, Path> aggregates(Iterable<Path> paths) {
+  /** Groups a sequence of items according to their {@link #aggregateKey(Path)}. */
+  public SetMultimap<AggregateKey, Path> aggregates(Collection<Path> paths) {
     ImmutableSetMultimap.Builder<AggregateKey, Path> result =
         new ImmutableSetMultimap.Builder<>();
     for (Path path : paths) {
