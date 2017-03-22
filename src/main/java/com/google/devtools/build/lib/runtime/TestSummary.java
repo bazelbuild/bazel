@@ -219,7 +219,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
 
     /**
      * Set the number of results cached, locally or remotely.
-     * 
+     *
      * @param numCached number of results cached locally or remotely
      * @return this Builder
      */
@@ -342,9 +342,8 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   /**
-   * Whether or not any results associated with this test were cached locally
-   * or remotely.
-   * 
+   * Whether or not any results associated with this test were cached locally or remotely.
+   *
    * @return true if any results were cached, false if not
    */
   public boolean isCached() {
@@ -371,9 +370,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
   }
 
   /**
-   * Whether or not any action was taken for this test, that is there was some
-   * result that was <em>not cached</em>.
-   * 
+   * Whether or not any action was taken for this test, that is there was some result that was
+   * <em>not cached</em>.
+   *
    * @return true if some action was taken for this test, false if not
    */
   public boolean actionRan() {
@@ -463,43 +462,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEvent {
     return ImmutableList.of();
   }
 
-  /**
-   * Map BlazeTestStatus to TestSummary.TestStatus.
-   *
-   * <p>TODO(aehlig): remove once proto to proto dependencies are available and pass through the
-   * BlazeTestStatus.
-   */
-  private BuildEventStreamProtos.TestSummary.TestStatus bepStatus() {
-    switch (status) {
-      case NO_STATUS:
-        return BuildEventStreamProtos.TestSummary.TestStatus.NO_STATUS;
-      case PASSED:
-        return BuildEventStreamProtos.TestSummary.TestStatus.PASSED;
-      case FLAKY:
-        return BuildEventStreamProtos.TestSummary.TestStatus.FLAKY;
-      case FAILED:
-        return BuildEventStreamProtos.TestSummary.TestStatus.FAILED;
-      case TIMEOUT:
-        return BuildEventStreamProtos.TestSummary.TestStatus.TIMEOUT;
-      case INCOMPLETE:
-        return BuildEventStreamProtos.TestSummary.TestStatus.INCOMPLETE;
-      case REMOTE_FAILURE:
-        return BuildEventStreamProtos.TestSummary.TestStatus.REMOTE_FAILURE;
-      case BLAZE_HALTED_BEFORE_TESTING:
-        return BuildEventStreamProtos.TestSummary.TestStatus.BLAZE_HALTED_BEFORE_TESTING;
-      default:
-        // Not used as the above is a complete case distinction; however, by the open
-        // nature of protobuf enums, we need the clause to convice java, that we always
-        // have a return statement.
-        return BuildEventStreamProtos.TestSummary.TestStatus.NO_STATUS;
-    }
-  }
-
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.TestSummary.Builder summaryBuilder =
         BuildEventStreamProtos.TestSummary.newBuilder()
-            .setOverallStatus(bepStatus())
+            .setOverallStatus(BuildEventStreamerUtils.bepStatus(status))
             .setTotalRunCount(totalRuns());
     for (Path path : getFailedLogs()) {
       summaryBuilder.addFailed(

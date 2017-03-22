@@ -261,9 +261,24 @@ message TargetComplete {
   repeated string tag = 3;
 }
 
+enum TestStatus {
+  NO_STATUS = 0;
+  PASSED = 1;
+  FLAKY = 2;
+  TIMEOUT = 3;
+  FAILED = 4;
+  INCOMPLETE = 5;
+  REMOTE_FAILURE = 6;
+  FAILED_TO_BUILD = 7;
+  BLAZE_HALTED_BEFORE_TESTING = 8;
+};
+
 // Payload on events reporting about individual test action.
 message TestResult {
-  bool success = 1;
+  reserved 1;
+
+  // The status of this test.
+  TestStatus status = 5;
 
   // True, if the reported attempt is taken from the tool's local cache.
   bool cached_locally = 4;
@@ -281,18 +296,6 @@ message TestResult {
 // TODO(aehlig): extend event with additional information as soon as we known
 // which additional information we need for test summaries.
 message TestSummary {
-  enum TestStatus {
-    NO_STATUS = 0;
-    PASSED = 1;
-    FLAKY = 2;
-    TIMEOUT = 3;
-    FAILED = 4;
-    INCOMPLETE = 5;
-    REMOTE_FAILURE = 6;
-    FAILED_TO_BUILD = 7;
-    BLAZE_HALTED_BEFORE_TESTING = 8;
-  };
-
   // Wrapper around BlazeTestStatus to support importing that enum to proto3.
   // Overall status of test, accumulated over all runs, shards, and attempts.
   TestStatus overall_status = 5;

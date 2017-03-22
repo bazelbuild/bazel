@@ -170,8 +170,12 @@ public class StandaloneTestStrategy extends TestStrategy {
           .getEventBus()
           .post(
               new TestAttempt(
-                  action, attempt, data.getTestPassed(), data.getRunDurationMillis(),
-                  testOutputsBuilder.build(), true));
+                  action,
+                  attempt,
+                  data.getStatus(),
+                  data.getRunDurationMillis(),
+                  testOutputsBuilder.build(),
+                  true));
       finalizeTest(actionExecutionContext, action, dataBuilder.build());
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
@@ -214,8 +218,12 @@ public class StandaloneTestStrategy extends TestStrategy {
         .getEventBus()
         .post(
             new TestAttempt(
-                action, attempt, data.getTestPassed(), data.getRunDurationMillis(),
-                testOutputsBuilder.build(), false));
+                action,
+                attempt,
+                data.getStatus(),
+                data.getRunDurationMillis(),
+                testOutputsBuilder.build(),
+                false));
     processTestOutput(executor, outErr, new TestResult(action, data, false), testLog);
   }
 

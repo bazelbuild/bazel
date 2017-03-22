@@ -20,16 +20,18 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.runtime.BuildEventStreamerUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import java.util.Collection;
 
-/** This event is raised whenever a an individual test attempt is completed. */
+/** This event is raised whenever an individual test attempt is completed. */
 public class TestAttempt implements BuildEvent {
 
   private final TestRunnerAction testAction;
-  private final boolean success;
+  private final BlazeTestStatus status;
   private final boolean cachedLocally;
   private final int attempt;
   private final boolean lastAttempt;
@@ -47,13 +49,13 @@ public class TestAttempt implements BuildEvent {
       boolean cachedLocally,
       TestRunnerAction testAction,
       Integer attempt,
-      boolean success,
+      BlazeTestStatus status,
       long durationMillis,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
     this.testAction = testAction;
     this.attempt = attempt;
-    this.success = success;
+    this.status = status;
     this.cachedLocally = cachedLocally;
     this.durationMillis = durationMillis;
     this.files = files;
@@ -63,28 +65,28 @@ public class TestAttempt implements BuildEvent {
   public TestAttempt(
       TestRunnerAction testAction,
       Integer attempt,
-      boolean success,
+      BlazeTestStatus status,
       long durationMillis,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
-    this(false, testAction, attempt, success, durationMillis, files, lastAttempt);
+    this(false, testAction, attempt, status, durationMillis, files, lastAttempt);
   }
 
   public TestAttempt(
       TestRunnerAction testAction,
       Integer attempt,
-      boolean success,
+      BlazeTestStatus status,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
-    this(testAction, attempt, success, 0, files, lastAttempt);
+    this(testAction, attempt, status, 0, files, lastAttempt);
   }
 
   public TestAttempt(
       TestRunnerAction testAction,
       Integer attempt,
-      boolean success,
+      BlazeTestStatus status,
       Collection<Pair<String, Path>> files) {
-    this(testAction, attempt, success, files, false);
+    this(testAction, attempt, status, files, false);
   }
 
   public static TestAttempt fromCachedTestResult(TestResult result) {
@@ -93,7 +95,7 @@ public class TestAttempt implements BuildEvent {
         true,
         result.getTestAction(),
         1,
-        data.getTestPassed(),
+        data.getStatus(),
         data.getRunDurationMillis(),
         result.getFiles(),
         true);
@@ -126,7 +128,7 @@ public class TestAttempt implements BuildEvent {
   public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
-    builder.setSuccess(success);
+    builder.setStatus(BuildEventStreamerUtils.bepStatus(status));
     builder.setCachedLocally(cachedLocally);
     builder.setTestAttemptDurationMillis(durationMillis);
     for (Pair<String, Path> file : files) {

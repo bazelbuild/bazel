@@ -535,6 +535,7 @@ java_library(
         ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
+        "runtime/BuildEventStreamerUtils.java",
     ],
     exports = [
         ":transitive-info-provider",
