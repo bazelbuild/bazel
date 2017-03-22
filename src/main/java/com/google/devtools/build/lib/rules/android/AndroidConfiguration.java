@@ -389,10 +389,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public AndroidManifestMerger manifestMerger;
 
     // Do not use on the command line.
-    // The idea is that once this option works, we'll flip the default value in a config file, then
-    // once it is proven that it works, remove it from Bazel and said config file.
     @Option(name = "experimental_use_parallel_android_resource_processing",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "undocumented",
       help = "Process android_library resources with higher parallelism. Generates library "
               + "R classes from a merge action, separately from aapt.")
