@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor.Key;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
@@ -354,6 +355,47 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
               }
             }))
         .containsExactly("stl", "xxx", "yyy");
+  }
+
+  @Test
+  public void aspectsDirOnMergedTargets() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct(aspect_provider = 'data')",
+        "",
+        "p = provider()",
+        "MyAspect = aspect(implementation=_impl)",
+        "def _rule_impl(ctx):",
+        "   if ctx.attr.dep:",
+        "      return [p(dir = dir(ctx.attr.dep))]",
+        "   return [p()]",
+        "",
+        "my_rule = rule(implementation = _rule_impl,",
+        "   attrs = { 'dep' : attr.label(aspects = [MyAspect]) },",
+        ")");
+    SkylarkKey providerKey = new SkylarkKey(Label.parseAbsoluteUnchecked("//test:aspect.bzl"), "p");
+    scratch.file(
+        "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
+        "my_rule(name = 'xxx',)",
+        "my_rule(name = 'yyy', dep = ':xxx')");
+    AnalysisResult analysisResult = update("//test:yyy");
+    ConfiguredTarget target = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
+    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+
+    SkylarkClassObject names = skylarkProviders.getDeclaredProvider(providerKey);
+    assertThat((Iterable<?>) names.getValue("dir"))
+        .containsExactly(
+            "aspect_provider",
+            "data_runfiles",
+            "default_runfiles",
+            "files",
+            "files_to_run",
+            "label",
+            "output_group",
+            "output_groups");
   }
 
   @Test
@@ -1968,7 +2010,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
   }
 
-
+  /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
     @Override
