@@ -370,7 +370,10 @@ public final class FuncallExpression extends Expression {
     }
     if (matchingMethod == null) {
       String errorMessage;
-      if (argumentListConversionResult == null || argumentListConversionResult.getError() == null) {
+      if (ClassObject.class.isAssignableFrom(objClass)) {
+        errorMessage = String.format("struct has no method '%s'", methodName);
+      } else if (argumentListConversionResult == null
+          || argumentListConversionResult.getError() == null) {
         errorMessage =
             String.format(
                 "type '%s' has no method %s",
@@ -606,6 +609,8 @@ public final class FuncallExpression extends Expression {
     Object value = positionals.get(0);
     ImmutableList<Object> positionalArgs = positionals.subList(1, positionals.size());
     BaseFunction function = Runtime.getFunction(EvalUtils.getSkylarkType(value.getClass()), method);
+    Object fieldValue =
+        (value instanceof ClassObject) ? ((ClassObject) value).getValue(method) : null;
     if (function != null) {
       if (!isNamespace(value.getClass())) {
         // Use self as an implicit parameter in front.
@@ -613,11 +618,7 @@ public final class FuncallExpression extends Expression {
       }
       return function.call(
           positionalArgs, ImmutableMap.<String, Object>copyOf(keyWordArgs), call, env);
-    } else if (value instanceof ClassObject) {
-      Object fieldValue = ((ClassObject) value).getValue(method);
-      if (fieldValue == null) {
-        throw new EvalException(location, String.format("struct has no method '%s'", method));
-      }
+    } else if (fieldValue != null) {
       if (!(fieldValue instanceof BaseFunction)) {
         throw new EvalException(
             location, String.format("struct field '%s' is not a function", method));

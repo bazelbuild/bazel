@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
+import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -1287,5 +1289,122 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testConditionalExpressionInFunction() throws Exception {
     new SkylarkTest().setUp("def foo(a, b, c): return a+b if c else a-b\n").testStatement(
         "foo(23, 5, 0)", 18);
+  }
+
+  @SkylarkModule(name = "SkylarkClassObjectWithSkylarkCallables", doc = "")
+  static final class SkylarkClassObjectWithSkylarkCallables extends SkylarkClassObject {
+    private static final NativeClassObjectConstructor CONSTRUCTOR =
+        new NativeClassObjectConstructor("struct_with_skylark_callables") {};
+
+    SkylarkClassObjectWithSkylarkCallables() {
+      super(
+          CONSTRUCTOR,
+          ImmutableMap.of(
+              "values_only_field",
+              "fromValues",
+              "values_only_method",
+              new BuiltinFunction("values_only_method", FunctionSignature.of()) {
+                public String invoke() {
+                  return "fromValues";
+                }
+              },
+              "collision_field",
+              "fromValues",
+              "collision_method",
+              new BuiltinFunction("collision_method", FunctionSignature.of()) {
+                public String invoke() {
+                  return "fromValues";
+                }
+              }));
+    }
+
+    @SkylarkCallable(name = "callable_only_field", doc = "", structField = true)
+    public String getCallableOnlyField() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "callable_only_method", doc = "", structField = false)
+    public String getCallableOnlyMethod() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "collision_field", doc = "", structField = true)
+    public String getCollisionField() {
+      return "fromSkylarkCallable";
+    }
+
+    @SkylarkCallable(name = "collision_method", doc = "", structField = false)
+    public String getCollisionMethod() {
+      return "fromSkylarkCallable";
+    }
+  }
+
+  @Test
+  public void testStructFieldDefinedOnlyInValues() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.values_only_field")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructMethodDefinedOnlyInValues() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.values_only_method()")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructFieldDefinedOnlyInSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.callable_only_field")
+        .testLookup("v", "fromSkylarkCallable");
+  }
+
+  @Test
+  public void testStructMethodDefinedOnlyInSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.callable_only_method()")
+        .testLookup("v", "fromSkylarkCallable");
+  }
+
+  @Test
+  public void testStructFieldDefinedInValuesAndSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.collision_field")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructMethodDefinedInValuesAndSkylarkCallable() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .setUp("v = val.collision_method()")
+        .testLookup("v", "fromValues");
+  }
+
+  @Test
+  public void testStructFieldNotDefined() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .testIfExactError(
+            // TODO(bazel-team): This should probably list callable_only_field/method as well.
+            "'struct_with_skylark_callables' object has no attribute 'nonexistent_field'\n"
+                + "Available attributes: collision_field, collision_method, values_only_field, "
+                + "values_only_method",
+            "v = val.nonexistent_field");
+  }
+
+  @Test
+  public void testStructMethodNotDefined() throws Exception {
+    new SkylarkTest()
+        .update("val", new SkylarkClassObjectWithSkylarkCallables())
+        .testIfExactError(
+            // TODO(bazel-team): This should probably match the error above better.
+            "struct has no method 'nonexistent_method'", "v = val.nonexistent_method()");
   }
 }
