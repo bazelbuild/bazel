@@ -235,17 +235,18 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 // in case the Blaze server has written a partial line.
 void SigPrintf(const char *format, ...) {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
+  int stderr_fileno = _fileno(stderr);
 #else  // not COMPILER_MSVC
+  int stderr_fileno = STDERR_FILENO;
+#endif
   char buf[1024];
   va_list ap;
   va_start(ap, format);
   int r = vsnprintf(buf, sizeof buf, format, ap);
   va_end(ap);
-  if (write(STDERR_FILENO, buf, r) <= 0) {
+  if (write(stderr_fileno, buf, r) <= 0) {
     // We don't care, just placate the compiler.
   }
-#endif  // COMPILER_MSVC
 }
 
 static void PrintError(const string& op) {
