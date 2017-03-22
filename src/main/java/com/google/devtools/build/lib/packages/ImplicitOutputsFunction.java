@@ -104,10 +104,18 @@ public abstract class ImplicitOutputsFunction {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry : castMap(callback.call(attrs),
             String.class, String.class, "implicit outputs function return value").entrySet()) {
+
+          // Returns empty string only in case of invalid templates
           Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
-          if (!Iterables.isEmpty(substitutions)) {
-            builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+          if (Iterables.isEmpty(substitutions)) {
+            throw new EvalException(
+                loc,
+                String.format(
+                    "For attribute '%s' in outputs: %s",
+                    entry.getKey(), "Invalid placeholder(s) in template"));
           }
+
+          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
         }
         return builder.build();
       } catch (IllegalArgumentException e) {
@@ -129,13 +137,22 @@ public abstract class ImplicitOutputsFunction {
     }
 
     @Override
-    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) {
+    public ImmutableMap<String, String> calculateOutputs(AttributeMap map) throws EvalException {
+
       ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
       for (Map.Entry<String, String> entry : outputMap.entrySet()) {
+        // Empty iff invalid placeholders present.
         Iterable<String> substitutions = fromTemplates(entry.getValue()).getImplicitOutputs(map);
-        if (!Iterables.isEmpty(substitutions)) {
-          builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
+        if (Iterables.isEmpty(substitutions)) {
+          throw new EvalException(
+              null,
+              String.format(
+                  "For attribute '%s' in outputs: %s",
+                  entry.getKey(), "Invalid placeholder(s) in template"));
+
         }
+
+        builder.put(entry.getKey(), Iterables.getOnlyElement(substitutions));
       }
       return builder.build();
     }
