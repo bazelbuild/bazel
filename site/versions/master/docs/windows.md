@@ -3,8 +3,9 @@ layout: documentation
 title: Windows
 ---
 
+# Using Bazel on Windows
 
-Windows support is highly experimental. Known issues are [marked with label
+Windows support is experimental. Known issues are [marked with label
 "Windows"](https://github.com/bazelbuild/bazel/issues?q=is%3Aissue+is%3Aopen+label%3A%22category%3A+multi-platform+%3E+windows%22)
 on github issues.
 
@@ -13,8 +14,7 @@ msys2 binary.
 
 ## <a name="install"></a>Installation
 
-See instructions on the [installation page](install.md#windows).
-
+See instructions on the [installation page](install-windows.md).
 
 ## <a name="requirements"></a>Requirements
 

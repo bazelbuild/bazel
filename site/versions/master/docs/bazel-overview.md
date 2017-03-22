@@ -60,7 +60,7 @@ Hermetic rules and sandboxing allows Bazel to produce correct, reproducible
 artifacts and test results. Caching allows reuse of build artifacts and test
 results.
 
-Bazel’s builds are fast. Incremental builds allows Bazel to do the minimum
+Bazel’s builds are fast. Incremental builds allow Bazel to do the minimum
 required work for a rebuild or retest. Correct and reproducible builds allow
 Bazel to reuse cached artifacts for whatever is not changed. If you change a
 library, Bazel will not rebuild your entire source.
