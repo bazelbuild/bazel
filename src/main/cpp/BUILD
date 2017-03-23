@@ -52,6 +52,8 @@ cc_library(
         ],
         "//src:windows_msvc": [
             "-Wl,advapi32.lib",  # GetUserNameW
+            "-Wl,ole32.lib",  # CoTaskMemFree
+            "-Wl,shell32.lib",  # SHGetKnownFolderPath
             "-Wl,ws2_32.lib",  # grpc
         ],
         "//conditions:default": [

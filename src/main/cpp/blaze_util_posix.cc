@@ -126,6 +126,8 @@ string GetProcessIdAsString() {
   return ToString(getpid());
 }
 
+string GetHomeDir() { return GetEnv("HOME"); }
+
 string FindSystemWideBlazerc() {
   string path = "/etc/bazel.bazelrc";
   if (blaze_util::CanReadFile(path)) {

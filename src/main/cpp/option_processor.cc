@@ -283,7 +283,7 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
     return blaze_exit_code::SUCCESS;
   }
 
-  string home = blaze::GetEnv("HOME");
+  string home = blaze::GetHomeDir();
   if (home.empty()) {
     *blaze_rc_file = "";
     return blaze_exit_code::SUCCESS;

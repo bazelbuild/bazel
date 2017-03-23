@@ -56,6 +56,10 @@ std::string GetSelfPath();
 // Returns the directory Bazel can use to store output.
 std::string GetOutputRoot();
 
+// Returns the current user's home directory, or the empty string if unknown.
+// On Linux/macOS, this is $HOME. On Windows this is %USERPROFILE%.
+std::string GetHomeDir();
+
 // Returns the location of the global bazelrc file if it exists, otherwise "".
 std::string FindSystemWideBlazerc();
 

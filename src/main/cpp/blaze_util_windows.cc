@@ -24,14 +24,17 @@
 #include <sys/stat.h>
 #include <sys/statfs.h>
 #include <unistd.h>
-#endif  // not COMPILER_MSVC
+#endif  // COMPILER_MSVC
 
-#include <windows.h>
 #include <lmcons.h>  // UNLEN
+#include <windows.h>
 
 #ifdef COMPILER_MSVC
-#include <io.h>  // _open
-#endif  // COMPILER_MSVC
+#include <io.h>            // _open
+#include <knownfolders.h>  // FOLDERID_Profile
+#include <objbase.h>       // CoTaskMemFree
+#include <shlobj.h>        // SHGetKnownFolderPath
+#endif
 
 #include <algorithm>
 #include <cstdio>
@@ -334,9 +337,22 @@ string GetOutputRoot() {
 #endif  // COMPILER_MSVC
 }
 
+string GetHomeDir() {
+#ifdef COMPILER_MSVC
+  PWSTR wpath;
+  if (SUCCEEDED(::SHGetKnownFolderPath(FOLDERID_Profile, KF_FLAG_DEFAULT, NULL,
+                                       &wpath))) {
+    string result = string(blaze_util::WstringToCstring(wpath).get());
+    ::CoTaskMemFree(wpath);
+    return result;
+  }
+#endif
+  return GetEnv("HOME");  // only defined in MSYS/Cygwin
+}
+
 string FindSystemWideBlazerc() {
 #ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
+  // TODO(bazel-team): figure out a good path to return here.
   return "";
 #else   // not COMPILER_MSVC
   string path = "/etc/bazel.bazelrc";
