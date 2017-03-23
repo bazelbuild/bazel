@@ -480,7 +480,20 @@ public class CcToolchainFeatures implements Serializable {
       expand(variables, commandLine);
     }
   }
-  
+
+  private static boolean isWithFeaturesSatisfied(
+      Set<CToolchain.FeatureSet> withFeatureSets, Set<String> enabledFeatureNames) {
+    if (withFeatureSets.isEmpty()) {
+      return true;
+    }
+    for (CToolchain.FeatureSet featureSet : withFeatureSets) {
+      if (enabledFeatureNames.containsAll(featureSet.getFeatureList())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Groups a set of flags to apply for certain actions.
    */
@@ -488,6 +501,7 @@ public class CcToolchainFeatures implements Serializable {
   private static class FlagSet implements Serializable {
     private final ImmutableSet<String> actions;
     private final ImmutableSet<String> expandIfAllAvailable;
+    private final ImmutableSet<CToolchain.FeatureSet> withFeatureSets;
     private final ImmutableList<FlagGroup> flagGroups;
     
     private FlagSet(CToolchain.FlagSet flagSet) throws InvalidConfigurationException {
@@ -501,6 +515,7 @@ public class CcToolchainFeatures implements Serializable {
         throws InvalidConfigurationException {
       this.actions = actions;
       this.expandIfAllAvailable = ImmutableSet.copyOf(flagSet.getExpandIfAllAvailableList());
+      this.withFeatureSets = ImmutableSet.copyOf(flagSet.getWithFeatureList());
       ImmutableList.Builder<FlagGroup> builder = ImmutableList.builder();
       for (CToolchain.FlagGroup flagGroup : flagSet.getFlagGroupList()) {
         builder.add(new FlagGroup(flagGroup));
@@ -508,14 +523,19 @@ public class CcToolchainFeatures implements Serializable {
       this.flagGroups = builder.build();
     }
 
-    /**
-     * Adds the flags that apply to the given {@code action} to {@code commandLine}.
-     */
-    private void expandCommandLine(String action, Variables variables, List<String> commandLine) {
+    /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
+    private void expandCommandLine(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
+        List<String> commandLine) {
       for (String variable : expandIfAllAvailable) {
         if (!variables.isAvailable(variable)) {
           return;
         }
+      }
+      if (!isWithFeaturesSatisfied(withFeatureSets, enabledFeatureNames)) {
+        return;
       }
       if (!actions.contains(action)) {
         return;
@@ -611,13 +631,14 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    /**
-     * Adds the flags that apply to the given {@code action} to {@code commandLine}.
-     */
-    private void expandCommandLine(String action, Variables variables,
+    /** Adds the flags that apply to the given {@code action} to {@code commandLine}. */
+    private void expandCommandLine(
+        String action,
+        Variables variables,
+        Set<String> enabledFeatureNames,
         List<String> commandLine) {
       for (FlagSet flagSet : flagSets) {
-        flagSet.expandCommandLine(action, variables, commandLine);
+        flagSet.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
       }
     }
   }
@@ -748,12 +769,11 @@ public class CcToolchainFeatures implements Serializable {
       }
     }
 
-    /**
-     * Adds the flags that apply to this action to {@code commandLine}.
-     */
-    private void expandCommandLine(Variables variables, List<String> commandLine) {
+    /** Adds the flags that apply to this action to {@code commandLine}. */
+    private void expandCommandLine(
+        Variables variables, Set<String> enabledFeatureNames, List<String> commandLine) {
       for (FlagSet flagSet : flagSets) {
-        flagSet.expandCommandLine(actionName, variables, commandLine);
+        flagSet.expandCommandLine(actionName, variables, enabledFeatureNames, commandLine);
       }
     }
   }
@@ -1740,11 +1760,13 @@ public class CcToolchainFeatures implements Serializable {
     List<String> getCommandLine(String action, Variables variables) {
       List<String> commandLine = new ArrayList<>();
       for (Feature feature : enabledFeatures) {
-        feature.expandCommandLine(action, variables, commandLine);
+        feature.expandCommandLine(action, variables, enabledFeatureNames, commandLine);
       }
       
       if (actionIsConfigured(action)) {
-        actionConfigByActionName.get(action).expandCommandLine(variables, commandLine);
+        actionConfigByActionName
+            .get(action)
+            .expandCommandLine(variables, enabledFeatureNames, commandLine);
       }
 
       return commandLine;

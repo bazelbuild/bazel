@@ -1049,6 +1049,102 @@ public class CcToolchainFeaturesTest {
   }
 
   @Test
+  public void testWithFeature_OneSetOneFeature() throws Exception {
+    CcToolchainFeatures features =
+        buildFeatures(
+            "feature {",
+            "  name: 'a'",
+            "  flag_set {",
+            "    with_feature {feature: 'b'}",
+            "    action: 'c++-compile'",
+            "    flag_group {",
+            "      flag: 'dummy_flag'",
+            "    }",
+            "  }",
+            "}",
+            "feature {name: 'b'}");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .containsExactly("dummy_flag");
+    assertThat(
+            features
+                .getFeatureConfiguration("a")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .doesNotContain("dummy_flag");
+  }
+
+  @Test
+  public void testWithFeature_OneSetMultipleFeatures() throws Exception {
+    CcToolchainFeatures features =
+        buildFeatures(
+            "feature {",
+            "  name: 'a'",
+            "  flag_set {",
+            "    with_feature {feature: 'b', feature: 'c'}",
+            "    action: 'c++-compile'",
+            "    flag_group {",
+            "      flag: 'dummy_flag'",
+            "    }",
+            "  }",
+            "}",
+            "feature {name: 'b'}",
+            "feature {name: 'c'}");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b", "c")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .containsExactly("dummy_flag");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .doesNotContain("dummy_flag");
+    assertThat(
+            features
+                .getFeatureConfiguration("a")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .doesNotContain("dummy_flag");
+  }
+
+  @Test
+  public void testWithFeature_MulipleSetsMultipleFeatures() throws Exception {
+    CcToolchainFeatures features =
+        buildFeatures(
+            "feature {",
+            "  name: 'a'",
+            "  flag_set {",
+            "    with_feature {feature: 'b1', feature: 'c1'}",
+            "    with_feature {feature: 'b2', feature: 'c2'}",
+            "    action: 'c++-compile'",
+            "    flag_group {",
+            "      flag: 'dummy_flag'",
+            "    }",
+            "  }",
+            "}",
+            "feature {name: 'b1'}",
+            "feature {name: 'c1'}",
+            "feature {name: 'b2'}",
+            "feature {name: 'c2'}");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b1", "c1", "b2", "c2")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .containsExactly("dummy_flag");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b1", "c1")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .containsExactly("dummy_flag");
+    assertThat(
+            features
+                .getFeatureConfiguration("a", "b1", "b2")
+                .getCommandLine(CppCompileAction.CPP_COMPILE, createVariables()))
+        .doesNotContain("dummy_flag");
+  }
+
+  @Test
   public void testActivateActionConfigFromFeature() throws Exception {
     CcToolchainFeatures toolchainFeatures =
         buildFeatures(
