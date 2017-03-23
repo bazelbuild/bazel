@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.Info;
@@ -79,6 +80,15 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
   private static final String LLVM_COVERAGE_MAP_FORMAT = "llvm_coverage_map_format";
   /** Produce artifacts for coverage in gcc coverage mapping format. */
   private static final String GCC_COVERAGE_MAP_FORMAT = "gcc_coverage_map_format";
+  /**
+   * Enabled if this target's rule is not a test rule.  Binary stripping should not be applied in
+   * the link step. TODO(b/36562173): Replace this behavior with a condition on bundle creation.
+   *
+   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which
+   * is the mechanism used to condition linker arguments here.  Therefore, we expose
+   * "is_not_test_target" instead of the more intuitive "is_test_target".
+   */
+  private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
 
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
@@ -200,6 +210,12 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     return this;
   }
 
+  private StrippingType getStrippingType(ExtraLinkArgs extraLinkArgs) {
+    return Iterables.contains(extraLinkArgs, "-dynamiclib")
+        ? StrippingType.DYNAMIC_LIB
+        : StrippingType.DEFAULT;
+  }
+
   @Override
   CompilationSupport registerLinkActions(
       ObjcProvider objcProvider,
@@ -267,7 +283,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     ruleContext.registerAction(executableLinkAction);    
 
     if (objcConfiguration.shouldStripBinary()) {
-      registerBinaryStripAction(binaryToLink, StrippingType.DEFAULT);
+      registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
     }
 
     return this;
@@ -393,8 +409,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     } else {
       activatedCrosstoolSelectables.add(GCC_COVERAGE_MAP_FORMAT);
     }
-    activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
+    if (!TargetUtils.isTestRule(ruleContext.getRule())) {
+      activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
+    }
 
+    activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
     return configuration
         .getFragment(CppConfiguration.class)
         .getFeatures()

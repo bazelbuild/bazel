@@ -676,6 +676,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
     // Do not perform code stripping on tests because XCTest binary is linked not as an executable
     // but as a bundle without any entry point.
     boolean isTestTarget = TargetUtils.isTestRule(ruleContext.getRule());
+    // TODO(b/36562173): Replace the "!isTestTarget" condition with the presence of "-bundle" in
+    // the command line.
     if (objcConfiguration.shouldStripBinary() && !isTestTarget) {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
