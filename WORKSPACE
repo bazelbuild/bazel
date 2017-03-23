@@ -8,17 +8,6 @@ bind(
     actual = "//:dummy",
 )
 
-# Bind to dummy targets if no android SDK/NDK is present.
-bind(
-    name = "android_sdk_for_testing",
-    actual = "//:dummy",
-)
-
-bind(
-    name = "android_ndk_for_testing",
-    actual = "//:dummy",
-)
-
 # Protobuf code generation for GRPC requires three external labels:
 # //external:grpc-java_plugin
 # //external:grpc-jar
@@ -42,10 +31,15 @@ bind(
 load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
 docker_repository()
 
-# In order to run the Android integration tests, run
-# scripts/workspace_user.sh and uncomment the next two lines.
-# load("/WORKSPACE.user", "android_repositories")
-# android_repositories()
+# To run the Android integration tests in //src/test/shell/bazel/android:all or
+# build the Android sample app in //examples/android/java/bazel:hello_world
+#
+#   1. Install an Android SDK and NDK from https://developer.android.com
+#   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
+#   3. Uncomment the two lines below
+#
+# android_sdk_repository(name = "androidsdk")
+# android_ndk_repository(name = "androidndk")
 
 # In order to run //src/test/shell/bazel:maven_skylark_test, follow the
 # instructions above for the Android integration tests and uncomment the

@@ -179,7 +179,7 @@ if [ $DO_SRCS_TEST ]; then
   # See file BUILD for the list of grep -v exceptions.
   # tools/defaults package is hidden by Bazel so cannot be put in the srcs.
   find . -type f | sed -e 's|./||' \
-    | grep -v '^bazel-' | grep -v '^WORKSPACE.user.bzl' \
+    | grep -v '^bazel-' \
     | grep -v '^\.' | grep -v '^out/' | grep -v '^output/' \
     | grep -v '^derived' \
     | grep -Ev "${SRCS_EXCLUDES}" \
