@@ -26,6 +26,7 @@ import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.errorprone.annotations.MustBeClosed;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitResult;
@@ -193,124 +194,137 @@ class Desugar {
 
     LambdaClassMaker lambdas = new LambdaClassMaker(dumpDirectory);
 
-    // Process each input separately
-    for (InputOutputPair inputOutputPair : toInputOutputPairs(options)) {
-      Path inputPath = inputOutputPair.getInput();
-      Path outputPath = inputOutputPair.getOutput();
-      checkState(
-          Files.isDirectory(inputPath) || !Files.isDirectory(outputPath),
-          "Input jar file requires an output jar file");
-      
-      try (Closer closer = Closer.create();
-          OutputFileProvider outputFileProvider = toOutputFileProvider(outputPath)) {
-        InputFileProvider appInputFiles = toInputFileProvider(closer, inputPath);
-        List<InputFileProvider> classpathInputFiles =
-            toInputFileProvider(closer, options.classpath);
-        IndexedInputs appIndexedInputs = new IndexedInputs(ImmutableList.of(appInputFiles));
-        IndexedInputs appAndClasspathIndexedInputs =
-            new IndexedInputs(classpathInputFiles, appIndexedInputs);
-        ClassLoader loader =
-            createClassLoader(
-                rewriter,
-                toInputFileProvider(closer, options.bootclasspath),
-                appAndClasspathIndexedInputs);
+    try (Closer closer = Closer.create()) {
+      IndexedInputs indexedClasspath =
+          new IndexedInputs(toRegisteredInputFileProvider(closer, options.classpath));
+      // Use a classloader that as much as possible uses the provided bootclasspath instead of
+      // the tool's system classloader.  Unfortunately we can't do that for java. classes.
+      ClassLoader bootclassloader =
+          options.bootclasspath.isEmpty()
+              ? new ThrowingClassLoader()
+              : new HeaderClassLoader(
+                  new IndexedInputs(toRegisteredInputFileProvider(closer, options.bootclasspath)),
+                  rewriter,
+                  new ThrowingClassLoader());
 
-        ClassReaderFactory readerFactory =
-            new ClassReaderFactory(
-                (options.copyBridgesFromClasspath && !allowDefaultMethods)
-                    ? appAndClasspathIndexedInputs
-                    : appIndexedInputs,
-                rewriter);
+      // Process each input separately
+      for (InputOutputPair inputOutputPair : toInputOutputPairs(options)) {
+        Path inputPath = inputOutputPair.getInput();
+        Path outputPath = inputOutputPair.getOutput();
+        checkState(
+            Files.isDirectory(inputPath) || !Files.isDirectory(outputPath),
+            "Input jar file requires an output jar file");
 
-        ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
+        try (OutputFileProvider outputFileProvider = toOutputFileProvider(outputPath);
+            InputFileProvider inputFiles = toInputFileProvider(inputPath)) {
+          IndexedInputs indexedInputFiles = new IndexedInputs(ImmutableList.of(inputFiles));
+          // Prepend classpath with input file itself so LambdaDesugaring can load classes with
+          // lambdas.
+          IndexedInputs indexedClasspathAndInputFiles =
+              indexedClasspath.withParent(indexedInputFiles);
+          // Note that input file and classpath need to be in the same classloader because
+          // we typically get the header Jar for inputJar on the classpath and having the header
+          // Jar in a parent loader means the header version is preferred over the real thing.
+          ClassLoader loader =
+              new HeaderClassLoader(indexedClasspathAndInputFiles, rewriter, bootclassloader);
 
-        // Process inputs, desugaring as we go
-        for (String filename : appInputFiles) {
-          try (InputStream content = appInputFiles.getInputStream(filename)) {
-            // We can write classes uncompressed since they need to be converted to .dex format
-            // for Android anyways. Resources are written as they were in the input jar to avoid
-            // any danger of accidentally uncompressed resources ending up in an .apk.
-            if (filename.endsWith(".class")) {
-              ClassReader reader = rewriter.reader(content);
-              CoreLibraryRewriter.UnprefixingClassWriter writer =
-                  rewriter.writer(ClassWriter.COMPUTE_MAXS /*for bridge methods*/);
-              ClassVisitor visitor = writer;
+          ClassReaderFactory readerFactory =
+              new ClassReaderFactory(
+                  (options.copyBridgesFromClasspath && !allowDefaultMethods)
+                      ? indexedClasspathAndInputFiles
+                      : indexedInputFiles,
+                  rewriter);
 
-              if (!options.onlyDesugarJavac9ForLint) {
-                if (!allowDefaultMethods) {
-                  visitor = new Java7Compatibility(visitor, readerFactory);
+          ImmutableSet.Builder<String> interfaceLambdaMethodCollector = ImmutableSet.builder();
+
+          // Process inputs, desugaring as we go
+          for (String filename : inputFiles) {
+            try (InputStream content = inputFiles.getInputStream(filename)) {
+              // We can write classes uncompressed since they need to be converted to .dex format
+              // for Android anyways. Resources are written as they were in the input jar to avoid
+              // any danger of accidentally uncompressed resources ending up in an .apk.
+              if (filename.endsWith(".class")) {
+                ClassReader reader = rewriter.reader(content);
+                CoreLibraryRewriter.UnprefixingClassWriter writer =
+                    rewriter.writer(ClassWriter.COMPUTE_MAXS /*for bridge methods*/);
+                ClassVisitor visitor = writer;
+
+                if (!options.onlyDesugarJavac9ForLint) {
+                  if (!allowDefaultMethods) {
+                    visitor = new Java7Compatibility(visitor, readerFactory);
+                  }
+
+                  visitor =
+                      new LambdaDesugaring(
+                          visitor,
+                          loader,
+                          lambdas,
+                          interfaceLambdaMethodCollector,
+                          allowDefaultMethods);
                 }
 
-                visitor =
-                    new LambdaDesugaring(
-                        visitor,
-                        loader,
-                        lambdas,
-                        interfaceLambdaMethodCollector,
-                        allowDefaultMethods);
+                if (!allowCallsToObjectsNonNull) {
+                  visitor = new ObjectsRequireNonNullMethodInliner(visitor);
+                }
+                reader.accept(visitor, 0);
+
+                outputFileProvider.write(filename, writer.toByteArray());
+              } else {
+                outputFileProvider.copyFrom(filename, inputFiles);
+              }
+            }
+          }
+
+          ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
+          checkState(
+              !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
+              "Desugaring with default methods enabled moved interface lambdas");
+
+            // Write out the lambda classes we generated along the way
+            ImmutableMap<Path, LambdaInfo> lambdaClasses = lambdas.drain();
+            checkState(
+                !options.onlyDesugarJavac9ForLint || lambdaClasses.isEmpty(),
+                "There should be no lambda classes generated: %s",
+                lambdaClasses.keySet());
+
+            for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
+              try (InputStream bytecode =
+                  Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
+                ClassReader reader = rewriter.reader(bytecode);
+                CoreLibraryRewriter.UnprefixingClassWriter writer =
+                    rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
+                ClassVisitor visitor = writer;
+
+              if (!allowDefaultMethods) {
+                // null ClassReaderFactory b/c we don't expect to need it for lambda classes
+                visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
               }
 
+              visitor =
+                  new LambdaClassFixer(
+                      visitor,
+                      lambdaClass.getValue(),
+                      readerFactory,
+                      interfaceLambdaMethods,
+                      allowDefaultMethods);
+              // Send lambda classes through desugaring to make sure there's no invokedynamic
+              // instructions in generated lambda classes (checkState below will fail)
+              visitor = new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods);
               if (!allowCallsToObjectsNonNull) {
+                // Not sure whether there will be implicit null check emitted by javac, so we rerun
+                // the inliner again
                 visitor = new ObjectsRequireNonNullMethodInliner(visitor);
               }
               reader.accept(visitor, 0);
-
+              String filename =
+                  rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
               outputFileProvider.write(filename, writer.toByteArray());
-            } else {
-              outputFileProvider.copyFrom(filename, appInputFiles);
             }
           }
+
+          Map<Path, LambdaInfo> leftBehind = lambdas.drain();
+          checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
         }
-
-        ImmutableSet<String> interfaceLambdaMethods = interfaceLambdaMethodCollector.build();
-        checkState(
-            !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
-            "Desugaring with default methods enabled moved interface lambdas");
-
-        // Write out the lambda classes we generated along the way
-        ImmutableMap<Path, LambdaInfo> lambdaClasses = lambdas.drain();
-        checkState(
-            !options.onlyDesugarJavac9ForLint || lambdaClasses.isEmpty(),
-            "There should be no lambda classes generated: %s",
-            lambdaClasses.keySet());
-
-        for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
-          try (InputStream bytecode =
-              Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
-            ClassReader reader = rewriter.reader(bytecode);
-            CoreLibraryRewriter.UnprefixingClassWriter writer =
-                rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
-            ClassVisitor visitor = writer;
-
-            if (!allowDefaultMethods) {
-              // null ClassReaderFactory b/c we don't expect to need it for lambda classes
-              visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null);
-            }
-
-            visitor =
-                new LambdaClassFixer(
-                    visitor,
-                    lambdaClass.getValue(),
-                    readerFactory,
-                    interfaceLambdaMethods,
-                    allowDefaultMethods);
-            // Send lambda classes through desugaring to make sure there's no invokedynamic
-            // instructions in generated lambda classes (checkState below will fail)
-            visitor = new LambdaDesugaring(visitor, loader, lambdas, null, allowDefaultMethods);
-            if (!allowCallsToObjectsNonNull) {
-              // Not sure whether there will be implicit null check emitted by javac, so we rerun
-              // the inliner again
-              visitor = new ObjectsRequireNonNullMethodInliner(visitor);
-            }
-            reader.accept(visitor, 0);
-            String filename =
-                rewriter.unprefix(lambdaClass.getValue().desiredInternalName()) + ".class";
-            outputFileProvider.write(filename, writer.toByteArray());
-          }
-        }
-
-        Map<Path, LambdaInfo> leftBehind = lambdas.drain();
-        checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
       }
     }
   }
@@ -323,24 +337,6 @@ class Desugar {
       ioPairListbuilder.add(InputOutputPair.create(inputIt.next(), outputIt.next()));
     }
     return ioPairListbuilder.build();
-  }
-
-  private static ClassLoader createClassLoader(
-      CoreLibraryRewriter rewriter,
-      List<InputFileProvider> bootclasspath,
-      IndexedInputs appAndClasspathIndexedInputs)
-      throws IOException {
-    // Use a classloader that as much as possible uses the provided bootclasspath instead of
-    // the tool's system classloader.  Unfortunately we can't do that for java. classes.
-    ClassLoader parent = new ThrowingClassLoader();
-    if (!bootclasspath.isEmpty()) {
-      parent = new HeaderClassLoader(new IndexedInputs(bootclasspath), rewriter, parent);
-    }
-    // Prepend classpath with input jar itself so LambdaDesugaring can load classes with lambdas.
-    // Note that inputJar and classpath need to be in the same classloader because we typically get
-    // the header Jar for inputJar on the classpath and having the header Jar in a parent loader
-    // means the header version is preferred over the real thing.
-    return new HeaderClassLoader(appAndClasspathIndexedInputs, rewriter, parent);
   }
 
   private static class ThrowingClassLoader extends ClassLoader {
@@ -394,6 +390,7 @@ class Desugar {
   }
 
   /** Transform a Path to an {@link OutputFileProvider} */
+  @MustBeClosed
   private static OutputFileProvider toOutputFileProvider(Path path)
       throws IOException {
     if (Files.isDirectory(path)) {
@@ -403,17 +400,22 @@ class Desugar {
     }
   }
 
-  /** Transform a Path to an InputFileProvider and register it to close it at the end of desugar */
-  private static InputFileProvider toInputFileProvider(Closer closer, Path path)
+  /** Transform a Path to an InputFileProvider that needs to be closed by the caller. */
+  @MustBeClosed
+  private static InputFileProvider toInputFileProvider(Path path)
       throws IOException {
     if (Files.isDirectory(path)) {
-      return closer.register(new DirectoryInputFileProvider(path));
+      return new DirectoryInputFileProvider(path);
     } else {
-      return closer.register(new ZipInputFileProvider(path));
+      return new ZipInputFileProvider(path);
     }
   }
 
-  private static ImmutableList<InputFileProvider> toInputFileProvider(
+  /**
+   * Transform a list of Path to a list of ZipInputFileProvider and register them with the given
+   * closer.
+   */
+  private static ImmutableList<InputFileProvider> toRegisteredInputFileProvider(
       Closer closer, List<Path> paths) throws IOException {
     ImmutableList.Builder<InputFileProvider> builder = new ImmutableList.Builder<>();
     for (Path path : paths) {
@@ -422,7 +424,7 @@ class Desugar {
     }
     return builder.build();
   }
-  
+
   /**
    * Pair input and output.
    */

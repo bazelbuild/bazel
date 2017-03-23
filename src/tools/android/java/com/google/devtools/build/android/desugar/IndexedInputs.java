@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
-import com.google.common.base.Preconditions;
-import java.io.IOException;
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
+
+import com.google.common.collect.ImmutableMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /**
@@ -27,36 +30,47 @@ import javax.annotation.Nullable;
  */
 class IndexedInputs {
 
-  private final Map<String, InputFileProvider> inputFiles = new HashMap<>();
+  private final ImmutableMap<String, InputFileProvider> inputFiles;
 
-  /** Parent indexed inputs to use before to search a file name into this indexed inputs. */
+  /**
+   * Parent {@link IndexedInputs} to use before to search a file name into this {@link
+   * IndexedInputs}.
+   */
   @Nullable
-  private final IndexedInputs parentIndexedInputs;
+  private final IndexedInputs parent;
 
-  /** Index a list of input files without a parent indexed inputs. */
-  public IndexedInputs(List<InputFileProvider> inputProviders) throws IOException {
-    this(inputProviders, null);
+  /** Index a list of input files without a parent {@link IndexedInputs}. */
+  public IndexedInputs(List<InputFileProvider> inputProviders) {
+    this.parent = null;
+    this.inputFiles = indexInputs(inputProviders);
   }
 
   /**
-   * Index a list of input files and set a parent indexed inputs that is firstly used during the
-   * search of a file name.
+   * Create a new {@link IndexedInputs} with input files previously indexed and with a parent {@link
+   * IndexedInputs}.
    */
-  public IndexedInputs(
-      List<InputFileProvider> inputProviders, @Nullable IndexedInputs parentIndexedInputs)
-      throws IOException {
-    this.parentIndexedInputs = parentIndexedInputs;
-    for (InputFileProvider inputProvider : inputProviders) {
-      indexInput(inputProvider);
-    }
+  private IndexedInputs(
+      ImmutableMap<String, InputFileProvider> inputFiles, IndexedInputs parentIndexedInputs) {
+    this.parent = parentIndexedInputs;
+    this.inputFiles = inputFiles;
+  }
+
+  /**
+   * Create a new {@link IndexedInputs} with input files already indexed and with a parent {@link
+   * IndexedInputs}.
+   */
+  @CheckReturnValue
+  public IndexedInputs withParent(IndexedInputs parent) {
+    checkState(this.parent == null);
+    return new IndexedInputs(this.inputFiles, parent);
   }
 
   @Nullable
   public InputFileProvider getInputFileProvider(String filename) {
-    Preconditions.checkArgument(filename.endsWith(".class"));
+    checkArgument(filename.endsWith(".class"));
 
-    if (parentIndexedInputs != null) {
-      InputFileProvider inputFileProvider = parentIndexedInputs.getInputFileProvider(filename);
+    if (parent != null) {
+      InputFileProvider inputFileProvider = parent.getInputFileProvider(filename);
       if (inputFileProvider != null) {
         return inputFileProvider;
       }
@@ -65,11 +79,16 @@ class IndexedInputs {
     return inputFiles.get(filename);
   }
 
-  private void indexInput(final InputFileProvider inputFileProvider) throws IOException {
-    for (String relativePath : inputFileProvider) {
-      if (relativePath.endsWith(".class") && !inputFiles.containsKey(relativePath)) {
-        inputFiles.put(relativePath, inputFileProvider);
+  private ImmutableMap<String, InputFileProvider> indexInputs(
+      List<InputFileProvider> inputProviders) {
+    Map<String, InputFileProvider> indexedInputs = new HashMap<>();
+    for (InputFileProvider inputProvider : inputProviders) {
+      for (String relativePath : inputProvider) {
+        if (relativePath.endsWith(".class") && !indexedInputs.containsKey(relativePath)) {
+          indexedInputs.put(relativePath, inputProvider);
+        }
       }
     }
+    return ImmutableMap.copyOf(indexedInputs);
   }
 }
