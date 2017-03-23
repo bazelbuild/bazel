@@ -118,7 +118,7 @@ public final class Mutability implements AutoCloseable, Serializable {
 
   /**
    * For a locked {@link Freezable} that belongs to this Mutability, return a List of the
-   * {@link Locations} corresponding to its current locks.
+   * {@link Location}s corresponding to its current locks.
    */
   public List<Location> getLockLocations(Freezable object) {
     if (!isLocked(object)) {

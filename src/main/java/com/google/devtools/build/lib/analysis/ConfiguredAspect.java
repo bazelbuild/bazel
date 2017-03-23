@@ -186,14 +186,12 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     }
 
     public Builder addSkylarkTransitiveInfo(String name, Object value) {
-      SkylarkProviderValidationUtil.checkSkylarkObjectSafe(value);
       skylarkProviderBuilder.put(name, value);
       return this;
     }
 
     public Builder addSkylarkTransitiveInfo(String name, Object value, Location loc)
         throws EvalException {
-      SkylarkProviderValidationUtil.validateAndThrowEvalException(name, value, loc);
       skylarkProviderBuilder.put(name, value);
       return this;
     }
@@ -201,8 +199,6 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     public Builder addSkylarkDeclaredProvider(SkylarkClassObject declaredProvider, Location loc)
         throws EvalException {
       ClassObjectConstructor constructor = declaredProvider.getConstructor();
-      SkylarkProviderValidationUtil.validateAndThrowEvalException(
-          constructor.getPrintableName(), declaredProvider, loc);
       if (!constructor.isExported()) {
         throw new EvalException(
             constructor.getLocation(), "All providers must be top level values");

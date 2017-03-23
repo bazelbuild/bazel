@@ -287,7 +287,6 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
       String name, Object value, Location loc) throws EvalException {
-    SkylarkProviderValidationUtil.validateAndThrowEvalException(name, value, loc);
     skylarkProviders.put(name, value);
     return this;
   }
@@ -302,8 +301,6 @@ public final class RuleConfiguredTargetBuilder {
   public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(
       SkylarkClassObject provider, Location loc) throws EvalException {
     ClassObjectConstructor constructor = provider.getConstructor();
-    SkylarkProviderValidationUtil.validateAndThrowEvalException(
-        constructor.getPrintableName(), provider, loc);
     if (!constructor.isExported()) {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
@@ -346,7 +343,6 @@ public final class RuleConfiguredTargetBuilder {
    */
   public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
       String name, Object value) {
-    SkylarkProviderValidationUtil.checkSkylarkObjectSafe(value);
     skylarkProviders.put(name, value);
     return this;
   }

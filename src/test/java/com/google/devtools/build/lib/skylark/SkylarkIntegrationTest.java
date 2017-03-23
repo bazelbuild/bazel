@@ -972,26 +972,6 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testProviderValidation() throws Exception {
-    // This does not have full coverage for SkylarkProviderValidationUtil, which eventually
-    // should be factored into a more general way for validating that an object is deeply
-    // Skylark-permissible. It's just a regression test for specific issues.
-    reporter.removeHandler(failFastHandler);
-    scratch.file(
-        "test/skylark/extension.bzl",
-        "def _impl(ctx):",
-        "  return struct(bad=depset([depset([])]))",
-        "my_rule = rule(implementation = _impl)");
-    scratch.file(
-        "test/skylark/BUILD",
-        "load('/test/skylark/extension', 'my_rule')",
-        "my_rule(name = 'r')");
-
-    getConfiguredTarget("//test/skylark:r");
-    assertContainsEvent("Value of provider 'bad' is of an illegal type: depset\n");
-  }
-
-  @Test
   public void testRecursionDetection() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(

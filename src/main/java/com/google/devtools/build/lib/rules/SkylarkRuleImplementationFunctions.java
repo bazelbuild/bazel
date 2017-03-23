@@ -229,6 +229,7 @@ public class SkylarkRuleImplementationFunctions {
             Object inputManifestsUnchecked,
             Location loc)
             throws EvalException, ConversionException {
+          ctx.checkMutable("action");
           SpawnAction.Builder builder = new SpawnAction.Builder();
           // TODO(bazel-team): builder still makes unnecessary copies of inputs, outputs and args.
           boolean hasCommand = commandUnchecked != Runtime.NONE;
@@ -369,6 +370,7 @@ public class SkylarkRuleImplementationFunctions {
             Location loc,
             Environment env)
             throws EvalException {
+          ctx.checkMutable("expand_location");
           try {
             return new LocationExpander(
                     ctx.getRuleContext(),
@@ -422,6 +424,7 @@ public class SkylarkRuleImplementationFunctions {
         public Runtime.NoneType invoke(
             SkylarkRuleContext ctx, Artifact output, String content, Boolean executable)
             throws EvalException, ConversionException {
+          ctx.checkMutable("file_action");
           FileWriteAction action =
               FileWriteAction.create(ctx.getRuleContext(), output, content, executable);
           ctx.getRuleContext().registerAction(action);
@@ -461,6 +464,7 @@ public class SkylarkRuleImplementationFunctions {
         @SuppressWarnings("unused")
         public Runtime.NoneType invoke(SkylarkRuleContext ctx, String mnemonic, SkylarkList inputs)
             throws EvalException, ConversionException {
+          ctx.checkMutable("empty_action");
           RuleContext ruleContext = ctx.getRuleContext();
           Action action =
               new PseudoAction<>(
@@ -544,6 +548,7 @@ public class SkylarkRuleImplementationFunctions {
             SkylarkDict<?, ?> substitutionsUnchecked,
             Boolean executable)
             throws EvalException, ConversionException {
+          ctx.checkMutable("template_action");
           ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
           for (Map.Entry<String, String> substitution :
               substitutionsUnchecked
@@ -609,6 +614,7 @@ public class SkylarkRuleImplementationFunctions {
         Boolean collectData, Boolean collectDefault,
         SkylarkDict<?, ?> symlinks, SkylarkDict<?, ?> rootSymlinks,
         Location loc) throws EvalException, ConversionException {
+      ctx.checkMutable("runfiles");
       Runfiles.Builder builder = new Runfiles.Builder(
           ctx.getRuleContext().getWorkspaceName(),
           ctx.getConfiguration().legacyExternalRunfiles());
@@ -790,6 +796,7 @@ public class SkylarkRuleImplementationFunctions {
             Location loc,
             Environment env)
             throws ConversionException, EvalException {
+          ctx.checkMutable("resolve_command");
           Label ruleLabel = ctx.getLabel();
           Map<Label, Iterable<Artifact>> labelDict = checkLabelDict(labelDictUnchecked, loc);
           // The best way to fix this probably is to convert CommandHelper to Skylark.

@@ -51,10 +51,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
+    SkylarkRuleContext skylarkRuleContext = null;
     try (Mutability mutability = Mutability.create("aspect")) {
       AspectDescriptor aspectDescriptor = new AspectDescriptor(
           skylarkAspect.getAspectClass(), parameters);
-      SkylarkRuleContext skylarkRuleContext;
       try {
         skylarkRuleContext = new SkylarkRuleContext(ruleContext, aspectDescriptor);
       } catch (EvalException e) {
@@ -94,6 +94,10 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError("\n" + e.print());
         return null;
       }
+    } finally {
+       if (skylarkRuleContext != null) {
+         skylarkRuleContext.nullify();
+       }
     }
   }
 

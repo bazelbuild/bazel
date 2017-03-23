@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -1732,5 +1733,119 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Label valueLabel =
         (Label) evalRuleContextCode(ruleContext, "ruleContext.attr.runtimes.values()[0]");
     assertThat(valueLabel).isEqualTo(Label.parseAbsolute("//jvm:runtime"));
+  }
+
+  // A list of attributes and methods ctx objects have
+  private final List<String> ctxAttributes = ImmutableList.of(
+      "attr",
+      "split_attr",
+      "executable",
+      "file",
+      "files",
+      "workspace_name",
+      "label",
+      "fragments",
+      "host_fragments",
+      "configuration",
+      "host_configuration",
+      "coverage_instrumented(dep)",
+      "features",
+      "bin_dir",
+      "genfiles_dir",
+      "outputs",
+      "rule",
+      "aspect_ids",
+      "var",
+      "tokenize('foo')",
+      "expand('foo', [], Label('//test:main'))",
+      "new_file('foo.txt')",
+      "new_file(file, 'foo.txt')",
+      "check_placeholders('foo', [])",
+      "action(command = 'foo', outputs = [file])",
+      "file_action(file, 'foo')",
+      "empty_action(mnemonic = 'foo', inputs = [file])",
+      "template_action(template = file, output = file, substitutions = {})",
+      "runfiles()",
+      "resolve_command(command = 'foo')");
+
+  @Test
+  public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/rules', 'main_rule', 'dep_rule')",
+        "dep_rule(name = 'dep')",
+        "main_rule(name = 'main', deps = [':dep'])");
+    scratch.file("test/rules.bzl");
+
+    for (String attribute : ctxAttributes) {
+      scratch.overwriteFile("test/rules.bzl",
+          "def _main_impl(ctx):",
+          "  dep = ctx.attr.deps[0]",
+          "  file = ctx.outputs.file",
+          "  foo = dep.dep_ctx." + attribute,
+          "main_rule = rule(",
+          "  implementation = _main_impl,",
+          "  attrs = {",
+          "    'deps': attr.label_list()",
+          "  },",
+          "  outputs = {'file': 'output.txt'},",
+          ")",
+          "def _dep_impl(ctx):",
+          "  return struct(dep_ctx = ctx)",
+          "dep_rule = rule(implementation = _dep_impl)");
+      invalidatePackages();
+      try {
+        getConfiguredTarget("//test:main");
+        fail("Should have been unable to access dep_ctx." + attribute);
+      } catch (AssertionError e) {
+        assertThat(e.getMessage()).contains("cannot access field or method '"
+            + attribute.split("\\(")[0]
+            + "' of rule context for '//test:dep' outside of its own rule implementation function");
+      }
+    }
+  }
+
+  @Test
+  public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
+    List<String> attributes = new ArrayList<>();
+    attributes.addAll(ctxAttributes);
+    attributes.addAll(ImmutableList.of(
+        "rule.attr",
+        "rule.executable",
+        "rule.file",
+        "rule.files",
+        "rule.kind"));
+    scratch.file("test/BUILD",
+        "load('/test/rules', 'my_rule')",
+        "my_rule(name = 'dep')",
+        "my_rule(name = 'mid', deps = [':dep'])",
+        "my_rule(name = 'main', deps = [':mid'])");
+    scratch.file("test/rules.bzl");
+    for (String attribute : attributes) {
+       scratch.overwriteFile("test/rules.bzl",
+          "def _rule_impl(ctx):",
+          "  pass",
+          "def _aspect_impl(target, ctx):",
+          "  if ctx.rule.attr.deps:",
+          "    dep = ctx.rule.attr.deps[0]",
+          "    file = ctx.new_file('file.txt')",
+          "    foo = dep." + (attribute.startsWith("rule.") ? "" : "ctx.") + attribute,
+          "  return struct(ctx = ctx, rule=ctx.rule)",
+          "MyAspect = aspect(implementation=_aspect_impl)",
+          "my_rule = rule(",
+          "  implementation = _rule_impl,",
+          "  attrs = {",
+          "    'deps': attr.label_list(aspects = [MyAspect])",
+          "  },",
+          ")");
+      invalidatePackages();
+      try {
+        getConfiguredTarget("//test:main");
+        fail("Should have been unable to access dep." + attribute);
+      } catch (AssertionError e) {
+        assertThat(e.getMessage()).contains("cannot access field or method '"
+            + attribute.split("\\(")[0]
+            + "' of rule context for '//test:dep' outside of its own rule implementation function");
+      }
+    }
   }
 }

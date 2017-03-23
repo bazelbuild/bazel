@@ -701,34 +701,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
-  public void aspectFailingReturnsUnsafeObject() throws Exception {
-    scratch.file(
-        "test/aspect.bzl",
-        "def foo():",
-        "   return 0",
-        "def _impl(target, ctx):",
-        "   return struct(x = foo)",
-        "",
-        "MyAspect = aspect(implementation=_impl)");
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
-
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      assertThat(keepGoing()).isTrue();
-      assertThat(result.hasError()).isTrue();
-    } catch (ViewCreationFailedException e) {
-      // expect to fail.
-    }
-    assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in //test:aspect.bzl%MyAspect aspect on java_library rule"
-        + " //test:xxx: \n"
-        + "\n"
-        + "\n"
-        + "/workspace/test/aspect.bzl:4:11: Value of provider 'x' is of an illegal type: function");
-  }
-
-  @Test
   public void aspectFailingOrphanArtifacts() throws Exception {
     scratch.file(
         "test/aspect.bzl",
