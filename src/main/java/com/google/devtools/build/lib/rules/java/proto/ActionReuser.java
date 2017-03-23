@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.ProtoJavaApiInfoProvider;
-import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 
 public class ActionReuser {
 
@@ -48,13 +47,6 @@ public class ActionReuser {
    */
   public static boolean reuseExistingActions(
       ConfiguredTarget base, RuleContext ruleContext, ConfiguredAspect.Builder aspect) {
-    if (!ruleContext
-        .getConfiguration()
-        .getFragment(ProtoConfiguration.class)
-        .reuseJavaCompileActionsFromProtoLibrary()) {
-      return false;
-    }
-
     ProtoJavaApiInfoProvider javaApi = base.getProvider(ProtoJavaApiInfoProvider.class);
     if (javaApi == null) {
       return false;
