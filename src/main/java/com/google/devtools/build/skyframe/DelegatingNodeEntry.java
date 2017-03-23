@@ -121,6 +121,11 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
+  public Iterable<SkyKey> getAllReverseDepsForNodeBeingDeleted() {
+    return getDelegate().getAllReverseDepsForNodeBeingDeleted();
+  }
+
+  @Override
   public void markRebuilding() {
     getDelegate().markRebuilding();
   }
@@ -171,8 +176,8 @@ public abstract class DelegatingNodeEntry implements NodeEntry {
   }
 
   @Override
-  public Iterable<SkyKey> getReverseDeps() throws InterruptedException {
-    return getDelegate().getReverseDeps();
+  public Iterable<SkyKey> getReverseDepsForDoneEntry() throws InterruptedException {
+    return getDelegate().getReverseDepsForDoneEntry();
   }
 
   @Override

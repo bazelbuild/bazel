@@ -101,10 +101,10 @@ public class InMemoryNodeEntryTest {
     assertEquals(DependencyState.ALREADY_EVALUATING, entry.addReverseDepAndCheckIfDone(father));
     assertThat(setValue(entry, new SkyValue() {},
         /*errorInfo=*/null, /*graphVersion=*/0L)).containsExactly(mother, father);
-    assertThat(entry.getReverseDeps()).containsExactly(mother, father);
+    assertThat(entry.getReverseDepsForDoneEntry()).containsExactly(mother, father);
     assertTrue(entry.isDone());
     entry.removeReverseDep(mother);
-    assertFalse(Iterables.contains(entry.getReverseDeps(), mother));
+    assertFalse(Iterables.contains(entry.getReverseDepsForDoneEntry(), mother));
   }
 
   @Test
@@ -337,7 +337,7 @@ public class InMemoryNodeEntryTest {
     try {
       entry.addReverseDepAndCheckIfDone(parent);
       // We only check for duplicates when we request all the reverse deps.
-      entry.getReverseDeps();
+      entry.getReverseDepsForDoneEntry();
       fail("Cannot add same dep twice");
     } catch (IllegalStateException e) {
       // Expected.
@@ -353,7 +353,7 @@ public class InMemoryNodeEntryTest {
     try {
       entry.addReverseDepAndCheckIfDone(parent);
       // We only check for duplicates when we request all the reverse deps.
-      entry.getReverseDeps();
+      entry.getReverseDepsForDoneEntry();
       fail("Cannot add same dep twice");
     } catch (IllegalStateException e) {
       // Expected.
@@ -692,9 +692,9 @@ public class InMemoryNodeEntryTest {
     assertThat(clone1.getDirectDeps()).containsExactly(originalChild);
     assertThat(clone2.getDirectDeps()).containsExactly(newChild);
 
-    assertThat(entry.getReverseDeps()).hasSize(0);
-    assertThat(clone1.getReverseDeps()).containsExactly(key("parent1"));
-    assertThat(clone2.getReverseDeps()).containsExactly(key("parent1"), key("parent2"));
+    assertThat(entry.getReverseDepsForDoneEntry()).hasSize(0);
+    assertThat(clone1.getReverseDepsForDoneEntry()).containsExactly(key("parent1"));
+    assertThat(clone2.getReverseDepsForDoneEntry()).containsExactly(key("parent1"), key("parent2"));
   }
 
   @Test

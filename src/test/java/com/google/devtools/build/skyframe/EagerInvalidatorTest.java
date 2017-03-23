@@ -337,12 +337,12 @@ public class EagerInvalidatorTest {
         .setComputedValue(CONCATENATE);
     eval(false, skyKey("ab_c"), skyKey("bc"));
 
-    assertThat(graph.get(null, Reason.OTHER, skyKey("a"))
-        .getReverseDeps()).containsExactly(skyKey("ab"));
-    assertThat(graph.get(null, Reason.OTHER, skyKey("b"))
-        .getReverseDeps()).containsExactly(skyKey("ab"), skyKey("bc"));
-    assertThat(graph.get(null, Reason.OTHER, skyKey("c"))
-        .getReverseDeps()).containsExactly(skyKey("ab_c"), skyKey("bc"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("a")).getReverseDepsForDoneEntry())
+        .containsExactly(skyKey("ab"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("b")).getReverseDepsForDoneEntry())
+        .containsExactly(skyKey("ab"), skyKey("bc"));
+    assertThat(graph.get(null, Reason.OTHER, skyKey("c")).getReverseDepsForDoneEntry())
+        .containsExactly(skyKey("ab_c"), skyKey("bc"));
 
     invalidateWithoutError(new DirtyTrackingProgressReceiver(null), skyKey("ab"));
     eval(false);
@@ -356,18 +356,18 @@ public class EagerInvalidatorTest {
     if (reverseDepsPresent()) {
       reverseDeps.add(skyKey("ab"));
     }
-    assertThat(graph.get(null, Reason.OTHER, skyKey("a"))
-        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("a")).getReverseDepsForDoneEntry())
+        .containsExactlyElementsIn(reverseDeps);
     reverseDeps.add(skyKey("bc"));
-    assertThat(graph.get(null, Reason.OTHER, skyKey("b"))
-        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("b")).getReverseDepsForDoneEntry())
+        .containsExactlyElementsIn(reverseDeps);
     reverseDeps.clear();
     if (reverseDepsPresent()) {
       reverseDeps.add(skyKey("ab_c"));
     }
     reverseDeps.add(skyKey("bc"));
-    assertThat(graph.get(null, Reason.OTHER, skyKey("c"))
-        .getReverseDeps()).containsExactlyElementsIn(reverseDeps);
+    assertThat(graph.get(null, Reason.OTHER, skyKey("c")).getReverseDepsForDoneEntry())
+        .containsExactlyElementsIn(reverseDeps);
   }
 
   @Test

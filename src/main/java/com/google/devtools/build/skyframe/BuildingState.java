@@ -15,13 +15,8 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.MoreObjects.ToStringHelper;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Preconditions;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Data the NodeEntry uses to maintain its state before it is done building. It allows the {@link
@@ -60,6 +55,8 @@ import java.util.List;
  */
 @ThreadCompatible
 class BuildingState {
+  protected static final int NOT_EVALUATING_SENTINEL = -1;
+
   /**
    * The number of dependencies that are known to be done in a {@link NodeEntry} if it is already
    * evaluating, and a sentinel (-1) indicating that it has not yet started evaluating otherwise.
@@ -81,45 +78,7 @@ class BuildingState {
    * thread is not working on the node anymore. Note that this requires that there is no code after
    * the loop in {@code ParallelEvaluator.Evaluate#run}.
    */
-  int signaledDeps = -1;
-
-  /**
-   * The set of reverse dependencies that are registered before the node has finished building. Upon
-   * building, these reverse deps will be signaled and then stored in the permanent {@link
-   * InMemoryNodeEntry#reverseDeps}. This field is marked volatile for subclasses that may change
-   * its value and require volatile reads.
-   */
-  protected volatile Object reverseDepsToSignal = ImmutableList.of();
-  private List<Object> reverseDepsDataToConsolidate = null;
-
-  private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
-      new ReverseDepsUtilImpl<BuildingState>() {
-        @Override
-        void setReverseDepsObject(BuildingState container, Object object) {
-          container.reverseDepsToSignal = object;
-        }
-
-        @Override
-        void setDataToConsolidate(BuildingState container, List<Object> dataToConsolidate) {
-          container.reverseDepsDataToConsolidate = dataToConsolidate;
-        }
-
-        @Override
-        Object getReverseDepsObject(BuildingState container) {
-          return container.reverseDepsToSignal;
-        }
-
-        @Override
-        List<Object> getDataToConsolidate(BuildingState container) {
-          return container.reverseDepsDataToConsolidate;
-        }
-
-        @Override
-        public void consolidateReverseDeps(BuildingState container) {
-          // #consolidateReverseDeps is only supported for node entries, not building states.
-          throw new UnsupportedOperationException();
-        }
-      };
+  protected int signaledDeps = NOT_EVALUATING_SENTINEL;
 
   /** Returns whether all known children of this node have signaled that they are done. */
   final boolean isReady(int numDirectDeps) {
@@ -170,7 +129,7 @@ class BuildingState {
   }
 
   final boolean isEvaluating() {
-    return signaledDeps > -1;
+    return signaledDeps > NOT_EVALUATING_SENTINEL;
   }
 
   /**
@@ -191,34 +150,10 @@ class BuildingState {
 
   void signalDepInternal(boolean childChanged, int numDirectDeps) {}
 
-  /**
-   * Returns reverse deps to signal that have been registered this build.
-   *
-   * @see NodeEntry#getReverseDeps()
-   */
-  final ImmutableSet<SkyKey> getReverseDepsToSignal() {
-    return REVERSE_DEPS_UTIL.getReverseDeps(this);
-  }
-
-  /**
-   * Adds a reverse dependency that should be notified when this entry is done.
-   *
-   * @see NodeEntry#addReverseDepAndCheckIfDone(SkyKey)
-   */
-  final void addReverseDepToSignal(SkyKey newReverseDep) {
-    REVERSE_DEPS_UTIL.addReverseDeps(this, Collections.singleton(newReverseDep));
-  }
-
-  /** @see NodeEntry#removeReverseDep(SkyKey) */
-  final void removeReverseDepToSignal(SkyKey reverseDep) {
-    REVERSE_DEPS_UTIL.removeReverseDep(this, reverseDep);
-  }
-
   protected ToStringHelper getStringHelper() {
     return MoreObjects.toStringHelper(this)
         .add("hash", System.identityHashCode(this))
-        .add("signaledDeps/evaluating state", signaledDeps)
-        .add("reverseDepsToSignal", REVERSE_DEPS_UTIL.toString(this));
+        .add("signaledDeps/evaluating state", signaledDeps);
   }
   @Override
   public final String toString() {

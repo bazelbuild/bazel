@@ -870,9 +870,10 @@ public final class ParallelEvaluator implements Evaluator {
       NodeEntry errorEntry = Preconditions.checkNotNull(
           graph.get(null, Reason.ERROR_BUBBLING, errorKey),
           errorKey);
-      Iterable<SkyKey> reverseDeps = errorEntry.isDone()
-          ? errorEntry.getReverseDeps()
-          : errorEntry.getInProgressReverseDeps();
+      Iterable<SkyKey> reverseDeps =
+          errorEntry.isDone()
+              ? errorEntry.getReverseDepsForDoneEntry()
+              : errorEntry.getInProgressReverseDeps();
       // We should break from loop only when node doesn't have any parents.
       if (Iterables.isEmpty(reverseDeps)) {
         Preconditions.checkState(rootValues.contains(errorKey),

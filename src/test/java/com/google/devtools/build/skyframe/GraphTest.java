@@ -197,7 +197,7 @@ public abstract class GraphTest {
                 for (int k = chunkSize; k <= numIterations; k++) {
                   entry.removeReverseDep(key("rdep" + j));
                   entry.addReverseDepAndCheckIfDone(key("rdep" + j));
-                  entry.getReverseDeps();
+                  entry.getReverseDepsForDoneEntry();
                 }
               } catch (InterruptedException e) {
                 fail("Test failed: " + e.toString());
@@ -213,7 +213,9 @@ public abstract class GraphTest {
     wrapper.waitForTasksAndMaybeThrow();
     assertFalse(ExecutorUtil.interruptibleShutdown(pool));
     assertEquals(new StringValue("foo1"), graph.get(null, Reason.OTHER, key).getValue());
-    assertEquals(numKeys + 1, Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDeps()));
+    assertEquals(
+        numKeys + 1,
+        Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry()));
 
     graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(null, Reason.OTHER, key));
@@ -223,7 +225,9 @@ public abstract class GraphTest {
     sameEntry.markRebuilding();
     sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
     assertEquals(new StringValue("foo2"), graph.get(null, Reason.OTHER, key).getValue());
-    assertEquals(numKeys + 1, Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDeps()));
+    assertEquals(
+        numKeys + 1,
+        Iterables.size(graph.get(null, Reason.OTHER, key).getReverseDepsForDoneEntry()));
   }
 
   // Tests adding inflight nodes with a given key while an existing node with the same key
@@ -451,7 +455,7 @@ public abstract class GraphTest {
       NodeEntry entry = graph.get(null, Reason.OTHER, key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
       assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
-      for (SkyKey key : entry.getReverseDeps()) {
+      for (SkyKey key : entry.getReverseDepsForDoneEntry()) {
         assertEquals(key("rdep"), key);
       }
       for (SkyKey key : entry.getDirectDeps()) {

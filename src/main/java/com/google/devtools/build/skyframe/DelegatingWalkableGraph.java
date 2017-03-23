@@ -128,7 +128,7 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
-      result.put(entry.getKey(), entry.getValue().getReverseDeps());
+      result.put(entry.getKey(), entry.getValue().getReverseDepsForDoneEntry());
     }
     return result;
   }

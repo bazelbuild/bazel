@@ -271,16 +271,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
 
                 if (traverseGraph) {
                   // Propagate deletion upwards.
-                  try {
-                    visit(entry.getReverseDeps(), InvalidationType.DELETED);
-                  } catch (InterruptedException e) {
-                    throw new IllegalStateException(
-                        "Deletion cannot happen on a graph that may have blocking operations: "
-                            + key
-                            + ", "
-                            + entry,
-                        e);
-                  }
+                  visit(entry.getAllReverseDepsForNodeBeingDeleted(), InvalidationType.DELETED);
 
                   // Unregister this node as an rdep from its direct deps, since reverse dep
                   // edges cannot point to non-existent nodes. To know whether the child has this
@@ -339,8 +330,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends QueryableGraph> {
                 }
 
                 // Allow custom key-specific logic to update dirtiness status.
-                progressReceiver.invalidated(key,
-                    EvaluationProgressReceiver.InvalidationState.DELETED);
+                progressReceiver.invalidated(
+                    key, EvaluationProgressReceiver.InvalidationState.DELETED);
                 // Actually remove the node.
                 graph.remove(key);
 
