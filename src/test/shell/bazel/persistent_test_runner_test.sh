@@ -83,8 +83,7 @@ EOF
       || true
 }
 
-# TODO(kush): Enable this test once we're able to reload modified classes in persistent test runner.
-function DISABLED_test_reload_modified_classes() {
+function test_reload_modified_classes() {
   setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
@@ -109,6 +108,7 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
+          tags = ["experimental_testrunner"],
           deps = ['//third_party:junit4'],
 )
 EOF

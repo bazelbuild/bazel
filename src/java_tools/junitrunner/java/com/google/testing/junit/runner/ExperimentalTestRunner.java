@@ -23,14 +23,16 @@ import com.google.testing.junit.runner.junit4.JUnit4Runner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 /**
- * For now the same as {@link BazelTestRunner} but intended to be a testbed to try out new features,
- * without breeaking existing tests.
+ * Like {@link BazelTestRunner} but runs the tests in their own classloader.
  */
 public class ExperimentalTestRunner {
   /**
@@ -38,6 +40,9 @@ public class ExperimentalTestRunner {
    * determine which test suite to run.
    */
   static final String TEST_SUITE_PROPERTY_NAME = "bazel.test_suite";
+
+  private static URL[] classpaths = null;
+  private static URLClassLoader targetClassLoader;
 
   private ExperimentalTestRunner() {
     // utility class; should not be instantiated
@@ -118,7 +123,7 @@ public class ExperimentalTestRunner {
   }
 
   private static int runTestsInSuite(String suiteClassName, String[] args) {
-    Class<?> suite = getTestClass(suiteClassName);
+    Class<?> suite = getTargetSuiteClass(suiteClassName);
 
     if (suite == null) {
       // No class found corresponding to the system property passed in from Bazel
@@ -128,16 +133,33 @@ public class ExperimentalTestRunner {
       }
     }
 
-    // TODO(kush): Use a new classloader for the following instantiation.
     JUnit4Runner runner =
         JUnit4Bazel.builder()
             .suiteClass(new SuiteClass(suite))
             .config(new Config(args))
             .build()
             .runner();
-    return runner.run().wasSuccessful() ? 0 : 1;
+
+    // Some frameworks such as Mockito use the Thread's context classloader.
+    Thread.currentThread().setContextClassLoader(targetClassLoader);
+
+    int result = 1;
+    try {
+      result = runner.run().wasSuccessful() ? 0 : 1;
+    } catch (RuntimeException e) {
+      System.err.println("Test run failed with exception");
+      e.printStackTrace();
+    }
+    return result;
   }
 
+  /**
+   * Run in a loop awaiting instructions for the next test run.
+   *
+   * @param suiteClassName name of the class which is passed on to JUnit to determine the test suite
+   * @return 0 when we encounter an EOF from input, or non-zero values if we encounter an
+   *     unrecoverable error.
+   */
   private static int runPersistentTestRunner(String suiteClassName) {
     PrintStream originalStdOut = System.out;
     PrintStream originalStdErr = System.err;
@@ -149,11 +171,10 @@ public class ExperimentalTestRunner {
         if (request == null) {
           break;
         }
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(baos, true);
-        System.setOut(ps);
-        System.setErr(ps);
-
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PrintStream printStream = new PrintStream(outputStream, true);
+        System.setOut(printStream);
+        System.setErr(printStream);
         String[] arguments = request.getArgumentsList().toArray(new String[0]);
         int exitCode = -1;
         try {
@@ -164,7 +185,11 @@ public class ExperimentalTestRunner {
         }
 
         WorkResponse response =
-            WorkResponse.newBuilder().setOutput(baos.toString()).setExitCode(exitCode).build();
+            WorkResponse
+                .newBuilder()
+                .setOutput(outputStream.toString())
+                .setExitCode(exitCode)
+                .build();
         response.writeDelimitedTo(System.out);
         System.out.flush();
 
@@ -176,16 +201,52 @@ public class ExperimentalTestRunner {
     return 0;
   }
 
-  private static Class<?> getTestClass(String name) {
-    if (name == null) {
+  /**
+   * Get the actual Test Suite class corresponding to the given name.
+   */
+  private static Class<?> getTargetSuiteClass(String suiteClassName) {
+    if (suiteClassName == null) {
       return null;
     }
 
     try {
-      return Class.forName(name);
-    } catch (ClassNotFoundException e) {
+      targetClassLoader = new URLClassLoader(getClasspaths());
+      Class<?> targetSuiteClass = targetClassLoader.loadClass(suiteClassName);
+      System.out.printf(
+          "Running test suites for class: %s, created by classLoader: %s%n",
+          targetSuiteClass, targetSuiteClass.getClassLoader());
+      return targetSuiteClass;
+    } catch (ClassNotFoundException | MalformedURLException e) {
+      System.err.println("Exception in loading class:" + e.getMessage());
       return null;
     }
+  }
+
+  /**
+   * Used to get the classpaths which should be used to load the classes of the test target.
+   *
+   * @throws MalformedURLException when we are unable to create a given classpath.
+   * @return array of URLs containing the classpaths or null if classpaths could not be located.
+   */
+  private static URL[] getClasspaths() throws MalformedURLException {
+    // TODO(kush): WARNING THIS DOES NOT RELOAD CLASSPATHS FOR EVERY TEST RUN. b/34712039
+    if (classpaths != null) {
+      return classpaths;
+    }
+    String testTargetsClaspaths = System.getenv("TEST_TARGET_CLASSPATH");
+    if (testTargetsClaspaths == null || testTargetsClaspaths.isEmpty()) {
+      throw new IllegalStateException(
+          "Target's classpath not present in TEST_TARGET_CLASSPATH environment variable");
+    }
+
+    String[] targetClassPaths = testTargetsClaspaths.split(":");
+
+    classpaths = new URL[targetClassPaths.length];
+    String workingDir = System.getProperty("user.dir");
+    for (int index = 0; index < targetClassPaths.length; index++) {
+      classpaths[index] = new URL("file://" + workingDir + "/" + targetClassPaths[index]);
+    }
+    return classpaths;
   }
 
   /**

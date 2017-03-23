@@ -34,7 +34,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -256,18 +258,27 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%needs_runfiles%",
         ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
 
-    NestedSetBuilder<Artifact> classpathBuilder = NestedSetBuilder.naiveLinkOrder();
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
-    if (testSupport != null) {
-      // Currently, this is only needed when experimental_testrunner=true, since in other cases the
-      // testSupport classpath is already present in the javaCommon.getRuntimeClasspath().
-      classpathBuilder.addTransitive(getRuntimeJarsForTargets(testSupport));
+    NestedSet<Artifact> classpath = javaCommon.getRuntimeClasspath();
+    NestedSet<Artifact> testTargetClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    if (TargetUtils.isTestRule(ruleContext.getRule())
+        && getMainClassFromRule(ruleContext).equals(EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS)) {
+      // Experimental testRunner needs the testSupport to be present as it needs to start with
+      // *only* the testSupport classpaths.
+      Preconditions.checkNotNull(testSupport);
+      // Keep only the locations containing the classes to start the test runner itself within,
+      // classpath variable, and place all the paths required for the test run in
+      // testTargetClasspath, so that the classes for the test target may be loaded by a separate
+      // ClassLoader.
+      testTargetClasspath = classpath;
+      classpath = getRuntimeJarsForTargets(testSupport);
     }
-    classpathBuilder.addTransitive(javaCommon.getRuntimeClasspath());
-
     arguments.add(
         new ComputedClasspathSubstitution(
-            "%classpath%", classpathBuilder.build(), workspacePrefix, isRunfilesEnabled));
+            "%classpath%", classpath, workspacePrefix, isRunfilesEnabled));
+    arguments.add(
+        new ComputedClasspathSubstitution(
+            "%test_target_classpath%", testTargetClasspath, workspacePrefix, isRunfilesEnabled));
 
     JavaCompilationArtifacts javaArtifacts = javaCommon.getJavaCompilationArtifacts();
     String path =
