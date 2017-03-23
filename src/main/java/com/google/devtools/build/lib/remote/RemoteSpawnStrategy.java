@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -43,9 +43,11 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
+import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import io.grpc.StatusRuntimeException;
@@ -54,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.TreeSet;
 
 /**
@@ -71,6 +74,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   private final RemoteOptions options;
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
+  private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
 
   RemoteSpawnStrategy(
       Map<String, String> clientEnv,
@@ -135,7 +139,14 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     if (options.remoteLocalExecUploadResults && actionCache != null && actionKey != null) {
       ArrayList<Path> outputFiles = new ArrayList<>();
       for (ActionInput output : spawn.getOutputFiles()) {
-        outputFiles.add(execRoot.getRelative(output.getExecPathString()));
+        Path outputFile = execRoot.getRelative(output.getExecPathString());
+        // Ignore non-existent files.
+        // TODO(ulfjack): This is not ideal - in general, all spawn strategies should stat the
+        // output files and return a list of existing files. We shouldn't re-stat the files here.
+        if (!outputFile.exists()) {
+          continue;
+        }
+        outputFiles.add(outputFile);
       }
       try {
         ActionResult.Builder result = ActionResult.newBuilder();
@@ -223,10 +234,13 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     try {
       // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
       TreeNodeRepository repository = new TreeNodeRepository(execRoot);
-      List<ActionInput> inputs =
-          ActionInputHelper.expandArtifacts(
-              spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
-      TreeNode inputRoot = repository.buildFromActionInputs(inputs);
+      SortedMap<PathFragment, ActionInput> inputMap =
+          spawnInputExpander.getInputMapping(
+              spawn,
+              actionExecutionContext.getArtifactExpander(),
+              actionExecutionContext.getActionInputFileCache(),
+              actionExecutionContext.getExecutor().getContext(FilesetActionContext.class));
+      TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
       repository.computeMerkleDigests(inputRoot);
       Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
       Action action =
@@ -261,7 +275,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
           ExecuteRequest.newBuilder()
               .setAction(action)
               .setAcceptCached(acceptCachedResult)
-              .setTotalInputFileCount(inputs.size())
+              .setTotalInputFileCount(inputMap.size())
               .setTimeoutMillis(1000 * Spawns.getTimeoutSeconds(spawn, 120));
       // TODO(olaola): set sensible local and remote timouts.
       ExecuteReply reply = workExecutor.executeRemotely(request.build());

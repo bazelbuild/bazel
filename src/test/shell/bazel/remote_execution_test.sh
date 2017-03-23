@@ -23,18 +23,6 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  mkdir -p a
-  cat > a/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-cc_binary(
-name = 'test',
-srcs = [ 'test.cc' ],
-)
-EOF
-  cat > a/test.cc <<EOF
-#include <iostream>
-int main() { std::cout << "Hello world!" << std::endl; return 0; }
-EOF
   work_path=$(mktemp -d ${TEST_TMPDIR}/remote.XXXXXXXX)
   pid_file=$(mktemp -u ${TEST_TMPDIR}/remote.XXXXXXXX)
   worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
@@ -64,6 +52,18 @@ function tear_down() {
 }
 
 function test_cc_binary() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
   bazel build //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
   cp bazel-bin/a/test ${TEST_TMPDIR}/test_expected
@@ -77,6 +77,28 @@ function test_cc_binary() {
     || fail "Failed to build //a:test with remote execution"
   diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
     || fail "Remote execution generated different result"
+}
+
+function test_cc_test() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_test(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello test!" << std::endl; return 0; }
+EOF
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 test \
+      --spawn_strategy=remote \
+      --remote_worker=localhost:${worker_port} \
+      --remote_cache=localhost:${worker_port} \
+      --test_output=errors \
+      //a:test >& $TEST_log \
+      || fail "Failed to run //a:test with remote execution"
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker

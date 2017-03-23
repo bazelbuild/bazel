@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -217,16 +218,20 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
         });
   }
 
+  public TreeNode buildFromActionInputs(Iterable<? extends ActionInput> inputs) {
+    TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
+    for (ActionInput input : inputs) {
+      sortedMap.put(new PathFragment(input.getExecPathString()), input);
+    }
+    return buildFromActionInputs(sortedMap);
+  }
+
   /**
    * This function is a temporary and highly inefficient hack! It builds the tree from a ready list
    * of input files. TODO(olaola): switch to creating and maintaining the TreeNodeRepository based
    * on the build graph structure.
    */
-  public TreeNode buildFromActionInputs(Iterable<ActionInput> actionInputs) {
-    TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
-    for (ActionInput input : actionInputs) {
-      sortedMap.put(new PathFragment(input.getExecPathString()), input);
-    }
+  public TreeNode buildFromActionInputs(SortedMap<PathFragment, ActionInput> sortedMap) {
     ImmutableList.Builder<ImmutableList<String>> segments = ImmutableList.builder();
     for (PathFragment path : sortedMap.keySet()) {
       segments.add(path.getSegments());
