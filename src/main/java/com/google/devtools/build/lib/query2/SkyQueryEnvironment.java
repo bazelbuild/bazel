@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Function;
@@ -729,7 +731,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Futures.catchingAsync(
             evalFuture,
             TargetParsingException.class,
-            reportBuildFileErrorAsyncFunction));
+            reportBuildFileErrorAsyncFunction,
+            directExecutor()));
   }
 
   @ThreadSafe

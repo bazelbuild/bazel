@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+
 import com.google.common.base.Function;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -178,7 +180,7 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
   public <R> QueryTaskFuture<R> whenAllSucceedCall(
       Iterable<? extends QueryTaskFuture<?>> futures, QueryTaskCallable<R> callable) {
     return QueryTaskFutureImpl.ofDelegate(
-        Futures.whenAllSucceed(cast(futures)).call(callable));
+        Futures.whenAllSucceed(cast(futures)).call(callable, directExecutor()));
   }
 
   @Override
@@ -193,7 +195,8 @@ public abstract class AbstractQueryEnvironment<T> implements QueryEnvironment<T>
               public ListenableFuture<T2> apply(T1 input) throws Exception {
                 return (QueryTaskFutureImpl<T2>) function.apply(input);
               }
-            }));
+            },
+            directExecutor()));
   }
 
   protected static Iterable<QueryTaskFutureImpl<?>> cast(
