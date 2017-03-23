@@ -23,6 +23,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_simple_scenario() {
+  setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
   cat > java/testrunners/TestsPass.java <<EOF
@@ -63,11 +64,13 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "TestsPass",
           srcs = ['TestsPass.java'],
+          deps = ['//third_party:junit4'],
           tags = ["experimental_testrunner"],
 )
 
 java_test(name = "TestsFail",
           srcs = ['TestsFail.java'],
+          deps = ['//third_party:junit4'],
           tags = ["experimental_testrunner"],
 )
 EOF
@@ -82,6 +85,7 @@ EOF
 
 # TODO(kush): Enable this test once we're able to reload modified classes in persistent test runner.
 function DISABLED_test_reload_modified_classes() {
+  setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
   # Create a passing test.
@@ -105,6 +109,7 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
+          deps = ['//third_party:junit4'],
 )
 EOF
 
@@ -169,6 +174,7 @@ EOF
 }
 
 function test_fail_without_experimental_testrunner() {
+  setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
   cat > java/testrunners/Tests.java <<EOF
@@ -191,6 +197,7 @@ EOF
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
+          deps = ['//third_party:junit4'],
 )
 EOF
 

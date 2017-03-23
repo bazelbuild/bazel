@@ -322,6 +322,7 @@ EOF
 }
 
 function test_java_test_main_class() {
+  setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
   cat > java/testrunners/TestRunner.java <<EOF
 package testrunners;
@@ -361,6 +362,7 @@ java_library(name = "test_runner",
 
 java_test(name = "Tests",
           srcs = ['Tests.java'],
+          deps = ['//third_party:junit4'],
           main_class = "testrunners.TestRunner",
           runtime_deps = [':test_runner']
 )
@@ -574,6 +576,7 @@ EOF
 }
 
 function test_java_test_java_sandwich() {
+  setup_javatest_support
   mkdir -p java/com/google/sandwich
   cd java/com/google/sandwich
 
@@ -586,7 +589,10 @@ java_test(
   name = "MainTest",
   size = "small",
   srcs = ["MainTest.java"],
-  deps = [":custom"]
+  deps = [
+      ":custom",
+      "//third_party:junit4",
+  ],
 )
 
 java_custom_library(
@@ -648,6 +654,49 @@ EOF
   expect_log "Message from A"
   expect_log "Message from B"
   expect_log "Test message"
+}
+
+function test_junit_deps_enforced_with_experimental_testrunner() {
+  setup_javatest_support
+  mkdir -p java/testrunners || fail "mkdir failed"
+
+  cat > java/testrunners/Tests.java <<EOF
+package testrunners;
+
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+import org.junit.Test;
+
+@RunWith(JUnit4.class)
+public class Tests {
+
+  @Test
+  public void testTest() {
+    System.out.println("testTest was run");
+  }
+}
+EOF
+
+  # With experimental_testrunner, we fail without explicitly specifying the JUnit deps.
+  cat > java/testrunners/BUILD <<EOF
+java_test(name = "Tests",
+          srcs = ['Tests.java'],
+          tags = ['experimental_testrunner'],
+)
+EOF
+  bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log" && fail "Expected Failure" || true
+  expect_log "cannot find symbol"
+
+  # We start passing again with experimental_testrunner once we explicitly specify the deps.
+  cat > java/testrunners/BUILD <<EOF
+java_test(name = "Tests",
+          srcs = ['Tests.java'],
+          tags = ['experimental_testrunner'],
+          deps = ['//third_party:junit4'],
+)
+EOF
+  bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log" || fail "Expected success"
+  expect_log "testTest was run"
 }
 
 run_suite "Java integration tests"

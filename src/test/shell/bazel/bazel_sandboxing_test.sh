@@ -378,6 +378,7 @@ EOF
 }
 
 function test_sandbox_can_resolve_own_hostname() {
+  setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameTest.java <<'EOF'
 package com.example;
@@ -400,6 +401,7 @@ EOF
 java_test(
   name = "HostNameTest",
   srcs = ["HostNameTest.java"],
+  deps = ['//third_party:junit4'],
 )
 EOF
 
@@ -408,6 +410,7 @@ EOF
 }
 
 function test_hostname_inside_sandbox_is_localhost_when_using_sandbox_fake_hostname_flag() {
+  setup_javatest_support
   mkdir -p src/test/java/com/example
   cat > src/test/java/com/example/HostNameIsLocalhostTest.java <<'EOF'
 package com.example;
@@ -430,6 +433,7 @@ EOF
 java_test(
   name = "HostNameIsLocalhostTest",
   srcs = ["HostNameIsLocalhostTest.java"],
+  deps = ['//third_party:junit4'],
 )
 EOF
 
