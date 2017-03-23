@@ -25,12 +25,11 @@ import org.objectweb.asm.MethodVisitor;
 /**
  * This class desugars any call to Objects.requireNonNull(Object o), Objects.requireNonNull(Object
  * o, String msg), and Objects.requireNonNull(Object o, Supplier msg), by replacing the call with
- * o.getClass(). Note that currently we discard the message, as inlining the message involves
- * changes to the control flow graph, which further requires re-computation of the stack map frames.
+ * o.getClass().
  */
-public class ObjectsRequireNonNullMethodInliner extends ClassVisitor {
+public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
 
-  public ObjectsRequireNonNullMethodInliner(ClassVisitor cv) {
+  public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv) {
     super(ASM5, cv);
   }
 

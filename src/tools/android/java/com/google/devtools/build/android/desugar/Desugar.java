@@ -101,6 +101,14 @@ class Desugar {
     public boolean onlyDesugarJavac9ForLint;
 
     @Option(
+      name = "rewrite_calls_to_long_compare",
+      defaultValue = "true",
+      help = "rewrite calls to Long.compare(long, long) to the JVM instruction lcmp",
+      category = "misc"
+    )
+    public boolean enableRewritingOfLongCompare;
+
+    @Option(
       name = "output",
       allowMultiple = true,
       defaultValue = "",
@@ -264,7 +272,10 @@ class Desugar {
                 }
 
                 if (!allowCallsToObjectsNonNull) {
-                  visitor = new ObjectsRequireNonNullMethodInliner(visitor);
+                  visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+                }
+                if (options.enableRewritingOfLongCompare) {
+                  visitor = new LongCompareMethodRewriter(visitor);
                 }
                 reader.accept(visitor, 0);
 
@@ -313,7 +324,10 @@ class Desugar {
               if (!allowCallsToObjectsNonNull) {
                 // Not sure whether there will be implicit null check emitted by javac, so we rerun
                 // the inliner again
-                visitor = new ObjectsRequireNonNullMethodInliner(visitor);
+                visitor = new ObjectsRequireNonNullMethodRewriter(visitor);
+              }
+              if (options.enableRewritingOfLongCompare) {
+                visitor = new LongCompareMethodRewriter(visitor);
               }
               reader.accept(visitor, 0);
               String filename =
@@ -321,10 +335,10 @@ class Desugar {
               outputFileProvider.write(filename, writer.toByteArray());
             }
           }
-
-          Map<Path, LambdaInfo> leftBehind = lambdas.drain();
-          checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
         }
+
+        Map<Path, LambdaInfo> leftBehind = lambdas.drain();
+        checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
       }
     }
   }
