@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package build.remote;
+package google.devtools.remote_execution;
 
 option java_package = "com.google.devtools.build.lib.remote";
 
