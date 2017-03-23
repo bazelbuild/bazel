@@ -36,13 +36,23 @@ release_label="$(get_full_release_name)"
 if [ -n "${release_label}" ]; then
   export EMBED_LABEL="${release_label}"
 fi
+
+# On windows-msvc-x86_64, we build a MSVC Bazel
+MSVC_OPTS=""
+MSVC_LABEL=""
+if [[ $PLATFORM_NAME == windows-msvc-x86_64* ]]; then
+  MSVC_OPTS="--cpu=x64_windows_msvc --copt=/w"
+  MSVC_LABEL="-msvc"
+fi
+
 ${BOOTSTRAP_BAZEL} --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
     --embed_label=${release_label} --stamp \
+    ${MSVC_OPTS} \
     //src:bazel
 
 
 # Copy the resulting artifact.
 mkdir -p output/ci
-cp bazel-bin/src/bazel output/ci/bazel-$(get_full_release_name).exe
+cp bazel-bin/src/bazel output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).exe
 cp bazel-bin/src/bazel output/bazel.exe
-zip -j output/ci/bazel-$(get_full_release_name).zip output/bazel.exe
+zip -j output/ci/bazel${MSVC_LABEL}-$(get_full_release_name).zip output/bazel.exe
