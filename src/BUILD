@@ -106,7 +106,7 @@ filegroup(
         "//src/tools/xcode/ibtoolwrapper:ibtoolwrapper",
         "//src/tools/xcode/libtool:libtool_srcs",
         "//src/tools/xcode/momcwrapper:momcwrapper",
-        "//src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper_srcs",
+        "//src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper",
         "//src/tools/xcode/environment:environment_plist",
         "//src/tools/xcode/xcrunwrapper:xcrunwrapper",
         "//src/objc_tools/bundlemerge:bundlemerge_deploy.jar",

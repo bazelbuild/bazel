@@ -34,8 +34,7 @@ for i in $*; do
   # tools/objc to avoid conflict.
   if  [ "$i" = "tools/objc/xcrunwrapper.sh" ] \
     || [ "$i" = "tools/objc/libtool.sh" ] \
-    || [ "$i" = "tools/objc/make_hashed_objlist.py" ] \
-    || [ "$i" = "tools/objc/swift_stdlib_tool.py" ]
+    || [ "$i" = "tools/objc/make_hashed_objlist.py" ]
   then
     continue
   fi
@@ -59,7 +58,6 @@ for i in $*; do
     *src/objc_tools/*) OUTPUT_PATH=tools/objc/precomp_${i##*/} ;;
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*make_hashed_objlist.py) OUTPUT_PATH=tools/objc/make_hashed_objlist.py ;;
-    *xcode*swift_stdlib_tool.py) OUTPUT_PATH=tools/objc/swift_stdlib_tool.py ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;
     *xcode*xcode-locator) OUTPUT_PATH=tools/objc/xcode-locator ;;
     *src/tools/xcode/*.sh) OUTPUT_PATH=tools/objc/${i##*/} ;;
