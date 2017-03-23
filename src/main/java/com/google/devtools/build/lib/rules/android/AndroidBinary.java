@@ -237,9 +237,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           resourceDeps,
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
           null, /* Artifact symbolsTxt */
-          ResourceFilter.fromRuleContext(ruleContext),
+          ResourceConfigurationFilter.fromRuleContext(ruleContext),
           ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
           ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+          ruleContext.getTokenizedStringListAttr("densities"),
           false, /* incremental */
           ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
           createMainDexProguardSpec(ruleContext),
@@ -260,9 +261,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ResourceFilter.fromRuleContext(ruleContext),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+              ruleContext.getTokenizedStringListAttr("densities"),
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
               null, /* mainDexProguardCfg */
@@ -282,9 +284,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ResourceFilter.fromRuleContext(ruleContext),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+              ruleContext.getTokenizedStringListAttr("densities"),
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "instant_run"),
               null, /* mainDexProguardCfg */
@@ -304,9 +307,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               null, /* Artifact rTxt */
               null, /* Artifact symbolsTxt */
-              ResourceFilter.fromRuleContext(ruleContext),
+              ResourceConfigurationFilter.fromRuleContext(ruleContext),
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
+              ruleContext.getTokenizedStringListAttr("densities"),
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
               null, /* mainDexProguardCfg */
@@ -1160,8 +1164,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .withProguardMapping(proguardOutput.getMapping())
           .withPrimary(resourceApk.getPrimaryResource())
           .withDependencies(resourceApk.getResourceDependencies())
-          .setResourceFilter(ResourceFilter.fromRuleContext(ruleContext))
-
+          .setConfigurationFilters(ResourceConfigurationFilter.fromRuleContext(ruleContext))
           .setUncompressedExtensions(
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"))
           .build();
@@ -1770,14 +1773,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
    * <p>The resources should be regenerated (using aapt) if any of the following are true:
    * <ul>
    *    <li>There is more than one resource container
-   *    <li>There are resource filters.
+   *    <li>There are densities to filter by.
+   *    <li>There are resource configuration filters.
    *    <li>There are extensions that should be compressed.
    * </ul>
    */
   public static boolean shouldRegenerate(RuleContext ruleContext,
       ResourceDependencies resourceDeps) {
     return Iterables.size(resourceDeps.getResources()) > 1
-        || ResourceFilter.hasFilters(ruleContext)
+        || ruleContext.attributes().isAttributeValueExplicitlySpecified("densities")
+        || ResourceConfigurationFilter.hasFilters(ruleContext)
         || ruleContext.attributes().isAttributeValueExplicitlySpecified("nocompress_extensions");
   }
 

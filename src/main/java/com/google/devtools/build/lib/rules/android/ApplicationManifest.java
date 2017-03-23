@@ -300,9 +300,10 @@ public final class ApplicationManifest {
         ruleContext,
         false, /* isLibrary */
         resourceDeps,
-        ResourceFilter.empty(ruleContext),
+        ResourceConfigurationFilter.empty(ruleContext),
         ImmutableList.<String>of(), /* uncompressedExtensions */
         true, /* crunchPng */
+        ImmutableList.<String>of(), /* densities */
         incremental,
         ResourceContainer.builderFromRule(ruleContext)
             .setAssetsAndResourcesFrom(data)
@@ -347,9 +348,10 @@ public final class ApplicationManifest {
         ruleContext,
         true, /* isLibrary */
         resourceDeps,
-        ResourceFilter.empty(ruleContext),
+        ResourceConfigurationFilter.empty(ruleContext),
         ImmutableList.<String>of(), /* List<String> uncompressedExtensions */
         false, /* crunchPng */
+        ImmutableList.<String>of(), /* List<String> densities */
         false, /* incremental */
         resourceContainer.build(),
         data,
@@ -371,9 +373,10 @@ public final class ApplicationManifest {
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbols,
-      ResourceFilter resourceFilter,
+      ResourceConfigurationFilter configurationFilters,
       List<String> uncompressedExtensions,
       boolean crunchPng,
+      List<String> densities,
       boolean incremental,
       Artifact proguardCfg,
       @Nullable Artifact mainDexProguardCfg,
@@ -402,9 +405,10 @@ public final class ApplicationManifest {
         ruleContext,
         isLibrary,
         resourceDeps,
-        resourceFilter,
+        configurationFilters,
         uncompressedExtensions,
         crunchPng,
+        densities,
         incremental,
         ResourceContainer.builderFromRule(ruleContext)
             .setAssetsAndResourcesFrom(data)
@@ -427,9 +431,10 @@ public final class ApplicationManifest {
       RuleContext ruleContext,
       boolean isLibrary,
       ResourceDependencies resourceDeps,
-      ResourceFilter resourceFilter,
+      ResourceConfigurationFilter configurationFilters,
       List<String> uncompressedExtensions,
       boolean crunchPng,
+      List<String> densities,
       boolean incremental,
       ResourceContainer maybeInlinedResourceContainer,
       LocalResourceContainer data,
@@ -450,11 +455,11 @@ public final class ApplicationManifest {
     if (ruleContext.hasErrors()) {
       return null;
     }
-
+    
     // Filter the resources during analysis to prevent processing of and dependencies on unwanted
     // resources during execution.
-    resourceContainer = resourceContainer.filter(resourceFilter);
-    resourceDeps = resourceDeps.filter(resourceFilter);
+    resourceContainer = resourceContainer.filter(configurationFilters);
+    resourceDeps = resourceDeps.filter(configurationFilters);
 
     ResourceContainer processed;
     if (isLibrary && AndroidCommon.getAndroidConfig(ruleContext).useParallelResourceProcessing()) {
@@ -497,7 +502,7 @@ public final class ApplicationManifest {
           new AndroidResourcesProcessorBuilder(ruleContext)
               .setLibrary(isLibrary)
               .setApkOut(resourceContainer.getApk())
-              .setResourceFilter(resourceFilter)
+              .setConfigurationFilters(configurationFilters)
               .setUncompressedExtensions(uncompressedExtensions)
               .setCrunchPng(crunchPng)
               .setJavaPackage(resourceContainer.getJavaPackage())
@@ -506,6 +511,7 @@ public final class ApplicationManifest {
               .setMergedResourcesOut(mergedResources)
               .withPrimary(resourceContainer)
               .withDependencies(resourceDeps)
+              .setDensities(densities)
               .setProguardOut(proguardCfg)
               .setMainDexProguardOut(mainDexProguardCfg)
               .setDataBindingInfoZip(dataBindingInfoZip)
@@ -612,8 +618,7 @@ public final class ApplicationManifest {
     AndroidAaptActionHelper aaptActionHelper = new AndroidAaptActionHelper(ruleContext,
         getManifest(), Lists.newArrayList(resourceContainers));
 
-    ResourceFilter resourceFilter = ResourceFilter.fromRuleContext(ruleContext);
-
+    String resourceConfigurationFilters = ResourceConfigurationFilter.extractFilters(ruleContext);
     List<String> uncompressedExtensions =
         ruleContext.getTokenizedStringListAttr("nocompress_extensions");
 
@@ -622,8 +627,8 @@ public final class ApplicationManifest {
     for (String extension : uncompressedExtensions) {
       additionalAaptOpts.add("-0").add(extension);
     }
-    if (resourceFilter.hasConfigurationFilters() && !resourceFilter.isPrefiltering()) {
-      additionalAaptOpts.add("-c").add(resourceFilter.getConfigurationFilterString());
+    if (!resourceConfigurationFilters.isEmpty()) {
+      additionalAaptOpts.add("-c").add(resourceConfigurationFilters);
     }
 
     Artifact javaSourcesJar = null;
@@ -635,11 +640,9 @@ public final class ApplicationManifest {
           javaSourcesJar, null, resourceContainer.getJavaPackage(), true);
     }
 
-    aaptActionHelper.createGenerateApkAction(
-        resourceApk,
-        resourceContainer.getRenameManifestPackage(),
-        additionalAaptOpts.build(),
-        resourceFilter.getDensities());
+    List<String> densities = ruleContext.getTokenizedStringListAttr("densities");
+    aaptActionHelper.createGenerateApkAction(resourceApk,
+        resourceContainer.getRenameManifestPackage(), additionalAaptOpts.build(), densities);
 
     ResourceContainer updatedResources = resourceContainer.toBuilder()
         .setLabel(ruleContext.getLabel())

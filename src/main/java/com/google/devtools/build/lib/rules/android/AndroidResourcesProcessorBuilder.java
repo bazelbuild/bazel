@@ -69,12 +69,13 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact rTxtOut;
   private Artifact sourceJarOut;
   private boolean debug = false;
-  private ResourceFilter resourceFilter;
+  private ResourceConfigurationFilter resourceConfigs;
   private List<String> uncompressedExtensions = Collections.emptyList();
   private Artifact apkOut;
   private final AndroidSdkProvider sdk;
   private List<String> assetsToIgnore = Collections.emptyList();
   private SpawnAction.Builder spawnActionBuilder;
+  private List<String> densities = Collections.emptyList();
   private String customJavaPackage;
   private final RuleContext ruleContext;
   private String versionCode;
@@ -97,7 +98,7 @@ public class AndroidResourcesProcessorBuilder {
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
-    this.resourceFilter = ResourceFilter.empty(ruleContext);
+    this.resourceConfigs = ResourceConfigurationFilter.empty(ruleContext);
   }
 
   /**
@@ -135,9 +136,14 @@ public class AndroidResourcesProcessorBuilder {
     return this;
   }
 
-  public AndroidResourcesProcessorBuilder setResourceFilter(
-      ResourceFilter resourceFilter) {
-    this.resourceFilter = resourceFilter;
+  public AndroidResourcesProcessorBuilder setDensities(List<String> densities) {
+    this.densities = densities;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setConfigurationFilters(
+      ResourceConfigurationFilter resourceConfigs) {
+    this.resourceConfigs = resourceConfigs;
     return this;
   }
 
@@ -209,7 +215,7 @@ public class AndroidResourcesProcessorBuilder {
   public ResourceContainer build(ActionConstructionContext context) {
     List<Artifact> outs = new ArrayList<>();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
-
+    
     // Set the busybox tool.
     builder.add("--tool").add("PACKAGE").add("--");
 
@@ -279,15 +285,11 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);
     }
-    if (resourceFilter.hasConfigurationFilters() && !resourceFilter.isPrefiltering()) {
-      builder.add("--resourceConfigs").add(resourceFilter.getConfigurationFilterString());
+    if (!resourceConfigs.isEmpty()) {
+      builder.add("--resourceConfigs").add(resourceConfigs.getFilterString());
     }
-    if (resourceFilter.hasDensities() && !resourceFilter.isPrefiltering()) {
-      builder.add("--densities").add(resourceFilter.getDensityString());
-    }
-    ImmutableList<String> filteredResources = resourceFilter.getFilteredResources();
-    if (!filteredResources.isEmpty()) {
-      builder.addJoinStrings("--prefilteredResources", ",", filteredResources);
+    if (!densities.isEmpty()) {
+      builder.addJoinStrings("--densities", ",", densities);
     }
     if (!uncompressedExtensions.isEmpty()) {
       builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);

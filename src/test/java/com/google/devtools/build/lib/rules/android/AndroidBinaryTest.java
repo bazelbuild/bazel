@@ -1313,165 +1313,20 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         /* expectedQualifiers= */ ImmutableList.of(filters));
   }
 
-  @Test
-  public void testDensityFilteredResourcesSingleDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi", "xhdpi"), ImmutableList.of("hdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSingleClosestDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi"), ImmutableList.of("xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferingQualifiers() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi",
-        ImmutableList.of("en-xhdpi", "fr"),
-        ImmutableList.of("en-hdpi", "fr-mdpi", "xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesMultipleDensities() throws Exception {
-    testDensityResourceFiltering(
-        "ldpi,hdpi', 'xhdpi",
-        ImmutableList.of("mdpi", "xxhdpi"),
-        ImmutableList.of("ldpi", "hdpi", "xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDoubledDensity() throws Exception {
-    testDensityResourceFiltering(
-        "hdpi", ImmutableList.of("ldpi", "mdpi", "xhdpi"), ImmutableList.of("xxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferentRatiosSmallerCloser() throws Exception {
-    testDensityResourceFiltering("mdpi", ImmutableList.of("hdpi"), ImmutableList.of("ldpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesDifferentRatiosLargerCloser() throws Exception {
-    testDensityResourceFiltering("hdpi", ImmutableList.of("mdpi"), ImmutableList.of("xhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSameRatioPreferLarger() throws Exception {
-    // xxhdpi is 480dpi and xxxhdpi is 640dpi.
-    // The ratios between 360dpi and 480dpi and between 480dpi and 640dpi are both 3:4.
-    testDensityResourceFiltering("xxhdpi", ImmutableList.of("360dpi"), ImmutableList.of("xxxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesOptionsSmallerThanDesired() throws Exception {
-    testDensityResourceFiltering(
-        "xxxhdpi", ImmutableList.of("xhdpi", "mdpi", "ldpi"), ImmutableList.of("xxhdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesOptionsLargerThanDesired() throws Exception {
-    testDensityResourceFiltering(
-        "ldpi", ImmutableList.of("xxxhdpi", "xxhdpi", "xhdpi"), ImmutableList.of("mdpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesSpecialValues() throws Exception {
-    testDensityResourceFiltering(
-        "xxxhdpi", ImmutableList.of("anydpi", "nodpi"), ImmutableList.of("ldpi"));
-  }
-
-  @Test
-  public void testDensityFilteredResourcesXml() throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        "hdpi",
-        ImmutableList.<String>of(),
-        ImmutableList.of("ldpi", "mdpi", "hdpi", "xhdpi"),
-        /* expectUnqualifiedResource= */ true,
-        "drawable",
-        "xml");
-  }
-
-  @Test
-  public void testDensityFilteredResourcesNotDrawable() throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        "hdpi",
-        ImmutableList.<String>of(),
-        ImmutableList.of("ldpi", "mdpi", "hdpi", "xhdpi"),
-        /* expectUnqualifiedResource= */ true,
-        "layout",
-        "png");
-  }
-
-  @Test
-  public void testQualifierAndDensityFilteredResources() throws Exception {
-    testDirectResourceFiltering(
-        "en,fr-mdpi",
-        "ldpi,hdpi",
-        ImmutableList.of("mdpi", "es-ldpi", "en-xxxhdpi", "fr-mdpi"),
-        ImmutableList.of("ldpi", "hdpi", "en-xhdpi", "fr-hdpi"),
-        /* expectUnqualifiedResource= */ false,
-        "drawable",
-        "png");
-  }
-
-  private void testDirectResourceFiltering(
-      String filters, List<String> unexpectedQualifiers, ImmutableList<String> expectedQualifiers)
-      throws Exception {
-    testDirectResourceFiltering(
-        filters,
-        /* densities= */ "",
-        unexpectedQualifiers,
-        expectedQualifiers,
-        /* expectUnqualifiedResource= */ true,
-        "drawable",
-        "png");
-  }
-
-  private void testDensityResourceFiltering(
-      String densities, List<String> unexpectedQualifiers, List<String> expectedQualifiers)
-      throws Exception {
-    testDirectResourceFiltering(
-        /* resourceConfigurationFilters= */ "",
-        densities,
-        unexpectedQualifiers,
-        expectedQualifiers,
-        /* expectUnqualifiedResource= */ false,
-        "drawable",
-        "png");
-  }
-
   private void testDirectResourceFiltering(
       String resourceConfigurationFilters,
-      String densities,
       List<String> unexpectedQualifiers,
-      List<String> expectedQualifiers,
-      boolean expectUnqualifiedResource,
-      String folderType,
-      String suffix)
+      List<String> expectedQualifiers)
       throws Exception {
 
     List<String> unexpectedResources = new ArrayList<>();
-    List<String> expectedFiltered = new ArrayList<>();
     for (String qualifier : unexpectedQualifiers) {
-      expectedFiltered.add(folderType + "-" + qualifier + "/foo." + suffix);
-      unexpectedResources.add("res/" + folderType + "-" + qualifier + "/foo." + suffix);
+      unexpectedResources.add("res/values-" + qualifier + "/foo.xml");
     }
 
     List<String> expectedResources = new ArrayList<>();
     for (String qualifier : expectedQualifiers) {
-      expectedResources.add("res/" + folderType + "-" + qualifier + "/foo." + suffix);
-    }
-
-    String unqualifiedResource = "res/" + folderType + "/foo." + suffix;
-    if (expectUnqualifiedResource) {
-      expectedResources.add(unqualifiedResource);
-    } else {
-      unexpectedResources.add(unqualifiedResource);
-      expectedFiltered.add(folderType + "/foo." + suffix);
+      expectedResources.add("res/values-" + qualifier + "/foo.xml");
     }
 
     // Default resources should never be filtered
@@ -1490,7 +1345,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             "android_binary(name = 'r',",
             "  manifest = 'AndroidManifest.xml',",
             "  resource_configuration_filters = ['" + resourceConfigurationFilters + "'],",
-            "  densities = ['" + densities + "'],",
             "  resource_files = ['" + Joiner.on("', '").join(allResources) + "'])");
 
     ResourceContainer directResources = getResourceContainer(binary, /* transitive= */ false);
@@ -1502,15 +1356,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     // Validate that the input to resource processing contains only the filtered values.
     assertThat(resourceInputPaths(dir, directResources)).containsAllIn(expectedResources);
     assertThat(resourceInputPaths(dir, directResources)).containsNoneIn(unexpectedResources);
-
-    if (expectedFiltered.isEmpty()) {
-      assertThat(resourceArguments(directResources)).doesNotContain("--prefilteredResources");
-    } else {
-      String[] flagValues =
-          flagValue("--prefilteredResources", resourceArguments(directResources)).split(",");
-      assertThat(flagValues).asList().containsAllIn(expectedFiltered);
-      assertThat(flagValues).hasLength(expectedFiltered.size());
-    }
   }
 
   @Test

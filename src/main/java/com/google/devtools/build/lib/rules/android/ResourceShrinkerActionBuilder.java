@@ -44,7 +44,7 @@ public class ResourceShrinkerActionBuilder {
 
   private List<String> uncompressedExtensions = Collections.emptyList();
   private List<String> assetsToIgnore = Collections.emptyList();
-  private ResourceFilter resourceFilter;
+  private ResourceConfigurationFilter resourceConfigs;
 
   /**
    * @param ruleContext The RuleContext of the owning rule.
@@ -53,7 +53,7 @@ public class ResourceShrinkerActionBuilder {
     this.ruleContext = ruleContext;
     this.spawnActionBuilder = new SpawnAction.Builder();
     this.sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    this.resourceFilter = ResourceFilter.empty(ruleContext);
+    this.resourceConfigs = ResourceConfigurationFilter.empty(ruleContext);
   }
 
   public ResourceShrinkerActionBuilder setUncompressedExtensions(
@@ -67,9 +67,12 @@ public class ResourceShrinkerActionBuilder {
     return this;
   }
 
-  /** @param resourceFilter The filters to apply to the resources. */
-  public ResourceShrinkerActionBuilder setResourceFilter(ResourceFilter resourceFilter) {
-    this.resourceFilter = resourceFilter;
+  /**
+   * @param resourceConfigs The configuration filters to apply to the resources.
+   */
+  public ResourceShrinkerActionBuilder setConfigurationFilters(
+      ResourceConfigurationFilter resourceConfigs) {
+    this.resourceConfigs = resourceConfigs;
     return this;
   }
 
@@ -146,7 +149,7 @@ public class ResourceShrinkerActionBuilder {
     ImmutableList.Builder<Artifact> outputs = ImmutableList.builder();
 
     CustomCommandLine.Builder commandLine = new CustomCommandLine.Builder();
-
+    
     // Set the busybox tool.
     commandLine.add("--tool").add("SHRINK").add("--");
 
@@ -173,8 +176,8 @@ public class ResourceShrinkerActionBuilder {
     if (ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT) {
       commandLine.add("--debug");
     }
-    if (resourceFilter.hasConfigurationFilters()) {
-      commandLine.add("--resourceConfigs").add(resourceFilter.getConfigurationFilterString());
+    if (!resourceConfigs.isEmpty()) {
+      commandLine.add("--resourceConfigs").add(resourceConfigs.getFilterString());
     }
 
     checkNotNull(resourceFilesZip);

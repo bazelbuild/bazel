@@ -128,7 +128,7 @@ public abstract class ResourceContainer {
   /**
    * Returns a copy of this container with filtered resources. The original container is unchanged.
    */
-  public ResourceContainer filter(ResourceFilter filter) {
+  public ResourceContainer filter(ResourceConfigurationFilter filter) {
     return toBuilder().setResources(filter.filter(getResources())).build();
   }
 
