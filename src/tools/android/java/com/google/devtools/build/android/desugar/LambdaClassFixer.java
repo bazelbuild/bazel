@@ -117,10 +117,16 @@ class LambdaClassFixer extends ClassVisitor {
     }
     if (FACTORY_METHOD_NAME.equals(name)) {
       hasFactory = true;
+      if (!lambdaInfo.needFactory()) {
+        return null; // drop generated factory method if we won't call it
+      }
       access &= ~Opcodes.ACC_PRIVATE; // make factory method accessible
     } else if ("<init>".equals(name)) {
       this.desc = desc;
       this.signature = signature;
+      if (!lambdaInfo.needFactory() && !desc.startsWith("()")) {
+        access &= ~Opcodes.ACC_PRIVATE; // make constructor accessible if we'll call it directly
+      }
     }
     MethodVisitor methodVisitor =
         new LambdaClassMethodRewriter(super.visitMethod(access, name, desc, signature, exceptions));

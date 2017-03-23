@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.auto.value.AutoValue;
 import org.objectweb.asm.Handle;
 
@@ -21,14 +23,19 @@ abstract class LambdaInfo {
   public static LambdaInfo create(
       String desiredInternalName,
       String factoryMethodDesc,
+      boolean needFactory,
       Handle methodReference,
       Handle bridgeMethod) {
+    checkArgument(!needFactory || !factoryMethodDesc.startsWith("()"),
+        "Shouldn't need a factory method for %s : %s", desiredInternalName, factoryMethodDesc);
     return new AutoValue_LambdaInfo(
-        desiredInternalName, factoryMethodDesc, methodReference, bridgeMethod);
+        desiredInternalName, factoryMethodDesc, needFactory, methodReference, bridgeMethod);
   }
 
   public abstract String desiredInternalName();
   public abstract String factoryMethodDesc();
+  /** Returns {@code true} if we need the generated class to have a factory method. */
+  public abstract boolean needFactory();
   public abstract Handle methodReference();
   public abstract Handle bridgeMethod();
 }

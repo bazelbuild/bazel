@@ -39,6 +39,11 @@ import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TypeInsnNode;
 
 /**
  * Visitor that desugars classes with uses of lambdas into Java 7-looking code.  This includes
@@ -167,7 +172,9 @@ class LambdaDesugaring extends ClassVisitor {
       name = uniqueInPackage(internalName, name);
     }
     MethodVisitor dest = super.visitMethod(access, name, desc, signature, exceptions);
-    return new InvokedynamicRewriter(dest);
+    return dest != null
+        ? new InvokedynamicRewriter(dest, access, name, desc, signature, exceptions)
+        : null;
   }
 
   @Override
@@ -328,10 +335,19 @@ class LambdaDesugaring extends ClassVisitor {
    * Desugaring that replaces invokedynamics for {@link java.lang.invoke.LambdaMetafactory} with
    * static factory method invocations and triggers a class to be generated for each invokedynamic.
    */
-  private class InvokedynamicRewriter extends MethodVisitor {
+  private class InvokedynamicRewriter extends MethodNode {
 
-    public InvokedynamicRewriter(MethodVisitor dest) {
-      super(ASM5, dest);
+    private final MethodVisitor dest;
+
+    public InvokedynamicRewriter(MethodVisitor dest,
+        int access, String name, String desc, String signature, String[] exceptions) {
+      super(ASM5, access, name, desc, signature, exceptions);
+      this.dest = checkNotNull(dest, "Null destination for %s.%s : %s", internalName, name, desc);
+    }
+
+    @Override
+    public void visitEnd() {
+      accept(dest);
     }
 
     @Override
@@ -365,29 +381,117 @@ class LambdaDesugaring extends ClassVisitor {
         // Give generated classes to have more stable names (b/35643761).  Use BSM's naming scheme
         // but with separate counter for each surrounding class.
         String lambdaClassName = internalName + "$$Lambda$" + (lambdaCount++);
+        Type[] capturedTypes = Type.getArgumentTypes(desc);
+        boolean needFactory = capturedTypes.length != 0
+            && !attemptAllocationBeforeArgumentLoads(lambdaClassName, capturedTypes);
         lambdas.generateLambdaClass(
             internalName,
             LambdaInfo.create(
-                lambdaClassName, desc, bridgeInfo.methodReference(), bridgeInfo.bridgeMethod()),
+                lambdaClassName,
+                desc,
+                needFactory,
+                bridgeInfo.methodReference(),
+                bridgeInfo.bridgeMethod()),
             bsmMethod,
             args);
         if (desc.startsWith("()")) {
           // For stateless lambda classes we'll generate a singleton instance that we can just load
+          checkState(capturedTypes.length == 0);
           super.visitFieldInsn(Opcodes.GETSTATIC, lambdaClassName,
               LambdaClassFixer.SINGLETON_FIELD_NAME, desc.substring("()".length()));
-        } else {
-          // Emit invokestatic that calls the factory method generated in the lambda class
+        } else if (needFactory) {
+          // If we were unable to inline the allocation of the generated lambda class then
+          // invoke factory method of generated lambda class with the arguments on the stack
           super.visitMethodInsn(
               Opcodes.INVOKESTATIC,
               lambdaClassName,
               LambdaClassFixer.FACTORY_METHOD_NAME,
               desc,
               /*itf*/ false);
+        } else {
+          // Otherwise we inserted a new/dup pair of instructions above and now just need to invoke
+          // the constructor of generated lambda class with the arguments on the stack
+          super.visitMethodInsn(
+              Opcodes.INVOKESPECIAL,
+              lambdaClassName,
+              "<init>",
+              Type.getMethodDescriptor(Type.VOID_TYPE, capturedTypes),
+              /*itf*/ false);
         }
       } catch (IOException | ReflectiveOperationException e) {
         throw new IllegalStateException("Couldn't desugar invokedynamic for " + internalName + "."
             + name + " using " + bsm + " with arguments " + Arrays.toString(bsmArgs), e);
       }
+    }
+
+    /**
+     * Tries to insert a new/dup for the given class name before expected existing instructions that
+     * set up arguments for an invokedynamic factory method with the given types.
+     *
+     * <p>For lambda expressions and simple method references we can assume that arguments are set
+     * up with loads of the captured (effectively) final variables.  But method references, can in
+     * general capture an expression, such as in {@code myObject.toString()::charAt} (a {@code
+     * Function&lt;Integer, Character&gt;}), which can also cause null checks to be inserted.  In
+     * such more complicated cases this method may fail to insert a new/dup pair and returns {@code
+     * false}.
+     *
+     * @param internalName internal name of the class to instantiate
+     * @param paramTypes expected invokedynamic argument types, which also must be the parameters of
+     *     {@code internalName}'s constructor.
+     * @return {@code true} if we were able to insert a new/dup, {@code false} otherwise
+     */
+    private boolean attemptAllocationBeforeArgumentLoads(String internalName, Type[] paramTypes) {
+      checkArgument(paramTypes.length > 0, "Expected at least one param for %s", internalName);
+      // Walk backwards past loads corresponding to constructor arguments to find the instruction
+      // after which we need to insert our NEW/DUP pair
+      AbstractInsnNode insn = instructions.getLast();
+      for (int i = paramTypes.length - 1; 0 <= i; --i) {
+        if (insn.getOpcode() == Opcodes.GETFIELD) {
+          // Lambdas in anonymous inner classes have to load outer scope variables from fields,
+          // which manifest as an ALOAD followed by one or more GETFIELDs
+          FieldInsnNode getfield = (FieldInsnNode) insn;
+          checkState(
+              getfield.desc.length() == 1
+                  ? getfield.desc.equals(paramTypes[i].getDescriptor())
+                  : paramTypes[i].getDescriptor().length() > 1,
+              "Expected getfield for %s to set up parameter %s for %s but got %s : %s",
+              paramTypes[i], i, internalName, getfield.name, getfield.desc);
+          insn = insn.getPrevious();
+
+          while (insn.getOpcode() == Opcodes.GETFIELD) {
+            // Nested inner classes can cause a cascade of getfields from the outermost one inwards
+            checkState(((FieldInsnNode) insn).desc.startsWith("L"),
+                "expect object type getfields to get to %s to set up parameter %s for %s, not: %s",
+                paramTypes[i], i, internalName, ((FieldInsnNode) insn).desc);
+            insn = insn.getPrevious();
+          }
+
+          checkState(insn.getOpcode() == Opcodes.ALOAD, // should be a this pointer to be precise
+              "Expected aload before getfield for %s to set up parameter %s for %s but got %s",
+              getfield.name, i, internalName, insn.getOpcode());
+        } else if (insn.getOpcode() != paramTypes[i].getOpcode(Opcodes.ILOAD)) {
+          // Otherwise expect load of a (effectively) final local variable.  Not seeing that means
+          // we're dealing with a method reference on some arbitrary expression, <expression>::m.
+          // In that case we give up and keep using the factory method for now, since inserting
+          // the NEW/DUP so the new object ends up in the right stack slot is hard in that case.
+          // Note this still covers simple cases such as this::m or x::m, where x is a local.
+          checkState(paramTypes.length == 1,
+              "Expected a load for %s to set up parameter %s for %s but got %s",
+              paramTypes[i], i, internalName, insn.getOpcode());
+          return false;
+        }
+        insn = insn.getPrevious();
+      }
+
+      TypeInsnNode newInsn = new TypeInsnNode(Opcodes.NEW, internalName);
+      if (insn == null) {
+        // Ran off the front of the instruction list
+        instructions.insert(newInsn);
+      } else {
+        instructions.insert(insn, newInsn);
+      }
+      instructions.insert(newInsn, new InsnNode(Opcodes.DUP));
+      return true;
     }
 
     private Lookup createLookup(String lookupClass) throws ReflectiveOperationException {
