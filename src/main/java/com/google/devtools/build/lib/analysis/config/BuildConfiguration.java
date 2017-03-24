@@ -85,6 +85,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -276,6 +277,38 @@ public final class BuildConfiguration {
     @Override
     public String getTypeDescription() {
       return "a build target label";
+    }
+  }
+
+  /** Flag converter for a map of unique keys with optional labels as values. */
+  public static class LabelMapConverter implements Converter<Map<String, Label>> {
+    @Override
+    public Map<String, Label> convert(String input) throws OptionsParsingException {
+      // Use LinkedHashMap so we can report duplicate keys more easily while preserving order
+      Map<String, Label> result = new LinkedHashMap<>();
+      for (String entry : Splitter.on(",").omitEmptyStrings().trimResults().split(input)) {
+        String key;
+        Label label;
+        int sepIndex = entry.indexOf('=');
+        if (sepIndex < 0) {
+          key = entry;
+          label = null;
+        } else {
+          key = entry.substring(0, sepIndex);
+          String value = entry.substring(sepIndex + 1);
+          label = value.isEmpty() ? null : convertLabel(value);
+        }
+        if (result.containsKey(key)) {
+          throw new OptionsParsingException("Key '" + key + "' appears twice");
+        }
+        result.put(key, label);
+      }
+      return Collections.unmodifiableMap(result);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a comma-separated list of keys optionally followed by '=' and a label";
     }
   }
 
@@ -2131,7 +2164,7 @@ public final class BuildConfiguration {
   public List<Label> getPlugins() {
     return options.pluginList;
   }
-  
+
   /**
    * Returns the configuration-dependent string for this configuration. This is also the name of the
    * configuration's base output directory unless {@link Options#outputDirectoryName} overrides it.

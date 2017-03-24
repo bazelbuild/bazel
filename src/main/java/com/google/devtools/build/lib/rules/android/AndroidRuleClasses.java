@@ -790,6 +790,8 @@ public final class AndroidRuleClasses {
                   .value(TriState.AUTO)
                   .undocumented("No-op, soon to be removed"))
           .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
+          .add(attr(":bytecode_optimizers", LABEL_LIST)
+              .cfg(HOST).value(JavaSemantics.BYTECODE_OPTIMIZERS))
           .add(attr("rewrite_dexes_with_rex", BOOLEAN).value(false).undocumented("experimental"))
           /*
           File to be used as a package map for Rex tool that keeps the assignment of classes to

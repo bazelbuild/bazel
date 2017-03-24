@@ -1073,7 +1073,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_SEEDS);
     Artifact proguardUsage =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_USAGE);
-    ProguardOutput result = ProguardHelper.createProguardAction(
+    ProguardOutput result = ProguardHelper.createOptimizationActions(
         ruleContext,
         sdk.getProguard(),
         deployJarArtifact,

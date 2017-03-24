@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelMapConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
@@ -269,6 +270,18 @@ public class JavaOptions extends FragmentOptions {
       help = "Additional Proguard specs that will be used for all Proguard invocations.  Note that "
           + "using this option only has an effect when Proguard is used anyway.")
   public List<Label> extraProguardSpecs;
+
+  /**
+   * Comma-separated list of Mnemonic=label pairs of optimizers to run in the given order, treating
+   * {@code Proguard} specially by substituting in the relevant Proguard binary automatically.
+   * All optimizers must understand the same flags as Proguard.
+   */
+  @Option(name = "experimental_bytecode_optimizers",
+      defaultValue = "Proguard",
+      converter = LabelMapConverter.class,
+      category = "undocumented",
+      help = "Do not use.")
+  public Map<String, Label> bytecodeOptimizers;
 
   @Option(name = "translations",
       defaultValue = "auto",
