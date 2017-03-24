@@ -108,7 +108,8 @@ final class DarwinSandboxRunner extends SandboxRunner {
       Map<String, String> environment,
       int timeout,
       boolean allowNetwork,
-      boolean useFakeHostname)
+      boolean useFakeHostname,
+      boolean useFakeUsername)
       throws IOException {
     writeConfig(allowNetwork);
 

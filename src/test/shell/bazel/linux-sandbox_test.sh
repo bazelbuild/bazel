@@ -47,14 +47,19 @@ function test_execvp_error_message_contains_path() {
   expect_log "\"execvp(/does/not/exist, 0x[[:alnum:]]*)\": No such file or directory"
 }
 
-function test_default_user_is_nobody() {
+function test_default_user_is_current_user() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /usr/bin/id &> $TEST_log || fail
-  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
+  expect_log "$(id)"
 }
 
 function test_user_switched_to_root() {
   $linux_sandbox $SANDBOX_DEFAULT_OPTS -R -- /usr/bin/id &> $TEST_log || fail
-  expect_log "uid=0(root) gid=0(root)"
+  expect_log "uid=0(root) gid=0(root) groups=0(root)"
+}
+
+function test_user_switched_to_nobody() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -U -- /usr/bin/id &> $TEST_log || fail
+  expect_log "uid=65534(nobody) gid=65534(nogroup) groups=65534(nogroup)"
 }
 
 function test_network_namespace() {

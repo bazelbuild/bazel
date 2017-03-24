@@ -46,6 +46,8 @@ struct Options {
   bool create_netns;
   // Pretend to be root inside the namespace (-R)
   bool fake_root;
+  // Set the username inside the sandbox to 'nobody' (-U)
+  bool fake_username;
   // Print debugging messages (-D)
   bool debug;
   // Command to run (--)

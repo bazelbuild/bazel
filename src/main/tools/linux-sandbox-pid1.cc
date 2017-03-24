@@ -120,8 +120,13 @@ static void SetupUserNamespace() {
     }
   }
 
-  int inner_uid = 0, inner_gid = 0;
-  if (!opt.fake_root) {
+  int inner_uid, inner_gid;
+  if (opt.fake_root) {
+    // Change our username to 'root'.
+    inner_uid = 0;
+    inner_gid = 0;
+  } else if (opt.fake_username) {
+    // Change our username to 'nobody'.
     struct passwd *pwd = getpwnam("nobody");
     if (pwd == NULL) {
       DIE("unable to find passwd entry for user nobody")
@@ -129,6 +134,10 @@ static void SetupUserNamespace() {
 
     inner_uid = pwd->pw_uid;
     inner_gid = pwd->pw_gid;
+  } else {
+    // Do not change the username inside the sandbox.
+    inner_uid = global_outer_uid;
+    inner_gid = global_outer_gid;
   }
 
   WriteFile("/proc/self/uid_map", "%d %d 1\n", inner_uid, global_outer_uid);

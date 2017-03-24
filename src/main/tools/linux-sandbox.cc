@@ -25,12 +25,14 @@
  *  - If the process takes longer than the timeout (-T), it will be killed with
  *    SIGTERM. If it does not exit within the grace period (-t), it all of its
  *    children will be killed with SIGKILL.
+ *  - If option -R is passed, the process will run as user 'root'.
+ *  - If option -U is passed, the process will run as user 'nobody'.
+ *  - Otherwise, the process runs using the current uid / gid.
  *  - If linux-sandbox itself gets killed, the process and all of its children
  *    will be killed.
  *  - If linux-sandbox's parent dies, it will kill itself, the process and all
  *    the children.
  *  - Network access is allowed, but can be disabled via -N.
- *  - The process runs as user "nobody", unless fakeroot is enabled (-R).
  *  - The hostname and domainname will be set to "sandbox".
  *  - The process runs in its own PID namespace, so other processes on the
  *    system are invisible.

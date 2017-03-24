@@ -94,6 +94,14 @@ public class SandboxOptions extends OptionsBase {
   public boolean sandboxFakeHostname;
 
   @Option(
+    name = "sandbox_fake_username",
+    defaultValue = "false",
+    category = "strategy",
+    help = "Change the current username to 'nobody' for sandboxed actions."
+  )
+  public boolean sandboxFakeUsername;
+
+  @Option(
       name = "sandbox_tmpfs_path",
       allowMultiple = true,
       defaultValue = "",

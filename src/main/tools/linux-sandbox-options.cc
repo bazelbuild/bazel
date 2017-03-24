@@ -73,7 +73,8 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "    The -M option specifies which directory to mount, the -m option "
           "specifies where to\n"
           "  -N  if set, a new network namespace will be created\n"
-          "  -R  if set, make the uid/gid be root, otherwise use nobody\n"
+          "  -R  if set, make the uid/gid be root\n"
+          "  -U  if set, make the uid/gid be nobody\n"
           "  -D  if set, debug info will be printed\n"
           "  @FILE  read newline-separated arguments from FILE\n"
           "  --  command to run inside sandbox, followed by arguments\n");
@@ -123,8 +124,8 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified;
 
-  while ((c = getopt(args->size(), args->data(), ":CW:T:t:l:L:w:e:M:m:HNRD")) !=
-         -1) {
+  while ((c = getopt(args->size(), args->data(),
+                     ":CW:T:t:l:L:w:e:M:m:HNRUD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'C':
@@ -200,7 +201,20 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
         opt.create_netns = true;
         break;
       case 'R':
+        if (opt.fake_username) {
+          Usage(args->front(),
+                "The -R option cannot be used at the same time us the -U "
+                "option.");
+        }
         opt.fake_root = true;
+        break;
+      case 'U':
+        if (opt.fake_root) {
+          Usage(args->front(),
+                "The -U option cannot be used at the same time us the -R "
+                "option.");
+        }
+        opt.fake_username = true;
         break;
       case 'D':
         opt.debug = true;

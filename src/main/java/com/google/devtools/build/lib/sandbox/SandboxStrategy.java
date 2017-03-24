@@ -84,7 +84,8 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
           Spawns.getTimeoutSeconds(spawn),
           SandboxHelpers.shouldAllowNetwork(buildRequest, spawn),
           sandboxOptions.sandboxDebug,
-          sandboxOptions.sandboxFakeHostname);
+          sandboxOptions.sandboxFakeHostname,
+          sandboxOptions.sandboxFakeUsername);
     } catch (ExecException e) {
       execException = e;
     }

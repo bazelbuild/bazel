@@ -105,9 +105,10 @@ final class LinuxSandboxRunner extends SandboxRunner {
       Map<String, String> env,
       int timeout,
       boolean allowNetwork,
-      boolean useFakeHostname)
+      boolean useFakeHostname,
+      boolean useFakeUsername)
       throws IOException {
-    writeConfig(timeout, allowNetwork, useFakeHostname);
+    writeConfig(timeout, allowNetwork, useFakeHostname, useFakeUsername);
 
     List<String> commandLineArgs = new ArrayList<>(3 + spawnArguments.size());
     commandLineArgs.add(execRoot.getRelative("_bin/linux-sandbox").getPathString());
@@ -117,7 +118,8 @@ final class LinuxSandboxRunner extends SandboxRunner {
     return new Command(commandLineArgs.toArray(new String[0]), env, sandboxExecRoot.getPathFile());
   }
 
-  private void writeConfig(int timeout, boolean allowNetwork, boolean useFakeHostname)
+  private void writeConfig(
+      int timeout, boolean allowNetwork, boolean useFakeHostname, boolean useFakeUsername)
       throws IOException {
     List<String> fileArgs = new ArrayList<>();
 
@@ -163,8 +165,13 @@ final class LinuxSandboxRunner extends SandboxRunner {
     }
 
     if (useFakeHostname) {
-      // Use a fake hostname ("localhost") inside the sandbox when blocking network access.
+      // Use a fake hostname ("localhost") inside the sandbox.
       fileArgs.add("-H");
+    }
+
+    if (useFakeUsername) {
+      // Use a fake username ("nobody") inside the sandbox.
+      fileArgs.add("-U");
     }
 
     FileSystemUtils.writeLinesAs(argumentsFilePath, StandardCharsets.ISO_8859_1, fileArgs);
