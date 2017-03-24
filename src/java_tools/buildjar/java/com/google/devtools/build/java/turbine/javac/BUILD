@@ -12,7 +12,6 @@ java_library(
         ":javac_turbine_compile_request",
         ":javac_turbine_compile_result",
         ":javac_turbine_compiler",
-        ":zip_output_file_manager",
         ":zip_util",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:JarOwner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
@@ -40,7 +39,6 @@ java_library(
     name = "javac_turbine_compile_result",
     srcs = ["JavacTurbineCompileResult.java"],
     deps = [
-        ":zip_output_file_manager",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jdk/langtools:javac",
@@ -54,9 +52,9 @@ java_library(
         ":javac_turbine_compile_request",
         ":javac_turbine_compile_result",
         ":javac_turbine_java_compiler",
-        ":zip_output_file_manager",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:guava",
+        "//third_party:jimfs",
         "//third_party:jsr305",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -69,15 +67,6 @@ java_library(
         ":javac_turbine_compile_request",
         ":tree_pruner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
-        "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
-    ],
-)
-
-java_library(
-    name = "zip_output_file_manager",
-    srcs = ["ZipOutputFileManager.java"],
-    deps = [
         "//third_party:jsr305",
         "//third_party/java/jdk/langtools:javac",
     ],

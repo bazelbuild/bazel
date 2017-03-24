@@ -40,7 +40,6 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
   public JavacTurbineJavaCompiler(Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps) {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
-    JavaCompiler comp = JavaCompiler.instance(context);
     if (strictJavaDeps != null) {
       strictJavaDeps.init(context, Log.instance(context), this);
     }
