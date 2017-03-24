@@ -20,16 +20,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ResourceManager;
-import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -150,35 +145,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
   }
 
   @Override
-  public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
-      throws ExecException, InterruptedException {
-    exec(spawn, actionExecutionContext, null);
-  }
-
-  @Override
-  public void exec(
-      Spawn spawn,
-      ActionExecutionContext actionExecutionContext,
-      AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException {
-    Executor executor = actionExecutionContext.getExecutor();
-    // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
-    if (!spawn.isRemotable() || spawn.hasNoSandbox()) {
-      SandboxHelpers.fallbackToNonSandboxedExecution(spawn, actionExecutionContext, executor);
-      return;
-    }
-
-    EventBus eventBus = actionExecutionContext.getExecutor().getEventBus();
-    ActionExecutionMetadata owner = spawn.getResourceOwner();
-    eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
-    try (ResourceHandle handle =
-        ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
-      SandboxHelpers.postActionStatusMessage(eventBus, spawn);
-      actuallyExec(spawn, actionExecutionContext, writeOutputFiles);
-    }
-  }
-
-  private void actuallyExec(
+  protected void actuallyExec(
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
