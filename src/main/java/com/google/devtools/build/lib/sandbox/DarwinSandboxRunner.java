@@ -44,21 +44,18 @@ final class DarwinSandboxRunner extends SandboxRunner {
   private final Path sandboxExecRoot;
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
-  private final Set<Path> inaccessiblePaths;
   private final Path runUnderPath;
 
   DarwinSandboxRunner(
       Path sandboxPath,
       Path sandboxExecRoot,
       Set<Path> writableDirs,
-      Set<Path> inaccessiblePaths,
       Path runUnderPath,
       boolean verboseFailures) {
     super(verboseFailures);
     this.sandboxExecRoot = sandboxExecRoot;
     this.argumentsFilePath = sandboxPath.getRelative("sandbox.sb");
     this.writableDirs = writableDirs;
-    this.inaccessiblePaths = inaccessiblePaths;
     this.runUnderPath = runUnderPath;
   }
 
@@ -141,9 +138,6 @@ final class DarwinSandboxRunner extends SandboxRunner {
       out.println("(allow network* (local ip \"localhost:*\"))");
       out.println("(allow network* (remote ip \"localhost:*\"))");
 
-      for (Path inaccessiblePath : inaccessiblePaths) {
-        out.println("(deny file-read* (subpath \"" + inaccessiblePath + "\"))");
-      }
       if (runUnderPath != null) {
         out.println("(allow file-read* (subpath \"" + runUnderPath + "\"))");
       }

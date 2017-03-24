@@ -66,8 +66,6 @@ static void Usage(char *program_name, const char *fmt, ...) {
           "  -L <file>  redirect stderr to a file\n"
           "  -w <file>  make a file or directory writable for the sandboxed "
           "process\n"
-          "  -i <file>  make a file or directory inaccessible for the "
-          "sandboxed process\n"
           "  -e <dir>  mount an empty tmpfs on a directory\n"
           "  -M/-m <source/target>  directory to mount inside the sandbox\n"
           "    Multiple directories can be specified and each of them will be "
@@ -126,7 +124,7 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   bool source_specified;
 
   while ((c = getopt(args->size(), args->data(),
-                     ":CS:W:T:t:l:L:w:i:e:M:m:HNRD")) != -1) {
+                     ":CS:W:T:t:l:L:w:e:M:m:HNRD")) != -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'C':
@@ -182,10 +180,6 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
       case 'w':
         ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
         opt.writable_files.push_back(strdup(optarg));
-        break;
-      case 'i':
-        ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
-        opt.inaccessible_files.push_back(strdup(optarg));
         break;
       case 'e':
         ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));

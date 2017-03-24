@@ -298,23 +298,6 @@ function test_sandbox_undeclared_deps_skylark_with_local_tag() {
     || fail "Action did not produce output: examples/genrule:skylark_breaks1_works_with_local_tag"
 }
 
-function test_sandbox_block_filesystem() {
-  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
-
-  bazel build --sandbox_block_path=/var/log examples/genrule:breaks2 &> $TEST_log \
-    && fail "Non-hermetic genrule succeeded: examples/genrule:breaks2" || true
-
-  [ -f "$output_file" ] ||
-    fail "Action did not produce output: $output_file"
-
-  if [ $(wc -l $output_file) -gt 1 ]; then
-    fail "Output contained more than one line: $output_file"
-  fi
-
-  fgrep "Permission denied" $output_file ||
-    fail "Output did not contain expected error message: $output_file"
-}
-
 function test_sandbox_cyclic_symlink_in_inputs() {
   bazel build examples/genrule:breaks3 &> $TEST_log \
     && fail "Genrule with cyclic symlinks succeeded: examples/genrule:breaks3" || true

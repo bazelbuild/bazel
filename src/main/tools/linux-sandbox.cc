@@ -20,8 +20,6 @@
  *  - The working directory (-W) will be made read-write, though.
  *  - Individual files or directories can be made writable (but not deletable)
  *    (-w).
- *  - Individual files or directories can be made inaccessible / unreadable
- *    (-i).
  *  - tmpfs will be mounted on /tmp.
  *  - tmpfs can be mounted on top of existing directories (-e), too.
  *  - If the process takes longer than the timeout (-T), it will be killed with

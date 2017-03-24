@@ -50,7 +50,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SearchPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
+import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
@@ -184,10 +186,14 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     Executor executor = actionExecutionContext.getExecutor();
     SandboxHelpers.reportSubcommand(executor, spawn);
 
-    PrintWriter errWriter =
-        sandboxDebug
-            ? new PrintWriter(actionExecutionContext.getFileOutErr().getErrorStream())
-            : null;
+    PrintWriter errWriter = null;
+    if (sandboxDebug) {
+      errWriter =
+          new PrintWriter(
+              new BufferedWriter(
+                  new OutputStreamWriter(
+                      actionExecutionContext.getFileOutErr().getErrorStream(), UTF_8)));
+    }
 
     // Each invocation of "exec" gets its own sandbox.
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
@@ -225,7 +231,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
             sandboxPath,
             sandboxExecRoot,
             getWritableDirs(sandboxExecRoot, spawnEnvironment),
-            getInaccessiblePaths(),
             runUnderPath,
             verboseFailures);
     try {
@@ -282,15 +287,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     }
 
     return writableDirs.build();
-  }
-
-  @Override
-  protected ImmutableSet<Path> getInaccessiblePaths() {
-    ImmutableSet.Builder<Path> inaccessiblePaths = ImmutableSet.builder();
-    inaccessiblePaths.addAll(super.getInaccessiblePaths());
-    inaccessiblePaths.add(blazeDirs.getWorkspace());
-    inaccessiblePaths.add(execRoot);
-    return inaccessiblePaths.build();
   }
 
   @Override

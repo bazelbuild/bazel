@@ -55,8 +55,6 @@
 #include <unistd.h>
 
 static int global_child_pid;
-static char global_inaccessible_directory[] = "tmp/empty.XXXXXX";
-static char global_inaccessible_file[] = "tmp/empty.XXXXXX";
 
 static void SetupSelfDestruction(int *sync_pipe) {
   // We could also poll() on the pipe fd to find out when the parent goes away,
@@ -144,26 +142,6 @@ static void SetupUtsNamespace() {
 
   if (setdomainname("localdomain", 11) < 0) {
     DIE("setdomainname");
-  }
-}
-
-static void SetupHelperFiles() {
-  if (mkdtemp(global_inaccessible_directory) == NULL) {
-    DIE("mkdtemp(%s)", global_inaccessible_directory);
-  }
-  if (chmod(global_inaccessible_directory, 0) < 0) {
-    DIE("chmod(%s, 0)", global_inaccessible_directory);
-  }
-
-  int handle = mkstemp(global_inaccessible_file);
-  if (handle < 0) {
-    DIE("mkstemp(%s)", global_inaccessible_file);
-  }
-  if (fchmod(handle, 0)) {
-    DIE("fchmod(%s, 0)", global_inaccessible_file);
-  }
-  if (close(handle) < 0) {
-    DIE("close(%s)", global_inaccessible_file);
   }
 }
 
@@ -263,31 +241,6 @@ static void MountFilesystems() {
     if (mount(writable_file, writable_file + 1, NULL, MS_BIND, NULL) < 0) {
       DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file,
           writable_file + 1);
-    }
-  }
-
-  SetupHelperFiles();
-
-  for (const char *inaccessible_file : opt.inaccessible_files) {
-    struct stat sb;
-    if (stat(inaccessible_file, &sb) < 0) {
-      DIE("stat(%s)", inaccessible_file);
-    }
-
-    if (S_ISDIR(sb.st_mode)) {
-      PRINT_DEBUG("inaccessible dir: %s", inaccessible_file);
-      if (mount(global_inaccessible_directory, inaccessible_file + 1, NULL,
-                MS_BIND, NULL) < 0) {
-        DIE("mount(%s, %s, NULL, MS_BIND, NULL)", global_inaccessible_directory,
-            inaccessible_file + 1);
-      }
-    } else {
-      PRINT_DEBUG("inaccessible file: %s", inaccessible_file);
-      if (mount(global_inaccessible_file, inaccessible_file + 1, NULL, MS_BIND,
-                NULL) < 0) {
-        DIE("mount(%s, %s, NULL, MS_BIND, NULL", global_inaccessible_file,
-            inaccessible_file + 1);
-      }
     }
   }
 }

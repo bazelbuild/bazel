@@ -180,7 +180,6 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
           sandboxExecRoot,
           sandboxTempDir,
           getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
-          getInaccessiblePaths(),
           getTmpfsPaths(),
           getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
           verboseFailures,

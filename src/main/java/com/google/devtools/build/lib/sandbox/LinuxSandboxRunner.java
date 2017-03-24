@@ -43,7 +43,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
   private final Path sandboxTempDir;
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
-  private final Set<Path> inaccessiblePaths;
   private final Set<Path> tmpfsPaths;
   // a <target, source> mapping of paths to bind mount
   private final Map<Path, Path> bindMounts;
@@ -55,7 +54,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
       Path sandboxExecRoot,
       Path sandboxTempDir,
       Set<Path> writableDirs,
-      Set<Path> inaccessiblePaths,
       Set<Path> tmpfsPaths,
       Map<Path, Path> bindMounts,
       boolean verboseFailures,
@@ -66,7 +64,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
     this.sandboxTempDir = sandboxTempDir;
     this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
     this.writableDirs = writableDirs;
-    this.inaccessiblePaths = inaccessiblePaths;
     this.tmpfsPaths = tmpfsPaths;
     this.bindMounts = bindMounts;
     this.sandboxDebug = sandboxDebug;
@@ -149,11 +146,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
     for (Path writablePath : writableDirs) {
       fileArgs.add("-w");
       fileArgs.add(writablePath.getPathString());
-    }
-
-    for (Path inaccessiblePath : inaccessiblePaths) {
-      fileArgs.add("-i");
-      fileArgs.add(inaccessiblePath.getPathString());
     }
 
     for (Path tmpfsPath : tmpfsPaths) {

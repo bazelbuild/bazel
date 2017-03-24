@@ -36,8 +36,6 @@ struct Options {
   const char *stderr_path;
   // Files or directories to make writable for the sandboxed process (-w)
   std::vector<const char *> writable_files;
-  // Files or directories to make inaccessible for the sandboxed process (-i)
-  std::vector<const char *> inaccessible_files;
   // Directories where to mount an empty tmpfs (-e)
   std::vector<const char *> tmpfs_dirs;
   // Source of files or directories to explicitly bind mount in the sandbox (-M)

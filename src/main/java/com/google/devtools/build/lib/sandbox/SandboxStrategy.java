@@ -47,7 +47,6 @@ import java.util.concurrent.atomic.AtomicReference;
 abstract class SandboxStrategy implements SandboxedSpawnActionContext {
 
   private final BuildRequest buildRequest;
-  private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
@@ -59,7 +58,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
     this.buildRequest = buildRequest;
-    this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
@@ -129,14 +127,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       writableDirs.add(sandboxExecRoot.getRelative(env.get("TEST_TMPDIR")));
     }
     return writableDirs.build();
-  }
-
-  protected ImmutableSet<Path> getInaccessiblePaths() {
-    ImmutableSet.Builder<Path> inaccessiblePaths = ImmutableSet.builder();
-    for (String path : sandboxOptions.sandboxBlockPath) {
-      inaccessiblePaths.add(blazeDirs.getFileSystem().getPath(path));
-    }
-    return inaccessiblePaths.build();
   }
 
   @Override
