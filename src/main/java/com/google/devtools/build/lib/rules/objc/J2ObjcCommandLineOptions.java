@@ -51,6 +51,13 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       )
   public boolean explicitJreDeps;
 
+  @Option(name = "experimental_j2objc_header_map",
+      defaultValue = "false",
+      category = "flags",
+      help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation."
+      )
+  public boolean experimentalJ2ObjcHeaderMap;
+
   @Override
   public void addAllLabels(Multimap<String, Label> labelMap) {}
 }

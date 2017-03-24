@@ -87,10 +87,12 @@ public class J2ObjcConfiguration extends Fragment {
   private final List<String> translationFlags;
   private final boolean removeDeadCode;
   private final boolean explicitJreDeps;
+  private final boolean experimentalJ2ObjcHeaderMap;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {
     this.removeDeadCode = j2ObjcOptions.removeDeadCode;
     this.explicitJreDeps = j2ObjcOptions.explicitJreDeps;
+    this.experimentalJ2ObjcHeaderMap = j2ObjcOptions.experimentalJ2ObjcHeaderMap;
     this.translationFlags = ImmutableList.<String>builder()
         .addAll(J2OBJC_DEFAULT_TRANSLATION_FLAGS)
         .addAll(j2ObjcOptions.translationFlags)
@@ -125,6 +127,14 @@ public class J2ObjcConfiguration extends Fragment {
    */
   public boolean explicitJreDeps() {
     return explicitJreDeps;
+  }
+
+  /**
+   * Returns whether to generate J2ObjC header map in a separate action in parallel of the J2ObjC
+   * transpilation action.
+   */
+  public boolean experimentalJ2ObjcHeaderMap() {
+    return experimentalJ2ObjcHeaderMap;
   }
 
   @Override
