@@ -81,34 +81,6 @@ static void Usage(char *program_name, const char *fmt, ...) {
   exit(EXIT_FAILURE);
 }
 
-// Child function used by CheckNamespacesSupported() in call to clone().
-static int CheckNamespacesSupportedChild(void *arg) { return 0; }
-
-// Check whether the required namespaces are supported.
-static int CheckNamespacesSupported() {
-  const int kStackSize = 1024 * 1024;
-  vector<char> child_stack(kStackSize);
-
-  pid_t pid = clone(CheckNamespacesSupportedChild, &child_stack.back(),
-                    CLONE_NEWUSER | CLONE_NEWNS | CLONE_NEWUTS | CLONE_NEWIPC |
-                        CLONE_NEWNET | CLONE_NEWPID | SIGCHLD,
-                    NULL);
-  if (pid < 0) {
-    DIE("pid");
-  }
-
-  int err;
-  do {
-    err = waitpid(pid, NULL, 0);
-  } while (err < 0 && errno == EINTR);
-
-  if (err < 0) {
-    DIE("waitpid");
-  }
-
-  return EXIT_SUCCESS;
-}
-
 static void ValidateIsAbsolutePath(char *path, char *program_name, char flag) {
   if (path[0] != '/') {
     Usage(program_name, "The -%c option must be used with absolute paths only.",
@@ -124,14 +96,10 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified;
 
-  while ((c = getopt(args->size(), args->data(),
-                     ":CW:T:t:l:L:w:e:M:m:HNRUD")) != -1) {
+  while ((c = getopt(args->size(), args->data(), ":W:T:t:l:L:w:e:M:m:HNRUD")) !=
+         -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
-      case 'C':
-        // Shortcut for the "does this system support sandboxing" check.
-        exit(CheckNamespacesSupported());
-        break;
       case 'W':
         if (opt.working_dir == NULL) {
           ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));

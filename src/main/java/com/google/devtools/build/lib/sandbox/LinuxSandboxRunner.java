@@ -67,8 +67,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
   }
 
   static boolean isSupported(CommandEnvironment commandEnv) {
-    Path execRoot = commandEnv.getExecRoot();
-
     PathFragment embeddedTool =
         commandEnv.getBlazeWorkspace().getBinTools().getExecPath(LINUX_SANDBOX);
     if (embeddedTool == null) {
@@ -77,9 +75,12 @@ final class LinuxSandboxRunner extends SandboxRunner {
       return false;
     }
 
+    Path execRoot = commandEnv.getExecRoot();
+
     List<String> args = new ArrayList<>();
     args.add(execRoot.getRelative(embeddedTool).getPathString());
-    args.add("-C");
+    args.add("--");
+    args.add("/bin/true");
 
     ImmutableMap<String, String> env = ImmutableMap.of();
     File cwd = execRoot.getPathFile();
