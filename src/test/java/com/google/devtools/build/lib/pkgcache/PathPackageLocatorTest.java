@@ -21,7 +21,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -164,12 +163,19 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     return scratch.file(workspace + "/" + packageName + "/BUILD");
   }
 
-  private void checkFails(String packageName, String expectorError) {
+  private void checkFails(String packageName, String expectedError) {
+    checkFails(getLocator(), packageName, expectedError);
+  }
+
+  private static void checkFails(
+      PathPackageLocator locator, String packageName, String expectedError) {
     try {
-      getLocator().getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName));
+      locator.getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName));
       fail();
     } catch (NoSuchPackageException e) {
-      assertThat(e).hasMessage(expectorError);
+      String message = e.getMessage();
+      assertThat(message)
+          .containsMatch(Pattern.compile(Pattern.quote(expectedError), Pattern.CASE_INSENSITIVE));
     }
   }
 
@@ -217,17 +223,8 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         PackageIdentifier.createInMainRepo("B")));
     assertEquals(buildFile_3CI, locatorWithSymlinks.getPackageBuildFile(
         PackageIdentifier.createInMainRepo("C/I")));
-    try {
-      locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/D"));
-      fail();
-    } catch (BuildFileNotFoundException e) {
-      String message = e.getMessage();
-      assertThat(message)
-          .containsMatch(
-              Pattern.compile(
-                  "no such package 'C/D': BUILD file not found on package path",
-                  Pattern.CASE_INSENSITIVE));
-    }
+    checkFails(
+        locatorWithSymlinks, "C/D", "no such package 'C/D': BUILD file not found on package path");
   }
 
   @Test
