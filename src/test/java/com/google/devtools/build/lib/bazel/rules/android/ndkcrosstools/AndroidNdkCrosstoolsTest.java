@@ -186,6 +186,26 @@ public class AndroidNdkCrosstoolsTest {
     }
   }
 
+  // Regression test for b/36091573
+  @Test
+  public void testBuiltinIncludesDirectories() {
+    for (CrosstoolRelease crosstool : crosstoolReleases) {
+      for (CToolchain toolchain : crosstool.getToolchainList()) {
+        // Each toolchain has at least one built-in include directory
+        assertThat(toolchain.getCxxBuiltinIncludeDirectoryList()).isNotEmpty();
+
+        for (String flag : toolchain.getUnfilteredCxxFlagList()) {
+          // This list only contains "-isystem" and the values after "-isystem".
+          if (!flag.equals("-isystem")) {
+            // We should NOT be setting -isystem for the builtin includes directories. They are
+            // already on the search list and adding the -isystem flag just changes their priority.
+            assertThat(toolchain.getCxxBuiltinIncludeDirectoryList()).doesNotContain(flag);
+          }
+        }
+      }
+    }
+  }
+
   @Test
   public void testStlFilegroupPathsExist() throws Exception {
 

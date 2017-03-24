@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import java.util.Arrays;
 import java.util.List;
@@ -36,7 +37,8 @@ public class NdkPaths {
     return path.split("/", 3)[2];
   }
 
-  private final String repositoryName, hostPlatform;
+  private final String repositoryName;
+  private final String hostPlatform;
   private final ApiLevel apiLevel;
 
   public NdkPaths(String repositoryName, String hostPlatform, ApiLevel apiLevel) {
@@ -116,48 +118,12 @@ public class NdkPaths {
   }
 
   /**
-   * Adds {@code cxx_builtin_include_directory} to the toolchain and also sets -isystem for that
-   * directory. Note that setting -isystem should be entirely unnecessary since builtin include
-   * directories are on the compiler search path by default by definition. This should be cleaned
-   * up (b/36091573).
-   *
-   * <p>Note also that this method is only for gcc include paths. The clang include paths follow a
-   * different path template and are not separated by architecture.
-   */
-  public void addGccToolchainIncludePaths(
-      List<CToolchain.Builder> toolchains,
-      String toolchainName,
-      String targetPlatform,
-      String gccVersion) {
-
-    for (CToolchain.Builder toolchain : toolchains) {
-      addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
-    }
-  }
-
-  public void addGccToolchainIncludePaths(
-      CToolchain.Builder toolchain,
-      String toolchainName,
-      String targetPlatform,
-      String gccVersion) {
-
-    List<String> includePaths =
-        this.createToolchainIncludePaths(toolchainName, targetPlatform, gccVersion);
-    
-    for (String includePath : includePaths) {
-      toolchain.addCxxBuiltinIncludeDirectory(includePath);
-      toolchain.addUnfilteredCxxFlag("-isystem");
-      toolchain.addUnfilteredCxxFlag(includePath);
-    }
-  }
-
-  /**
    * Gets the clang NDK builtin includes directories that exist in the NDK. These directories are
    * always searched for header files by clang and should be added to the CROSSTOOL in the
    * cxx_builtin_include_directories list.
    *
    * <p>You can see the list of directories and the order that they are searched in by running
-   * {@code clang -E -x c++ - -v < /dev/null}. Note that the same command works for {@code gcc}.
+   * {@code clang -E -x c++ - -v < /dev/null}.
    */
   public String createClangToolchainBuiltinIncludeDirectory(String clangVersion) {
     String clangBuiltinIncludeDirectoryPathTemplate =
@@ -168,34 +134,34 @@ public class NdkPaths {
         .replace("%hostPlatform%", hostPlatform)
         .replace("%clangVersion%", clangVersion);
   }
-  
-  private ImmutableList<String> createToolchainIncludePaths(
-      String toolchainName, String targetPlatform, String gccVersion) {
 
-    ImmutableList.Builder<String> includePaths = ImmutableList.builder();
-
-    includePaths.add(createToolchainIncludePath(
-        toolchainName, targetPlatform, gccVersion, "include"));
-    includePaths.add(createToolchainIncludePath(
-        toolchainName, targetPlatform, gccVersion, "include-fixed"));
-    
-    return includePaths.build();
-  }
-
-  private String createToolchainIncludePath(
-      String toolchainName, String targetPlatform, String gccVersion, String includeFolderName) {
-
-    String toolchainIncludePathTemplate =
+  /**
+   * Gets the gcc NDK builtin includes directories that exist in the NDK. These directories are
+   * always searched for header files by clang and should be added to the CROSSTOOL in the
+   * cxx_builtin_include_directories list.
+   *
+   * <p>You can see the list of directories and the order that they are searched in by running
+   * {@code gcc -E -x c++ - -v < /dev/null}.
+   */
+  public List<String> createGccToolchainBuiltinIncludeDirectories(
+      final String toolchainName, final String targetPlatform, final String gccVersion) {
+    final String toolchainIncludePathTemplate =
         "external/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%"
-        + "/lib/gcc/%targetPlatform%/%gccVersion%/%includeFolderName%";
-
-    return toolchainIncludePathTemplate
-        .replace("%repositoryName%", repositoryName)
-        .replace("%toolchainName%", toolchainName)
-        .replace("%hostPlatform%", hostPlatform)
-        .replace("%targetPlatform%", targetPlatform)
-        .replace("%gccVersion%", gccVersion)
-        .replace("%includeFolderName%", includeFolderName);
+            + "/lib/gcc/%targetPlatform%/%gccVersion%/%includeFolderName%";
+    return Lists.transform(
+        ImmutableList.of("include", "include-fixed"),
+        new Function<String, String>() {
+          @Override
+          public String apply(String includeFolderName) {
+            return toolchainIncludePathTemplate
+                .replace("%repositoryName%", repositoryName)
+                .replace("%toolchainName%", toolchainName)
+                .replace("%hostPlatform%", hostPlatform)
+                .replace("%targetPlatform%", targetPlatform)
+                .replace("%gccVersion%", gccVersion)
+                .replace("%includeFolderName%", includeFolderName);
+          }
+        });
   }
 
   public String createBuiltinSysroot(String targetCpu) {

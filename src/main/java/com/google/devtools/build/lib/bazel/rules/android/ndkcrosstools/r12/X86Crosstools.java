@@ -63,10 +63,12 @@ class X86Crosstools {
             .setTargetCpu("x86_64")
             .setCompiler("gcc-4.9")
             .addAllToolPath(ndkPaths.createToolpaths("x86_64-4.9", "x86_64-linux-android"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                    "x86_64-4.9", "x86_64-linux-android", "4.9.x"))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"))
             .addCompilerFlag("-fstack-protector-strong");
 
-    ndkPaths.addGccToolchainIncludePaths(x8664, "x86_64-4.9", "x86_64-linux-android", "4.9.x");
     stlImpl.addStlImpl(x8664, "4.9");
     toolchains.add(x8664);
 
@@ -99,10 +101,12 @@ class X86Crosstools {
             .setTargetCpu("x86")
             .setCompiler("gcc-4.9")
             .addAllToolPath(ndkPaths.createToolpaths("x86-4.9", "i686-linux-android"))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                    "x86-4.9", "i686-linux-android", "4.9.x"))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"))
             .addCompilerFlag("-fstack-protector-strong");
 
-    ndkPaths.addGccToolchainIncludePaths(toolchain, "x86-4.9", "i686-linux-android", "4.9.x");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }

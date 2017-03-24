@@ -59,6 +59,9 @@ class ArmCrosstools {
             .setTargetCpu("arm64-v8a")
             .setCompiler("gcc-4.9")
             .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                    toolchainName, targetPlatform, "4.9.x"))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
 
             // Compiler flags
@@ -87,7 +90,6 @@ class ArmCrosstools {
                     .addCompilerFlag("-O0")
                     .addCompilerFlag("-UNDEBUG"));
 
-    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     stlImpl.addStlImpl(toolchain, "4.9");
     return toolchain;
   }
@@ -177,6 +179,9 @@ class ArmCrosstools {
             .setTargetSystemName(targetPlatform)
             .setCompiler("gcc-4.9")
             .addAllToolPath(ndkPaths.createToolpaths(toolchainName, targetPlatform))
+            .addAllCxxBuiltinIncludeDirectory(
+                ndkPaths.createGccToolchainBuiltinIncludeDirectories(
+                    toolchainName, targetPlatform, "4.9.x"))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
             // Compiler flags
@@ -206,7 +211,6 @@ class ArmCrosstools {
             .addCompilerFlag("-O0")
             .addCompilerFlag("-UNDEBUG"));
 
-    ndkPaths.addGccToolchainIncludePaths(toolchain, toolchainName, targetPlatform, "4.9.x");
     return toolchain;
   }
 
