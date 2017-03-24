@@ -190,6 +190,16 @@ TEST_F(BlazeUtilTest, TestSearchNullaryCommandOption) {
                                   "--flag"));
 }
 
+TEST_F(BlazeUtilTest, TestSearchNullarySkipsAfterDashDash) {
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "build", ":target", "--", "--flag"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchNullarySucceedsWithEqualsAndDashDash) {
+  ASSERT_FALSE(SearchNullaryOption(
+      {"bazel", "build", ":target", "--", "--flag=value"}, "--flag"));
+}
+
 TEST_F(BlazeUtilTest, TestSearchUnaryForEmpty) {
   ASSERT_STREQ(nullptr, SearchUnaryOption({"bazel", "build", ":target"}, ""));
 }
@@ -221,6 +231,20 @@ TEST_F(BlazeUtilTest, TestSearchUnaryCommandOptionWithoutEquals) {
   ASSERT_STREQ("value",
                SearchUnaryOption(
                    {"bazel", "build", ":target", "--flag=value"}, "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithEquals) {
+  ASSERT_STREQ(nullptr,
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--", "--flag", "value"},
+                   "--flag"));
+}
+
+TEST_F(BlazeUtilTest, TestSearchUnarySkipsAfterDashDashWithoutEquals) {
+  ASSERT_STREQ(nullptr,
+               SearchUnaryOption(
+                   {"bazel", "build", ":target", "--", "--flag=value"},
+                   "--flag"));
 }
 
 }  // namespace blaze

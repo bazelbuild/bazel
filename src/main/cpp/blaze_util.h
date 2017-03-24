@@ -55,12 +55,14 @@ const char* GetUnaryOption(const char *arg,
 // Returns false otherwise.
 bool GetNullaryOption(const char *arg, const char *key);
 
-// Searches for 'key' in 'args' using GetUnaryOption.
+// Searches for 'key' in 'args' using GetUnaryOption. Arguments found after '--'
+// are omitted from the search.
 // Returns true iff key is a flag in args.
 const char* SearchUnaryOption(const std::vector<std::string>& args,
                               const char* key);
 
-// Searches for 'key' in 'args' using GetNullaryOption.
+// Searches for 'key' in 'args' using GetNullaryOption. Arguments found after
+// '--' are omitted from the search.
 // Returns the value of the 'key' flag iff it occurs in args.
 bool SearchNullaryOption(const std::vector<std::string>& args,
                          const char* key);
