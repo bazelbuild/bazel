@@ -484,6 +484,14 @@ def main():
   # Run J2ObjC over the normal input Java files and unzipped gen jar Java files.
   # The output is stored in a temporary directory.
   tmp_objc_file_root = tempfile.mkdtemp()
+
+  # If we do not generate the header mapping from J2ObjC, we still
+  # need to specify --output-header-mapping, as it signals to J2ObjC that we
+  # are using source paths as import paths, not package paths.
+  # TODO(rduan): Make another flag in J2ObjC to specify using source paths.
+  if '--output-header-mapping' not in j2objc_flags:
+    j2objc_flags.extend(['--output-header-mapping', '/dev/null'])
+
   RunJ2ObjC(args.java,
             args.jvm_flags,
             args.j2objc,
