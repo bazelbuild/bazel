@@ -25,9 +25,7 @@ import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.processing.AnnotationProcessingModule;
 import java.io.File;
-import java.io.IOError;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -295,7 +293,8 @@ public final class JavaLibraryBuildRequest {
         .classPath(toPaths(classPath))
         .classOutput(Paths.get(getClassDir()))
         .bootClassPath(
-            ImmutableList.copyOf(Iterables.concat(toPaths(getBootClassPath()), getExtJars())))
+            ImmutableList.copyOf(
+                Iterables.concat(toPaths(getBootClassPath()), toPaths(getExtdir()))))
         .javacOptions(makeJavacArguments())
         .sourceFiles(ImmutableList.copyOf(getSourceFiles()))
         .processors(null)
@@ -304,28 +303,6 @@ public final class JavaLibraryBuildRequest {
         .processorPath(toPaths(getProcessorPath()))
         .plugins(getPlugins())
         .build();
-  }
-
-  // TODO(cushon): make Bazel pass the individual files instead of inferring a directory and
-  // listing it here
-  List<Path> getExtJars() {
-    if (getExtdir() == null) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Path> jars = ImmutableList.builder();
-    for (String file : Splitter.on(File.pathSeparatorChar).split(getExtdir())) {
-      try {
-        Path path = Paths.get(file);
-        if (Files.isDirectory(path)) {
-          Files.list(path).forEach(jars::add);
-        } else {
-          jars.add(path);
-        }
-      } catch (IOException e) {
-        throw new IOError(e);
-      }
-    }
-    return jars.build();
   }
 
   static ImmutableList<Path> toPaths(List<String> files) {
