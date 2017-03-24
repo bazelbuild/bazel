@@ -54,6 +54,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include <string>
+
 static int global_child_pid;
 
 static void SetupSelfDestruction(int *sync_pipe) {
@@ -87,10 +89,10 @@ static void SetupMountNamespace() {
   }
 }
 
-static void WriteFile(const char *filename, const char *fmt, ...) {
-  FILE *stream = fopen(filename, "w");
+static void WriteFile(const std::string &filename, const char *fmt, ...) {
+  FILE *stream = fopen(filename.c_str(), "w");
   if (stream == NULL) {
-    DIE("fopen(%s)", filename);
+    DIE("fopen(%s)", filename.c_str());
   }
 
   va_list ap;
@@ -103,7 +105,7 @@ static void WriteFile(const char *filename, const char *fmt, ...) {
   }
 
   if (fclose(stream) != 0) {
-    DIE("fclose(%s)", filename);
+    DIE("fclose(%s)", filename.c_str());
   }
 }
 
@@ -155,55 +157,59 @@ static void SetupUtsNamespace() {
 }
 
 static void MountFilesystems() {
-  for (const char *tmpfs_dir : opt.tmpfs_dirs) {
-    PRINT_DEBUG("tmpfs: %s", tmpfs_dir);
-    if (mount("tmpfs", tmpfs_dir, "tmpfs", MS_NOSUID | MS_NODEV | MS_NOATIME,
-              NULL) < 0) {
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    PRINT_DEBUG("tmpfs: %s", tmpfs_dir.c_str());
+    if (mount("tmpfs", tmpfs_dir.c_str(), "tmpfs",
+              MS_NOSUID | MS_NODEV | MS_NOATIME, NULL) < 0) {
       DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, NULL)",
-          tmpfs_dir);
+          tmpfs_dir.c_str());
     }
   }
 
   // Make sure that our working directory is a mount point. The easiest way to
   // do this is by bind-mounting it upon itself.
-  PRINT_DEBUG("working dir: %s", opt.working_dir);
+  PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
-  if (mount(opt.working_dir, opt.working_dir, NULL, MS_BIND, NULL) < 0) {
-    DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir, opt.working_dir);
+  if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), NULL, MS_BIND,
+            NULL) < 0) {
+    DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir.c_str(),
+        opt.working_dir.c_str());
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    const char *source = opt.bind_mount_sources.at(i);
-    const char *target = opt.bind_mount_targets.at(i);
-    PRINT_DEBUG("bind mount: %s -> %s", source, target);
-    if (mount(source, target, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source, target);
+    std::string source = opt.bind_mount_sources.at(i);
+    std::string target = opt.bind_mount_targets.at(i);
+    PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
+    if (mount(source.c_str(), target.c_str(), NULL, MS_BIND, NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source.c_str(), target.c_str());
     }
   }
 
-  for (const char *writable_file : opt.writable_files) {
-    PRINT_DEBUG("writable: %s", writable_file);
-    if (mount(writable_file, writable_file, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file, writable_file);
+  for (const std::string &writable_file : opt.writable_files) {
+    PRINT_DEBUG("writable: %s", writable_file.c_str());
+    if (mount(writable_file.c_str(), writable_file.c_str(), NULL, MS_BIND,
+              NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file.c_str(),
+          writable_file.c_str());
     }
   }
 }
 
 // We later remount everything read-only, except the paths for which this method
 // returns true.
-static bool ShouldBeWritable(char *mnt_dir) {
-  if (strcmp(mnt_dir, opt.working_dir) == 0) {
+static bool ShouldBeWritable(const std::string &mnt_dir) {
+  if (mnt_dir == opt.working_dir) {
     return true;
   }
 
-  for (const char *writable_file : opt.writable_files) {
-    if (strcmp(mnt_dir, writable_file) == 0) {
+  for (const std::string &writable_file : opt.writable_files) {
+    if (mnt_dir == writable_file) {
       return true;
     }
   }
 
-  for (const char *tmpfs_dir : opt.tmpfs_dirs) {
-    if (strcmp(mnt_dir, tmpfs_dir) == 0) {
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    if (mnt_dir == tmpfs_dir) {
       return true;
     }
   }
@@ -315,8 +321,8 @@ static void SetupNetworking() {
 }
 
 static void EnterSandbox() {
-  if (chdir(opt.working_dir) < 0) {
-    DIE("chdir(%s)", opt.working_dir);
+  if (chdir(opt.working_dir.c_str()) < 0) {
+    DIE("chdir(%s)", opt.working_dir.c_str());
   }
 }
 

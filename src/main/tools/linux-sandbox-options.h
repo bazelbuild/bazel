@@ -18,28 +18,29 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include <string>
 #include <vector>
 
 // Options parsing result.
 struct Options {
   // Working directory (-W)
-  const char *working_dir;
+  std::string working_dir;
   // How long to wait before killing the child (-T)
   int timeout_secs;
   // How long to wait before sending SIGKILL in case of timeout (-t)
   int kill_delay_secs;
   // Where to redirect stdout (-l)
-  const char *stdout_path;
+  std::string stdout_path;
   // Where to redirect stderr (-L)
-  const char *stderr_path;
+  std::string stderr_path;
   // Files or directories to make writable for the sandboxed process (-w)
-  std::vector<const char *> writable_files;
+  std::vector<std::string> writable_files;
   // Directories where to mount an empty tmpfs (-e)
-  std::vector<const char *> tmpfs_dirs;
+  std::vector<std::string> tmpfs_dirs;
   // Source of files or directories to explicitly bind mount in the sandbox (-M)
-  std::vector<const char *> bind_mount_sources;
+  std::vector<std::string> bind_mount_sources;
   // Target of files or directories to explicitly bind mount in the sandbox (-m)
-  std::vector<const char *> bind_mount_targets;
+  std::vector<std::string> bind_mount_targets;
   // Set the hostname inside the sandbox to 'localhost' (-H)
   bool fake_hostname;
   // Create a new network namespace (-N)
