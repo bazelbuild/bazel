@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -156,52 +157,23 @@ class Desugar {
     public boolean coreLibrary;
   }
 
-  public static void main(String[] args) throws Exception {
-    // LambdaClassMaker generates lambda classes for us, but it does so by essentially simulating
-    // the call to LambdaMetafactory that the JVM would make when encountering an invokedynamic.
-    // LambdaMetafactory is in the JDK and its implementation has a property to write out ("dump")
-    // generated classes, which we take advantage of here.  Set property before doing anything else
-    // since the property is read in the static initializer; if this breaks we can investigate
-    // setting the property when calling the tool.
-    Path dumpDirectory = Files.createTempDirectory("lambdas");
-    System.setProperty(
-        LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
+  private final Options options;
+  private final Path dumpDirectory;
+  private final CoreLibraryRewriter rewriter;
+  private final LambdaClassMaker lambdas;
+  private final boolean allowDefaultMethods;
+  private final boolean allowCallsToObjectsNonNull;
 
-    deleteTreeOnExit(dumpDirectory);
+  private Desugar(Options options, Path dumpDirectory) {
+    this.options = options;
+    this.dumpDirectory = dumpDirectory;
+    this.rewriter = new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
+    this.lambdas = new LambdaClassMaker(dumpDirectory);
+    this.allowDefaultMethods = options.minSdkVersion >= 24;
+    this.allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
+  }
 
-    if (args.length == 1 && args[0].startsWith("@")) {
-      args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
-    }
-
-    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
-    optionsParser.setAllowResidue(false);
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
-
-    checkState(!options.inputJars.isEmpty(), "--input is required");
-    checkState(
-        options.inputJars.size() == options.outputJars.size(),
-        "Desugar requires the same number of inputs and outputs to pair them");
-    checkState(!options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
-        "At least one --bootclasspath_entry is required");
-    for (Path path : options.classpath) {
-      checkState(!Files.isDirectory(path), "Classpath entry must be a jar file: %s", path);
-    }
-    for (Path path : options.bootclasspath) {
-      checkState(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
-    }
-    if (options.verbose) {
-      System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
-    }
-
-    CoreLibraryRewriter rewriter =
-        new CoreLibraryRewriter(options.coreLibrary ? "__desugar__/" : "");
-
-    boolean allowDefaultMethods = options.minSdkVersion >= 24;
-    boolean allowCallsToObjectsNonNull = options.minSdkVersion >= 19;
-
-    LambdaClassMaker lambdas = new LambdaClassMaker(dumpDirectory);
-
+  public void desugar() throws Exception {
     try (Closer closer = Closer.create()) {
       IndexedInputs indexedClasspath =
           new IndexedInputs(toRegisteredInputFileProvider(closer, options.classpath));
@@ -291,20 +263,20 @@ class Desugar {
               !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
               "Desugaring with default methods enabled moved interface lambdas");
 
-            // Write out the lambda classes we generated along the way
-            ImmutableMap<Path, LambdaInfo> lambdaClasses = lambdas.drain();
-            checkState(
-                !options.onlyDesugarJavac9ForLint || lambdaClasses.isEmpty(),
-                "There should be no lambda classes generated: %s",
-                lambdaClasses.keySet());
+          // Write out the lambda classes we generated along the way
+          ImmutableMap<Path, LambdaInfo> lambdaClasses = lambdas.drain();
+          checkState(
+              !options.onlyDesugarJavac9ForLint || lambdaClasses.isEmpty(),
+              "There should be no lambda classes generated: %s",
+              lambdaClasses.keySet());
 
-            for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
-              try (InputStream bytecode =
-                  Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
-                ClassReader reader = rewriter.reader(bytecode);
-                CoreLibraryRewriter.UnprefixingClassWriter writer =
-                    rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
-                ClassVisitor visitor = writer;
+          for (Map.Entry<Path, LambdaInfo> lambdaClass : lambdaClasses.entrySet()) {
+            try (InputStream bytecode =
+                Files.newInputStream(dumpDirectory.resolve(lambdaClass.getKey()))) {
+              ClassReader reader = rewriter.reader(bytecode);
+              CoreLibraryRewriter.UnprefixingClassWriter writer =
+                  rewriter.writer(ClassWriter.COMPUTE_MAXS /*for invoking bridges*/);
+              ClassVisitor visitor = writer;
 
               if (!allowDefaultMethods) {
                 // null ClassReaderFactory b/c we don't expect to need it for lambda classes
@@ -337,13 +309,69 @@ class Desugar {
           }
         }
 
-        Map<Path, LambdaInfo> leftBehind = lambdas.drain();
+        ImmutableMap<Path, LambdaInfo> leftBehind = lambdas.drain();
         checkState(leftBehind.isEmpty(), "Didn't process %s", leftBehind);
       }
     }
   }
 
-  private static List<InputOutputPair> toInputOutputPairs(Options options) {
+  public static void main(String[] args) throws Exception {
+    // It is important that this method is called first. See its javadoc.
+    Path dumpDirectory = createAndRegisterLambdaDumpDirectory();
+    Options options = parseCommandLineOptions(args);
+    if (options.verbose) {
+      System.out.printf("Lambda classes will be written under %s%n", dumpDirectory);
+    }
+    new Desugar(options, dumpDirectory).desugar();
+  }
+
+  /**
+   * LambdaClassMaker generates lambda classes for us, but it does so by essentially simulating the
+   * call to LambdaMetafactory that the JVM would make when encountering an invokedynamic.
+   * LambdaMetafactory is in the JDK and its implementation has a property to write out ("dump")
+   * generated classes, which we take advantage of here. Set property before doing anything else
+   * since the property is read in the static initializer; if this breaks we can investigate setting
+   * the property when calling the tool.
+   */
+  private static Path createAndRegisterLambdaDumpDirectory() throws IOException {
+    Path dumpDirectory = Files.createTempDirectory("lambdas");
+    System.setProperty(
+        LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY, dumpDirectory.toString());
+
+    deleteTreeOnExit(dumpDirectory);
+    return dumpDirectory;
+  }
+
+  private static Options parseCommandLineOptions(String[] args) throws IOException {
+    if (args.length == 1 && args[0].startsWith("@")) {
+      args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
+    }
+
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(Options.class);
+    optionsParser.setAllowResidue(false);
+    optionsParser.parseAndExitUponError(args);
+
+    Options options = optionsParser.getOptions(Options.class);
+
+    checkArgument(!options.inputJars.isEmpty(), "--input is required");
+    checkArgument(
+        options.inputJars.size() == options.outputJars.size(),
+        "Desugar requires the same number of inputs and outputs to pair them. #input=%s,#output=%s",
+        options.inputJars.size(),
+        options.outputJars.size());
+    checkArgument(
+        !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
+        "At least one --bootclasspath_entry is required");
+    for (Path path : options.classpath) {
+      checkArgument(!Files.isDirectory(path), "Classpath entry must be a jar file: %s", path);
+    }
+    for (Path path : options.bootclasspath) {
+      checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
+    }
+    return options;
+  }
+
+  private static ImmutableList<InputOutputPair> toInputOutputPairs(Options options) {
     final ImmutableList.Builder<InputOutputPair> ioPairListbuilder = ImmutableList.builder();
     for (Iterator<Path> inputIt = options.inputJars.iterator(),
                 outputIt = options.outputJars.iterator();
