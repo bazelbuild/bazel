@@ -211,15 +211,6 @@ static bool ShouldBeWritable(char *mnt_dir) {
   return false;
 }
 
-static bool IsUnderTmpDir(const char *mnt_dir) {
-  for (const char *tmpfs_dir : opt.tmpfs_dirs) {
-    if (strstr(mnt_dir, tmpfs_dir) == mnt_dir) {
-      return true;
-    }
-  }
-  return false;
-}
-
 // Makes the whole filesystem read-only, except for the paths for which
 // ShouldBeWritable returns true.
 static void MakeFilesystemMostlyReadOnly() {
@@ -230,13 +221,6 @@ static void MakeFilesystemMostlyReadOnly() {
 
   struct mntent *ent;
   while ((ent = getmntent(mounts)) != NULL) {
-    // Skip mounts that are under tmpfs directories because we've already
-    // replaced such directories with new tmpfs instances.
-    // mount() would fail with ENOENT if we tried to remount such mount points.
-    if (IsUnderTmpDir(ent->mnt_dir)) {
-      continue;
-    }
-
     int mountFlags = MS_BIND | MS_REMOUNT;
 
     // MS_REMOUNT does not allow us to change certain flags. This means, we have
@@ -271,17 +255,17 @@ static void MakeFilesystemMostlyReadOnly() {
     if (mount(NULL, ent->mnt_dir, NULL, mountFlags, NULL) < 0) {
       // If we get EACCES or EPERM, this might be a mount-point for which we
       // don't have read access. Not much we can do about this, but it also
-      // won't do any harm, so let's go on. The same goes for EINVAL, which is
-      // fired in case a later mount overlaps an earlier mount, e.g. consider
-      // the case of /proc, /proc/sys/fs/binfmt_misc and /proc, with the latter
-      // /proc being the one that an outer sandbox has mounted on top of its
-      // parent /proc. In that case, we're not allowed to remount
+      // won't do any harm, so let's go on. The same goes for EINVAL or ENOENT,
+      // which are fired in case a later mount overlaps an earlier mount, e.g.
+      // consider the case of /proc, /proc/sys/fs/binfmt_misc and /proc, with
+      // the latter /proc being the one that an outer sandbox has mounted on
+      // top of its parent /proc. In that case, we're not allowed to remount
       // /proc/sys/fs/binfmt_misc, because it is hidden. If we get ESTALE, the
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
       // should just ignore it.
-      if (errno != EACCES && errno != EINVAL && errno != ESTALE &&
-          errno != EPERM) {
+      if (errno != EACCES && errno != EPERM && errno != EINVAL &&
+          errno != ENOENT && errno != ESTALE) {
         DIE("remount(NULL, %s, NULL, %d, NULL)", ent->mnt_dir, mountFlags);
       }
     }
