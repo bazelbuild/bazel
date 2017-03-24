@@ -259,8 +259,6 @@ void ParseOptions(int argc, char *argv[]) {
     Usage(args.front(), "No command specified.");
   }
 
-  opt.tmpfs_dirs.push_back("/tmp");
-
   if (opt.working_dir.empty()) {
     opt.working_dir = getcwd(NULL, 0);
   }

@@ -20,11 +20,10 @@
  *  - The working directory (-W) will be made read-write, though.
  *  - Individual files or directories can be made writable (but not deletable)
  *    (-w).
- *  - tmpfs will be mounted on /tmp.
- *  - tmpfs can be mounted on top of existing directories (-e), too.
  *  - If the process takes longer than the timeout (-T), it will be killed with
  *    SIGTERM. If it does not exit within the grace period (-t), it all of its
  *    children will be killed with SIGKILL.
+ *  - tmpfs can be mounted on top of existing directories (-e).
  *  - If option -R is passed, the process will run as user 'root'.
  *  - If option -U is passed, the process will run as user 'nobody'.
  *  - Otherwise, the process runs using the current uid / gid.
