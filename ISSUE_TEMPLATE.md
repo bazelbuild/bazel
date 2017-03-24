@@ -18,7 +18,10 @@ _If asking a question or requesting a feature, also tell us about the underlying
 * If `bazel info release` returns "development version" or "(@non-git)", please tell us what source tree you compiled Bazel from; git commit hash is appreciated (`git rev-parse HEAD`):
 
 
-###  Have you found anything relevant by searching the web? (e.g. GitHub issues, email threads in the [bazel-discuss@googlegroups.com](https://groups.google.com/forum/#!forum/bazel-discuss) archive)
+###  Have you found anything relevant by searching the web?
+(e.g. [StackOverflow answers](http://stackoverflow.com/questions/tagged/bazel),
+[GitHub issues](https://github.com/bazelbuild/bazel/issues),
+email threads on the [`bazel-discuss`](https://groups.google.com/forum/#!forum/bazel-discuss) Google group)
 
 
 ### Anything else, information or logs or outputs that would be helpful?
