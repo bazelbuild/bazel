@@ -47,14 +47,8 @@ import java.util.concurrent.atomic.AtomicReference;
   contextType = SpawnActionContext.class
 )
 public class LinuxSandboxedStrategy extends SandboxStrategy {
-  private static Boolean sandboxingSupported = null;
-
   public static boolean isSupported(CommandEnvironment env) {
-    if (sandboxingSupported == null) {
-      sandboxingSupported =
-          ProcessWrapperRunner.isSupported(env) || LinuxSandboxRunner.isSupported(env);
-    }
-    return sandboxingSupported.booleanValue();
+    return LinuxSandboxRunner.isSupported(env);
   }
 
   private final SandboxOptions sandboxOptions;
@@ -62,7 +56,6 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final String productName;
-  private final boolean fullySupported;
 
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
@@ -71,8 +64,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       boolean verboseFailures,
-      String productName,
-      boolean fullySupported) {
+      String productName) {
     super(
         buildRequest,
         blazeDirs,
@@ -83,7 +75,6 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.productName = productName;
-    this.fullySupported = fullySupported;
   }
 
   @Override
@@ -113,7 +104,17 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    SandboxRunner runner = getSandboxRunner(sandboxPath, sandboxExecRoot, writableDirs);
+    SandboxRunner runner =
+        new LinuxSandboxRunner(
+            execRoot,
+            sandboxPath,
+            sandboxExecRoot,
+            writableDirs,
+            getTmpfsPaths(),
+            getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
+            verboseFailures,
+            sandboxOptions.sandboxDebug);
+
     try {
       runSpawn(
           spawn,
@@ -137,23 +138,6 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
                           sandboxPath.getPathString(), e)));
         }
       }
-    }
-  }
-
-  private SandboxRunner getSandboxRunner(
-      Path sandboxPath, Path sandboxExecRoot, Set<Path> writableDirs) throws UserExecException {
-    if (fullySupported) {
-      return new LinuxSandboxRunner(
-          execRoot,
-          sandboxPath,
-          sandboxExecRoot,
-          writableDirs,
-          getTmpfsPaths(),
-          getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
-          verboseFailures,
-          sandboxOptions.sandboxDebug);
-    } else {
-      return new ProcessWrapperRunner(execRoot, sandboxExecRoot, verboseFailures);
     }
   }
 

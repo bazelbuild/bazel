@@ -49,18 +49,22 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     switch (OS.getCurrent()) {
       case LINUX:
         if (LinuxSandboxedStrategy.isSupported(env)) {
-          boolean fullySupported = LinuxSandboxRunner.isSupported(env);
-          if (!fullySupported
-              && !buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
-            env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
-          }
           contexts.add(
               new LinuxSandboxedStrategy(
                   buildRequest,
                   env.getDirectories(),
                   verboseFailures,
-                  env.getRuntime().getProductName(),
-                  fullySupported));
+                  env.getRuntime().getProductName()));
+        } else {
+          if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
+            env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
+          }
+          contexts.add(
+              new ProcessWrapperSandboxedStrategy(
+                  buildRequest,
+                  env.getDirectories(),
+                  verboseFailures,
+                  env.getRuntime().getProductName()));
         }
         break;
       case DARWIN:
@@ -77,6 +81,14 @@ final class SandboxActionContextProvider extends ActionContextProvider {
             env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
           }
         }
+        break;
+      case FREEBSD:
+        contexts.add(
+            new ProcessWrapperSandboxedStrategy(
+                buildRequest,
+                env.getDirectories(),
+                verboseFailures,
+                env.getRuntime().getProductName()));
         break;
       default:
         // No sandboxing available.
