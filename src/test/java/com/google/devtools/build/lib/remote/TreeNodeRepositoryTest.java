@@ -18,12 +18,17 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystem.HashFunction;
+import com.google.devtools.build.lib.vfs.Path;
 import java.util.ArrayList;
 import org.junit.Before;
 import org.junit.Test;
@@ -35,11 +40,20 @@ import org.junit.runners.JUnit4;
 public class TreeNodeRepositoryTest {
   private Scratch scratch;
   private Root rootDir;
+  private Path rootPath;
 
   @Before
   public final void setRootDir() throws Exception {
+    FileSystem.setDigestFunctionForTesting(HashFunction.SHA1);
     scratch = new Scratch();
     rootDir = Root.asDerivedRoot(scratch.dir("/exec/root"));
+    rootPath = rootDir.getPath();
+  }
+
+  private TreeNodeRepository createTestTreeNodeRepository() {
+    ActionInputFileCache inputFileCache = new SingleBuildFileCache(
+        rootPath.getPathString(), scratch.getFileSystem());
+    return new TreeNodeRepository(rootPath, inputFileCache);
   }
 
   @Test
@@ -49,7 +63,7 @@ public class TreeNodeRepositoryTest {
     Artifact fooH = new Artifact(scratch.file("/exec/root/a/foo.h"), rootDir);
     Artifact bar = new Artifact(scratch.file("/exec/root/b/bar.txt"), rootDir);
     Artifact baz = new Artifact(scratch.file("/exec/root/c/baz.txt"), rootDir);
-    TreeNodeRepository repo = new TreeNodeRepository(rootDir.getPath());
+    TreeNodeRepository repo = createTestTreeNodeRepository();
     TreeNode root1 = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(fooCc, fooH, bar));
     TreeNode root2 = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(fooCc, fooH, baz));
     // Reusing same node for the "a" subtree.
@@ -62,7 +76,7 @@ public class TreeNodeRepositoryTest {
   public void testMerkleDigests() throws Exception {
     Artifact foo = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
     Artifact bar = new Artifact(scratch.file("/exec/root/a/bar", "11"), rootDir);
-    TreeNodeRepository repo = new TreeNodeRepository(rootDir.getPath());
+    TreeNodeRepository repo = createTestTreeNodeRepository();
     TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo, bar));
     TreeNode aNode = root.getChildEntries().get(0).getChild();
     TreeNode fooNode = aNode.getChildEntries().get(1).getChild(); // foo > bar in sort order!
@@ -104,7 +118,7 @@ public class TreeNodeRepositoryTest {
     Artifact foo1 = new Artifact(scratch.file("/exec/root/a/foo", "1"), rootDir);
     Artifact foo2 = new Artifact(scratch.file("/exec/root/b/foo", "1"), rootDir);
     Artifact foo3 = new Artifact(scratch.file("/exec/root/c/foo", "1"), rootDir);
-    TreeNodeRepository repo = new TreeNodeRepository(rootDir.getPath());
+    TreeNodeRepository repo = createTestTreeNodeRepository();
     TreeNode root = repo.buildFromActionInputs(ImmutableList.<ActionInput>of(foo1, foo2, foo3));
     repo.computeMerkleDigests(root);
     // Reusing same node for the "foo" subtree: only need the root, root child, foo, and contents:

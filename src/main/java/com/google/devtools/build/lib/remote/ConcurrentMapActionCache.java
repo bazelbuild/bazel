@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -60,7 +62,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
       uploadBlob(fileNode.toByteArray());
     }
     for (TreeNode leaf : repository.leaves(root)) {
-      uploadFileContents(execRoot.getRelative(leaf.getActionInput().getExecPathString()));
+      uploadFileContents(leaf.getActionInput(), execRoot, repository.getInputFileCache());
     }
   }
 
@@ -81,6 +83,17 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
   public ContentDigest uploadFileContents(Path file) throws IOException, InterruptedException {
     // This unconditionally reads the whole file into memory first!
     return uploadBlob(ByteString.readFrom(file.getInputStream()).toByteArray());
+  }
+
+  @Override
+  public ContentDigest uploadFileContents(
+      ActionInput input, Path execRoot, ActionInputFileCache inputCache)
+      throws IOException, InterruptedException {
+    // This unconditionally reads the whole file into memory first!
+    return uploadBlob(
+        ByteString.readFrom(execRoot.getRelative(input.getExecPathString()).getInputStream())
+            .toByteArray(),
+        ContentDigests.getDigestFromInputCache(input, inputCache));
   }
 
   @Override
@@ -149,9 +162,12 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
 
   @Override
   public ContentDigest uploadBlob(byte[] blob) throws InterruptedException {
+    return uploadBlob(blob, ContentDigests.computeDigest(blob));
+  }
+
+  private ContentDigest uploadBlob(byte[] blob, ContentDigest digest) throws InterruptedException {
     int blobSizeKBytes = blob.length / 1024;
     checkBlobSize(blobSizeKBytes, "Upload");
-    ContentDigest digest = ContentDigests.computeDigest(blob);
     uploadMemoryAvailable.acquire(blobSizeKBytes);
     try {
       cache.put(ContentDigests.toHexString(digest), blob);

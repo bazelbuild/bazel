@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.remote;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -67,6 +69,16 @@ interface RemoteActionCache {
    * @return The key for fetching the file contents blob from cache.
    */
   ContentDigest uploadFileContents(Path file) throws IOException, InterruptedException;
+
+  /**
+   * Put the input file contents in cache if it is not already in it. No-op if the data is already
+   * stored in cache.
+   *
+   * @return The key for fetching the file contents blob from cache.
+   */
+  ContentDigest uploadFileContents(
+      ActionInput input, Path execRoot, ActionInputFileCache inputCache)
+      throws IOException, InterruptedException;
 
   /**
    * Download a blob keyed by the given digest and write it to the specified path. Set the

@@ -23,6 +23,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.TreeTraverser;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -177,14 +179,18 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   // Merkle hashes are computed and cached by the repository, therefore execRoot must
   // be part of the state.
   private final Path execRoot;
-  private final Map<ActionInput, ContentDigest> fileContentsDigestCache = new HashMap<>();
-  private final Map<ContentDigest, ActionInput> digestFileContentsCache = new HashMap<>();
+  private final ActionInputFileCache inputFileCache;
   private final Map<TreeNode, ContentDigest> treeNodeDigestCache = new HashMap<>();
   private final Map<ContentDigest, TreeNode> digestTreeNodeCache = new HashMap<>();
   private final Map<TreeNode, FileNode> fileNodeCache = new HashMap<>();
 
-  public TreeNodeRepository(Path execRoot) {
+  public TreeNodeRepository(Path execRoot, ActionInputFileCache inputFileCache) {
     this.execRoot = execRoot;
+    this.inputFileCache = inputFileCache;
+  }
+
+  public ActionInputFileCache getInputFileCache() {
+    return inputFileCache;
   }
 
   @Override
@@ -272,29 +278,16 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
     return interner.intern(new TreeNode(entries));
   }
 
-  private synchronized ContentDigest getOrComputeActionInputDigest(ActionInput actionInput)
-      throws IOException {
-    ContentDigest digest = fileContentsDigestCache.get(actionInput);
-    if (digest == null) {
-      digest = ContentDigests.computeDigest(execRoot.getRelative(actionInput.getExecPathString()));
-      fileContentsDigestCache.put(actionInput, digest);
-      digestFileContentsCache.put(digest, actionInput);
-    }
-    return digest;
-  }
-
   private synchronized FileNode getOrComputeFileNode(TreeNode node) throws IOException {
     // Assumes all child digests have already been computed!
     FileNode fileNode = fileNodeCache.get(node);
     if (fileNode == null) {
       FileNode.Builder b = FileNode.newBuilder();
       if (node.isLeaf()) {
-        ContentDigest fileDigest = fileContentsDigestCache.get(node.getActionInput());
-        Preconditions.checkState(fileDigest != null);
+        ActionInput input = node.getActionInput();
         b.getFileMetadataBuilder()
-            .setDigest(fileDigest)
-            .setExecutable(
-                execRoot.getRelative(node.getActionInput().getExecPathString()).isExecutable());
+            .setDigest(ContentDigests.getDigestFromInputCache(input, inputFileCache))
+            .setExecutable(execRoot.getRelative(input.getExecPathString()).isExecutable());
       } else {
         for (TreeNode.ChildEntry entry : node.getChildEntries()) {
           ContentDigest childDigest = treeNodeDigestCache.get(entry.getChild());
@@ -321,7 +314,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       }
     }
     if (root.isLeaf()) {
-      getOrComputeActionInputDigest(root.getActionInput());
+      // Load the digest into the ActionInputFileCache.
+      inputFileCache.getDigest(root.getActionInput());
     } else {
       for (TreeNode child : children(root)) {
         computeMerkleDigests(child);
@@ -342,12 +336,12 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
    * Returns the precomputed digests for both data and metadata. Should only be used after
    * computeMerkleDigests has been called on one of the node ancestors.
    */
-  public ImmutableCollection<ContentDigest> getAllDigests(TreeNode root) {
+  public ImmutableCollection<ContentDigest> getAllDigests(TreeNode root) throws IOException {
     ImmutableSet.Builder<ContentDigest> digests = ImmutableSet.builder();
     for (TreeNode node : descendants(root)) {
       digests.add(Preconditions.checkNotNull(treeNodeDigestCache.get(node)));
       if (node.isLeaf()) {
-        digests.add(Preconditions.checkNotNull(fileContentsDigestCache.get(node.getActionInput())));
+        digests.add(ContentDigests.getDigestFromInputCache(node.getActionInput(), inputFileCache));
       }
     }
     return digests.build();
@@ -379,7 +373,8 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
       if (treeNode != null) {
         nodes.add(Preconditions.checkNotNull(fileNodeCache.get(treeNode)));
       } else { // If not there, it must be an ActionInput.
-        actionInputs.add(Preconditions.checkNotNull(digestFileContentsCache.get(digest)));
+        ByteString hexDigest = ByteString.copyFromUtf8(ContentDigests.toHexString(digest));
+        actionInputs.add(Preconditions.checkNotNull(inputFileCache.getInputFromDigest(hexDigest)));
       }
     }
   }

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -233,7 +234,8 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
 
     try {
       // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
-      TreeNodeRepository repository = new TreeNodeRepository(execRoot);
+      ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
+      TreeNodeRepository repository = new TreeNodeRepository(execRoot, inputFileCache);
       SortedMap<PathFragment, ActionInput> inputMap =
           spawnInputExpander.getInputMapping(
               spawn,

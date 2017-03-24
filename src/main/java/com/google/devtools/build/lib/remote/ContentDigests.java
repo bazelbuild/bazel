@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.remote;
 
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
+import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
@@ -79,6 +81,11 @@ public final class ContentDigests {
     ContentDigest.Builder b = ContentDigest.newBuilder();
     b.setDigest(ByteString.copyFrom(digest)).setSizeBytes(size);
     return b.build();
+  }
+
+  public static ContentDigest getDigestFromInputCache(ActionInput input, ActionInputFileCache cache)
+      throws IOException {
+    return buildDigest(cache.getDigest(input), cache.getSizeInBytes(input));
   }
 
   public static String toHexString(ContentDigest digest) {
