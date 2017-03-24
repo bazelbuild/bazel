@@ -5,7 +5,7 @@ title: Specifying environment variables
 
 # Specifying environment variables for actions
 
-**Status**: Implemented.
+**Status**: Implemented. See [documentation](/docs/skylark/lib/ctx.html#action)
 
 **Author**: [Klaus Aehlig](mailto:aehlig@google.com)
 
