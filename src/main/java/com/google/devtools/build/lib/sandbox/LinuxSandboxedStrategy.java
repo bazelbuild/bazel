@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -92,6 +93,9 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
       throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "linux-sandbox"));
     SandboxHelpers.reportSubcommand(executor, spawn);
 
     // Each invocation of "exec" gets its own sandbox.
@@ -109,7 +113,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot, writableDirs);
+    SandboxRunner runner = getSandboxRunner(sandboxPath, sandboxExecRoot, writableDirs);
     try {
       runSpawn(
           spawn,
@@ -137,8 +141,7 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
   }
 
   private SandboxRunner getSandboxRunner(
-      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Set<Path> writableDirs)
-      throws UserExecException {
+      Path sandboxPath, Path sandboxExecRoot, Set<Path> writableDirs) throws UserExecException {
     if (fullySupported) {
       return new LinuxSandboxRunner(
           execRoot,

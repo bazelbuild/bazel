@@ -95,7 +95,6 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     try (ResourceHandle ignored =
         ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
-      SandboxHelpers.postActionStatusMessage(eventBus, spawn);
       actuallyExec(spawn, actionExecutionContext, writeOutputFiles);
     }
   }
