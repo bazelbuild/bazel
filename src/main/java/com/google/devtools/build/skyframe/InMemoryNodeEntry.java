@@ -39,12 +39,33 @@ import javax.annotation.Nullable;
  * say b depends on a. If a completes first, it's done. If it completes second, it needs to signal
  * b, and potentially re-schedule it. If b completes first, it must exit, because it will be
  * signaled (and re-scheduled) by a. If it completes second, it must signal (and re-schedule)
- * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to
- * be so strict, because duplicate scheduling would be less problematic.
+ * itself. However, if the Evaluator supported re-entrancy for a node, then this wouldn't have to be
+ * so strict, because duplicate scheduling would be less problematic.
  *
- * <p>The transient state of an {@code InMemoryNodeEntry} is kept in a {@link BuildingState} object.
- * Many of the methods of {@code InMemoryNodeEntry} are just wrappers around the corresponding
- * {@link BuildingState} methods.
+ * <p>During its life, a node can go through states as follows:
+ *
+ * <ol>
+ *   <li>Non-existent
+ *   <li>Just created ({@link #isEvaluating} is false)
+ *   <li>Evaluating ({@link #isEvaluating} is true)
+ *   <li>Done ({@link #isDone} is true)
+ *   <li>Just created (when it is dirtied: {@link #dirtyBuildingState} is not null)
+ *   <li>Reset (just before it is re-evaluated: {@link #dirtyBuildingState#getDirtyState} returns
+ *       {@link DirtyState#NEEDS_REBUILDING})
+ *   <li>Evaluating
+ *   <li>Done
+ * </ol>
+ *
+ * <p>The "just created" state is there to allow the {@link EvaluableGraph#createIfAbsentBatch} and
+ * {@link NodeEntry#addReverseDepAndCheckIfDone} methods to be separate. All callers have to call
+ * both methods in that order if they want to create a node. The second method transitions the
+ * current node to the "evaluating" state and returns true only the first time it was called. A
+ * caller that gets "true" back from that call must start the evaluation of this node, while any
+ * subsequent callers must not.
+ *
+ * <p>An entry is set to "evaluating" as soon as it is scheduled for evaluation. Thus, even a node
+ * that is never actually built (for instance, a dirty node that is verified as clean) is in the
+ * "evaluating" state until it is done.
  *
  * <p>This class is public only for the benefit of alternative graph implementations outside of the
  * package.
@@ -117,10 +138,35 @@ public class InMemoryNodeEntry implements NodeEntry {
   private List<Object> reverseDepsDataToConsolidate = null;
 
   /**
-   * The transient state of this entry, after it has been created but before it is done. It allows
-   * us to keep the current state of the entry across invalidation and successive evaluations.
+   * Object encapsulating dirty state of the object between when it is marked dirty and
+   * re-evaluated.
    */
-  @VisibleForTesting @Nullable protected volatile BuildingState buildingState = new BuildingState();
+  @VisibleForTesting @Nullable protected volatile DirtyBuildingState dirtyBuildingState = null;
+
+  private static final int NOT_EVALUATING_SENTINEL = -1;
+
+  /**
+   * The number of dependencies that are known to be done in a {@link NodeEntry} if it is already
+   * evaluating, and a sentinel (-1) indicating that it has not yet started evaluating otherwise.
+   * There is a potential check-then-act race here during evaluation, so we need to make sure that
+   * when this is increased, we always check if the new value is equal to the number of required
+   * dependencies, and if so, we must re-schedule the node for evaluation.
+   *
+   * <p>There are two potential pitfalls here: 1) If multiple dependencies signal this node in close
+   * succession, this node should be scheduled exactly once. 2) If a thread is still working on this
+   * node, it should not be scheduled.
+   *
+   * <p>The first problem is solved by the {@link #signalDep} method, which also returns if the node
+   * needs to be re-scheduled, and ensures that only one thread gets a true return value.
+   *
+   * <p>The second problem is solved by first adding the newly discovered deps to a node's {@link
+   * #directDeps}, and then looping through the direct deps and registering this node as a reverse
+   * dependency. This ensures that the signaledDeps counter can only reach {@link
+   * #directDeps#numElements} on the very last iteration of the loop, i.e., the thread is not
+   * working on the node anymore. Note that this requires that there is no code after the loop in
+   * {@code ParallelEvaluator.Evaluate#run}.
+   */
+  private int signaledDeps = NOT_EVALUATING_SENTINEL;
 
   /**
    * Construct a InMemoryNodeEntry. Use ONLY in Skyframe evaluation and graph implementations.
@@ -135,7 +181,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public boolean isDone() {
-    return buildingState == null;
+    return value != null && !isEvaluating();
   }
 
   @Override
@@ -191,7 +237,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   private DirtyBuildingState getDirtyBuildingState() {
-    return (DirtyBuildingState) Preconditions.checkNotNull(buildingState, this);
+    return Preconditions.checkNotNull(dirtyBuildingState, "Didn't have state: %s", this);
   }
 
   /**
@@ -199,7 +245,8 @@ public class InMemoryNodeEntry implements NodeEntry {
    * need to override the other.
    */
   protected void markDone() {
-    buildingState = null;
+    dirtyBuildingState = null;
+    signaledDeps = NOT_EVALUATING_SENTINEL;
   }
 
   protected synchronized Set<SkyKey> setStateFinishedAndReturnReverseDepsToSignal() {
@@ -261,8 +308,11 @@ public class InMemoryNodeEntry implements NodeEntry {
     if (isDone()) {
       return DependencyState.DONE;
     }
-    return buildingState.startEvaluating() ? DependencyState.NEEDS_SCHEDULING
-                                           : DependencyState.ALREADY_EVALUATING;
+    boolean result = !isEvaluating();
+    if (result) {
+      signaledDeps = 0;
+    }
+    return result ? DependencyState.NEEDS_SCHEDULING : DependencyState.ALREADY_EVALUATING;
   }
 
   /** Sets {@link #reverseDeps}. Does not alter {@link #reverseDepsDataToConsolidate}. */
@@ -360,19 +410,22 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean signalDep(Version childVersion) {
     Preconditions.checkState(!isDone(), "Value must not be done in signalDep %s", this);
-    return buildingState.signalDep(
-        /*childChanged=*/ !childVersion.atMost(lastEvaluatedVersion),
-        getTemporaryDirectDeps().numElements());
+    Preconditions.checkState(isEvaluating(), this);
+    signaledDeps++;
+    if (isDirty()) {
+      dirtyBuildingState.signalDepInternal(!childVersion.atMost(lastEvaluatedVersion), isReady());
+    }
+    return isReady();
   }
 
   @Override
   public synchronized boolean isDirty() {
-    return !isDone() && buildingState.isDirty();
+    return !isDone() && dirtyBuildingState != null;
   }
 
   @Override
   public synchronized boolean isChanged() {
-    return !isDone() && buildingState.isChanged();
+    return !isDone() && dirtyBuildingState != null && dirtyBuildingState.isChanged();
   }
 
   /** Checks that a caller is not trying to access not-stored graph edges. */
@@ -384,7 +437,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized MarkedDirtyResult markDirty(boolean isChanged) {
     assertKeepEdges();
     if (isDone()) {
-      buildingState =
+      dirtyBuildingState =
           DirtyBuildingState.create(isChanged, GroupedList.<SkyKey>create(directDeps), value);
       value = null;
       directDeps = null;
@@ -414,14 +467,13 @@ public class InMemoryNodeEntry implements NodeEntry {
         "Direct deps must be the same as those found last build for node to be marked clean: %s",
         this);
     Preconditions.checkState(isDirty(), this);
-    Preconditions.checkState(!buildingState.isChanged(), "shouldn't be changed: %s", this);
+    Preconditions.checkState(!dirtyBuildingState.isChanged(), "shouldn't be changed: %s", this);
     return setStateFinishedAndReturnReverseDepsToSignal();
   }
 
   @Override
   public synchronized void forceRebuild() {
-    Preconditions.checkState(
-        getTemporaryDirectDeps().numElements() == getDirtyBuildingState().getSignaledDeps(), this);
+    Preconditions.checkState(getTemporaryDirectDeps().numElements() == signaledDeps, this);
     getDirtyBuildingState().forceChanged();
   }
 
@@ -430,9 +482,9 @@ public class InMemoryNodeEntry implements NodeEntry {
     return lastChangedVersion;
   }
 
-  /** @see DirtyBuildingState#getDirtyState() */
   @Override
   public synchronized NodeEntry.DirtyState getDirtyState() {
+    Preconditions.checkState(isEvaluating(), "Not evaluating for dirty state? %s", this);
     return getDirtyBuildingState().getDirtyState();
   }
 
@@ -440,6 +492,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized Collection<SkyKey> getNextDirtyDirectDeps() throws InterruptedException {
     Preconditions.checkState(isReady(), this);
+    Preconditions.checkState(isEvaluating(), "Not evaluating during getNextDirty? %s", this);
     return getDirtyBuildingState().getNextDirtyDirectDeps();
   }
 
@@ -463,12 +516,12 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized Set<SkyKey> getAllRemainingDirtyDirectDeps() throws InterruptedException {
+    Preconditions.checkState(isEvaluating(), "Not evaluating for remaining dirty? %s", this);
     if (isDirty()) {
       Preconditions.checkState(
           getDirtyBuildingState().getDirtyState() == DirtyState.REBUILDING, this);
       return getDirtyBuildingState().getAllRemainingDirtyDirectDeps(/*preservePosition=*/ true);
     } else {
-      Preconditions.checkState(buildingState.isEvaluating(), this);
       return ImmutableSet.of();
     }
   }
@@ -521,7 +574,17 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
-    return buildingState.isReady(getTemporaryDirectDeps().numElements());
+    return isReady(getTemporaryDirectDeps().numElements());
+  }
+
+  /** Returns whether all known children of this node have signaled that they are done. */
+  private boolean isReady(int numDirectDeps) {
+    Preconditions.checkState(signaledDeps <= numDirectDeps, "%s %s", numDirectDeps, this);
+    return signaledDeps == numDirectDeps;
+  }
+
+  private boolean isEvaluating() {
+    return signaledDeps > NOT_EVALUATING_SENTINEL;
   }
 
   @Override
@@ -532,8 +595,9 @@ public class InMemoryNodeEntry implements NodeEntry {
         .add("lastChangedVersion", lastChangedVersion)
         .add("lastEvaluatedVersion", lastEvaluatedVersion)
         .add("directDeps", isDone() ? GroupedList.create(directDeps) : directDeps)
+        .add("signaledDeps", signaledDeps)
         .add("reverseDeps", ReverseDepsUtility.toString(this))
-        .add("buildingState", buildingState)
+        .add("dirtyBuildingState", dirtyBuildingState)
         .toString();
   }
 
@@ -551,7 +615,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     nodeEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
     ReverseDepsUtility.addReverseDeps(nodeEntry, ReverseDepsUtility.getReverseDeps(this));
     nodeEntry.directDeps = directDeps;
-    nodeEntry.buildingState = null;
+    nodeEntry.dirtyBuildingState = null;
     return nodeEntry;
   }
 }
