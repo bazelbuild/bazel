@@ -677,7 +677,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns the ConfiguredTarget for the specified label, configured for the "build" (aka "target")
-   * configuration.
+   * configuration. If the label corresponds to a target with a top-level configuration transition,
+   * that transition is applied to the given config in the returned ConfiguredTarget.
    */
   public ConfiguredTarget getConfiguredTarget(String label)
       throws LabelSyntaxException {
@@ -685,8 +686,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Returns the ConfiguredTarget for the specified label, using the
-   * given build configuration.
+   * Returns the ConfiguredTarget for the specified label, using the given build configuration. If
+   * the label corresponds to a target with a top-level configuration transition, that transition is
+   * applied to the given config in the returned ConfiguredTarget.
    */
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
       throws LabelSyntaxException {
@@ -695,7 +697,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Returns the ConfiguredTarget for the specified label, using the
-   * given build configuration.
+   * given build configuration. If the label corresponds to a target with a top-level configuration
+   * transition, that transition is applied to the given config in the returned ConfiguredTarget.
    *
    * <p>If the evaluation of the SkyKey corresponding to the configured target fails, this
    * method may return null.  In that case, use a debugger to inspect the {@link ErrorInfo}
@@ -704,8 +707,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * {@link SkyframeExecutor#getConfiguredTargetForTesting}.  See also b/26382502.
    */
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
-    return view.getConfiguredTargetForTesting(
-        reporter, BlazeTestUtils.convertLabel(label), config);
+    return view.getConfiguredTargetForTesting(reporter, BlazeTestUtils.convertLabel(label), config);
   }
 
   /**
@@ -969,7 +971,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * be "foo.o".
    */
   protected Artifact getBinArtifact(String packageRelativePath, String owner) {
-    return getBinArtifact(packageRelativePath, makeLabelAndConfiguration(owner));
+    ConfiguredTargetKey config = makeLabelAndConfiguration(owner);
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
+        config.getConfiguration().getBinDirectory(RepositoryName.MAIN),
+        config);
   }
 
   /**
@@ -1025,18 +1031,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
-   * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getBinDirectory} corresponding to the package of {@code owner}. So
-   * to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just
-   * be "foo.o".
-   */
-  private Artifact getBinArtifact(String packageRelativePath, ArtifactOwner owner) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
-        targetConfig.getBinDirectory(RepositoryName.MAIN),
-        owner);
-  }
-
-  /**
    * Gets a derived Artifact for testing in the {@link BuildConfiguration#getGenfilesDirectory}.
    * This method should only be used for tests that do no analysis, and so there is no
    * ConfiguredTarget to own this artifact. If the test runs the analysis phase, {@link
@@ -1055,7 +1049,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
-    return getGenfilesArtifact(packageRelativePath, makeLabelAndConfiguration(owner));
+    ConfiguredTargetKey configKey = makeLabelAndConfiguration(owner);
+    return getGenfilesArtifact(packageRelativePath, configKey, configKey.getConfiguration());
   }
 
   /**
@@ -1065,7 +1060,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * just be "foo.o".
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    return getGenfilesArtifact(packageRelativePath, new ConfiguredTargetKey(owner));
+    ConfiguredTargetKey configKey = new ConfiguredTargetKey(owner);
+    return getGenfilesArtifact(packageRelativePath, configKey, configKey.getConfiguration());
   }
 
   /**
@@ -1114,14 +1110,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   /**
    * Gets a derived Artifact for testing in the subdirectory of the {@link
-   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}.
-   * So to specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should
-   * just be "foo.o".
+   * BuildConfiguration#getGenfilesDirectory} corresponding to the package of {@code owner}. So to
+   * specify a file foo/foo.o owned by target //foo:foo, {@code packageRelativePath} should just be
+   * "foo.o".
    */
-  private Artifact getGenfilesArtifact(String packageRelativePath, ArtifactOwner owner) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
-        targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-        owner);
+  private Artifact getGenfilesArtifact(
+      String packageRelativePath, ArtifactOwner owner, BuildConfiguration config) {
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
   }
 
   /**
@@ -1246,11 +1242,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private ConfiguredTargetKey makeLabelAndConfiguration(String label) {
-    BuildConfiguration config = targetConfig;
+    BuildConfiguration config;
+    try {
+      config = getConfiguredTarget(label).getConfiguration();
+    } catch (LabelSyntaxException e) {
+      throw new IllegalArgumentException(e);
+    }
     if (targetConfig.useDynamicConfigurations()) {
       try {
-        config = view.getDynamicConfigurationForTesting(getTarget(label), targetConfig, reporter);
+        config = view.getDynamicConfigurationForTesting(getTarget(label), config, reporter);
       } catch (Exception e) {
+        //TODO(b/36585204): Clean this up
         throw new RuntimeException(e);
       }
     }
