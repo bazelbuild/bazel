@@ -718,8 +718,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//c/b/m/a:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("c/b/m/a/b_/res"), args);
   }
 
@@ -734,8 +736,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/res"), args);
   }
 
@@ -752,8 +756,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "<resources><string name = 'hello'>Hello Android!</string></resources>");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/res"), args);
   }
 
@@ -768,8 +774,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
@@ -787,8 +795,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
@@ -807,8 +817,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "exports_files(['res/values/strings.xml'])");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
@@ -829,8 +841,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ")");
     ConfiguredTarget resource = getConfiguredTarget("//java/android:r");
 
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/other/res"), args);
     assertNoEvents();
   }
@@ -1072,22 +1086,27 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
             target.getProvider(AndroidResourcesProvider.class).getDirectAndroidResources());
 
     SpawnAction resourceParserAction =
-        (SpawnAction)
-            actionsTestUtil()
-                .getActionForArtifactEndingWith(artifacts,
-                    "/" + resources.getSymbols().getFilename());
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_MERGED_SYMBOLS));
+
+    SpawnAction mergeAction =
+        getGeneratingSpawnAction(
+            getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_ZIP));
+
     SpawnAction resourceClassJarAction =
         (SpawnAction)
             actionsTestUtil()
-                .getActionForArtifactEndingWith(artifacts,
-                    "/" + resources.getJavaClassJar().getFilename());
+                .getActionForArtifactEndingWith(
+                    artifacts, "/" + resources.getJavaClassJar().getFilename());
+
     SpawnAction resourceSrcJarAction =
         (SpawnAction)
             actionsTestUtil()
-                .getActionForArtifactEndingWith(artifacts,
-                    "/" + resources.getJavaSourceJar().getFilename());
+                .getActionForArtifactEndingWith(
+                    artifacts, "/" + resources.getJavaSourceJar().getFilename());
     assertThat(resourceParserAction.getMnemonic()).isEqualTo("AndroidResourceParser");
-    assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("AndroidResourceMerger");
+    assertThat(mergeAction.getMnemonic()).isEqualTo("AndroidResourceMerger");
+    assertThat(resourceClassJarAction.getMnemonic()).isEqualTo("LibraryRClassGenerator");
     assertThat(resourceSrcJarAction.getMnemonic()).isEqualTo("AndroidResourceValidator");
     // Validator also generates an R.txt.
     assertThat(resourceSrcJarAction.getOutputs()).contains(resources.getRTxt());
@@ -1357,8 +1376,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                resource_files = ['d2-res/values/strings.xml'],",
         "                )");
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(resource, ImmutableList.of("java/android/resources/d1/d1-res"), args);
     Truth.assertThat(getDirectDependentResourceDirs(resource, args))
         .contains("java/android/resources/d2/d2-res");
@@ -1395,8 +1416,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "                )");
 
     ConfiguredTarget resource = getConfiguredTarget("//java/android/resources/d1:d1");
-    List<String> args = ((SpawnAction) getGeneratingAction(getResourceArtifact(resource)))
-        .getArguments();
+    List<String> args =
+        getGeneratingSpawnAction(
+                getImplicitOutputArtifact(resource, AndroidRuleClasses.ANDROID_RESOURCES_ZIP))
+            .getArguments();
     assertPrimaryResourceDirs(
         resource, ImmutableList.of("java/android/resources/d1/d1-res"), args);
     Truth.assertThat(getDirectDependentResourceDirs(resource, args))

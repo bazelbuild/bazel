@@ -13,26 +13,65 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.ide.common.res2.MergingException;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.android.ParsedAndroidData.Builder;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.Header;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /** Deserializes {@link DataKey}, {@link DataValue} entries from a binary file. */
 public class AndroidDataDeserializer {
+  /** Task to deserialize resources from a path. */
+  static final class Deserialize implements Callable<Boolean> {
+
+    private final Path symbolPath;
+
+    private final Builder finalDataBuilder;
+    private final AndroidDataDeserializer deserializer;
+
+    private Deserialize(
+        AndroidDataDeserializer deserializer, Path symbolPath, Builder finalDataBuilder) {
+      this.deserializer = deserializer;
+      this.symbolPath = symbolPath;
+      this.finalDataBuilder = finalDataBuilder;
+    }
+
+    @Override
+    public Boolean call() throws Exception {
+      final Builder parsedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+      deserializer.read(symbolPath, parsedDataBuilder.consumers());
+      // The builder isn't threadsafe, so synchronize the copyTo call.
+      synchronized (finalDataBuilder) {
+        // All the resources are sorted before writing, so they can be aggregated in
+        // whatever order here.
+        parsedDataBuilder.copyTo(finalDataBuilder);
+      }
+      return Boolean.TRUE;
+    }
+  }
+
   private static final Logger logger = Logger.getLogger(AndroidDataDeserializer.class.getName());
 
   private final ImmutableSet<String> filteredResources;
@@ -137,5 +176,37 @@ public class AndroidDataDeserializer {
       }
     }
   }
+
+  /** Deserializes a list of serialized resource paths to a {@link ParsedAndroidData}. */
+  public static ParsedAndroidData deserializeSymbolsToData(List<Path> symbolPaths)
+      throws IOException, MergingException {
+    AndroidDataDeserializer deserializer = create();
+    final ListeningExecutorService executorService =
+        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
+    final Builder deserializedDataBuilder = ParsedAndroidData.Builder.newBuilder();
+    try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
+      List<ListenableFuture<Boolean>> deserializing = new ArrayList<>();
+      for (final Path symbolPath : symbolPaths) {
+        deserializing.add(
+            executorService.submit(
+                new AndroidDataDeserializer.Deserialize(
+                    deserializer, symbolPath, deserializedDataBuilder)));
+      }
+      FailedFutureAggregator<MergingException> aggregator =
+          FailedFutureAggregator.createForMergingExceptionWithMessage(
+              "Failure(s) during dependency parsing");
+      aggregator.aggregateAndMaybeThrow(deserializing);
+    }
+    return deserializedDataBuilder.build();
+  }
+
+  public static ParsedAndroidData deserializeSingleAndroidData(SerializedAndroidData data)
+      throws MergingException {
+    final ParsedAndroidData.Builder builder = ParsedAndroidData.Builder.newBuilder();
+    final AndroidDataDeserializer deserializer = create();
+    data.deserialize(deserializer, builder.consumers());
+    return builder.build();
+  }
 }
+
 

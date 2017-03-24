@@ -144,10 +144,11 @@ public class AndroidResourceMergingActionBuilder {
     ResourceContainerConverter.convertDependencies(
         dependencies, builder, inputs, RESOURCE_CONTAINER_TO_ARG, RESOURCE_CONTAINER_TO_ARTIFACTS);
 
-    Preconditions.checkNotNull(classJarOut);
     List<Artifact> outs = new ArrayList<>();
-    builder.addExecPath("--classJarOutput", classJarOut);
-    outs.add(classJarOut);
+    if (classJarOut != null) {
+      builder.addExecPath("--classJarOutput", classJarOut);
+      outs.add(classJarOut);
+    }
 
     if (mergedResourcesOut != null) {
       builder.addExecPath("--resourcesOutput", mergedResourcesOut);
@@ -187,8 +188,11 @@ public class AndroidResourceMergingActionBuilder {
             .build(context));
 
     // Return the full set of processed transitive dependencies.
-    ResourceContainer.Builder result = primary.toBuilder()
-        .setJavaClassJar(classJarOut);
+    ResourceContainer.Builder result = primary.toBuilder();
+    if (classJarOut != null) {
+      // ensure the classJar is propgated if it exists. Otherwise, AndroidCommon tries to make it.
+      result.setJavaClassJar(classJarOut);
+    }
     if (manifestOut != null) {
       result.setManifest(manifestOut);
     }
