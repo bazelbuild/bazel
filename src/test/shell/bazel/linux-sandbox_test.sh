@@ -207,6 +207,23 @@ function test_redirect_output() {
   assert_equals "err" "$(cat $ERR)"
 }
 
+function test_tmp_is_writable() {
+  # If /tmp is not writable on the host, it won't be inside the sandbox.
+  test -w /tmp || return 0
+
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -w /tmp -- /bin/bash -c "rm -f $(mktemp --tmpdir=/tmp)" \
+    &> $TEST_log || fail
+}
+
+function test_dev_shm_is_writable() {
+  # If /dev/shm is not writable on the host, it won't be inside the sandbox.
+  test -w /dev/shm || return 0
+
+  # /dev/shm is often a symlink to /run/shm, thus we use readlink to get the canonical path.
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -w "$(readlink -f /dev/shm)" -- /bin/bash -c "rm -f $(mktemp --tmpdir=/dev/shm)" \
+    &> $TEST_log || fail
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0

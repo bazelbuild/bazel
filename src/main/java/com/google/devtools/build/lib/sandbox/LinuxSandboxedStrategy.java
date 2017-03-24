@@ -33,10 +33,12 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.UUID;
@@ -130,18 +132,18 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-
+    Set<Path> writableDirs;
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
     try {
+      writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
       symlinkedExecRoot.createFileSystem(
           getMounts(spawn, actionExecutionContext), outputs, writableDirs);
     } catch (IOException e) {
       throw new UserExecException("I/O error during sandboxed execution", e);
     }
 
-    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot);
+    SandboxRunner runner = getSandboxRunner(spawn, sandboxPath, sandboxExecRoot, writableDirs);
     try {
       runSpawn(
           spawn,
@@ -168,14 +170,15 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     }
   }
 
-  private SandboxRunner getSandboxRunner(Spawn spawn, Path sandboxPath, Path sandboxExecRoot)
+  private SandboxRunner getSandboxRunner(
+      Spawn spawn, Path sandboxPath, Path sandboxExecRoot, Set<Path> writableDirs)
       throws UserExecException {
     if (fullySupported) {
       return new LinuxSandboxRunner(
           execRoot,
           sandboxPath,
           sandboxExecRoot,
-          getWritableDirs(sandboxExecRoot, spawn.getEnvironment()),
+          writableDirs,
           getTmpfsPaths(),
           getReadOnlyBindMounts(blazeDirs, sandboxExecRoot),
           verboseFailures,
@@ -183,6 +186,19 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
     } else {
       return new ProcessWrapperRunner(execRoot, sandboxExecRoot, verboseFailures);
     }
+  }
+
+  @Override
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
+    ImmutableSet.Builder<Path> writableDirs = ImmutableSet.builder();
+    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
+
+    FileSystem fs = sandboxExecRoot.getFileSystem();
+    writableDirs.add(fs.getPath("/dev/shm").resolveSymbolicLinks());
+    writableDirs.add(fs.getPath("/tmp"));
+
+    return writableDirs.build();
   }
 
   private ImmutableSet<Path> getTmpfsPaths() {

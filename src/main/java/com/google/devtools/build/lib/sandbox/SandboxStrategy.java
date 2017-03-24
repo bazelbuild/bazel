@@ -120,8 +120,13 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     }
   }
 
-  /** Gets the list of directories that the spawn will assume to be writable. */
-  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env) {
+  /**
+   * Gets the list of directories that the spawn will assume to be writable.
+   *
+   * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
+   */
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
+      throws IOException {
     Builder<Path> writableDirs = ImmutableSet.builder();
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     if (env.containsKey("TEST_TMPDIR")) {
