@@ -14,13 +14,14 @@
 package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantType;
+import com.android.ide.common.internal.PngCruncher;
+import com.android.ide.common.internal.PngException;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Strings;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.io.Files;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
@@ -29,13 +30,11 @@ import com.google.devtools.build.android.Converters.SerializedAndroidDataListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
-import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -168,114 +167,117 @@ public class AndroidResourceMergingAction {
     Preconditions.checkNotNull(options.primaryData);
     Preconditions.checkNotNull(options.primaryManifest);
 
-    final ListeningExecutorService executorService =
-        MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(15));
-
     try (ScopedTemporaryDirectory scopedTmp =
         new ScopedTemporaryDirectory("android_resource_merge_tmp")) {
+      Path tmp = scopedTmp.getPath();
+      Path mergedAssets = tmp.resolve("merged_assets");
+      Path mergedResources = tmp.resolve("merged_resources");
+      Path generatedSources = tmp.resolve("generated_resources");
+      Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
 
-      try (Closeable closeable = ExecutorServiceCloser.createWith(executorService)) {
-        Path tmp = scopedTmp.getPath();
-        Path mergedAssets = tmp.resolve("merged_assets");
-        Path mergedResources = tmp.resolve("merged_resources");
-        Path generatedSources = tmp.resolve("generated_resources");
-        Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
+      logger.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-        logger.fine(String.format("Setup finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
-        final UnwrittenMergedAndroidData unwrittenMergedData =
-            AndroidResourceMerger.mergeData(
-                executorService,
-                options.transitiveData,
-                options.directData,
-                AndroidDataDeserializer.deserializeSingleAndroidData(options.primaryData),
-                options.primaryManifest,
-                false /* allow binary overrides */,
-                AndroidDataDeserializer.create());
+      VariantType packageType = VariantType.LIBRARY;
+      AndroidResourceClassWriter resourceClassWriter =
+          AndroidResourceClassWriter.createWith(aaptConfigOptions.androidJar,
+              generatedSources,
+              Strings.nullToEmpty(options.packageForR));
+      resourceClassWriter.setIncludeClassFile(true);
+      resourceClassWriter.setIncludeJavaFile(false);
 
-        logger.fine(String.format("merge finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-        timer.reset().start();
+      final MergedAndroidData mergedData =
+          AndroidResourceMerger.mergeData(
+              options.primaryData,
+              options.primaryManifest,
+              options.directData,
+              options.transitiveData,
+              mergedResources,
+              mergedAssets,
+              new StubPngCruncher(),
+              packageType,
+              options.symbolsBinOut,
+              resourceClassWriter);
 
-        if (options.symbolsBinOut != null) {
-          AndroidDataSerializer serializer = AndroidDataSerializer.create();
-          unwrittenMergedData.serializeTo(serializer);
-          serializer.flushTo(options.symbolsBinOut);
-        }
+      logger.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
-        if (options.classJarOutput != null) {
-          AndroidResourceClassWriter resourceClassWriter =
-              AndroidResourceClassWriter.createWith(
-                  aaptConfigOptions.androidJar,
-                  generatedSources,
-                  Strings.nullToEmpty(options.packageForR));
-          resourceClassWriter.setIncludeClassFile(true);
-          resourceClassWriter.setIncludeJavaFile(false);
-          unwrittenMergedData.writeResourceClass(resourceClassWriter);
-          logger.fine(
-              String.format(
-                  "Write classes finished in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-          timer.reset().start();
-          AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
-          logger.fine(
-              String.format(
-                  "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-          timer.reset().start();
-        }
-
-        if (options.resourcesOutput != null) {
-          AndroidDataWriter mergedDataWriter =
-              AndroidDataWriter.createForLibrary(
-                  tmp, mergedResources, mergedAssets, executorService);
-          MergedAndroidData mergedData = unwrittenMergedData.write(mergedDataWriter);
-
-          Path resourcesDir =
-              AndroidResourceProcessor.processDataBindings(
-                  mergedData.getResourceDir(),
-                  options.dataBindingInfoOut,
-                  VariantType.LIBRARY,
-                  options.packageForR,
-                  options.primaryManifest);
-
-          // For now, try compressing the library resources that we pass to the validator.
-          // This takes extra CPU resources to pack and unpack (~2x), but can reduce the
-          // zip size (~4x).
-          try {
-            Files.createDirectories(options.resourcesOutput.getParent());
-            AndroidResourceOutputs.createResourcesZip(
-                resourcesDir,
-                mergedData.getAssetDir(),
-                options.resourcesOutput,
-                true /* compress */);
-            logger.fine(
-                String.format(
-                    "Resource Zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-            timer.reset().start();
-          } catch (IOException e) {
-            throw new RuntimeException(e);
-          }
-          // Until enough users with manifest placeholders migrate to the new manifest merger,
-          // we need to replace ${applicationId} and ${packageName} with options.packageForR to make
-          // the manifests compatible with the old manifest merger.
-          if (options.manifestOutput != null) {
+      // Until enough users with manifest placeholders migrate to the new manifest merger,
+      // we need to replace ${applicationId} and ${packageName} with options.packageForR to make
+      // the manifests compatible with the old manifest merger.
+      if (options.manifestOutput != null) {
+        MergedAndroidData processedData =
             AndroidManifestProcessor.with(stdLogger)
                 .processManifest(
-                    VariantType.LIBRARY,
+                    packageType,
                     options.packageForR,
                     null, /* applicationId */
                     -1, /* versionCode */
                     null, /* versionName */
                     mergedData,
                     processedManifest);
-            AndroidResourceOutputs.copyManifestToOutput(mergedData, options.manifestOutput);
-          }
-        }
-      } catch (MergingException e) {
-        logger.log(Level.SEVERE, "Error during merging resources", e);
-        throw e;
-      } catch (Exception e) {
-        logger.log(Level.SEVERE, "Unexpected", e);
-        throw e;
+        AndroidResourceOutputs.copyManifestToOutput(processedData, options.manifestOutput);
+      }
+
+      if (options.classJarOutput != null) {
+        AndroidResourceOutputs.createClassJar(generatedSources, options.classJarOutput);
+        logger.fine(
+            String.format(
+                "Create classJar finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      }
+
+      if (options.resourcesOutput != null) {
+        Path resourcesDir =
+            AndroidResourceProcessor.processDataBindings(
+                mergedData.getResourceDir(),
+                options.dataBindingInfoOut,
+                packageType,
+                options.packageForR,
+                options.primaryManifest);
+
+        // For now, try compressing the library resources that we pass to the validator. This takes
+        // extra CPU resources to pack and unpack (~2x), but can reduce the zip size (~4x).
+        AndroidResourceOutputs.createResourcesZip(
+            resourcesDir, mergedData.getAssetDir(), options.resourcesOutput, true /* compress */);
+        logger.fine(
+            String.format(
+                "Create resources.zip finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      }
+    } catch (MergingException e) {
+      logger.log(Level.SEVERE, "Error during merging resources", e);
+      throw e;
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Unexpected", e);
+      throw e;
+    }
+    logger.fine(String.format("Resources merged in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+  }
+
+  /**
+   * The merged {@link Options#resourcesOutput} is only used for validation and not for running
+   * (unlike the final APK), so the image files do not need to be the true image files. We only need
+   * the filenames to be the same.
+   *
+   * <p>Thus, we only create empty files for PNGs (convenient with a custom PngCruncher object).
+   * This does miss out on other image files like .webp.
+   */
+  private static final class StubPngCruncher implements PngCruncher {
+
+    @Override
+    public void crunchPng(int key, File from, File to) throws PngException {
+      try {
+        Files.touch(to);
+      } catch (IOException e) {
+        throw new PngException(e);
       }
     }
+
+    @Override
+    public int start() {
+      return 0;
+    }
+
+    @Override
+    public void end(int key) {
+    }
+
   }
 }
