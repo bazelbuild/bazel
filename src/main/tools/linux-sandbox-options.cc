@@ -123,22 +123,13 @@ static void ParseCommandLine(unique_ptr<vector<char *>> args) {
   int c;
   bool source_specified;
 
-  while ((c = getopt(args->size(), args->data(),
-                     ":CS:W:T:t:l:L:w:e:M:m:HNRD")) != -1) {
+  while ((c = getopt(args->size(), args->data(), ":CW:T:t:l:L:w:e:M:m:HNRD")) !=
+         -1) {
     if (c != 'M' && c != 'm') source_specified = false;
     switch (c) {
       case 'C':
         // Shortcut for the "does this system support sandboxing" check.
         exit(CheckNamespacesSupported());
-        break;
-      case 'S':
-        if (opt.sandbox_root_dir == NULL) {
-          ValidateIsAbsolutePath(optarg, args->front(), static_cast<char>(c));
-          opt.sandbox_root_dir = strdup(optarg);
-        } else {
-          Usage(args->front(),
-                "Multiple root directories (-S) specified, expected one.");
-        }
         break;
       case 'W':
         if (opt.working_dir == NULL) {

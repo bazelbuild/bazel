@@ -22,8 +22,6 @@
 
 // Options parsing result.
 struct Options {
-  // Temporary root directory (-S)
-  const char *sandbox_root_dir;
   // Working directory (-W)
   const char *working_dir;
   // How long to wait before killing the child (-T)

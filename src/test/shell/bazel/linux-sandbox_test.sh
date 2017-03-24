@@ -28,7 +28,6 @@ readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 readonly SANDBOX_DIR="${OUT_DIR}/sandbox"
-readonly SANDBOX_ROOT="${TEST_TMPDIR}/sandbox.root"
 readonly MOUNT_TARGET_ROOT="${TEST_SRCDIR}/targets"
 
 SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
@@ -36,7 +35,6 @@ SANDBOX_DEFAULT_OPTS="-W $SANDBOX_DIR"
 function set_up {
   rm -rf $OUT_DIR
   mkdir -p $SANDBOX_DIR
-  mkdir -p $SANDBOX_ROOT
 }
 
 function test_basic_functionality() {
@@ -122,7 +120,7 @@ function test_mount_additional_paths_success() {
   touch ${MOUNT_TARGET_ROOT}/sandboxed_testfile
 
   touch /tmp/sandboxed_testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
     -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
     -M ${TEST_TMPDIR}/bar \
     -M ${TEST_TMPDIR}/testfile -m ${MOUNT_TARGET_ROOT}/sandboxed_testfile \
@@ -140,7 +138,7 @@ function test_mount_additional_paths_success() {
 
 function test_mount_additional_paths_relative_path() {
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
     -M ${TEST_TMPDIR}/testfile -m tmp/sandboxed_testfile \
     -- /bin/true &> $TEST_log || code=$?
   # mount a directory to a customized path inside the sandbox
@@ -150,7 +148,7 @@ function test_mount_additional_paths_relative_path() {
 function test_mount_additional_paths_leading_m() {
   mkdir -p ${TEST_TMPDIR}/foo
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
     -m /tmp/foo \
     -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
     -- /bin/true &> $TEST_log || code=$?
@@ -162,7 +160,7 @@ function test_mount_additional_paths_m_not_preceeded_by_M() {
   mkdir -p ${TEST_TMPDIR}/foo
   mkdir -p ${TEST_TMPDIR}/bar
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
     -M ${TEST_TMPDIR}/testfile -m /tmp/sandboxed_testfile \
     -m /tmp/foo \
     -M ${TEST_TMPDIR}/bar \
@@ -174,7 +172,7 @@ function test_mount_additional_paths_m_not_preceeded_by_M() {
 function test_mount_additional_paths_other_flag_between_M_m_pair() {
   mkdir -p ${TEST_TMPDIR}/bar
   touch ${TEST_TMPDIR}/testfile
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS \
     -M ${TEST_TMPDIR}/testfile -D -m /tmp/sandboxed_testfile \
     -M ${TEST_TMPDIR}/bar \
     -- /bin/true &> $TEST_log || code=$?
@@ -186,7 +184,7 @@ function test_mount_additional_paths_multiple_sources_mount_to_one_target() {
   mkdir -p ${TEST_TMPDIR}/foo
   mkdir -p ${TEST_TMPDIR}/bar
   mkdir -p ${MOUNT_TARGET_ROOT}/foo
-  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -D \
     -M ${TEST_TMPDIR}/foo -m ${MOUNT_TARGET_ROOT}/foo \
     -M ${TEST_TMPDIR}/bar -m ${MOUNT_TARGET_ROOT}/foo \
     -- /bin/true &> $TEST_log || code=$?

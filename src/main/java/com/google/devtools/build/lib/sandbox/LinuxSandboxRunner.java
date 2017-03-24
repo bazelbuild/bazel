@@ -40,7 +40,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
 
   private final Path execRoot;
   private final Path sandboxExecRoot;
-  private final Path sandboxTempDir;
   private final Path argumentsFilePath;
   private final Set<Path> writableDirs;
   private final Set<Path> tmpfsPaths;
@@ -52,7 +51,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
       Path execRoot,
       Path sandboxPath,
       Path sandboxExecRoot,
-      Path sandboxTempDir,
       Set<Path> writableDirs,
       Set<Path> tmpfsPaths,
       Map<Path, Path> bindMounts,
@@ -61,7 +59,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
     super(verboseFailures);
     this.execRoot = execRoot;
     this.sandboxExecRoot = sandboxExecRoot;
-    this.sandboxTempDir = sandboxTempDir;
     this.argumentsFilePath = sandboxPath.getRelative("linux-sandbox.params");
     this.writableDirs = writableDirs;
     this.tmpfsPaths = tmpfsPaths;
@@ -127,10 +124,6 @@ final class LinuxSandboxRunner extends SandboxRunner {
     if (sandboxDebug) {
       fileArgs.add("-D");
     }
-
-    // Temporary directory of the sandbox.
-    fileArgs.add("-S");
-    fileArgs.add(sandboxTempDir.toString());
 
     // Working directory of the spawn.
     fileArgs.add("-W");

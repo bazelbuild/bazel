@@ -145,102 +145,37 @@ static void SetupUtsNamespace() {
   }
 }
 
-// Recursively creates the file or directory specified in "path" and its parent
-// directories.
-static int CreateTarget(const char *path, bool is_directory) {
-  PRINT_DEBUG("CreateTarget(%s, %s)", path, is_directory ? "true" : "false");
-  if (path == NULL) {
-    errno = EINVAL;
-    return -1;
-  }
-
-  struct stat sb;
-  // If the path already exists...
-  if (stat(path, &sb) == 0) {
-    if (is_directory && S_ISDIR(sb.st_mode)) {
-      // and it's a directory and supposed to be a directory, we're done here.
-      return 0;
-    } else if (!is_directory && S_ISREG(sb.st_mode)) {
-      // and it's a regular file and supposed to be one, we're done here.
-      return 0;
-    } else {
-      // otherwise something is really wrong.
-      errno = is_directory ? ENOTDIR : EEXIST;
-      return -1;
-    }
-  } else {
-    // If stat failed because of any error other than "the path does not exist",
-    // this is an error.
-    if (errno != ENOENT) {
-      return -1;
-    }
-  }
-
-  // Create the parent directory.
-  if (CreateTarget(dirname(strdupa(path)), true) < 0) {
-    DIE("CreateTarget(%s, true)", dirname(strdupa(path)));
-  }
-
-  if (is_directory) {
-    if (mkdir(path, 0755) < 0) {
-      DIE("mkdir(%s, 0755)", path);
-    }
-  } else {
-    int handle;
-    if ((handle = open(path, O_CREAT | O_WRONLY | O_EXCL, 0666)) < 0) {
-      DIE("open(%s, O_CREAT | O_WRONLY | O_EXCL, 0666)", path);
-    }
-    if (close(handle) < 0) {
-      DIE("close(%d)", handle);
-    }
-  }
-
-  return 0;
-}
-
 static void MountFilesystems() {
-  if (mount("/", opt.sandbox_root_dir, NULL, MS_BIND | MS_REC, NULL) < 0) {
-    DIE("mount(/, %s, NULL, MS_BIND | MS_REC, NULL)", opt.sandbox_root_dir);
-  }
-
-  if (chdir(opt.sandbox_root_dir) < 0) {
-    DIE("chdir(%s)", opt.sandbox_root_dir);
-  }
-
   for (const char *tmpfs_dir : opt.tmpfs_dirs) {
     PRINT_DEBUG("tmpfs: %s", tmpfs_dir);
-    if (mount("tmpfs", tmpfs_dir + 1, "tmpfs",
-              MS_NOSUID | MS_NODEV | MS_NOATIME, NULL) < 0) {
+    if (mount("tmpfs", tmpfs_dir, "tmpfs", MS_NOSUID | MS_NODEV | MS_NOATIME,
+              NULL) < 0) {
       DIE("mount(tmpfs, %s, tmpfs, MS_NOSUID | MS_NODEV | MS_NOATIME, NULL)",
-          tmpfs_dir + 1);
+          tmpfs_dir);
     }
   }
 
   // Make sure that our working directory is a mount point. The easiest way to
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir);
-  PRINT_DEBUG("sandbox root: %s", opt.sandbox_root_dir);
 
-  CreateTarget(opt.working_dir + 1, true);
-  if (mount(opt.working_dir, opt.working_dir + 1, NULL, MS_BIND, NULL) < 0) {
-    DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir,
-        opt.working_dir + 1);
+  if (mount(opt.working_dir, opt.working_dir, NULL, MS_BIND, NULL) < 0) {
+    DIE("mount(%s, %s, NULL, MS_BIND, NULL)", opt.working_dir, opt.working_dir);
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
     const char *source = opt.bind_mount_sources.at(i);
     const char *target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source, target);
-    if (mount(source, target + 1, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source, target + 1);
+    if (mount(source, target, NULL, MS_BIND, NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", source, target);
     }
   }
 
   for (const char *writable_file : opt.writable_files) {
     PRINT_DEBUG("writable: %s", writable_file);
-    if (mount(writable_file, writable_file + 1, NULL, MS_BIND, NULL) < 0) {
-      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file,
-          writable_file + 1);
+    if (mount(writable_file, writable_file, NULL, MS_BIND, NULL) < 0) {
+      DIE("mount(%s, %s, NULL, MS_BIND, NULL)", writable_file, writable_file);
     }
   }
 }
@@ -248,8 +183,6 @@ static void MountFilesystems() {
 // We later remount everything read-only, except the paths for which this method
 // returns true.
 static bool ShouldBeWritable(char *mnt_dir) {
-  mnt_dir += strlen(opt.sandbox_root_dir);
-
   if (strcmp(mnt_dir, opt.working_dir) == 0) {
     return true;
   }
@@ -288,14 +221,10 @@ static void MakeFilesystemMostlyReadOnly() {
 
   struct mntent *ent;
   while ((ent = getmntent(mounts)) != NULL) {
-    // Skip mounts that do not belong to our sandbox.
-    if (strstr(ent->mnt_dir, opt.sandbox_root_dir) != ent->mnt_dir) {
-      continue;
-    }
     // Skip mounts that are under tmpfs directories because we've already
     // replaced such directories with new tmpfs instances.
     // mount() would fail with ENOENT if we tried to remount such mount points.
-    if (IsUnderTmpDir(ent->mnt_dir + strlen(opt.sandbox_root_dir))) {
+    if (IsUnderTmpDir(ent->mnt_dir)) {
       continue;
     }
 
@@ -355,7 +284,7 @@ static void MakeFilesystemMostlyReadOnly() {
 static void MountProc() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
-  if (mount("proc", "proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) <
+  if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID, NULL) <
       0) {
     DIE("mount");
   }
@@ -393,29 +322,6 @@ static void SetupNetworking() {
 }
 
 static void EnterSandbox() {
-  // Move the real root to old_root, then detach it.
-  char old_root[] = "tmp/old-root-XXXXXX";
-  if (mkdtemp(old_root) == NULL) {
-    DIE("mkdtemp(%s)", old_root);
-  }
-
-  // pivot_root has no wrapper in libc, so we need syscall()
-  if (syscall(SYS_pivot_root, ".", old_root) < 0) {
-    DIE("pivot_root(., %s)", old_root);
-  }
-
-  if (chroot(".") < 0) {
-    DIE("chroot(.)");
-  }
-
-  if (umount2(old_root, MNT_DETACH) < 0) {
-    DIE("umount2(%s, MNT_DETACH)", old_root);
-  }
-
-  if (rmdir(old_root) < 0) {
-    DIE("rmdir(%s)", old_root);
-  }
-
   if (chdir(opt.working_dir) < 0) {
     DIE("chdir(%s)", opt.working_dir);
   }

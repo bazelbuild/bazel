@@ -71,7 +71,6 @@
 int global_outer_uid;
 int global_outer_gid;
 
-static char global_sandbox_root[] = "/tmp/sandbox.XXXXXX";
 static int global_child_pid;
 
 // The signal that will be sent to the child when a timeout occurs.
@@ -114,22 +113,6 @@ static void CloseFds() {
 
   if (closedir(fds) < 0) {
     DIE("closedir");
-  }
-}
-
-static void RemoveSandboxRoot() {
-  if (rmdir(global_sandbox_root) < 0) {
-    DIE("rmdir(%s)", global_sandbox_root);
-  }
-}
-
-static void SetupSandboxRoot() {
-  if (opt.sandbox_root_dir == NULL) {
-    if (mkdtemp(global_sandbox_root) == NULL) {
-      DIE("mkdtemp(%s)", global_sandbox_root);
-    }
-    atexit(RemoveSandboxRoot);
-    opt.sandbox_root_dir = global_sandbox_root;
   }
 }
 
@@ -282,8 +265,6 @@ int main(int argc, char *argv[]) {
   // Make sure the sandboxed process does not inherit any accidentally left open
   // file handles from our parent.
   CloseFds();
-
-  SetupSandboxRoot();
 
   HandleSignal(SIGALRM, OnTimeout);
   if (opt.timeout_secs > 0) {
