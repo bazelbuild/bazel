@@ -27,7 +27,6 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,7 +108,6 @@ public final class OptionsParser {
           // otherwise we have to do something like adding a "--"
           // terminator to the passed arguments.
           collectFlagArguments(javacOpts, argQueue, "--");
-          bootClassPathFromJavacOpts();
           break;
         case "--direct_dependency":
           {
@@ -322,19 +320,6 @@ public final class OptionsParser {
     List<String> arguments = new ArrayList<>();
     collectFlagArguments(arguments, args, "--");
     postProcessors.put(processorName, arguments);
-  }
-
-  // TODO(cushon): update Blaze to set --bootclasspath directly
-  private void bootClassPathFromJavacOpts() {
-    Iterator<String> it = javacOpts.iterator();
-    while (it.hasNext()) {
-      String curr = it.next();
-      if (curr.equals("-bootclasspath") && it.hasNext()) {
-        it.remove();
-        bootClassPath = it.next();
-        it.remove();
-      }
-    }
   }
 
   public List<String> getJavacOpts() {
