@@ -14,7 +14,6 @@
 package com.google.devtools.build.android.dexer;
 
 import com.android.dex.Dex;
-import com.android.dx.dex.file.DexFile;
 import com.google.common.io.ByteStreams;
 import java.io.Closeable;
 import java.io.IOException;
@@ -45,13 +44,6 @@ class DexFileArchive implements Closeable {
   }
 
   /**
-   * Serializes and adds a {@code .dex} file with the given details.
-   */
-  public DexFileArchive addFile(ZipEntry entry, DexFile dex) throws IOException {
-    return addFile(entry, DexFiles.encode(dex));
-  }
-
-  /**
    * Adds a {@code .dex} file with the given details.
    */
   public DexFileArchive addFile(ZipEntry entry, Dex dex) throws IOException {
@@ -65,13 +57,5 @@ class DexFileArchive implements Closeable {
   @Override
   public void close() throws IOException {
     out.close();
-  }
-
-  private DexFileArchive addFile(ZipEntry entry, byte[] content) throws IOException {
-    entry.setSize(content.length);
-    out.putNextEntry(entry);
-    out.write(content);
-    out.closeEntry();
-    return this;
   }
 }

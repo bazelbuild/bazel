@@ -42,6 +42,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -131,29 +132,26 @@ class DexFileMerger {
         OptionsParser.newOptionsParser(Options.class, Dexing.DexingOptions.class);
     optionsParser.parseAndExitUponError(args);
 
-    buildMergedDexFiles(
-        optionsParser.getOptions(Options.class),
-        optionsParser.getOptions(Dexing.DexingOptions.class));
+    buildMergedDexFiles(optionsParser.getOptions(Options.class));
   }
 
   @VisibleForTesting
-  static void buildMergedDexFiles(Options options, Dexing.DexingOptions dexingOptions)
-      throws IOException {
+  static void buildMergedDexFiles(Options options) throws IOException {
     ImmutableSet<String> classesInMainDex = options.mainDexListFile != null
         ? ImmutableSet.copyOf(Files.readAllLines(options.mainDexListFile, UTF_8))
         : null;
     PrintStream originalStdOut = System.out;
     try (ZipFile zip = new ZipFile(options.inputArchive.toFile());
         DexFileAggregator out = createDexFileAggregator(options)) {
+      checkForUnprocessedClasses(zip);
       if (!options.verbose) {
         // com.android.dx.merge.DexMerger prints tons of debug information to System.out that we
         // silence here unless it was explicitly requested.
         System.setOut(DxConsole.noop);
       }
 
-      DexConverter dexer = new DexConverter(new Dexing(dexingOptions));
       if (classesInMainDex == null) {
-        processClassAndDexFiles(zip, out, dexer, Predicates.<ZipEntry>alwaysTrue());
+        processDexFiles(zip, out, Predicates.<ZipEntry>alwaysTrue());
       } else {
         // Options parser should be making sure of this but let's be extra-safe as other modes
         // might result in classes from main dex list ending up in files other than classes.dex
@@ -163,14 +161,14 @@ class DexFileMerger {
         // 1. process only the classes listed in the given file
         // 2. process the remaining files
         Predicate<ZipEntry> classFileFilter = ZipEntryPredicates.classFileFilter(classesInMainDex);
-        processClassAndDexFiles(zip, out, dexer, classFileFilter);
+        processDexFiles(zip, out, classFileFilter);
         // Fail if main_dex_list is too big, following dx's example
         checkState(out.getDexFilesWritten() == 0, "Too many classes listed in main dex list file "
             + "%s, main dex capacity exceeded", options.mainDexListFile);
         if (options.minimalMainDex) {
           out.flush(); // Start new .dex file if requested
         }
-        processClassAndDexFiles(zip, out, dexer, Predicates.not(classFileFilter));
+        processDexFiles(zip, out, Predicates.not(classFileFilter));
       }
     } finally {
       System.setOut(originalStdOut);
@@ -180,12 +178,8 @@ class DexFileMerger {
         Files.getLastModifiedTime(options.inputArchive));
   }
 
-  private static void processClassAndDexFiles(
-      ZipFile zip,
-      DexFileAggregator out,
-      DexConverter dexer,
-      Predicate<ZipEntry> extraFilter)
-      throws IOException {
+  private static void processDexFiles(
+      ZipFile zip, DexFileAggregator out, Predicate<ZipEntry> extraFilter) throws IOException {
     @SuppressWarnings("unchecked") // Predicates.and uses varargs parameter with generics
     ArrayList<? extends ZipEntry> filesToProcess =
         Lists.newArrayList(
@@ -193,34 +187,38 @@ class DexFileMerger {
                 Iterators.forEnumeration(zip.entries()),
                 Predicates.and(
                     Predicates.not(ZipEntryPredicates.isDirectory()),
-                    ZipEntryPredicates.suffixes(".class", ".dex"),
+                    ZipEntryPredicates.suffixes(".dex"),
                     extraFilter)));
     Collections.sort(filesToProcess, ZipEntryComparator.LIKE_DX);
-    int unconverted = 0;
     for (ZipEntry entry : filesToProcess) {
       String filename = entry.getName();
       try (InputStream content = zip.getInputStream(entry)) {
-        if (filename.endsWith(".dex")) {
-          // We don't want to use the Dex(InputStream) constructor because it closes the stream,
-          // which will break the for loop, and it has its own bespoke way of reading the file into
-          // a byte buffer before effectively calling Dex(byte[]) anyway.
-          out.add(new Dex(ByteStreams.toByteArray(content)));
-        } else if (filename.endsWith(".class")) {
-          ++unconverted;
-          System.err.printf("%s not converted to .dex format yet%n", filename);
-          // TODO(b/34949364): Remove this fallback once Blaze incrementally dexes all Jars
-          out.add(DexFiles.toDex(dexer.toDexFile(ByteStreams.toByteArray(content), filename)));
-        } else {
-          throw new IllegalStateException("Shouldn't get here: " + filename);
-        }
+        checkState(filename.endsWith(".dex"), "Shouldn't get here: %s", filename);
+        // We don't want to use the Dex(InputStream) constructor because it closes the stream,
+        // which will break the for loop, and it has its own bespoke way of reading the file into
+        // a byte buffer before effectively calling Dex(byte[]) anyway.
+        out.add(new Dex(ByteStreams.toByteArray(content)));
       }
     }
-    // Hitting this error indicates Jar files not covered by incremental dexing (b/34949364).  This
-    // is a backstop until we can build with --experimental_incremental_dexing_error_on_missed_jars,
-    // which prevents this error from happening.  If you do get this exception, find the Jar files
-    // the reported classes come from and depend on them via java_imports.
-    checkState(unconverted == 0, "Had to convert %s files in %s on the fly", unconverted,
-        zip.getName());
+  }
+
+  private static void checkForUnprocessedClasses(ZipFile zip) {
+    Iterator<? extends ZipEntry> classes =
+        Iterators.filter(
+            Iterators.forEnumeration(zip.entries()),
+            Predicates.and(
+                Predicates.not(ZipEntryPredicates.isDirectory()),
+                ZipEntryPredicates.suffixes(".class")));
+    if (classes.hasNext()) {
+      // Hitting this error indicates Jar files not covered by incremental dexing (b/34949364).
+      // Bazel should prevent this error but if you do get this exception, you can use DexBuilder
+      // to convert offending classes first. In Bazel that typically means using java_import or to
+      // make sure Bazel rules use DexBuilder on implicit dependencies.
+      throw new IllegalArgumentException(
+          zip.getName()
+              + " should only contain .dex files but found the following .class files: "
+              + Iterators.toString(classes));
+    }
   }
 
   private static DexFileAggregator createDexFileAggregator(Options options) throws IOException {
