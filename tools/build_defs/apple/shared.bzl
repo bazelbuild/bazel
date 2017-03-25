@@ -60,6 +60,11 @@ def apple_action(ctx, **kw):
   """
   execution_requirements = kw.get("execution_requirements", {})
   execution_requirements += DARWIN_EXECUTION_REQUIREMENTS
+
+  no_sandbox = kw.pop("no_sandbox", False)
+  if no_sandbox:
+    execution_requirements["nosandbox"] = "1"
+
   kw["execution_requirements"] = execution_requirements
 
   ctx.action(**kw)
