@@ -364,11 +364,6 @@ public final class LinkCommandLine extends CommandLine {
       Iterables.removeIf(toolchainFlags, Predicates.equalTo("-pie"));
     }
 
-    // Fission mode: debug info is in .dwo files instead of .o files. Inform the linker of this.
-    if (linkTargetType.staticness() == Staticness.DYNAMIC && cppConfiguration.useFission()) {
-      toolchainFlags.add("-Wl,--gdb-index");
-    }
-
     return ImmutableList.copyOf(toolchainFlags);
   }
 

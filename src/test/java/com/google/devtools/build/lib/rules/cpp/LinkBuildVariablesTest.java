@@ -291,4 +291,25 @@ public class LinkBuildVariablesTest extends BuildViewTestCase {
     assertThat(variables.isAvailable(CppLinkActionBuilder.STRIP_DEBUG_SYMBOLS_VARIABLE))
         .isEqualTo(isEnabled);
   }
+
+  @Test
+  public void testIsUsingFissionVariable() throws Exception {
+    scratch.file("x/BUILD",
+        "cc_binary(name = 'foo', srcs = ['foo.cc'])");
+    scratch.file("x/foo.cc");
+
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, "supports_fission: true");
+
+    useConfiguration("--fission=no");
+    ConfiguredTarget target = getConfiguredTarget("//x:foo");
+    Variables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    assertThat(variables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isFalse();
+
+    useConfiguration("--fission=yes");
+    ConfiguredTarget fissionTarget = getConfiguredTarget("//x:foo");
+    Variables fissionVariables = getLinkBuildVariables(fissionTarget, LinkTargetType.EXECUTABLE);
+    assertThat(fissionVariables.isAvailable(CppLinkActionBuilder.IS_USING_FISSION_VARIABLE)).isTrue();
+  }
 }

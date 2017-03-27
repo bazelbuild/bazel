@@ -131,6 +131,12 @@ public class CppLinkActionBuilder {
   public static final String IS_CC_TEST_LINK_ACTION_VARIABLE = "is_cc_test_link_action";
 
   /**
+   *  A build variable whose presence indicates that files were compiled with fission (debug
+   *  info is in .dwo files instead of .o files and linker needs to know).
+   */
+  public static final String IS_USING_FISSION_VARIABLE = "is_using_fission";
+
+  /**
    * A (temporary) build variable whose presence indicates that this action is not a cc_test linking
    * action.
    */
@@ -1344,6 +1350,10 @@ public class CppLinkActionBuilder {
 
       if (cppConfiguration.shouldStripBinaries()) {
         buildVariables.addStringVariable(STRIP_DEBUG_SYMBOLS_VARIABLE, "");
+      }
+
+      if (getLinkType().staticness().equals(Staticness.DYNAMIC) && cppConfiguration.useFission()) {
+        buildVariables.addStringVariable(IS_USING_FISSION_VARIABLE, "");
       }
 
       if (useTestOnlyFlags()) {
