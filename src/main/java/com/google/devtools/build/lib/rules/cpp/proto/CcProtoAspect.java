@@ -145,6 +145,7 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
       this.supportData = supportData;
       this.cppSemantics = cppSemantics;
       FeatureConfiguration featureConfiguration = getFeatureConfiguration(supportData);
+      ProtoConfiguration protoConfiguration = ruleContext.getFragment(ProtoConfiguration.class);
 
       CcLibraryHelper helper = initializeCcLibraryHelper(featureConfiguration);
       helper.addDeps(ruleContext.getPrerequisites("deps", TARGET));
@@ -155,8 +156,10 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
         registerBlacklistedSrcs(supportData, helper);
         headerProvider = null;
       } else if (supportData.hasProtoSources()) {
-        Collection<Artifact> headers = getHeaders(supportData);
-        Collection<Artifact> sources = getSources(supportData);
+        Collection<Artifact> headers =
+            getOutputFiles(supportData, protoConfiguration.ccProtoLibraryHeaderSuffixes());
+        Collection<Artifact> sources =
+            getOutputFiles(supportData, protoConfiguration.ccProtoLibrarySourceSuffixes());
         outputs.addAll(headers);
         outputs.addAll(sources);
 
@@ -245,14 +248,15 @@ public class CcProtoAspect extends NativeAspectClass implements ConfiguredAspect
           ruleContext, ruleContext.getPrerequisite(":cc_toolchain", TARGET));
     }
 
-    private Collection<Artifact> getHeaders(SupportData supportData) {
-      return ProtoCommon.getGeneratedOutputs(
-          ruleContext, supportData.getDirectProtoSources(), ".pb.h");
-    }
-
-    private Collection<Artifact> getSources(SupportData supportData) {
-      return ProtoCommon.getGeneratedOutputs(
-          ruleContext, supportData.getDirectProtoSources(), ".pb.cc");
+    private ImmutableSet<Artifact> getOutputFiles(
+        SupportData supportData, Iterable<String> suffixes) {
+      ImmutableSet.Builder<Artifact> result = ImmutableSet.builder();
+      for (String suffix : suffixes) {
+        result.addAll(
+            ProtoCommon.getGeneratedOutputs(
+                ruleContext, supportData.getDirectProtoSources(), suffix));
+      }
+      return result.build();
     }
 
     private void registerBlacklistedSrcs(SupportData supportData, CcLibraryHelper helper) {
