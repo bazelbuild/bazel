@@ -72,7 +72,9 @@ class Desugar {
       defaultValue = "",
       category = "input",
       converter = ExistingPathConverter.class,
-      help = "Ordered classpath to resolve symbols in the --input Jar, like javac's -cp flag."
+      help =
+          "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
+          + "javac's -cp flag."
     )
     public List<Path> classpath;
 
@@ -426,9 +428,6 @@ class Desugar {
     checkArgument(
         !options.bootclasspath.isEmpty() || options.allowEmptyBootclasspath,
         "At least one --bootclasspath_entry is required");
-    for (Path path : options.classpath) {
-      checkArgument(!Files.isDirectory(path), "Classpath entry must be a jar file: %s", path);
-    }
     for (Path path : options.bootclasspath) {
       checkArgument(!Files.isDirectory(path), "Bootclasspath entry must be a jar file: %s", path);
     }
@@ -518,15 +517,15 @@ class Desugar {
   }
 
   /**
-   * Transform a list of Path to a list of ZipInputFileProvider and register them with the given
+   * Transform a list of Path to a list of InputFileProvider and register them with the given
    * closer.
    */
+  @SuppressWarnings("MustBeClosedChecker")
   private static ImmutableList<InputFileProvider> toRegisteredInputFileProvider(
       Closer closer, List<Path> paths) throws IOException {
     ImmutableList.Builder<InputFileProvider> builder = new ImmutableList.Builder<>();
     for (Path path : paths) {
-      checkState(!Files.isDirectory(path), "Directory is not supported: %s", path);
-      builder.add(closer.register(new ZipInputFileProvider(path)));
+      builder.add(closer.register(toInputFileProvider(path)));
     }
     return builder.build();
   }
