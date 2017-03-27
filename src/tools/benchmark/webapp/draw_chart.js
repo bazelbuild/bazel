@@ -272,3 +272,19 @@ function hideOrShow(dashboard, chart, columns, tableData, options) {
   view.setColumns(columns);
   dashboard.draw(view);
 }
+
+/** @type {!Array<string>} */
+const chartDivList = ['java', 'cpp'];
+/**
+ * Only show the specific div
+ * @param {!string} divId the id of the div that needs to be shown
+ */
+function showChartDiv(divId) {
+  for (let id of chartDivList) {
+    if (id === divId) {
+      $('#' + id).show();
+    } else {
+      $('#' + id).hide();
+    }
+  }
+}
