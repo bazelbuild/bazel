@@ -25,13 +25,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import java.util.TreeMap;
 
 /**
- * Abstract base class for {@code toolchain_lookup}.
+ * Abstract base class for {@code toolchain_type}.
  */
-public class ToolchainLookup implements RuleConfiguredTargetFactory {
+public class ToolchainType implements RuleConfiguredTargetFactory {
   private final ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap;
   private final ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap;
 
-  protected ToolchainLookup(
+  protected ToolchainType(
       ImmutableMap<Label, Class<? extends BuildConfiguration.Fragment>> fragmentMap,
       ImmutableMap<Label, ImmutableMap<String, String>> hardcodedVariableMap) {
     this.fragmentMap = fragmentMap;

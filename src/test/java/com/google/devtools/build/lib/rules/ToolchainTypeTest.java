@@ -20,13 +20,13 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import org.junit.Test;
 
 /**
- * Unit tests for the {@code toolchain_lookup} rule.
+ * Unit tests for the {@code toolchain_type} rule.
  */
-public class ToolchainLookupTest extends BuildViewTestCase {
+public class ToolchainTypeTest extends BuildViewTestCase {
   @Test
   public void testSmoke() throws Exception {
     ConfiguredTarget cc = getConfiguredTarget(getRuleClassProvider().getToolsRepository()
-        + "//tools/cpp:lookup");
+        + "//tools/cpp:toolchain_type");
     assertThat(cc.getProvider(ToolchainProvider.class).getMakeVariables())
         .containsKey("TARGET_CPU");
   }

@@ -563,7 +563,7 @@ public abstract class MockCcSupport {
     config.create(
         "tools/cpp/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "toolchain_lookup(name = 'lookup')",
+        "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'stl')",
         "alias(name='toolchain', actual='//third_party/crosstool')",
         "cc_library(name = 'malloc')",

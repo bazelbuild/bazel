@@ -77,7 +77,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.create(
         "/bazel_tools_workspace/tools/cpp/BUILD",
         "package(default_visibility=['//visibility:public'])",
-        "toolchain_lookup(name = 'lookup')",
+        "toolchain_type(name = 'toolchain_type')",
         "cc_library(name = 'stl')",
         "cc_library(name = 'malloc')",
         "cc_toolchain_suite(",

@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainLookup.BazelToolchainLookupRule;
+import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAarImportRule;
@@ -297,7 +297,7 @@ public class BazelRuleClassProvider {
 
     // These rules are a little special: they need to depend on every configuration fragment that
     // has Make variables, so we can't put them in any of the above buckets.
-    builder.addRuleDefinition(new BazelToolchainLookupRule());
+    builder.addRuleDefinition(new BazelToolchainTypeRule());
     builder.addRuleDefinition(new GenRuleBaseRule());
     builder.addRuleDefinition(new BazelGenRuleRule());
   }

@@ -21,25 +21,25 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.ToolchainLookup;
+import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.Jvm;
 
 /**
- * Implementation of {@code toolchain_lookup}.
+ * Implementation of {@code toolchain_type}.
  */
-public class BazelToolchainLookup extends ToolchainLookup {
+public class BazelToolchainType extends ToolchainType {
 
   /**
-   * Definition for {@code toolchain_lookup}.
+   * Definition for {@code toolchain_type}.
    */
-  public static class BazelToolchainLookupRule implements RuleDefinition {
+  public static class BazelToolchainTypeRule implements RuleDefinition {
 
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          // This means that *every* toolchain_lookup rule depends on every configuration fragment
+          // This means that *every* toolchain_type rule depends on every configuration fragment
           // that contributes Make variables, regardless of which one it is.
           .requiresConfigurationFragments(
               CppConfiguration.class, Jvm.class, AndroidConfiguration.class)
@@ -51,21 +51,21 @@ public class BazelToolchainLookup extends ToolchainLookup {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("toolchain_lookup")
-          .factoryClass(BazelToolchainLookup.class)
+          .name("toolchain_type")
+          .factoryClass(BazelToolchainType.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
   }
 
-  public BazelToolchainLookup() {
+  public BazelToolchainType() {
     super(
         ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>builder()
-            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:lookup"),
+            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/cpp:toolchain_type"),
                 CppConfiguration.class)
-            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:lookup"),
+            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/jdk:toolchain_type"),
                 Jvm.class)
-            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:lookup"),
+            .put(Label.parseAbsoluteUnchecked("@bazel_tools//tools/android:toolchain_type"),
                 AndroidConfiguration.class)
             .build(),
         ImmutableMap.<Label, ImmutableMap<String, String>>of());

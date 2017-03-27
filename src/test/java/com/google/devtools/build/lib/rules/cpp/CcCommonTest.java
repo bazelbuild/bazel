@@ -39,13 +39,13 @@ import com.google.devtools.build.lib.analysis.mock.BazelAnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.BazelToolchainLookup;
+import com.google.devtools.build.lib.bazel.rules.BazelToolchainType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.rules.ToolchainLookup;
+import com.google.devtools.build.lib.rules.ToolchainType;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OsUtils;
@@ -905,10 +905,10 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   * A {@code toolchain_type} rule for testing that only supports C++.
    */
-  public static class OnlyCppToolchainLookup extends ToolchainLookup {
-    public OnlyCppToolchainLookup() {
+  public static class OnlyCppToolchainType extends ToolchainType {
+    public OnlyCppToolchainType() {
       super(
           ImmutableMap.<Label, Class<? extends BuildConfiguration.Fragment>>of(),
           ImmutableMap.<Label, ImmutableMap<String, String>>of());
@@ -916,13 +916,13 @@ public class CcCommonTest extends BuildViewTestCase {
   }
 
   /**
-   * A {@code toolchain_lookup} rule for testing that only supports C++.
+   * A {@code toolchain_type} rule for testing that only supports C++.
    */
-  public static class OnlyCppToolchainLookupRule implements RuleDefinition {
+  public static class OnlyCppToolchainTypeRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          // This means that *every* toolchain_lookup rule depends on every configuration fragment
+          // This means that *every* toolchain_type rule depends on every configuration fragment
           // that contributes Make variables, regardless of which one it is.
           .requiresConfigurationFragments(CppConfiguration.class)
           .removeAttribute("licenses")
@@ -933,8 +933,8 @@ public class CcCommonTest extends BuildViewTestCase {
     @Override
     public Metadata getMetadata() {
       return Metadata.builder()
-          .name("toolchain_lookup")
-          .factoryClass(BazelToolchainLookup.class)
+          .name("toolchain_type")
+          .factoryClass(BazelToolchainType.class)
           .ancestors(BaseRuleClasses.BaseRule.class)
           .build();
     }
@@ -966,7 +966,7 @@ public class CcCommonTest extends BuildViewTestCase {
           BazelRuleClassProvider.CORE_WORKSPACE_RULES.init(builder);
           BazelRuleClassProvider.BASIC_RULES.init(builder);
           BazelRuleClassProvider.CPP_RULES.init(builder);
-          builder.addRuleDefinition(new OnlyCppToolchainLookupRule());
+          builder.addRuleDefinition(new OnlyCppToolchainTypeRule());
           return builder.build();
         }
 
