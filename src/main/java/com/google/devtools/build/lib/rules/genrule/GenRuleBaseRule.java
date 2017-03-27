@@ -26,12 +26,18 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.ToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -40,6 +46,22 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * as a setup script target.
  */
 public class GenRuleBaseRule implements RuleDefinition {
+
+  /**
+   * Late-bound dependency on the C++ toolchain <i>iff</i> the genrule has make variables that need
+   * that toolchain.
+   */
+  public static final Attribute.LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
+      new Attribute.LateBoundLabel<BuildConfiguration>(
+          CppRuleClasses.CROSSTOOL_LABEL, CppConfiguration.class) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return attributes != null
+              && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
+              ? CppRuleClasses.CC_TOOLCHAIN.resolve(rule, attributes, configuration)
+              : null;
+        }
+      };
 
   @Override
   public RuleClass build(

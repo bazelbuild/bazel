@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
@@ -45,7 +46,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             .value(environment.getToolsLabel("//tools/android:debug_keystore")))
         .add(attr(":cc_toolchain_split", BuildType.LABEL)
             .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
-            .value(BazelCppRuleClasses.CC_TOOLCHAIN))
+            .value(CppRuleClasses.CC_TOOLCHAIN))
         /* <!-- #BLAZE_RULE(android_binary).IMPLICIT_OUTPUTS -->
          <ul>
          <li><code><var>name</var>.apk</code>: An Android application

@@ -60,7 +60,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
   private static final Pattern JDK_MAKE_VARIABLE =
       Pattern.compile("\\$\\((JAVABASE|JAVA)\\)");
 
-  protected boolean requiresCrosstool(String command) {
+  protected static boolean requiresCrosstool(String command) {
     return CROSSTOOL_MAKE_VARIABLE.matcher(command).find();
   }
 

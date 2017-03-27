@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp.proto;
 
-import static com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CC_TOOLCHAIN;
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CC_TOOLCHAIN;
 
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;

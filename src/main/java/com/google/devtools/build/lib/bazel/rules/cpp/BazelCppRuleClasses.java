@@ -107,28 +107,6 @@ public class BazelCppRuleClasses {
         }
       };
 
-  /**
-   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for
-   * all configurations, as specified on the command-line.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
-
-  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).customMalloc();
-        }
-      };
-
-  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
-
   public static final LateBoundLabel<BuildConfiguration> STL =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
@@ -194,7 +172,7 @@ public class BazelCppRuleClasses {
     @SuppressWarnings("unchecked")
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":cc_toolchain", LABEL).value(CC_TOOLCHAIN))
+          .add(attr(":cc_toolchain", LABEL).value(CppRuleClasses.CC_TOOLCHAIN))
           .setPreferredDependencyPredicate(Predicates.<String>or(CPP_SOURCE, C_SOURCE, CPP_HEADER))
           .build();
     }
@@ -563,7 +541,7 @@ public class BazelCppRuleClasses {
                   .value(env.getToolsLabel("//tools/cpp:malloc"))
                   .allowedFileTypes()
                   .allowedRuleClasses("cc_library"))
-          .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))
+          .add(attr(":default_malloc", LABEL).value(CppRuleClasses.DEFAULT_MALLOC))
           /*<!-- #BLAZE_RULE($cc_binary_base).ATTRIBUTE(stamp) -->
           Enable link stamping.
           Whether to encode build information into the binary. Possible values:

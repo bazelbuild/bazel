@@ -87,6 +87,28 @@ public class CppRuleClasses {
     }
   }
 
+  /**
+   * Label of a pseudo-filegroup that contains all crosstool and libcfiles for all configurations,
+   * as specified on the command-line.
+   */
+  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
+
+  public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
+      new LateBoundLabel<BuildConfiguration>() {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).customMalloc();
+        }
+      };
+
+  public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
+      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
+        @Override
+        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
+        }
+      };
+
   // Artifacts of these types are discarded from the 'hdrs' attribute in cc rules
   static final FileTypeSet DISALLOWED_HDRS_FILES = FileTypeSet.of(
       ARCHIVE,

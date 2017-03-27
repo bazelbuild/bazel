@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
@@ -52,7 +51,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         // TODO(bazel-team): stamping doesn't seem to work. Fix it or remove attribute.
         .add(attr("stamp", BOOLEAN).value(false))
 
-        .add(attr(":cc_toolchain", LABEL).value(BazelCppRuleClasses.CC_TOOLCHAIN))
+        .add(attr(":cc_toolchain", LABEL).value(GenRuleBaseRule.CC_TOOLCHAIN))
         .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
 
         .build();

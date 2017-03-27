@@ -311,6 +311,23 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     assertCommandEquals(expected, barAction.getArguments().get(2));
   }
 
+  @Test
+  public void onlyHasCcToolchainDepWhenCcMakeVariablesArePresent() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "genrule(name = 'no_cc',",
+        "        srcs = [],",
+        "        cmd = 'echo no CC variables here > $@',",
+        "        outs = ['no_cc.out'])",
+        "genrule(name = 'cc',",
+        "        srcs = [],",
+        "        cmd = 'echo $(CC) > $@',",
+        "        outs = ['cc.out'])");
+    String ccToolchainAttr = ":cc_toolchain";
+    assertThat(getPrerequisites(getConfiguredTarget("//foo:no_cc"), ccToolchainAttr)).isEmpty();
+    assertThat(getPrerequisites(getConfiguredTarget("//foo:cc"), ccToolchainAttr)).isNotEmpty();
+  }
+
   /** Ensure that Java make variables get expanded under the *host* configuration. */
   @Test
   public void testJavaMakeVarExpansion() throws Exception {
