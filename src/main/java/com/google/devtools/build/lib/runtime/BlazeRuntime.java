@@ -139,8 +139,7 @@ public final class BlazeRuntime {
   private final OptionsProvider startupOptionsProvider;
 
   private final ProjectFile.Provider projectFileProvider;
-  @Nullable
-  private final InvocationPolicy invocationPolicy;
+  @Nullable private final InvocationPolicy moduleInvocationPolicy;
   private final String defaultsPackageContent;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
   private final String productName;
@@ -163,7 +162,7 @@ public final class BlazeRuntime {
       Iterable<BlazeModule> blazeModules,
       SubscriberExceptionHandler eventBusExceptionHandler,
       ProjectFile.Provider projectFileProvider,
-      InvocationPolicy invocationPolicy,
+      InvocationPolicy moduleInvocationPolicy,
       Iterable<BlazeCommand> commands,
       String productName,
       PathConverter pathToUriConverter) {
@@ -173,7 +172,7 @@ public final class BlazeRuntime {
 
     this.packageFactory = pkgFactory;
     this.projectFileProvider = projectFileProvider;
-    this.invocationPolicy = invocationPolicy;
+    this.moduleInvocationPolicy = moduleInvocationPolicy;
 
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
@@ -187,7 +186,7 @@ public final class BlazeRuntime {
     this.eventBusExceptionHandler = eventBusExceptionHandler;
 
     this.defaultsPackageContent =
-        ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
+        ruleClassProvider.getDefaultsPackageContent(getModuleInvocationPolicy());
     CommandNameCache.CommandNameCacheInstance.INSTANCE.setCommandNameCache(
         new CommandNameCacheImpl(getCommandMap()));
     this.productName = productName;
@@ -250,8 +249,8 @@ public final class BlazeRuntime {
   }
 
   @Nullable
-  public InvocationPolicy getInvocationPolicy() {
-    return invocationPolicy;
+  public InvocationPolicy getModuleInvocationPolicy() {
+    return moduleInvocationPolicy;
   }
 
   /**

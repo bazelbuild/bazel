@@ -381,7 +381,7 @@ public class BlazeCommandDispatcher {
       parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
+          new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy());
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
       optionsPolicyEnforcer =
           InvocationPolicyEnforcer.create(
@@ -526,7 +526,7 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * For testing ONLY. Same as {@link #exec(List, OutErr, boolean, String, long)}, but automatically
+   * For testing ONLY. Same as {@link #exec}, but automatically
    * uses the current time.
    */
   @VisibleForTesting
@@ -604,7 +604,7 @@ public class BlazeCommandDispatcher {
           : "Reading options for '" + originalCommand + "' from " + rcfile;
       rcfileNotes.add(source + ":\n"
           + "  " + inherited + "'" + commandToParse + "' options: "
-        + Joiner.on(' ').join(rcfileOptions));
+          + Joiner.on(' ').join(rcfileOptions));
       optionsParser.parse(OptionPriority.RC_FILE, rcfile, rcfileOptions);
     }
   }
