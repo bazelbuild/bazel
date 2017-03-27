@@ -67,7 +67,7 @@ if [ -n "${TOOLCHAIN:-}" ]; then
   XCRUN_ARGS+=(--toolchain "$TOOLCHAIN")
 fi
 
-XCRUN_ARGS+=(swift-stdlib-tool --copy --verbose )
+XCRUN_ARGS+=(swift-stdlib-tool --copy )
 XCRUN_ARGS+=(--destination "$FULLPATH")
 XCRUN_ARGS+=( "${TOOL_ARGS[@]}" )
 
