@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Installing Bazel on macOS (OS X)
+title: Installing Bazel on macOS
+---
 
 # <a name="mac-os-x"></a>Install Bazel on macOS (OS X)
 

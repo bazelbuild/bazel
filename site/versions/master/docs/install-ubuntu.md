@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Installing Bazel on Ubuntu
+title: Installing Bazel on Ubuntu
+---
 
 # <a name="ubuntu"></a>Install Bazel on Ubuntu
 

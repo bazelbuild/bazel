@@ -3,13 +3,12 @@ layout: documentation
 title: Windows Chocolatey maintenance
 ---
 
-Maintaining Bazel Chocolatey package on Windows
-===============================================
+# Maintaining Bazel Chocolatey package on Windows
 
 **NOTE:** The Chocolatey package is experimental; please provide feedback
 (`@petemounce` in issue tracker).
 
-### Prerequisites
+## Prerequisites
 
 You need:
 
@@ -21,7 +20,7 @@ You need:
 *    (to publish) to have set up that API key for the chocolatey source locally
      via `choco apikey -k <your key here> -s https://chocolatey.org/`
 
-### Build
+## Build
 
 Compile bazel with msys2 shell and `compile.sh`.
 
@@ -36,7 +35,7 @@ created.
 
 The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
 
-#### Test
+## Test
 
 0. Build the package (with `-mode local`)
 
@@ -58,7 +57,7 @@ The `build.ps1` script supports `mode` values `local`, `rc` and `release`.
 
 Chocolatey's moderation process automates checks here as well.
 
-### Release
+## Release
 
 Modify `tools/parameters.json` for the new release's URI and checksum once the
 release has been published to github releases.
