@@ -72,6 +72,16 @@ genrule(
   cmd = "echo foo > \\"\$@\\"",
   tags = ["tag1", "tag2"]
 )
+action_listener(
+    name = "listener",
+    mnemonics = ["Genrule"],
+    extra_actions = [":extra"],
+    visibility = ["//visibility:public"],
+)
+extra_action(
+   name = "extra",
+   cmd = "echo Hello World",
+)
 EOF
 cat > simpleaspect.bzl <<EOF
 def _simple_aspect_impl(target, ctx):
@@ -243,6 +253,18 @@ function test_target_complete() {
   expect_log 'out1.txt'
   expect_log 'tag1'
   expect_log 'tag2'
+}
+
+function test_extra_action() {
+  # verify that normal successful actions are not reported, but extra actions
+  # are
+  bazel build --experimental_build_event_text_file=$TEST_log \
+    pkg:output_files_and_tags || fail "bazel build failed"
+  expect_not_log '^action'
+  bazel build --experimental_build_event_text_file=$TEST_log \
+    --experimental_action_listener=pkg:listener \
+    pkg:output_files_and_tags || fail "bazel build with listener failed"
+  expect_log '^action'
 }
 
 function test_aspect_artifacts() {

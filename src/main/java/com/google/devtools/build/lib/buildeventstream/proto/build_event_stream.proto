@@ -230,7 +230,7 @@ message File {
 
 // Payload of the event indicating the completion of an action. The main purpose
 // of posting those events is to provide details on the root cause for a target
-// failing; however, consumers of the build-event protocol should not assume
+// failing; however, consumers of the build-event protocol must not assume
 // that only failed actions are posted.
 message ActionExecuted {
   bool success = 1;
@@ -248,6 +248,9 @@ message ActionExecuted {
 
   // Optionally, the label of the owner of the action, for reference.
   string label = 5;
+
+  // Primary output; only provided for successful actions.
+  File primary_output = 6;
 }
 
 // Collection of all output files belonging to that output group.

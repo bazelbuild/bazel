@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.TextFormat;
 import java.io.Serializable;
 import java.util.List;
@@ -143,6 +144,16 @@ public final class BuildEventId implements Serializable {
 
   public static BuildEventId fromCause(Cause cause) {
     return new BuildEventId(cause.getIdProto());
+  }
+
+  public static BuildEventId actionCompleted(Path path) {
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder()
+            .setActionCompleted(
+                BuildEventStreamProtos.BuildEventId.ActionCompletedId.newBuilder()
+                    .setPrimaryOutput(path.toString())
+                    .build())
+            .build());
   }
 
   public static BuildEventId testResult(Label target, Integer run, Integer shard, Integer attempt) {

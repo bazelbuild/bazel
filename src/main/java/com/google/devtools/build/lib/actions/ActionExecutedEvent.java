@@ -68,9 +68,13 @@ public class ActionExecutedEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    Cause cause =
-        new ActionFailed(action.getPrimaryOutput().getPath(), action.getOwner().getLabel());
-    return BuildEventId.fromCause(cause);
+    if (getException() != null) {
+      Cause cause =
+          new ActionFailed(action.getPrimaryOutput().getPath(), action.getOwner().getLabel());
+      return BuildEventId.fromCause(cause);
+    } else {
+      return BuildEventId.actionCompleted(action.getPrimaryOutput().getPath());
+    }
   }
 
   @Override
@@ -82,7 +86,7 @@ public class ActionExecutedEvent implements BuildEvent {
   public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
     BuildEventStreamProtos.ActionExecuted.Builder actionBuilder =
         BuildEventStreamProtos.ActionExecuted.newBuilder().setSuccess(getException() == null);
-    if (exception.getExitCode() != null) {
+    if (exception != null && exception.getExitCode() != null) {
       actionBuilder.setExitCode(exception.getExitCode().getNumericExitCode());
     }
     if (stdout != null) {
@@ -99,8 +103,14 @@ public class ActionExecutedEvent implements BuildEvent {
           .setUri(pathConverter.apply(stderr))
           .build());
     }
-    if (action.getOwner() != null) {
+    if (action.getOwner() != null && action.getOwner().getLabel() != null) {
       actionBuilder.setLabel(action.getOwner().getLabel().toString());
+    }
+    if (exception == null) {
+      actionBuilder.setPrimaryOutput(
+          BuildEventStreamProtos.File.newBuilder()
+              .setUri(pathConverter.apply(action.getPrimaryOutput().getPath()))
+              .build());
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();
   }

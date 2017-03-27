@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
@@ -181,9 +182,14 @@ public class BuildEventStreamer implements EventHandler {
     close();
   }
 
+  /**
+   * Return true, if the action is not worth being reported. This is the case, if the action
+   * executed successfully and is not an ExtraAction.
+   */
   private static boolean isActionWithoutError(BuildEvent event) {
     return event instanceof ActionExecutedEvent
-        && ((ActionExecutedEvent) event).getException() == null;
+        && ((ActionExecutedEvent) event).getException() == null
+        && (!(((ActionExecutedEvent) event).getAction() instanceof ExtraAction));
   }
 
   private boolean bufferUntilPrerequisitesReceived(BuildEvent event) {
