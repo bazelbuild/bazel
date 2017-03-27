@@ -51,8 +51,12 @@ message BuildEventId {
 
   // Identifier on an event indicating the original commandline received by
   // the bazel server.
-
   message CommandLineId {
+  }
+
+  // Identifier on an event reporting on the options included in the command
+  // line, both explicitly and implicitly.
+  message OptionsParsedId {
   }
 
   // Identifier of an event indicating that a target pattern has been expanded
@@ -108,6 +112,7 @@ message BuildEventId {
     ProgressId progress = 2;
     BuildStartedId started = 3;
     CommandLineId command_line = 11;
+    OptionsParsedId options_parsed = 12;
     PatternExpandedId pattern = 4;
     PatternExpandedId pattern_skipped = 10;
     TargetCompletedId target_completed = 5;
@@ -194,6 +199,14 @@ message BuildStarted {
 // invocation.
 message CommandLine {
   repeated string args = 1;
+}
+
+// Payload of an event reporting on the parsed options, grouped in various ways.
+message OptionsParsed {
+  repeated string startup_options = 1;
+  repeated string explicit_startup_options = 2;
+  repeated string cmd_line = 3;
+  repeated string explicit_cmd_line = 4;
 }
 
 // Payload of the event indicating the expansion of a target pattern.
@@ -334,6 +347,7 @@ message BuildEvent {
     LoadingFailure loading_failed = 11;
     BuildStarted started = 5;
     CommandLine command_line = 12;
+    OptionsParsed options_parsed = 13;
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
     TargetComplete completed = 8;

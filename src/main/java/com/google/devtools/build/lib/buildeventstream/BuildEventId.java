@@ -91,6 +91,13 @@ public final class BuildEventId implements Serializable {
         BuildEventStreamProtos.BuildEventId.newBuilder().setCommandLine(commandLineId).build());
   }
 
+  public static BuildEventId optionsParsedId() {
+    BuildEventStreamProtos.BuildEventId.OptionsParsedId optionsParsedId =
+        BuildEventStreamProtos.BuildEventId.OptionsParsedId.getDefaultInstance();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setOptionsParsed(optionsParsedId).build());
+  }
+
   private static BuildEventId targetPatternExpanded(List<String> targetPattern, boolean skipped) {
     BuildEventStreamProtos.BuildEventId.PatternExpandedId patternId =
         BuildEventStreamProtos.BuildEventId.PatternExpandedId.newBuilder()
