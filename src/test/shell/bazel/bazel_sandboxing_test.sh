@@ -520,10 +520,6 @@ local_repository(
 )
 EOF
 
-  # Prepare the sandbox root
-  SANDBOX_ROOT="${TEST_TMPDIR}/sandbox.root"
-  mkdir -p ${SANDBOX_ROOT}
-
   # Define the mount source and target.
   source="${TEST_TMPDIR}/workspace/downloaded_toolchain/x86_64-unknown-linux-gnu/sysroot/lib64/ld-2.19.so"
   target_root="${TEST_SRCDIR}/mount_targets"
@@ -565,7 +561,7 @@ EOF
   # Use linux_sandbox binary to run bazel-bin/hello-world binary in the sandbox environment
   # First, no path mounting. The execution should fail.
   echo "Run the binary bazel-bin/hello-world without mounting the path"
-  $linux_sandbox -D -S ${SANDBOX_ROOT} -- bazel-bin/hello-world &> $TEST_log || code=$?
+  $linux_sandbox -D -- bazel-bin/hello-world &> $TEST_log || code=$?
   expect_log "child exited normally with exitcode 1"
 
   # Second, with path mounting. The execution should succeed.
@@ -573,12 +569,13 @@ EOF
   # Create the mount target manually as sandbox binary does not create target paths
   mkdir -p ${target_folder}
   touch ${target}
-  $linux_sandbox -D -S ${SANDBOX_ROOT} \
+  $linux_sandbox -D \
   -M ${source} \
   -m ${target} \
   -- bazel-bin/hello-world &> $TEST_log || code=$?
   expect_log "Hello, world!"
   expect_log "child exited normally with exitcode 0"
+
   # Remove the mount target folder as sandbox binary does not do the cleanup
   rm -rf ${target_root}/x86_64-unknown-linux-gnu
 }
