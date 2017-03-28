@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.flags.CommandNameCache;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
+import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParser;
@@ -64,8 +65,9 @@ public class InvocationPolicyEnforcerTestBase {
     String policyOption = "--invocation_policy=" + policyBase64;
     startupOptionsParser.parse(policyOption);
 
-    return InvocationPolicyEnforcer.create(
-        startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy);
+    return new InvocationPolicyEnforcer(
+        InvocationPolicyParser.parsePolicy(
+            startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy));
   }
 
   OptionsParser parser;

@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.flags;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
-import com.google.common.base.Strings;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.AllowValues;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.DisallowValues;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.FlagPolicy;
@@ -31,8 +28,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParsingException;
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.TextFormat;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -50,40 +45,6 @@ import javax.annotation.Nullable;
  * <p>"Flag" and "Option" are used interchangeably in this file.
  */
 public final class InvocationPolicyEnforcer {
-  public static InvocationPolicyEnforcer create(String invocationPolicy)
-      throws OptionsParsingException {
-
-    return new InvocationPolicyEnforcer(parsePolicy(invocationPolicy));
-  }
-
-  /**
-   * Parses the given InvocationPolicy string, which may be a base64-encoded binary-serialized
-   * InvocationPolicy message, or a text formatted InvocationPolicy message. Note that the
-   * text format is not backwards compatible as the binary format is.
-   *
-   * @throws OptionsParsingException if the value of --invocation_policy is invalid.
-   */
-  private static InvocationPolicy parsePolicy(String policy) throws OptionsParsingException {
-    if (Strings.isNullOrEmpty(policy)) {
-      return null;
-    }
-
-    try {
-      try {
-        // First try decoding the policy as a base64 encoded binary proto.
-        return InvocationPolicy.parseFrom(
-            BaseEncoding.base64().decode(CharMatcher.whitespace().removeFrom(policy)));
-      } catch (IllegalArgumentException e) {
-        // If the flag value can't be decoded from base64, try decoding the policy as a text
-        // formatted proto.
-        InvocationPolicy.Builder builder = InvocationPolicy.newBuilder();
-        TextFormat.merge(policy, builder);
-        return builder.build();
-      }
-    } catch (InvalidProtocolBufferException | TextFormat.ParseException e) {
-      throw new OptionsParsingException("Malformed value of --invocation_policy: " + policy, e);
-    }
-  }
 
   private static final Logger log = Logger.getLogger(InvocationPolicyEnforcer.class.getName());
 
