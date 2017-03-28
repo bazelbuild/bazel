@@ -55,7 +55,6 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false),
-      use_custom_exit_code_on_abrupt_exit(true),
       java_logging_formatter("java.util.logging.SimpleFormatter") {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
@@ -81,8 +80,7 @@ StartupOptions::StartupOptions(const string &product_name,
                      "experimental_oom_more_eagerly",
                      "write_command_log",
                      "watchfs",
-                     "client_debug",
-                     "use_custom_exit_code_on_abrupt_exit"};
+                     "client_debug"};
   unary_options = {"output_base", "install_base",
       "output_user_root", "host_jvm_profile", "host_javabase",
       "host_jvm_args", "bazelrc", "blazerc", "io_nice_level",
@@ -276,12 +274,6 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noclient_debug")) {
     client_debug = false;
     option_sources["client_debug"] = rcfile;
-  } else if (GetNullaryOption(arg, "--use_custom_exit_code_on_abrupt_exit")) {
-    use_custom_exit_code_on_abrupt_exit = true;
-    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
-  } else if (GetNullaryOption(arg, "--nouse_custom_exit_code_on_abrupt_exit")) {
-    use_custom_exit_code_on_abrupt_exit = false;
-    option_sources["use_custom_exit_code_on_abrupt_exit"] = rcfile;
   } else if ((value = GetUnaryOption(
       arg, next_arg, "--connect_timeout_secs")) != NULL) {
     if (!blaze_util::safe_strto32(value, &connect_timeout_secs) ||

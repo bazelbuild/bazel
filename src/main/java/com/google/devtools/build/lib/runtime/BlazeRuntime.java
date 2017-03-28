@@ -1016,9 +1016,8 @@ public final class BlazeRuntime {
           ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
     }
     runtime.initWorkspace(directories, binTools);
-    if (startupOptions.useCustomExitCodeOnAbruptExit) {
-      CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
-    }
+    CustomExitCodePublisher.setAbruptExitStatusFileDir(serverDirectories.getOutputBase());
+
     AutoProfiler.setClock(runtime.getClock());
     BugReport.setRuntime(runtime);
     return runtime;
