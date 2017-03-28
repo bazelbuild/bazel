@@ -212,11 +212,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
-      "abi_version": "local",
-      "abi_libc_version": "local",
+      "abi_version": _get_env_var(repository_ctx, "ABI_VERSION", "local"),
+      "abi_libc_version": _get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local"),
       "builtin_sysroot": "",
-      "compiler": "compiler",
-      "host_system_name": "local",
+      "compiler": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler"),
+      "host_system_name": _get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local"),
       "needsPic": True,
       "supports_gold_linker": supports_gold_linker,
       "supports_incremental_linker": False,
@@ -224,9 +224,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": supports_gold_linker,
-      "target_libc": "macosx" if darwin else "local",
-      "target_cpu": cpu_value,
-      "target_system_name": "local",
+      "target_libc": "macosx" if darwin else _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local"),
+      "target_cpu": _get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value),
+      "target_system_name": _get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local"),
       "cxx_flag": [
           "-std=c++0x",
       ] + _cplus_include_paths(repository_ctx),
@@ -732,6 +732,7 @@ def _impl(repository_ctx):
         "%{name}": cpu_value,
         "%{supports_param_files}": "0" if darwin else "1",
         "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
+        "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler"),
     })
     _tpl(repository_ctx,
         "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
@@ -739,8 +740,8 @@ def _impl(repository_ctx):
         "cc_wrapper.sh")
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
-        "%{default_toolchain_name}": "local",
-        "%{toolchain_name}": "local",
+        "%{default_toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local"),
+        "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local"),
         "%{content}": _build_crosstool(crosstool_content) + "\n" +
                       _build_tool_path(tool_paths),
         "%{opt_content}": _build_crosstool(opt_content, "    "),
@@ -753,11 +754,19 @@ def _impl(repository_ctx):
 cc_autoconf = repository_rule(
     implementation=_impl,
     environ = [
-        "CC",
+        "ABI_LIBC_VERSION",
+        "ABI_VERSION",
+        "BAZEL_COMPILER",
+        "BAZEL_HOST_SYSTEM",
+        "BAZEL_PYTHON",
+        "BAZEL_SH",
+        "BAZEL_TARGET_CPU",
+        "BAZEL_TARGET_LIBC",
+        "BAZEL_TARGET_SYSTEM",
         "BAZEL_VC",
         "BAZEL_VS",
-        "BAZEL_SH",
-        "BAZEL_PYTHON",
+        "CC",
+        "CC_TOOLCHAIN_NAME",
         "CPLUS_INCLUDE_PATH"])
 
 

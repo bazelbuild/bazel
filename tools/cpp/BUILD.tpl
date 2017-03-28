@@ -24,7 +24,7 @@ filegroup(
 cc_toolchain_suite(
     name = "toolchain",
     toolchains = {
-        "%{name}|compiler": ":cc-compiler-%{name}",
+        "%{name}|%{compiler}": ":cc-compiler-%{name}",
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
         "ios_x86_64|compiler": ":cc-compiler-ios_x86_64",
     },
@@ -34,7 +34,7 @@ cc_toolchain(
     name = "cc-compiler-%{name}",
     all_files = "%{cc_compiler_deps}",
     compiler_files = "%{cc_compiler_deps}",
-    cpu = "local",
+    cpu = "%{name}",
     dwp_files = ":empty",
     dynamic_runtime_libs = [":empty"],
     linker_files = "%{cc_compiler_deps}",

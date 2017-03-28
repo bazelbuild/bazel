@@ -324,7 +324,22 @@ function run_bazel_jar() {
   shift
   local client_env=()
   # Propagate important environment variables to bootstrapped Bazel.
-  for varname in PATH CC BAZEL_SH BAZEL_VC BAZEL_VS BAZEL_PYTHON CPLUS_INCLUDEPATH; do
+  local env_vars="ABI_LIBC_VERSION"
+  env_vars="$env_vars ABI_VERSION"
+  env_vars="$env_vars BAZEL_COMPILER "
+  env_vars="$env_vars BAZEL_HOST_SYSTEM"
+  env_vars="$env_vars BAZEL_PYTHON"
+  env_vars="$env_vars BAZEL_SH"
+  env_vars="$env_vars BAZEL_TARGET_CPU"
+  env_vars="$env_vars BAZEL_TARGET_LIBC"
+  env_vars="$env_vars BAZEL_TARGET_SYSTEM"
+  env_vars="$env_vars BAZEL_VC"
+  env_vars="$env_vars BAZEL_VS"
+  env_vars="$env_vars CC"
+  env_vars="$env_vars CC_TOOLCHAIN_NAME"
+  env_vars="$env_vars CPLUS_INCLUDE_PATH"
+  env_vars="$env_vars PATH"
+  for varname in $env_vars; do
     eval value=\$$varname
     if [ "${value}" ]; then
       client_env=("${client_env[@]}" --client_env="${varname}=${value}")

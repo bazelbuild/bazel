@@ -24,7 +24,7 @@ default_toolchain {
 
 default_toolchain {
   cpu: "s390x"
-  toolchain_identifier: "local"
+  toolchain_identifier: "%{toolchain_name}"
 }
 
 default_toolchain {
