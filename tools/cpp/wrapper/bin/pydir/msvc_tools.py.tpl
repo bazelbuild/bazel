@@ -483,8 +483,6 @@ class WindowsRunner(object):
         '.*warning LNK4044: unrecognized option \'/link\'; ignored.*\n',
         '.*warning LNK4221: This object file does not define any '
         'previously.*\n',
-        # Comment the following line if you want to see warning messages
-        '.*warning C.*\n',
         '\r\n',
         '\n\r',
     ]
