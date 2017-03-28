@@ -52,7 +52,7 @@ public final class RemoteModule extends BlazeModule {
   public void buildStarting(BuildStartingEvent event) {
     RemoteOptions options = event.getRequest().getOptions(RemoteOptions.class);
 
-    if (ConcurrentMapFactory.isRemoteCacheOptions(options)
+    if (SimpleBlobStoreFactory.isRemoteCacheOptions(options)
         || GrpcActionCache.isRemoteCacheOptions(options)) {
       HashFunction hf = FileSystem.getDigestFunction();
       if (hf != HashFunction.SHA1) {

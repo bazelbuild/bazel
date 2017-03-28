@@ -23,9 +23,6 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -39,16 +36,41 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.util.EntityUtils;
 
 /**
- * A factory class for providing a {@link ConcurrentMap} objects to be used with {@link
- * ConcurrentMapActionCache} objects. The underlying maps can be Hazelcast or RestUrl based.
+ * A factory class for providing a {@link SimpleBlobStore} to be used with {@link
+ * SimpleBlobStoreActionCache}. Currently implemented with Hazelcast or REST.
  */
-public final class ConcurrentMapFactory {
+public final class SimpleBlobStoreFactory {
 
   private static final String HAZELCAST_CACHE_NAME = "hazelcast-build-cache";
 
-  private ConcurrentMapFactory() {}
+  private SimpleBlobStoreFactory() {}
 
-  public static ConcurrentMap<String, byte[]> createHazelcast(RemoteOptions options) {
+  /** A {@link SimpleBlobStore} implementation using a {@link ConcurrentMap}. */
+  public static class ConcurrentMapBlobStore implements SimpleBlobStore {
+    private final ConcurrentMap<String, byte[]> map;
+
+    public ConcurrentMapBlobStore(ConcurrentMap<String, byte[]> map) {
+      this.map = map;
+    }
+
+    @Override
+    public boolean containsKey(String key) {
+      return map.containsKey(key);
+    }
+
+    @Override
+    public byte[] get(String key) {
+      return map.get(key);
+    }
+
+    @Override
+    public void put(String key, byte[] value) {
+      map.put(key, value);
+    }
+  }
+
+  /** Construct a {@link SimpleBlobStore} using Hazelcast's version of {@link ConcurrentMap} */
+  public static SimpleBlobStore createHazelcast(RemoteOptions options) {
     HazelcastInstance instance;
     if (options.hazelcastClientConfig != null) {
       try {
@@ -77,19 +99,34 @@ public final class ConcurrentMapFactory {
       // -Dhazelcast.config=some-hazelcast.xml for configuration.
       instance = Hazelcast.newHazelcastInstance();
     }
-    return instance.getMap(HAZELCAST_CACHE_NAME);
+    return new ConcurrentMapBlobStore(instance.<String, byte[]>getMap(HAZELCAST_CACHE_NAME));
   }
 
-  private static class RestUrlCache implements ConcurrentMap<String, byte[]> {
+  /**
+   * Implementation of {@link SimpleBlobStore} with a REST service. The REST service needs to
+   * support the following HTTP methods.
+   *
+   * <p>PUT /cache/1234 HTTP/1.1 PUT method is used to upload a blob with a base16 key. In this
+   * example the key is 1234. Valid status codes are 200, 201, 202 and 204.
+   *
+   * <p>GET /cache/1234 HTTP/1.1 GET method fetches a blob with the specified key. In this example
+   * the key is 1234. A status code of 200 should be followed by the content of blob. Status code of
+   * 404 or 204 means the key cannot be found.
+   *
+   * <p>HEAD /cache/1234 HTTP/1.1 HEAD method checks to see if the specified key exists in the blob
+   * store. A status code of 200 indicates the key is found in the blob store. A status code of 404
+   * indicates the key is not found in the blob store.
+   */
+  private static class RestBlobStore implements SimpleBlobStore {
 
-    final String baseUrl;
+    private final String baseUrl;
 
-    RestUrlCache(String baseUrl) {
+    RestBlobStore(String baseUrl) {
       this.baseUrl = baseUrl;
     }
 
     @Override
-    public boolean containsKey(Object key) {
+    public boolean containsKey(String key) {
       try {
         HttpClient client = new DefaultHttpClient();
         HttpHead head = new HttpHead(baseUrl + "/" + key);
@@ -102,13 +139,13 @@ public final class ConcurrentMapFactory {
     }
 
     @Override
-    public byte[] get(Object key) {
+    public byte[] get(String key) {
       try {
         HttpClient client = new DefaultHttpClient();
         HttpGet get = new HttpGet(baseUrl + "/" + key);
         HttpResponse response = client.execute(get);
         int statusCode = response.getStatusLine().getStatusCode();
-        if (HttpStatus.SC_NOT_FOUND == statusCode) {
+        if (HttpStatus.SC_NOT_FOUND == statusCode || HttpStatus.SC_NO_CONTENT == statusCode) {
           return null;
         }
         if (HttpStatus.SC_OK != statusCode) {
@@ -128,7 +165,7 @@ public final class ConcurrentMapFactory {
     }
 
     @Override
-    public byte[] put(String key, byte[] value) {
+    public void put(String key, byte[] value) {
       try {
         HttpClient client = new DefaultHttpClient();
         HttpPut put = new HttpPut(baseUrl + "/" + key);
@@ -146,86 +183,19 @@ public final class ConcurrentMapFactory {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
-      return null;
-    }
-
-    //UnsupportedOperationExceptions from here down
-    @Override
-    public int size() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean isEmpty() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean containsValue(Object value) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public byte[] remove(Object key) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void putAll(Map<? extends String, ? extends byte[]> m) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void clear() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<String> keySet() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Collection<byte[]> values() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Set<Entry<String, byte[]>> entrySet() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public byte[] putIfAbsent(String key, byte[] value) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean remove(Object key, Object value) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean replace(String key, byte[] oldValue, byte[] newValue) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public byte[] replace(String key, byte[] value) {
-      throw new UnsupportedOperationException();
     }
   }
 
-  public static ConcurrentMap<String, byte[]> createRestUrl(RemoteOptions options) {
-    return new RestUrlCache(options.restCacheUrl);
+  public static SimpleBlobStore createRest(RemoteOptions options) {
+    return new RestBlobStore(options.restCacheUrl);
   }
 
-  public static ConcurrentMap<String, byte[]> create(RemoteOptions options) {
+  public static SimpleBlobStore create(RemoteOptions options) {
     if (isHazelcastOptions(options)) {
       return createHazelcast(options);
     }
     if (isRestUrlOptions(options)) {
-      return createRestUrl(options);
+      return createRest(options);
     }
     throw new IllegalArgumentException(
         "Unrecognized concurrent map RemoteOptions: must specify "

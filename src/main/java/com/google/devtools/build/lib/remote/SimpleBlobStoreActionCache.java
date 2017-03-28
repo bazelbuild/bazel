@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
 /**
@@ -45,13 +44,13 @@ import java.util.concurrent.Semaphore;
  * <p>The thread safety is guaranteed by the underlying map.
  */
 @ThreadSafe
-public final class ConcurrentMapActionCache implements RemoteActionCache {
-  private final ConcurrentMap<String, byte[]> cache;
+public final class SimpleBlobStoreActionCache implements RemoteActionCache {
+  private final SimpleBlobStore blobStore;
   private static final int MAX_MEMORY_KBYTES = 512 * 1024;
   private final Semaphore uploadMemoryAvailable = new Semaphore(MAX_MEMORY_KBYTES, true);
 
-  public ConcurrentMapActionCache(ConcurrentMap<String, byte[]> cache) {
-    this.cache = cache;
+  public SimpleBlobStoreActionCache(SimpleBlobStore blobStore) {
+    this.blobStore = blobStore;
   }
 
   @Override
@@ -157,7 +156,8 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     Preconditions.checkArgument(
         blobSizeKBytes < MAX_MEMORY_KBYTES,
         type + ": maximum blob size exceeded: %sK > %sK.",
-        blobSizeKBytes, MAX_MEMORY_KBYTES);
+        blobSizeKBytes,
+        MAX_MEMORY_KBYTES);
   }
 
   @Override
@@ -170,7 +170,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     checkBlobSize(blobSizeKBytes, "Upload");
     uploadMemoryAvailable.acquire(blobSizeKBytes);
     try {
-      cache.put(ContentDigests.toHexString(digest), blob);
+      blobStore.put(ContentDigests.toHexString(digest), blob);
     } finally {
       uploadMemoryAvailable.release(blobSizeKBytes);
     }
@@ -184,7 +184,7 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
     }
     // This unconditionally downloads the whole blob into memory!
     checkBlobSize(digest.getSizeBytes() / 1024, "Download");
-    byte[] data = cache.get(ContentDigests.toHexString(digest));
+    byte[] data = blobStore.get(ContentDigests.toHexString(digest));
     if (data == null) {
       throw new CacheNotFoundException(digest);
     }
@@ -202,12 +202,12 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
   }
 
   public boolean containsKey(ContentDigest digest) {
-    return cache.containsKey(ContentDigests.toHexString(digest));
+    return blobStore.containsKey(ContentDigests.toHexString(digest));
   }
 
   @Override
   public ActionResult getCachedActionResult(ActionKey actionKey) {
-    byte[] data = cache.get(ContentDigests.toHexString(actionKey.getDigest()));
+    byte[] data = blobStore.get(ContentDigests.toHexString(actionKey.getDigest()));
     if (data == null) {
       return null;
     }
@@ -221,6 +221,6 @@ public final class ConcurrentMapActionCache implements RemoteActionCache {
   @Override
   public void setCachedActionResult(ActionKey actionKey, ActionResult result)
       throws InterruptedException {
-    cache.put(ContentDigests.toHexString(actionKey.getDigest()), result.toByteArray());
+    blobStore.put(ContentDigests.toHexString(actionKey.getDigest()), result.toByteArray());
   }
 }

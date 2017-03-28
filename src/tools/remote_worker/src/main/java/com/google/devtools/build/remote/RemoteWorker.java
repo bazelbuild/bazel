@@ -17,8 +17,6 @@ package com.google.devtools.build.remote;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.remote.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceImplBase;
-import com.google.devtools.build.lib.remote.ConcurrentMapActionCache;
-import com.google.devtools.build.lib.remote.ConcurrentMapFactory;
 import com.google.devtools.build.lib.remote.ContentDigests;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.ExecuteServiceGrpc.ExecuteServiceImplBase;
@@ -49,6 +47,9 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.FileNode;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
+import com.google.devtools.build.lib.remote.SimpleBlobStore;
+import com.google.devtools.build.lib.remote.SimpleBlobStoreActionCache;
+import com.google.devtools.build.lib.remote.SimpleBlobStoreFactory;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -81,7 +82,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -92,12 +92,13 @@ import java.util.logging.Logger;
 public class RemoteWorker {
   private static final Logger LOG = Logger.getLogger(RemoteWorker.class.getName());
   private static final boolean LOG_FINER = LOG.isLoggable(Level.FINER);
-  private final ConcurrentMapActionCache cache;
   private final CasServiceImplBase casServer;
   private final ExecuteServiceImplBase execServer;
   private final ExecutionCacheServiceImplBase execCacheServer;
+  private final SimpleBlobStoreActionCache cache;
 
-  public RemoteWorker(Path workPath, RemoteWorkerOptions options, ConcurrentMapActionCache cache) {
+  public RemoteWorker(
+      Path workPath, RemoteWorkerOptions options, SimpleBlobStoreActionCache cache) {
     this.cache = cache;
     casServer = new CasServer();
     execServer = new ExecutionServer(workPath, options);
@@ -584,10 +585,15 @@ public class RemoteWorker {
     }
 
     System.out.println("*** Initializing in-memory cache server.");
-    ConcurrentMap<String, byte[]> cache =
-        ConcurrentMapFactory.isRemoteCacheOptions(remoteOptions)
-            ? ConcurrentMapFactory.create(remoteOptions)
-            : new ConcurrentHashMap<String, byte[]>();
+    boolean remoteCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
+    if (!remoteCache) {
+      System.out.println("*** Not using remote cache. This should be used for testing only!");
+    }
+    SimpleBlobStore blobStore =
+        remoteCache
+            ? SimpleBlobStoreFactory.create(remoteOptions)
+            : new SimpleBlobStoreFactory.ConcurrentMapBlobStore(
+                new ConcurrentHashMap<String, byte[]>());
 
     System.out.println(
         "*** Starting grpc server on all locally bound IPs on port "
@@ -596,7 +602,7 @@ public class RemoteWorker {
     Path workPath = getFileSystem().getPath(remoteWorkerOptions.workPath);
     FileSystemUtils.createDirectoryAndParents(workPath);
     RemoteWorker worker =
-        new RemoteWorker(workPath, remoteWorkerOptions, new ConcurrentMapActionCache(cache));
+        new RemoteWorker(workPath, remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore));
     final Server server =
         ServerBuilder.forPort(remoteWorkerOptions.listenPort)
             .addService(worker.getCasServer())

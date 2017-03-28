@@ -9,6 +9,31 @@ The detailed design document and discussion can be found in this forum thread.
 
 https://groups.google.com/forum/#!msg/bazel-discuss/7JSbF6DT6OU/ewuXO6ydBAAJ
 
+# Bazel Options
+
+This section summarizes the options available in .bazelrc for distributed caching and remote
+execution support.
+
+* ```startup --host_jvm_args=-Dbazel.DigestFunction=SHA1```
+
+This option is always needed to support distributed caching and remote execution.
+
+* ```build --spawn_strategy=remote --rest_cache_url=http://remote-cache:8080/cache```
+
+This option enables distributed caching with a REST endpoint that supports GET, HEAD and PUT.
+
+* ```build --spawn_strategy=remote --remote_cache=remote-cache:8081```
+
+This option enables distributed caching using a gRPC content-addressable storage (CAS) service.
+
+* ```build --spawn_strategy=remote --hazelcast_node=remote-cache:5701```
+
+This option enables distributed caching using Hazelcast memory cluster as a content-addressable storage (CAS). Please watch for future announcement as this might be removed in favor of the REST endpoint.
+
+* ```build --spawn_strategy=remote --remote_worker=grpc-builder:5000 --remote_cache=grpc-builder:5000```
+
+This option enables remote execution with a gRPC service at ```grpc-builder:5000```. Remote execution requires a distributed caching service, which is also at ```grpc-builder:5000```.
+
 # Distributed Caching
 
 ## Overview
@@ -32,8 +57,9 @@ There are 2 kinds of CAS backend support implemented in Bazel.
 If all you need is just distributed caching this is probably the most reliable path as the REST
 APIs are simple and will remain stable.
 
-For quick setup you can use NGINX with WebDav module or Apache HTTP Server with WebDav enabled.
-This enables simple remote caching for sharing between users.
+For quick setup you can use Hazelcast's REST interface. Alternatively you can also use NGINX with
+WebDav module or Apache HTTP Server with WebDav enabled. This enables simple remote caching for
+sharing between users.
 
 #### Initial setup
 
@@ -42,6 +68,23 @@ following line:
 ```
 startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
 ```
+
+#### Hazelcast with REST interface
+
+We made it easy by providing Hazelcast in Bazel and it provides a REST interface for caching purposes.
+
+Run using the following command and it will listen to port 5701. The REST endpoint will be ```http://localhost:5701/hazelcast/rest/maps/cache```.
+```
+bazel build //third_party:hazelcast_rest_server
+bazel-bin/third_party/hazelcast_rest_server
+```
+
+You can customize the Hazelcast server by providing a configuration file during startup.
+```
+bazel-bin/third_party/hazelcast_rest_server --jvm_flags=-Dhazelcast.config=/path/to/hz.xml
+```
+You can copy and edit the [default](https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-default.xml) Hazelcast configuration. Refer to Hazelcast [manual](http://docs.hazelcast.org/docs/3.6/manual/html-single/index.html#checking-configuration)
+for more details.
 
 #### NGINX with WebDav module
 
@@ -125,7 +168,7 @@ startup --host_jvm_args=-Dbazel.DigestFunction=SHA1
 
 #### Running the sample gRPC cache server
 
-Bazel currently provides a sample gRPC CAS implementation with a ConcurrentHashMap or Hazelcast as caching backend.
+Bazel currently provides a sample gRPC CAS implementation with a SimpleBlobStore or Hazelcast as caching backend.
 To use it you need to clone from [Bazel](https://github.com/bazelbuild/bazel) and then build it.
 ```
 bazel build //src/tools/remote_worker:all
@@ -138,7 +181,7 @@ bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080
 
 To connect to a running instance of Hazelcast instead, use.
 ```
-bazel run //src/tools/remote_worker:remote_worker -- --listen_port=8080 --hazelcast_node=address:port
+bazel-bin/src/tools/remote_worker/remote_worker --listen_port=8080 --hazelcast_node=address:port
 ```
 
 If you want to change Hazelcast settings to enable distributed memory cache you can provide your
@@ -149,7 +192,7 @@ bazel-bin/src/tools/remote_worker/remote_worker --jvm_flags=-Dhazelcast.config=/
 You can copy and edit the [default](https://github.com/hazelcast/hazelcast/blob/master/hazelcast/src/main/resources/hazelcast-default.xml) Hazelcast configuration. Refer to Hazelcast [manual](http://docs.hazelcast.org/docs/3.6/manual/html-single/index.html#checking-configuration)
 for more details.
 
-#### Using the gRPC CAS endpoint
+#### Using the gRPC CAS service
 
 Use the following build options to use the gRPC CAS endpoint for sharing build artifacts. Change
 `address:8080` to the correct server address and port number.

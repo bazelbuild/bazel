@@ -66,9 +66,9 @@ int main() { std::cout << "Hello world!" << std::endl; return 0; }
 EOF
   bazel build //a:test >& $TEST_log \
     || fail "Failed to build //a:test without remote execution"
-  cp bazel-bin/a/test ${TEST_TMPDIR}/test_expected
-  bazel clean --expunge
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
 
+  bazel clean --expunge
   bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
     --spawn_strategy=remote \
     --remote_worker=localhost:${worker_port} \
@@ -101,7 +101,61 @@ EOF
       || fail "Failed to run //a:test with remote execution"
 }
 
+function test_cc_binary_grpc_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  bazel clean --expunge
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+    --spawn_strategy=remote \
+    --remote_cache=localhost:${worker_port} \
+        //a:test >& $TEST_log \
+    || fail "Failed to build //a:test with remote gRPC cache service"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "Remote cache generated different result"
+}
+
+function test_cc_binary_rest_cache() {
+  mkdir -p a
+  cat > a/BUILD <<EOF
+package(default_visibility = ["//visibility:public"])
+cc_binary(
+name = 'test',
+srcs = [ 'test.cc' ],
+)
+EOF
+  cat > a/test.cc <<EOF
+#include <iostream>
+int main() { std::cout << "Hello world!" << std::endl; return 0; }
+EOF
+  bazel build //a:test >& $TEST_log \
+    || fail "Failed to build //a:test without remote cache"
+  cp -f bazel-bin/a/test ${TEST_TMPDIR}/test_expected
+
+  bazel clean --expunge
+  bazel --host_jvm_args=-Dbazel.DigestFunction=SHA1 build \
+    --spawn_strategy=remote \
+    --rest_cache_url=http://localhost:${hazelcast_port}/hazelcast/rest/maps/cache \
+        //a:test >& $TEST_log \
+    || fail "Failed to build //a:test with remote gRPC cache service"
+  diff bazel-bin/a/test ${TEST_TMPDIR}/test_expected \
+    || fail "Remote cache generated different result"
+}
+
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
-run_suite "Remote execution tests"
+run_suite "Remote execution and remote cache tests"
