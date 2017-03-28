@@ -77,6 +77,21 @@ java_test(
     ],
 )
 
+java_test(
+    name = "ParsedAndroidDataTest",
+    srcs = ["ParsedAndroidDataTest.java"],
+    tags = ["manual"],  # Fails due to https://github.com/bazelbuild/bazel/issues/2709
+    deps = [
+        ":test_utils",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "test_utils",
     testonly = 1,
