@@ -397,7 +397,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(name = "apk_signing_method",
         converter = ApkSigningMethodConverter.class,
-        defaultValue = "v1",
+        defaultValue = "v1_v2",
         category = "undocumented",
         help = "Implementation to use to sign APKs")
     public ApkSigningMethod apkSigningMethod;
