@@ -5,21 +5,24 @@ title: Compile Bazel from Source
 
 # <a name="compiling-from-source"></a>Compile Bazel from source
 
-The standard way of compiling a release version of Bazel from source
-is to use a distribution archive. Download `bazel-<VERSION>-dist.zip`
-from
-the [release page](https://github.com/bazelbuild/bazel/releases) for
-the desired version. We recommend to also verify the signature made by our
-[release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
+1. Install OpenJDK 8:
+   ```
+   $ sudo apt-get install openjdk-8-jdk
+   ```
 
-Unzip the archive and call `bash ./compile.sh`; this will create a
-bazel binary in `output/bazel`. This binary is self-contained,
-so it can be copied to a directory on the PATH (e.g.,
-`/usr/local/bin`) or used in-place.
+2. The standard way of compiling a release version of Bazel from source is to
+   use a distribution archive. Download `bazel-<VERSION>-dist.zip` from the
+   [release page](https://github.com/bazelbuild/bazel/releases) for the desired
+   version. We recommend to also verify the signature made by our
+   [release key](https://bazel.build/bazel-release.pub.gpg) 48457EE0.
 
-##<a name="compiling-from-source-issues"></a>Known issues when compiling from source
+3. Unzip the archive and call `bash ./compile.sh`; this will create a bazel
+   binary in `output/bazel`. This binary is self-contained, so it can be copied
+   to a directory on the PATH (such as `/usr/local/bin`) or used in-place.
 
-**On Windows:**
+## <a name="compiling-from-source-issues"></a>Known issues when compiling from source
+
+### On Windows:
 
 * version 0.4.4 and below: `compile.sh` may fail right after start with an error
   like this:

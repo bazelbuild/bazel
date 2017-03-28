@@ -7,7 +7,7 @@ title: Installing Bazel
 
 See the instructions for installing Bazel on:
 
-*   [Ubuntu Linux (16.04 (LTS) and 15.10)](install-ubuntu.md)
+*   [Ubuntu Linux (16.04, 15.10, and 14.04)](install-ubuntu.md)
 *   [Mac OS X](install-os-x.md)
 *   [Windows (highly experimental)](install-windows.md)
 

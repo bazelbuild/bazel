@@ -9,6 +9,7 @@ Supported Ubuntu Linux platforms:
 
 *   16.04 (LTS)
 *   15.10
+*   14.04 (LTS)
 
 Install Bazel on Ubuntu using one of the following methods:
 
