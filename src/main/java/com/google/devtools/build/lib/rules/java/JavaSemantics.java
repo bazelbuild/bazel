@@ -85,6 +85,9 @@ public interface JavaSemantics {
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
 
+  SafeImplicitOutputsFunction JAVA_TEST_CLASSPATHS_FILE =
+      fromTemplates("%{name}_classpaths_file");
+
   FileType JAVA_SOURCE = FileType.of(".java");
   FileType JAR = FileType.of(".jar");
   FileType PROPERTIES = FileType.of(".properties");
@@ -294,6 +297,13 @@ public interface JavaSemantics {
       Artifact executable,
       String javaStartClass,
       String javaExecutable);
+
+  /**
+   * Optionally creates a file containing the relative classpaths within the runfiles tree. If
+   * {@link Optional#isPresent()}, then the caller should ensure the file appears in the runfiles.
+   */
+  Optional<Artifact> createClasspathsFile(RuleContext ruleContext, JavaCommon javaCommon)
+      throws InterruptedException;
 
   /**
    * Adds extra runfiles for a {@code java_binary} rule.

@@ -228,9 +228,9 @@ else
   CLASSPATH=%classpath%
 fi
 
-# Export the classpaths which would be used to load the classes of the test target as an
-# environment variable.
-export TEST_TARGET_CLASSPATH=%test_target_classpath%
+# Export the locations which will be used to find the location of the classes from the classpath file.
+export SELF_LOCATION="$self"
+export CLASSLOADER_PREFIX_PATH="${RUNPATH}"
 
 # If using Jacoco in offline instrumentation mode, the CLASSPATH contains instrumented files.
 # We need to make the metadata jar with uninstrumented classes available for generating

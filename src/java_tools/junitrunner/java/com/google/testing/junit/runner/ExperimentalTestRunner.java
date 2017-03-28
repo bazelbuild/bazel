@@ -26,6 +26,10 @@ import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -216,7 +220,7 @@ public class ExperimentalTestRunner {
           "Running test suites for class: %s, created by classLoader: %s%n",
           targetSuiteClass, targetSuiteClass.getClassLoader());
       return targetSuiteClass;
-    } catch (ClassNotFoundException | MalformedURLException e) {
+    } catch (ClassNotFoundException | IOException e) {
       System.err.println("Exception in loading class:" + e.getMessage());
       return null;
     }
@@ -228,23 +232,37 @@ public class ExperimentalTestRunner {
    * @throws MalformedURLException when we are unable to create a given classpath.
    * @return array of URLs containing the classpaths or null if classpaths could not be located.
    */
-  private static URL[] getClasspaths() throws MalformedURLException {
-    // TODO(kush): WARNING THIS DOES NOT RELOAD CLASSPATHS FOR EVERY TEST RUN. b/34712039
+  private static URL[] getClasspaths() throws IOException {
     if (classpaths != null) {
       return classpaths;
     }
-    String testTargetsClaspaths = System.getenv("TEST_TARGET_CLASSPATH");
-    if (testTargetsClaspaths == null || testTargetsClaspaths.isEmpty()) {
-      throw new IllegalStateException(
-          "Target's classpath not present in TEST_TARGET_CLASSPATH environment variable");
+
+    String selfLocation = System.getenv("SELF_LOCATION");
+    // TODO(kush): Get this to work for windows style paths.
+    String classpathFileLocation = selfLocation + "_classpaths_file";
+    Path file = Paths.get(classpathFileLocation);
+    byte[] classPathFileBytes = null;
+    try {
+      classPathFileBytes = Files.readAllBytes(file);
+    } catch (IOException e) {
+      System.err.println("exception in reading file:" + e.getMessage());
+      throw e;
     }
 
-    String[] targetClassPaths = testTargetsClaspaths.split(":");
-
-    classpaths = new URL[targetClassPaths.length];
+    String classloaderPrefixPath = System.getenv("CLASSLOADER_PREFIX_PATH");
     String workingDir = System.getProperty("user.dir");
+    String[] targetClassPaths = new String(classPathFileBytes, StandardCharsets.UTF_8).split(":");
+    classpaths = new URL[targetClassPaths.length];
+
+    String locationPrefix = "file://" + workingDir + "/" + classloaderPrefixPath;
+
     for (int index = 0; index < targetClassPaths.length; index++) {
-      classpaths[index] = new URL("file://" + workingDir + "/" + targetClassPaths[index]);
+      try {
+        classpaths[index] = new URL(locationPrefix + targetClassPaths[index]);
+      } catch (MalformedURLException e) {
+        System.err.println("Unable to create URL for:" + targetClassPaths[index]);
+        throw e;
+      }
     }
     return classpaths;
   }
