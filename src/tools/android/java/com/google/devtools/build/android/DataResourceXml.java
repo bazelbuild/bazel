@@ -271,6 +271,11 @@ public class DataResourceXml implements DataResource {
       Path sourcePath, XmlResourceValue xml, ImmutableMap<String, String> prefixToUri) {
     return createWithNamespaces(sourcePath, xml, Namespaces.from(prefixToUri));
   }
+  
+  public static DataResourceXml createWithNoNamespace(DataSource source, XmlResourceValue xml) {
+    return new DataResourceXml(source, xml, Namespaces.empty());
+  }
+
 
   public static DataResourceXml createWithNamespaces(
       DataSource source, XmlResourceValue xml, Namespaces namespaces) {
@@ -350,5 +355,10 @@ public class DataResourceXml implements DataResource {
       return this;
     }
     return createWithNamespaces(source.overwrite(resource.source()), xml, namespaces);
+  }
+  
+  @Override
+  public DataValue update(DataSource source) {
+    return createWithNamespaces(source, xml, namespaces);
   }
 }

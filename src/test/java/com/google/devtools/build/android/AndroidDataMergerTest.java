@@ -18,13 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.ParsedAndroidDataBuilder.file;
 import static com.google.devtools.build.android.ParsedAndroidDataBuilder.xml;
 
-import com.google.common.base.Objects;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.jimfs.Jimfs;
 import com.google.common.truth.FailureStrategy;
-import com.google.common.truth.Subject;
 import com.google.common.truth.SubjectFactory;
 import com.google.devtools.build.android.AndroidDataBuilder.ResourceType;
 import com.google.devtools.build.android.AndroidDataMerger.SourceChecker;
@@ -42,7 +40,6 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
-import javax.annotation.Nullable;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -438,9 +435,11 @@ public class AndroidDataMergerTest {
             // Two string/exit will create conflict.
             .overwritable(
                 xml("string/exit")
+                    .root(transitiveRoot.resolve("1"))
                     .source("values/strings.xml")
                     .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "wrong way out")),
                 xml("string/exit")
+                    .root(transitiveRoot.resolve("2"))
                     .source("values/strings.xml")
                     .value(SimpleXmlResourceValue.createWithValue(Type.STRING, "no way out")))
             .build();
@@ -1023,13 +1022,14 @@ public class AndroidDataMergerTest {
     String assetFile = "hunting/of/the/snark.txt";
 
     DataSource primarySource = DataSource.of(primaryRoot.resolve("assets/" + assetFile));
-    DataSource directSource = DataSource.of(directRootTwo.resolve("assets/" + assetFile));
+    DataSource directSourceOne = DataSource.of(directRootOne.resolve("assets/" + assetFile));
+    DataSource directSourceTwo = DataSource.of(directRootTwo.resolve("assets/" + assetFile));
 
     ParsedAndroidData directDependency =
         ParsedAndroidDataBuilder.builder()
             .assets(
-                file().root(directRootOne).source(assetFile),
-                file().root(directRootTwo).source(assetFile))
+                file().root(directRootOne).source(directSourceOne),
+                file().root(directRootTwo).source(directSourceTwo))
             .build();
 
     UnvalidatedAndroidData primary =
@@ -1045,7 +1045,10 @@ public class AndroidDataMergerTest {
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
             ParsedAndroidDataBuilder.builder()
-                .assets(file().root(primaryRoot).source(primarySource.overwrite(directSource)))
+                .assets(
+                    file()
+                        .root(primaryRoot)
+                        .source(primarySource.overwrite(directSourceOne, directSourceTwo)))
                 .build(),
             ParsedAndroidDataBuilder.empty());
     assertAbout(unwrittenMergedAndroidData).that(data).isEqualTo(expected);
@@ -1213,7 +1216,7 @@ public class AndroidDataMergerTest {
     UnwrittenMergedAndroidData data =
         AndroidDataMerger.createWithDefaults()
             .merge(transitiveDependency, directDependency, primary, true);
-
+    
     UnwrittenMergedAndroidData expected =
         UnwrittenMergedAndroidData.of(
             primary.getManifest(),
@@ -1233,53 +1236,6 @@ public class AndroidDataMergerTest {
               return new UnwrittenMergedAndroidDataSubject(fs, that);
             }
           };
-
-  static class UnwrittenMergedAndroidDataSubject
-      extends Subject<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData> {
-
-    static final SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
-        FACTORY =
-            new SubjectFactory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>() {
-              @Override
-              public UnwrittenMergedAndroidDataSubject getSubject(
-                  FailureStrategy fs, UnwrittenMergedAndroidData that) {
-                return new UnwrittenMergedAndroidDataSubject(fs, that);
-              }
-            };
-
-    public UnwrittenMergedAndroidDataSubject(
-        FailureStrategy failureStrategy, @Nullable UnwrittenMergedAndroidData subject) {
-      super(failureStrategy, subject);
-    }
-
-    public void isEqualTo(UnwrittenMergedAndroidData expected) {
-      UnwrittenMergedAndroidData subject = getSubject();
-      if (!Objects.equal(subject, expected)) {
-        if (subject == null) {
-          assertThat(subject).isEqualTo(expected);
-        }
-        assertThat(subject.getManifest().toString())
-            .named("manifest")
-            .isEqualTo(expected.getManifest().toString());
-
-        compareDataSets("resources", subject.getPrimary(), expected.getPrimary());
-        compareDataSets("deps", subject.getTransitive(), expected.getTransitive());
-      }
-    }
-
-    private void compareDataSets(
-        String identifier, ParsedAndroidData subject, ParsedAndroidData expected) {
-      assertThat(subject.getOverwritingResources())
-          .named("Overwriting " + identifier)
-          .containsExactlyEntriesIn(expected.getOverwritingResources());
-      assertThat(subject.getCombiningResources())
-          .named("Combining " + identifier)
-          .containsExactlyEntriesIn(expected.getCombiningResources());
-      assertThat(subject.getAssets())
-          .named("Assets " + identifier)
-          .containsExactlyEntriesIn(expected.getAssets());
-    }
-  }
 
   private static final class TestLoggingHandler extends Handler {
     public final List<String> warnings = new ArrayList<String>();
