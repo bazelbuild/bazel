@@ -1660,8 +1660,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       return blaze_exit_code::INTERNAL_ERROR;
     }
 
-    bool pipe_broken_now = false;
-    const char* broken_pipe_name;
+    const char* broken_pipe_name = nullptr;
 
     if (response.finished()) {
       exit_code = response.exit_code();
@@ -1673,7 +1672,6 @@ unsigned int GrpcBlazeServer::Communicate() {
       if (blaze_util::WriteToStdOutErr(response.standard_output().c_str(), size,
                                        /* to_stdout */ true) ==
           blaze_util::WriteResult::BROKEN_PIPE) {
-        pipe_broken_now = true;
         broken_pipe_name = "standard output";
       }
     }
@@ -1683,12 +1681,11 @@ unsigned int GrpcBlazeServer::Communicate() {
       if (blaze_util::WriteToStdOutErr(response.standard_error().c_str(), size,
                                        /* to_stdout */ false) ==
           blaze_util::WriteResult::BROKEN_PIPE) {
-        pipe_broken_now = true;
         broken_pipe_name = "standard error";
       }
     }
 
-    if (pipe_broken_now && !pipe_broken) {
+    if (broken_pipe_name != nullptr && !pipe_broken) {
       pipe_broken = true;
       fprintf(stderr, "\nCannot write to %s; exiting...\n\n", broken_pipe_name);
       Cancel();
