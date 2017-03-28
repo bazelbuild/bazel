@@ -51,8 +51,7 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       RuleConfiguredTargetBuilder builder,
       RuleContext ruleContext,
       JavaCommon javaCommon,
-      AndroidCommon androidCommon,
-      Artifact jarWithAllClasses) {}
+      AndroidCommon androidCommon) {}
 
   @Override
   public ApplicationManifest getManifestForRule(RuleContext ruleContext) throws RuleErrorException {

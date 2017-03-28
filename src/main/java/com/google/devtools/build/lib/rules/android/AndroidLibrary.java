@@ -195,8 +195,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext);
     androidCommon.addTransitiveInfoProviders(builder, androidSemantics, aarOut,
         resourceApk, null, ImmutableList.<Artifact>of());
-    androidSemantics.addTransitiveInfoProviders(
-        builder, ruleContext, javaCommon, androidCommon, null);
+    androidSemantics.addTransitiveInfoProviders(builder, ruleContext, javaCommon, androidCommon);
 
     NestedSetBuilder<Artifact> transitiveResourcesJars = collectTransitiveResourceJars(ruleContext);
     if (androidCommon.getResourceClassJar() != null) {
