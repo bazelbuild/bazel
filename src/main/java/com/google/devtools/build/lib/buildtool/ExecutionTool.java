@@ -414,7 +414,8 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed. Note that in
         // skyframe full, this destroys the action graph as well, so we can only do it after the
         // action graph is no longer needed.
-        env.getSkyframeBuildView().clearAnalysisCache(analysisResult.getTargetsToBuild());
+        env.getSkyframeBuildView()
+            .clearAnalysisCache(analysisResult.getTargetsToBuild(), analysisResult.getAspects());
       }
 
       configureResourceManager(request);

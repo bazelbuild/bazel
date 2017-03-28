@@ -27,9 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -44,14 +42,14 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   // only after they are cleared.
   @Nullable private ConfiguredTarget configuredTarget;
 
-  private final NestedSet<Package> transitivePackages;
+  @Nullable private NestedSet<Package> transitivePackages;
 
   ConfiguredTargetValue(ConfiguredTarget configuredTarget,
       Map<Artifact, ActionAnalysisMetadata> generatingActionMap,
       NestedSet<Package> transitivePackages) {
     super(generatingActionMap);
-    this.configuredTarget = configuredTarget;
-    this.transitivePackages = transitivePackages;
+    this.configuredTarget = Preconditions.checkNotNull(configuredTarget, generatingActionMap);
+    this.transitivePackages = Preconditions.checkNotNull(transitivePackages, generatingActionMap);
   }
 
   @VisibleForTesting
@@ -67,8 +65,9 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   }
 
   public NestedSet<Package> getTransitivePackages() {
-    return transitivePackages;
+    return Preconditions.checkNotNull(transitivePackages);
   }
+
   /**
    * Clears configured target data from this value, leaving only the artifact->generating action
    * map.
@@ -76,10 +75,18 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
    * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
    * once per value, after which {@link #getConfiguredTarget} and {@link #getActions} cannot be
    * called.
+   *
+   * @param clearEverything if true, clear the {@link #configuredTarget}. If not, only the {@link
+   *     #transitivePackages} field is cleared. Top-level targets need their {@link
+   *     #configuredTarget} preserved, so should pass false here.
    */
-  public void clear() {
+  public void clear(boolean clearEverything) {
     Preconditions.checkNotNull(configuredTarget);
-    configuredTarget = null;
+    Preconditions.checkNotNull(transitivePackages);
+    if (clearEverything) {
+      configuredTarget = null;
+    }
+    transitivePackages = null;
   }
 
   @VisibleForTesting

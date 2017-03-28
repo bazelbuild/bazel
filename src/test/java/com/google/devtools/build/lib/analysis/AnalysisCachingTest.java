@@ -22,10 +22,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import java.util.Set;
@@ -200,7 +202,8 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
         "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
     // We want to force a "dropConfiguredTargetsNow" operation, which won't inform the
     // invalidation receiver about the dropped configured targets.
-    getView().clearAnalysisCache(ImmutableList.<ConfiguredTarget>of());
+    skyframeExecutor.clearAnalysisCache(
+        ImmutableList.<ConfiguredTarget>of(), ImmutableSet.<AspectValue>of());
     assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
     eventCollector.clear();
     scratch.overwriteFile("conflict/BUILD",

@@ -957,16 +957,6 @@ public class BuildView {
     }
   }
 
-  /**
-   * Drops the analysis cache. If building with Skyframe, targets in {@code topLevelTargets} may
-   * remain in the cache for use during the execution phase.
-   *
-   * @see BuildView.Options#discardAnalysisCache
-   */
-  public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
-    skyframeBuildView.clearAnalysisCache(topLevelTargets);
-  }
-
   // For testing
   @VisibleForTesting
   public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(

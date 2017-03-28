@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -305,12 +306,14 @@ public final class AspectValue extends ActionLookupValue {
   }
 
 
-  private final Label label;
-  private final Aspect aspect;
-  private final Location location;
-  private final AspectKey key;
-  private final ConfiguredAspect configuredAspect;
-  private final NestedSet<Package> transitivePackages;
+  // These variables are only non-final because they may be clear()ed to save memory. They are null
+  // only after they are cleared.
+  @Nullable private Label label;
+  @Nullable private Aspect aspect;
+  @Nullable private Location location;
+  @Nullable private AspectKey key;
+  @Nullable private ConfiguredAspect configuredAspect;
+  @Nullable private NestedSet<Package> transitivePackages;
 
   public AspectValue(
       AspectKey key,
@@ -321,41 +324,62 @@ public final class AspectValue extends ActionLookupValue {
       Iterable<ActionAnalysisMetadata> actions,
       NestedSet<Package> transitivePackages) {
     super(actions);
-    this.aspect = aspect;
-    this.location = location;
-    this.label = label;
-    this.key = key;
-    this.configuredAspect = configuredAspect;
-    this.transitivePackages = transitivePackages;
+    this.label = Preconditions.checkNotNull(label, actions);
+    this.aspect = Preconditions.checkNotNull(aspect, label);
+    this.location = Preconditions.checkNotNull(location, label);
+    this.key = Preconditions.checkNotNull(key, label);
+    this.configuredAspect = Preconditions.checkNotNull(configuredAspect, label);
+    this.transitivePackages = Preconditions.checkNotNull(transitivePackages, label);
   }
 
   public ConfiguredAspect getConfiguredAspect() {
-    return configuredAspect;
+    return Preconditions.checkNotNull(configuredAspect);
   }
 
   public Label getLabel() {
-    return label;
+    return Preconditions.checkNotNull(label);
   }
 
   public Location getLocation() {
-    return location;
+    return Preconditions.checkNotNull(location);
   }
 
   public AspectKey getKey() {
-    return key;
+    return Preconditions.checkNotNull(key);
   }
 
   public Aspect getAspect() {
-    return aspect;
+    return Preconditions.checkNotNull(aspect);
   }
 
-  public NestedSet<Package> getTransitivePackages() {
-    return transitivePackages;
+  void clear(boolean clearEverything) {
+    Preconditions.checkNotNull(label, this);
+    Preconditions.checkNotNull(aspect, this);
+    Preconditions.checkNotNull(location, this);
+    Preconditions.checkNotNull(key, this);
+    Preconditions.checkNotNull(configuredAspect, this);
+    Preconditions.checkNotNull(transitivePackages, this);
+    if (clearEverything) {
+      label = null;
+      aspect = null;
+      location = null;
+      key = null;
+      configuredAspect = null;
+    }
+    transitivePackages = null;
   }
+
+  NestedSet<Package> getTransitivePackages() {
+    return Preconditions.checkNotNull(transitivePackages);
+  }
+
+  // TODO(janakr): Add a nice toString after cl/150542180 is submitted.
 
   public static AspectKey createAspectKey(
-      Label label, BuildConfiguration baseConfiguration,
-      ImmutableList<AspectKey> baseKeys, AspectDescriptor aspectDescriptor,
+      Label label,
+      BuildConfiguration baseConfiguration,
+      ImmutableList<AspectKey> baseKeys,
+      AspectDescriptor aspectDescriptor,
       BuildConfiguration aspectConfiguration) {
     return new AspectKey(
         label, baseConfiguration,

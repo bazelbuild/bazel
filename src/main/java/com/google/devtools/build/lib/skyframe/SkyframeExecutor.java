@@ -658,7 +658,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * deletes the relevant values. If using Skyframe execution, clears their data without deleting
    * them (they will be deleted on the next build).
    */
-  public abstract void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets);
+  public abstract void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects);
 
   /**
    * Injects the contents of the computed tools/defaults package.

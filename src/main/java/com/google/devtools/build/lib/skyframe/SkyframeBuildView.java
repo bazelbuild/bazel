@@ -183,10 +183,11 @@ public final class SkyframeBuildView {
    *
    * @see com.google.devtools.build.lib.analysis.BuildView.Options#discardAnalysisCache
    */
-  public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
     // TODO(bazel-team): Consider clearing packages too to save more memory.
     skyframeAnalysisWasDiscarded = true;
-    skyframeExecutor.clearAnalysisCache(topLevelTargets);
+    skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
   }
 
   /**

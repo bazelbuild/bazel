@@ -63,6 +63,58 @@ function test_query() {
   expect_log "//testing:system_malloc"
 }
 
+function test_top_level_aspect() {
+  mkdir -p "foo" || fail "Couldn't make directory"
+  cat > foo/simpleaspect.bzl <<'EOF' || fail "Couldn't write bzl file"
+def _simple_aspect_impl(target, ctx):
+  result=depset()
+  for orig_out in target.files:
+    aspect_out = ctx.new_file(orig_out.basename + ".aspect")
+    ctx.file_action(
+        output=aspect_out,
+        content = "Hello from aspect for %s" % orig_out.basename)
+    result += [aspect_out]
+  for src in ctx.rule.attr.srcs:
+    result += src.aspectouts
+
+  return struct(output_groups={
+      "aspect-out" : result }, aspectouts = result)
+
+simple_aspect = aspect(implementation=_simple_aspect_impl,
+                       attr_aspects = ["srcs"])
+
+def _rule_impl(ctx):
+  output = ctx.outputs.out
+  ctx.action(
+      inputs=[],
+      outputs=[output],
+      progress_message="Touching output %s" % output,
+      command="touch %s" % output.path)
+
+simple_rule = rule(
+    implementation =_rule_impl,
+    attrs = {"srcs": attr.label_list(aspects=[simple_aspect])},
+    outputs={"out": "%{name}.out"}
+    )
+EOF
+
+cat > foo/BUILD <<'EOF' || fail "Couldn't write BUILD file"
+load("//foo:simpleaspect.bzl", "simple_rule")
+
+simple_rule(name = "foo", srcs = [":dep"])
+simple_rule(name = "dep", srcs = [])
+EOF
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS //foo:foo >& "$TEST_log" \
+      || fail "Expected success"
+  bazel --batch clean >& "$TEST_log" || fail "Expected success"
+  bazel $STARTUP_FLAGS build $BUILD_FLAGS \
+      --aspects foo/simpleaspect.bzl%simple_aspect \
+      --output_groups=aspect-out //foo:foo >& "$TEST_log" \
+      || fail "Expected success"
+  [[ -e "bazel-bin/foo/foo.out.aspect" ]] || fail "Aspect foo not run"
+  [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
+}
+
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
 function test_action_conflict() {
   mkdir -p conflict || fail "Couldn't create directory"

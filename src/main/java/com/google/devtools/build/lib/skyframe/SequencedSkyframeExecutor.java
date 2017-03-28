@@ -596,7 +596,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   /**
-   * Save memory by removing references to configured targets and actions in Skyframe.
+   * Save memory by removing references to configured targets and aspects in Skyframe.
    *
    * <p>These values must be recreated on subsequent builds. We do not clear the top-level target
    * values, since their configured targets are needed for the target completion middleman values.
@@ -605,25 +605,35 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * execution phase. Instead, their data is cleared. The next build will delete the values (and
    * recreate them if necessary).
    */
-  private void discardAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
+  private void discardAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    topLevelTargets = ImmutableSet.copyOf(topLevelTargets);
+    topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", LOG)) {
       lastAnalysisDiscarded = true;
       for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getValues().entrySet()) {
-        if (!entry.getKey().functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-          continue;
-        }
-        ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
-        // ctValue may be null if target was not successfully analyzed.
-        if (ctValue != null && !topLevelTargets.contains(ctValue.getConfiguredTarget())) {
-          ctValue.clear();
+        SkyFunctionName functionName = entry.getKey().functionName();
+        if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
+          ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+          // ctValue may be null if target was not successfully analyzed.
+          if (ctValue != null) {
+            ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
+          }
+        } else if (functionName.equals(SkyFunctions.ASPECT)) {
+          AspectValue aspectValue = (AspectValue) entry.getValue();
+          // value may be null if target was not successfully analyzed.
+          if (aspectValue != null) {
+            aspectValue.clear(!topLevelAspects.contains(aspectValue));
+          }
         }
       }
     }
   }
 
   @Override
-  public void clearAnalysisCache(Collection<ConfiguredTarget> topLevelTargets) {
-    discardAnalysisCache(topLevelTargets);
+  public void clearAnalysisCache(
+      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+    discardAnalysisCache(topLevelTargets, topLevelAspects);
   }
 
   @Override
