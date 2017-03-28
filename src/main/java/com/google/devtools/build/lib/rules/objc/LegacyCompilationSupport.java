@@ -548,7 +548,8 @@ public class LegacyCompilationSupport extends CompilationSupport {
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider,
       ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs,
-      DsymOutputType dsymOutputType) {
+      DsymOutputType dsymOutputType,
+      CcToolchainProvider toolchain) {
     Optional<Artifact> dsymBundleZip;
     Optional<Artifact> linkmap;
     Optional<Artifact> bitcodeSymbolMap;

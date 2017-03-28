@@ -14,10 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -29,9 +30,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,7 +42,27 @@ import java.util.Set;
  */
 public class MultiArchBinarySupport {
   private final RuleContext ruleContext;
-  
+
+  /**
+   * Configuration, toolchain, and provider for for single-arch dependency configurations of a
+   * multi-arch target.
+   */
+  @AutoValue
+  abstract static class DependencySpecificConfiguration {
+    static DependencySpecificConfiguration create(
+        BuildConfiguration config, CcToolchainProvider toolchain, ObjcProvider objcProvider) {
+      return new AutoValue_MultiArchBinarySupport_DependencySpecificConfiguration(
+          config, toolchain, objcProvider);
+    }
+
+    abstract BuildConfiguration config();
+
+    abstract CcToolchainProvider toolchain();
+
+    abstract ObjcProvider objcProvider();
+  }
+
+
   /**
    * @param ruleContext the current rule context
    */
@@ -55,13 +76,12 @@ public class MultiArchBinarySupport {
    * @param platform the platform for which the binary is targeted
    * @param extraLinkArgs the extra linker args to add to link actions linking single-architecture
    *     binaries together
-   * @param configurationToObjcProvider a map from from dependency configuration to the
-   *     {@link ObjcProvider} which comprises all information about the dependencies in that
-   *     configuration. Can be obtained via {@link #objcProviderByDepConfiguration}
+   * @param dependencySpecificConfigurations a set of {@link DependencySpecificConfiguration} that
+   *     corresponds to child configurations for this target. Can be obtained via {@link
+   *     #getDependencySpecificConfigurations}
    * @param extraLinkInputs the extra linker inputs to be made available during link actions
-   * @param configToDepsCollectionMap a multimap from dependency configuration to the
-   *     list of provider collections which are propagated from the dependencies of that
-   *     configuration
+   * @param configToDepsCollectionMap a multimap from dependency configuration to the list of
+   *     provider collections which are propagated from the dependencies of that configuration
    * @param outputLipoBinary the artifact (lipo'ed binary) which should be output as a result of
    *     this support
    * @throws RuleErrorException if there are attribute errors in the current rule context
@@ -69,7 +89,7 @@ public class MultiArchBinarySupport {
   public void registerActions(
       Platform platform,
       ExtraLinkArgs extraLinkArgs,
-      Map<BuildConfiguration, ObjcProvider> configurationToObjcProvider,
+      Set<DependencySpecificConfiguration> dependencySpecificConfigurations,
       Iterable<Artifact> extraLinkInputs,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       Artifact outputLipoBinary)
@@ -77,14 +97,17 @@ public class MultiArchBinarySupport {
 
     NestedSetBuilder<Artifact> binariesToLipo =
         NestedSetBuilder.<Artifact>stableOrder();
-    for (BuildConfiguration childConfig : configurationToObjcProvider.keySet()) {
+    for (DependencySpecificConfiguration dependencySpecificConfiguration :
+        dependencySpecificConfigurations) {
       IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig);
+          ObjcRuleClasses.intermediateArtifacts(
+              ruleContext, dependencySpecificConfiguration.config());
       ImmutableList.Builder<J2ObjcMappingFileProvider> j2ObjcMappingFileProviders =
           ImmutableList.builder();
       J2ObjcEntryClassProvider.Builder j2ObjcEntryClassProviderBuilder =
           new J2ObjcEntryClassProvider.Builder();
-      for (TransitiveInfoCollection dep : configToDepsCollectionMap.get(childConfig)) {
+      for (TransitiveInfoCollection dep :
+          configToDepsCollectionMap.get(dependencySpecificConfiguration.config())) {
         if (dep.getProvider(J2ObjcMappingFileProvider.class) != null) {
           j2ObjcMappingFileProviders.add(dep.getProvider(J2ObjcMappingFileProvider.class));
         }
@@ -99,19 +122,23 @@ public class MultiArchBinarySupport {
 
       binariesToLipo.add(intermediateArtifacts.strippedSingleArchitectureBinary());
 
-      ObjcProvider objcProvider = configurationToObjcProvider.get(childConfig);
+      ObjcProvider objcProvider = dependencySpecificConfiguration.objcProvider();
       CompilationArtifacts compilationArtifacts =
           CompilationSupport.compilationArtifacts(
-              ruleContext, ObjcRuleClasses.intermediateArtifacts(ruleContext, childConfig));
-      CompilationSupport.createForConfig(ruleContext, childConfig)
-          .registerCompileAndArchiveActions(compilationArtifacts, objcProvider)
+              ruleContext,
+              ObjcRuleClasses.intermediateArtifacts(
+                  ruleContext, dependencySpecificConfiguration.config()));
+      CompilationSupport.createForConfig(ruleContext, dependencySpecificConfiguration.config())
+          .registerCompileAndArchiveActions(
+              compilationArtifacts, objcProvider, dependencySpecificConfiguration.toolchain())
           .registerLinkActions(
               objcProvider,
               j2ObjcMappingFileProvider,
               j2ObjcEntryClassProvider,
               extraLinkArgs,
               extraLinkInputs,
-              DsymOutputType.APP)
+              DsymOutputType.APP,
+              dependencySpecificConfiguration.toolchain())
           .validateAttributes();
       ruleContext.assertNoErrors();
     }
@@ -124,12 +151,13 @@ public class MultiArchBinarySupport {
   }
 
   /**
-   * Returns a map from from dependency configuration to the {@link ObjcCommon} which comprises all
-   * information about the dependencies in that configuration. This can be used both to register
-   * actions in {@link #registerActions} and collect provider information to be propagated upstream.
+   * Returns a set of {@link DependencySpecificConfiguration} instances that comprise all
+   * information about the dependencies for each child configuration. This can be used both to
+   * register actions in {@link #registerActions} and collect provider information to be propagated
+   * upstream.
    *
-   * @param childConfigurations the set of configurations in which dependencies of the current rule
-   *     are built
+   * @param childConfigurationsAndToolchains the set of configurations and toolchains for which
+   *     dependencies of the current rule are built
    * @param configToDepsCollectionMap a map from child configuration to providers that "deps" of the
    *     current rule have propagated in that configuration
    * @param configurationToNonPropagatedObjcMap a map from child configuration to providers that
@@ -142,17 +170,16 @@ public class MultiArchBinarySupport {
    *     included in this binary's compilation actions
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
-  public Map<BuildConfiguration, ObjcProvider> objcProviderByDepConfiguration(
-      Set<BuildConfiguration> childConfigurations,
+  public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
+      Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains,
       ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection> configToDepsCollectionMap,
       ImmutableListMultimap<BuildConfiguration, ObjcProvider> configurationToNonPropagatedObjcMap,
       Iterable<ObjcProvider> dylibObjcProviders,
       Iterable<ObjcProtoProvider> dylibProtoProviders)
       throws RuleErrorException, InterruptedException {
-    ImmutableMap.Builder<BuildConfiguration, ObjcProvider> configurationToObjcProviderBuilder =
-        ImmutableMap.builder();
+    ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
-    for (BuildConfiguration childConfig : childConfigurations) {
+    for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
@@ -185,10 +212,12 @@ public class MultiArchBinarySupport {
       ObjcProvider objcProvider = common.getObjcProvider().subtractSubtrees(dylibObjcProviders,
           ImmutableList.<CcLinkParamsProvider>of());
 
-      configurationToObjcProviderBuilder.put(childConfig, objcProvider);
+      childInfoBuilder.add(
+          DependencySpecificConfiguration.create(
+              childConfig, childConfigurationsAndToolchains.get(childConfig), objcProvider));
     }
 
-    return configurationToObjcProviderBuilder.build();
+    return childInfoBuilder.build();
   }
 
   private ObjcCommon common(
