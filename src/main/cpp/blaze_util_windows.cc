@@ -928,20 +928,26 @@ string PathAsJvmFlag(const string& path) {
 
 string ConvertPath(const string& path) {
 #ifdef COMPILER_MSVC
-  // This isn't needed when the binary isn't linked against msys-2.0.dll (when
-  // we build with MSVC): MSYS converts all Unix paths to Windows paths for such
-  // binaries.
-  return path;
+  // The path may not be Windows-style and may not be normalized, so convert it.
+  wstring wpath;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(path, &wpath)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "ConvertPath(path=%s)",
+         path.c_str());
+  }
+  std::transform(wpath.begin(), wpath.end(), wpath.begin(), ::towlower);
+  return string(blaze_util::WstringToCstring(wpath.c_str()).get());
 #else  // not COMPILER_MSVC
   // If the path looks like %USERPROFILE%/foo/bar, don't convert.
   if (path.empty() || path[0] == '%') {
-    return path;
+    // It's fine to convert to lower-case even if the path contains environment
+    // variable names, since Windows can look them up case-insensitively.
+    return blaze_util::AsLower(path);
   }
   char* wpath = static_cast<char*>(cygwin_create_path(
       CCP_POSIX_TO_WIN_A, static_cast<const void*>(path.c_str())));
   string result(wpath);
   free(wpath);
-  return result;
+  return blaze_util::AsLower(result);
 #endif  // COMPILER_MSVC
 }
 
@@ -1081,18 +1087,7 @@ bool ReadDirectorySymlink(const string &posix_name, string* result) {
 }
 
 bool CompareAbsolutePaths(const string& a, const string& b) {
-  // `a` and `b` may not be Windows-style and may not be normalized, so convert
-  // them both before comparing them.
-  wstring a_real, b_real;
-  if (!blaze_util::AsWindowsPathWithUncPrefix(a, &a_real)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CompareAbsolutePaths(a=%s, b=%s)", a.c_str(), b.c_str());
-  }
-  if (!blaze_util::AsWindowsPathWithUncPrefix(b, &b_real)) {
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "CompareAbsolutePaths(a=%s, b=%s)", a.c_str(), b.c_str());
-  }
-  return a_real == b_real;
+  return ConvertPath(a) == ConvertPath(b);
 }
 
 #ifndef STILL_ACTIVE
