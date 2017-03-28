@@ -89,6 +89,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * "is_not_test_target" instead of the more intuitive "is_test_target".
    */
   private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
+  /**
+   * Enabled if this target does not generate debug symbols.
+   *
+   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
+   * the mechanism used to condition linker arguments here. Therefore, we expose
+   * "no_generate_debug_symbols" instead of the more intuitive "generate_debug_symbols".
+   */
+  private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
   private static final Iterable<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
@@ -415,6 +423,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     }
     if (!TargetUtils.isTestRule(ruleContext.getRule())) {
       activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
+    }
+    if (!configuration.getFragment(ObjcConfiguration.class).generateDsym()) {
+      activatedCrosstoolSelectables.add(NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
 
     activatedCrosstoolSelectables.addAll(ruleContext.getFeatures());
