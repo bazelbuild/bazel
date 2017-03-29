@@ -67,7 +67,7 @@ public class MavenServerRule implements RuleDefinition {
 <p>How to access a Maven repository.</p>
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
-&lt;server&lt; definition from a settings.xml file.</p>
+&lt;server&gt; definition from a settings.xml file.</p>
 
 <h4>Using <code>maven_server</code></h4>
 
