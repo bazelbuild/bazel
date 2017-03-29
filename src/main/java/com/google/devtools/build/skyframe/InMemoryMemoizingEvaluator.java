@@ -258,6 +258,11 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   }
 
   @Override
+  public Map<SkyKey, ? extends NodeEntry> getGraphMap() {
+    return graph.getAllValuesMutable();
+  }
+
+  @Override
   public Map<SkyKey, SkyValue> getDoneValues() {
     return graph.getDoneValues();
   }

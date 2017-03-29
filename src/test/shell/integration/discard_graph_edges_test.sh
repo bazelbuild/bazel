@@ -115,6 +115,85 @@ EOF
   [[ -e "bazel-bin/foo/dep.out.aspect" ]] || fail "Aspect bar not run"
 }
 
+function extract_histogram_count() {
+  local histofile="$1"
+  local item="$2"
+  # We can't use + here because Macs don't recognize it as a special character by default.
+  grep "$item" "$histofile" | sed -e 's/^ *[0-9][0-9]*: *\([0-9][0-9]*\) .*$/\1/' \
+      || fail "Couldn't get item from $histofile"
+}
+
+function prepare_histogram() {
+  readonly local build_args="$1"
+  rm -rf histodump
+  mkdir -p histodump || fail "Couldn't create directory"
+  readonly local server_pid_fifo="$TEST_TMPDIR/server_pid"
+cat > histodump/foo.bzl <<'EOF' || fail "Couldn't create bzl file"
+def foo():
+  pass
+EOF
+cat > histodump/bar.bzl <<'EOF' || fail "Couldn't create bzl file"
+def bar():
+  pass
+EOF
+cat > histodump/baz.bzl <<'EOF' || fail "Couldn't create bzl file"
+def baz():
+  pass
+EOF
+
+  cat > histodump/BUILD <<EOF || fail "Couldn't create BUILD file"
+load(":foo.bzl", "foo")
+load(":bar.bzl", "bar")
+load(":baz.bzl", "baz")
+genrule(name = 'histodump',
+        srcs = glob(["*.in"]),
+        outs = ['histo.txt'],
+        local = 1,
+        cmd = 'set -x; ${bazel_javabase}/bin/jmap -histo:live \$\$(cat $server_pid_fifo) > \$(location histo.txt)'
+       )
+EOF
+  rm -f "$server_pid_fifo"
+  mkfifo "$server_pid_fifo"
+  histo_file="$(bazel info "${PRODUCT_NAME}-genfiles" \
+      2> /dev/null)/histodump/histo.txt"
+  bazel clean >& "$TEST_log" || fail "Couldn't clean"
+  bazel $STARTUP_FLAGS build $build_args //histodump:histodump >& "$TEST_log" &
+  server_pid=$!
+  echo "$server_pid" > "$server_pid_fifo"
+  # Wait for previous command to finish.
+  wait "$server_pid" || fail "Bazel command failed"
+  cat "$histo_file" >> "$TEST_log"
+  echo "$histo_file"
+}
+
+function test_packages_cleared() {
+  local histo_file="$(prepare_histogram "--nodiscard_analysis_cache")"
+  local package_count="$(extract_histogram_count "$histo_file" \
+      'devtools\.build\.lib\..*\.Package$')"
+  [[ "$package_count" -ge 10 ]] \
+      || fail "package count $package_count too low: did you move/rename the class?"
+  local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  [[ "$glob_count" -ge 30 ]] \
+      || fail "glob count $glob_count too low: did you move/rename the class?"
+  local env_count="$(extract_histogram_count "$histo_file" \
+      'Environment\$Extension$')"
+  [[ "$env_count" -ge 3 ]] \
+      || fail "env extension count $env_count too low: did you move/rename the class?"
+  local histo_file="$(prepare_histogram "$BUILD_FLAGS")"
+  package_count="$(extract_histogram_count "$histo_file" \
+      'devtools\.build\.lib\..*\.Package$')"
+  # A few packages aren't cleared.
+  [[ "$package_count" -le 8 ]] \
+      || fail "package count $package_count too high"
+  glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
+  [[ "$glob_count" -le 1 ]] \
+      || fail "glob count $glob_count too high"
+  env_count="$(extract_histogram_count "$histo_file" \
+      'Environment\$Extension$')"
+  [[ "$env_count" -le 2 ]] \
+      || fail "env extension count $env_count too high"
+}
+
 # Action conflicts can cause deletion of nodes, and deletion is tricky with no edges.
 function test_action_conflict() {
   mkdir -p conflict || fail "Couldn't create directory"

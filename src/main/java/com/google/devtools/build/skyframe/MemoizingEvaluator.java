@@ -91,6 +91,13 @@ public interface MemoizingEvaluator {
   Map<SkyKey, SkyValue> getValues();
 
   /**
+   * Returns the node entries in the graph. Should only be called between evaluations. The returned
+   * map is mutable, but do not mutate it unless you know what you are doing! Naively deleting an
+   * entry will break graph invariants and cause a crash.
+   */
+  Map<SkyKey, ? extends NodeEntry> getGraphMap();
+
+  /**
    * Returns the done (without error) values in the graph.
    *
    * <p>The returned map may be a live view of the graph.

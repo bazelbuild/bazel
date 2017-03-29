@@ -120,6 +120,11 @@ public class InMemoryGraphImpl implements InMemoryGraph {
     return Collections.unmodifiableMap(nodeMap);
   }
 
+  @Override
+  public Map<SkyKey, ? extends NodeEntry> getAllValuesMutable() {
+    return nodeMap;
+  }
+
   @VisibleForTesting
   protected ConcurrentMap<SkyKey, ? extends NodeEntry> getNodeMap() {
     return nodeMap;

@@ -63,6 +63,7 @@ import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.Injectable;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EvaluatorSupplier;
+import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -75,6 +76,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -595,15 +597,26 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     recordingDiffer.invalidate(dirtyActionValues);
   }
 
+  private static ImmutableSet<SkyFunctionName> LOADING_TYPES =
+      ImmutableSet.of(
+          SkyFunctions.PACKAGE,
+          SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
+          SkyFunctions.AST_FILE_LOOKUP,
+          SkyFunctions.GLOB);
+
   /**
    * Save memory by removing references to configured targets and aspects in Skyframe.
    *
-   * <p>These values must be recreated on subsequent builds. We do not clear the top-level target
-   * values, since their configured targets are needed for the target completion middleman values.
+   * <p>These nodes must be recreated on subsequent builds. We do not clear the top-level target
+   * nodes, since their configured targets are needed for the target completion middleman values.
    *
-   * <p>The values are not deleted during this method call, because they are needed for the
-   * execution phase. Instead, their data is cleared. The next build will delete the values (and
-   * recreate them if necessary).
+   * <p>The nodes are not deleted during this method call, because they are needed for the execution
+   * phase. Instead, their analysis-time data is cleared while preserving the generating action info
+   * needed for execution. The next build will delete the nodes (and recreate them if necessary).
+   *
+   * <p>If {@link #hasIncrementalState} is false, then also delete loading-phase nodes (as
+   * determined by {@link #LOADING_TYPES}) from the graph, since there will be no future builds to
+   * use them for.
    */
   private void discardAnalysisCache(
       Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
@@ -611,16 +624,38 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     topLevelAspects = ImmutableSet.copyOf(topLevelAspects);
     try (AutoProfiler p = AutoProfiler.logged("discarding analysis cache", LOG)) {
       lastAnalysisDiscarded = true;
-      for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getValues().entrySet()) {
-        SkyFunctionName functionName = entry.getKey().functionName();
+      Iterator<? extends Map.Entry<SkyKey, ? extends NodeEntry>> it =
+          memoizingEvaluator.getGraphMap().entrySet().iterator();
+      while (it.hasNext()) {
+        Map.Entry<SkyKey, ? extends NodeEntry> keyAndEntry = it.next();
+        NodeEntry entry = keyAndEntry.getValue();
+        if (entry == null || !entry.isDone()) {
+          continue;
+        }
+        SkyKey key = keyAndEntry.getKey();
+        SkyFunctionName functionName = key.functionName();
+        if (!hasIncrementalState() && LOADING_TYPES.contains(functionName)) {
+          it.remove();
+          continue;
+        }
         if (functionName.equals(SkyFunctions.CONFIGURED_TARGET)) {
-          ConfiguredTargetValue ctValue = (ConfiguredTargetValue) entry.getValue();
+          ConfiguredTargetValue ctValue;
+          try {
+            ctValue = (ConfiguredTargetValue) entry.getValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("No interruption in sequenced evaluation", e);
+          }
           // ctValue may be null if target was not successfully analyzed.
           if (ctValue != null) {
             ctValue.clear(!topLevelTargets.contains(ctValue.getConfiguredTarget()));
           }
         } else if (functionName.equals(SkyFunctions.ASPECT)) {
-          AspectValue aspectValue = (AspectValue) entry.getValue();
+          AspectValue aspectValue;
+          try {
+            aspectValue = (AspectValue) entry.getValue();
+          } catch (InterruptedException e) {
+            throw new IllegalStateException("No interruption in sequenced evaluation", e);
+          }
           // value may be null if target was not successfully analyzed.
           if (aspectValue != null) {
             aspectValue.clear(!topLevelAspects.contains(aspectValue));
