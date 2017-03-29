@@ -22,7 +22,7 @@ Here, you'll do the following:
 Note that, unlike with the Android app, you don't have to modify your
 `WORKSPACE` file to add iOS-specific external dependencies.
 
-If you're following the steps in this tutorial on Mac OS X, you can go ahead
+If you're following the steps in this tutorial on macOS (OS X), you can go ahead
 and build the sample iOS app as described below. If you are on Linux, skip ahead
 to the [next step](backend-server.md).
 

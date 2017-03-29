@@ -11,7 +11,7 @@ Here, you'll do the following:
 
 *   Install Bazel
 *   Install Android Studio and the Android SDK
-*   Install Xcode (OS X only)
+*   Install Xcode (macOS (OS X) only)
 *   Get the sample project from the GitHub repo
 
 ## Install Bazel

@@ -178,7 +178,7 @@ Bazel shines at building and testing projects with the following properties:
 Where can I run Bazel?
 ---------------------------------
 
-Currently, Linux and Mac OS X. Porting to other UNIX platforms should be
+Currently, Linux and macOS (OS X). Porting to other UNIX platforms should be
 straightforward, as long as a JDK is available for the platform.
 
 What about Windows?
