@@ -894,8 +894,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(runfilesProvider).isInstanceOf(RunfilesProvider.class);
     assertThat(Iterables.transform(
         ((RunfilesProvider) runfilesProvider).getDefaultRunfiles().getAllArtifacts(), TO_STRING)
-    ).containsExactly("Artifact:[/workspace[source]]test/run.file",
-        "Artifact:[/workspace[source]]test/run2.file");
+    ).containsExactly("File:[/workspace[source]]test/run.file",
+        "File:[/workspace[source]]test/run2.file");
   }
 
   @Test

@@ -624,7 +624,7 @@ public class Artifact
 
   @Override
   public final String toString() {
-    return "Artifact:" + toDetailString();
+    return "File:" + toDetailString();
   }
 
   /**
