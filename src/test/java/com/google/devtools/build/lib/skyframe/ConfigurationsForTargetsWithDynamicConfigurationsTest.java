@@ -209,6 +209,26 @@ public class ConfigurationsForTargetsWithDynamicConfigurationsTest
         .isEqualTo("SET BY PATCH FACTORY: Maximum Dance");
   }
 
+  @Test
+  public void topLevelRuleTransitionFactoryCanReturnNullInTesting() throws Exception {
+    setRulesAvailableInTests(
+        new TestAspects.BaseRule(), new TestAspects.UsesRuleTransitionFactoryRule());
+    useConfiguration("--test_filter=SET ON COMMAND LINE: original and best");
+    scratch.file(
+        "a/BUILD",
+        "uses_rule_transition_factory(",
+        "   name='factory',",
+        "   sets_test_filter_to='',",
+        ")");
+    update("@//a:factory");
+    ConfiguredTarget target = getView().getConfiguredTargetForTesting(
+        reporter,
+        Label.parseAbsoluteUnchecked("@//a:factory"),
+        getTargetConfiguration(true));
+    assertThat(target.getConfiguration().getTestFilter())
+        .isEqualTo("SET ON COMMAND LINE: original and best");
+  }
+
   /**
    * Returns a custom {@link PatchTransition} with the given value added to
    * {@link BuildConfiguration.Options#testFilter}.

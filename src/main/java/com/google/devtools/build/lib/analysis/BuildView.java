@@ -1101,7 +1101,11 @@ public class BuildView {
     RuleTransitionFactory factory = rule
         .getRuleClassObject()
         .getTransitionFactory();
-    return (factory == null) ? ConfigurationTransition.NONE : factory.buildTransitionFor(rule);
+    if (factory == null) {
+      return ConfigurationTransition.NONE;
+    }
+    Transition transition = factory.buildTransitionFor(rule);
+    return (transition == null) ? ConfigurationTransition.NONE : transition;
   }
 
   /**
