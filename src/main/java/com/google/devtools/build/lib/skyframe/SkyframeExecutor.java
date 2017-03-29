@@ -1522,7 +1522,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     EvaluationResult<ActionLookupValue> result =
         buildDriver.evaluate(keys, keepGoing, numThreads, eventHandler);
     // Get rid of any memory retained by the cache -- all loading is done.
-    perBuildSyscallCache = null;
+    perBuildSyscallCache.clear();
     return result;
   }
 
