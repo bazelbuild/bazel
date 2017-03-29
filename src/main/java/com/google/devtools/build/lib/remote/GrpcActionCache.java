@@ -22,10 +22,7 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceBlockingStub;
-import com.google.devtools.build.lib.remote.CasServiceGrpc.CasServiceStub;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
-import com.google.devtools.build.lib.remote.ExecutionCacheServiceGrpc.ExecutionCacheServiceBlockingStub;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
 import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
 import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadBlobRequest;
@@ -73,14 +70,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** A RemoteActionCache implementation that uses gRPC calls to a remote cache server. */
 @ThreadSafe
-public final class GrpcActionCache implements RemoteActionCache {
+public class GrpcActionCache implements RemoteActionCache {
+  private static final int MAX_MEMORY_KBYTES = 512 * 1024;
 
   /** Channel over which to send gRPC CAS queries. */
-  private final ManagedChannel channel;
-
+  private final GrpcCasInterface casIface;
+  private final GrpcExecutionCacheInterface iface;
   private final RemoteOptions options;
-
-  private static final int MAX_MEMORY_KBYTES = 512 * 1024;
 
   /** Reads from multiple sequential inputs and chunks the data into BlobChunks. */
   static interface BlobChunkIterator {
@@ -204,7 +200,7 @@ public final class GrpcActionCache implements RemoteActionCache {
         chunk.setOffset(offset);
       }
       if (bytesLeft > 0) {
-        byte[] blob = new byte[(int) Math.min(bytesLeft, (long) options.grpcMaxChunkSizeBytes)];
+        byte[] blob = new byte[(int) Math.min(bytesLeft, options.grpcMaxChunkSizeBytes)];
         currentStream.read(blob);
         chunk.setData(ByteString.copyFrom(blob));
         bytesLeft -= blob.length;
@@ -294,28 +290,26 @@ public final class GrpcActionCache implements RemoteActionCache {
     }
   }
 
+  public GrpcActionCache(
+      RemoteOptions options, GrpcCasInterface casIface, GrpcExecutionCacheInterface iface) {
+    this.options = options;
+    this.casIface = casIface;
+    this.iface = iface;
+  }
+
   @VisibleForTesting
   public GrpcActionCache(ManagedChannel channel, RemoteOptions options) {
     this.options = options;
-    this.channel = channel;
+    this.casIface = GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel);
+    this.iface = GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel);
   }
 
   public GrpcActionCache(RemoteOptions options) throws InvalidConfigurationException {
-    this(RemoteUtils.createChannel(options.remoteCache), options);
+    this(RemoteUtils.createChannelLegacy(options.remoteCache), options);
   }
 
   public static boolean isRemoteCacheOptions(RemoteOptions options) {
     return options.remoteCache != null;
-  }
-
-  private CasServiceBlockingStub getBlockingStub() {
-    return CasServiceGrpc.newBlockingStub(channel)
-        .withDeadlineAfter(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
-  }
-
-  private CasServiceStub getStub() {
-    return CasServiceGrpc.newStub(channel)
-        .withDeadlineAfter(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
   }
 
   private ImmutableSet<ContentDigest> getMissingDigests(Iterable<ContentDigest> digests) {
@@ -323,7 +317,7 @@ public final class GrpcActionCache implements RemoteActionCache {
     if (request.getDigestCount() == 0) {
       return ImmutableSet.of();
     }
-    CasStatus status = getBlockingStub().lookup(request.build()).getStatus();
+    CasStatus status = casIface.lookup(request.build()).getStatus();
     if (!status.getSucceeded() && status.getError() != CasStatus.ErrorCode.MISSING_DIGEST) {
       // TODO(olaola): here and below, add basic retry logic on transient errors!
       throw new RuntimeException(status.getErrorDetail());
@@ -350,7 +344,7 @@ public final class GrpcActionCache implements RemoteActionCache {
     if (!treeNodes.isEmpty()) {
       CasUploadTreeMetadataRequest.Builder metaRequest =
           CasUploadTreeMetadataRequest.newBuilder().addAllTreeNode(treeNodes);
-      CasUploadTreeMetadataReply reply = getBlockingStub().uploadTreeMetadata(metaRequest.build());
+      CasUploadTreeMetadataReply reply = casIface.uploadTreeMetadata(metaRequest.build());
       if (!reply.getStatus().getSucceeded()) {
         throw new RuntimeException(reply.getStatus().getErrorDetail());
       }
@@ -389,6 +383,9 @@ public final class GrpcActionCache implements RemoteActionCache {
   @Override
   public void downloadAllResults(ActionResult result, Path execRoot)
       throws IOException, CacheNotFoundException {
+    if (result.getOutputList().isEmpty()) {
+      return;
+    }
     // Send all the file requests in a single synchronous batch.
     // TODO(olaola): profile to maybe replace with separate concurrent requests.
     CasDownloadBlobRequest.Builder request = CasDownloadBlobRequest.newBuilder();
@@ -410,7 +407,7 @@ public final class GrpcActionCache implements RemoteActionCache {
         downloadTree(output.getDigest(), path);
       }
     }
-    Iterator<CasDownloadReply> replies = getBlockingStub().downloadBlob(request.build());
+    Iterator<CasDownloadReply> replies = casIface.downloadBlob(request.build());
     Set<ContentDigest> results = new HashSet<>();
     while (replies.hasNext()) {
       results.add(createFileFromStream(metadataMap, replies));
@@ -521,24 +518,6 @@ public final class GrpcActionCache implements RemoteActionCache {
     return digest;
   }
 
-  /**
-   * Download a blob keyed by the given digest and write it to the specified path. Set the
-   * executable parameter to the specified value.
-   */
-  @Override
-  public void downloadFileContents(ContentDigest digest, Path dest, boolean executable)
-      throws IOException, CacheNotFoundException {
-    // Send all the file requests in a single synchronous batch.
-    // TODO(olaola): profile to maybe replace with separate concurrent requests.
-    CasDownloadBlobRequest.Builder request = CasDownloadBlobRequest.newBuilder().addDigest(digest);
-    Iterator<CasDownloadReply> replies = getBlockingStub().downloadBlob(request.build());
-    FileMetadata fileMetadata =
-        FileMetadata.newBuilder().setDigest(digest).setExecutable(executable).build();
-    Map<ContentDigest, Pair<Path, FileMetadata>> metadataMap = new HashMap<>();
-    metadataMap.put(digest, Pair.of(dest, fileMetadata));
-    createFileFromStream(metadataMap, replies);
-  }
-
   static class UploadBlobReplyStreamObserver implements StreamObserver<CasUploadBlobReply> {
     private final CountDownLatch finishLatch;
     private final AtomicReference<RuntimeException> exception;
@@ -579,7 +558,6 @@ public final class GrpcActionCache implements RemoteActionCache {
     int currentBatchBytes = 0;
     int batchedInputs = 0;
     int batches = 0;
-    CasServiceStub stub = getStub();
     try {
       while (blobs.hasNext()) {
         BlobChunk chunk = blobs.next();
@@ -596,7 +574,7 @@ public final class GrpcActionCache implements RemoteActionCache {
             }
             batches++;
             responseObserver = new UploadBlobReplyStreamObserver(finishLatch, exception);
-            requestObserver = stub.uploadBlob(responseObserver);
+            requestObserver = casIface.uploadBlobAsync(responseObserver);
           }
           batchedInputs++;
         }
@@ -682,7 +660,7 @@ public final class GrpcActionCache implements RemoteActionCache {
     Map<ContentDigest, byte[]> results = new HashMap<>();
     int digestCount = request.getDigestCount();
     if (digestCount > 0) {
-      replies = getBlockingStub().downloadBlob(request.build());
+      replies = casIface.downloadBlob(request.build());
       while (digestCount-- > 0) {
         Preconditions.checkArgument(replies.hasNext());
         CasDownloadReply reply = replies.next();
@@ -733,12 +711,9 @@ public final class GrpcActionCache implements RemoteActionCache {
   /** Returns a cached result for a given Action digest, or null if not found in cache. */
   @Override
   public ActionResult getCachedActionResult(ActionKey actionKey) {
-    ExecutionCacheServiceBlockingStub stub =
-        ExecutionCacheServiceGrpc.newBlockingStub(channel)
-            .withDeadlineAfter(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
     ExecutionCacheRequest request =
         ExecutionCacheRequest.newBuilder().setActionDigest(actionKey.getDigest()).build();
-    ExecutionCacheReply reply = stub.getCachedResult(request);
+    ExecutionCacheReply reply = iface.getCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
     if (!status.getSucceeded()
         && status.getError() != ExecutionCacheStatus.ErrorCode.MISSING_RESULT) {
@@ -751,15 +726,12 @@ public final class GrpcActionCache implements RemoteActionCache {
   @Override
   public void setCachedActionResult(ActionKey actionKey, ActionResult result)
       throws InterruptedException {
-    ExecutionCacheServiceBlockingStub stub =
-        ExecutionCacheServiceGrpc.newBlockingStub(channel)
-            .withDeadlineAfter(options.grpcTimeoutSeconds, TimeUnit.SECONDS);
     ExecutionCacheSetRequest request =
         ExecutionCacheSetRequest.newBuilder()
             .setActionDigest(actionKey.getDigest())
             .setResult(result)
             .build();
-    ExecutionCacheSetReply reply = stub.setCachedResult(request);
+    ExecutionCacheSetReply reply = iface.setCachedResult(request);
     ExecutionCacheStatus status = reply.getStatus();
     if (!status.getSucceeded() && status.getError() != ExecutionCacheStatus.ErrorCode.UNSUPPORTED) {
       throw new RuntimeException(status.getErrorDetail());

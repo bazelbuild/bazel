@@ -24,19 +24,24 @@ import java.net.URISyntaxException;
 /** Helper methods for gRPC calls */
 @ThreadSafe
 public final class RemoteUtils {
-  public static ManagedChannel createChannel(String hostAndPort)
+  public static ManagedChannel createChannelLegacy(String hostAndPort)
       throws InvalidConfigurationException {
     try {
-      URI uri = new URI("dummy://" + hostAndPort);
-      if (uri.getHost() == null || uri.getPort() == -1) {
-        throw new URISyntaxException("Invalid host or port.", "");
-      }
-      return NettyChannelBuilder.forAddress(uri.getHost(), uri.getPort())
-          .usePlaintext(true)
-          .build();
+      return createChannel(hostAndPort);
     } catch (URISyntaxException e) {
       throw new InvalidConfigurationException(
           "Invalid argument for the address of remote cache server: " + hostAndPort);
     }
+  }
+
+  public static ManagedChannel createChannel(String hostAndPort)
+      throws URISyntaxException {
+    URI uri = new URI("dummy://" + hostAndPort);
+    if (uri.getHost() == null || uri.getPort() == -1) {
+      throw new URISyntaxException("Invalid host or port.", "");
+    }
+    return NettyChannelBuilder.forAddress(uri.getHost(), uri.getPort())
+        .usePlaintext(true)
+        .build();
   }
 }

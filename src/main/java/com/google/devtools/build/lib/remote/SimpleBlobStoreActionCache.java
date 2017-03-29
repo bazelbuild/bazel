@@ -130,8 +130,7 @@ public final class SimpleBlobStoreActionCache implements RemoteActionCache {
     }
   }
 
-  @Override
-  public void downloadFileContents(ContentDigest digest, Path dest, boolean executable)
+  private void downloadFileContents(ContentDigest digest, Path dest, boolean executable)
       throws IOException, CacheNotFoundException {
     // This unconditionally downloads the whole file into memory first!
     byte[] contents = downloadBlob(digest);

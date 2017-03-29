@@ -80,13 +80,6 @@ interface RemoteActionCache {
       ActionInput input, Path execRoot, ActionInputFileCache inputCache)
       throws IOException, InterruptedException;
 
-  /**
-   * Download a blob keyed by the given digest and write it to the specified path. Set the
-   * executable parameter to the specified value.
-   */
-  void downloadFileContents(ContentDigest digest, Path dest, boolean executable)
-      throws IOException, CacheNotFoundException;
-
   /** Upload the given blobs to the cache, and return their digests. */
   ImmutableList<ContentDigest> uploadBlobs(Iterable<byte[]> blobs) throws InterruptedException;
 

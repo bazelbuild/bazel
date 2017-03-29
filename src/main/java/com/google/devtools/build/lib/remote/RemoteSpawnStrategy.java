@@ -199,7 +199,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     EventHandler eventHandler = executor.getEventHandler();
 
     RemoteActionCache actionCache = null;
-    RemoteWorkExecutor workExecutor = null;
+    GrpcRemoteExecutor workExecutor = null;
     if (spawn.isRemotable()) {
       // Initialize remote cache and execution handlers. We use separate handlers for every
       // action to enable server-side parallelism (need a different gRPC channel per action).
@@ -211,8 +211,9 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         }
         // Otherwise actionCache remains null and remote caching/execution are disabled.
 
-        if (actionCache != null && RemoteWorkExecutor.isRemoteExecutionOptions(options)) {
-          workExecutor = new RemoteWorkExecutor(options);
+        if (actionCache != null && GrpcRemoteExecutor.isRemoteExecutionOptions(options)) {
+          workExecutor = new GrpcRemoteExecutor(
+              RemoteUtils.createChannelLegacy(options.remoteWorker), options);
         }
       } catch (InvalidConfigurationException e) {
         eventHandler.handle(Event.warn(e.toString()));

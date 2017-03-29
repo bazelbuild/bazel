@@ -196,12 +196,24 @@ public class SpawnInputExpander {
       Spawn spawn, ArtifactExpander artifactExpander, ActionInputFileCache actionInputFileCache,
       FilesetActionContext filesetContext)
           throws IOException {
+    return getInputMapping(
+        spawn, artifactExpander, actionInputFileCache, filesetContext.getWorkspaceName());
+  }
+
+  /**
+   * Convert the inputs of the given spawn to a map from exec-root relative paths to action inputs.
+   * In some cases, this generates empty files, for which it uses {@code null}.
+   */
+  public SortedMap<PathFragment, ActionInput> getInputMapping(
+      Spawn spawn, ArtifactExpander artifactExpander, ActionInputFileCache actionInputFileCache,
+      String workspaceName)
+          throws IOException {
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn, artifactExpander);
     addRunfilesToInputs(
         inputMap, spawn.getRunfilesSupplier(), actionInputFileCache);
     for (Artifact manifest : spawn.getFilesetManifests()) {
-      parseFilesetManifest(inputMap, manifest, filesetContext.getWorkspaceName());
+      parseFilesetManifest(inputMap, manifest, workspaceName);
     }
     return inputMap;
   }

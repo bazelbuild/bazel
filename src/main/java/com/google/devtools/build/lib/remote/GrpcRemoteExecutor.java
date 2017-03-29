@@ -14,38 +14,41 @@
 
 package com.google.devtools.build.lib.remote;
 
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.remote.ExecuteServiceGrpc.ExecuteServiceBlockingStub;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteReply;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import io.grpc.ManagedChannel;
 import java.util.Iterator;
-import java.util.concurrent.TimeUnit;
 
 /** A remote work executor that uses gRPC for communicating the work, inputs and outputs. */
 @ThreadSafe
-public class RemoteWorkExecutor {
-  /** Channel over which to send work to run remotely. */
-  private final ManagedChannel channel;
-  private final RemoteOptions options;
-
-  public RemoteWorkExecutor(RemoteOptions options) throws InvalidConfigurationException {
-    this.options = options;
-    channel = RemoteUtils.createChannel(options.remoteWorker);
-  }
-
+public class GrpcRemoteExecutor extends GrpcActionCache {
   public static boolean isRemoteExecutionOptions(RemoteOptions options) {
     return options.remoteWorker != null;
   }
 
+  private final GrpcExecutionInterface executionIface;
+
+  public GrpcRemoteExecutor(
+      RemoteOptions options,
+      GrpcCasInterface casIface,
+      GrpcExecutionCacheInterface cacheIface,
+      GrpcExecutionInterface executionIface) {
+    super(options, casIface, cacheIface);
+    this.executionIface = executionIface;
+  }
+
+  public GrpcRemoteExecutor(ManagedChannel channel, RemoteOptions options) {
+    super(
+        options,
+        GrpcInterfaces.casInterface(options.grpcTimeoutSeconds, channel),
+        GrpcInterfaces.executionCacheInterface(options.grpcTimeoutSeconds, channel));
+    this.executionIface = GrpcInterfaces.executionInterface(options.grpcTimeoutSeconds, channel);
+  }
+
   public ExecuteReply executeRemotely(ExecuteRequest request) {
-    ExecuteServiceBlockingStub stub =
-        ExecuteServiceGrpc.newBlockingStub(channel)
-            .withDeadlineAfter(
-                options.grpcTimeoutSeconds + request.getTimeoutMillis() / 1000, TimeUnit.SECONDS);
-    Iterator<ExecuteReply> replies = stub.execute(request);
+    Iterator<ExecuteReply> replies = executionIface.execute(request);
     ExecuteReply reply = null;
     while (replies.hasNext()) {
       reply = replies.next();
