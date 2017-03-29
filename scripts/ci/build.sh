@@ -300,16 +300,20 @@ function release_to_gcs() {
     echo "Please set GCS_BUCKET to the name of your Google Cloud Storage bucket." >&2
     return 1
   fi
-  if [ -n "${release_name}" ] && [ -n "${rc}" ]; then
+  if [ -n "${release_name}" ]; then
+    local release_path="${release_name}"
+    if [ -n "${rc}" ]; then
+      release_path="${release_name}/rc${rc}"
+    fi
     # Make a temporary folder with the desired structure
     local dir="$(mktemp -d ${TMPDIR:-/tmp}/tmp.XXXXXXXX)"
     local prev_dir="$PWD"
     trap "{ cd ${prev_dir}; rm -fr ${dir}; }" EXIT
-    mkdir -p "${dir}/${release_name}/rc${rc}"
-    cp "${@}" "${dir}/${release_name}/rc${rc}"
+    mkdir -p "${dir}/${release_path}"
+    cp "${@}" "${dir}/${release_path}"
     # Add a index.html file:
-    create_index_html "${dir}/${release_name}/rc${rc}" \
-        >"${dir}/${release_name}/rc${rc}"/index.html
+    create_index_html "${dir}/${release_path}" \
+        >"${dir}/${release_path}"/index.html
     cd ${dir}
     "${gs}" -m cp -a public-read -r . "gs://${GCS_BUCKET}"
     cd "${prev_dir}"
