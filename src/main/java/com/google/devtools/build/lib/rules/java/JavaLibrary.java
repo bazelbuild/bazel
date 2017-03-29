@@ -200,6 +200,8 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
         .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
         .addProvider(ProtoJavaApiInfoAspectProvider.class, protoAspectBuilder.build())
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        // java_library doesn't need to return JavaRunfilesProvider
         .build();
     builder
         .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())

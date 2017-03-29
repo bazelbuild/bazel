@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.MiddlemanProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -182,7 +183,7 @@ public class JavaSkylarkCommon {
       String strictDepsMode,
       ConfiguredTarget javaToolchain,
       ConfiguredTarget hostJavabase,
-      SkylarkList<Artifact> sourcepathEntries) {
+      SkylarkList<Artifact> sourcepathEntries) throws EvalException {
 
     JavaLibraryHelper helper =
         new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
@@ -214,12 +215,15 @@ public class JavaSkylarkCommon {
         JavaRuleOutputJarsProvider.builder().addOutputJar(
             new JavaRuleOutputJarsProvider.OutputJar(outputJar, /* ijar */ null, sourceJars))
         .build();
+    JavaCompilationArgsProvider javaCompilationArgsProvider =
+        helper.buildCompilationArgsProvider(artifacts, true);
+    Runfiles runfiles = new Runfiles.Builder(skylarkRuleContext.getWorkspaceName()).addArtifacts(
+        javaCompilationArgsProvider.getRecursiveJavaCompilationArgs().getRuntimeJars()).build();
     return JavaProvider.Builder.create()
-             .addProvider(
-                 JavaCompilationArgsProvider.class,
-                 helper.buildCompilationArgsProvider(artifacts, true))
+             .addProvider(JavaCompilationArgsProvider.class, javaCompilationArgsProvider)
              .addProvider(JavaSourceJarsProvider.class, createJavaSourceJarsProvider(sourceJars))
              .addProvider(JavaRuleOutputJarsProvider.class, javaRuleOutputJarsProvider)
+             .addProvider(JavaRunfilesProvider.class, new JavaRunfilesProvider(runfiles))
              .build();
   }
 
