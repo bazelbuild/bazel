@@ -78,6 +78,31 @@ java_test(
 )
 
 java_test(
+    name = "DensitySpecificManifestProcessorTest",
+    srcs = ["DensitySpecificManifestProcessorTest.java"],
+    tags = ["no_windows"],  # Test asserts forward slashes in android data xml files.
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "DependencyAndroidDataTest",
+    srcs = ["DependencyAndroidDataTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ParsedAndroidDataTest",
     srcs = ["ParsedAndroidDataTest.java"],
     tags = ["manual"],  # Fails due to https://github.com/bazelbuild/bazel/issues/2709
@@ -85,6 +110,55 @@ java_test(
         ":test_utils",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:android_common_25_0_0",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SerializedAndroidDataTest",
+    srcs = ["SerializedAndroidDataTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "SplitConfigurationFilterTest",
+    srcs = ["SplitConfigurationFilterTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "UnvalidatedAndroidDataTest",
+    srcs = ["UnvalidatedAndroidDataTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:guava",
+        "//third_party:jimfs",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "UnvalidatedAndroidDirectoriesTest",
+    srcs = ["UnvalidatedAndroidDirectoriesTest.java"],
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:junit4",
