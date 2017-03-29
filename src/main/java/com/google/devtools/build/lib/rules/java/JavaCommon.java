@@ -391,16 +391,9 @@ public class JavaCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.<Artifact>stableOrder()
         .addAll(targetSrcJars);
 
-    for (TransitiveInfoCollection dep : getDependencies()) {
-      JavaSourceJarsProvider sourceJarsProvider = dep.getProvider(JavaSourceJarsProvider.class);
-      if (sourceJarsProvider == null) {
-        // A target can either have both JavaSourceJarsProvider and JavaProvider that
-        // encapsulates the same information, or just one of them.
-        sourceJarsProvider = JavaProvider.getProvider(JavaSourceJarsProvider.class, dep);
-      }
-      if (sourceJarsProvider != null) {
-        builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
-      }
+    for (JavaSourceJarsProvider sourceJarsProvider : JavaProvider.getProvidersFromListOfTargets(
+        JavaSourceJarsProvider.class, getDependencies())) {
+      builder.addTransitive(sourceJarsProvider.getTransitiveSourceJars());
     }
 
     return builder.build();

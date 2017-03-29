@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -104,7 +105,7 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
    * JavaCompilationArgsProvider.
    */
   public static <C extends TransitiveInfoProvider> List<C> fetchProvidersFromList(
-      List<JavaProvider> javaProviders, Class<C> providersClass) {
+      Iterable<JavaProvider> javaProviders, Class<C> providersClass) {
     List<C> fetchedProviders = new LinkedList<>();
     for (JavaProvider javaProvider : javaProviders) {
       C provider = javaProvider.getProvider(providersClass);
@@ -141,6 +142,18 @@ public final class JavaProvider extends SkylarkClassObject implements Transitive
       return null;
     }
     return javaProvider.getProvider(providerClass);
+  }
+
+  public static <T extends TransitiveInfoProvider> List<T> getProvidersFromListOfTargets(
+      Class<T> providerClass, Iterable<? extends TransitiveInfoCollection> targets) {
+    List<T> providersList = new ArrayList<>();
+    for (TransitiveInfoCollection target : targets) {
+      T provider = getProvider(providerClass, target);
+      if (provider != null) {
+        providersList.add(provider);
+      }
+    }
+    return providersList;
   }
 
   private JavaProvider(TransitiveInfoProviderMap providers) {
