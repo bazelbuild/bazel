@@ -79,6 +79,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
@@ -1818,7 +1819,11 @@ public final class RuleContext extends TargetContext
       for (ImmutableSet<SkylarkProviderIdentifier> providers : mandatoryProvidersList) {
         List<String> missing = new ArrayList<>();
         for (SkylarkProviderIdentifier provider : providers) {
-          if (prerequisite.get(provider) == null) {
+          // A rule may require a built-in provider that is always implicitly provided, e.g. "files"
+          ImmutableSet<String> availableKeys =
+              ImmutableSet.copyOf(((ClassObject) prerequisite).getKeys());
+          if ((prerequisite.get(provider) == null)
+              && !(provider.isLegacy() && availableKeys.contains(provider.getLegacyId()))) {
             missing.add(provider.toString());
           }
         }

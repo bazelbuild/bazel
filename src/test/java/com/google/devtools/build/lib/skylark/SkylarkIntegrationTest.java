@@ -650,6 +650,31 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSpecialMandatoryProviderMissing() throws Exception {
+    scratch.file(
+        "test/skylark/extension.bzl",
+        "def rule_impl(ctx):",
+        "  pass",
+        "",
+        "dependent_rule = rule(implementation = rule_impl)",
+        "main_rule = rule(implementation = rule_impl, attrs = {",
+        "    'deps': attr.label_list(providers = [",
+        "        'files', 'data_runfiles', 'default_runfiles',",
+        "        'files_to_run', 'label', 'output_groups',",
+        "    ])",
+        "})");
+
+    scratch.file(
+        "test/skylark/BUILD",
+        "load('/test/skylark/extension', 'dependent_rule', 'main_rule')",
+        "",
+        "dependent_rule(name = 'a')",
+        "main_rule(name = 'b', deps = [':a'])");
+
+    getConfiguredTarget("//test/skylark:b");
+  }
+
+  @Test
   public void testActions() throws Exception {
     scratch.file(
         "test/skylark/extension.bzl",
