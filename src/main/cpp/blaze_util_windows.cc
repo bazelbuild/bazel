@@ -26,8 +26,9 @@
 #include <unistd.h>
 #endif  // COMPILER_MSVC
 
-#include <lmcons.h>  // UNLEN
 #include <windows.h>
+#include <lmcons.h>          // UNLEN
+#include <versionhelpers.h>  // IsWindows8OrGreater
 
 #ifdef COMPILER_MSVC
 #include <io.h>            // _open
@@ -812,16 +813,7 @@ static bool IsFailureDueToNestedJobsNotSupported(HANDLE process) {
     // Not in a job.
     return false;
   }
-
-  OSVERSIONINFOEX version_info;
-  version_info.dwOSVersionInfoSize = sizeof(version_info);
-  if (!GetVersionEx(reinterpret_cast<OSVERSIONINFO*>(&version_info))) {
-    PrintError("GetVersionEx()");
-    return false;
-  }
-
-  return version_info.dwMajorVersion < 6
-      || version_info.dwMajorVersion == 6 && version_info.dwMinorVersion <= 1;
+  return !IsWindows8OrGreater();
 }
 
 // Run the given program in the current working directory, using the given
