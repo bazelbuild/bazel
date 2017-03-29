@@ -5,10 +5,9 @@ title: Compile Bazel from Source
 
 # <a name="compiling-from-source"></a>Compile Bazel from source
 
-1. Install OpenJDK 8:
-   ```
-   $ sudo apt-get install openjdk-8-jdk
-   ```
+1. Ensure that you have OpenJDK 8 installed on your system.
+   For a system based on debian packages (e.g., Debian, Ubuntu), install
+   OpenJDK 8 by running the command `sudo apt-get install openjdk-8-jdk`.
 
 2. The standard way of compiling a release version of Bazel from source is to
    use a distribution archive. Download `bazel-<VERSION>-dist.zip` from the
