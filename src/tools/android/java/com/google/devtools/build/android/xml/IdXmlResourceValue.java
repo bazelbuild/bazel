@@ -146,4 +146,9 @@ public class IdXmlResourceValue implements XmlResourceValue {
     }
     throw new IllegalArgumentException(resourceValue + "is not combinable with " + this);
   }
+
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
+  }
 }

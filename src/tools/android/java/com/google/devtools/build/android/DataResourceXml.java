@@ -361,4 +361,9 @@ public class DataResourceXml implements DataResource {
   public DataValue update(DataSource source) {
     return createWithNamespaces(source, xml, namespaces);
   }
+
+  @Override
+  public String asConflictString() {
+    return source.asConflictString();
+  }
 }

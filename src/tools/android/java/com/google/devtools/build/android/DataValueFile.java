@@ -125,4 +125,9 @@ public class DataValueFile implements DataResource, DataAsset {
   public DataValue update(DataSource source) {
     return of(source);
   }
+
+  @Override
+  public String asConflictString() {
+    return source.asConflictString();
+  }
 }

@@ -114,4 +114,12 @@ public class ResourcesAttribute implements XmlResourceValue {
       FullyQualifiedName key, AndroidResourceClassWriter resourceClassWriter) {
     // This is an xml attribute and does not have any java representation.
   }
+
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    if (value != null) {
+      return String.format(" %s (with value %s)", source.asConflictString(), value);
+    }
+    return source.asConflictString();
+  }
 }

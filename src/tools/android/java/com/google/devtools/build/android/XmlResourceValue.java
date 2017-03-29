@@ -53,4 +53,7 @@ public interface XmlResourceValue {
   void writeResourceToClass(
       FullyQualifiedName key,
       AndroidResourceClassWriter resourceClassWriter);
+
+  /** Returns a representation of the xml value as a string suitable for conflict messages. */
+  String asConflictStringWith(DataSource source);
 }

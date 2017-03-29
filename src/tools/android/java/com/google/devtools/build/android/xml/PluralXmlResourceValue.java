@@ -156,4 +156,9 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   public XmlResourceValue combineWith(XmlResourceValue value) {
     throw new IllegalArgumentException(this + " is not a combinable resource.");
   }
+  
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
+  }
 }

@@ -216,4 +216,9 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
     }
     return of(combined);
   }
+
+  @Override
+  public String asConflictStringWith(DataSource source) {
+    return source.asConflictString();
+  }
 }
