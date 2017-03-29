@@ -238,4 +238,21 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
                   + "or install api level 25 from the Android SDK Manager.");
     }
   }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/2739.
+  @Test
+  public void testFilesInSystemImagesDirectories() throws Exception {
+    scratchPlatformsDirectories(24);
+    scratchBuildToolsDirectories("25.0.1");
+    scratch.file("/sdk/system-images/.DS_Store");
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
+        "local_repository(name = 'bazel_tools', path = '/bazel_tools_workspace')",
+        "android_sdk_repository(",
+        "    name = 'androidsdk',",
+        "    path = '/sdk',",
+        ")");
+    invalidatePackages();
+
+    assertThat(getConfiguredTarget("@androidsdk//:sdk")).isNotNull();
+  }
 }
