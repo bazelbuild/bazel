@@ -354,14 +354,33 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns a map that should be templated into the crosstool as build variables. Is meant to
-   * be overridden by subclasses of CcToolchain.
+   * Returns a map that should be templated into the crosstool as build variables
    *
    * @param ruleContext the rule context
    * @throws RuleErrorException if there are configuration errors making it impossible to resolve
    *     certain build variables of this toolchain
    */
-  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
+  protected final Map<String, String> getBuildVariables(RuleContext ruleContext)
+      throws RuleErrorException {
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    ImmutableMap.Builder<String, String> variables = ImmutableMap.builder();
+    if (cppConfiguration.getSysroot() != null) {
+      variables.put(
+          CppRuleClasses.SYSROOT_VARIABLE, cppConfiguration.getSysroot().getSafePathString());
+    }
+    variables.putAll(getLocalBuildVariables(ruleContext));
+    return variables.build();
+  }
+
+  /**
+   * Returns a map that should be templated into the crosstool as build variables. Is meant to be
+   * overridden by subclasses of CcToolchain.
+   *
+   * @param ruleContext the rule context
+   * @throws RuleErrorException if there are configuration errors making it impossible to resolve
+   *     certain build variables of this toolchain
+   */
+  protected Map<String, String> getLocalBuildVariables(RuleContext ruleContext)
       throws RuleErrorException {
     return ImmutableMap.<String, String>of();
   }
