@@ -81,7 +81,8 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public void addMainDexListActionArguments(RuleContext ruleContext, SpawnAction.Builder builder) {
+  public void addMainDexListActionArguments(
+      RuleContext ruleContext, SpawnAction.Builder builder, Artifact proguardMap) {
   }
 
   @Override
