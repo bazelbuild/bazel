@@ -264,22 +264,28 @@ public abstract class RepositoryFunction {
     }
   }
 
-  protected static RepositoryDirectoryValue.Builder writeBuildFile(
-      Path repositoryDirectory, String contents) throws RepositoryFunctionException {
-    Path buildFilePath = repositoryDirectory.getRelative("BUILD.bazel");
+  protected static RepositoryDirectoryValue.Builder writeFile(
+      Path repositoryDirectory, String filename, String contents)
+      throws RepositoryFunctionException {
+    Path filePath = repositoryDirectory.getRelative(filename);
     try {
-      // The repository could have an existing BUILD file that's either a regular file (for remote
+      // The repository could have an existing file that's either a regular file (for remote
       // repositories) or a symlink (for local repositories). Either way, we want to remove it and
       // write our own.
-      if (buildFilePath.exists(Symlinks.NOFOLLOW)) {
-        buildFilePath.delete();
+      if (filePath.exists(Symlinks.NOFOLLOW)) {
+        filePath.delete();
       }
-      FileSystemUtils.writeContentAsLatin1(buildFilePath, contents);
+      FileSystemUtils.writeContentAsLatin1(filePath, contents);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
     return RepositoryDirectoryValue.builder().setPath(repositoryDirectory);
+  }
+
+  protected static RepositoryDirectoryValue.Builder writeBuildFile(
+      Path repositoryDirectory, String contents) throws RepositoryFunctionException {
+    return writeFile(repositoryDirectory, "BUILD.bazel", contents);
   }
 
   @VisibleForTesting

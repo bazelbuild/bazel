@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
+import com.google.devtools.build.lib.rules.repository.NewRepositoryFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -45,9 +45,8 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
       throws RepositoryFunctionException, InterruptedException {
-    NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(directories.getWorkspace());
-    if (!buildFileHandler.prepareBuildFile(rule, env)) {
+    NewRepositoryFileHandler fileHandler = new NewRepositoryFileHandler(directories.getWorkspace());
+    if (!fileHandler.prepareFile(rule, env)) {
       return null;
     }
 
@@ -82,8 +81,7 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         .build());
 
     // Finally, write WORKSPACE and BUILD files.
-    createWorkspaceFile(decompressed, rule.getTargetKind(), rule.getName());
-    buildFileHandler.finishBuildFile(outputDirectory);
+    fileHandler.finishFile(outputDirectory);
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
   }
