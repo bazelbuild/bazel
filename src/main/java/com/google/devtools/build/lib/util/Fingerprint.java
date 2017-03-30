@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.util;
 
-import com.google.common.collect.Iterables;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -191,10 +190,12 @@ public final class Fingerprint {
    * different from adding them each individually.
    */
   public Fingerprint addStrings(Iterable<String> inputs) {
-    addInt(Iterables.size(inputs));
+    int count = 0;
     for (String input : inputs) {
       addString(input);
+      count++;
     }
+    addInt(count);
 
     return this;
   }
@@ -217,10 +218,12 @@ public final class Fingerprint {
    * @param inputs the paths with which to update the digest
    */
   public Fingerprint addPaths(Iterable<PathFragment> inputs) {
-    addInt(Iterables.size(inputs));
+    int count = 0;
     for (PathFragment path : inputs) {
       addPath(path);
+      count++;
     }
+    addInt(count);
 
     return this;
   }
