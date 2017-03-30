@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Splitter;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -192,6 +193,14 @@ public final class BuildConfiguration {
      */
     public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
       return ImmutableSet.of();
+    }
+
+    /**
+     * @return false if a Fragment understands that it won't be able to work with a given strategy,
+     *     or true otherwise.
+     */
+    public boolean compatibleWithStrategy(String strategyName) {
+      return true;
     }
   }
 
@@ -1301,6 +1310,20 @@ public final class BuildConfiguration {
       reporter.handle(Event.error(
           "--nodistinct_host_configuration does not currently work with dynamic configurations"));
     }
+  }
+
+  /**
+   * @return false if any of the fragments don't work well with the supplied strategy.
+   */
+  public boolean compatibleWithStrategy(final String strategyName) {
+    return Iterables.all(
+        fragments.values(),
+        new Predicate<Fragment>() {
+          @Override
+          public boolean apply(@Nullable Fragment fragment) {
+            return fragment.compatibleWithStrategy(strategyName);
+          }
+        });
   }
 
   /**

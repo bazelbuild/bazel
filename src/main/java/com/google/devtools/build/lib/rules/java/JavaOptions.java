@@ -178,6 +178,24 @@ public class JavaOptions extends FragmentOptions {
   )
   public StrictDepsMode strictJavaDeps;
 
+  // TODO(bazel-team): This flag should ideally default to true (and eventually removed). We have
+  // been accidentally supplying JUnit and Hamcrest deps to java_test targets indirectly via the
+  // BazelTestRunner, and setting this flag to true fixes that behaviour.
+  @Option(name = "explicit_java_test_deps",
+      defaultValue = "false",
+      category = "semantics",
+      help = "Explicitly specify a dependency to JUnit or Hamcrest in a java_test instead of "
+          + " accidentally obtaining from the TestRunner's deps. Only works for bazel right now.")
+  public boolean explicitJavaTestDeps;
+
+  @Option(name = "experimental_testrunner",
+      defaultValue = "false",
+      category = "undocumented",
+      help = "Use the experimental test runner in bazel which runs the tests under a separate "
+          + "classloader. We must set the --explicit_java_test_deps flag with this to ensure "
+          + "the test targets have their dependencies right.")
+  public boolean experimentalTestRunner;
+
   @Option(
     name = "javabuilder_top",
     defaultValue = "null",

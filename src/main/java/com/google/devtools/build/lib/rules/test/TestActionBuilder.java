@@ -250,14 +250,9 @@ public final class TestActionBuilder {
     List<Artifact> results = Lists.newArrayListWithCapacity(runsPerTest * shardRuns);
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
 
-    boolean useExperimentalTestRunner = false;
+    boolean useTestRunner = false;
     if (ruleContext.attributes().has("use_testrunner", Type.BOOLEAN)) {
-      useExperimentalTestRunner =
-          ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)
-              && ruleContext
-                  .attributes()
-                  .get("tags", Type.STRING_LIST)
-                  .contains("experimental_testrunner");
+      useTestRunner = ruleContext.attributes().get("use_testrunner", Type.BOOLEAN);
     }
 
     for (int run = 0; run < runsPerTest; run++) {
@@ -299,7 +294,7 @@ public final class TestActionBuilder {
             coverageArtifact, microCoverageArtifact,
             testProperties, testEnv, executionSettings,
             shard, run, config, ruleContext.getWorkspaceName(),
-            useExperimentalTestRunner));
+            useTestRunner));
         results.add(cacheStatus);
       }
     }

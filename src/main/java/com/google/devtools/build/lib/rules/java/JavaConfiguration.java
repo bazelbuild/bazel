@@ -146,6 +146,8 @@ public final class JavaConfiguration extends Fragment {
   private final JavaOptimizationMode javaOptimizationMode;
   private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
   private final Label javaToolchain;
+  private final boolean explicitJavaTestDeps;
+  private final boolean experimentalTestRunner;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean legacyBazelJavaTest;
@@ -177,6 +179,8 @@ public final class JavaConfiguration extends Fragment {
     this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
     this.strictDepsJavaProtos = javaOptions.strictDepsJavaProtos;
     this.enforceOneVersion = javaOptions.enforceOneVersion;
+    this.explicitJavaTestDeps = javaOptions.explicitJavaTestDeps;
+    this.experimentalTestRunner = javaOptions.experimentalTestRunner;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -220,6 +224,14 @@ public final class JavaConfiguration extends Fragment {
   @Override
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
+  }
+
+  @Override
+  public boolean compatibleWithStrategy(String strategyName) {
+    if (strategyName.equals("experimental_worker")) {
+      return explicitJavaTestDeps() && useExperimentalTestRunner();
+    }
+    return true;
   }
 
   /**
@@ -353,6 +365,22 @@ public final class JavaConfiguration extends Fragment {
    */
   public boolean useLegacyBazelJavaTest() {
     return legacyBazelJavaTest;
+  }
+
+  /**
+   * Returns true if we should be the ExperimentalTestRunner instead of the BazelTestRunner for
+   * bazel's java_test runs.
+   */
+  public boolean useExperimentalTestRunner() {
+    return experimentalTestRunner;
+  }
+
+  /**
+   * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest
+   * dependencies instead of accidentally obtaining them from the TestRunner's dependencies.
+   */
+  public boolean explicitJavaTestDeps() {
+    return explicitJavaTestDeps;
   }
 
   /**

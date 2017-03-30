@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -93,7 +94,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       "com.google.testing.junit.runner.BazelTestRunner";
   private static final String EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS =
       "com.google.testing.junit.runner.ExperimentalTestRunner";
-  private static final String EXPERIMENTAL_TESTRUNNER_TAG = "experimental_testrunner";
 
   private BazelJavaSemantics() {
   }
@@ -144,8 +144,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       }
     } else {
       if (ruleContext.attributes().get("use_testrunner", Type.BOOLEAN)) {
-        List<String> tags = ruleContext.attributes().get("tags", Type.STRING_LIST);
-        return tags.contains(EXPERIMENTAL_TESTRUNNER_TAG)
+        return ruleContext.getFragment(JavaConfiguration.class).useExperimentalTestRunner()
             ? EXPERIMENTAL_TEST_RUNNER_MAIN_CLASS
             : BAZEL_TEST_RUNNER_MAIN_CLASS;
       }
@@ -265,13 +264,26 @@ public class BazelJavaSemantics implements JavaSemantics {
     arguments.add(Substitution.of("%needs_runfiles%",
         ruleContext.getFragment(Jvm.class).getJavaExecutable().isAbsolute() ? "0" : "1"));
 
-    NestedSet<Artifact> classpath = javaCommon.getRuntimeClasspath();
+    TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
+    NestedSet<Artifact> testSupportJars =
+        testSupport == null
+            ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
+            : getRuntimeJarsForTargets(testSupport);
+
+    NestedSetBuilder<Artifact> classpathBuilder = NestedSetBuilder.naiveLinkOrder();
+    classpathBuilder.addTransitive(javaCommon.getRuntimeClasspath());
+    if (enforceExplicitJavaTestDeps(ruleContext)) {
+      // Currently, this is only needed when --explicit_java_test_deps=true, as otherwise the
+      // testSupport classpath is wrongly present in the javaCommon.getRuntimeClasspath().
+      classpathBuilder.addTransitive(testSupportJars);
+    }
+    NestedSet<Artifact> classpath = classpathBuilder.build();
+
     if (isExperimentalJavaTest(ruleContext)) {
       if (!isRunfilesEnabled) {
         ruleContext.ruleError(
             "ExperimentalTestRunner can't work on Windows since Windows doesn't support runfiles.");
       }
-      TransitiveInfoCollection testSupport = getTestSupport(ruleContext);
       if (testSupport == null) {
         // This may happen when the user sets use_testrunner=0 and manually chooses
         // main_class=ExperimentalTestRunner.
@@ -280,7 +292,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       // Keep only the locations containing the classes to start the test runner itself within,
       // classpath variable, and place all the paths required for the test run in a classpaths file,
       // so that the classes for the test target may be loaded by a separate ClassLoader.
-      classpath = getRuntimeJarsForTargets(testSupport);
+      classpath = testSupportJars;
     }
     arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
 
@@ -331,6 +343,10 @@ public class BazelJavaSemantics implements JavaSemantics {
     } else {
       return executable;
     }
+  }
+
+  private static boolean enforceExplicitJavaTestDeps(RuleContext ruleContext) {
+    return ruleContext.getFragment(JavaConfiguration.class).explicitJavaTestDeps();
   }
 
   /**
@@ -431,12 +447,12 @@ public class BazelJavaSemantics implements JavaSemantics {
       RuleContext ruleContext,
       ImmutableList.Builder<TransitiveInfoCollection> builder,
       ClasspathType type) {
-    if (type == ClasspathType.COMPILE_ONLY && isExperimentalJavaTest(ruleContext)) {
+    if (type == ClasspathType.COMPILE_ONLY && enforceExplicitJavaTestDeps(ruleContext)) {
       // We add the test support below, but the test framework's deps are not relevant for
       // COMPILE_ONLY, hence we return here.
-      // TODO(bazel-team): Ideally we should be returning here irrespective of
-      // useExperimentalTestRunner, since the testSupport deps don't belong to the COMPILE_ONLY
-      // classpath, but since many targets may break, we are keeping it behind this condition.
+      // TODO(bazel-team): Ideally enforceExplicitJavaTestDeps should be the default behaviour,
+      // since the testSupport deps don't belong to the COMPILE_ONLY classpath, but since many
+      // targets may break, we are keeping it behind this flag.
       return;
     }
     TransitiveInfoCollection testSupport = getTestSupport(ruleContext);

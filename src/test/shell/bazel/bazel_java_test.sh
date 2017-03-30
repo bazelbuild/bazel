@@ -656,7 +656,7 @@ EOF
   expect_log "Test message"
 }
 
-function test_junit_deps_enforced_with_experimental_testrunner() {
+function test_explicit_java_test_deps_flag() {
   setup_javatest_support
   mkdir -p java/testrunners || fail "mkdir failed"
 
@@ -677,25 +677,25 @@ public class Tests {
 }
 EOF
 
-  # With experimental_testrunner, we fail without explicitly specifying the JUnit deps.
+  # With explicit_java_test_deps, we fail without explicitly specifying the JUnit deps.
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          tags = ['experimental_testrunner'],
 )
 EOF
-  bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log" && fail "Expected Failure" || true
+  bazel test --test_output=streamed --explicit_java_test_deps //java/testrunners:Tests \
+      &> "$TEST_log" && fail "Expected Failure" || true
   expect_log "cannot find symbol"
 
-  # We start passing again with experimental_testrunner once we explicitly specify the deps.
+  # We start passing again with explicit_java_test_deps once we explicitly specify the deps.
   cat > java/testrunners/BUILD <<EOF
 java_test(name = "Tests",
           srcs = ['Tests.java'],
-          tags = ['experimental_testrunner'],
           deps = ['//third_party:junit4'],
 )
 EOF
-  bazel test --test_output=streamed //java/testrunners:Tests &> "$TEST_log" || fail "Expected success"
+  bazel test --test_output=streamed --explicit_java_test_deps //java/testrunners:Tests \
+      &> "$TEST_log" || fail "Expected success"
   expect_log "testTest was run"
 }
 

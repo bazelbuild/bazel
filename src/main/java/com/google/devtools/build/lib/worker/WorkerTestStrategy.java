@@ -83,7 +83,14 @@ public class WorkerTestStrategy extends StandaloneTestStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException, IOException {
-    if (!action.useExperimentalTestRunner()) {
+    if (!action.getConfiguration().compatibleWithStrategy("experimental_worker")) {
+      throw new UserExecException(
+          "Build configuration not compatible with experimental_worker "
+              + "strategy. Make sure you set the explicit_java_test_deps and "
+              + "experimental_testrunner flags to true.");
+    }
+
+    if (!action.useTestRunner()) {
       throw new UserExecException(
           "Tests that do not use the experimental test runner are incompatible with the persistent"
               + " worker test strategy. Please use another test strategy");
