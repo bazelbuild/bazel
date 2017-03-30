@@ -155,7 +155,7 @@ public class GenRuleBaseRule implements RuleDefinition {
           </li>
         </ol>
         <p>
-          The command may refer to <code>*_binary</code>targets; it should use a <a
+          The command may refer to <code>*_binary</code> targets; it should use a <a
           href="../build-ref.html#labels">label</a> for this. The following
           variables are available within the <code>cmd</code> sublanguage:</p>
         <ul>
