@@ -198,6 +198,20 @@ function test_test_runtime() {
   expect_not_log 'aborted'
 }
 
+function test_test_start_times() {
+  # Verify that the start time of a test is reported, regardless whether
+  # it was cached or not.
+  bazel clean --expunge
+  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log 'test_attempt_start_millis_epoch.*[1-9]'
+  expect_not_log 'cached_locally'
+  bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
+    || fail "bazel test failed"
+  expect_log 'test_attempt_start_millis_epoch.*[1-9]'
+  expect_log 'cached_locally.*true'
+}
+
 function test_test_attempts_multi_runs() {
   # Sanity check on individual test attempts. Even in more complicated
   # situations, with some test rerun and some not, all events are properly

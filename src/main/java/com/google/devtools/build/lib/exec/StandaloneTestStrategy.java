@@ -173,6 +173,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                   action,
                   attempt,
                   data.getStatus(),
+                  data.getStartTimeMillisEpoch(),
                   data.getRunDurationMillis(),
                   testOutputsBuilder.build(),
                   true));
@@ -221,6 +222,7 @@ public class StandaloneTestStrategy extends TestStrategy {
                 action,
                 attempt,
                 data.getStatus(),
+                data.getStartTimeMillisEpoch(),
                 data.getRunDurationMillis(),
                 testOutputsBuilder.build(),
                 false));
@@ -244,6 +246,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     dataBuilder.addTestTimes(data.getTestTimes(0));
     dataBuilder.addAllTestProcessTimes(data.getTestProcessTimesList());
+    dataBuilder.setStartTimeMillisEpoch(data.getStartTimeMillisEpoch());
     dataBuilder.setRunDurationMillis(data.getRunDurationMillis());
     if (data.hasTestCase()) {
       dataBuilder.setTestCase(data.getTestCase());
@@ -332,6 +335,7 @@ public class StandaloneTestStrategy extends TestStrategy {
         }
       } finally {
         long duration = executor.getClock().currentTimeMillis() - startTime;
+        builder.setStartTimeMillisEpoch(startTime);
         builder.addTestTimes(duration);
         builder.addTestProcessTimes(duration);
         builder.setRunDurationMillis(duration);

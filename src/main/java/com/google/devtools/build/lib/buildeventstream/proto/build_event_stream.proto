@@ -299,6 +299,11 @@ message TestResult {
   // True, if the reported attempt is taken from the tool's local cache.
   bool cached_locally = 4;
 
+  // Time in milliseconds since the epoch at which the test attempt was started.
+  // Note: for cached test results, this is time can be before the start of the
+  // build.
+  int64 test_attempt_start_millis_epoch = 6;
+
   // Time the test took to run. For locally chached results, this is the time
   // the cached invocation took when it was invoked.
   int64 test_attempt_duration_millis = 3;

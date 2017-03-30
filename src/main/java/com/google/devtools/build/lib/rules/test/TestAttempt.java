@@ -37,6 +37,7 @@ public class TestAttempt implements BuildEvent {
   private final boolean lastAttempt;
   private final Collection<Pair<String, Path>> files;
   private final long durationMillis;
+  private final long startTimeMillis;
 
   /**
    * Construct the event given the test action and attempt number.
@@ -50,6 +51,7 @@ public class TestAttempt implements BuildEvent {
       TestRunnerAction testAction,
       Integer attempt,
       BlazeTestStatus status,
+      long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
@@ -57,6 +59,7 @@ public class TestAttempt implements BuildEvent {
     this.attempt = attempt;
     this.status = status;
     this.cachedLocally = cachedLocally;
+    this.startTimeMillis = startTimeMillis;
     this.durationMillis = durationMillis;
     this.files = files;
     this.lastAttempt = lastAttempt;
@@ -66,10 +69,11 @@ public class TestAttempt implements BuildEvent {
       TestRunnerAction testAction,
       Integer attempt,
       BlazeTestStatus status,
+      long startTimeMillis,
       long durationMillis,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
-    this(false, testAction, attempt, status, durationMillis, files, lastAttempt);
+    this(false, testAction, attempt, status, startTimeMillis, durationMillis, files, lastAttempt);
   }
 
   public TestAttempt(
@@ -78,7 +82,7 @@ public class TestAttempt implements BuildEvent {
       BlazeTestStatus status,
       Collection<Pair<String, Path>> files,
       boolean lastAttempt) {
-    this(testAction, attempt, status, 0, files, lastAttempt);
+    this(testAction, attempt, status, 0, 0, files, lastAttempt);
   }
 
   public TestAttempt(
@@ -96,6 +100,7 @@ public class TestAttempt implements BuildEvent {
         result.getTestAction(),
         1,
         data.getStatus(),
+        data.getStartTimeMillisEpoch(),
         data.getRunDurationMillis(),
         result.getFiles(),
         true);
@@ -130,6 +135,7 @@ public class TestAttempt implements BuildEvent {
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setStatus(BuildEventStreamerUtils.bepStatus(status));
     builder.setCachedLocally(cachedLocally);
+    builder.setTestAttemptStartMillisEpoch(startTimeMillis);
     builder.setTestAttemptDurationMillis(durationMillis);
     for (Pair<String, Path> file : files) {
       builder.addTestActionOutput(
