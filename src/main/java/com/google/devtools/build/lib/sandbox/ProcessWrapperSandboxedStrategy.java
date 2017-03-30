@@ -59,8 +59,11 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       boolean verboseFailures,
-      String productName) {
-    super(buildRequest, blazeDirs, verboseFailures, buildRequest.getOptions(SandboxOptions.class));
+      String productName,
+      String workspaceName) {
+    super(
+        buildRequest, blazeDirs, verboseFailures, buildRequest.getOptions(SandboxOptions.class),
+        workspaceName);
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();

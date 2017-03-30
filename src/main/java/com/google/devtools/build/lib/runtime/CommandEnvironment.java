@@ -91,6 +91,7 @@ public final class CommandEnvironment {
   private long commandStartTime;
   private OutputService outputService;
   private Path workingDirectory;
+  private String workspaceName;
 
   private String commandName;
   private OptionsProvider options;
@@ -143,6 +144,7 @@ public final class CommandEnvironment {
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
     this.workingDirectory = directories.getWorkspace();
+    this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
   }
@@ -292,13 +294,14 @@ public final class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    Path workspace = getDirectories().getWorkspace();
-    if (workspace == null) {
-      return "";
-    }
-    return workspace.getBaseName();
+    Preconditions.checkNotNull(workspaceName);
+    return workspaceName;
   }
 
+  public void setWorkspaceName(String workspaceName) {
+    Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
+    this.workspaceName = workspaceName;
+  }
   /**
    * Returns if the client passed a valid workspace to be used for the build.
    */
@@ -321,7 +324,8 @@ public final class CommandEnvironment {
    * build reside.
    */
   public Path getExecRoot() {
-    return getDirectories().getExecRoot();
+    Preconditions.checkNotNull(workspaceName);
+    return getDirectories().getExecRoot(workspaceName);
   }
 
   /**

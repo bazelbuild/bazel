@@ -54,7 +54,8 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                   buildRequest,
                   env.getDirectories(),
                   verboseFailures,
-                  env.getRuntime().getProductName()));
+                  env.getRuntime().getProductName(),
+                  env.getWorkspaceName()));
         } else {
           if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
             env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
@@ -64,7 +65,8 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                   buildRequest,
                   env.getDirectories(),
                   verboseFailures,
-                  env.getRuntime().getProductName()));
+                  env.getRuntime().getProductName(),
+                  env.getWorkspaceName()));
         }
         break;
       case DARWIN:
@@ -75,7 +77,8 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                   env.getClientEnv(),
                   env.getDirectories(),
                   verboseFailures,
-                  env.getRuntime().getProductName()));
+                  env.getRuntime().getProductName(),
+                  env.getWorkspaceName()));
         } else {
           if (!buildRequest.getOptions(SandboxOptions.class).ignoreUnsupportedSandboxing) {
             env.getReporter().handle(Event.warn(SANDBOX_NOT_SUPPORTED_MESSAGE));
@@ -88,7 +91,8 @@ final class SandboxActionContextProvider extends ActionContextProvider {
                 buildRequest,
                 env.getDirectories(),
                 verboseFailures,
-                env.getRuntime().getProductName()));
+                env.getRuntime().getProductName(),
+                env.getWorkspaceName()));
         break;
       default:
         // No sandboxing available.

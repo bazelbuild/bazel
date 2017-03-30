@@ -75,7 +75,7 @@ public final class SpawnHelpers {
           targetDirectory,
           manifestFile,
           true,
-          filesetContext.getWorkspaceName());
+          execRoot.getBaseName());
     }
   }
 

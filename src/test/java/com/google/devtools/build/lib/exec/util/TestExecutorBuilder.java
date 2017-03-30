@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.FileWriteStrategy;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -96,7 +97,7 @@ public class TestExecutorBuilder {
 
   public BlazeExecutor build() throws ExecutorInitException {
     return new BlazeExecutor(
-        directories.getExecRoot(),
+        directories.getExecRoot(TestConstants.WORKSPACE_NAME),
         reporter,
         bus,
         BlazeClock.instance(),

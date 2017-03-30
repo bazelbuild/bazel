@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
-import javax.annotation.Nullable;
 
 /**
  * A value that solely represents the 'name' of a Bazel workspace, as defined in the WORKSPACE file.
@@ -30,31 +29,23 @@ import javax.annotation.Nullable;
 public class WorkspaceNameValue implements SkyValue {
   private static final SkyKey KEY =
       SkyKey.create(SkyFunctions.WORKSPACE_NAME, DummyArgument.INSTANCE);
-  private static final WorkspaceNameValue ERROR = new WorkspaceNameValue(null);
 
-  @Nullable
   private final String workspaceName;
 
-  private WorkspaceNameValue(@Nullable String workspaceName) {
+  private WorkspaceNameValue(String workspaceName) {
     this.workspaceName = workspaceName;
   }
 
   /**
-   * Returns the name of the workspace, or {@code null} if there was an error in the WORKSPACE file.
+   * Returns the name of the workspace.
    */
-  @Nullable
-  public String maybeGetName() {
+  public String getName() {
     return workspaceName;
   }
 
   /** Returns the (singleton) {@link SkyKey} for {@link WorkspaceNameValue}s. */
   public static SkyKey key() {
     return KEY;
-  }
-
-  /** Returns a {@link WorkspaceNameValue} for a workspace whose WORKSPACE file is in error. */
-  public static WorkspaceNameValue withError() {
-    return WorkspaceNameValue.ERROR;
   }
 
   /** Returns a {@link WorkspaceNameValue} for a workspace with the given name. */
@@ -83,7 +74,7 @@ public class WorkspaceNameValue implements SkyValue {
 
   /** Singleton class used as the {@link SkyKey#argument} for {@link WorkspaceNameValue#key}. */
   public static final class DummyArgument {
-    public static final int HASHCODE = DummyArgument.class.getCanonicalName().hashCode();
+    static final int HASHCODE = DummyArgument.class.getCanonicalName().hashCode();
     public static final DummyArgument INSTANCE = new DummyArgument();
 
     private DummyArgument() {

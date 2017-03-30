@@ -150,15 +150,6 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
-   */
-  public Path getExecRoot() {
-    return directories.getExecRoot();
-  }
-
-  /**
    * Returns path to the cache directory. Path must be inside output base to
    * ensure that users can run concurrent instances of blaze in different
    * clients without attempting to concurrently write to the same action cache
