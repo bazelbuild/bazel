@@ -53,7 +53,7 @@ public class AppleCcToolchain extends CcToolchain {
   public static final String APPLE_SDK_PLATFORM_VALUE_KEY = "apple_sdk_platform_value";
 
   @Override
-  protected Map<String, String> getLocalBuildVariables(RuleContext ruleContext)
+  protected Map<String, String> getBuildVariables(RuleContext ruleContext)
       throws RuleErrorException {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
