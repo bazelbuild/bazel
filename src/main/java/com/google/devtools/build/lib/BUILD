@@ -953,6 +953,9 @@ java_library(
     srcs = glob(
         ["rules/android/*.java"],
     ),
+    resources = [
+        "rules/android/android_device_stub_template.txt",
+    ],
     deps = [
         ":build-base",
         ":collect",

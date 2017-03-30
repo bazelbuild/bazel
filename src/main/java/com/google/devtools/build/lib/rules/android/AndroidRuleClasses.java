@@ -165,6 +165,10 @@ public final class AndroidRuleClasses {
       "//tools/android:incremental_split_stub_application";
   public static final String DEFAULT_RESOURCES_BUSYBOX = "//tools/android:busybox";
   public static final String DEFAULT_SDK = "//tools/android:sdk";
+  public static final SafeImplicitOutputsFunction ANDROID_DEVICE_USERDATA_IMAGES =
+      fromTemplates("%{name}_images/userdata_images.dat");
+  public static final SafeImplicitOutputsFunction ANDROID_DEVICE_EMULATOR_METADATA =
+      fromTemplates("%{name}_images/emulator-meta-data.pb");
 
   /**
    * The default label of android_sdk option
