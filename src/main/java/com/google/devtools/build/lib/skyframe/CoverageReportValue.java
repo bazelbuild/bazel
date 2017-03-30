@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -29,18 +30,20 @@ public class CoverageReportValue extends ActionLookupValue {
   public static final ArtifactOwner ARTIFACT_OWNER = new CoverageReportKey();
   static final SkyKey SKY_KEY = SkyKey.create(SkyFunctions.COVERAGE_REPORT, ARTIFACT_OWNER);
 
-  CoverageReportValue(ImmutableList<ActionAnalysisMetadata> coverageReportActions) {
-    super(coverageReportActions);
+  CoverageReportValue(
+      ImmutableList<ActionAnalysisMetadata> coverageReportActions,
+      boolean removeActionsAfterEvaluation) {
+    super(coverageReportActions, removeActionsAfterEvaluation);
   }
 
   private static class CoverageReportKey extends ActionLookupKey {
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    SkyKey getSkyKeyInternal() {
+    protected SkyKey getSkyKeyInternal() {
       return SKY_KEY;
     }
   }

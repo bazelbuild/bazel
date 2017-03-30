@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -94,9 +95,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private boolean lastAnalysisDiscarded = false;
 
-  // Can only be set once (to false) over the lifetime of this object. If false, the graph will not
-  // store edges, saving memory but making incremental builds impossible.
-  private boolean keepGraphEdges = true;
+  private enum IncrementalState {
+    NORMAL,
+    CLEAR_EDGES,
+    CLEAR_EDGES_AND_ACTIONS
+  }
+
+  // Can only be set once over the lifetime of this object. If CLEAR_EDGES or
+  // CLEAR_EDGES_AND_ACTIONS, the graph will not store edges, saving memory but making incremental
+  // builds impossible. If CLEAR_EDGES_AND_ACTIONS, each action will be dereferenced once it is
+  // executed, saving memory.
+  private IncrementalState incrementalState = IncrementalState.NORMAL;
 
   private RecordingDifferencer recordingDiffer;
   private final DiffAwarenessManager diffAwarenessManager;
@@ -541,24 +550,33 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void decideKeepIncrementalState(boolean batch, BuildView.Options viewOptions) {
+  public void decideKeepIncrementalState(
+      boolean batch, BuildView.Options viewOptions, ExecutionOptions executionOptions) {
     Preconditions.checkState(!active);
     if (viewOptions == null) {
       // Some blaze commands don't include the view options. Don't bother with them.
       return;
     }
     if (batch && viewOptions.keepGoing && viewOptions.discardAnalysisCache) {
-      Preconditions.checkState(keepGraphEdges, "May only be called once if successful");
-      keepGraphEdges = false;
+      Preconditions.checkState(
+          incrementalState == IncrementalState.NORMAL,
+          "May only be called once if successful: %s",
+          incrementalState);
+      incrementalState =
+          executionOptions.enableCriticalPathProfiling
+              ? IncrementalState.CLEAR_EDGES
+              : IncrementalState.CLEAR_EDGES_AND_ACTIONS;
       // Graph will be recreated on next sync.
+      LOG.info("Set incremental state to " + incrementalState);
     }
+    removeActionsAfterEvaluation.set(incrementalState == IncrementalState.CLEAR_EDGES_AND_ACTIONS);
   }
 
   @Override
   public boolean hasIncrementalState() {
     // TODO(bazel-team): Combine this method with clearSkyframeRelevantCaches() once legacy
     // execution is removed [skyframe-execution].
-    return keepGraphEdges;
+    return incrementalState == IncrementalState.NORMAL;
   }
 
   @Override

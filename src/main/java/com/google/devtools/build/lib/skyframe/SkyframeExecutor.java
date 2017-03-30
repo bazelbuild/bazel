@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -79,6 +80,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -274,6 +276,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
+  protected final MutableSupplier<Boolean> removeActionsAfterEvaluation = new MutableSupplier<>();
   private MutableSupplier<ConfigurationFactory> configurationFactory = new MutableSupplier<>();
   private MutableSupplier<ImmutableList<ConfigurationFragmentFactory>> configurationFragments =
       new MutableSupplier<>();
@@ -339,6 +342,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.productName = productName;
     this.crossRepositoryLabelViolationStrategy = crossRepositoryLabelViolationStrategy;
     this.buildFilesByPriority = buildFilesByPriority;
+    this.removeActionsAfterEvaluation.set(false);
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(
@@ -407,8 +411,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(
-            new BuildViewProvider(), ruleClassProvider, cpuBoundSemaphore));
-    map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider(), ruleClassProvider));
+            new BuildViewProvider(),
+            ruleClassProvider,
+            cpuBoundSemaphore,
+            removeActionsAfterEvaluation));
+    map.put(
+        SkyFunctions.ASPECT,
+        new AspectFunction(
+            new BuildViewProvider(), ruleClassProvider, removeActionsAfterEvaluation));
     map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
@@ -428,9 +438,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.ASPECT_COMPLETION, CompletionFunction.aspectCompletionFunction(eventBus));
     map.put(SkyFunctions.TEST_COMPLETION, new TestCompletionFunction());
     map.put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputs));
-    map.put(SkyFunctions.BUILD_INFO_COLLECTION, new BuildInfoCollectionFunction(artifactFactory));
-    map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction());
-    map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction());
+    map.put(
+        SkyFunctions.BUILD_INFO_COLLECTION,
+        new BuildInfoCollectionFunction(artifactFactory, removeActionsAfterEvaluation));
+    map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(removeActionsAfterEvaluation));
+    map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(removeActionsAfterEvaluation));
     ActionExecutionFunction actionExecutionFunction =
         new ActionExecutionFunction(skyframeActionExecutor, tsgm);
     map.put(SkyFunctions.ACTION_EXECUTION, actionExecutionFunction);
@@ -438,7 +450,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL,
         new RecursiveFilesystemTraversalFunction());
     map.put(SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction());
-    map.put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction());
+    map.put(
+        SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+        new ActionTemplateExpansionFunction(removeActionsAfterEvaluation));
     map.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
     map.putAll(extraSkyFunctions);
     return map.build();
@@ -637,12 +651,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Decides if graph edges should be stored for this build. If not, re-creates the graph to not
    * store graph edges. Necessary conditions to not store graph edges are:
-   * (1) batch (since incremental builds are not possible);
-   * (2) skyframe build (since otherwise the memory savings are too slight to bother);
-   * (3) keep-going (since otherwise bubbling errors up may require edges of done nodes);
-   * (4) discard_analysis_cache (since otherwise user isn't concerned about saving memory this way).
+   *
+   * <ol>
+   *   <li>batch (since incremental builds are not possible);
+   *   <li>keep-going (since otherwise bubbling errors up may require edges of done nodes);
+   *   <li>discard_analysis_cache (since otherwise user isn't concerned about saving memory this
+   *       way).
+   * </ol>
    */
-  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
+  public void decideKeepIncrementalState(
+      boolean batch, Options viewOptions, ExecutionOptions executionOptions) {
     // Assume incrementality.
   }
 
@@ -1635,7 +1653,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           eventHandler);
       return result.hasError()
           ? null
-          : result.get(actionLookupKey).getGeneratingAction(artifact);
+          : result.get(actionLookupKey).getGeneratingActionDangerousReadJavadoc(artifact);
     }
   }
 

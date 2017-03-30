@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -352,14 +354,16 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "hello");
     FileSystemUtils.writeContentAsLatin1(out2.getPath(), "fizzlepop");
 
-    Action action1 =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out1));
-    Action action2 =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out2));
-    SkyKey actionKey1 = ActionExecutionValue.key(action1);
-    SkyKey actionKey2 = ActionExecutionValue.key(action2);
+    SkyKey actionLookupKey =
+        ActionLookupValue.key(
+            new ActionLookupKey() {
+              @Override
+              protected SkyFunctionName getType() {
+                return SkyFunctionName.FOR_TESTING;
+              }
+            });
+    SkyKey actionKey1 = ActionExecutionValue.key(actionLookupKey, 0);
+    SkyKey actionKey2 = ActionExecutionValue.key(actionLookupKey, 1);
     differencer.inject(
         ImmutableMap.<SkyKey, SkyValue>of(
             actionKey1,
@@ -429,27 +433,19 @@ public class FilesystemValueCheckerTest {
     Artifact last = createTreeArtifact("zzzzzzzzzz");
     FileSystemUtils.createDirectoryAndParents(last.getPath());
 
-    Action action1 =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out1));
-    Action action2 =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(out2));
-    Action actionEmpty =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(outEmpty));
-    Action actionUnchanging =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(outUnchanging));
-    Action lastAction =
-        new TestAction(
-            Runnables.doNothing(), ImmutableSet.<Artifact>of(), ImmutableSet.of(last));
-
-    SkyKey actionKey1 = ActionExecutionValue.key(action1);
-    SkyKey actionKey2 = ActionExecutionValue.key(action2);
-    SkyKey actionKeyEmpty = ActionExecutionValue.key(actionEmpty);
-    SkyKey actionKeyUnchanging = ActionExecutionValue.key(actionUnchanging);
-    SkyKey actionKeyLast = ActionExecutionValue.key(lastAction);
+    SkyKey actionLookupKey =
+        ActionLookupValue.key(
+            new ActionLookupKey() {
+              @Override
+              protected SkyFunctionName getType() {
+                return SkyFunctionName.FOR_TESTING;
+              }
+            });
+    SkyKey actionKey1 = ActionExecutionValue.key(actionLookupKey, 0);
+    SkyKey actionKey2 = ActionExecutionValue.key(actionLookupKey, 1);
+    SkyKey actionKeyEmpty = ActionExecutionValue.key(actionLookupKey, 2);
+    SkyKey actionKeyUnchanging = ActionExecutionValue.key(actionLookupKey, 3);
+    SkyKey actionKeyLast = ActionExecutionValue.key(actionLookupKey, 4);
     differencer.inject(
         ImmutableMap.<SkyKey, SkyValue>of(
             actionKey1,

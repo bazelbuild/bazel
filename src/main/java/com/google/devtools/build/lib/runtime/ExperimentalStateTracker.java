@@ -260,7 +260,7 @@ class ExperimentalStateTracker {
     // informed of an action completion, we need to make sure the progress receiver is aware of the
     // completion, even though it might be called later on the event bus.
     if (executionProgressReceiver != null) {
-      executionProgressReceiver.actionCompleted(action);
+      executionProgressReceiver.actionCompleted(event.getActionLookupData());
     }
   }
 

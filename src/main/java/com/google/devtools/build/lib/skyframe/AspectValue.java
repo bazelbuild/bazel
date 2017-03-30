@@ -18,6 +18,7 @@ import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -68,7 +70,7 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       return SkyFunctions.ASPECT;
     }
 
@@ -240,7 +242,7 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       return SkyFunctions.LOAD_SKYLARK_ASPECT;
     }
 
@@ -321,9 +323,10 @@ public final class AspectValue extends ActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      Iterable<ActionAnalysisMetadata> actions,
-      NestedSet<Package> transitivePackages) {
-    super(actions);
+      List<ActionAnalysisMetadata> actions,
+      NestedSet<Package> transitivePackages,
+      boolean removeActionsAfterEvaluation) {
+    super(actions, removeActionsAfterEvaluation);
     this.label = Preconditions.checkNotNull(label, actions);
     this.aspect = Preconditions.checkNotNull(aspect, label);
     this.location = Preconditions.checkNotNull(location, label);

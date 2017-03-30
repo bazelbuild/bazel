@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.actions.ActionTemplate;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -27,15 +27,12 @@ import com.google.devtools.build.skyframe.SkyKey;
  * Value that stores expanded actions from ActionTemplate.
  */
 public final class ActionTemplateExpansionValue extends ActionLookupValue {
-  private final Iterable<Action> expandedActions;
 
-  ActionTemplateExpansionValue(Iterable<Action> expandedActions) {
-    super(ImmutableList.<ActionAnalysisMetadata>copyOf(expandedActions));
-    this.expandedActions = ImmutableList.copyOf(expandedActions);
-  }
-
-  Iterable<Action> getExpandedActions() {
-    return expandedActions;
+  ActionTemplateExpansionValue(
+      Iterable<Action> expandedActions, boolean removeActionsAfterEvaluation) {
+    super(
+        ImmutableList.<ActionAnalysisMetadata>copyOf(expandedActions),
+        removeActionsAfterEvaluation);
   }
 
   static SkyKey key(ActionTemplate<?> actionTemplate) {
@@ -62,7 +59,7 @@ public final class ActionTemplateExpansionValue extends ActionLookupValue {
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       return SkyFunctions.ACTION_TEMPLATE_EXPANSION;
     }
 

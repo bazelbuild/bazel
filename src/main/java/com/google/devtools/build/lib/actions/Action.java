@@ -185,6 +185,8 @@ public interface Action extends ActionExecutionMetadata, Describable {
    */
   boolean showsOutputUnconditionally();
 
+  boolean canRemoveAfterExecution();
+
   /**
    * Returns true if an {@link com.google.devtools.build.lib.rules.extra.ExtraAction} action can be
    * attached to this action. If not, extra actions should not be attached to this action.

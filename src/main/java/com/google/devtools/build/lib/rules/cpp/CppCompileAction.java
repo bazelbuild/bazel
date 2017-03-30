@@ -24,6 +24,8 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -51,8 +53,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -513,7 +513,15 @@ public class CppCompileAction extends AbstractAction
       ActionLookupValue value = (ActionLookupValue) skyValues.get(skyKey);
       Preconditions.checkNotNull(
           value, "Owner %s of %s not in graph %s", artifact.getArtifactOwner(), artifact, skyKey);
-      CppCompileAction action = (CppCompileAction) value.getGeneratingAction(artifact);
+      // We can get the generating action here because #canRemoveAfterExecution is overridden.
+      Preconditions.checkState(
+          CppFileTypes.CPP_MODULE.matches(artifact.getFilename()),
+          "Non-module? %s (%s %s)",
+          artifact,
+          this,
+          value);
+      CppCompileAction action =
+          (CppCompileAction) value.getGeneratingActionDangerousReadJavadoc(artifact);
       for (Artifact input : action.getInputs()) {
         if (CppFileTypes.CPP_MODULE.matches(input.getFilename())) {
           additionalModules.add(input);
@@ -731,6 +739,13 @@ public class CppCompileAction extends AbstractAction
 
   protected final List<String> getArgv(PathFragment outputFile) {
     return cppCompileCommandLine.getArgv(outputFile, overwrittenVariables);
+  }
+
+  @Override
+  public boolean canRemoveAfterExecution() {
+    // Module-generating actions are needed because the action may be retrieved in
+    // #discoverInputsStage2.
+    return !CppFileTypes.CPP_MODULE.matches(getPrimaryOutput().getFilename());
   }
 
   @Override

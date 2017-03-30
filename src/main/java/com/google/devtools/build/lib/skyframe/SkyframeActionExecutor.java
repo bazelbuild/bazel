@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -122,7 +124,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   // We don't want to execute the action again on the second entry to the SkyFunction.
   // In both cases, we store the already-computed ActionExecutionValue to avoid having to compute it
   // again.
-  private ConcurrentMap<Artifact, Pair<Action, FutureTask<ActionExecutionValue>>> buildActionMap;
+  private ConcurrentMap<Artifact, Pair<ActionLookupData, FutureTask<ActionExecutionValue>>>
+      buildActionMap;
 
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
@@ -345,10 +348,15 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     return buildActionMap.containsKey(action.getPrimaryOutput());
   }
 
-  private boolean actionReallyExecuted(Action action) {
-    Pair<Action, ?> cachedRun = Preconditions.checkNotNull(
-        buildActionMap.get(action.getPrimaryOutput()), action);
-    return action == cachedRun.first;
+  private boolean actionReallyExecuted(Action action, ActionLookupData actionLookupData) {
+    Pair<ActionLookupData, ?> cachedRun =
+        Preconditions.checkNotNull(
+            buildActionMap.get(action.getPrimaryOutput()), "%s %s", action, actionLookupData);
+    return actionLookupData.equals(cachedRun.getFirst());
+  }
+
+  void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {
+    this.completionReceiver.noteActionEvaluationStarted(actionLookupData, action);
   }
 
   /**
@@ -357,9 +365,12 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    *
    * <p>For use from {@link ArtifactFunction} only.
    */
-  ActionExecutionValue executeAction(Action action, ActionMetadataHandler metadataHandler,
+  ActionExecutionValue executeAction(
+      Action action,
+      ActionMetadataHandler metadataHandler,
       long actionStartTime,
-      ActionExecutionContext actionExecutionContext)
+      ActionExecutionContext actionExecutionContext,
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     Exception exception = badActionMap.get(action);
     if (exception != null) {
@@ -368,18 +379,20 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
     Artifact primaryOutput = action.getPrimaryOutput();
     FutureTask<ActionExecutionValue> actionTask =
-        new FutureTask<>(new ActionRunner(action, metadataHandler,
-            actionStartTime, actionExecutionContext));
+        new FutureTask<>(
+            new ActionRunner(
+                action,
+                metadataHandler,
+                actionStartTime,
+                actionExecutionContext,
+                actionLookupData));
     // Check to see if another action is already executing/has executed this value.
-    Pair<Action, FutureTask<ActionExecutionValue>> oldAction =
-        buildActionMap.putIfAbsent(primaryOutput, Pair.of(action, actionTask));
+    Pair<ActionLookupData, FutureTask<ActionExecutionValue>> oldAction =
+        buildActionMap.putIfAbsent(primaryOutput, Pair.of(actionLookupData, actionTask));
 
     if (oldAction == null) {
       actionTask.run();
     } else {
-      Preconditions.checkState(action != oldAction.first, action);
-      Preconditions.checkState(Actions.canBeShared(oldAction.first, action),
-          "Actions cannot be shared: %s %s", oldAction.first, action);
       // Wait for other action to finish, so any actions that depend on its outputs can execute.
       actionTask = oldAction.second;
     }
@@ -395,7 +408,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         // Tell the receiver that the action has completed *before* telling the reporter.
         // This way the latter will correctly show the number of completed actions when task
         // completion messages are enabled (--show_task_finish).
-        completionReceiver.actionCompleted(action);
+        completionReceiver.actionCompleted(actionLookupData);
         reporter.finishTask(null, prependExecPhaseStats(message));
       }
     }
@@ -488,8 +501,12 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   void afterExecution(
-      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv) {
-    if (!actionReallyExecuted(action)) {
+      Action action,
+      MetadataHandler metadataHandler,
+      Token token,
+      Map<String, String> clientEnv,
+      ActionLookupData actionLookupData) {
+    if (!actionReallyExecuted(action, actionLookupData)) {
       // If an action shared with this one executed, then we need not update the action cache, since
       // the other action will do it. Moreover, this action is not aware of metadata acquired
       // during execution, so its metadata handler is likely unusable anyway.
@@ -568,14 +585,19 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     private final ActionMetadataHandler metadataHandler;
     private long actionStartTime;
     private ActionExecutionContext actionExecutionContext;
+    private final ActionLookupData actionLookupData;
 
-    ActionRunner(Action action, ActionMetadataHandler metadataHandler,
+    ActionRunner(
+        Action action,
+        ActionMetadataHandler metadataHandler,
         long actionStartTime,
-        ActionExecutionContext actionExecutionContext) {
+        ActionExecutionContext actionExecutionContext,
+        ActionLookupData actionLookupData) {
       this.action = action;
       this.metadataHandler = metadataHandler;
       this.actionStartTime = actionStartTime;
       this.actionExecutionContext = actionExecutionContext;
+      this.actionLookupData = actionLookupData;
     }
 
     @Override
@@ -601,7 +623,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
         Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
-        prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
+        prepareScheduleExecuteAndCompleteAction(
+            action, actionExecutionContext, actionStartTime, actionLookupData);
         return new ActionExecutionValue(
             metadataHandler.getOutputArtifactData(),
             metadataHandler.getOutputTreeArtifactData(),
@@ -664,23 +687,25 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   /**
-   * Prepare, schedule, execute, and then complete the action.
-   * When this function is called, we know that this action needs to be executed.
-   * This function will prepare for the action's execution (i.e. delete the outputs);
-   * schedule its execution; execute the action;
-   * and then do some post-execution processing to complete the action:
-   * set the outputs readonly and executable, and insert the action results in the
-   * action cache.
+   * Prepare, schedule, execute, and then complete the action. When this function is called, we know
+   * that this action needs to be executed. This function will prepare for the action's execution
+   * (i.e. delete the outputs); schedule its execution; execute the action; and then do some
+   * post-execution processing to complete the action: set the outputs readonly and executable, and
+   * insert the action results in the action cache.
    *
-   * @param action  The action to execute
+   * @param action The action to execute
    * @param context services in the scope of the action
    * @param actionStartTime time when we started the first phase of the action execution.
-   * @throws ActionExecutionException if the execution of the specified action
-   *   failed for any reason.
+   * @param actionLookupData key for action
+   * @throws ActionExecutionException if the execution of the specified action failed for any
+   *     reason.
    * @throws InterruptedException if the thread was interrupted.
    */
-  private void prepareScheduleExecuteAndCompleteAction(Action action,
-      ActionExecutionContext context, long actionStartTime)
+  private void prepareScheduleExecuteAndCompleteAction(
+      Action action,
+      ActionExecutionContext context,
+      long actionStartTime,
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
     context.getMetadataHandler().discardOutputMetadata();
@@ -702,7 +727,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       completeAction(action, context.getMetadataHandler(), context.getFileOutErr(), outputDumped);
     } finally {
       statusReporter.remove(action);
-      postEvent(new ActionCompletionEvent(actionStartTime, action));
+      postEvent(new ActionCompletionEvent(actionStartTime, action, actionLookupData));
     }
   }
 
@@ -1101,7 +1126,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   /** An object that can be notified about action completion. */
   public interface ActionCompletedReceiver {
     /** Receives a completed action. */
-    void actionCompleted(Action action);
+    void actionCompleted(ActionLookupData actionLookupData);
+    /** Notes that an action has started, giving the key. */
+    void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action);
   }
 
   public void setActionExecutionProgressReportingObjects(

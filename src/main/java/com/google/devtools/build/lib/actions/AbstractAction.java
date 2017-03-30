@@ -439,6 +439,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
     return MiddlemanType.NORMAL;
   }
 
+  @Override
+  public boolean canRemoveAfterExecution() {
+    return true;
+  }
+
   /**
    * If the action might create directories as outputs this method must be called.
    */

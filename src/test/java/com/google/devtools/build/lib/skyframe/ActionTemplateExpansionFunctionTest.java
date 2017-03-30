@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -74,9 +75,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.ARTIFACT,
-                    new DummyArtifactFunction(artifactValueMap))
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction())
+                .put(SkyFunctions.ARTIFACT, new DummyArtifactFunction(artifactValueMap))
+                .put(
+                    SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+                    new ActionTemplateExpansionFunction(Suppliers.ofInstance(false)))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -188,7 +190,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     if (result.hasError()) {
       throw result.getError().getException();
     }
-    return ImmutableList.copyOf(result.get(skyKey).getExpandedActions());
+    ActionTemplateExpansionValue actionTemplateExpansionValue = result.get(skyKey);
+    ImmutableList.Builder<Action> actionList = ImmutableList.builder();
+    for (int i = 0; i < actionTemplateExpansionValue.getNumActions(); i++) {
+      actionList.add(actionTemplateExpansionValue.getAction(i));
+    }
+    return actionList.build();
   }
 
   private Artifact createTreeArtifact(String path) {

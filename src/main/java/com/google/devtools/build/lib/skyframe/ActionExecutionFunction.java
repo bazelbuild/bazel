@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
@@ -98,8 +100,12 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws ActionExecutionFunctionException,
       InterruptedException {
-    Preconditions.checkArgument(skyKey.argument() instanceof Action);
-    Action action = (Action) skyKey.argument();
+    ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+    ActionLookupValue actionLookupValue =
+        (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+    int actionIndex = actionLookupData.getActionIndex();
+    Action action = actionLookupValue.getAction(actionIndex);
+    skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
     // TODO(bazel-team): Non-volatile NotifyOnActionCacheHit actions perform worse in Skyframe than
     // legacy when they are not at the top of the action graph. In legacy, they are stored
     // separately, so notifying non-dirty actions is cheap. In Skyframe, they depend on the
@@ -193,7 +199,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     ActionExecutionValue result;
     try {
-      result = checkCacheAndExecuteIfNeeded(action, state, env, clientEnv);
+      result = checkCacheAndExecuteIfNeeded(action, state, env, clientEnv, actionLookupData);
     } catch (ActionExecutionException e) {
       // Remove action from state map in case it's there (won't be unless it discovers inputs).
       stateMap.remove(action);
@@ -211,6 +217,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
     // Remove action from state map in case it's there (won't be unless it discovers inputs).
     stateMap.remove(action);
+    actionLookupValue.actionEvaluated(actionIndex, action);
     return result;
   }
 
@@ -356,12 +363,16 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   }
 
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(
-      Action action, ContinuationState state, Environment env, Map<String, String> clientEnv)
+      Action action,
+      ContinuationState state,
+      Environment env,
+      Map<String, String> clientEnv,
+      ActionLookupData actionLookupData)
       throws ActionExecutionException, InterruptedException {
     // If this is a shared action and the other action is the one that executed, we must use that
     // other action's value, provided here, since it is populated with metadata for the outputs.
     if (!state.hasArtifactData()) {
-      return skyframeActionExecutor.executeAction(action, null, -1, null);
+      return skyframeActionExecutor.executeAction(action, null, -1, null, actionLookupData);
     }
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
@@ -437,8 +448,9 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               metadataHandler,
               Collections.unmodifiableMap(state.expandedArtifacts));
       if (!state.hasExecutedAction()) {
-        state.value = skyframeActionExecutor.executeAction(action,
-            metadataHandler, actionStartTime, actionExecutionContext);
+        state.value =
+            skyframeActionExecutor.executeAction(
+                action, metadataHandler, actionStartTime, actionExecutionContext, actionLookupData);
       }
     } finally {
       if (actionExecutionContext != null) {
@@ -474,7 +486,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       }
     }
     Preconditions.checkState(!env.valuesMissing(), action);
-    skyframeActionExecutor.afterExecution(action, metadataHandler, state.token, clientEnv);
+    skyframeActionExecutor.afterExecution(
+        action, metadataHandler, state.token, clientEnv, actionLookupData);
     return state.value;
   }
 

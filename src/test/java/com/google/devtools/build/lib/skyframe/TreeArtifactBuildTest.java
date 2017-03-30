@@ -1217,7 +1217,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       ActionTemplateExpansionKey key = (ActionTemplateExpansionKey) skyKey.argument();
       ActionTemplate<?> actionTemplate = key.getActionTemplate();
       return new ActionTemplateExpansionValue(
-          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)));
+          Preconditions.checkNotNull(actionTemplateToActionMap.get(actionTemplate)), false);
     }
 
     @Override

@@ -14,9 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -87,10 +89,15 @@ import javax.annotation.Nullable;
 public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
+  private final Supplier<Boolean> removeActionsAfterEvaluation;
 
-  public AspectFunction(BuildViewProvider buildViewProvider, RuleClassProvider ruleClassProvider) {
+  AspectFunction(
+      BuildViewProvider buildViewProvider,
+      RuleClassProvider ruleClassProvider,
+      Supplier<Boolean> removeActionsAfterEvaluation) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
+    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
   /**
@@ -368,12 +375,13 @@ public final class AspectFunction implements SkyFunction {
       buildSkyKeys(baseKey, result);
     }
   }
-  private static SkyValue createAliasAspect(
+  private SkyValue createAliasAspect(
       Environment env,
       Target originalTarget,
       Aspect aspect,
       AspectKey originalKey,
-      ConfiguredTarget configuredTarget) throws InterruptedException {
+      ConfiguredTarget configuredTarget)
+      throws InterruptedException {
     ImmutableList<Label> aliasChain = configuredTarget.getProvider(AliasProvider.class)
         .getAliasChain();
     // Find the next alias in the chain: either the next alias (if there are two) or the name of
@@ -401,7 +409,8 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
         ImmutableList.<ActionAnalysisMetadata>of(),
-        transitivePackages);
+        transitivePackages,
+        removeActionsAfterEvaluation.get());
   }
 
   @Nullable
@@ -466,7 +475,8 @@ public final class AspectFunction implements SkyFunction {
         associatedTarget.getTarget().getLocation(),
         configuredAspect,
         ImmutableList.copyOf(analysisEnvironment.getRegisteredActions()),
-        transitivePackages.build());
+        transitivePackages.build(),
+        removeActionsAfterEvaluation.get());
   }
 
   @Override

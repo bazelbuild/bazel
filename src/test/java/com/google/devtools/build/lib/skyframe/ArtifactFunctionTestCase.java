@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
@@ -110,7 +111,9 @@ abstract class ArtifactFunctionTestCase {
                             TestRuleClassProvider.getRuleClassProvider(), root.getFileSystem()),
                         directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.ACTION_TEMPLATE_EXPANSION, new ActionTemplateExpansionFunction())
+                .put(
+                    SkyFunctions.ACTION_TEMPLATE_EXPANSION,
+                    new ActionTemplateExpansionFunction(Suppliers.ofInstance(false)))
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);
@@ -149,12 +152,12 @@ abstract class ArtifactFunctionTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupKey {
     @Override
-    SkyKey getSkyKeyInternal() {
+    protected SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
   }

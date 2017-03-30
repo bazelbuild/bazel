@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
@@ -27,9 +28,8 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectDeps;
@@ -143,14 +143,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
   private final Semaphore cpuBoundSemaphore;
+  private final Supplier<Boolean> removeActionsAfterEvaluation;
 
   ConfiguredTargetFunction(
       BuildViewProvider buildViewProvider,
       RuleClassProvider ruleClassProvider,
-      Semaphore cpuBoundSemaphore) {
+      Semaphore cpuBoundSemaphore,
+      Supplier<Boolean> removeActionsAfterEvaluation) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
     this.cpuBoundSemaphore = cpuBoundSemaphore;
+    this.removeActionsAfterEvaluation = Preconditions.checkNotNull(removeActionsAfterEvaluation);
   }
 
   private static boolean useDynamicConfigurations(BuildConfiguration config) {
@@ -1141,7 +1144,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    ImmutableMap<Artifact, ActionAnalysisMetadata> generatingActions;
+    GeneratingActions generatingActions;
     // Check for conflicting actions within this configured target (that indicates a bug in the
     // rule implementation).
     try {
@@ -1151,7 +1154,10 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new ConfiguredTargetFunctionException(e);
     }
     return new ConfiguredTargetValue(
-        configuredTarget, generatingActions, transitivePackages.build());
+        configuredTarget,
+        generatingActions,
+        transitivePackages.build(),
+        removeActionsAfterEvaluation.get());
   }
 
   /**

@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -464,9 +466,10 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private void setGeneratingActions() {
     if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
-      differencer.inject(ImmutableMap.of(
-          OWNER_KEY,
-          new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions))));
+      differencer.inject(
+          ImmutableMap.of(
+              OWNER_KEY,
+              new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }
   }
 
@@ -483,11 +486,14 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   /** Value Builder for actions that just stats and stores the output file (which must exist). */
   private static class SimpleActionExecutionFunction implements SkyFunction {
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) {
+    public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
       Map<Artifact, FileValue> artifactData = new HashMap<>();
       Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
       Map<Artifact, FileArtifactValue> additionalOutputData = new HashMap<>();
-      Action action = (Action) skyKey.argument();
+      ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+      ActionLookupValue actionLookupValue =
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+      Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
 
       try {

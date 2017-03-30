@@ -26,6 +26,8 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
@@ -221,9 +223,10 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   private void setGeneratingActions() {
     if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
-      differencer.inject(ImmutableMap.of(
-          OWNER_KEY,
-          new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions))));
+      differencer.inject(
+          ImmutableMap.of(
+              OWNER_KEY,
+              new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions), false)));
     }
   }
 
@@ -239,10 +242,14 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
 
   private class TreeArtifactExecutionFunction implements SkyFunction {
     @Override
-    public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+    public SkyValue compute(SkyKey skyKey, Environment env)
+        throws SkyFunctionException, InterruptedException {
       Map<Artifact, FileValue> fileData = new HashMap<>();
       Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
-      Action action = (Action) skyKey.argument();
+      ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+      ActionLookupValue actionLookupValue =
+          (ActionLookupValue) env.getValue(actionLookupData.getActionLookupNode());
+      Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       Artifact output = Iterables.getOnlyElement(action.getOutputs());
       for (PathFragment subpath : testTreeArtifactContents) {
         try {

@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -101,7 +104,7 @@ import org.junit.Before;
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =
       new SingletonActionLookupKey();
-  private static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
+  protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, ALL_OWNER);
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
   protected static final String CYCLE_MSG = "Yarrrr, there be a cycle up in here";
 
@@ -118,7 +121,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));
     actions = new HashSet<>();
-    actionTemplateExpansionFunction = new ActionTemplateExpansionFunction();
+    actionTemplateExpansionFunction =
+        new ActionTemplateExpansionFunction(Suppliers.ofInstance(false));
   }
 
   protected void clearActions() {
@@ -218,7 +222,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       private void setGeneratingActions() {
         if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
           differencer.inject(
-              ImmutableMap.of(OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions))));
+              ImmutableMap.of(
+                  OWNER_KEY, new ActionLookupValue(ImmutableList.copyOf(actions), false)));
         }
       }
 
@@ -443,12 +448,12 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static class SingletonActionLookupKey extends ActionLookupValue.ActionLookupKey {
     @Override
-    SkyKey getSkyKeyInternal() {
+    protected SkyKey getSkyKeyInternal() {
       return OWNER_KEY;
     }
 
     @Override
-    SkyFunctionName getType() {
+    protected SkyFunctionName getType() {
       throw new UnsupportedOperationException();
     }
   }
@@ -477,6 +482,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   private static final ActionCompletedReceiver EMPTY_COMPLETION_RECEIVER =
       new ActionCompletedReceiver() {
         @Override
-        public void actionCompleted(Action action) {}
+        public void actionCompleted(ActionLookupData actionLookupData) {}
+
+        @Override
+        public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {}
       };
 }

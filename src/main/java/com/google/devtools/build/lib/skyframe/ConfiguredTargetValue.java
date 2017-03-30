@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Map;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -44,12 +44,14 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
 
   @Nullable private NestedSet<Package> transitivePackages;
 
-  ConfiguredTargetValue(ConfiguredTarget configuredTarget,
-      Map<Artifact, ActionAnalysisMetadata> generatingActionMap,
-      NestedSet<Package> transitivePackages) {
-    super(generatingActionMap);
-    this.configuredTarget = Preconditions.checkNotNull(configuredTarget, generatingActionMap);
-    this.transitivePackages = Preconditions.checkNotNull(transitivePackages, generatingActionMap);
+  ConfiguredTargetValue(
+      ConfiguredTarget configuredTarget,
+      GeneratingActions generatingActions,
+      NestedSet<Package> transitivePackages,
+      boolean removeActionsAfterEvaluation) {
+    super(generatingActions, removeActionsAfterEvaluation);
+    this.configuredTarget = Preconditions.checkNotNull(configuredTarget, generatingActions);
+    this.transitivePackages = Preconditions.checkNotNull(transitivePackages, generatingActions);
   }
 
   @VisibleForTesting
@@ -59,9 +61,9 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   }
 
   @VisibleForTesting
-  public Iterable<ActionAnalysisMetadata> getActions() {
-    Preconditions.checkNotNull(configuredTarget);
-    return generatingActionMap.values();
+  public List<ActionAnalysisMetadata> getActions() {
+    Preconditions.checkNotNull(configuredTarget, this);
+    return actions;
   }
 
   public NestedSet<Package> getTransitivePackages() {
@@ -114,7 +116,6 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
 
   @Override
   public String toString() {
-    return "ConfiguredTargetValue: " + configuredTarget + ", actions: "
-        + (configuredTarget == null ? null : Iterables.toString(getActions()));
+    return getStringHelper().add("configuredTarget", configuredTarget).toString();
   }
 }

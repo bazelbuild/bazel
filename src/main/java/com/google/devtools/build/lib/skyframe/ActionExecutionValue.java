@@ -14,22 +14,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
 import java.util.Map;
-
 import javax.annotation.Nullable;
 
 /**
@@ -38,15 +33,6 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public class ActionExecutionValue implements SkyValue {
-
-  private static final Function<Action, SkyKey> TO_KEY =
-      new Function<Action, SkyKey>() {
-        @Override
-        public SkyKey apply(Action action) {
-          return key(action);
-        }
-      };
-
   /*
   Concerning the data in this class:
 
@@ -120,8 +106,9 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * @return The map from {@link Artifact}s to the corresponding {@link FileValue}s that would
-   * be returned by {@link #getData}. Should only be needed by {@link FilesystemValueChecker}.
+   * @return The map from {@link Artifact}s to the corresponding {@link FileValue}s that would be
+   *     returned by {@link #getData}. Primarily needed by {@link FilesystemValueChecker}, also
+   *     called by {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
    */
   ImmutableMap<Artifact, FileValue> getAllFileValues() {
     return artifactData;
@@ -129,44 +116,23 @@ public class ActionExecutionValue implements SkyValue {
 
   /**
    * @return The map from {@link Artifact}s to the corresponding {@link TreeArtifactValue}s that
-   * would be returned by {@link #getTreeArtifactValue}. Should only be needed by
-   * {@link FilesystemValueChecker}.
+   *     would be returned by {@link #getTreeArtifactValue}. Should only be needed by {@link
+   *     FilesystemValueChecker}.
    */
   ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
     return treeArtifactData;
   }
 
+  /**
+   * @param lookupKey A {@link SkyKey} whose argument is an {@code ActionLookupKey}, whose
+   *     corresponding {@code ActionLookupValue} contains the action to be executed.
+   * @param index the index of the action to be executed in the {@code ActionLookupValue}, to be
+   *     passed to {@code ActionLookupValue#getAction}.
+   */
   @ThreadSafe
   @VisibleForTesting
-  public static SkyKey key(Action action) {
-    return SkyKey.create(SkyFunctions.ACTION_EXECUTION, action);
-  }
-
-  static Iterable<SkyKey> keys(Iterable<Action> actions) {
-    return Iterables.transform(actions, TO_KEY);
-  }
-
-  /**
-   * Returns whether the key corresponds to a ActionExecutionValue worth reporting status about.
-   *
-   * <p>If an action can do real work, it's probably worth counting and reporting status about.
-   * Actions that don't really do any work (typically middleman actions) should not be counted
-   * towards enqueued and completed actions.
-   */
-  public static boolean isReportWorthyAction(SkyKey key) {
-    return key.functionName().equals(SkyFunctions.ACTION_EXECUTION)
-        && isReportWorthyAction((Action) key.argument());
-  }
-
-  /**
-   * Returns whether the action is worth reporting status about.
-   *
-   * <p>If an action can do real work, it's probably worth counting and reporting status about.
-   * Actions that don't really do any work (typically middleman actions) should not be counted
-   * towards enqueued and completed actions.
-   */
-  public static boolean isReportWorthyAction(Action action) {
-    return action.getActionType() == MiddlemanType.NORMAL;
+  public static SkyKey key(SkyKey lookupKey, int index) {
+    return SkyKey.create(SkyFunctions.ACTION_EXECUTION, new ActionLookupData(lookupKey, index));
   }
 
   @Override

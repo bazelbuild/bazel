@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
@@ -145,7 +146,8 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(fastAction, 123456789));
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
-    stateTracker.actionCompletion(new ActionCompletionEvent(20, fastAction));
+    stateTracker.actionCompletion(
+        new ActionCompletionEvent(20, fastAction, Mockito.mock(ActionLookupData.class)));
 
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
