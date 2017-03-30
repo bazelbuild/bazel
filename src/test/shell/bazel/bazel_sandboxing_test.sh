@@ -492,7 +492,8 @@ EOF
   expect_log "Executing genrule //:test failed:"
 }
 
-function test_sandbox_mount_customized_path () {
+# TODO(xingao) Disabled due to https://github.com/bazelbuild/bazel/issues/2760
+function DISABLED_test_sandbox_mount_customized_path () {
   # Create BUILD file
   cat > BUILD <<'EOF'
 package(default_visibility = ["//visibility:public"])
