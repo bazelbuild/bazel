@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -381,15 +382,20 @@ public class BlazeCommandDispatcher {
       optionsParser = createOptionsParser(command);
       parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
-      InvocationPolicyEnforcer optionsPolicyEnforcer =
-          new InvocationPolicyEnforcer(runtime.getModuleInvocationPolicy());
-      optionsPolicyEnforcer.enforce(optionsParser, commandName);
-      optionsPolicyEnforcer = new InvocationPolicyEnforcer(
-          InvocationPolicyParser.parsePolicy(
-              getRuntime()
-                  .getStartupOptionsProvider()
-                  .getOptions(BlazeServerStartupOptions.class)
-                  .invocationPolicy));
+      // Merge the invocation policy that is user-supplied, from the command line, and any
+      // invocation policy that was added by a module. The module one goes 'first,' so the user
+      // one has priority.
+      InvocationPolicy combinedPolicy =
+          InvocationPolicy.newBuilder()
+              .mergeFrom(runtime.getModuleInvocationPolicy())
+              .mergeFrom(
+                  InvocationPolicyParser.parsePolicy(
+                      getRuntime()
+                          .getStartupOptionsProvider()
+                          .getOptions(BlazeServerStartupOptions.class)
+                          .invocationPolicy))
+              .build();
+      InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
     } catch (OptionsParsingException e) {
       for (String note : rcfileNotes) {
@@ -803,3 +809,4 @@ public class BlazeCommandDispatcher {
     logOutputStream = null;
   }
 }
+

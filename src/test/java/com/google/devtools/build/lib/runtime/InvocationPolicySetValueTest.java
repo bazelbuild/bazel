@@ -232,7 +232,74 @@ public class InvocationPolicySetValueTest extends InvocationPolicyEnforcerTestBa
     assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
     assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
   }
-  
+
+  @Test
+  public void testOverridableSetValueWithExpansionFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_expansion")
+        .getSetValueBuilder()
+        .addFlagValue("") // this value is arbitrary, the value for a Void flag is ignored
+        .setOverridable(true);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--expanded_c=23");
+
+    // The flags that --test_expansion expands into should still be their default values
+    // except for the explicitly marked flag.
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedC).isEqualTo(23);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, the flags should be the values from --test_expansion,
+    // except for the user-set value, since the expansion flag was set to overridable.
+    testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.expandedC).isEqualTo(23);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+  }
+
+  @Test
+  public void testNonOverridableSetValueWithExpansionFlags() throws Exception {
+    InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
+    invocationPolicyBuilder
+        .addFlagPoliciesBuilder()
+        .setFlagName("test_expansion")
+        .getSetValueBuilder()
+        .addFlagValue("") // this value is arbitrary, the value for a Void flag is ignored
+        .setOverridable(false);
+
+    InvocationPolicyEnforcer enforcer = createOptionsPolicyEnforcer(invocationPolicyBuilder);
+    // Unrelated flag, but --test_expansion is not set
+    parser.parse("--expanded_c=23");
+
+    // The flags that --test_expansion expands into should still be their default values
+    // except for the explicitly marked flag.
+    TestOptions testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_DEFAULT);
+    assertThat(testOptions.expandedC).isEqualTo(23);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_DEFAULT);
+
+    enforcer.enforce(parser, "build");
+
+    // After policy enforcement, the flags should be the values from --test_expansion,
+    // including the value that the user tried to set, since the expansion flag was set
+    // non-overridably.
+    testOptions = getTestOptions();
+    assertThat(testOptions.expandedA).isEqualTo(TestOptions.EXPANDED_A_TEST_EXPANSION);
+    assertThat(testOptions.expandedB).isEqualTo(TestOptions.EXPANDED_B_TEST_EXPANSION);
+    assertThat(testOptions.expandedC).isEqualTo(TestOptions.EXPANDED_C_TEST_EXPANSION);
+    assertThat(testOptions.expandedD).isEqualTo(TestOptions.EXPANDED_D_TEST_EXPANSION);
+  }
+
   @Test
   public void testSetValueWithExpandedFlags() throws Exception {
     InvocationPolicy.Builder invocationPolicyBuilder = InvocationPolicy.newBuilder();
