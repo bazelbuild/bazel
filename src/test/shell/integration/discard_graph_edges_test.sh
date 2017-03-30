@@ -16,6 +16,9 @@
 #
 # discard_graph_edges_test.sh: basic tests for the --discard_graph_edges flag.
 
+additional_flags="$1"
+shift
+
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
@@ -33,7 +36,7 @@ function set_up() {
 }
 
 STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--keep_going --discard_analysis_cache"
+BUILD_FLAGS="--keep_going --discard_analysis_cache $additional_flags"
 
 #### TESTS #############################################################
 

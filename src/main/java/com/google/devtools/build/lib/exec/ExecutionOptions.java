@@ -218,4 +218,16 @@ public class ExecutionOptions extends OptionsBase {
             + "number of file digests to be cached."
   )
   public long cacheSizeForComputedFileDigests;
+
+
+  @Option(
+    name = "experimental_enable_critical_path_profiling",
+    defaultValue = "true",
+    category = "undocumented",
+    help =
+        "If set (the default), critical path profiling is enabled for the execution phase. "
+            + "This has a slight overhead in RAM and CPU, and may prevent Bazel from making certain"
+            + " aggressive RAM optimizations in some cases."
+  )
+  public boolean enableCriticalPathProfiling;
 }
