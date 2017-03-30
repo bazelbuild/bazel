@@ -90,8 +90,13 @@ public class BazelRuleClassProviderTest {
   }
 
   @Test
-  public void basicConsistency() {
-    checkModule(BazelRuleClassProvider.BASIC_RULES);
+  public void genericConsistency() {
+    checkModule(BazelRuleClassProvider.GENERIC_RULES);
+  }
+
+  @Test
+  public void configConsistency() {
+    checkModule(BazelRuleClassProvider.CONFIG_RULES);
   }
 
   @Test

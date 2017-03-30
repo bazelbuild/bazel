@@ -93,7 +93,7 @@ public final class ConfigFeatureFlagConfigurationTest {
   public void options_equals_forEquivalentMaps() throws Exception {
     new EqualsTester()
         .addEqualityGroup(
-            getOptionsWith(ImmutableMap.of()),
+            getOptionsWith(ImmutableMap.<Label, String>of()),
             new ConfigFeatureFlagConfiguration.Options(),
             new ConfigFeatureFlagConfiguration.Options().getDefault(),
             new ConfigFeatureFlagConfiguration.Options().getHost(false),
@@ -161,7 +161,8 @@ public final class ConfigFeatureFlagConfigurationTest {
 
   @Test
   public void getOutputDirectoryName_returnsNullWhenFlagMapIsEmpty() throws Exception {
-    assertThat(getConfigurationWithFlags(ImmutableMap.of()).getOutputDirectoryName()).isNull();
+    assertThat(getConfigurationWithFlags(ImmutableMap.<Label, String>of()).getOutputDirectoryName())
+        .isNull();
   }
 
   @Test

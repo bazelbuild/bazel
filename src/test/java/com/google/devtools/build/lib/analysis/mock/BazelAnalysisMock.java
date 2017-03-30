@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
@@ -255,6 +256,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new SwiftConfiguration.Loader(),
         new J2ObjcConfiguration.Loader(),
         new ProtoConfiguration.Loader(),
+        new ConfigFeatureFlagConfiguration.Loader(),
         new AndroidConfiguration.Loader());
   }
 

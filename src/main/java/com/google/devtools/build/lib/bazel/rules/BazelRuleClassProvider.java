@@ -101,6 +101,9 @@ import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagRule;
+import com.google.devtools.build.lib.rules.config.ConfigSkylarkCommon;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
@@ -279,7 +282,8 @@ public class BazelRuleClassProvider {
     BAZEL_SETUP.init(builder);
     CORE_RULES.init(builder);
     CORE_WORKSPACE_RULES.init(builder);
-    BASIC_RULES.init(builder);
+    GENERIC_RULES.init(builder);
+    CONFIG_RULES.init(builder);
     PLATFORM_RULES.init(builder);
     PROTO_RULES.init(builder);
     SH_RULES.init(builder);
@@ -357,14 +361,11 @@ public class BazelRuleClassProvider {
         }
       };
 
-  public static final RuleSet BASIC_RULES =
+  public static final RuleSet GENERIC_RULES =
       new RuleSet() {
         @Override
         public void init(Builder builder) {
           builder.addRuleDefinition(new EnvironmentRule());
-
-          builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
-          builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
 
           builder.addRuleDefinition(new AliasRule());
           builder.addRuleDefinition(new BazelFilegroupRule());
@@ -377,6 +378,26 @@ public class BazelRuleClassProvider {
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
+        }
+
+        @Override
+        public ImmutableList<RuleSet> requires() {
+          return ImmutableList.of(CORE_RULES);
+        }
+      };
+
+  public static final RuleSet CONFIG_RULES =
+      new RuleSet() {
+        @Override
+        public void init(Builder builder) {
+          builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
+          builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
+          builder.addConfig(
+              ConfigFeatureFlagConfiguration.Options.class,
+              new ConfigFeatureFlagConfiguration.Loader());
+
+          builder.addRuleDefinition(new ConfigFeatureFlagRule());
+          builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
         }
 
         @Override
