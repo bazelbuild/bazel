@@ -1115,7 +1115,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         badQualifier,
         "android_binary(name = 'r',",
         "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = glob(['res/**']),",
+        "  resource_files = ['res/values/foo.xml'],",
         "  resource_configuration_filters = ['" + badQualifier + "'])");
   }
 

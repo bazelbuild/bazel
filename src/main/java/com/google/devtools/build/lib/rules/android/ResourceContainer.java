@@ -128,8 +128,8 @@ public abstract class ResourceContainer {
   /**
    * Returns a copy of this container with filtered resources. The original container is unchanged.
    */
-  public ResourceContainer filter(ResourceFilter filter) {
-    return toBuilder().setResources(filter.filter(getResources())).build();
+  public ResourceContainer filter(RuleContext ruleContext, ResourceFilter filter) {
+    return toBuilder().setResources(filter.filter(ruleContext, getResources())).build();
   }
 
   /** Creates a new builder with default values. */

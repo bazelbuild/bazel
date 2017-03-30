@@ -153,9 +153,11 @@ public final class ResourceDependencies {
   }
 
   /** Returns a copy of this instance with filtered resources. The original object is unchanged. */
-  public ResourceDependencies filter(ResourceFilter filter) {
+  public ResourceDependencies filter(RuleContext ruleContext, ResourceFilter filter) {
     return new ResourceDependencies(
-        neverlink, filter.filter(transitiveResources), filter.filter(directResources));
+        neverlink,
+        filter.filterDependencies(ruleContext, transitiveResources),
+        filter.filterDependencies(ruleContext, directResources));
   }
 
   /**

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.syntax.Type;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,73 +44,71 @@ public class ResourceFilter {
   public static final String RESOURCE_CONFIGURATION_FILTERS_NAME = "resource_configuration_filters";
   public static final String DENSITIES_NAME = "densities";
 
-  /** The current {@link RuleContext}, used for reporting errors. */
-  private final RuleContext ruleContext;
+  private static enum FilterBehavior {
+    /**
+     * Resources will be filtered in execution. This class will just pass the filtering parameters
+     * to the appropriate resource processing actions.
+     */
+    FILTER_IN_EXECUTION,
 
-  /**
-   * A list of configuration filters that should be applied during the analysis phase. If resources
-   * should not be filtered in analysis (e.g., if android_binary.prefilter_resources is set to 0),
-   * this list should be empty.
-   */
-  private final ImmutableList<FolderConfiguration> configurationFilters;
+    /**
+     * Resources will be filtered in analysis. In android_binary targets, all resources will be
+     * filtered by this class, and only resources that are accepted will be passed to resource
+     * processing actions.
+     */
+    FILTER_IN_ANALYSIS,
+
+    /**
+     * Resources will be filtered in each android target in analysis. Filter settings will be
+     * extracted from android_binary targets and passed to all their dependencies using dynamic
+     * configuration. Only resources that are accepted by filtering will be passed to resource
+     * processing actions or to reverse dependencies.
+     */
+    FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
+  }
+
+  static final FilterBehavior DEFAULT_BEHAVIOR = FilterBehavior.FILTER_IN_EXECUTION;
 
   /**
    * The value of the {@link #RESOURCE_CONFIGURATION_FILTERS_NAME} attribute, as a list of qualifier
-   * strings. This value is passed directly as input to resource processing utilities that run in
-   * the execution phase, so it may represent different qualifiers than those in {@link
-   * #configurationFilters} if resources should not be pre-filtered during analysis.
+   * strings.
    */
-  private final ImmutableList<String> configurationFilterStrings;
+  private final ImmutableList<String> configFilters;
 
-  /**
-   * A list of density filters that should be applied during the analysis phase. If resources should
-   * not be filtered in analysis (e.g., if prefilter_resources = 0), this list should be empty.
-   */
-  private final ImmutableList<Density> densities;
+  /** The value of the {@link #DENSITIES_NAME} attribute, as a list of qualifier strings. */
+  private final ImmutableList<String> densities;
 
-  /**
-   * The value of the {@link #DENSITIES_NAME} attribute, as a list of qualifier strings. This value
-   * is passed directly as input to resource processing utilities that run in the execution phase,
-   * so it may represent different qualifiers than those in {@link #densities} if resources should
-   * not be pre-filtered during analysis.
-   */
-  private final ImmutableList<String> densityStrings;
-
+  /** A builder for a set of strings representing resources that were filtered using this class. */
   private final ImmutableSet.Builder<String> filteredResources = ImmutableSet.builder();
+
+  private final FilterBehavior filterBehavior;
 
   /**
    * Constructor.
    *
-   * @param ruleContext the current {@link RuleContext}, used for reporting errors
-   * @param configurationFilters a list of configuration filters that should be applied during
-   *     analysis time. If resources should not be filtered in analysis (e.g., if
-   *     prefilter_resources = 0), this list should be empty.
-   * @param configurationFilterStrings the resource configuration filters, as a list of strings.
-   * @param densities a list of densities that should be applied to filter resources during analysis
-   *     time. If resources should not be filtered in analysis (e.g., if prefilter_resources = 0),
-   *     this list should be empty.
-   * @param densityStrings the densities, as a list of strings.
+   * @param configFilters the resource configuration filters, as a list of strings.
+   * @param densities the density filters, as a list of strings.
+   * @param filterBehavior the behavior of this filter.
    */
   private ResourceFilter(
-      RuleContext ruleContext,
-      ImmutableList<FolderConfiguration> configurationFilters,
-      ImmutableList<String> configurationFilterStrings,
-      ImmutableList<Density> densities,
-      ImmutableList<String> densityStrings) {
-    this.ruleContext = ruleContext;
-    this.configurationFilters = configurationFilters;
-    this.configurationFilterStrings = configurationFilterStrings;
+      ImmutableList<String> configFilters,
+      ImmutableList<String> densities,
+      FilterBehavior filterBehavior) {
+    this.configFilters = configFilters;
     this.densities = densities;
-    this.densityStrings = densityStrings;
+    this.filterBehavior = filterBehavior;
   }
 
-  private static boolean hasAttr(RuleContext ruleContext, String attrName) {
-    return ruleContext.attributes().isAttributeValueExplicitlySpecified(attrName);
+  private static boolean hasAttr(AttributeMap attrs, String attrName) {
+    return attrs.isAttributeValueExplicitlySpecified(attrName);
   }
 
   static boolean hasFilters(RuleContext ruleContext) {
-    return hasAttr(ruleContext, RESOURCE_CONFIGURATION_FILTERS_NAME)
-        || hasAttr(ruleContext, DENSITIES_NAME);
+    return hasFilters(ruleContext.attributes());
+  }
+
+  static boolean hasFilters(AttributeMap attrs) {
+    return hasAttr(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME) || hasAttr(attrs, DENSITIES_NAME);
   }
 
   /**
@@ -121,8 +120,8 @@ public class ResourceFilter {
    *
    * @return the values of this attribute contained in the {@link RuleContext}, as a list.
    */
-  private static ImmutableList<String> extractFilters(RuleContext ruleContext, String attrName) {
-    if (!hasAttr(ruleContext, attrName)) {
+  private static ImmutableList<String> extractFilters(AttributeMap attrs, String attrName) {
+    if (!hasAttr(attrs, attrName)) {
       return ImmutableList.<String>of();
     }
 
@@ -136,7 +135,7 @@ public class ResourceFilter {
      * empty filter values result in all resources matching the empty filter, meaning that filtering
      * does nothing (even if non-empty filters were also provided).
      */
-    List<String> rawValues = ruleContext.attributes().get(attrName, Type.STRING_LIST);
+    List<String> rawValues = attrs.get(attrName, Type.STRING_LIST);
     ImmutableList.Builder<String> builder = ImmutableList.builder();
 
     for (String rawValue : rawValues) {
@@ -157,43 +156,49 @@ public class ResourceFilter {
   static ResourceFilter fromRuleContext(RuleContext ruleContext) {
     Preconditions.checkNotNull(ruleContext);
 
-    if (!hasFilters(ruleContext)) {
-      return empty(ruleContext);
-    }
+    return empty(ruleContext).withAttrsFrom(ruleContext.attributes());
+  }
 
-    ImmutableList<String> resourceConfigurationFilters =
-        extractFilters(ruleContext, RESOURCE_CONFIGURATION_FILTERS_NAME);
-    ImmutableList<String> densities = extractFilters(ruleContext, DENSITIES_NAME);
-
-    boolean usePrefiltering =
-        ruleContext.getFragment(AndroidConfiguration.class).useResourcePrefiltering();
-
-    ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
-    if (usePrefiltering) {
-      for (String filter : resourceConfigurationFilters) {
-        addIfNotNull(
-            FolderConfiguration.getConfigForQualifierString(filter),
-            filter,
-            filterBuilder,
-            ruleContext,
-            RESOURCE_CONFIGURATION_FILTERS_NAME);
-      }
-    }
-
-    ImmutableList.Builder<Density> densityBuilder = ImmutableList.builder();
-    if (usePrefiltering) {
-      for (String density : densities) {
-        addIfNotNull(
-            Density.getEnum(density), density, densityBuilder, ruleContext, DENSITIES_NAME);
-      }
+  /**
+   * Creates a new {@link ResourceFilter} based on this object's properties, overridden by any
+   * filters specified in the passed {@link AttributeMap}.
+   *
+   * <p>A new object will always be returned, as returning the same object across multiple rules (as
+   * would be done with {@link FilterBehavior#FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION}) causes
+   * problems.
+   */
+  ResourceFilter withAttrsFrom(AttributeMap attrs) {
+    if (!hasFilters(attrs)) {
+      return new ResourceFilter(configFilters, densities, filterBehavior);
     }
 
     return new ResourceFilter(
-        ruleContext,
-        filterBuilder.build(),
-        resourceConfigurationFilters,
-        densityBuilder.build(),
-        densities);
+        extractFilters(attrs, RESOURCE_CONFIGURATION_FILTERS_NAME),
+        extractFilters(attrs, DENSITIES_NAME),
+        filterBehavior);
+  }
+
+  private ImmutableList<FolderConfiguration> getConfigurationFilters(RuleContext ruleContext) {
+    ImmutableList.Builder<FolderConfiguration> filterBuilder = ImmutableList.builder();
+    for (String filter : configFilters) {
+      addIfNotNull(
+          FolderConfiguration.getConfigForQualifierString(filter),
+          filter,
+          filterBuilder,
+          ruleContext,
+          RESOURCE_CONFIGURATION_FILTERS_NAME);
+    }
+
+    return filterBuilder.build();
+  }
+
+  private ImmutableList<Density> getDensities(RuleContext ruleContext) {
+    ImmutableList.Builder<Density> densityBuilder = ImmutableList.builder();
+    for (String density : densities) {
+      addIfNotNull(Density.getEnum(density), density, densityBuilder, ruleContext, DENSITIES_NAME);
+    }
+
+    return densityBuilder.build();
   }
 
   /** Reports an attribute error if the given item is null, and otherwise adds it to the builder. */
@@ -212,19 +217,28 @@ public class ResourceFilter {
   }
 
   static ResourceFilter empty(RuleContext ruleContext) {
+    if (!ruleContext.isLegalFragment(AndroidConfiguration.class)) {
+      return empty(DEFAULT_BEHAVIOR);
+    }
+
+    FilterBehavior filterBehavior =
+        ruleContext.getFragment(AndroidConfiguration.class).useResourcePrefiltering()
+            ? FilterBehavior.FILTER_IN_ANALYSIS
+            : FilterBehavior.FILTER_IN_EXECUTION;
+    return empty(filterBehavior);
+  }
+
+  private static ResourceFilter empty(FilterBehavior filterBehavior) {
     return new ResourceFilter(
-        ruleContext,
-        ImmutableList.<FolderConfiguration>of(),
-        ImmutableList.<String>of(),
-        ImmutableList.<Density>of(),
-        ImmutableList.<String>of());
+        ImmutableList.<String>of(), ImmutableList.<String>of(), filterBehavior);
   }
 
   /**
-   * Filters a NestedSet of resource containers. This may be a no-op if this filter is empty or if
-   * resource prefiltering is disabled.
+   * Filters a NestedSet of resource containers that contain dependencies of the current rule. This
+   * may be a no-op if this filter is empty or if resource prefiltering is disabled.
    */
-  NestedSet<ResourceContainer> filter(NestedSet<ResourceContainer> resources) {
+  NestedSet<ResourceContainer> filterDependencies(
+      RuleContext ruleContext, NestedSet<ResourceContainer> resources) {
     if (!isPrefiltering()) {
       /*
        * If the filter is empty or resource prefiltering is disabled, just return the original,
@@ -245,13 +259,13 @@ public class ResourceFilter {
     NestedSetBuilder<ResourceContainer> builder = new NestedSetBuilder<>(resources.getOrder());
 
     for (ResourceContainer resource : resources) {
-      builder.add(resource.filter(this));
+      builder.add(resource.filter(ruleContext, this));
     }
 
     return builder.build();
   }
 
-  ImmutableList<Artifact> filter(ImmutableList<Artifact> artifacts) {
+  ImmutableList<Artifact> filter(RuleContext ruleContext, ImmutableList<Artifact> artifacts) {
     if (!isPrefiltering()) {
       return artifacts;
     }
@@ -263,13 +277,15 @@ public class ResourceFilter {
     ImmutableSet.Builder<Artifact> builder = ImmutableSet.builder();
 
     List<BestArtifactsForDensity> bestArtifactsForAllDensities = new ArrayList<>();
-    for (Density density : densities) {
-      bestArtifactsForAllDensities.add(new BestArtifactsForDensity(density));
+    for (Density density : getDensities(ruleContext)) {
+      bestArtifactsForAllDensities.add(new BestArtifactsForDensity(ruleContext, density));
     }
 
+    ImmutableList<FolderConfiguration> folderConfigs = getConfigurationFilters(ruleContext);
+
     for (Artifact artifact : artifacts) {
-      FolderConfiguration configuration = getConfigForArtifact(artifact);
-      if (!matchesConfigurationFilters(configuration)) {
+      if (!matchesConfigurationFilters(
+          folderConfigs, getConfigForArtifact(ruleContext, artifact))) {
         continue;
       }
 
@@ -304,13 +320,15 @@ public class ResourceFilter {
    * Tracks the best artifact for a desired density for each combination of filename and non-density
    * qualifiers.
    */
-  private class BestArtifactsForDensity {
+  private static class BestArtifactsForDensity {
+    private final RuleContext ruleContext;
     private final Density desiredDensity;
 
     // Use a LinkedHashMap to preserve determinism.
     private final Map<String, Artifact> nameAndConfigurationToBestArtifact = new LinkedHashMap<>();
 
-    public BestArtifactsForDensity(Density density) {
+    public BestArtifactsForDensity(RuleContext ruleContext, Density density) {
+      this.ruleContext = ruleContext;
       desiredDensity = density;
     }
 
@@ -319,7 +337,7 @@ public class ResourceFilter {
      *     other artifacts with the same name and non-density configuration, adds it to this object.
      */
     public void maybeAddArtifact(Artifact artifact) {
-      FolderConfiguration config = getConfigForArtifact(artifact);
+      FolderConfiguration config = getConfigForArtifact(ruleContext, artifact);
 
       // We want to find a single best artifact for each combination of non-density qualifiers and
       // filename. Combine those two values to create a single unique key.
@@ -368,7 +386,8 @@ public class ResourceFilter {
      * @return a score for how well the artifact matches. Lower scores indicate better matches.
      */
     private double computeAffinity(Artifact artifact) {
-      DensityQualifier resourceQualifier = getConfigForArtifact(artifact).getDensityQualifier();
+      DensityQualifier resourceQualifier =
+          getConfigForArtifact(ruleContext, artifact).getDensityQualifier();
       if (resourceQualifier == null) {
         return Double.MAX_VALUE;
       }
@@ -401,7 +420,8 @@ public class ResourceFilter {
     }
   }
 
-  private FolderConfiguration getConfigForArtifact(Artifact artifact) {
+  private static FolderConfiguration getConfigForArtifact(
+      RuleContext ruleContext, Artifact artifact) {
     String containingFolder = getContainingFolder(artifact);
     FolderConfiguration config = FolderConfiguration.getConfigForFolder(containingFolder);
 
@@ -438,14 +458,15 @@ public class ResourceFilter {
     return artifact.getPath().getParentDirectory().getBaseName();
   }
 
-  private boolean matchesConfigurationFilters(FolderConfiguration config) {
-    for (FolderConfiguration filter : configurationFilters) {
+  private static boolean matchesConfigurationFilters(
+      ImmutableList<FolderConfiguration> folderConfigs, FolderConfiguration config) {
+    for (FolderConfiguration filter : folderConfigs) {
       if (config.isMatchFor(filter)) {
         return true;
       }
     }
 
-    return configurationFilters.isEmpty();
+    return folderConfigs.isEmpty();
   }
 
   /**
@@ -455,11 +476,11 @@ public class ResourceFilter {
    * phase.
    */
   boolean hasConfigurationFilters() {
-    return !configurationFilterStrings.isEmpty();
+    return !configFilters.isEmpty();
   }
 
   String getConfigurationFilterString() {
-    return Joiner.on(',').join(configurationFilterStrings);
+    return Joiner.on(',').join(configFilters);
   }
 
   /**
@@ -469,19 +490,20 @@ public class ResourceFilter {
    * phase.
    */
   boolean hasDensities() {
-    return !densityStrings.isEmpty();
+    return !densities.isEmpty();
   }
 
   String getDensityString() {
-    return Joiner.on(',').join(densityStrings);
+    return Joiner.on(',').join(densities);
   }
 
   List<String> getDensities() {
-    return densityStrings;
+    return densities;
   }
 
   boolean isPrefiltering() {
-    return !densities.isEmpty() || !configurationFilters.isEmpty();
+    return filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS
+        || filterBehavior == FilterBehavior.FILTER_IN_ANALYSIS_WITH_DYNAMIC_CONFIGURATION;
   }
 
   /**
