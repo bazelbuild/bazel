@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -46,10 +46,9 @@ import javax.annotation.Nullable;
 /** Common methods shared between Android related {@link BuildViewTestCase}s. */
 public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
   protected Iterable<Artifact> getNativeLibrariesInApk(ConfiguredTarget target) {
-    Action unsignedApkAction = actionsTestUtil().getActionForArtifactEndingWith(
-        getFilesToBuild(target), "_unsigned.apk");
+    SpawnAction compressedUnsignedApkaction = getCompressedUnsignedApkAction(target);
     ImmutableList.Builder<Artifact> result = ImmutableList.builder();
-    for (Artifact output : unsignedApkAction.getInputs()) {
+    for (Artifact output : compressedUnsignedApkaction.getInputs()) {
       if (!output.getExecPathString().endsWith(".so")) {
         continue;
       }
@@ -84,16 +83,33 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return args.get(args.indexOf(flag) + 1);
   }
 
+  /**
+   * The unsigned APK is created in two actions. The first action adds everything that needs to be
+   * unconditionally compressed in the APK. The second action adds everything else, preserving their
+   * compression.
+   */
+  protected Artifact getCompressedUnsignedApk(ConfiguredTarget target) {
+    return artifactByPath(
+        actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(target)),
+        "_unsigned.apk",
+        "_unsigned.apk");
+  }
+
+  protected SpawnAction getCompressedUnsignedApkAction(ConfiguredTarget target) {
+    return getGeneratingSpawnAction(getCompressedUnsignedApk(target));
+  }
+
+  protected Artifact getFinalUnsignedApk(ConfiguredTarget target) {
+    return getFirstArtifactEndingWith(
+        target.getProvider(FileProvider.class).getFilesToBuild(), "_unsigned.apk");
+  }
+
   protected Artifact getResourceApk(ConfiguredTarget target) {
-    Action unsignedApkAction = getGeneratingAction(
-        getFirstArtifactEndingWith(getFilesToBuild(target), "_unsigned.apk"));
-    Artifact binaryApk =
-        getFirstArtifactEndingWith(unsignedApkAction.getInputs(), ".apk");
     Artifact resourceApk =
-        getFirstArtifactEndingWith(unsignedApkAction.getInputs(), ".ap_");
-    assertTrue((binaryApk == null && resourceApk != null)
-        || (binaryApk != null && resourceApk == null));
-    return binaryApk == null ? resourceApk : binaryApk;
+        getFirstArtifactEndingWith(
+            getGeneratingAction(getFinalUnsignedApk(target)).getInputs(), ".ap_");
+    assertThat(resourceApk).isNotNull();
+    return resourceApk;
   }
 
   protected void assertProguardUsed(ConfiguredTarget binary) {
