@@ -45,7 +45,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       FilesToRunProvider mainDexListCreator,
       FilesToRunProvider aidl,
       FilesToRunProvider aapt,
-      FilesToRunProvider apkBuilder,
+      @Nullable FilesToRunProvider apkBuilder,
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
@@ -144,6 +144,7 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
 
   public abstract FilesToRunProvider getAapt();
 
+  @Nullable
   public abstract FilesToRunProvider getApkBuilder();
 
   public abstract FilesToRunProvider getApkSigner();

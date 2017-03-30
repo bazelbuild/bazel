@@ -36,7 +36,6 @@ message AndroidSdk {
   string aidl = 3;
   string android_jar = 4;
   string annotations_jar = 5;
-  string apkbuilder = 6;
   string dx = 7;
   string framework_aidl = 8;
   string jack = 9;
@@ -49,6 +48,9 @@ message AndroidSdk {
   string zipalign = 16;
   string build_tools_version = 17; // assume latest if not set
   string apksigner = 18;
+
+  // Deprecated tag numbers.
+  reserved 6;
 }
 
 // Information about a resource referenced from AndroidManifest.xml.

@@ -51,7 +51,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
         .add(sdk.getAidl().getExecutable())
         .add(sdk.getAndroidJar())
         .add(sdk.getAnnotationsJar())
-        .add(sdk.getApkBuilder().getExecutable())
         .add(sdk.getDx().getExecutable())
         .add(sdk.getFrameworkAidl())
         .add(sdk.getJack().getExecutable())
@@ -239,7 +238,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       sdkProto.setAidl(getArtifactPath(sdk.getAidl()));
       sdkProto.setAndroidJar(getArtifactPath(sdk.getAndroidJar()));
       sdkProto.setAnnotationsJar(getArtifactPath(sdk.getAnnotationsJar()));
-      sdkProto.setApkbuilder(getArtifactPath(sdk.getApkBuilder()));
       sdkProto.setDx(getArtifactPath(sdk.getDx()));
       sdkProto.setFrameworkAidl(getArtifactPath(sdk.getFrameworkAidl()));
       sdkProto.setJack(getArtifactPath(sdk.getJack()));
