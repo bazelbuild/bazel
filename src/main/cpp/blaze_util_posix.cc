@@ -345,18 +345,6 @@ string GetJvmVersion(const string& java_exe) {
   return ReadJvmVersion(version_string);
 }
 
-bool ReadDirectorySymlink(const string &name, string* result) {
-  char buf[PATH_MAX + 1];
-  int len = readlink(name.c_str(), buf, PATH_MAX);
-  if (len < 0) {
-    return false;
-  }
-
-  buf[len] = 0;
-  *result = buf;
-  return true;
-}
-
 bool CompareAbsolutePaths(const string& a, const string& b) {
   return a == b;
 }

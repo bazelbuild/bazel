@@ -1065,7 +1065,8 @@ static void EnsureCorrectRunningVersion(BlazeServer *server) {
   string installation_path =
       blaze_util::JoinPath(globals->options->output_base, "install");
   string prev_installation;
-  bool ok = ReadDirectorySymlink(installation_path, &prev_installation);
+  bool ok =
+      blaze_util::ReadDirectorySymlink(installation_path, &prev_installation);
   if (!ok || !CompareAbsolutePaths(prev_installation,
                                    globals->options->install_base)) {
     if (server->Connected()) {

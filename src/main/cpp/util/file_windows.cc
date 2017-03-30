@@ -863,6 +863,21 @@ bool JunctionResolver::Resolve(const WCHAR* path, unique_ptr<WCHAR[]>* result) {
   return Resolve(path, result, kMaximumJunctionDepth);
 }
 
+bool ReadDirectorySymlink(const string& name, string* result) {
+  wstring wname;
+  if (!AsWindowsPathWithUncPrefix(name, &wname)) {
+    PrintError("ReadDirectorySymlink: AsWindowsPathWithUncPrefix(%s)",
+               name.c_str());
+    return false;
+  }
+  unique_ptr<WCHAR[]> result_ptr;
+  if (!JunctionResolver().Resolve(wname.c_str(), &result_ptr)) {
+    return false;
+  }
+  *result = WstringToCstring(RemoveUncPrefixMaybe(result_ptr.get())).get();
+  return true;
+}
+
 bool PathExists(const string& path) {
   if (path.empty()) {
     return false;

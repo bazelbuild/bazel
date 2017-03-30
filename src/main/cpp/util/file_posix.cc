@@ -251,6 +251,18 @@ int RenameDirectory(const std::string &old_name, const std::string &new_name) {
   }
 }
 
+bool ReadDirectorySymlink(const string &name, string *result) {
+  char buf[PATH_MAX + 1];
+  int len = readlink(name.c_str(), buf, PATH_MAX);
+  if (len < 0) {
+    return false;
+  }
+
+  buf[len] = 0;
+  *result = buf;
+  return true;
+}
+
 bool UnlinkPath(const string &file_path) {
   return unlink(file_path.c_str()) == 0;
 }

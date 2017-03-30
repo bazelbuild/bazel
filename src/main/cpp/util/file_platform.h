@@ -130,6 +130,11 @@ enum RenameDirectoryResult {
 // Returns one of the RenameDirectoryResult enum values.
 int RenameDirectory(const std::string &old_name, const std::string &new_name);
 
+// Reads which directory a symlink points to. Puts the target of the symlink
+// in ``result`` and returns if the operation was successful. Will not work on
+// symlinks that don't point to directories on Windows.
+bool ReadDirectorySymlink(const std::string &symlink, std::string *result);
+
 // Unlinks the file given by 'file_path'.
 // Returns true on success. In case of failure sets errno.
 bool UnlinkPath(const std::string &file_path);

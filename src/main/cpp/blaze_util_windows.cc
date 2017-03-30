@@ -964,35 +964,6 @@ string ConvertPathList(const string& path_list) {
 #endif  // COMPILER_MSVC
 }
 
-static string ConvertPathToPosix(const string& win_path) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team) 2016-11-18: verify that this function is not needed on
-  // Windows.
-  return win_path;
-#else   // not COMPILER_MSVC
-  char* posix_path = static_cast<char*>(cygwin_create_path(
-      CCP_WIN_A_TO_POSIX, static_cast<const void*>(win_path.c_str())));
-  string result(posix_path);
-  free(posix_path);
-  return result;
-#endif  // COMPILER_MSVC
-}
-
-// Cribbed from ntifs.h, not present in windows.h
-
-#define REPARSE_MOUNTPOINT_HEADER_SIZE   8
-
-typedef struct {
-  DWORD ReparseTag;
-  WORD ReparseDataLength;
-  WORD Reserved;
-  WORD SubstituteNameOffset;
-  WORD SubstituteNameLength;
-  WORD PrintNameOffset;
-  WORD PrintNameLength;
-  WCHAR PathBuffer[ANYSIZE_ARRAY];
-} REPARSE_MOUNTPOINT_DATA_BUFFER, *PREPARSE_MOUNTPOINT_DATA_BUFFER;
-
 bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
   wstring name;
   wstring target;
@@ -1013,69 +984,6 @@ bool SymlinkDirectories(const string &posix_target, const string &posix_name) {
     return false;
   }
   return true;
-}
-
-// TODO(laszlocsomor): use JunctionResolver in file_windows.cc
-bool ReadDirectorySymlink(const string &posix_name, string* result) {
-  string name = ConvertPath(posix_name);
-  wstring wname;
-
-  if (!blaze_util::AsWindowsPathWithUncPrefix(name, &wname)) {
-    PrintError("ReadDirectorySymlink: AsWindowsPathWithUncPrefix(" + name +
-               ")");
-    return false;
-  }
-
-  HANDLE directory = windows_util::OpenDirectory(wname.c_str(), false);
-  if (directory == INVALID_HANDLE_VALUE) {
-    return false;
-  }
-
-  char reparse_buffer_bytes[MAXIMUM_REPARSE_DATA_BUFFER_SIZE];
-  REPARSE_MOUNTPOINT_DATA_BUFFER* reparse_buffer =
-      reinterpret_cast<REPARSE_MOUNTPOINT_DATA_BUFFER *>(reparse_buffer_bytes);
-  memset(reparse_buffer_bytes, 0, MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
-
-  reparse_buffer->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
-  DWORD bytes_returned;
-  bool ok = ::DeviceIoControl(
-      directory,
-      FSCTL_GET_REPARSE_POINT,
-      NULL,
-      0,
-      reparse_buffer,
-      MAXIMUM_REPARSE_DATA_BUFFER_SIZE,
-      &bytes_returned,
-      NULL);
-  if (!ok) {
-    PrintError("DeviceIoControl(FSCTL_GET_REPARSE_POINT, " + name + ")");
-  }
-
-  CloseHandle(directory);
-  if (!ok) {
-    return false;
-  }
-
-  std::vector<char> print_name(reparse_buffer->PrintNameLength * sizeof(WCHAR) +
-                               1);
-  int count = ::WideCharToMultiByte(
-      CP_UTF8,
-      0,
-      reparse_buffer->PathBuffer +
-         (reparse_buffer->PrintNameOffset / sizeof(WCHAR)),
-      reparse_buffer->PrintNameLength,
-      &print_name[0],
-      print_name.size(),
-      NULL,
-      NULL);
-  if (count == 0) {
-    PrintError("WideCharToMultiByte()");
-    *result = "";
-    return false;
-  } else {
-    *result = ConvertPathToPosix(&print_name[0]);
-    return true;
-  }
 }
 
 bool CompareAbsolutePaths(const string& a, const string& b) {

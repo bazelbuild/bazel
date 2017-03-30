@@ -143,11 +143,6 @@ std::string ListSeparator();
 // Implemented via junctions on Windows.
 bool SymlinkDirectories(const std::string& target, const std::string& link);
 
-// Reads which directory a symlink points to. Puts the target of the symlink
-// in ``result`` and returns if the operation was successful. Will not work on
-// symlinks that don't point to directories on Windows.
-bool ReadDirectorySymlink(const std::string& symlink, std::string* result);
-
 // Compares two absolute paths. Necessary because the same path can have
 // multiple different names under msys2: "C:\foo\bar" or "C:/foo/bar"
 // (Windows-style) and "/c/foo/bar" (msys2 style). Returns if the paths are
