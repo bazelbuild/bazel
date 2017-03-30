@@ -16,6 +16,7 @@ Install-ChocolateyZipPackage -PackageName "$packageName" `
   -Url64bit "$($paramsText[0])" `
   -Checksum64 "$($paramsText[1])" `
   -Checksum64Type "sha256" `
+  -ChecksumType "sha256" `
   -UnzipLocation "$packageDir"
 
 write-host "Ensure that msys2 dll is present in PATH to allow bazel to be run from non-msys2 shells"
