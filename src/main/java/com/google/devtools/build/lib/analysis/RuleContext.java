@@ -651,6 +651,14 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * Creates a tree artifact in a directory that is unique to the package that contains the rule,
+   * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
+   */
+  public Artifact getPackageRelativeTreeArtifact(PathFragment relative, Root root) {
+    return getTreeArtifact(getPackageDirectory().getRelative(relative), root);
+  }
+
+  /**
    * Creates an artifact in a directory that is unique to the rule, thus guaranteeing that it never
    * clashes with artifacts created by other rules.
    */

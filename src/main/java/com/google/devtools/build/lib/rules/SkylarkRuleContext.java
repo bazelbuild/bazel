@@ -896,6 +896,32 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext.getDerivedArtifact(fragment, root);
   }
 
+  // TODO(b/36548861): Document this when it's ready to be made publicly available.
+  @SkylarkCallable(
+    name = "experimental_new_directory",
+    documented = false,
+    parameters = {
+      @Param(name = "name", type = String.class),
+      @Param(
+        name = "sibling",
+        type = Artifact.class,
+        defaultValue = "None",
+        noneable = true,
+        named = true
+      )
+    }
+  )
+  public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
+    checkMutable("experimental_new_directory");
+    if (siblingArtifactUnchecked == Runtime.NONE) {
+      return ruleContext.getPackageRelativeTreeArtifact(new PathFragment(name), newFileRoot());
+    }
+    Artifact siblingArtifact = (Artifact) siblingArtifactUnchecked;
+    PathFragment original = siblingArtifact.getRootRelativePath();
+    PathFragment fragment = original.replaceName(name);
+    return ruleContext.getTreeArtifact(fragment, newFileRoot());
+  }
+
   @SkylarkCallable(documented = false)
   public NestedSet<Artifact> middleMan(String attribute) throws EvalException {
     checkMutable("middle_man");
