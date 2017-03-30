@@ -1564,6 +1564,136 @@ public class OptionsParserTest {
         Arrays.asList("--new_name=foo"), canonicalize(OldNameExample.class, "--old_name=foo"));
   }
 
+  public static class ExampleNameConflictOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "1")
+    public int foo;
+
+    @Option(name = "foo", defaultValue = "I should conflict with foo")
+    public String anotherFoo;
+  }
+
+  @Test
+  public void testNameConflictInSingleClass() {
+    try {
+      newOptionsParser(ExampleNameConflictOptions.class);
+      fail("foo should conflict with the previous flag foo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--foo");
+    }
+  }
+
+  public static class ExampleBooleanFooOptions extends OptionsBase {
+    @Option(name = "foo", defaultValue = "false")
+    public boolean foo;
+  }
+
+  @Test
+  public void testNameConflictInTwoClasses() {
+    try {
+      newOptionsParser(ExampleFoo.class, ExampleBooleanFooOptions.class);
+      fail("foo should conflict with the previous flag foo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--foo");
+    }
+  }
+
+  public static class ExamplePrefixFooOptions extends OptionsBase {
+    @Option(name = "nofoo", defaultValue = "false")
+    public boolean noFoo;
+  }
+
+  @Test
+  public void testBooleanPrefixNameConflict() {
+    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
+    // before or after the boolean flag introduces the alias.
+    try {
+      newOptionsParser(ExampleBooleanFooOptions.class, ExamplePrefixFooOptions.class);
+      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
+              + "can be written as --nofoo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--nofoo");
+    }
+
+    try {
+      newOptionsParser(ExamplePrefixFooOptions.class, ExampleBooleanFooOptions.class);
+      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
+              + "can be written as --nofoo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--nofoo");
+    }
+  }
+
+  public static class ExampleUnderscorePrefixFooOptions extends OptionsBase {
+    @Option(name = "no_foo", defaultValue = "false")
+    public boolean noFoo;
+  }
+
+  @Test
+  public void testBooleanUnderscorePrefixNameConflict() {
+    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
+    // before or after the boolean flag introduces the alias.
+    try {
+      newOptionsParser(ExampleBooleanFooOptions.class, ExampleUnderscorePrefixFooOptions.class);
+      fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
+              + "can be written as --no_foo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--no_foo");
+    }
+
+    try {
+      newOptionsParser(ExampleUnderscorePrefixFooOptions.class, ExampleBooleanFooOptions.class);
+      fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
+              + "can be written as --no_foo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--no_foo");
+    }
+  }
+
+  public static class ExampleBarWasNamedFooOption extends OptionsBase {
+    @Option(name = "bar", oldName = "foo", defaultValue = "false")
+    public boolean bar;
+  }
+
+  @Test
+  public void testBooleanAliasWithOldNameConflict() {
+    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
+    // before or after the boolean flag introduces the alias.
+    try {
+      newOptionsParser(ExamplePrefixFooOptions.class, ExampleBarWasNamedFooOption.class);
+      fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
+              + "can be written as --nofoo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--nofoo");
+    }
+  }
+
+
+  public static class ExampleBarWasNamedNoFooOption extends OptionsBase {
+    @Option(name = "bar", oldName = "nofoo", defaultValue = "false")
+    public boolean bar;
+  }
+
+  @Test
+  public void testBooleanWithOldNameAsAliasOfBooleanConflict() {
+    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
+    // before or after the boolean flag introduces the alias.
+    try {
+      newOptionsParser(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class);
+      fail("nofoo, the old name for bar, should conflict with the previous flag foo, since foo, "
+          + "as a boolean flag, can be written as --nofoo");
+    } catch (DuplicateOptionDeclarationException e) {
+      // Expected, check that the error message gives useful information.
+      assertThat(e.getMessage()).contains("--nofoo");
+    }
+  }
+
   public static class OldNameConflictExample extends OptionsBase {
     @Option(name = "new_name",
             oldName = "old_name",

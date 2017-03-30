@@ -260,6 +260,45 @@ class IsolatedOptionsData extends OpaqueOptionsData {
     return convertedValue;
   }
 
+  private static <A> void checkForCollisions(
+      Map<A, Field> aFieldMap,
+      A optionName,
+      String description) {
+    if (aFieldMap.containsKey(optionName)) {
+      throw new DuplicateOptionDeclarationException(
+          "Duplicate option name, due to " + description + ": --" + optionName);
+    }
+  }
+
+  private static void checkForBooleanAliasCollisions(
+      Map<String, String> booleanAliasMap,
+      String optionName,
+      String description) {
+    if (booleanAliasMap.containsKey(optionName)) {
+      throw new DuplicateOptionDeclarationException(
+          "Duplicate option name, due to "
+              + description
+              + " --"
+              + optionName
+              + ", it conflicts with a negating alias for boolean flag --"
+              + booleanAliasMap.get(optionName));
+    }
+  }
+
+  private static void checkAndUpdateBooleanAliases(
+      Map<String, Field> nameToFieldMap,
+      Map<String, String> booleanAliasMap,
+      String optionName) {
+    // Check that the two aliases do not conflict with existing flags.
+    checkForCollisions(nameToFieldMap, "no_" + optionName, "boolean option alias");
+    checkForCollisions(nameToFieldMap, "no" + optionName, "boolean option alias");
+
+    // Record that the boolean option takes up additional namespace for its two negating
+    // aliases.
+    booleanAliasMap.put("no_" + optionName, optionName);
+    booleanAliasMap.put("no" + optionName, optionName);
+  }
+  
   /**
    * Constructs an {@link IsolatedOptionsData} object for a parser that knows about the given
    * {@link OptionsBase} classes. No inter-option analysis is done. Performs basic sanity checking
@@ -273,6 +312,9 @@ class IsolatedOptionsData extends OpaqueOptionsData {
     Map<Field, Object> optionDefaultsBuilder = Maps.newHashMap();
     Map<Field, Converter<?>> convertersBuilder = Maps.newHashMap();
     Map<Field, Boolean> allowMultipleBuilder = Maps.newHashMap();
+
+    // Maps the negated boolean flag aliases to the original option name.
+    Map<String, String> booleanAliasMap = Maps.newHashMap();
 
     // Read all Option annotations:
     for (Class<? extends OptionsBase> parsedOptionsClass : classes) {
@@ -289,8 +331,8 @@ class IsolatedOptionsData extends OpaqueOptionsData {
 
       for (Field field : fields) {
         Option annotation = field.getAnnotation(Option.class);
-
-        if (annotation.name() == null) {
+        String optionName = annotation.name();
+        if (optionName == null) {
           throw new AssertionError("Option cannot have a null name");
         }
 
@@ -326,7 +368,7 @@ class IsolatedOptionsData extends OpaqueOptionsData {
             Type elementType =
                 ((ParameterizedType) converterResultType).getActualTypeArguments()[0];
             if (!GenericTypeHelper.isAssignableFrom(fieldType, elementType)) {
-              throw new AssertionError("If the converter return type of a multiple occurance " +
+              throw new AssertionError("If the converter return type of a multiple occurrence " +
                   "option is a list, then the type of list elements (" + fieldType + ") must be " +
                   "assignable from the converter list element type (" + elementType + ")");
             }
@@ -345,21 +387,28 @@ class IsolatedOptionsData extends OpaqueOptionsData {
           }
         }
 
-        if (nameToFieldBuilder.put(annotation.name(), field) != null) {
-          throw new DuplicateOptionDeclarationException(
-              "Duplicate option name: --" + annotation.name());
+        if (isBooleanField(field)) {
+          checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, optionName);
         }
+
+        checkForCollisions(nameToFieldBuilder, optionName, "option");
+        checkForBooleanAliasCollisions(booleanAliasMap, optionName, "option");
+        nameToFieldBuilder.put(optionName, field);
+
         if (!annotation.oldName().isEmpty()) {
-          if (nameToFieldBuilder.put(annotation.oldName(), field) != null) {
-            throw new DuplicateOptionDeclarationException(
-                "Old option name duplicates option name: --" + annotation.oldName());
+          String oldName = annotation.oldName();
+          checkForCollisions(nameToFieldBuilder, oldName, "old option name");
+          checkForBooleanAliasCollisions(booleanAliasMap, oldName, "old option name");
+          nameToFieldBuilder.put(annotation.oldName(), field);
+
+          // If boolean, repeat the alias dance for the old name.
+          if (isBooleanField(field)) {
+            checkAndUpdateBooleanAliases(nameToFieldBuilder, booleanAliasMap, oldName);
           }
         }
         if (annotation.abbrev() != '\0') {
-          if (abbrevToFieldBuilder.put(annotation.abbrev(), field) != null) {
-            throw new DuplicateOptionDeclarationException(
-                  "Duplicate option abbrev: -" + annotation.abbrev());
-          }
+          checkForCollisions(abbrevToFieldBuilder, annotation.abbrev(), "option abbreviation");
+          abbrevToFieldBuilder.put(annotation.abbrev(), field);
         }
 
         optionDefaultsBuilder.put(field, retrieveDefaultFromAnnotation(field));
@@ -379,4 +428,5 @@ class IsolatedOptionsData extends OpaqueOptionsData {
         convertersBuilder,
         allowMultipleBuilder);
   }
+
 }
