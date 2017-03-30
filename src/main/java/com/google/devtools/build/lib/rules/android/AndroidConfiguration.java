@@ -414,15 +414,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Use SingleJar for multidex dex extraction.")
     public boolean useSingleJarForMultidex;
 
-    @Option(name = "experimental_android_use_resource_prefiltering",
-      defaultValue = "false",
+    @Option(name = "experimental_android_resource_filtering_method",
+      converter = ResourceFilter.Converter.class,
+      defaultValue = "filter_in_execution",
       category = "undocumented",
-      help = "When building android_binary targets, apply resource_configuration_filters during"
-          + " the analysis phase. Normally, this filtering doesn't occur until near the end of "
-          + "resource processing in the execution phase. Prefiltering resources improves "
-          + "performance for binaries with resource_configuration_filters and lots of resources."
+      help = "Determines when resource filtering attributes, such as the android_binary "
+          + "'resource_configuration_filters' and 'densities' attributes, are applied. By default, "
+          + "bazel will 'filter_in_execution'. The experimental 'filter_in_analysis' option "
+          + "instead applies these filters earlier in the build process, with corresponding gains "
+          + "in speed. The experimental 'filter_in_analysis_with_dynamic_configuration' option "
+          + "also passes these options to the android_binary's dependencies, which also filter "
+          + "their internal resources in analysis, possibly making the build even faster "
+          + "(especially in systems that do not cache the results of those dependencies)."
     )
-    public boolean useResourcePrefiltering;
+    // The ResourceFilter object holds the filtering behavior as well as settings for which
+    // resources should be filtered. The filtering behavior is set from the command line, but the
+    // other settings default to empty and are set or modified via dynamic configuration.
+    public ResourceFilter resourceFilter;
 
     @Option(name = "use_singlejar_for_proguard_libraryjars",
         defaultValue = "false",
@@ -511,7 +519,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ApkSigningMethod apkSigningMethod;
   private final boolean useSingleJarApkBuilder;
   private final boolean useSingleJarForMultidex;
-  private final boolean useResourcePrefiltering;
+  private final ResourceFilter resourceFilter;
   private final boolean useSingleJarForProguardLibraryJars;
 
   AndroidConfiguration(Options options, Label androidSdk) {
@@ -543,7 +551,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useSingleJarForMultidex = options.useSingleJarForMultidex;
     this.useSingleJarForProguardLibraryJars = options.useSingleJarForProguardLibraryJars;
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
-    this.useResourcePrefiltering = options.useResourcePrefiltering;
+    this.resourceFilter = options.resourceFilter;
   }
 
   public String getCpu() {
@@ -647,8 +655,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return useSingleJarForMultidex;
   }
 
-  public boolean useResourcePrefiltering() {
-    return useResourcePrefiltering;
+  public ResourceFilter getResourceFilter() {
+    return resourceFilter;
   }
 
   public boolean useSingleJarForProguardLibraryJars() {

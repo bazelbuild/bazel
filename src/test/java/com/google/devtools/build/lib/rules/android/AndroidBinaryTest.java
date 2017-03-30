@@ -1107,7 +1107,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesInvalidFilter() throws Exception {
     String badQualifier = "invalid-qualifier";
 
-    useConfiguration("--experimental_android_use_resource_prefiltering");
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
 
     checkError(
         "java/r/android",
@@ -1123,7 +1123,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFilteredResourcesInvalidResourceDir() throws Exception {
     String badQualifierDir = "values-invalid-qualifier";
 
-    useConfiguration("--noexperimental_android_use_resource_prefiltering");
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_execution");
 
     checkError(
         "java/r/android",
@@ -1142,7 +1142,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ImmutableList.of("res/values/foo.xml", "res/values-en/foo.xml", "res/values-fr/foo.xml");
     String dir = "java/r/android";
 
-    useConfiguration("--noexperimental_android_use_resource_prefiltering");
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_execution");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
@@ -1495,7 +1495,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     String dir = "java/r/android";
 
-    useConfiguration("--experimental_android_use_resource_prefiltering");
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
@@ -1541,7 +1541,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
     String dir = "java/r/android";
 
-    useConfiguration("--experimental_android_use_resource_prefiltering");
+    useConfiguration("--experimental_android_resource_filtering_method", "filter_in_analysis");
 
     ConfiguredTarget binary =
         scratchConfiguredTarget(
