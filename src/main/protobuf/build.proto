@@ -133,7 +133,7 @@ message Attribute {
     BOOLEAN = 14;            // int, bool and string value
     TRISTATE = 15;           // tristate, int and string value
     INTEGER_LIST = 16;       // int_list_value
-    STRING_DICT_UNARY = 17;  // string_dict_unary_value
+    STRING_DICT_UNARY = 17;  // string_dict_unary_value (DEPRECATED)
     UNKNOWN = 18;            // unknown type, use only for build extensions
     LABEL_DICT_UNARY = 19;   // label_dict_unary_value
     SELECTOR_LIST = 20;      // selector_list

@@ -432,7 +432,6 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
     // Same for maps as for collections.
     if (attrType == Type.STRING_DICT
-        || attrType == Type.STRING_DICT_UNARY
         || attrType == Type.STRING_LIST_DICT
         || attrType == BuildType.LABEL_DICT_UNARY
         || attrType == BuildType.LABEL_KEYED_STRING_DICT) {

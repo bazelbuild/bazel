@@ -229,12 +229,6 @@ public abstract class Type<T> {
       DictType.create(STRING, STRING_LIST);
 
   /**
-   * The type of a dictionary of {@linkplain #STRING strings}, where each entry
-   * maps to a single string value.
-   */
-  public static final DictType<String, String> STRING_DICT_UNARY = DictType.create(STRING, STRING);
-
-  /**
    *  For ListType objects, returns the type of the elements of the list; for
    *  all other types, returns null.  (This non-obvious implementation strategy
    *  is necessitated by the wildcard capture rules of the Java type system,

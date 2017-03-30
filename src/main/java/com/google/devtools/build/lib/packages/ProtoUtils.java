@@ -31,7 +31,6 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
-import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
@@ -68,7 +67,6 @@ public class ProtoUtils {
           .put(BOOLEAN, Discriminator.BOOLEAN)
           .put(TRISTATE, Discriminator.TRISTATE)
           .put(INTEGER_LIST, Discriminator.INTEGER_LIST)
-          .put(STRING_DICT_UNARY, Discriminator.STRING_DICT_UNARY)
           .put(LABEL_KEYED_STRING_DICT, Discriminator.LABEL_KEYED_STRING_DICT)
           .build();
 
