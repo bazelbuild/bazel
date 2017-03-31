@@ -458,6 +458,14 @@ def build_android_ide_info(target, ctx, semantics):
 
   return (android_ide_info, intellij_resolve_files)
 
+def build_android_sdk_ide_info(ctx):
+  if ctx.rule.kind != "android_sdk":
+    return None
+  android_jar_file = list(ctx.rule.attr.android_jar.files)[0]
+  return struct(
+      android_jar = artifact_location(android_jar_file),
+  )
+
 def build_test_info(ctx):
   """Build TestInfo."""
   if not is_test_rule(ctx):
@@ -554,6 +562,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
   (android_ide_info, android_resolve_files) = build_android_ide_info(
       target, ctx, semantics)
   intellij_resolve_files = intellij_resolve_files | android_resolve_files
+  android_sdk_ide_info = build_android_sdk_ide_info(ctx)
 
   # java_toolchain
   java_toolchain_ide_info = build_java_toolchain_ide_info(target)
@@ -584,6 +593,7 @@ def intellij_info_aspect_impl(target, ctx, semantics):
       c_toolchain_ide_info = c_toolchain_ide_info,
       java_ide_info = java_ide_info,
       android_ide_info = android_ide_info,
+      android_sdk_ide_info = android_sdk_ide_info,
       tags = tags,
       test_info = test_info,
       java_toolchain_ide_info = java_toolchain_ide_info,

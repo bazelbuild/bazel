@@ -78,6 +78,10 @@ message AndroidIdeInfo {
   string idl_import_root = 13;
 }
 
+message AndroidSdkIdeInfo {
+  ArtifactLocation android_jar = 1;
+}
+
 message PyIdeInfo {
   repeated ArtifactLocation sources = 1;
 }
@@ -162,5 +166,9 @@ message TargetIdeInfo {
 
   repeated Dependency deps = 20;
 
-  // Next available: 22
+  reserved 21;
+
+  AndroidSdkIdeInfo android_sdk_ide_info = 22;
+
+  // Next available: 23
 }
