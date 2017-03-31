@@ -285,7 +285,7 @@ public class SkylarkRuleClassFunctions {
                       + "Similar to computed dependency rule attributes, you can also specify the "
                       + "name of a function that returns the dictionary. This function can access "
                       + "all rule attributes that are listed as parameters in its function "
-                      + "signature. For example, <code>outputs = _my_func<code> with "
+                      + "signature. For example, <code>outputs = _my_func</code> with "
                       + "<code>def _my_func(srcs, deps):</code> has access to the attributes "
                       + "'srcs' and 'deps' (if defined)."
           ),
