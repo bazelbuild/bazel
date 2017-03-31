@@ -21,14 +21,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.TreeMap;
 
-/**
- * A toolchain, determined from the current platform.
- */
+/** Provides access to make variables from the current fragments. */
 @Immutable
-public final class ToolchainProvider implements TransitiveInfoProvider {
+public final class MakeVariableProvider implements TransitiveInfoProvider {
   private final ImmutableMap<String, String> makeVariables;
 
-  public ToolchainProvider(ImmutableMap<String, String> makeVariables) {
+  public MakeVariableProvider(ImmutableMap<String, String> makeVariables) {
     this.makeVariables = makeVariables;
   }
 
@@ -40,8 +38,8 @@ public final class ToolchainProvider implements TransitiveInfoProvider {
       RuleContext ruleContext, String attributeName) {
     // Cannot be an ImmutableMap.Builder because we want to support duplicate keys
     TreeMap<String, String> result = new TreeMap<>();
-    for (ToolchainProvider provider :
-        ruleContext.getPrerequisites(attributeName, Mode.TARGET, ToolchainProvider.class)) {
+    for (MakeVariableProvider provider :
+        ruleContext.getPrerequisites(attributeName, Mode.TARGET, MakeVariableProvider.class)) {
       result.putAll(provider.getMakeVariables());
     }
 

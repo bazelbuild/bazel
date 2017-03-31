@@ -39,8 +39,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.AliasProvider;
+import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.ToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.syntax.Type;
@@ -292,8 +292,10 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     public CommandResolverContext(RuleContext ruleContext, NestedSet<Artifact> resolvedSrcs,
         NestedSet<Artifact> filesToBuild) {
-      super(ruleContext.getRule().getPackage(), ruleContext.getConfiguration(),
-          ToolchainProvider.getToolchainMakeVariables(ruleContext, "toolchains"));
+      super(
+          ruleContext.getRule().getPackage(),
+          ruleContext.getConfiguration(),
+          MakeVariableProvider.getToolchainMakeVariables(ruleContext, "toolchains"));
       this.ruleContext = ruleContext;
       this.resolvedSrcs = resolvedSrcs;
       this.filesToBuild = filesToBuild;
