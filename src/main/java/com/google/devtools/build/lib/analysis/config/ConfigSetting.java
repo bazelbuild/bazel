@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,8 +58,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
     ConfigMatchingProvider configMatcher;
     try {
-      configMatcher = new ConfigMatchingProvider(ruleContext.getLabel(), settings,
-          matchesConfig(settings, ruleContext.getConfiguration()));
+      configMatcher =
+          new ConfigMatchingProvider(
+              ruleContext.getLabel(),
+              settings,
+              matchesConfig(settings, ruleContext.getConfiguration().getTransitiveOptionDetails()));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
           "error while parsing configuration settings: " + e.getMessage());
@@ -77,10 +79,11 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Given a list of [flagName, flagValue] pairs, returns true if flagName == flagValue for
-   * every item in the list under this configuration, false otherwise.
+   * Given a list of [flagName, flagValue] pairs, returns true if flagName == flagValue for every
+   * item in the list under this configuration, false otherwise.
    */
-  private boolean matchesConfig(Map<String, String> expectedSettings, BuildConfiguration config)
+  private boolean matchesConfig(
+      Map<String, String> expectedSettings, TransitiveOptionDetails options)
       throws OptionsParsingException {
     // Rather than returning fast when we find a mismatch, continue looking at the other flags
     // to check that they're indeed valid flag specifications.
@@ -93,7 +96,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
 
-      Class<? extends OptionsBase> optionClass = config.getOptionClass(optionName);
+      Class<? extends OptionsBase> optionClass = options.getOptionClass(optionName);
       if (optionClass == null) {
         throw new OptionsParsingException("unknown option: '" + optionName + "'");
       }
@@ -106,7 +109,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       parser.parse("--" + optionName + "=" + expectedRawValue);
       Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
 
-      if (!optionMatches(config, optionName, expectedParsedValue)) {
+      if (!optionMatches(options, optionName, expectedParsedValue)) {
         foundMismatch = true;
       }
     }
@@ -116,23 +119,23 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
   /**
    * For single-value options, returns true iff the option's value matches the expected value.
    *
-   * <p>For multi-value List options, returns true iff any of the option's values matches
-   * the expected value. This means, e.g. "--tool_tag=foo --tool_tag=bar" would match the
-   * expected condition { 'tool_tag': 'bar' }.
+   * <p>For multi-value List options, returns true iff any of the option's values matches the
+   * expected value. This means, e.g. "--tool_tag=foo --tool_tag=bar" would match the expected
+   * condition { 'tool_tag': 'bar' }.
    *
    * <p>For multi-value Map options, returns true iff the last instance with the same key as the
-   * expected key has the same value. This means, e.g. "--define foo=1 --define bar=2" would
-   * match { 'define': 'foo=1' }, but "--define foo=1 --define bar=2 --define foo=3" would not
-   * match. Note that the definition of --define states that the last instance takes precedence.
+   * expected key has the same value. This means, e.g. "--define foo=1 --define bar=2" would match {
+   * 'define': 'foo=1' }, but "--define foo=1 --define bar=2 --define foo=3" would not match. Note
+   * that the definition of --define states that the last instance takes precedence.
    */
-  private static boolean optionMatches(BuildConfiguration config, String optionName,
-      Object expectedValue) {
-    Object actualValue = config.getOptionValue(optionName);
+  private static boolean optionMatches(
+      TransitiveOptionDetails options, String optionName, Object expectedValue) {
+    Object actualValue = options.getOptionValue(optionName);
     if (actualValue == null) {
       return expectedValue == null;
 
-    // Single-value case:
-    } else if (!config.allowsMultipleValues(optionName)) {
+      // Single-value case:
+    } else if (!options.allowsMultipleValues(optionName)) {
       return actualValue.equals(expectedValue);
     }
 

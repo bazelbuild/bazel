@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.util.ConfigurationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.common.options.Options;
@@ -269,33 +268,31 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testGetOptionClass() throws Exception {
-    BuildConfiguration config = create();
-    // Directly defined option:
-    assertEquals(BuildConfiguration.Options.class, config.getOptionClass("compilation_mode"));
-    // Option defined in a fragment:
-    assertEquals(CppOptions.class, config.getOptionClass("lipo"));
-    // Unrecognized option:
-    assertNull(config.getOptionClass("do_my_laundry"));
-  }
-
-  @Test
-  public void testGetOptionValue() throws Exception {
+  public void testGetTransitiveOptionDetails() throws Exception {
     // Directly defined options:
-    assertEquals(CompilationMode.DBG, create("-c", "dbg").getOptionValue("compilation_mode"));
-    assertEquals(CompilationMode.OPT, create("-c", "opt").getOptionValue("compilation_mode"));
+    assertEquals(
+        CompilationMode.DBG,
+        create("-c", "dbg").getTransitiveOptionDetails().getOptionValue("compilation_mode"));
+    assertEquals(
+        CompilationMode.OPT,
+        create("-c", "opt").getTransitiveOptionDetails().getOptionValue("compilation_mode"));
 
     // Options defined in a fragment:
-    assertEquals(Boolean.TRUE, create("--force_pic")
-        .getOptionValue("force_pic"));
-    assertEquals(Boolean.FALSE, create("--noforce_pic")
-        .getOptionValue("force_pic"));
+    assertEquals(
+        Boolean.TRUE,
+        create("--force_pic").getTransitiveOptionDetails().getOptionValue("force_pic"));
+    assertEquals(
+        Boolean.FALSE,
+        create("--noforce_pic").getTransitiveOptionDetails().getOptionValue("force_pic"));
 
-    // Unrecognized option:
-    assertNull(create().getOptionValue("do_my_dishes"));
+    // Late-bound default option:
+    BuildConfiguration config = create();
+    assertEquals(
+        config.getTransitiveOptionDetails().getOptionValue("compiler"),
+        config.getFragment(CppConfiguration.class).getCompiler());
 
     // Legitimately null option:
-    assertNull(create().getOptionValue("test_filter"));
+    assertNull(create().getTransitiveOptionDetails().getOptionValue("test_filter"));
   }
 
   @Test

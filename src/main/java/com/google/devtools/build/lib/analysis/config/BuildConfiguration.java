@@ -75,11 +75,8 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
-import java.io.Serializable;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1159,42 +1156,8 @@ public final class BuildConfiguration {
 
   private final int hashCode; // We can precompute the hash code as all its inputs are immutable.
 
-  /**
-   * Helper container for {@link #transitiveOptionsMap} below.
-   */
-  private static class OptionDetails implements Serializable {
-    private OptionDetails(Class<? extends OptionsBase> optionsClass, Object value,
-        boolean allowsMultiple) {
-      this.optionsClass = optionsClass;
-      this.value = value;
-      this.allowsMultiple = allowsMultiple;
-    }
-
-    /** The {@link FragmentOptions} class that defines this option. */
-    private final Class<? extends OptionsBase> optionsClass;
-
-    /**
-     * The value of the given option (either explicitly defined or default). May be null.
-     */
-    private final Object value;
-
-    /** Whether or not this option supports multiple values. */
-    private final boolean allowsMultiple;
-  }
-
-  /**
-   * Maps option names to the {@link OptionDetails} the option takes for this configuration.
-   *
-   * <p>This can be used to:
-   * <ol>
-   *   <li>Find an option's (parsed) value given its command-line name</li>
-   *   <li>Parse alternative values for the option.</li>
-   * </ol>
-   *
-   * <p>This map is "transitive" in that it includes *all* options recognizable by this
-   * configuration, including those defined in child fragments.
-   */
-  private final Map<String, OptionDetails> transitiveOptionsMap;
+  /** Data for introspecting the options used by this configuration. */
+  private final TransitiveOptionDetails transitiveOptionDetails;
 
   /**
    * Returns true if this configuration is semantically equal to the other, with
@@ -1415,7 +1378,7 @@ public final class BuildConfiguration {
     this.localShellEnvironment = shellEnvironment.getFirst();
     this.envVariables = shellEnvironment.getSecond();
 
-    this.transitiveOptionsMap = computeOptionsMap(buildOptions, fragments.values());
+    this.transitiveOptionDetails = computeOptionsMap(buildOptions, fragments.values());
 
     ImmutableMap.Builder<String, String> globalMakeEnvBuilder = ImmutableMap.builder();
     for (Fragment fragment : fragments.values()) {
@@ -1494,11 +1457,17 @@ public final class BuildConfiguration {
   }
 
   /**
-   * Computes and returns the transitive optionName -> "option info" map for
-   * this configuration.
+   * Retrieves the {@link TransitiveOptionDetails} containing data on this configuration's options.
+   *
+   * @see BuildConfigurationOptionDetails
    */
-  private static Map<String, OptionDetails> computeOptionsMap(BuildOptions buildOptions,
-      Iterable<Fragment> fragments) {
+  TransitiveOptionDetails getTransitiveOptionDetails() {
+    return transitiveOptionDetails;
+  }
+
+  /** Computes and returns the {@link TransitiveOptionDetails} for this configuration. */
+  private static TransitiveOptionDetails computeOptionsMap(
+      BuildOptions buildOptions, Iterable<Fragment> fragments) {
     // Collect from our fragments "alternative defaults" for options where the default
     // should be something other than what's specified in Option.defaultValue.
     Map<String, Object> lateBoundDefaults = Maps.newHashMap();
@@ -1506,35 +1475,8 @@ public final class BuildConfiguration {
       lateBoundDefaults.putAll(fragment.lateBoundOptionDefaults());
     }
 
-    ImmutableMap.Builder<String, OptionDetails> map = ImmutableMap.builder();
-    try {
-      for (FragmentOptions options : buildOptions.getOptions()) {
-        for (Field field : options.getClass().getFields()) {
-          if (field.isAnnotationPresent(Option.class)) {
-            Option option = field.getAnnotation(Option.class);
-            if (option.category().equals("internal")) {
-              // ignore internal options
-              continue;
-            }
-            Object value = field.get(options);
-            if (value == null) {
-              if (lateBoundDefaults.containsKey(option.name())) {
-                value = lateBoundDefaults.get(option.name());
-              } else if (!option.defaultValue().equals("null")) {
-                // See {@link Option#defaultValue} for an explanation of default "null" strings.
-                value = option.defaultValue();
-              }
-            }
-            map.put(option.name(),
-                new OptionDetails(options.getClass(), value, option.allowMultiple()));
-          }
-        }
-      }
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException(
-          "Unexpected illegal access trying to create this configuration's options map: ", e);
-    }
-    return map.build();
+    return TransitiveOptionDetails.forOptionsWithDefaults(
+        buildOptions.getOptions(), lateBoundDefaults);
   }
 
   private String buildMnemonic() {
@@ -2039,44 +1981,6 @@ public final class BuildConfiguration {
     }
 
     transitionApplier.applyConfigurationHook(fromRule, attribute, toTarget);
-  }
-
-  /**
-   * Returns the {@link Option} class the defines the given option, null if the
-   * option isn't recognized.
-   *
-   * <p>optionName is the name of the option as it appears on the command line
-   * e.g. {@link Option#name}).
-   */
-  Class<? extends OptionsBase> getOptionClass(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return optionData == null ? null : optionData.optionsClass;
-  }
-
-  /**
-   * Returns the value of the specified option for this configuration or null if the
-   * option isn't recognized. Since an option's legitimate value could be null, use
-   * {@link #getOptionClass} to distinguish between that and an unknown option.
-   *
-   * <p>optionName is the name of the option as it appears on the command line
-   * e.g. {@link Option#name}).
-   */
-  Object getOptionValue(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? null : optionData.value;
-  }
-
-  /**
-   * Returns whether or not the given option supports multiple values at the command line (e.g.
-   * "--myoption value1 --myOption value2 ..."). Returns false for unrecognized options. Use
-   * {@link #getOptionClass} to distinguish between those and legitimate single-value options.
-   *
-   * <p>As declared in {@link Option#allowMultiple}, multi-value options are expected to be
-   * of type {@code List<T>}.
-   */
-  boolean allowsMultipleValues(String optionName) {
-    OptionDetails optionData = transitiveOptionsMap.get(optionName);
-    return (optionData == null) ? false : optionData.allowsMultiple;
   }
 
   /**

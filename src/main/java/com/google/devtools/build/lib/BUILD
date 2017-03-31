@@ -512,6 +512,17 @@ java_library(
 )
 
 java_library(
+    name = "build-configuration-option-details",
+    srcs = ["analysis/config/BuildConfigurationOptionDetails.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
+    ],
+    deps = [
+        ":build-base",
+    ],
+)
+
+java_library(
     name = "build-base",
     srcs = glob(
         [
@@ -532,6 +543,7 @@ java_library(
         exclude = [
             "analysis/BuildInfo.java",
             "analysis/TransitiveInfoProvider.java",
+            "analysis/config/BuildConfigurationOptionDetails.java",
         ],
     ) + [
         "runtime/BlazeServerStartupOptions.java",
