@@ -1,13 +1,14 @@
 param(
   [switch] $prerelease,
-  [string] $sources = "."
+  [string] $sources = ".",
+  [string] $version = "0.4.5.20170330"
 )
 
 choco uninstall bazel --force -y
 if ($prerelease) {
-  choco install bazel --verbose --debug --prerelease --force -y -s $sources
+  choco install ".\bazel.$($version).nupkg" --verbose --debug --prerelease --force -y -s $sources
 } else {
-  choco install bazel --verbose --debug --force -y -s $sources
+  choco install ".\bazel.$($version).nupkg" --verbose --debug --force -y -s $sources
 }
 
 if ($LASTEXITCODE -ne 0)
