@@ -147,6 +147,7 @@ public class ConfigRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(SETTINGS_ATTRIBUTE, STRING_DICT).mandatory()
               .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .setIsConfigMatcherForConfigSettingOnly()
           .build();
     }
 

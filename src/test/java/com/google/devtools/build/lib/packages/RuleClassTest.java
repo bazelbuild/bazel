@@ -887,6 +887,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         workspaceOnly,
         outputsDefaultExecutable,
         implicitOutputsFunction,
+        /*isConfigMatcher=*/ false,
         configurator,
         transitionFactory,
         configuredTargetFactory,

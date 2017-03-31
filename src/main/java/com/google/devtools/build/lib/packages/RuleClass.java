@@ -484,6 +484,7 @@ public class RuleClass {
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
     private boolean outputsDefaultExecutable = false;
+    private boolean isConfigMatcher = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
     private Configurator<?, ?> configurator = NO_CHANGE;
     private RuleTransitionFactory transitionFactory;
@@ -599,6 +600,7 @@ public class RuleClass {
           workspaceOnly,
           outputsDefaultExecutable,
           implicitOutputsFunction,
+          isConfigMatcher,
           configurator,
           transitionFactory,
           configuredTargetFactory,
@@ -969,6 +971,17 @@ public class RuleClass {
     }
 
     /**
+     * Causes rules of this type to be evaluated with the parent's configuration, always, so that
+     * rules which match against parts of the configuration will behave as expected.
+     *
+     * <p>This is only intended for use by {@code config_setting} - other rules should not use this!
+     */
+    public Builder setIsConfigMatcherForConfigSettingOnly() {
+      this.isConfigMatcher = true;
+      return this;
+    }
+
+    /**
      * Returns an Attribute.Builder object which contains a replica of the
      * same attribute in the parent rule if exists.
      *
@@ -999,6 +1012,7 @@ public class RuleClass {
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
   private final boolean outputsDefaultExecutable;
+  private final boolean isConfigMatcher;
 
   /**
    * A (unordered) mapping from attribute names to small integers indexing into
@@ -1115,6 +1129,7 @@ public class RuleClass {
       boolean workspaceOnly,
       boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
+      boolean isConfigMatcher,
       Configurator<?, ?> configurator,
       RuleTransitionFactory transitionFactory,
       ConfiguredTargetFactory<?, ?> configuredTargetFactory,
@@ -1137,6 +1152,7 @@ public class RuleClass {
     this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
+    this.isConfigMatcher = isConfigMatcher;
     this.configurator = Preconditions.checkNotNull(configurator);
     this.transitionFactory = transitionFactory;
     this.configuredTargetFactory = configuredTargetFactory;
@@ -1340,6 +1356,14 @@ public class RuleClass {
    */
   public boolean supportsConstraintChecking() {
     return supportsConstraintChecking;
+  }
+
+  /**
+   * Returns true if rules of this type should be evaluated with the parent's configuration so that
+   * they can match on aspects of it.
+   */
+  public boolean isConfigMatcher() {
+    return isConfigMatcher;
   }
 
   /**

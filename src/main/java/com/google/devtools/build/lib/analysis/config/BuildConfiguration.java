@@ -1952,8 +1952,7 @@ public final class BuildConfiguration {
     // from these transitions, since their *purpose* is to do computation on the owning
     // rule's configuration.
     // TODO(bazel-team): don't require special casing here. This is far too hackish.
-    if (toTarget instanceof Rule
-        && ((Rule) toTarget).getRuleClass().equals(ConfigRuleClasses.ConfigSettingRule.RULE_NAME)) {
+    if (toTarget instanceof Rule && ((Rule) toTarget).getRuleClassObject().isConfigMatcher()) {
       transitionApplier.applyTransition(Attribute.ConfigurationTransition.NONE); // Unnecessary.
       return;
     }
