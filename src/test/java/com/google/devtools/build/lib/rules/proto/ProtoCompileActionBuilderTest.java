@@ -310,6 +310,13 @@ public class ProtoCompileActionBuilderTest {
         .containsExactly("-Ifoo/bar.proto=external/bla/foo/bar.proto");
   }
 
+  public void directDependenciesOnExternalFiles() throws Exception {
+    ImmutableList<Artifact> protos =
+        ImmutableList.of(artifact("@bla//foo:bar", "external/bla/foo/bar.proto"));
+    assertThat(new ProtoCommandLineArgv(protos, protos).argv())
+        .containsExactly("--direct_dependencies=foo/bar.proto");
+  }
+
   private Artifact artifact(String ownerLabel, String path) {
     return new Artifact(
         root.getPath().getRelative(path),
