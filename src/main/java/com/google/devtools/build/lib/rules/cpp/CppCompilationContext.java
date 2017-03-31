@@ -58,6 +58,9 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    */
   private final NestedSet<Artifact> directModuleMaps;
 
+  /** Non-code mandatory compilation inputs. */
+  private final NestedSet<Artifact> nonCodeInputs;
+
   private final NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs;
   
   private final ModuleInfo moduleInfo;
@@ -78,6 +81,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       NestedSet<PathFragment> declaredIncludeWarnDirs,
       NestedSet<Artifact> declaredIncludeSrcs,
       NestedSet<Pair<Artifact, Artifact>> pregreppedHdrs,
+      NestedSet<Artifact> nonCodeInputs,
       ModuleInfo moduleInfo,
       ModuleInfo picModuleInfo,
       NestedSet<Artifact> directModuleMaps,
@@ -94,6 +98,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
     this.moduleInfo = moduleInfo;
     this.picModuleInfo = picModuleInfo;
     this.cppModuleMap = cppModuleMap;
+    this.nonCodeInputs = nonCodeInputs;
     this.verificationModuleMap = verificationModuleMap;
     this.compilationPrerequisites = compilationPrerequisites;
     this.propagateModuleMapAsActionInput = propagateModuleMapAsActionInput;
@@ -222,6 +227,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   public NestedSet<Artifact> getAdditionalInputs() {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     builder.addTransitive(directModuleMaps);
+    builder.addTransitive(nonCodeInputs);
     if (cppModuleMap != null && propagateModuleMapAsActionInput) {
       builder.add(cppModuleMap.getArtifact());
     }
@@ -267,6 +273,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.<PathFragment>emptySet(Order.STABLE_ORDER),
         context.declaredIncludeSrcs,
         context.pregreppedHdrs,
+        context.nonCodeInputs,
         context.moduleInfo,
         context.picModuleInfo,
         context.directModuleMaps,
@@ -318,6 +325,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         mergeSets(ownerContext.declaredIncludeWarnDirs, libContext.declaredIncludeWarnDirs),
         mergeSets(ownerContext.declaredIncludeSrcs, libContext.declaredIncludeSrcs),
         mergeSets(ownerContext.pregreppedHdrs, libContext.pregreppedHdrs),
+        mergeSets(ownerContext.nonCodeInputs, libContext.nonCodeInputs),
         moduleInfo.build(),
         picModuleInfo.build(),
         mergeSets(ownerContext.directModuleMaps, libContext.directModuleMaps),
@@ -385,6 +393,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
         NestedSetBuilder.stableOrder();
     private final NestedSetBuilder<Pair<Artifact, Artifact>> pregreppedHdrs =
         NestedSetBuilder.stableOrder();
+    private final NestedSetBuilder<Artifact> nonCodeInputs = NestedSetBuilder.stableOrder();
     private final ModuleInfo.Builder moduleInfo = new ModuleInfo.Builder();
     private final ModuleInfo.Builder picModuleInfo = new ModuleInfo.Builder();
     private final NestedSetBuilder<Artifact> directModuleMaps = NestedSetBuilder.stableOrder();
@@ -439,6 +448,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       pregreppedHdrs.addTransitive(otherContext.getPregreppedHeaders());
       moduleInfo.addTransitive(otherContext.moduleInfo);
       picModuleInfo.addTransitive(otherContext.picModuleInfo);
+      nonCodeInputs.addTransitive(otherContext.nonCodeInputs);
 
       // All module maps of direct dependencies are inputs to the current compile independently of
       // the build type.
@@ -596,6 +606,12 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
       return this;
     }
 
+    /** Add a set of required non-code compilation input. */
+    public Builder addNonCodeInputs(Iterable<Artifact> inputs) {
+      nonCodeInputs.addAll(inputs);
+      return this;
+    }
+
     /**
      * Adds a single define.
      */
@@ -682,6 +698,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
           declaredIncludeWarnDirs.build(),
           declaredIncludeSrcs.build(),
           pregreppedHdrs.build(),
+          nonCodeInputs.build(),
           moduleInfo.build(),
           picModuleInfo.build(),
           directModuleMaps.build(),
