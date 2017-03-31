@@ -513,12 +513,7 @@ toolchain {
           }
           iterate_over: 'libraries_to_link.object_files'
           flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.object_files}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.object_files}'
           }
         }
         flag_group {
@@ -527,12 +522,7 @@ toolchain {
             value: 'object_file'
           }
           flag_group {
-            expand_if_false: 'libraries_to_link.is_whole_archive'
             flag: '%{libraries_to_link.name}'
-          }
-          flag_group {
-            expand_if_true: 'libraries_to_link.is_whole_archive'
-            flag: '/WHOLEARCHIVE:%{libraries_to_link.name}'
           }
         }
         flag_group {

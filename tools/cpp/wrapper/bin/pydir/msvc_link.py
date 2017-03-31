@@ -33,9 +33,6 @@ LINKPATTERNS = [
     ('-L(.+)', ['/LIBPATH:$PATH0']),
     ('-static', []),
     ('-shared', ['/DLL']),
-    # TODO(pcloudy): Make "whole archive" a feature in CROSSTOOL
-    # /WHOLEARCHIVE is supported in Visual Stuido 2015 update 2
-    (('-whole-archive', '(.+)'), ['/WHOLEARCHIVE:$PATH0']),
     ('-no-whole-archive', []),
     ('-rdynamic', []),
     (r'-Wl,(.+)\.lib', ['$0.lib']),
@@ -44,6 +41,7 @@ LINKPATTERNS = [
     ('-Wl,-rpath(.+)', []),
     ('-Wl,-S', []),  # Debug symbols are in pdb files.
     ('-Wl,/SUBSYSTEM:(WINDOWS|CONSOLE)', ['/SUBSYSTEM:$0']),
+    (r'/WHOLEARCHIVE:(.+)\.lib', ['$0.lib']),
 ]
 
 
