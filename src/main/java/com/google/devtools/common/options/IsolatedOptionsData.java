@@ -45,7 +45,7 @@ import javax.annotation.concurrent.Immutable;
 // accepting Object values, and the List in allOptionsField should be ImmutableList. Either fix
 // this or remove @Immutable.
 @Immutable
-class IsolatedOptionsData extends OpaqueOptionsData {
+public class IsolatedOptionsData extends OpaqueOptionsData {
 
   /**
    * These are the options-declaring classes which are annotated with {@link Option} annotations.
@@ -179,6 +179,11 @@ class IsolatedOptionsData extends OpaqueOptionsData {
   /** Returns whether a field has Void type. */
   static boolean isVoidField(Field field) {
     return field.getType().equals(Void.class);
+  }
+
+  /** Returns whether the arg is an expansion option. */
+  public static boolean isExpansionOption(Option annotation) {
+    return (annotation.expansion().length > 0 || OptionsData.usesExpansionFunction(annotation));
   }
 
   /**

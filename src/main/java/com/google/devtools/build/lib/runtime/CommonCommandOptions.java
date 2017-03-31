@@ -97,6 +97,18 @@ public class CommonCommandOptions extends OptionsBase {
   }
 
 
+  // To create a new incompatible change, see the javadoc for AllIncompatibleChangesExpansion.
+  @Option(
+    name = "all_incompatible_changes",
+    defaultValue = "null",
+    category = "misc",
+    expansionFunction = AllIncompatibleChangesExpansion.class,
+    help =
+        "Enables all options of the form --incompatible_*. Use this option to find places where "
+            + "your build may break in the future due to deprecations or other changes."
+  )
+  public Void allIncompatibleChanges;
+
   @Option(name = "config",
           defaultValue = "",
           category = "misc",

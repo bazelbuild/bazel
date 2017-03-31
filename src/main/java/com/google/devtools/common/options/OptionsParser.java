@@ -66,7 +66,10 @@ public class OptionsParser implements OptionsProvider {
    * An unchecked exception thrown when there is a problem constructing a parser, e.g. an error
    * while validating an {@link Option} field in one of its {@link OptionsBase} subclasses.
    *
-   * <p>Although unchecked, we explicitly mark some methods as throwing it as a reminder in the API.
+   * <p>This exception is unchecked because it generally indicates an internal error affecting all
+   * invocations of the program. I.e., any such error should be immediately obvious to the
+   * developer. Although unchecked, we explicitly mark some methods as throwing it as a reminder in
+   * the API.
    */
   public static class ConstructionException extends RuntimeException {
     public ConstructionException(String message) {
@@ -187,7 +190,7 @@ public class OptionsParser implements OptionsProvider {
   public void setAllowSingleDashLongOptions(boolean allowSingleDashLongOptions) {
     this.impl.setAllowSingleDashLongOptions(allowSingleDashLongOptions);
   }
-  
+
   /** Enables the Parser to handle params files loacted insinde the provided {@link FileSystem}. */
   public void enableParamsFileSupport(FileSystem fs) {
     this.impl.setArgsPreProcessor(new ParamsFilePreProcessor(fs));
@@ -273,7 +276,7 @@ public class OptionsParser implements OptionsProvider {
       return expansions;
     }
   }
-  
+
   /**
    * The name and value of an option with additional metadata describing its
    * priority, source, whether it was set via an implicit dependency, and if so,
@@ -450,9 +453,7 @@ public class OptionsParser implements OptionsProvider {
     }
 
     boolean isExpansion() {
-      Option option = field.getAnnotation(Option.class);
-      return (option.expansion().length > 0
-          || OptionsData.usesExpansionFunction(option));
+      return OptionsData.isExpansionOption(field.getAnnotation(Option.class));
     }
 
     boolean isImplicitRequirement() {
