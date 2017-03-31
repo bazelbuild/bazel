@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
+import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.io.Flushables;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -380,6 +382,11 @@ public class BlazeCommandDispatcher {
     List<String> rcfileNotes = new ArrayList<>();
     try {
       optionsParser = createOptionsParser(command);
+    } catch (OptionsParser.ConstructionException e) {
+      outErr.printErrLn("Internal error while constructing options parser: " + e.getMessage());
+      return ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
+    }
+    try {
       parseArgsAndConfigs(env, optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       // Merge the invocation policy that is user-supplied, from the command line, and any
@@ -690,19 +697,23 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * Creates an option parser using the common options classes and the
-   * command-specific options classes.
+   * Creates an option parser using the common options classes and the command-specific options
+   * classes.
    *
-   * <p>An overriding method should first call this method and can then
-   * override default values directly or by calling {@link
-   * #parseOptionsForCommand} for command-specific options.
-   *
-   * @throws OptionsParsingException
+   * <p>An overriding method should first call this method and can then override default values
+   * directly or by calling {@link #parseOptionsForCommand} for command-specific options.
    */
   protected OptionsParser createOptionsParser(BlazeCommand command)
-      throws OptionsParsingException {
+      throws OptionsParser.ConstructionException {
+    OpaqueOptionsData optionsData = null;
+    try {
+      optionsData = optionsDataCache.getUnchecked(command);
+    } catch (UncheckedExecutionException e) {
+      Throwables.throwIfInstanceOf(e.getCause(), OptionsParser.ConstructionException.class);
+      throw new IllegalStateException(e);
+    }
     Command annotation = command.getClass().getAnnotation(Command.class);
-    OptionsParser parser = OptionsParser.newOptionsParser(optionsDataCache.getUnchecked(command));
+    OptionsParser parser = OptionsParser.newOptionsParser(optionsData);
     parser.setAllowResidue(annotation.allowResidue());
     return parser;
   }

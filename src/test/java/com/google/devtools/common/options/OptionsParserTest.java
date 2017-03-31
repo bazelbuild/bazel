@@ -50,6 +50,18 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class OptionsParserTest {
 
+  /**
+   * Asserts that the given ConstructionException wraps an expected exception type with an expected
+   * message.
+   */
+  private static void assertConstructionErrorCausedBy(
+      OptionsParser.ConstructionException e,
+      Class<? extends Throwable> expectedType,
+      String expectedMessage) {
+    assertThat(e.getCause()).isInstanceOf(expectedType);
+    assertThat(e.getCause().getMessage()).contains(expectedMessage);
+  }
+
   public static class ExampleFoo extends OptionsBase {
 
     @Option(name = "foo",
@@ -891,8 +903,8 @@ public class OptionsParserTest {
     try {
       OptionsParser.newOptionsParser(NullExpansionsOptions.class);
       fail("Should have failed due to null expansion function result");
-    } catch (NullPointerException e) {
-      assertThat(e.getMessage()).contains("null value in entry");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(e, NullPointerException.class, "null value in entry");
     }
   }
 
@@ -1577,9 +1589,11 @@ public class OptionsParserTest {
     try {
       newOptionsParser(ExampleNameConflictOptions.class);
       fail("foo should conflict with the previous flag foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--foo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to option: --foo");
     }
   }
 
@@ -1593,9 +1607,11 @@ public class OptionsParserTest {
     try {
       newOptionsParser(ExampleFoo.class, ExampleBooleanFooOptions.class);
       fail("foo should conflict with the previous flag foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--foo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to option: --foo");
     }
   }
 
@@ -1612,18 +1628,23 @@ public class OptionsParserTest {
       newOptionsParser(ExampleBooleanFooOptions.class, ExamplePrefixFooOptions.class);
       fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
               + "can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--nofoo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to option --nofoo, it conflicts with a negating alias "
+              + "for boolean flag --foo");
     }
 
     try {
       newOptionsParser(ExamplePrefixFooOptions.class, ExampleBooleanFooOptions.class);
       fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
               + "can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--nofoo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to boolean option alias: --nofoo");
     }
   }
 
@@ -1640,18 +1661,23 @@ public class OptionsParserTest {
       newOptionsParser(ExampleBooleanFooOptions.class, ExampleUnderscorePrefixFooOptions.class);
       fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
               + "can be written as --no_foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--no_foo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to option --no_foo, it conflicts with a negating "
+              + "alias for boolean flag --foo");
     }
 
     try {
       newOptionsParser(ExampleUnderscorePrefixFooOptions.class, ExampleBooleanFooOptions.class);
       fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
               + "can be written as --no_foo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--no_foo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to boolean option alias: --no_foo");
     }
   }
 
@@ -1668,9 +1694,11 @@ public class OptionsParserTest {
       newOptionsParser(ExamplePrefixFooOptions.class, ExampleBarWasNamedFooOption.class);
       fail("nofoo should conflict with the previous flag foo, since foo, as a boolean flag, "
               + "can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--nofoo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to boolean option alias: --nofoo");
     }
   }
 
@@ -1688,9 +1716,12 @@ public class OptionsParserTest {
       newOptionsParser(ExampleBooleanFooOptions.class, ExampleBarWasNamedNoFooOption.class);
       fail("nofoo, the old name for bar, should conflict with the previous flag foo, since foo, "
           + "as a boolean flag, can be written as --nofoo");
-    } catch (DuplicateOptionDeclarationException e) {
-      // Expected, check that the error message gives useful information.
-      assertThat(e.getMessage()).contains("--nofoo");
+    } catch (OptionsParser.ConstructionException e) {
+      assertConstructionErrorCausedBy(
+          e,
+          DuplicateOptionDeclarationException.class,
+          "Duplicate option name, due to old option name --nofoo, it conflicts with a negating "
+              + "alias for boolean flag --foo");
     }
   }
 
@@ -1710,8 +1741,8 @@ public class OptionsParserTest {
     try {
       newOptionsParser(OldNameConflictExample.class);
       fail("old_name should conflict with the flag already named old_name");
-    } catch (DuplicateOptionDeclarationException e) {
-      // expected
+    } catch (OptionsParser.ConstructionException e) {
+      assertThat(e.getCause()).isInstanceOf(DuplicateOptionDeclarationException.class);
     }
   }
 

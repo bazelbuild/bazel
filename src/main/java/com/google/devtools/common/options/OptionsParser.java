@@ -63,6 +63,26 @@ import javax.annotation.Nullable;
 public class OptionsParser implements OptionsProvider {
 
   /**
+   * An unchecked exception thrown when there is a problem constructing a parser, e.g. an error
+   * while validating an {@link Option} field in one of its {@link OptionsBase} subclasses.
+   *
+   * <p>Although unchecked, we explicitly mark some methods as throwing it as a reminder in the API.
+   */
+  public static class ConstructionException extends RuntimeException {
+    public ConstructionException(String message) {
+      super(message);
+    }
+
+    public ConstructionException(Throwable cause) {
+      super(cause);
+    }
+
+    public ConstructionException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+
+  /**
    * A cache for the parsed options data. Both keys and values are immutable, so
    * this is always safe. Only access this field through the {@link
    * #getOptionsData} method for thread-safety! The cache is very unlikely to
@@ -73,23 +93,27 @@ public class OptionsParser implements OptionsProvider {
       Maps.newHashMap();
 
   /**
-   * Returns {@link OpaqueOptionsData} suitable for passing along to
-   * {@link #newOptionsParser(OpaqueOptionsData optionsData)}.
+   * Returns {@link OpaqueOptionsData} suitable for passing along to {@link
+   * #newOptionsParser(OpaqueOptionsData optionsData)}.
    *
-   * This is useful when you want to do the work of analyzing the given {@code optionsClasses}
+   * <p>This is useful when you want to do the work of analyzing the given {@code optionsClasses}
    * exactly once, but you want to parse lots of different lists of strings (and thus need to
-   * construct lots of different {@link OptionsParser} instances). 
+   * construct lots of different {@link OptionsParser} instances).
    */
   public static OpaqueOptionsData getOptionsData(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
+      ImmutableList<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
     return getOptionsDataInternal(optionsClasses);
   }
 
   private static synchronized OptionsData getOptionsDataInternal(
-      ImmutableList<Class<? extends OptionsBase>> optionsClasses) {
+      ImmutableList<Class<? extends OptionsBase>> optionsClasses) throws ConstructionException {
     OptionsData result = optionsData.get(optionsClasses);
     if (result == null) {
-      result = OptionsData.from(optionsClasses);
+      try {
+        result = OptionsData.from(optionsClasses);
+      } catch (Exception e) {
+        throw new ConstructionException(e.getMessage(), e);
+      }
       optionsData.put(optionsClasses, result);
     }
     return result;
@@ -108,7 +132,8 @@ public class OptionsParser implements OptionsProvider {
   /**
    * @see #newOptionsParser(Iterable)
    */
-  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1) {
+  public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1)
+      throws ConstructionException {
     return newOptionsParser(ImmutableList.<Class<? extends OptionsBase>>of(class1));
   }
 
@@ -116,15 +141,15 @@ public class OptionsParser implements OptionsProvider {
    * @see #newOptionsParser(Iterable)
    */
   public static OptionsParser newOptionsParser(Class<? extends OptionsBase> class1,
-                                               Class<? extends OptionsBase> class2) {
+                                               Class<? extends OptionsBase> class2)
+      throws ConstructionException {
     return newOptionsParser(ImmutableList.of(class1, class2));
   }
 
-  /**
-   * Create a new {@link OptionsParser}.
-   */
+  /** Create a new {@link OptionsParser}. */
   public static OptionsParser newOptionsParser(
-      Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
+      Iterable<? extends Class<? extends OptionsBase>> optionsClasses)
+      throws ConstructionException {
     return newOptionsParser(
         getOptionsDataInternal(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
   }
