@@ -3,11 +3,17 @@ layout: contribute
 title: Sandboxing
 ---
 
-# Bazel Sandboxing 2.0
+# Design Document: Bazel Sandboxing 2.0
 
-This doc was written by [philwo@google.com](mailto:philwo@google.com).
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-Status: launched
+
+**Status:** launched
+
+**Author:** [philwo@google.com](mailto:philwo@google.com)
+
+**Design document published**: 02 June 2016
 
 The section "Handling of environment variables" inspired and was then
 superseded by the more detailed

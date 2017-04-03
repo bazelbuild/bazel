@@ -3,7 +3,22 @@ layout: contribute
 title: Design Documents
 ---
 
-# Bazel Design Documents
+# Design Documents
+
+The design documents published here are part of a design process:
+
+1. Design is reviewed
+2. Design document is published here
+3. Design is implemented
+
+It's possible that designs change as they are implemented in practice. The
+design documents published here capture the initial design, and _not_ the
+ongoing changes as designs are implemented.
+
+Always go to the [documentation](/versions/master/docs/bazel-overview.md) for
+descriptions of current Bazel functionality.
+
+## Bazel Design Documents
 
 <ul>
 {% for doc in site.categories.designs %}

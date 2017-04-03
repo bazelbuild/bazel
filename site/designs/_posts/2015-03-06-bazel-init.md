@@ -7,12 +7,18 @@ __This design document has been replaced by
 [Skylark Remote Repositories](/designs/2015/07/02/skylark-remote-repositories.html)
 and is maintained here just for reference__
 
-# bazel init a.k.a ./configure for Bazel
+# Design Document: bazel init a.k.a ./configure for Bazel
 _A configuration mechanism for Bazel_
 
-__Status:__ deprecated, replaced by [Skylark Remote Repositories](/designs/2015/07/02/skylark-remote-repositories.html)
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-__Author:__ dmarting@google.com
+
+**Status:** deprecated, replaced by [Skylark Remote Repositories](/designs/2015/07/02/skylark-remote-repositories.html)
+
+**Author:** dmarting@google.com
+
+**Design document published**: 06 March 2015
 
 ## I. Rationale
 

@@ -3,14 +3,18 @@ layout: documentation
 title: Declared Providers
 ---
 
-# Declared Providers
+# Design Document: Declared Providers
 
-Authors: [Dmitry Lomov](mailto:dslomov@google.com),
+**Design documents are not descriptions of the current functionality of Skylark.
+Always go to the documentation for current information.**
+
+
+**Authors:** [Dmitry Lomov](mailto:dslomov@google.com),
 [Laurent Le Brun](mailto:laurentlb@google.com)
 
-Status: Approved
+**Status:** Approved
 
-Date: 2016-06-06
+**Date:** 2016-06-06
 
 ## Motivation
 

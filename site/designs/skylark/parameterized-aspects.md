@@ -3,14 +3,18 @@ layout: documentation
 title: Parameterized Skylark Aspects
 ---
 
-# Parameterized Skylark Aspects
+#  Design Document: Parameterized Skylark Aspects
 
-Author: [Dmitry Lomov](mailto:dslomov@google.com),
+**Design documents are not descriptions of the current functionality of Skylark.
+Always go to the documentation for current information.**
+
+
+**Author:** [Dmitry Lomov](mailto:dslomov@google.com),
 [Lindley French](mailto:lindleyf@google.com)
 
-Date: 2016-04-18
+**Date:** 2016-04-18
 
-Status: Approved (Proposal #2), Stage 1 implemented.
+**Status:** Approved (Proposal #2), Stage 1 implemented.
 
 
 **Proposal #2 is  approved **

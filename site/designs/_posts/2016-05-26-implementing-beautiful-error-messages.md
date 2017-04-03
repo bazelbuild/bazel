@@ -3,13 +3,19 @@ layout: contribute
 title: Implementing Beautiful Error Messages (Loading Phase)
 ---
 
-# Implementing Beautiful Error Messages (Loading Phase)
+# Design Document: Implementing Beautiful Error Messages (Loading Phase)
 
-__Author__: [laurentlb@google.com](mailto:laurentlb@google.com)
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-__Status__: unimplemented
 
-__Related__: ["Beautiful error messages"](/designs/2016/05/23/beautiful-error-messages.html)
+**Status**: unimplemented
+
+**Author**: [laurentlb@google.com](mailto:laurentlb@google.com)
+
+**Design document published**: 26 May 2016
+
+**Related**: ["Beautiful error messages"](/designs/2016/05/23/beautiful-error-messages.html)
 
 ## Introduction
 

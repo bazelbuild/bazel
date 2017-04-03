@@ -3,12 +3,18 @@ layout: contribute
 title: Label-keyed String Dictionary Type for Build Attributes
 ---
 
-# Label-keyed String Dictionary Type for Build Attributes
+# Design Document: Label-keyed String Dictionary Type for Build Attributes
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Implemented in
 [5e9e194](https://github.com/bazelbuild/bazel/commit/5e9e1949f4c08ce09665b92aadf7ec7e518aab6a)
 
 **Author**: [Michael Staib](mstaib@google.com)
+
+**Design document published**: 03 March 2017
 
 ## Background/Motivation
 
