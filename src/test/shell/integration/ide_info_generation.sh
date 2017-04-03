@@ -268,4 +268,52 @@ EOF
   [ -e  $COMPLEX_BUILD ] || fail "$COMPLEX_BUILD not found"
 }
 
+function test_manual_tests() {
+  mkdir -p com/google/example/simple
+  cat > com/google/example/simple/Simple.java <<EOF
+package com.google.example.simple;
+
+public class Simple {
+  public static void main(String[] args) {
+    System.out.println("Hello world!");
+  }
+}
+EOF
+  mkdir -p com/google/example/complex
+  cat > com/google/example/complex/Complex.java <<EOF
+package com.google.example.complex;
+
+public class Complex {
+  public static void main(String[] args) {
+      System.out.println("Hello manual world!");
+  }
+}
+EOF
+
+  cat > com/google/example/BUILD <<EOF
+java_test(
+    name = "simple",
+    srcs = ["simple/Simple.java"],
+    test_class = "com.google.example.simple.Simple",
+)
+
+java_test(
+    name = "complex",
+    srcs = ["complex/Complex.java"],
+    test_class = "com.google.example.complex.Complex",
+    tags = ["manual"],
+)
+EOF
+
+  bazel build //com/google/example:all \
+        --build_manual_tests  \
+        --aspects $ASPECT --output_groups "$TEXT_OUTPUT_GROUP" \
+    || fail "Expected success"
+  SIMPLE_BUILD="${PRODUCT_NAME}-bin/com/google/example/simple.$TEXT_OUTPUT"
+  [ -e  $SIMPLE_BUILD ] || fail "$SIMPLE_BUILD not found"
+  COMPLEX_BUILD="${PRODUCT_NAME}-bin/com/google/example/complex.$TEXT_OUTPUT"
+  [ -e  $COMPLEX_BUILD ] || fail "$COMPLEX_BUILD not found"
+}
+
+
 run_suite "Test IDE info files generation"

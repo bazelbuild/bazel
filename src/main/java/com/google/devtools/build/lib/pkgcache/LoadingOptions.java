@@ -105,6 +105,15 @@ public class LoadingOptions extends OptionsBase {
       )
   public List<String> testLangFilterList;
 
+  @Option(name = "build_manual_tests",
+      defaultValue = "false",
+      category = "what",
+      help = "Forces test targets tagged 'manual' to be built. "
+             + "'manual' tests are excluded from processing. This option forces "
+             + "them to be built (but not executed)."
+  )
+  public boolean buildManualTests;
+
   // If this option is set, the value of experimental_interleave_loading_and_analysis is completely
   // ignored. This enables a different LoadingPhaseRunner implementation which doesn't implement
   // the loading phase at all, and therefore can't currently support the other flag. If we roll this

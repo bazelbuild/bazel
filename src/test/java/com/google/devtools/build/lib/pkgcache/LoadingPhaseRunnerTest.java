@@ -231,6 +231,19 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testTestFilteringIncludingManual() throws Exception {
+    writeBuildFilesForTestFiltering();
+    tester.useLoadingOptions("--build_manual_tests");
+    LoadingResult loadingResult = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(loadingResult.getTargets())
+        .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2", "//tests:t3"));
+    assertThat(loadingResult.getTestsToRun())
+        .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
+  }
+
+  @Test
   public void testTestFilteringBuildTestsOnly() throws Exception {
     writeBuildFilesForTestFiltering();
     tester.useLoadingOptions("--build_tests_only");

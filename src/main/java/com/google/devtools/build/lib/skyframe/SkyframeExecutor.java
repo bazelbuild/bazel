@@ -1908,6 +1908,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           relativeWorkingDirectory.getPathString(), options.compileOneDependency,
           options.buildTestsOnly, determineTests,
           ImmutableList.copyOf(options.buildTagFilterList),
+          options.buildManualTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
