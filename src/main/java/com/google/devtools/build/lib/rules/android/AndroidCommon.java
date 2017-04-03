@@ -657,7 +657,7 @@ public class AndroidCommon {
     }
 
     Artifact jar = null;
-    if (attributes.hasSourceFiles() || attributes.hasSourceJars() || attributes.hasResources()) {
+    if (attributes.hasSources() || attributes.hasResources()) {
       // We only want to add a jar to the classpath of a dependent rule if it has content.
       javaArtifactsBuilder.addRuntimeJar(classJar);
       jar = classJar;
@@ -698,7 +698,7 @@ public class AndroidCommon {
 
     filesToBuild = filesBuilder.build();
 
-    if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
+    if ((attributes.hasSources()) && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
 
@@ -720,7 +720,7 @@ public class AndroidCommon {
         javaCommon.getDependencies(),
         javaCommon.getJavaCompilationArtifacts().getRuntimeJars());
     if (collectJavaCompilationArgs) {
-      boolean hasSources = attributes.hasSourceFiles() || attributes.hasSourceJars();
+      boolean hasSources = attributes.hasSources();
       this.javaCompilationArgs =
           collectJavaCompilationArgs(exportDeps, asNeverLink, hasSources);
       this.recursiveJavaCompilationArgs = collectJavaCompilationArgs(

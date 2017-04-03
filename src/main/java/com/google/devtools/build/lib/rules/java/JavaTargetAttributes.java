@@ -393,22 +393,34 @@ public class JavaTargetAttributes {
           strictJavaDeps);
     }
 
-    // TODO(bazel-team): Remove these 5 methods.
+    // TODO(bazel-team): delete the following methods - users should use the built
+    // JavaTargetAttributes instead of accessing mutable state in the Builder.
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
     @Deprecated
     public Set<Artifact> getSourceFiles() {
       return sourceFiles;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSources} */
+    @Deprecated
+    public boolean hasSources() {
+      return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
+    }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceFiles} */
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#getInstrumentationMetadata} */
     @Deprecated
     public List<Artifact> getInstrumentationMetadata() {
       return instrumentationMetadata;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceJars} */
     @Deprecated
     public boolean hasSourceJars() {
       return !sourceJars.isEmpty();
@@ -616,24 +628,19 @@ public class JavaTargetAttributes {
     return processorNames;
   }
 
-  public boolean hasSourceFiles() {
-    return !sourceFiles.isEmpty();
-  }
-
-  public boolean hasSourceJars() {
-    return !sourceJars.isEmpty();
+  public boolean hasSources() {
+    return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
   }
 
   public boolean hasResources() {
-    return !resources.isEmpty();
+    return !resources.isEmpty()
+        || !messages.isEmpty()
+        || !classPathResources.isEmpty()
+        || !resourceJars.isEmpty();
   }
 
   public boolean hasMessages() {
     return !messages.isEmpty();
-  }
-
-  public boolean hasClassPathResources() {
-    return !classPathResources.isEmpty();
   }
 
   public String getRuleKind() {
