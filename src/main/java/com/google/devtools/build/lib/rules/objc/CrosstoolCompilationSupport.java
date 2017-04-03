@@ -100,7 +100,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    */
   private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
-  private static final Iterable<String> ACTIVATED_ACTIONS =
+  private static final ImmutableList<String> ACTIVATED_ACTIONS =
       ImmutableList.of(
           "objc-compile",
           "objc++-compile",
