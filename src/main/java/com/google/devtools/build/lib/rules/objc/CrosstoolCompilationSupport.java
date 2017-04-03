@@ -89,12 +89,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * "is_not_test_target" instead of the more intuitive "is_test_target".
    */
   private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
+  /** Enabled if this target generates debug symbols in a dSYM file. */
+  private static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
   /**
    * Enabled if this target does not generate debug symbols.
    *
    * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
    * the mechanism used to condition linker arguments here. Therefore, we expose
-   * "no_generate_debug_symbols" instead of the more intuitive "generate_debug_symbols".
+   * "no_generate_debug_symbols" in addition to "generate_dsym_file"
    */
   private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
 
@@ -260,7 +262,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         ? LinkTargetType.OBJCPP_EXECUTABLE
         : LinkTargetType.OBJC_EXECUTABLE;
     
-    ObjcVariablesExtension extension =
+    ObjcVariablesExtension.Builder extensionBuilder =
         new ObjcVariablesExtension.Builder()
             .setRuleContext(ruleContext)
             .setObjcProvider(objcProvider)
@@ -270,12 +272,11 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLibraryNames(libraryNames(objcProvider))
             .setForceLoadArtifacts(getForceLoadArtifacts(objcProvider))
             .setAttributeLinkopts(attributes.linkopts())
-            .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES)
-            .build();
-   
+            .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
+
     Artifact binaryToLink = getBinaryToLink();
     FdoSupportProvider fdoSupport = CppHelper.getFdoSupport(ruleContext, ":cc_toolchain");
-    CppLinkAction executableLinkAction =
+    CppLinkActionBuilder executableLinkAction =
         new CppLinkActionBuilder(ruleContext, binaryToLink, toolchain, fdoSupport)
             .setMnemonic("ObjcLink")
             .addActionInputs(bazelBuiltLibraries)
@@ -289,10 +290,20 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
             .addLinkopts(ImmutableList.copyOf(extraLinkArgs))
-            .addVariablesExtension(extension)
-            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration))
-            .build();
-    ruleContext.registerAction(executableLinkAction);    
+            .setFeatureConfiguration(getFeatureConfiguration(ruleContext, buildConfiguration));
+
+    if (objcConfiguration.generateDsym()) {
+      Artifact dsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
+      extensionBuilder
+          .setDsymBundleZip(dsymBundleZip)
+          .addVariableCategory(VariableCategory.DSYM_VARIABLES)
+          .setDsymOutputType(dsymOutputType);
+      registerDsymActions(dsymOutputType);
+      executableLinkAction.addActionOutput(dsymBundleZip);
+    }
+
+    executableLinkAction.addVariablesExtension(extensionBuilder.build());
+    ruleContext.registerAction(executableLinkAction.build());
 
     if (objcConfiguration.shouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
@@ -424,7 +435,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
     if (!TargetUtils.isTestRule(ruleContext.getRule())) {
       activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
     }
-    if (!configuration.getFragment(ObjcConfiguration.class).generateDsym()) {
+    if (configuration.getFragment(ObjcConfiguration.class).generateDsym()) {
+      activatedCrosstoolSelectables.add(GENERATE_DSYM_FILE_FEATURE_NAME);
+    } else {
       activatedCrosstoolSelectables.add(NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
 

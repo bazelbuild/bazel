@@ -877,6 +877,57 @@ public abstract class CompilationSupport {
       @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport)
       throws InterruptedException;
 
+  private PathFragment removeSuffix(PathFragment path, String suffix) {
+    String name = path.getBaseName();
+    Preconditions.checkArgument(
+        name.endsWith(suffix), "expected %s to end with %s, but it does not", name, suffix);
+    return path.replaceName(name.substring(0, name.length() - suffix.length()));
+  }
+
+  protected CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {
+    Artifact tempDsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
+    Artifact linkedBinary =
+        objcConfiguration.shouldStripBinary()
+            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
+            : intermediateArtifacts.strippedSingleArchitectureBinary();
+    Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
+    Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
+
+    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
+    PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
+    PathFragment debugSymbolFileZipEntry =
+        debugSymbolFile
+            .getExecPath()
+            .replaceName(linkedBinary.getFilename())
+            .relativeTo(dsymOutputDir);
+
+    StringBuilder unzipDsymCommand =
+        new StringBuilder()
+            .append(
+                String.format(
+                    "unzip -p %s %s > %s",
+                    tempDsymBundleZip.getExecPathString(),
+                    dsymPlistZipEntry,
+                    dsymPlist.getExecPathString()))
+            .append(
+                String.format(
+                    " && unzip -p %s %s > %s",
+                    tempDsymBundleZip.getExecPathString(),
+                    debugSymbolFileZipEntry,
+                    debugSymbolFile.getExecPathString()));
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setMnemonic("UnzipDsym")
+            .setShellCommand(unzipDsymCommand.toString())
+            .addInput(tempDsymBundleZip)
+            .addOutput(dsymPlist)
+            .addOutput(debugSymbolFile)
+            .build(ruleContext));
+
+    return this;
+  }
+
  /**
    * Returns all framework names to pass to the linker using {@code -framework} flags. For a
    * framework in the directory foo/bar.framework, the name is "bar". Each framework is found

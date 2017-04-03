@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -67,7 +66,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction.DotdFile;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.FdoSupportProvider;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.LinkedHashSet;
@@ -800,57 +798,6 @@ public class LegacyCompilationSupport extends CompilationSupport {
     public Iterable<String> arguments() {
       return ImmutableList.of(Joiner.on(' ').join(original.arguments()));
     }
-  }
-
-  private CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {
-    Artifact tempDsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
-    Artifact linkedBinary =
-        objcConfiguration.shouldStripBinary()
-            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
-            : intermediateArtifacts.strippedSingleArchitectureBinary();
-    Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
-    Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
-
-    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
-    PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
-    PathFragment debugSymbolFileZipEntry =
-        debugSymbolFile
-            .getExecPath()
-            .replaceName(linkedBinary.getFilename())
-            .relativeTo(dsymOutputDir);
-
-    StringBuilder unzipDsymCommand =
-        new StringBuilder()
-            .append(
-                String.format(
-                    "unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    dsymPlistZipEntry,
-                    dsymPlist.getExecPathString()))
-            .append(
-                String.format(
-                    " && unzip -p %s %s > %s",
-                    tempDsymBundleZip.getExecPathString(),
-                    debugSymbolFileZipEntry,
-                    debugSymbolFile.getExecPathString()));
-
-    ruleContext.registerAction(
-        new SpawnAction.Builder()
-            .setMnemonic("UnzipDsym")
-            .setShellCommand(unzipDsymCommand.toString())
-            .addInput(tempDsymBundleZip)
-            .addOutput(dsymPlist)
-            .addOutput(debugSymbolFile)
-            .build(ruleContext));
-
-    return this;
-  }
-
-  private PathFragment removeSuffix(PathFragment path, String suffix) {
-    String name = path.getBaseName();
-    Preconditions.checkArgument(
-        name.endsWith(suffix), "expect %s to end with %s, but it does not", name, suffix);
-    return path.replaceName(name.substring(0, name.length() - suffix.length()));
   }
 
   /** Returns a list of clang flags used for all link and compile actions executed through clang. */
