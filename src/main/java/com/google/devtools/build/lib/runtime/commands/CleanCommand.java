@@ -225,8 +225,7 @@ public final class CleanCommand implements BlazeCommand {
       env.getBlazeWorkspace().clearCaches();
       // In order to be sure that we delete everything, delete the workspace directory both for
       // --deep_execroot and for --nodeep_execroot.
-      for (String directory : new String[] {
-          workspaceDirectory, "execroot/" + workspaceDirectory }) {
+      for (String directory : new String[] {workspaceDirectory, "execroot"}) {
         Path child = outputBase.getRelative(directory);
         if (child.exists()) {
           LOG.finest("Cleaning " + child + (cleanOptions.async ? " asynchronously..." : ""));
