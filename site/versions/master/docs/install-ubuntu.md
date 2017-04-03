@@ -27,8 +27,8 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 ### 1. Add Bazel distribution URI as a package source (one time setup)
 
 ```
-$ echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
-$ curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
+echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 ```
 
 If you want to use the JDK 7, please replace `jdk1.8` with `jdk1.7` and if you
@@ -36,11 +36,15 @@ want to install the testing version of Bazel, replace `stable` with `testing`.
 
 ### 2. Install and update Bazel
 
-`$ sudo apt-get update && sudo apt-get install bazel`
+```bash
+sudo apt-get update && sudo apt-get install bazel
+```
 
 Once installed, you can upgrade to newer version of Bazel with:
 
-`$ sudo apt-get upgrade bazel`
+```bash
+sudo apt-get upgrade bazel
+```
 
 ## <a name="install-with-installer-ubuntu"></a>Install with installer
 
@@ -55,13 +59,13 @@ to be installed on the machine to work.
 To install OpenJDK 8:
 
 ```
-$ sudo apt-get install openjdk-8-jdk
+sudo apt-get install openjdk-8-jdk
 ```
 
 ### 2. Install other required packages
 
 ```
-$ sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
+sudo apt-get install pkg-config zip g++ zlib1g-dev unzip
 ```
 
 ### 3. Download Bazel
@@ -73,10 +77,10 @@ your operating system.
 
 Run the installer:
 
-<pre>
-$ chmod +x bazel-<em>version</em>-installer-<em>os</em>.sh
-$ ./bazel-<em>version</em>-installer-<em>os</em>.sh --user
-</pre>
+```bash
+chmod +x bazel-&lt;version&gt;-installer-&lt;os&gt;.sh
+./bazel-&lt;version&gt;-installer-&lt;os&gt;.sh --user
+```
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
 sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
@@ -89,7 +93,7 @@ executable is installed in your `$HOME/bin` directory. It's a good idea to add
 this directory to your default paths, as follows:
 
 ```bash
-$ export PATH="$PATH:$HOME/bin"
+export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.

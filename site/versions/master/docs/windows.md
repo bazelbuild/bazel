@@ -118,9 +118,9 @@ toolchain is not default on Windows yet, you should use flag
 `--cpu=x64_windows_msvc` to enable it like this:
 
 ```bash
-$ bazel build --cpu=x64_windows_msvc examples/cpp:hello-world
-$ ./bazel-bin/examples/cpp/hello-world.exe
-$ bazel run --cpu=x64_windows_msvc examples/cpp:hello-world
+bazel build --cpu=x64_windows_msvc examples/cpp:hello-world
+./bazel-bin/examples/cpp/hello-world.exe
+bazel run --cpu=x64_windows_msvc examples/cpp:hello-world
 ```
 
 ### Build Java
@@ -129,9 +129,9 @@ Building Java targets works well on Windows, no special configuration is needed.
 Just try:
 
 ```bash
-$ bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
-$ ./bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
-$ bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
+bazel build examples/java-native/src/main/java/com/example/myproject:hello-world
+./bazel-bin/examples/java-native/src/main/java/com/example/myproject/hello-world
+bazel run examples/java-native/src/main/java/com/example/myproject:hello-world
 ```
 
 ### Build Python
@@ -141,8 +141,8 @@ On Windows, we build a self-extracting zip file for executable python targets, y
 See more details in this [design doc](/designs/2016/09/05/build-python-on-windows.html).
 
 ```bash
-$ bazel build examples/py_native:bin
-$ ./bazel-bin/examples/py_native/bin
-$ python ./bazel-bin/examples/py_native/bin    # This works in both msys and cmd.exe
-$ bazel run examples/py_native:bin
+bazel build examples/py_native:bin
+./bazel-bin/examples/py_native/bin
+python ./bazel-bin/examples/py_native/bin    # This works in both msys and cmd.exe
+bazel run examples/py_native:bin
 ```

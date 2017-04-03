@@ -105,7 +105,7 @@ title: Query Language
       Note that this quoting is in addition to any quoting that may
       be required by your shell. e.g.
     </p>
-    <pre>% bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
+    <pre>bazel query ' "//foo:bar=wiz" '     # single-quotes for shell, double-quotes for Bazel.</pre>
 
     <p>
       Keywords, when quoted, are treated as ordinary words, thus
@@ -463,8 +463,8 @@ x intersect (y union z)</pre>
   further processing.  For example:
 </p>
 <pre>
-  % bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... &gt; foo
-  % bazel query "kind(cc_binary, set($(&lt;foo)))"
+  bazel query deps(//my:target) --output=label | grep ... | sed ... | awk ... &gt; foo
+  bazel query "kind(cc_binary, set($(&lt;foo)))"
 </pre>
 <p>
   In the next example, <code>kind(cc_library,
@@ -473,9 +473,9 @@ x intersect (y union z)</pre>
   an <code>awk</code> program.
 </p>
 <pre>
-  % bazel query 'deps(//some_dir/foo:main)' --output maxrank |
+  bazel query 'deps(//some_dir/foo:main)' --output maxrank |
         awk '($1 &lt; 5) { print $2;} ' &gt; foo
-  % bazel query "kind(cc_library, set($(&lt;foo)))"
+  bazel query "kind(cc_library, set($(&lt;foo)))"
 </pre>
 <p>
   In these examples, <code>$(&lt;foo)</code> is a shorthand
@@ -1409,11 +1409,11 @@ maxrank
 <p>
 
 <pre>
-  $ # Querying over all members of //external returns the repository.
-  $ bazel query 'kind(maven_jar, //external:*)'
+  # Querying over all members of //external returns the repository.
+  bazel query 'kind(maven_jar, //external:*)'
   //external:other-repo
 
-  $ # ...but the repository is not a dependency.
-  $ bazel query 'kind(maven_jar, deps(//foo:bar))'
+  # ...but the repository is not a dependency.
+  bazel query 'kind(maven_jar, deps(//foo:bar))'
   INFO: Empty results
 </pre>

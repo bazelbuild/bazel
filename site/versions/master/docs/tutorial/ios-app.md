@@ -38,7 +38,7 @@ source files to complete this tutorial.
 At a command-line prompt, open your new `BUILD` file for editing:
 
 ```bash
-$ vi $WORKSPACE/ios-app/BUILD
+vi $WORKSPACE/ios-app/BUILD
 ```
 
 ## Add an objc_library rule
@@ -117,13 +117,13 @@ in the `master` branch of the GitHub repo.
 Make sure that your current working directory is inside your Bazel workspace:
 
 ```bash
-$ cd $WORKSPACE
+cd $WORKSPACE
 ```
 
 Now, enter the following to build the sample app:
 
 ```bash
-$ bazel build //ios-app:ios-app
+bazel build //ios-app:ios-app
 ```
 
 Bazel now launches and builds the sample app. During the build process, its
@@ -176,7 +176,7 @@ provisioning profile for all bazel builds:
 Now you should be able to build the app for your device:
 
 ```bash
-$ bazel build //ios-app:ios-app --ios_multi_cpus=armv7,arm64
+bazel build //ios-app:ios-app --ios_multi_cpus=armv7,arm64
 ```
 
 This will build the app "fat". If you would prefer just to build for
