@@ -69,6 +69,14 @@ message BuildEventId {
     repeated string pattern = 1;
   }
 
+  // Identifier of an event introducing a named set of files (usually artifacts)
+  // to be referred to in later messages.
+  message NamedSetOfFilesId {
+    // Identifier of the file set; this is an opaque string valid only for the
+    // particular instance of the event stream.
+    string id = 1;
+  }
+
   // Identifier of an event indicating that a target was built completely; this
   // does not include running the test if the target is a test target.
   message TargetCompletedId {
@@ -115,6 +123,7 @@ message BuildEventId {
     OptionsParsedId options_parsed = 12;
     PatternExpandedId pattern = 4;
     PatternExpandedId pattern_skipped = 10;
+    NamedSetOfFilesId named_set = 13;
     TargetCompletedId target_completed = 5;
     ActionCompletedId action_completed = 6;
     TestResultId test_result = 8;
@@ -228,6 +237,17 @@ message File {
   }
 }
 
+// Payload of a message to describe a set of files, usually build artifacts, to
+// be referred to later by their name. In this way, files that occur identically
+// as outputs of several targets have to be named only once.
+message NamedSetOfFiles {
+  // Files that belong to this named set of files.
+  repeated File files = 1;
+
+  // Other named sets whose members also belong to this set.
+  repeated BuildEventId.NamedSetOfFilesId file_sets = 2;
+}
+
 // Payload of the event indicating the completion of an action. The main purpose
 // of posting those events is to provide details on the root cause for a target
 // failing; however, consumers of the build-event protocol must not assume
@@ -260,6 +280,9 @@ message OutputGroup {
 
   // List of output files that belong to this output group.
   repeated File output_file = 2;
+
+  // List of file sets that belong to this output group as well.
+  repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
 }
 
 // Payload of the event indicating the completion of a target. The target is
@@ -358,6 +381,7 @@ message BuildEvent {
     OptionsParsed options_parsed = 13;
     PatternExpanded expanded = 6;
     ActionExecuted action = 7;
+    NamedSetOfFiles named_set_of_files = 15;
     TargetComplete completed = 8;
     TestResult test_result = 10;
     TestSummary test_summary = 9;
