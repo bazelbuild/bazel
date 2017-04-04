@@ -313,13 +313,13 @@ class OptionsParserImpl {
     }
   }
 
-  private void addListValue(Field field, Object value, OptionPriority priority, String source,
-      String implicitDependant, String expandedFrom) {
+  private void addListValue(Field field, String originalName, Object value, OptionPriority priority,
+      String source, String implicitDependant, String expandedFrom) {
     OptionValueDescription entry = parsedValues.get(field);
     if (entry == null) {
       entry =
           new OptionValueDescription(
-              field.getName(),
+              originalName,
               /* originalValueString */ null,
               ArrayListMultimap.create(),
               priority,
@@ -333,20 +333,16 @@ class OptionsParserImpl {
     entry.addValue(priority, value);
   }
 
-  void clearValue(String optionName, Map<String, OptionValueDescription> clearedValues)
+  OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
     Field field = optionsData.getFieldFromName(optionName);
     if (field == null) {
       throw new IllegalArgumentException("No such option '" + optionName + "'");
     }
-    Option option = field.getAnnotation(Option.class);
 
     // Actually remove the value from various lists tracking effective options.
     canonicalizeValues.removeAll(field);
-    OptionValueDescription removed = parsedValues.remove(field);
-    if (removed != null) {
-      clearedValues.put(option.name(), removed);
-    }
+    return parsedValues.remove(field);
   }
 
   OptionValueDescription getOptionValueDescription(String name) {
@@ -560,8 +556,8 @@ class OptionsParserImpl {
           // Note: The type of the list member is not known; Java introspection
           // only makes it available in String form via the signature string
           // for the field declaration.
-          addListValue(field, convertedValue, priority, sourceFunction.apply(originalName),
-              implicitDependent, expandedFrom);
+          addListValue(field, originalName, convertedValue, priority,
+              sourceFunction.apply(originalName), implicitDependent, expandedFrom);
         }
       }
 

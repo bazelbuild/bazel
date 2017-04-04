@@ -725,8 +725,7 @@ public class OptionsParser implements OptionsProvider {
   }
 
   /**
-   * Clears the given option. Also clears expansion arguments and implicit requirements for that
-   * option.
+   * Clears the given option.
    *
    * <p>This will not affect options objects that have already been retrieved from this parser
    * through {@link #getOptions(Class)}.
@@ -735,11 +734,10 @@ public class OptionsParser implements OptionsProvider {
    * @return A map of an option name to the old value of the options that were cleared.
    * @throws IllegalArgumentException If the flag does not exist.
    */
-  public Map<String, OptionValueDescription> clearValue(String optionName)
+  public OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
-    Map<String, OptionValueDescription> clearedValues = Maps.newHashMap();
-    impl.clearValue(optionName, clearedValues);
-    return clearedValues;
+    OptionValueDescription clearedValue = impl.clearValue(optionName);
+    return clearedValue;
   }
 
   @Override

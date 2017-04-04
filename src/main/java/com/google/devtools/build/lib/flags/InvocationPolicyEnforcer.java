@@ -33,8 +33,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -394,18 +392,18 @@ public final class InvocationPolicyEnforcer {
 
   private static void applyUseDefaultOperation(
       OptionsParser parser, String policyType, String flagName) throws OptionsParsingException {
-
-    Map<String, OptionValueDescription> clearedValues = parser.clearValue(flagName);
-    for (Entry<String, OptionValueDescription> clearedValue : clearedValues.entrySet()) {
-
-      OptionValueDescription clearedValueDescription = clearedValue.getValue();
-      String clearedFlagName = clearedValue.getKey();
+    OptionValueDescription clearedValueDescription = parser.clearValue(flagName);
+    if (clearedValueDescription != null) {
+      // Log the removed value.
+      String clearedFlagName = clearedValueDescription.getName();
       String originalValue = clearedValueDescription.getValue().toString();
       String source = clearedValueDescription.getSource();
 
-      Object clearedFlagDefaultValue =
-          parser.getOptionDescription(clearedFlagName).getDefaultValue();
-
+      OptionDescription desc = parser.getOptionDescription(clearedFlagName);
+      Object clearedFlagDefaultValue = null;
+      if (desc != null) {
+        clearedFlagDefaultValue = desc.getDefaultValue();
+      }
       log.info(
           String.format(
               "Using default value '%s' for flag '%s' as "
