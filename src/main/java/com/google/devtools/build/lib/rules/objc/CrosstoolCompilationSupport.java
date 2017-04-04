@@ -123,7 +123,8 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
         ruleContext,
         ruleContext.getConfiguration(),
         ObjcRuleClasses.intermediateArtifacts(ruleContext),
-        CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
+        CompilationAttributes.Builder.fromRuleContext(ruleContext).build(),
+        /*useDeps=*/true);
   }
 
   /**
@@ -133,12 +134,14 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
    * @param buildConfiguration the configuration for the calling target
    * @param intermediateArtifacts IntermediateArtifacts for deriving artifact paths
    * @param compilationAttributes attributes of the calling target
+   * @param useDeps true if deps should be used
    */
   public CrosstoolCompilationSupport(RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      CompilationAttributes compilationAttributes) {
-    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes);
+      CompilationAttributes compilationAttributes,
+      boolean useDeps) {
+    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes, useDeps);
   }
 
   @Override
@@ -387,6 +390,9 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
 
     if (pchHdr != null) {
       result.addNonModuleMapHeader(pchHdr);
+    }
+    if (!useDeps) {
+      result.doNotUseDeps();
     }
     return result;
   }

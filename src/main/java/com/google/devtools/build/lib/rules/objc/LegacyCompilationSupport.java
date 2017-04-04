@@ -143,8 +143,9 @@ public class LegacyCompilationSupport extends CompilationSupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      CompilationAttributes compilationAttributes) {
-    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes);
+      CompilationAttributes compilationAttributes,
+      boolean useDeps) {
+    super(ruleContext, buildConfiguration, intermediateArtifacts, compilationAttributes, useDeps);
   }
 
   @Override

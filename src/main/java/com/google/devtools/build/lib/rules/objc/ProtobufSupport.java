@@ -193,7 +193,8 @@ final class ProtobufSupport {
               ruleContext,
               buildConfiguration,
               intermediateArtifacts,
-              new CompilationAttributes.Builder().build())
+              new CompilationAttributes.Builder().build(),
+              /*useDeps=*/false)
           .registerCompileAndArchiveActions(common, userHeaderSearchPaths);
 
       actionId++;
