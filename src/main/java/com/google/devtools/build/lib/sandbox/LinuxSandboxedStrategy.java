@@ -64,17 +64,15 @@ public class LinuxSandboxedStrategy extends SandboxStrategy {
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       boolean verboseFailures,
-      String productName,
-      String workspaceName) {
+      String productName) {
     super(
         buildRequest,
         blazeDirs,
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class),
-        workspaceName);
+        buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
     this.blazeDirs = blazeDirs;
-    this.execRoot = blazeDirs.getExecRoot(workspaceName);
+    this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.productName = productName;
   }

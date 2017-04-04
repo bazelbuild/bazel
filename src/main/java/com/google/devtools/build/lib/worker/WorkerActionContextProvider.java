@@ -36,7 +36,7 @@ final class WorkerActionContextProvider extends ActionContextProvider {
 
     WorkerSpawnStrategy workerSpawnStrategy =
         new WorkerSpawnStrategy(
-            env.getExecRoot(),
+            env.getDirectories(),
             workers,
             buildRequest.getOptions(ExecutionOptions.class).verboseFailures,
             maxRetries,

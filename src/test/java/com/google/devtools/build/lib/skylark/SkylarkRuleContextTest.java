@@ -731,7 +731,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertThat(ruleClassProvider.getRunfilesPrefix()).isNotEmpty();
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.workspace_name");
-    assertEquals(result, ruleClassProvider.getRunfilesPrefix());
+    assertSame(result, ruleClassProvider.getRunfilesPrefix());
   }
 
   @Test

@@ -57,12 +57,11 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations packageProvider,
       BuildOptions buildOptions,
-      EventHandler eventHandler,
-      String mainRepositoryName)
+      EventHandler eventHandler)
       throws InvalidConfigurationException, InterruptedException {
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
-        packageProvider, buildOptions, false, cache, mainRepositoryName);
+        packageProvider, buildOptions, false, cache);
     if (targetConfiguration == null) {
       return null;
     }
@@ -73,7 +72,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     // Note that this passes in the dataConfiguration, not the target
     // configuration. This is intentional.
     BuildConfiguration hostConfiguration = getHostConfigurationFromRequest(configurationFactory,
-        packageProvider, dataConfiguration, buildOptions, cache, mainRepositoryName);
+        packageProvider, dataConfiguration, buildOptions, cache);
     if (hostConfiguration == null) {
       return null;
     }
@@ -83,7 +82,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     for (SplitTransition<BuildOptions> transition : buildOptions.getPotentialSplitTransitions()) {
       for (BuildOptions splitOptions : transition.split(buildOptions)) {
         BuildConfiguration splitConfig = configurationFactory.getConfiguration(
-            packageProvider, splitOptions, false, cache, mainRepositoryName);
+            packageProvider, splitOptions, false, cache);
         splitTransitionsTable.put(transition, splitConfig);
       }
     }
@@ -157,16 +156,14 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       PackageProviderForConfigurations loadedPackageProvider,
       BuildConfiguration requestConfig,
       BuildOptions buildOptions,
-      Cache<String, BuildConfiguration> cache,
-      String repositoryName)
+      Cache<String, BuildConfiguration> cache)
       throws InvalidConfigurationException, InterruptedException {
     BuildConfiguration.Options commonOptions = buildOptions.get(BuildConfiguration.Options.class);
     if (!commonOptions.useDistinctHostConfiguration) {
       return requestConfig;
     } else {
       BuildConfiguration hostConfig = configurationFactory.getConfiguration(
-          loadedPackageProvider, buildOptions.createHostOptions(false), false, cache,
-          repositoryName);
+          loadedPackageProvider, buildOptions.createHostOptions(false), false, cache);
       if (hostConfig == null) {
         return null;
       }

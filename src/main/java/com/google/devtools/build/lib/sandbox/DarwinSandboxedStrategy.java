@@ -76,7 +76,6 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
 
   private final UUID uuid = UUID.randomUUID();
   private final AtomicInteger execCounter = new AtomicInteger();
-  private final String workspaceName;
 
   private DarwinSandboxedStrategy(
       BuildRequest buildRequest,
@@ -85,23 +84,20 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       boolean verboseFailures,
       String productName,
       ImmutableList<Path> confPaths,
-      SpawnHelpers spawnHelpers,
-      String workspaceName) {
+      SpawnHelpers spawnHelpers) {
     super(
         buildRequest,
         blazeDirs,
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class),
-        workspaceName);
+        buildRequest.getOptions(SandboxOptions.class));
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.blazeDirs = blazeDirs;
-    this.execRoot = blazeDirs.getExecRoot(workspaceName);
+    this.execRoot = blazeDirs.getExecRoot();
     this.sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     this.verboseFailures = verboseFailures;
     this.productName = productName;
     this.confPaths = confPaths;
     this.spawnHelpers = spawnHelpers;
-    this.workspaceName = workspaceName;
   }
 
   public static DarwinSandboxedStrategy create(
@@ -109,8 +105,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       Map<String, String> clientEnv,
       BlazeDirectories blazeDirs,
       boolean verboseFailures,
-      String productName,
-      String workspaceName)
+      String productName)
       throws IOException {
     // On OS X, in addition to what is specified in $TMPDIR, two other temporary directories may be
     // written to by processes. We have to get their location by calling "getconf".
@@ -130,8 +125,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         verboseFailures,
         productName,
         writablePaths.build(),
-        new SpawnHelpers(blazeDirs.getExecRoot(workspaceName)),
-        workspaceName);
+        new SpawnHelpers(blazeDirs.getExecRoot()));
   }
 
   /**
@@ -334,8 +328,8 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         Path mount;
         if (sourceFragment.isAbsolute()) {
           mount = blazeDirs.getFileSystem().getPath(sourceFragment);
-        } else if (blazeDirs.getExecRoot(workspaceName).getRelative(sourceFragment).exists()) {
-          mount = blazeDirs.getExecRoot(workspaceName).getRelative(sourceFragment);
+        } else if (blazeDirs.getExecRoot().getRelative(sourceFragment).exists()) {
+          mount = blazeDirs.getExecRoot().getRelative(sourceFragment);
         } else {
           List<Path> searchPath =
               SearchPath.parse(blazeDirs.getFileSystem(), clientEnv.get("PATH"));

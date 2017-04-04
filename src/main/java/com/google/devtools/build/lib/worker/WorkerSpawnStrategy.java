@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnActionContext;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
@@ -183,7 +184,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
   private final boolean workerVerbose;
 
   public WorkerSpawnStrategy(
-      Path execRoot,
+      BlazeDirectories blazeDirs,
       WorkerPool workers,
       boolean verboseFailures,
       int maxRetries,
@@ -191,7 +192,7 @@ public final class WorkerSpawnStrategy implements SandboxedSpawnActionContext {
       Multimap<String, String> extraFlags) {
     Preconditions.checkNotNull(workers);
     this.workers = Preconditions.checkNotNull(workers);
-    this.execRoot = execRoot;
+    this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.maxRetries = maxRetries;
     this.workerVerbose = workerVerbose;

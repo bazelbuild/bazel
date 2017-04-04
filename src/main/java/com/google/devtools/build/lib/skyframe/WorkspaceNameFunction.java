@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
@@ -26,36 +24,27 @@ import javax.annotation.Nullable;
 /**
  * {@link SkyFunction} for {@link WorkspaceNameValue}s.
  *
- * <p>All errors (e.g. parsing errors or a symlink cycle encountered when consuming the WORKSPACE
- * file) result in a {@link NoSuchPackageException}.
+ * <p>All transitive errors (e.g. a symlink cycle encountered when consuming the WORKSPACE file)
+ * result in a {@link NoSuchPackageException}.
  */
 public class WorkspaceNameFunction implements SkyFunction {
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, WorkspaceNameFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackageValue = (PackageValue) env.getValue(externalPackageKey);
     if (externalPackageValue == null) {
       return null;
     }
     Package externalPackage = externalPackageValue.getPackage();
-    if (externalPackage.containsErrors()) {
-      throw new WorkspaceNameFunctionException();
-    }
-    return WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
+    return externalPackage.containsErrors()
+        ? WorkspaceNameValue.withError()
+        : WorkspaceNameValue.withName(externalPackage.getWorkspaceName());
   }
 
   @Override
   @Nullable
   public String extractTag(SkyKey skyKey) {
     return null;
-  }
-
-  private class WorkspaceNameFunctionException extends SkyFunctionException {
-    WorkspaceNameFunctionException() {
-      super(new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
-          Transience.PERSISTENT);
-    }
   }
 }

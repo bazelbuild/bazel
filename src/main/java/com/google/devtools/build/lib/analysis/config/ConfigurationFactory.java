@@ -69,11 +69,10 @@ public final class ConfigurationFactory {
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      EventHandler errorEventListener,
-      String mainRepositoryName)
+      EventHandler errorEventListener)
       throws InvalidConfigurationException, InterruptedException {
     return configurationCollectionFactory.createConfigurations(this, cache,
-        loadedPackageProvider, buildOptions, errorEventListener, mainRepositoryName);
+        loadedPackageProvider, buildOptions, errorEventListener);
   }
 
   /**
@@ -87,8 +86,7 @@ public final class ConfigurationFactory {
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
       boolean actionsDisabled,
-      Cache<String, BuildConfiguration> cache,
-      String repositoryName)
+      Cache<String, BuildConfiguration> cache)
       throws InvalidConfigurationException, InterruptedException {
 
     String cacheKey = buildOptions.computeCacheKey();
@@ -111,8 +109,7 @@ public final class ConfigurationFactory {
       return null;
     }
 
-    result = new BuildConfiguration(directories, fragments, buildOptions, actionsDisabled,
-        repositoryName);
+    result = new BuildConfiguration(directories, fragments, buildOptions, actionsDisabled);
     cache.put(cacheKey, result);
     return result;
   }

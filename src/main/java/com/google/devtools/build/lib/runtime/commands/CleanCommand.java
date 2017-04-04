@@ -202,7 +202,6 @@ public final class CleanCommand implements BlazeCommand {
   private void actuallyClean(CommandEnvironment env,
       Path outputBase, Options cleanOptions, String symlinkPrefix) throws IOException,
       ShutdownBlazeServerException, CommandException, ExecException, InterruptedException {
-    String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
       env.getOutputService().clean();
     }
@@ -225,7 +224,8 @@ public final class CleanCommand implements BlazeCommand {
       env.getBlazeWorkspace().clearCaches();
       // In order to be sure that we delete everything, delete the workspace directory both for
       // --deep_execroot and for --nodeep_execroot.
-      for (String directory : new String[] {workspaceDirectory, "execroot"}) {
+      for (String directory : new String[] {
+          env.getWorkspaceName(), "execroot/" + env.getWorkspaceName() }) {
         Path child = outputBase.getRelative(directory);
         if (child.exists()) {
           LOG.finest("Cleaning " + child + (cleanOptions.async ? " asynchronously..." : ""));
@@ -239,8 +239,8 @@ public final class CleanCommand implements BlazeCommand {
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-        workspaceDirectory, env.getWorkspace(), env.getReporter(),
-        symlinkPrefix, env.getRuntime().getProductName());
+        env.getWorkspaceName(), env.getWorkspace(), env.getReporter(), symlinkPrefix,
+        env.getRuntime().getProductName());
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
       throw new ShutdownBlazeServerException(0);

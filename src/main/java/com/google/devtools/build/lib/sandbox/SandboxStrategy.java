@@ -62,10 +62,9 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
       boolean verboseFailures,
-      SandboxOptions sandboxOptions,
-      String workspaceName) {
+      SandboxOptions sandboxOptions) {
     this.buildRequest = buildRequest;
-    this.execRoot = blazeDirs.getExecRoot(workspaceName);
+    this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
     this.spawnInputExpander = new SpawnInputExpander(/*strict=*/false);

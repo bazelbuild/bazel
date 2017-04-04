@@ -78,16 +78,15 @@ public class OutputDirectoryLinksUtils {
     }
 
     // Points to execroot
-    createLink(workspace, execRootSymlink(
-        symlinkPrefix, workspace.getBaseName()), execRoot, failures);
-    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
+    createLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), execRoot, failures);
+
     if (targetConfig != null) {
       createLink(workspace, symlinkPrefix + "bin",
-          targetConfig.getBinDirectory(repositoryName).getPath(), failures);
+          targetConfig.getBinDirectory(RepositoryName.MAIN).getPath(), failures);
       createLink(workspace, symlinkPrefix + "testlogs",
-          targetConfig.getTestLogsDirectory(repositoryName).getPath(), failures);
+          targetConfig.getTestLogsDirectory(RepositoryName.MAIN).getPath(), failures);
       createLink(workspace, symlinkPrefix + "genfiles",
-          targetConfig.getGenfilesDirectory(repositoryName).getPath(), failures);
+          targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getPath(), failures);
     }
 
     if (!failures.isEmpty()) {

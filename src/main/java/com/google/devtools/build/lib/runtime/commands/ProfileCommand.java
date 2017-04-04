@@ -192,7 +192,7 @@ public final class ProfileCommand implements BlazeCommand {
         MultiProfileStatistics statistics =
             new MultiProfileStatistics(
                 env.getWorkingDirectory(),
-                env.getWorkspace().getBaseName(),
+                env.getWorkspaceName(),
                 options.getResidue(),
                 getInfoListener(env),
                 opts.vfsStatsLimit > 0);
@@ -248,7 +248,7 @@ public final class ProfileCommand implements BlazeCommand {
               phaseStatistics.put(
                   phase,
                   new PhaseStatistics(
-                      phase, info, env.getWorkspace().getBaseName(), opts.vfsStatsLimit > 0));
+                      phase, info, env.getWorkspaceName(), opts.vfsStatsLimit > 0));
             }
 
             CriticalPathStatistics critPathStats = new CriticalPathStatistics(info);

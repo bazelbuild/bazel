@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.rules.test.TestResult;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,6 +45,7 @@ import java.util.Set;
  */
 @ThreadCompatible
 public class TestResultAnalyzer {
+  private final Path execRoot;
   private final TestSummaryOptions summaryOptions;
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
@@ -56,9 +59,11 @@ public class TestResultAnalyzer {
    * @param executionOptions Parsed build/test execution options.
    * @param eventBus For reporting failed to build and cached tests.
    */
-  public TestResultAnalyzer(TestSummaryOptions summaryOptions,
+  public TestResultAnalyzer(Path execRoot,
+                            TestSummaryOptions summaryOptions,
                             ExecutionOptions executionOptions,
                             EventBus eventBus) {
+    this.execRoot = execRoot;
     this.summaryOptions = summaryOptions;
     this.executionOptions = executionOptions;
     this.eventBus = eventBus;
@@ -206,9 +211,10 @@ public class TestResultAnalyzer {
       numLocalActionCached++;
     }
     
-    Path coverageData = result.getCoverageData();
+    PathFragment coverageData = result.getCoverageData();
     if (coverageData != null) {
-      summaryBuilder.addCoverageFiles(Collections.singletonList(coverageData));
+      summaryBuilder.addCoverageFiles(
+          Collections.singletonList(execRoot.getRelative(coverageData)));
     }
 
     if (!executionOptions.runsPerTestDetectsFlakes) {

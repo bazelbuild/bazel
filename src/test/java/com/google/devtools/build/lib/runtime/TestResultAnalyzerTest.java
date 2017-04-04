@@ -30,9 +30,11 @@ import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.OptionsParser;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,10 +48,12 @@ public class TestResultAnalyzerTest {
   
   @Before
   public final void createMocks() throws Exception  {
+    Path mockPath = mock(Path.class);
     OptionsParser testSpecificOptions = OptionsParser.newOptionsParser(
         TestSummaryOptions.class, ExecutionOptions.class);
     EventBus mockBus = mock(EventBus.class);
     underTest = new TestResultAnalyzer(
+        mockPath,
         testSpecificOptions.getOptions(TestSummaryOptions.class),
         testSpecificOptions.getOptions(ExecutionOptions.class),
         mockBus);
