@@ -137,16 +137,16 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private Artifact sourceArtifact(String path) {
-    return new Artifact(new PathFragment(path), Root.asSourceRoot(rootDirectory));
+    return new Artifact(PathFragment.create(path), Root.asSourceRoot(rootDirectory));
   }
 
   private Artifact sourceArtifactUnderPackagePath(String path, String packagePath) {
     return new Artifact(
-        new PathFragment(path), Root.asSourceRoot(rootDirectory.getRelative(packagePath)));
+        PathFragment.create(path), Root.asSourceRoot(rootDirectory.getRelative(packagePath)));
   }
 
   private Artifact derivedArtifact(String path) {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = rootDirectory.getRelative(execPath);
     Artifact output =
         new Artifact(
@@ -161,7 +161,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private RootedPath rootedPath(String path, String packagePath) {
-    return RootedPath.toRootedPath(rootDirectory.getRelative(packagePath), new PathFragment(path));
+    return RootedPath.toRootedPath(
+        rootDirectory.getRelative(packagePath), PathFragment.create(path));
   }
 
   private static RootedPath childOf(Artifact artifact, String relative) {
@@ -376,7 +377,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   public void testTraversalOfSymlinkToFile() throws Exception {
     Artifact linkNameArtifact = sourceArtifact("foo/baz/qux.sym");
     Artifact linkTargetArtifact = sourceArtifact("foo/bar/baz.txt");
-    PathFragment linkValue = new PathFragment("../bar/baz.txt");
+    PathFragment linkValue = PathFragment.create("../bar/baz.txt");
     TraversalRequest traversalRoot = fileLikeRoot(linkNameArtifact, DONT_CROSS);
     createFile(linkTargetArtifact);
     scratch.dir(linkNameArtifact.getExecPath().getParentDirectory().getPathString());
@@ -407,8 +408,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RootedPath fileA = createFile(rootedPath(sourceArtifact("a/file.a")));
     RootedPath directLink = rootedPath(directLinkArtifact);
     RootedPath transitiveLink = rootedPath(transitiveLinkArtifact);
-    PathFragment directLinkPath = new PathFragment("../a/file.a");
-    PathFragment transitiveLinkPath = new PathFragment("../direct/file.sym");
+    PathFragment directLinkPath = PathFragment.create("../a/file.a");
+    PathFragment transitiveLinkPath = PathFragment.create("../direct/file.sym");
 
     parentOf(directLink).asPath().createDirectory();
     parentOf(transitiveLink).asPath().createDirectory();
@@ -500,8 +501,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RootedPath fileA = createFile(rootedPath(sourceArtifact("a/file.a")));
     RootedPath directLink = rootedPath(directLinkArtifact);
     RootedPath transitiveLink = rootedPath(transitiveLinkArtifact);
-    PathFragment directLinkPath = new PathFragment("../a");
-    PathFragment transitiveLinkPath = new PathFragment("../direct/dir.sym");
+    PathFragment directLinkPath = PathFragment.create("../a");
+    PathFragment transitiveLinkPath = PathFragment.create("../direct/dir.sym");
 
     parentOf(directLink).asPath().createDirectory();
     parentOf(transitiveLink).asPath().createDirectory();
@@ -538,7 +539,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact linkNameArtifact = sourceArtifact("link/foo.sym");
     Artifact linkTargetArtifact = sourceArtifact("dir");
     RootedPath linkName = rootedPath(linkNameArtifact);
-    PathFragment linkValue = new PathFragment("../dir");
+    PathFragment linkValue = PathFragment.create("../dir");
     RootedPath file1 = createFile(childOf(linkTargetArtifact, "file.1"));
     createFile(childOf(linkTargetArtifact, "sub/file.2"));
     scratch.dir(parentOf(linkName).asPath().getPathString());
@@ -595,7 +596,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   public void testTraversalOfDanglingSymlink() throws Exception {
     Artifact linkArtifact = sourceArtifact("a/dangling.sym");
     RootedPath link = rootedPath(linkArtifact);
-    PathFragment linkTarget = new PathFragment("non_existent");
+    PathFragment linkTarget = PathFragment.create("non_existent");
     parentOf(link).asPath().createDirectory();
     link.asPath().createSymbolicLink(linkTarget);
     traverseAndAssertFiles(
@@ -607,7 +608,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     Artifact dirArtifact = sourceArtifact("a");
     RootedPath file = createFile(childOf(dirArtifact, "file.txt"));
     RootedPath link = rootedPath(sourceArtifact("a/dangling.sym"));
-    PathFragment linkTarget = new PathFragment("non_existent");
+    PathFragment linkTarget = PathFragment.create("non_existent");
     parentOf(link).asPath().createDirectory();
     link.asPath().createSymbolicLink(linkTarget);
     traverseAndAssertFiles(
@@ -727,7 +728,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // Create a relative symlink pp1://a/b.sym -> b/. It will be resolved to the subdirectory
     // pp1://a/b, even though a package definition pp2://a/b exists.
     RootedPath pp1aBsym = siblingOf(pp1aFileA, "b.sym");
-    pp1aBsym.asPath().createSymbolicLink(new PathFragment("b"));
+    pp1aBsym.asPath().createSymbolicLink(PathFragment.create("b"));
     invalidateDirectory(parentOf(pp1aBsym));
 
     // Traverse //a excluding subpackages. The relative symlink //a/b.sym points to the subdirectory
@@ -738,7 +739,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         regularFileForTesting(pp1aBuild),
         regularFileForTesting(pp1aFileA),
         regularFileForTesting(childOf(pp1aBsym, "file.fake")),
-        symlinkToDirectoryForTesting(parentOf(pp1bFileFake), pp1aBsym, new PathFragment("b")),
+        symlinkToDirectoryForTesting(parentOf(pp1bFileFake), pp1aBsym, PathFragment.create("b")),
         regularFileForTesting(pp1aSubdirFileB));
   }
 

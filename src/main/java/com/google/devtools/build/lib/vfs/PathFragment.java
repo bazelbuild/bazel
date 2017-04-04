@@ -57,13 +57,13 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   public static final String ROOT_DIR = "/";
 
   /** An empty path fragment. */
-  public static final PathFragment EMPTY_FRAGMENT = new PathFragment("");
+  public static final PathFragment EMPTY_FRAGMENT = create("");
 
   public static final Function<String, PathFragment> TO_PATH_FRAGMENT =
       new Function<String, PathFragment>() {
         @Override
         public PathFragment apply(String str) {
-          return new PathFragment(str);
+          return create(str);
         }
       };
 
@@ -89,7 +89,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (int i = 0; i < segments.length; i++) {
       internedSegments[i] = StringCanonicalizer.intern(segments[i]);
     }
-    return new PathFragment(driveLetter, isAbsolute, internedSegments);
+    return createNoClone(driveLetter, isAbsolute, internedSegments);
   }
 
   /** Same as {@link #create(char, boolean, String[])}, except for {@link List}s of segments. */
@@ -98,7 +98,40 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     for (int i = 0; i < segments.size(); i++) {
       internedSegments[i] = StringCanonicalizer.intern(segments.get(i));
     }
-    return new PathFragment(driveLetter, isAbsolute, internedSegments);
+    return createNoClone(driveLetter, isAbsolute, internedSegments);
+  }
+
+  /**
+   * Construct a PathFragment from a java.io.File, which is an absolute or
+   * relative UNIX path.  Does not support Windows-style Files.
+   */
+  public static PathFragment create(File path) {
+    return new PathFragment(path);
+  }
+
+  /**
+   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
+   */
+  public static PathFragment create(String path) {
+    return new PathFragment(path);
+  }
+
+  /**
+   * Constructs a PathFragment, taking ownership of segments. Package-private,
+   * because it does not perform a defensive clone of the segments array. Used
+   * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
+   */
+  static PathFragment createNoClone(
+      char driveLetter, boolean isAbsolute, String[] segments) {
+    return new PathFragment(driveLetter, isAbsolute, segments);
+  }
+
+  /**
+   * Construct a PathFragment from a sequence of other PathFragments. The new
+   * fragment will be absolute iff the first fragment was absolute.
+   */
+  public static PathFragment create(PathFragment first, PathFragment second, PathFragment... more) {
+    return new PathFragment(first, second, more);
   }
 
   // We have 3 word-sized fields (segments, hashCode and path), and 2
@@ -121,9 +154,8 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   private int hashCode;
   private String path;
 
-  /**
-   * Construct a PathFragment from a string, which is an absolute or relative UNIX or Windows path.
-   */
+  /** Don't call this ctor; use {@link #create(String)} instead. */
+  @Deprecated
   public PathFragment(String path) {
     this.driveLetter =
         (OS.getCurrent() == OS.WINDOWS
@@ -145,20 +177,11 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     return c == SEPARATOR_CHAR || c == EXTRA_SEPARATOR_CHAR;
   }
 
-  /**
-   * Construct a PathFragment from a java.io.File, which is an absolute or
-   * relative UNIX path.  Does not support Windows-style Files.
-   */
-  public PathFragment(File path) {
+  private PathFragment(File path) {
     this(path.getPath());
   }
 
-  /**
-   * Constructs a PathFragment, taking ownership of segments. Package-private,
-   * because it does not perform a defensive clone of the segments array. Used
-   * here in PathFragment, and by Path.asFragment() and Path.relativeTo().
-   */
-  PathFragment(char driveLetter, boolean isAbsolute, String[] segments) {
+  private PathFragment(char driveLetter, boolean isAbsolute, String[] segments) {
     driveLetter = Character.toUpperCase(driveLetter);
     if (OS.getCurrent() == OS.WINDOWS
         && segments.length > 0
@@ -175,11 +198,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     this.segments = segments;
   }
 
-  /**
-   * Construct a PathFragment from a sequence of other PathFragments. The new
-   * fragment will be absolute iff the first fragment was absolute.
-   */
-  public PathFragment(PathFragment first, PathFragment second, PathFragment... more) {
+  private PathFragment(PathFragment first, PathFragment second, PathFragment... more) {
     // TODO(bazel-team): The handling of absolute path fragments in this constructor is unexpected.
     this.segments = new String[sumLengths(first, second, more)];
     int offset = 0;
@@ -420,8 +439,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
       return this;
     }
 
-    return new PathFragment(driveLetter, isAbsolute,
-        subarray(scratchSegments, 0, segmentCount));
+    return createNoClone(driveLetter, isAbsolute, subarray(scratchSegments, 0, segmentCount));
   }
 
   /**
@@ -440,9 +458,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     if (otherFragment.isAbsolute()) {
       return this.driveLetter == '\0' || otherFragment.driveLetter != '\0'
           ? otherFragment
-          : new PathFragment(this.driveLetter, true, otherFragment.segments);
+          : createNoClone(this.driveLetter, true, otherFragment.segments);
     } else {
-      return new PathFragment(this, otherFragment);
+      return create(this, otherFragment);
     }
   }
 
@@ -455,7 +473,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * with no path normalization or I/O performed.
    */
   public PathFragment getRelative(String path) {
-    return getRelative(new PathFragment(path));
+    return getRelative(create(path));
   }
 
   /**
@@ -474,7 +492,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     baseName = StringCanonicalizer.intern(baseName);
     String[] newSegments = Arrays.copyOf(segments, segments.length + 1);
     newSegments[newSegments.length - 1] = baseName;
-    return new PathFragment(driveLetter, isAbsolute, newSegments);
+    return createNoClone(driveLetter, isAbsolute, newSegments);
   }
 
   /**
@@ -525,14 +543,14 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
 
     int length = segments.length - ancestorLength;
     String[] resultSegments = subarray(segments, ancestorLength, length);
-    return new PathFragment('\0', false, resultSegments);
+    return createNoClone('\0', false, resultSegments);
   }
 
   /**
    * Returns a relative path fragment to this path, relative to {@code path}.
    */
   public PathFragment relativeTo(String path) {
-    return relativeTo(new PathFragment(path));
+    return relativeTo(create(path));
   }
 
   /**
@@ -619,8 +637,11 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
           toString(), beginIndex, endIndex));
     }
     boolean isAbsolute = (beginIndex == 0) && this.isAbsolute;
-    return ((beginIndex == 0) && (endIndex == count)) ? this :
-        new PathFragment(driveLetter, isAbsolute,
+    return ((beginIndex == 0) && (endIndex == count))
+        ? this
+        : createNoClone(
+            driveLetter,
+            isAbsolute,
             subarray(segments, beginIndex, endIndex - beginIndex));
   }
 
@@ -698,7 +719,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    */
   public PathFragment toRelative() {
     Preconditions.checkArgument(isAbsolute);
-    return new PathFragment(driveLetter, false, segments);
+    return createNoClone(driveLetter, false, segments);
   }
 
   private boolean isEmpty() {

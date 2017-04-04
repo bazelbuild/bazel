@@ -95,7 +95,8 @@ public class SubincludePreprocessor implements Preprocessor {
       return "";
     }
 
-    Path subinclude = buildFile.getParentDirectory().getRelative(new PathFragment(label.getName()));
+    Path subinclude =
+        buildFile.getParentDirectory().getRelative(PathFragment.create(label.getName()));
     return subinclude.getPathString();
   }
 

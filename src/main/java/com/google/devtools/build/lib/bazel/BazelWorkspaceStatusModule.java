@@ -300,9 +300,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       Root root = env.getDirectories().getBuildDataDirectory(workspaceName);
 
       Artifact stableArtifact = factory.getDerivedArtifact(
-          new PathFragment("stable-status.txt"), root, artifactOwner);
+          PathFragment.create("stable-status.txt"), root, artifactOwner);
       Artifact volatileArtifact = factory.getConstantMetadataArtifact(
-          new PathFragment("volatile-status.txt"), root, artifactOwner);
+          PathFragment.create("volatile-status.txt"), root, artifactOwner);
 
       return new BazelWorkspaceStatusAction(options, env.getClientEnv(),
           env.getDirectories().getWorkspace(), stableArtifact, volatileArtifact, getHostname());

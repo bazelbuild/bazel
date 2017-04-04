@@ -80,7 +80,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
             // the path, except the last one, is already canonicalized, so we can return just that.
             // Plus the returned value is passed to Path.getChild so we must not return a full
             // path here.
-            return new PathFragment(WindowsFileOperations.getLongPath(path)).getBaseName();
+            return PathFragment.create(WindowsFileOperations.getLongPath(path)).getBaseName();
           } catch (IOException e) {
             return null;
           }
@@ -523,7 +523,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     }
 
     path = path.trim();
-    PathFragment result = new PathFragment(path);
+    PathFragment result = PathFragment.create(path);
     if (path.isEmpty() || result.getDriveLetter() == '\0' || !result.isAbsolute()) {
       return null;
     } else {

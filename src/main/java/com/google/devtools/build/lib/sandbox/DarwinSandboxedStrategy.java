@@ -324,7 +324,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       TestRunnerAction testRunnerAction = ((TestRunnerAction) spawn.getResourceOwner());
       RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
       if (runUnder != null && runUnder.getCommand() != null) {
-        PathFragment sourceFragment = new PathFragment(runUnder.getCommand());
+        PathFragment sourceFragment = PathFragment.create(runUnder.getCommand());
         Path mount;
         if (sourceFragment.isAbsolute()) {
           mount = blazeDirs.getFileSystem().getPath(sourceFragment);

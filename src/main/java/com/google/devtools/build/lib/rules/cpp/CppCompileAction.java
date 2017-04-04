@@ -614,7 +614,7 @@ public class CppCompileAction extends AbstractAction
     for (String opt : cppCompileCommandLine.copts) {
       if (opt.startsWith("-I") && opt.length() > 2) {
         // We insist on the combined form "-Idir".
-        result.add(new PathFragment(opt.substring(2)));
+        result.add(PathFragment.create(opt.substring(2)));
       }
     }
     return result.build();
@@ -634,10 +634,10 @@ public class CppCompileAction extends AbstractAction
       String opt = compilerOptions.get(i);
       if (opt.startsWith("-isystem")) {
         if (opt.length() > 8) {
-          result.add(new PathFragment(opt.substring(8).trim()));
+          result.add(PathFragment.create(opt.substring(8).trim()));
         } else if (i + 1 < compilerOptions.size()) {
           i++;
-          result.add(new PathFragment(compilerOptions.get(i)));
+          result.add(PathFragment.create(compilerOptions.get(i)));
         } else {
           System.err.println("WARNING: dangling -isystem flag in options for " + prettyPrint());
         }

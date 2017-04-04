@@ -49,7 +49,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       PathFragment.EMPTY_FRAGMENT);
 
   public static PackageIdentifier createInMainRepo(String name) {
-    return createInMainRepo(new PathFragment(name));
+    return createInMainRepo(PathFragment.create(name));
   }
 
   public static PackageIdentifier createInMainRepo(PathFragment name) {
@@ -79,7 +79,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
         ? Preconditions.checkNotNull(
             execPath.getParentDirectory(), "Must pass in files, not root directory")
         : execPath;
-    if (tofind.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
+    if (tofind.startsWith(PathFragment.create(Label.EXTERNAL_PATH_PREFIX))) {
       // TODO(ulfjack): Remove this when kchodorow@'s exec root rearrangement has been rolled out.
       RepositoryName repository = RepositoryName.create("@" + tofind.getSegment(1));
       return PackageIdentifier.create(repository, tofind.subFragment(2, tofind.segmentCount()));
@@ -137,7 +137,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       throw new LabelSyntaxException(error);
     }
 
-    return create(repo, new PathFragment(packageName));
+    return create(repo, PathFragment.create(packageName));
   }
 
   public RepositoryName getRepository() {

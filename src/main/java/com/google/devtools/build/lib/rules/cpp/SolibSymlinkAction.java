@@ -139,7 +139,7 @@ public final class SolibSymlinkAction extends AbstractAction {
    */
   public static Artifact getCppRuntimeSymlink(RuleContext ruleContext, Artifact library,
       String solibDirOverride, BuildConfiguration configuration) {
-    PathFragment solibDir = new PathFragment(solibDirOverride != null
+    PathFragment solibDir = PathFragment.create(solibDirOverride != null
         ? solibDirOverride
         : configuration.getFragment(CppConfiguration.class).getSolibDirectory());
     PathFragment symlinkName = solibDir.getRelative(library.getRootRelativePath().getBaseName());
@@ -181,7 +181,7 @@ public final class SolibSymlinkAction extends AbstractAction {
     String escapedRulePath = Actions.escapedPath(
         "_" + ruleContext.getLabel());
     String soname = getDynamicLibrarySoname(libraryPath, preserveName);
-    PathFragment solibDir = new PathFragment(cppConfiguration.getSolibDirectory());
+    PathFragment solibDir = PathFragment.create(cppConfiguration.getSolibDirectory());
     if (preserveName) {
       String escapedLibraryPath =
           Actions.escapedPath("_" + libraryPath.getParentDirectory().getPathString());

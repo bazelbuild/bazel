@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  * An implementation of java_binary.
  */
 public class JavaBinary implements RuleConfiguredTargetFactory {
-  private static final PathFragment CPP_RUNTIMES = new PathFragment("_cpp_runtimes");
+  private static final PathFragment CPP_RUNTIMES = PathFragment.create("_cpp_runtimes");
 
   private final JavaSemantics semantics;
 

@@ -34,13 +34,13 @@ public final class CppBuildInfo implements BuildInfoFactory {
   public static final BuildInfoKey KEY = new BuildInfoKey("C++");
 
   private static final PathFragment BUILD_INFO_NONVOLATILE_HEADER_NAME =
-      new PathFragment("build-info-nonvolatile.h");
+      PathFragment.create("build-info-nonvolatile.h");
   private static final PathFragment BUILD_INFO_VOLATILE_HEADER_NAME =
-      new PathFragment("build-info-volatile.h");
+      PathFragment.create("build-info-volatile.h");
   // TODO(bazel-team): (2011) Get rid of the redacted build info. We should try to make
   // the linkstamping process handle the case where those values are undefined.
   private static final PathFragment BUILD_INFO_REDACTED_HEADER_NAME =
-      new PathFragment("build-info-redacted.h");
+      PathFragment.create("build-info-redacted.h");
 
   @Override
   public BuildInfoCollection create(BuildInfoContext buildInfoContext, BuildConfiguration config,

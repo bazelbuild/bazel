@@ -394,8 +394,8 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
   public void testEloop() throws Exception {
     Path a = testFS.getPath("/a");
     Path b = testFS.getPath("/b");
-    a.createSymbolicLink(new PathFragment("b"));
-    b.createSymbolicLink(new PathFragment("a"));
+    a.createSymbolicLink(PathFragment.create("b"));
+    b.createSymbolicLink(PathFragment.create("a"));
     try {
       a.stat();
     } catch (IOException e) {
@@ -406,7 +406,7 @@ public class InMemoryFileSystemTest extends ScopeEscapableFileSystemTest {
   @Test
   public void testEloopSelf() throws Exception {
     Path a = testFS.getPath("/a");
-    a.createSymbolicLink(new PathFragment("a"));
+    a.createSymbolicLink(PathFragment.create("a"));
     try {
       a.stat();
     } catch (IOException e) {

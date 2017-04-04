@@ -30,9 +30,9 @@ public class FileSymlinkCycleUniquenessFunctionTest {
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
     Path root = new InMemoryFileSystem().getRootDirectory().getRelative("root");
-    RootedPath p1 = RootedPath.toRootedPath(root, new PathFragment("p1"));
-    RootedPath p2 = RootedPath.toRootedPath(root, new PathFragment("p2"));
-    RootedPath p3 = RootedPath.toRootedPath(root, new PathFragment("p3"));
+    RootedPath p1 = RootedPath.toRootedPath(root, PathFragment.create("p1"));
+    RootedPath p2 = RootedPath.toRootedPath(root, PathFragment.create("p2"));
+    RootedPath p3 = RootedPath.toRootedPath(root, PathFragment.create("p3"));
     ImmutableList<RootedPath> cycleA1 = ImmutableList.of(p1);
     ImmutableList<RootedPath> cycleB1 = ImmutableList.of(p2);
     ImmutableList<RootedPath> cycleC1 = ImmutableList.of(p1, p2, p3);

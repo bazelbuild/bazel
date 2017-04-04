@@ -222,7 +222,7 @@ public class HttpDownloader {
     }
     String basename =
         MoreObjects.firstNonNull(
-            Strings.emptyToNull(new PathFragment(url.getPath()).getBaseName()),
+            Strings.emptyToNull(PathFragment.create(url.getPath()).getBaseName()),
             "temp");
     if (!type.get().isEmpty()) {
       String suffix = "." + type.get();

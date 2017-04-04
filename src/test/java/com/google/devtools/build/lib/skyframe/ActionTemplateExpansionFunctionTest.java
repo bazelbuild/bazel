@@ -121,12 +121,12 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     OutputPathMapper mapper = new OutputPathMapper() {
       @Override
       public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-        return new PathFragment("conflict_path");
+        return PathFragment.create("conflict_path");
       }
     };
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(new PathFragment("/bin/cp"))
+            .setExecutable(PathFragment.create("/bin/cp"))
             .setCommandLineTemplate(CustomCommandLine.builder().build())
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
@@ -152,10 +152,10 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         PathFragment path;
         switch (i) {
           case 0:
-            path = new PathFragment("path_prefix");
+            path = PathFragment.create("path_prefix");
             break;
           case 1:
-            path = new PathFragment("path_prefix/conflict");
+            path = PathFragment.create("path_prefix/conflict");
             break;
           default:
             path = inputTreeFileArtifact.getParentRelativePath();
@@ -167,7 +167,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     };
     SpawnActionTemplate spawnActionTemplate =
         new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
-            .setExecutable(new PathFragment("/bin/cp"))
+            .setExecutable(PathFragment.create("/bin/cp"))
             .setCommandLineTemplate(CustomCommandLine.builder().build())
             .setOutputPathMapper(mapper)
             .build(ActionsTestUtil.NULL_ACTION_OWNER);
@@ -199,7 +199,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
   }
 
   private Artifact createTreeArtifact(String path) {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = rootDirectory.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
@@ -216,7 +216,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
 
     for (String childRelativePath : childRelativePaths) {
       TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(
-          treeArtifact, new PathFragment(childRelativePath));
+          treeArtifact, PathFragment.create(childRelativePath));
       scratch.file(treeFileArtifact.getPath().toString(), childRelativePath);
       // We do not care about the FileArtifactValues in this test.
       treeFileArtifactMap.put(treeFileArtifact, FileArtifactValue.create(treeFileArtifact));

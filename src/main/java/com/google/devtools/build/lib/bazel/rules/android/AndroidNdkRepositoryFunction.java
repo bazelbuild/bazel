@@ -61,7 +61,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
   private static final String TOOLCHAIN_NAME_PREFIX = "toolchain-";
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
-  private static final PathFragment PLATFORMS_DIR = new PathFragment("platforms");
+  private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
 
   private static final Iterable<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
 
@@ -229,7 +229,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
   private static PathFragment getAndroidNdkHomeEnvironmentVar(
       Path workspace, Map<String, String> env) {
-    return workspace.getRelative(new PathFragment(env.get(PATH_ENV_VAR))).asFragment();
+    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String createBuildFile(String ruleName, List<CrosstoolStlPair> crosstools) {

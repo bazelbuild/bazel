@@ -468,8 +468,8 @@ public class LoadingPhaseRunnerTest {
     tester.getWorkspace().getChild("broken").createDirectory();
 
     // Create a circular symlink.
-    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
-        .createSymbolicLink(new PathFragment("BUILD"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/BUILD"))
+        .createSymbolicLink(PathFragment.create("BUILD"));
 
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }
@@ -479,10 +479,10 @@ public class LoadingPhaseRunnerTest {
     tester.getWorkspace().getChild("broken").createDirectory();
 
     // Create a circular symlink.
-    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
-        .createSymbolicLink(new PathFragment("x"));
-    tester.getWorkspace().getRelative(new PathFragment("broken/x"))
-        .createSymbolicLink(new PathFragment("BUILD"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/BUILD"))
+        .createSymbolicLink(PathFragment.create("x"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/x"))
+        .createSymbolicLink(PathFragment.create("BUILD"));
 
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }

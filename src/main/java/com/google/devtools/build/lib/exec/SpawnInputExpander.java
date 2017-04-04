@@ -147,7 +147,7 @@ public class SpawnInputExpander {
       PathFragment location;
       int pos = line.indexOf(' ');
       if (pos == -1) {
-        location = new PathFragment(line);
+        location = PathFragment.create(line);
         artifact = EMPTY_FILE;
       } else {
         String targetPath = line.substring(pos + 1);
@@ -156,7 +156,7 @@ public class SpawnInputExpander {
         }
         artifact = targetPath.isEmpty() ? EMPTY_FILE : ActionInputHelper.fromPath(targetPath);
 
-        location = new PathFragment(line.substring(0, pos));
+        location = PathFragment.create(line.substring(0, pos));
         if (!workspaceName.isEmpty()) {
           if (!location.getSegment(0).equals(workspaceName)) {
             throw new IOException(

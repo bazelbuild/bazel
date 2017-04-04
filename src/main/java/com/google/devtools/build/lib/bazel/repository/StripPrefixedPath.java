@@ -64,9 +64,9 @@ public final class StripPrefixedPath {
    * Normalize the path and, if it is absolute, make it relative (e.g., /foo/bar becomes foo/bar).
    */
   private static PathFragment relativize(String path) {
-    PathFragment entryPath = new PathFragment(path).normalize();
+    PathFragment entryPath = PathFragment.create(path).normalize();
     if (entryPath.isAbsolute()) {
-      entryPath = new PathFragment(entryPath.getSafePathString().substring(
+      entryPath = PathFragment.create(entryPath.getSafePathString().substring(
           entryPath.windowsVolume().length() + 1));
     }
     return entryPath;

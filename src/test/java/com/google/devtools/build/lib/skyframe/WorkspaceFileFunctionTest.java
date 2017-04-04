@@ -124,7 +124,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", contents);
     fakeWorkspaceFileValue.setSize(workspacePath.getFileSize());
     return RootedPath.toRootedPath(
-        workspacePath.getParentDirectory(), new PathFragment(workspacePath.getBaseName()));
+        workspacePath.getParentDirectory(), PathFragment.create(workspacePath.getBaseName()));
   }
 
   // Dummy harmcrest matcher that match the function name of a skykey

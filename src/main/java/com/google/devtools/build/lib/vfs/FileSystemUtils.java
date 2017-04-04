@@ -109,7 +109,7 @@ public class FileSystemUtils {
    */
   public static PathFragment relativePath(PathFragment fromDir, PathFragment to) {
     if (to.equals(fromDir)) {
-      return new PathFragment(".");  // same dir, just return '.'
+      return PathFragment.create(".");  // same dir, just return '.'
     }
     if (to.startsWith(fromDir)) {
       return to.relativeTo(fromDir);  // easy case--it's a descendant
@@ -123,7 +123,7 @@ public class FileSystemUtils {
     for (int i = 0; i < levels; i++) {
       dotdots.append("../");
     }
-    return new PathFragment(dotdots.toString()).getRelative(to.relativeTo(ancestor));
+    return PathFragment.create(dotdots.toString()).getRelative(to.relativeTo(ancestor));
   }
 
   /**
@@ -229,9 +229,10 @@ public class FileSystemUtils {
     int count = path.segmentCount();
     for (int i = 0; i < count; i++) {
       if (path.getSegment(i).equals(oldSegment)) {
-        path = new PathFragment(path.subFragment(0, i),
-                                new PathFragment(newSegment),
-                                path.subFragment(i+1, count));
+        path = PathFragment.create(
+            path.subFragment(0, i),
+            PathFragment.create(newSegment),
+            path.subFragment(i+1, count));
         if (!replaceAll) {
           return path;
         }
@@ -287,7 +288,7 @@ public class FileSystemUtils {
    * 'user.dir'. This version does not require a {@link FileSystem}.
    */
   public static PathFragment getWorkingDirectory() {
-    return new PathFragment(System.getProperty("user.dir", "/"));
+    return PathFragment.create(System.getProperty("user.dir", "/"));
   }
 
   /****************************************************************************
@@ -356,7 +357,7 @@ public class FileSystemUtils {
    */
   @ThreadSafe  // but not atomic
   public static void ensureSymbolicLink(Path link, String target) throws IOException {
-    ensureSymbolicLink(link, new PathFragment(target));
+    ensureSymbolicLink(link, PathFragment.create(target));
   }
 
   /**

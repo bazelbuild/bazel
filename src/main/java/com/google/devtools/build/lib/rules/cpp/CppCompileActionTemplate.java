@@ -79,7 +79,7 @@ public final class CppCompileActionTemplate implements ActionTemplate<CppCompile
       String outputName = outputTreeFileArtifactName(inputTreeFileArtifact);
       TreeFileArtifact outputTreeFileArtifact = ActionInputHelper.treeFileArtifact(
           outputTreeArtifact,
-          new PathFragment(outputName),
+          PathFragment.create(outputName),
           artifactOwner);
 
       expandedActions.add(createAction(inputTreeFileArtifact, outputTreeFileArtifact));

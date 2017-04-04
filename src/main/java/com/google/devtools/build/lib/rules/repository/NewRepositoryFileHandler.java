@@ -195,7 +195,7 @@ public class NewRepositoryFileHandler {
         }
       } else {
         // TODO(dmarting): deprecate using a path for the workspace_file attribute.
-        PathFragment file = new PathFragment(fileAttribute);
+        PathFragment file = PathFragment.create(fileAttribute);
         Path fileTarget = workspacePath.getRelative(file);
         if (!fileTarget.exists()) {
           throw new RepositoryFunctionException(
@@ -211,7 +211,7 @@ public class NewRepositoryFileHandler {
         if (file.isAbsolute()) {
           rootedFile =
               RootedPath.toRootedPath(
-                  fileTarget.getParentDirectory(), new PathFragment(fileTarget.getBaseName()));
+                  fileTarget.getParentDirectory(), PathFragment.create(fileTarget.getBaseName()));
         } else {
           rootedFile = RootedPath.toRootedPath(workspacePath, file);
         }

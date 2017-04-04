@@ -52,7 +52,7 @@ public class RunfilesSupplierImplTest {
     List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
 
     RunfilesSupplierImpl underTest =
-        new RunfilesSupplierImpl(new PathFragment("notimportant"), mkRunfiles(artifacts));
+        new RunfilesSupplierImpl(PathFragment.create("notimportant"), mkRunfiles(artifacts));
 
     assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
   }
@@ -60,11 +60,11 @@ public class RunfilesSupplierImplTest {
   @Test
   public void testGetArtifactsFilterMiddlemen() {
     List<Artifact> artifacts = mkArtifacts(rootDir, "thing1", "thing2");
-    Artifact middleman = new Artifact(new PathFragment("middleman"), middlemanRoot);
+    Artifact middleman = new Artifact(PathFragment.create("middleman"), middlemanRoot);
     Runfiles runfiles = mkRunfiles(Iterables.concat(artifacts, ImmutableList.of(middleman)));
 
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(new PathFragment("notimportant"), runfiles);
+        new RunfilesSupplierImpl(PathFragment.create("notimportant"), runfiles);
 
     assertThat(underTest.getArtifacts()).containsExactlyElementsIn(artifacts);
   }
@@ -72,15 +72,15 @@ public class RunfilesSupplierImplTest {
   @Test
   public void testGetManifestsWhenNone() {
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(new PathFragment("ignored"), Runfiles.EMPTY, null);
+        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY, null);
     assertThat(underTest.getManifests()).isEmpty();
   }
 
   @Test
   public void testGetManifestsWhenSupplied() {
-    Artifact manifest = new Artifact(new PathFragment("manifest"), rootDir);
+    Artifact manifest = new Artifact(PathFragment.create("manifest"), rootDir);
     RunfilesSupplier underTest =
-        new RunfilesSupplierImpl(new PathFragment("ignored"), Runfiles.EMPTY, manifest);
+        new RunfilesSupplierImpl(PathFragment.create("ignored"), Runfiles.EMPTY, manifest);
     assertThat(underTest.getManifests()).containsExactly(manifest);
   }
 
@@ -91,7 +91,7 @@ public class RunfilesSupplierImplTest {
   private static List<Artifact> mkArtifacts(Root rootDir, String... paths) {
     ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
     for (String path : paths) {
-      builder.add(new Artifact(new PathFragment(path), rootDir));
+      builder.add(new Artifact(PathFragment.create(path), rootDir));
     }
     return builder.build();
   }

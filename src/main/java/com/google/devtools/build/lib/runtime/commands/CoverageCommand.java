@@ -289,7 +289,7 @@ public class CoverageCommand extends TestCommand {
       // filter value much more user-friendly - especially in case of /my/package/... wildcards.
       Set<String> parentFilters = Sets.newTreeSet();
       String filterString = iterator.next();
-      PathFragment parent = new PathFragment(filterString).getParentDirectory();
+      PathFragment parent = PathFragment.create(filterString).getParentDirectory();
       while (iterator.hasNext()) {
         String current = iterator.next();
         if (parent != null && parent.getPathString().length() > 0
@@ -297,7 +297,7 @@ public class CoverageCommand extends TestCommand {
           parentFilters.add(parent.getPathString());
         } else {
           filterString = current;
-          parent = new PathFragment(filterString).getParentDirectory();
+          parent = PathFragment.create(filterString).getParentDirectory();
         }
       }
       packageFilters.addAll(parentFilters);

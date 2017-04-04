@@ -152,7 +152,7 @@ public class SkylarkRepositoryContext {
   private SkylarkPath getPath(String method, Object path)
       throws EvalException, InterruptedException {
     if (path instanceof String) {
-      PathFragment pathFragment = new PathFragment(path.toString());
+      PathFragment pathFragment = PathFragment.create(path.toString());
       return new SkylarkPath(pathFragment.isAbsolute()
           ? outputDirectory.getFileSystem().getPath(path.toString())
           : outputDirectory.getRelative(pathFragment));
@@ -426,7 +426,7 @@ public class SkylarkRepositoryContext {
           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
     for (String p : getPathEnvironment()) {
-      PathFragment fragment = new PathFragment(p);
+      PathFragment fragment = PathFragment.create(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
         // root?).

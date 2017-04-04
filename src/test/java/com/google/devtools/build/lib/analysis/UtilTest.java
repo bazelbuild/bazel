@@ -30,7 +30,7 @@ public class UtilTest {
 
   @Test
   public void testContainsHyphen() throws Exception {
-    assertTrue(Util.containsHyphen(new PathFragment("foo/bar/with-hyphen")));
-    assertFalse(Util.containsHyphen(new PathFragment("foo/bar/no/hyphen")));
+    assertTrue(Util.containsHyphen(PathFragment.create("foo/bar/with-hyphen")));
+    assertFalse(Util.containsHyphen(PathFragment.create("foo/bar/no/hyphen")));
   }
 }

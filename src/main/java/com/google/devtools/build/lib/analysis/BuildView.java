@@ -478,7 +478,7 @@ public class BuildView {
         String bzlFileLoadLikeString = aspect.substring(0, delimiterPosition);
         if (!bzlFileLoadLikeString.startsWith("//") && !bzlFileLoadLikeString.startsWith("@")) {
           // "Legacy" behavior of '--aspects' parameter.
-          bzlFileLoadLikeString = new PathFragment("/" + bzlFileLoadLikeString).toString();
+          bzlFileLoadLikeString = PathFragment.create("/" + bzlFileLoadLikeString).toString();
           if (bzlFileLoadLikeString.endsWith(".bzl")) {
             bzlFileLoadLikeString = bzlFileLoadLikeString.substring(0,
                 bzlFileLoadLikeString.length() - ".bzl".length());

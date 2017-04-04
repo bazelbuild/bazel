@@ -254,8 +254,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   @Test
   public void testComputeKeyNonStatic() throws Exception {
     final RuleContext ruleContext = createDummyRuleContext();
-    final PathFragment exeOutputPath = new PathFragment("dummyRuleContext/output/path");
-    final PathFragment dynamicOutputPath = new PathFragment("dummyRuleContext/output/path.so");
+    final PathFragment exeOutputPath = PathFragment.create("dummyRuleContext/output/path");
+    final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(exeOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
     final Artifact oFile = getSourceArtifact("cc/a.o");
@@ -286,7 +286,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setNativeDeps((i & 4) == 0);
             builder.setUseTestOnlyFlags((i & 8) == 0);
             builder.setFake((i & 16) == 0);
-            builder.setRuntimeSolibDir((i & 32) == 0 ? null : new PathFragment("so1"));
+            builder.setRuntimeSolibDir((i & 32) == 0 ? null : PathFragment.create("so1"));
             builder.setFeatureConfiguration(featureConfiguration);
 
             return builder.build();
@@ -301,8 +301,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
   @Test
   public void testComputeKeyStatic() throws Exception {
     final RuleContext ruleContext = createDummyRuleContext();
-    final PathFragment staticOutputPath = new PathFragment("dummyRuleContext/output/path.a");
-    final PathFragment dynamicOutputPath = new PathFragment("dummyRuleContext/output/path.so");
+    final PathFragment staticOutputPath = PathFragment.create("dummyRuleContext/output/path.a");
+    final PathFragment dynamicOutputPath = PathFragment.create("dummyRuleContext/output/path.so");
     final Artifact staticOutputFile = getBinArtifactWithNoOwner(staticOutputPath.getPathString());
     final Artifact dynamicOutputFile = getBinArtifactWithNoOwner(dynamicOutputPath.getPathString());
     final Artifact oFile = getSourceArtifact("cc/a.o");
@@ -336,11 +336,11 @@ public class CppLinkActionTest extends BuildViewTestCase {
   public void testCommandLineSplitting() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
     Artifact output = getDerivedArtifact(
-        new PathFragment("output/path.xyz"), getTargetConfiguration().getBinDirectory(
+        PathFragment.create("output/path.xyz"), getTargetConfiguration().getBinDirectory(
             RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
     final Artifact outputIfso = getDerivedArtifact(
-        new PathFragment("output/path.ifso"), getTargetConfiguration().getBinDirectory(
+        PathFragment.create("output/path.ifso"), getTargetConfiguration().getBinDirectory(
             RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
     CppLinkActionBuilder builder =
@@ -432,7 +432,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         new CppLinkActionBuilder(
                 ruleContext,
                 new Artifact(
-                    new PathFragment(outputPath),
+                    PathFragment.create(outputPath),
                     getTargetConfiguration()
                         .getBinDirectory(ruleContext.getRule().getRepository())),
                 ruleContext.getConfiguration(),
@@ -451,7 +451,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
   }
 
   private CppLinkActionBuilder createLinkBuilder(Link.LinkTargetType type) throws Exception {
-    PathFragment output = new PathFragment("dummyRuleContext/output/path.a");
+    PathFragment output = PathFragment.create("dummyRuleContext/output/path.a");
     return createLinkBuilder(
         type,
         output.getPathString(),

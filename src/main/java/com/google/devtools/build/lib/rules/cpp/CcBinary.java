@@ -220,9 +220,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // linkopt "-shared", which causes the result of linking to be a shared
     // library. In this case, the name of the executable target should end
     // in ".so" or "dylib" or ".dll".
-    PathFragment binaryPath = new PathFragment(ruleContext.getTarget().getName());
+    PathFragment binaryPath = PathFragment.create(ruleContext.getTarget().getName());
     if (!isLinkShared(ruleContext)) {
-      binaryPath = new PathFragment(binaryPath.getPathString() + OsUtils.executableExtension());
+      binaryPath = PathFragment.create(binaryPath.getPathString() + OsUtils.executableExtension());
     }
 
     Artifact binary = ruleContext.getBinArtifact(binaryPath);
@@ -676,7 +676,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     PathFragment intermediatePath =
         FileSystemUtils.appendWithoutExtension(outputPath, "-" + orderNumber);
     return ruleContext.getPackageRelativeArtifact(
-        new PathFragment(INTERMEDIATE_DWP_DIR + "/" + intermediatePath.getPathString()),
+        PathFragment.create(INTERMEDIATE_DWP_DIR + "/" + intermediatePath.getPathString()),
         dwpOutput.getRoot());
   }
 

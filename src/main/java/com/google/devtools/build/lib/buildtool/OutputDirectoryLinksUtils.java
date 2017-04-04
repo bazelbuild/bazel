@@ -132,7 +132,7 @@ public class OutputDirectoryLinksUtils {
   // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
   // "linkname", or null if it was a not a child.
   private static PathFragment relativize(Path file, Path workspaceDirectory, String linkname) {
-    PathFragment link = new PathFragment(linkname);
+    PathFragment link = PathFragment.create(linkname);
     try {
       Path dir = workspaceDirectory.getRelative(link);
       PathFragment levelOneLinkTarget = dir.readSymbolicLink();
@@ -171,7 +171,7 @@ public class OutputDirectoryLinksUtils {
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);
-    FileSystemUtils.removeDirectoryAndParents(workspace, new PathFragment(symlinkPrefix));
+    FileSystemUtils.removeDirectoryAndParents(workspace, PathFragment.create(symlinkPrefix));
     if (!failures.isEmpty()) {
       eventHandler.handle(Event.warn(String.format(
           "failed to remove one or more convenience symlinks for prefix '%s':\n  %s", symlinkPrefix,

@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  */
 // Not final so that we can mock it in tests.
 public class TestRunnerAction extends AbstractAction implements NotifyOnActionCacheHit {
-  public static final PathFragment COVERAGE_TMP_ROOT = new PathFragment("_coverage");
+  public static final PathFragment COVERAGE_TMP_ROOT = PathFragment.create("_coverage");
 
   // Used for selecting subset of testcase / testmethods.
   private static final String TEST_BRIDGE_TEST_FILTER_ENV = "TESTBRIDGE_TEST_ONLY";
@@ -134,7 +134,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
       boolean useTestRunner) {
     super(owner, inputs,
         // Note that this action only cares about the runfiles, not the mapping.
-        new RunfilesSupplierImpl(new PathFragment("runfiles"), executionSettings.getRunfiles()),
+        new RunfilesSupplierImpl(PathFragment.create("runfiles"), executionSettings.getRunfiles()),
         list(testLog, cacheStatus, coverageArtifact, microCoverageArtifact));
     this.runtime = runtime;
     this.configuration = Preconditions.checkNotNull(configuration);

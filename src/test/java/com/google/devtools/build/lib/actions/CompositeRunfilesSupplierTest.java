@@ -61,9 +61,9 @@ public class CompositeRunfilesSupplierTest {
 
   @Test
   public void testGetRunfilesDirsReturnsCombinedPaths() {
-    PathFragment first = new PathFragment("first");
-    PathFragment second = new PathFragment("second");
-    PathFragment shared = new PathFragment("shared");
+    PathFragment first = PathFragment.create("first");
+    PathFragment second = PathFragment.create("second");
+    PathFragment shared = PathFragment.create("shared");
 
     when(mockFirst.getRunfilesDirs()).thenReturn(ImmutableSet.of(first, shared));
     when(mockSecond.getRunfilesDirs()).thenReturn(ImmutableSet.of(second, shared));
@@ -75,13 +75,13 @@ public class CompositeRunfilesSupplierTest {
 
   @Test
   public void testGetMappingsReturnsMappingsWithFirstPrecedenceOverSecond() throws IOException {
-    PathFragment first = new PathFragment("first");
+    PathFragment first = PathFragment.create("first");
     Map<PathFragment, Artifact> firstMappings = mkMappings(rootDir, "first1", "first2");
 
-    PathFragment second = new PathFragment("second");
+    PathFragment second = PathFragment.create("second");
     Map<PathFragment, Artifact> secondMappings = mkMappings(rootDir, "second1", "second2");
 
-    PathFragment shared = new PathFragment("shared");
+    PathFragment shared = PathFragment.create("shared");
     Map<PathFragment, Artifact> firstSharedMappings = mkMappings(rootDir, "shared1", "shared2");
     Map<PathFragment, Artifact> secondSharedMappings = mkMappings(rootDir, "lost1", "lost2");
 
@@ -103,13 +103,13 @@ public class CompositeRunfilesSupplierTest {
   @Test
   public void testGetMappingsViaListConstructorReturnsMappingsWithFirstPrecedenceOverSecond()
       throws IOException {
-    PathFragment first = new PathFragment("first");
+    PathFragment first = PathFragment.create("first");
     Map<PathFragment, Artifact> firstMappings = mkMappings(rootDir, "first1", "first2");
 
-    PathFragment second = new PathFragment("second");
+    PathFragment second = PathFragment.create("second");
     Map<PathFragment, Artifact> secondMappings = mkMappings(rootDir, "second1", "second2");
 
-    PathFragment shared = new PathFragment("shared");
+    PathFragment shared = PathFragment.create("shared");
     Map<PathFragment, Artifact> firstSharedMappings = mkMappings(rootDir, "shared1", "shared2");
     Map<PathFragment, Artifact> secondSharedMappings = mkMappings(rootDir, "lost1", "lost2");
 
@@ -132,13 +132,13 @@ public class CompositeRunfilesSupplierTest {
   private static Map<PathFragment, Artifact> mkMappings(Root rootDir, String... paths) {
     ImmutableMap.Builder<PathFragment, Artifact> builder = ImmutableMap.builder();
     for (String path : paths) {
-      builder.put(new PathFragment(path), mkArtifact(rootDir, path));
+      builder.put(PathFragment.create(path), mkArtifact(rootDir, path));
     }
     return builder.build();
   }
 
   private static Artifact mkArtifact(Root rootDir, String path) {
-    return new Artifact(new PathFragment(path), rootDir);
+    return new Artifact(PathFragment.create(path), rootDir);
   }
 
   private static List<Artifact> mkArtifacts(Root rootDir, String... paths) {

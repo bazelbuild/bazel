@@ -77,7 +77,7 @@ public class SpawnActionTest extends BuildViewTestCase {
   }
 
   private SpawnAction createCopyFromWelcomeToDestination(Map<String, String> environmentVariables) {
-    PathFragment cp = new PathFragment("/bin/cp");
+    PathFragment cp = PathFragment.create("/bin/cp");
     List<String> arguments = asList(welcomeArtifact.getExecPath().getPathString(),
         destinationArtifact.getExecPath().getPathString());
 
@@ -275,7 +275,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Artifact output1 = getBinArtifactWithNoOwner("output1");
     Artifact output2 = getBinArtifactWithNoOwner("output2");
     Artifact paramFile = getBinArtifactWithNoOwner("output1-2.params");
-    PathFragment executable = new PathFragment("/bin/executable");
+    PathFragment executable = PathFragment.create("/bin/executable");
 
     useConfiguration("--min_param_file_size=500");
 
@@ -353,7 +353,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     Action[] actions = builder()
         .addInput(manifest)
         .addRunfilesSupplier(
-            new RunfilesSupplierImpl(new PathFragment("destination"), Runfiles.EMPTY, manifest))
+            new RunfilesSupplierImpl(PathFragment.create("destination"), Runfiles.EMPTY, manifest))
         .addOutput(getBinArtifactWithNoOwner("output"))
         .setExecutable(scratch.file("/bin/xxx").asFragment())
         .setProgressMessage("Test")
@@ -385,15 +385,15 @@ public class SpawnActionTest extends BuildViewTestCase {
         builder.setMnemonic((i & 4) == 0 ? "a" : "b");
 
         if ((i & 8) == 0) {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("a")));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("a")));
         } else {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactB, new PathFragment("a")));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactB, PathFragment.create("a")));
         }
 
         if ((i & 16) == 0) {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("aa")));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("aa")));
         } else {
-          builder.addRunfilesSupplier(runfilesSupplier(artifactA, new PathFragment("ab")));
+          builder.addRunfilesSupplier(runfilesSupplier(artifactA, PathFragment.create("ab")));
         }
 
         Map<String, String> env = new HashMap<>();

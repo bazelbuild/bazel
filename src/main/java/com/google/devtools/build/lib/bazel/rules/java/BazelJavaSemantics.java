@@ -226,7 +226,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         if (!isRunfilesEnabled) {
           buffer.append("$(rlocation ");
           PathFragment runfilePath =
-              new PathFragment(new PathFragment(workspacePrefix), artifact.getRunfilesPath());
+              PathFragment.create(PathFragment.create(workspacePrefix), artifact.getRunfilesPath());
           buffer.append(runfilePath.normalize().getPathString());
           buffer.append(")");
         } else {

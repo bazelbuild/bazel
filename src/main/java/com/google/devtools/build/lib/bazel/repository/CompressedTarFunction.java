@@ -59,7 +59,7 @@ public abstract class CompressedTarFunction implements Decompressor {
           FileSystemUtils.createDirectoryAndParents(filename);
         } else {
           if (entry.isSymbolicLink() || entry.isLink()) {
-            PathFragment linkName = new PathFragment(entry.getLinkName());
+            PathFragment linkName = PathFragment.create(entry.getLinkName());
             boolean wasAbsolute = linkName.isAbsolute();
             // Strip the prefix from the link path if set.
             linkName =

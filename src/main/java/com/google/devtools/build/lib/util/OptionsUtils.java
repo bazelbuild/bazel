@@ -135,7 +135,7 @@ public final class OptionsUtils {
 
     @Override
     public PathFragment convert(String input) {
-      return new PathFragment(input);
+      return PathFragment.create(input);
     }
 
     @Override
@@ -155,7 +155,7 @@ public final class OptionsUtils {
       List<PathFragment> list = new ArrayList<>();
       for (String piece : input.split(":")) {
         if (!piece.isEmpty()) {
-          list.add(new PathFragment(piece));
+          list.add(PathFragment.create(piece));
         }
       }
       return Collections.unmodifiableList(list);

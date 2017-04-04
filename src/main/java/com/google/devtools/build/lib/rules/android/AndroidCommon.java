@@ -772,7 +772,7 @@ public class AndroidCommon {
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {
-    return new PathFragment(ruleContext.attributes().get(
+    return PathFragment.create(ruleContext.attributes().get(
         ResourceType.ASSETS.getAttribute() + "_dir",
         Type.STRING));
   }

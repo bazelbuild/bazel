@@ -112,7 +112,7 @@ public class FingerprintTest {
 
   @Test
   public void addPath() throws Exception {
-    PathFragment pf = new PathFragment("/etc/pwd");
+    PathFragment pf = PathFragment.create("/etc/pwd");
     assertThat(new Fingerprint().addPath(pf).hexDigestAndReset())
         .isEqualTo("63ab5c47c117635407a1af6377e216bc");
     Path p = new InMemoryFileSystem(BlazeClock.instance()).getPath(pf);
@@ -161,8 +161,8 @@ public class FingerprintTest {
         .addNullableBoolean(null)
         .addNullableInt(null)
         .addNullableString(null)
-        .addPath(new PathFragment("/foo/bar"))
-        .addPaths(ImmutableList.of(new PathFragment("/foo/bar")))
+        .addPath(PathFragment.create("/foo/bar"))
+        .addPaths(ImmutableList.of(PathFragment.create("/foo/bar")))
         .addString("baz")
         .addUUID(UUID.fromString("12345678-1234-1234-1234-1234567890ab"))
         .hexDigestAndReset();

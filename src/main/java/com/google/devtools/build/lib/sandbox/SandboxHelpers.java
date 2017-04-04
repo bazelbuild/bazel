@@ -51,7 +51,7 @@ public final class SandboxHelpers {
   public static ImmutableSet<PathFragment> getOutputFiles(Spawn spawn) {
     Builder<PathFragment> outputFiles = ImmutableSet.builder();
     for (ActionInput output : spawn.getOutputFiles()) {
-      outputFiles.add(new PathFragment(output.getExecPathString()));
+      outputFiles.add(PathFragment.create(output.getExecPathString()));
     }
     return outputFiles.build();
   }

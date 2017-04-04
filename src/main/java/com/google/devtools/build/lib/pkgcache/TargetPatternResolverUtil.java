@@ -69,7 +69,7 @@ public final class TargetPatternResolverUtil {
   }
 
   public static PathFragment getPathFragment(String pathPrefix) throws TargetParsingException {
-    PathFragment directory = new PathFragment(pathPrefix);
+    PathFragment directory = PathFragment.create(pathPrefix);
     if (directory.containsUplevelReferences()) {
       throw new TargetParsingException("up-level references are not permitted: '"
           + directory.getPathString() + "'");

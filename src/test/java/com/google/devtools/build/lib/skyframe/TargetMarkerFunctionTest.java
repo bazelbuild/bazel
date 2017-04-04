@@ -93,7 +93,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
 
     scratch.file("a/b/BUILD");
     ModifiedFileSet subpackageBuildFile =
-        ModifiedFileSet.builder().modify(new PathFragment("a/b/BUILD")).build();
+        ModifiedFileSet.builder().modify(PathFragment.create("a/b/BUILD")).build();
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, subpackageBuildFile, rootDirectory);
 

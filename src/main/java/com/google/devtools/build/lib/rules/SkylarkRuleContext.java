@@ -914,7 +914,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
   public Artifact newDirectory(String name, Object siblingArtifactUnchecked) throws EvalException {
     checkMutable("experimental_new_directory");
     if (siblingArtifactUnchecked == Runtime.NONE) {
-      return ruleContext.getPackageRelativeTreeArtifact(new PathFragment(name), newFileRoot());
+      return ruleContext.getPackageRelativeTreeArtifact(PathFragment.create(name), newFileRoot());
     }
     Artifact siblingArtifact = (Artifact) siblingArtifactUnchecked;
     PathFragment original = siblingArtifact.getRootRelativePath();

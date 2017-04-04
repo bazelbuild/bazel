@@ -636,14 +636,14 @@ public class SkylarkRuleImplementationFunctions {
         checkConflicts = true;
         for (Map.Entry<String, Artifact> entry : symlinks.getContents(
             String.class, Artifact.class, "symlinks").entrySet()) {
-          builder.addSymlink(new PathFragment(entry.getKey()), entry.getValue());
+          builder.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
         }
       }
       if (!rootSymlinks.isEmpty()) {
         checkConflicts = true;
         for (Map.Entry<String, Artifact> entry : rootSymlinks.getContents(
             String.class, Artifact.class, "root_symlinks").entrySet()) {
-          builder.addRootSymlink(new PathFragment(entry.getKey()), entry.getValue());
+          builder.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
         }
       }
       Runfiles runfiles = builder.build();

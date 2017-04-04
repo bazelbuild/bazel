@@ -345,7 +345,7 @@ final class BundleSupport {
       ruleContext.registerAction(
           ObjcRuleClasses.spawnAppleEnvActionBuilder(appleConfiguration, platform)
               .setMnemonic("ConvertStringsPlist")
-              .setExecutable(new PathFragment("/usr/bin/plutil"))
+              .setExecutable(PathFragment.create("/usr/bin/plutil"))
               .setCommandLine(CustomCommandLine.builder()
                   .add("-convert").add("binary1")
                   .addExecPath("-o", bundled)

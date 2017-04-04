@@ -547,7 +547,7 @@ public class Artifact
         && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
       // Turn external/repo/foo into ../repo/foo.
       relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
-      relativePath = new PathFragment("..").getRelative(relativePath);
+      relativePath = PathFragment.create("..").getRelative(relativePath);
     }
     return relativePath;
   }

@@ -36,7 +36,7 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
   private EvaluationResult<WorkspaceNameValue> eval() throws InterruptedException {
     getSkyframeExecutor().invalidateFilesUnderPathForTesting(
         reporter,
-        ModifiedFileSet.builder().modify(new PathFragment("WORKSPACE")).build(),
+        ModifiedFileSet.builder().modify(PathFragment.create("WORKSPACE")).build(),
         rootDirectory);
     return SkyframeExecutorTestUtils.evaluate(
         getSkyframeExecutor(), key, /*keepGoing=*/ false, reporter);

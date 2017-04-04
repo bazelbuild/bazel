@@ -140,7 +140,7 @@ public final class FilesetEntry implements SkylarkValue {
     this.srcLabel = Preconditions.checkNotNull(srcLabel);
     this.files = files == null ? null : ImmutableList.copyOf(files);
     this.excludes = (excludes == null || excludes.isEmpty()) ? null : ImmutableSet.copyOf(excludes);
-    this.destDir = new PathFragment((destDir == null) ? "" : destDir);
+    this.destDir = PathFragment.create((destDir == null) ? "" : destDir);
     this.symlinkBehavior = symlinkBehavior == null ? DEFAULT_SYMLINK_BEHAVIOR : symlinkBehavior;
     this.stripPrefix = stripPrefix == null ? DEFAULT_STRIP_PREFIX : stripPrefix;
   }
@@ -225,7 +225,7 @@ public final class FilesetEntry implements SkylarkValue {
     } else if (stripPrefix.startsWith("/")) {
       return "Cannot specify absolute strip prefix; perhaps you need to use \""
           + STRIP_PREFIX_WORKSPACE + "\"";
-    } else if (new PathFragment(stripPrefix).containsUplevelReferences()) {
+    } else if (PathFragment.create(stripPrefix).containsUplevelReferences()) {
       return "Strip prefix must not contain uplevel references";
     } else if (stripPrefix.startsWith("%") && !stripPrefix.startsWith(STRIP_PREFIX_WORKSPACE)) {
       return "If the strip_prefix starts with \"%\" then it must start with \""

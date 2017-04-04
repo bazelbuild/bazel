@@ -554,7 +554,7 @@ public final class RuleContext extends TargetContext
    * thus guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getPackageRelativeArtifact(String relative, Root root) {
-    return getPackageRelativeArtifact(new PathFragment(relative), root);
+    return getPackageRelativeArtifact(PathFragment.create(relative), root);
   }
 
   /**
@@ -562,7 +562,7 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getBinArtifact(String relative) {
-    return getBinArtifact(new PathFragment(relative));
+    return getBinArtifact(PathFragment.create(relative));
   }
 
   public Artifact getBinArtifact(PathFragment relative) {
@@ -575,7 +575,7 @@ public final class RuleContext extends TargetContext
    * guaranteeing that it never clashes with artifacts created by rules in other packages.
    */
   public Artifact getGenfilesArtifact(String relative) {
-    return getGenfilesArtifact(new PathFragment(relative));
+    return getGenfilesArtifact(PathFragment.create(relative));
   }
 
   public Artifact getGenfilesArtifact(PathFragment relative) {
@@ -664,7 +664,7 @@ public final class RuleContext extends TargetContext
    */
   public Artifact getUniqueDirectoryArtifact(
       String uniqueDirectory, String relative, Root root) {
-    return getUniqueDirectoryArtifact(uniqueDirectory, new PathFragment(relative), root);
+    return getUniqueDirectoryArtifact(uniqueDirectory, PathFragment.create(relative), root);
   }
 
   /**
@@ -1235,7 +1235,7 @@ public final class RuleContext extends TargetContext
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
   public final PathFragment getUniqueDirectory(String fragment) {
-    return AnalysisUtils.getUniqueDirectory(getLabel(), new PathFragment(fragment));
+    return AnalysisUtils.getUniqueDirectory(getLabel(), PathFragment.create(fragment));
   }
 
   /**

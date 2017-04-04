@@ -106,7 +106,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     createFiles();
     ConfiguredTarget z = getConfiguredTarget("//hello:z");
     Artifact y = getOnlyElement(getFilesToBuild(z));
-    assertEquals(new PathFragment("hello/x/y"), y.getRootRelativePath());
+    assertEquals(PathFragment.create("hello/x/y"), y.getRootRelativePath());
   }
 
   @Test
@@ -115,8 +115,8 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     ConfiguredTarget z = getConfiguredTarget("//hello:w");
     List<Artifact> files = getFilesToBuild(z).toList();
     assertThat(files).hasSize(2);
-    assertEquals(new PathFragment("hello/a/b"), files.get(0).getRootRelativePath());
-    assertEquals(new PathFragment("hello/c/d"), files.get(1).getRootRelativePath());
+    assertEquals(PathFragment.create("hello/a/b"), files.get(0).getRootRelativePath());
+    assertEquals(PathFragment.create("hello/c/d"), files.get(1).getRootRelativePath());
   }
 
   @Test
@@ -236,10 +236,10 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     FileConfiguredTarget bazOutTarget = getFileConfiguredTarget("//foo:baz_out.txt");
     Action bazAction = getGeneratingAction(bazOutTarget.getArtifact());
     Artifact barOut = bazAction.getInputs().iterator().next();
-    assertTrue(barOut.getExecPath().endsWith(new PathFragment("foo/bar_out.txt")));
+    assertTrue(barOut.getExecPath().endsWith(PathFragment.create("foo/bar_out.txt")));
     Action barAction = getGeneratingAction(barOut);
     Artifact barIn = barAction.getInputs().iterator().next();
-    assertTrue(barIn.getExecPath().endsWith(new PathFragment("foo/bar_in.txt")));
+    assertTrue(barIn.getExecPath().endsWith(PathFragment.create("foo/bar_in.txt")));
   }
 
   /** Ensure that variable $(@D) gets expanded correctly in the genrule cmd. */
@@ -279,7 +279,7 @@ public class GenRuleConfiguredTargetTest extends BuildViewTestCase {
     getConfiguredTarget("//foo:bar");
 
     Artifact barOut = bazAction.getInputs().iterator().next();
-    assertTrue(barOut.getExecPath().endsWith(new PathFragment("foo/bar/bar_out.txt")));
+    assertTrue(barOut.getExecPath().endsWith(PathFragment.create("foo/bar/bar_out.txt")));
     SpawnAction barAction = (SpawnAction) getGeneratingAction(barOut);
     String barExpected = "touch " + barOut.getExecPath().getParentDirectory().getPathString();
     assertCommandEquals(barExpected, barAction.getArguments().get(2));

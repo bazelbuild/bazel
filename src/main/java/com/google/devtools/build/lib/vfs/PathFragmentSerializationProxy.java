@@ -44,7 +44,7 @@ public final class PathFragmentSerializationProxy implements Externalizable {
   }
 
   private Object readResolve() {
-    return new PathFragment(pathFragmentString);
+    return PathFragment.create(pathFragmentString);
   }
 }
 

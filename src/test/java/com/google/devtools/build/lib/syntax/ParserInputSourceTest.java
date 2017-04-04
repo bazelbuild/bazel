@@ -50,7 +50,7 @@ public class ParserInputSourceTest {
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    ParserInputSource input = ParserInputSource.create(content, new PathFragment(pathName));
+    ParserInputSource input = ParserInputSource.create(content, PathFragment.create(pathName));
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
   }
@@ -60,7 +60,7 @@ public class ParserInputSourceTest {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
     char[] contentChars = content.toCharArray();
-    ParserInputSource input = ParserInputSource.create(contentChars, new PathFragment(pathName));
+    ParserInputSource input = ParserInputSource.create(contentChars, PathFragment.create(pathName));
     assertEquals(content, new String(input.getContent()));
     assertEquals(pathName, input.getPath().toString());
   }
@@ -81,12 +81,12 @@ public class ParserInputSourceTest {
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
     ParserInputSource.create(
-        "Content provided as string.", new PathFragment("/will/not/try/to/read"));
+        "Content provided as string.", PathFragment.create("/will/not/try/to/read"));
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
     char[] content = "Content provided as char array.".toCharArray();
-    ParserInputSource.create(content, new PathFragment("/will/not/try/to/read"));
+    ParserInputSource.create(content, PathFragment.create("/will/not/try/to/read"));
   }
 }

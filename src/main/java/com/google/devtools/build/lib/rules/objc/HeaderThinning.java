@@ -104,7 +104,7 @@ public class HeaderThinning implements IncludeProcessing {
           continue;
         }
 
-        PathFragment headerPath = new PathFragment(line);
+        PathFragment headerPath = PathFragment.create(line);
         Artifact header = inputArtifactsMap.get(headerPath);
         if (header == null) {
           missing.add(headerPath);

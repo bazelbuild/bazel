@@ -117,7 +117,7 @@ public final class IntermediateArtifacts {
    * of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtension(String extension) {
-    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     return scopedArtifact(name.replaceName(addOutputPrefix(name.getBaseName(), extension)));
   }
 
@@ -135,7 +135,7 @@ public final class IntermediateArtifacts {
    * the end of the {@link PathFragment} corresponding to the owner {@link Label}.
    */
   private Artifact appendExtensionInGenfiles(String extension) {
-    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     return scopedArtifact(
         name.replaceName(addOutputPrefix(name.getBaseName(), extension)), /* inGenfiles = */ true);
   }
@@ -252,14 +252,14 @@ public final class IntermediateArtifacts {
    */
   public Artifact archive() {
     // The path will be {RULE_PACKAGE}/lib{RULEBASENAME}{SUFFIX}.a
-    String basename = new PathFragment(ruleContext.getLabel().getName()).getBaseName();
-    return scopedArtifact(new PathFragment(String.format(
+    String basename = PathFragment.create(ruleContext.getLabel().getName()).getBaseName();
+    return scopedArtifact(PathFragment.create(String.format(
         "lib%s%s.a", basename, archiveFileNameSuffix)));
   }
 
   private Artifact inUniqueObjsDir(Artifact source, String extension) {
     PathFragment uniqueDir =
-        new PathFragment("_objs").getRelative(ruleContext.getLabel().getName());
+        PathFragment.create("_objs").getRelative(ruleContext.getLabel().getName());
     PathFragment sourceFile = uniqueDir.getRelative(source.getRootRelativePath());
     PathFragment scopeRelativePath = FileSystemUtils.replaceExtension(sourceFile, extension);
     return scopedArtifact(scopeRelativePath);

@@ -90,7 +90,7 @@ public final class AndroidAaptActionHelper {
   public void createGenerateResourceSymbolsAction(Artifact javaSourcesJar,
       Artifact rTxt, String javaPackage, boolean inlineConstants) {
     // java path from the provided package for the resources
-    PathFragment javaPath = new PathFragment(javaPackage.replace('.', '/'));
+    PathFragment javaPath = PathFragment.create(javaPackage.replace('.', '/'));
 
     PathFragment javaResourcesRoot = javaSourcesJar.getRoot().getExecPath().getRelative(
         ruleContext.getUniqueDirectory("_java_resources"));

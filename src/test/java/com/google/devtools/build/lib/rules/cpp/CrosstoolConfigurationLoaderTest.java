@@ -540,7 +540,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.FASTBUILD,
             LipoMode.OFF,
             LinkingMode.FULLY_STATIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertEquals(
         Arrays.asList(
             "linker-flag-A-1",
@@ -551,7 +551,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.DBG,
             LipoMode.OFF,
             LinkingMode.DYNAMIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertEquals(
         Arrays.asList(
             "linker-flag-A-1",
@@ -562,7 +562,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.OPT,
             LipoMode.OFF,
             LinkingMode.FULLY_STATIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
 
     assertEquals(
         Arrays.asList(
@@ -574,7 +574,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.OPT,
             LipoMode.BINARY,
             LinkingMode.FULLY_STATIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
 
     assertEquals(
         Arrays.asList("objcopy-embed-flag-A-1", "objcopy-embed-flag-A-2"),
@@ -597,7 +597,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         Arrays.asList(
             getToolPath("/system-include-dir-A-1"), getToolPath("/system-include-dir-A-2")),
         toolchainA.getBuiltInIncludeDirectories());
-    assertEquals(new PathFragment("some"), toolchainA.getSysroot());
+    assertEquals(PathFragment.create("some"), toolchainA.getSysroot());
 
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
@@ -636,21 +636,21 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.FASTBUILD,
             LipoMode.OFF,
             LinkingMode.FULLY_STATIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertEquals(
         Collections.EMPTY_LIST,
         toolchainC.configureLinkerOptions(
             CompilationMode.DBG,
             LipoMode.OFF,
             LinkingMode.DYNAMIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertEquals(
         Collections.EMPTY_LIST,
         toolchainC.configureLinkerOptions(
             CompilationMode.OPT,
             LipoMode.OFF,
             LinkingMode.FULLY_STATIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertThat(toolchainC.getObjCopyOptionsForEmbedding()).isEmpty();
     assertThat(toolchainC.getLdOptionsForEmbedding()).isEmpty();
 
@@ -669,8 +669,9 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     PackageIdentifier packageIdentifier =
         PackageIdentifier.create(
             TestConstants.TOOLS_REPOSITORY,
-            new PathFragment(
-                new PathFragment(TestConstants.TOOLS_REPOSITORY_PATH), new PathFragment(path)));
+            PathFragment.create(
+                PathFragment.create(TestConstants.TOOLS_REPOSITORY_PATH),
+                PathFragment.create(path)));
     return packageIdentifier.getPathUnderExecRoot();
   }
 
@@ -690,7 +691,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             CompilationMode.DBG,
             lipoMode,
             LinkingMode.DYNAMIC,
-            new PathFragment("hello-world/ld")));
+            PathFragment.create("hello-world/ld")));
     assertEquals(
         ImmutableList.<String>of(
             "compiler-flag-B-1",

@@ -474,7 +474,7 @@ public class CppCompileActionBuilder {
         continue;
       }
       // One starting ../ is okay for getting to a sibling repository.
-      if (include.startsWith(new PathFragment(Label.EXTERNAL_PATH_PREFIX))) {
+      if (include.startsWith(PathFragment.create(Label.EXTERNAL_PATH_PREFIX))) {
         include = include.relativeTo(Label.EXTERNAL_PATH_PREFIX);
       }
       if (include.isAbsolute()

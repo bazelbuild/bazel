@@ -1197,13 +1197,13 @@ public final class CcLibraryHelper {
 
     PathFragment prefix =
         ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")
-            ? new PathFragment(ruleContext.attributes().get("include_prefix", Type.STRING))
+            ? PathFragment.create(ruleContext.attributes().get("include_prefix", Type.STRING))
             : null;
 
     PathFragment stripPrefix;
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
-      stripPrefix = new PathFragment(
-          ruleContext.attributes().get("strip_include_prefix", Type.STRING));
+      stripPrefix =
+          PathFragment.create(ruleContext.attributes().get("strip_include_prefix", Type.STRING));
       if (stripPrefix.isAbsolute()) {
         stripPrefix = ruleContext.getLabel().getPackageIdentifier().getRepository().getSourceRoot()
             .getRelative(stripPrefix.toRelative());

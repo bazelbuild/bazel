@@ -52,7 +52,7 @@ public class RepositoryLoaderFunction implements SkyFunction {
 
     SkyKey workspaceKey =
         WorkspaceFileValue.key(
-            RootedPath.toRootedPath(repository.getPath(), new PathFragment("WORKSPACE")));
+            RootedPath.toRootedPath(repository.getPath(), PathFragment.create("WORKSPACE")));
     WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
     if (workspacePackage == null) {
       return null;

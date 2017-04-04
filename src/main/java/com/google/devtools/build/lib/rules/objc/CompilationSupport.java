@@ -663,7 +663,7 @@ public abstract class CompilationSupport {
     ImmutableList.Builder<PathFragment> nonPropagatedHeaderSearchPaths =
         new ImmutableList.Builder<>();
     for (String includeDirOption : includeDirOptions) {
-      nonPropagatedHeaderSearchPaths.add(new PathFragment(includeDirOption.substring(2)));
+      nonPropagatedHeaderSearchPaths.add(PathFragment.create(includeDirOption.substring(2)));
     }
 
     // We also need to add the -isystem directories from the CC header providers. ObjCommon

@@ -101,7 +101,7 @@ public class PackageFunction implements SkyFunction {
   // Not final only for testing.
   @Nullable private SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining;
 
-  static final PathFragment DEFAULTS_PACKAGE_NAME = new PathFragment("tools/defaults");
+  static final PathFragment DEFAULTS_PACKAGE_NAME = PathFragment.create("tools/defaults");
 
   public PackageFunction(
       PackageFactory packageFactory,
@@ -819,7 +819,7 @@ public class PackageFunction implements SkyFunction {
       // exceptions), it reaches here, and we tolerate it.
       return false;
     }
-    PathFragment labelNameFragment = new PathFragment(label.getName());
+    PathFragment labelNameFragment = PathFragment.create(label.getName());
     String message = String.format("Label '%s' crosses boundary of subpackage '%s'",
         label, containingPkg);
     Path containingRoot = containingPkgLookupValue.getContainingPackageRoot();

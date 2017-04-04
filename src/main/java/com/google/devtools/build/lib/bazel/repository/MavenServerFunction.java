@@ -98,8 +98,8 @@ public class MavenServerFunction implements SkyFunction {
         if (!mapper.isAttributeValueExplicitlySpecified("settings_file")) {
           settingsFiles = getDefaultSettingsFile(directories, env);
         } else {
-          PathFragment settingsFilePath = new PathFragment(
-              mapper.get("settings_file", Type.STRING));
+          PathFragment settingsFilePath =
+              PathFragment.create(mapper.get("settings_file", Type.STRING));
           RootedPath settingsPath = RootedPath.toRootedPath(
               directories.getWorkspace().getRelative(settingsFilePath),
               PathFragment.EMPTY_FRAGMENT);
@@ -183,7 +183,8 @@ public class MavenServerFunction implements SkyFunction {
     ImmutableList.Builder<SkyKey> settingsFilesBuilder = ImmutableList.builder();
     SkyKey systemKey = null;
     if (m2Home != null) {
-      PathFragment mavenInstallSettings = new PathFragment(m2Home).getRelative("conf/settings.xml");
+      PathFragment mavenInstallSettings =
+          PathFragment.create(m2Home).getRelative("conf/settings.xml");
       systemKey = FileValue.key(
           RootedPath.toRootedPath(directories.getWorkspace().getRelative(mavenInstallSettings),
               PathFragment.EMPTY_FRAGMENT));
@@ -194,7 +195,7 @@ public class MavenServerFunction implements SkyFunction {
     String userHome = System.getenv("HOME");
     SkyKey userKey = null;
     if (userHome != null) {
-      PathFragment userSettings = new PathFragment(userHome).getRelative(".m2/settings.xml");
+      PathFragment userSettings = PathFragment.create(userHome).getRelative(".m2/settings.xml");
       userKey = FileValue.key(RootedPath.toRootedPath(
           directories.getWorkspace().getRelative(userSettings),
           PathFragment.EMPTY_FRAGMENT));

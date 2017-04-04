@@ -79,7 +79,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       // There's no good way to automatically detect network file systems. We rely on a blacklist
       // for now (and maybe add a command-line option in the future?).
       for (String prefix : prefixBlacklist) {
-        if (resolvedPathEntryFragment.startsWith(new PathFragment(prefix))) {
+        if (resolvedPathEntryFragment.startsWith(PathFragment.create(prefix))) {
           return null;
         }
       }
@@ -188,7 +188,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         public PathFragment apply(Path input) {
           Preconditions.checkArgument(
               input.startsWith(watchRootPath), "%s %s", input, watchRootPath);
-          return new PathFragment(watchRootPath.relativize(input).toString());
+          return PathFragment.create(watchRootPath.relativize(input).toString());
         }
       };
 }

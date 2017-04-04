@@ -124,7 +124,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   public void testEqualTreeArtifacts() throws Exception {
     Artifact treeArtifact = createTreeArtifact("out");
     ImmutableList<PathFragment> children =
-        ImmutableList.of(new PathFragment("one"), new PathFragment("two"));
+        ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(treeArtifact, children);
     MemoizingEvaluator evaluator = driver.getGraphForTesting();
     evaluator.delete(new Predicate<SkyKey>() {
@@ -142,18 +142,18 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   @Test
   public void testTreeArtifactsWithDigests() throws Exception {
     fastDigest = true;
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one")));
   }
 
   @Test
   public void testTreeArtifactsWithoutDigests() throws Exception {
     fastDigest = false;
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one")));
   }
 
   @Test
   public void testTreeArtifactMultipleDigests() throws Exception {
-    doTestTreeArtifacts(ImmutableList.of(new PathFragment("one"), new PathFragment("two")));
+    doTestTreeArtifacts(ImmutableList.of(PathFragment.create("one"), PathFragment.create("two")));
   }
 
   @Test
@@ -162,7 +162,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     Artifact one = createTreeArtifact("outOne");
     Artifact two = createTreeArtifact("outTwo");
     ImmutableList<PathFragment> children =
-        ImmutableList.of(new PathFragment("one"), new PathFragment("two"));
+        ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(one, children);
     TreeArtifactValue valueTwo = evaluateTreeArtifact(two, children);
     assertThat(valueOne.getDigest()).isEqualTo(valueTwo.getDigest());
@@ -188,7 +188,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     try {
       Artifact artifact = createTreeArtifact("outOne");
       TreeArtifactValue value = evaluateTreeArtifact(artifact,
-          ImmutableList.of(new PathFragment("one")));
+          ImmutableList.of(PathFragment.create("one")));
       fail("MissingInputFileException expected, got " + value);
     } catch (Exception e) {
       assertThat(Throwables.getRootCause(e).getMessage()).contains(exception.getMessage());
@@ -201,7 +201,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createTreeArtifact(String path) throws IOException {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
     Artifact output =
         new SpecialArtifact(

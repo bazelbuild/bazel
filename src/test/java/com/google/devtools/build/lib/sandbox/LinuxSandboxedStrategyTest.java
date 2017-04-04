@@ -42,7 +42,7 @@ public class LinuxSandboxedStrategyTest extends SandboxTestCase {
 
   @Test
   public void testParseManifestFile() throws Exception {
-    PathFragment targetDir = new PathFragment("runfiles");
+    PathFragment targetDir = PathFragment.create("runfiles");
 
     Path testFile = workspaceDir.getRelative("testfile");
     FileSystemUtils.createEmptyFile(testFile);
@@ -58,15 +58,15 @@ public class LinuxSandboxedStrategyTest extends SandboxTestCase {
         fileSystem, mounts, targetDir, manifestFile.getPathFile(), false, "");
 
     Map<PathFragment, Path> expected = new HashMap<>();
-    expected.put(new PathFragment("runfiles/x/testfile"), testFile);
-    expected.put(new PathFragment("runfiles/x/emptyfile"), null);
+    expected.put(PathFragment.create("runfiles/x/testfile"), testFile);
+    expected.put(PathFragment.create("runfiles/x/emptyfile"), null);
 
     assertThat(mounts).isEqualTo(expected);
   }
 
   @Test
   public void testParseFilesetManifestFile() throws Exception {
-    PathFragment targetDir = new PathFragment("fileset");
+    PathFragment targetDir = PathFragment.create("fileset");
 
     Path testFile = workspaceDir.getRelative("testfile");
     FileSystemUtils.createEmptyFile(testFile);
@@ -81,6 +81,7 @@ public class LinuxSandboxedStrategyTest extends SandboxTestCase {
     SpawnHelpers.parseManifestFile(
         fileSystem, mounts, targetDir, manifestFile.getPathFile(), true, "workspace");
 
-    assertThat(mounts).isEqualTo(ImmutableMap.of(new PathFragment("fileset/x/testfile"), testFile));
+    assertThat(mounts).isEqualTo(
+        ImmutableMap.of(PathFragment.create("fileset/x/testfile"), testFile));
   }
 }

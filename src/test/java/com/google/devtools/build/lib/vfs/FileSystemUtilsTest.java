@@ -227,69 +227,70 @@ public class FileSystemUtilsTest {
   @Test
   public void testReplaceExtension_PathFragment() throws Exception {
     assertPath("foo/bar.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("foo/bar"), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("foo/bar"), ".baz"));
     assertPath("foo/bar.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("foo/bar.cc"), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("foo/bar.cc"), ".baz"));
     assertPath("/foo/bar.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("/foo/bar"), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("/foo/bar"), ".baz"));
     assertPath("/foo/bar.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("/foo/bar.cc"), ".baz"));
-    assertPath("foo.baz", FileSystemUtils.replaceExtension(new PathFragment("foo/"), ".baz"));
-    assertPath("foo.baz", FileSystemUtils.replaceExtension(new PathFragment("foo.cc/"), ".baz"));
-    assertPath("/foo.baz", FileSystemUtils.replaceExtension(new PathFragment("/foo/"), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("/foo/bar.cc"), ".baz"));
+    assertPath("foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("foo/"), ".baz"));
+    assertPath("foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("foo.cc/"), ".baz"));
+    assertPath("/foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("/foo/"), ".baz"));
     assertPath("/foo.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("/foo.cc/"), ".baz"));
-    assertPath("foo.baz", FileSystemUtils.replaceExtension(new PathFragment("foo"), ".baz"));
-    assertPath("foo.baz", FileSystemUtils.replaceExtension(new PathFragment("foo.cc"), ".baz"));
-    assertPath("/foo.baz", FileSystemUtils.replaceExtension(new PathFragment("/foo"), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("/foo.cc/"), ".baz"));
+    assertPath("foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("foo"), ".baz"));
+    assertPath("foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("foo.cc"), ".baz"));
+    assertPath("/foo.baz", FileSystemUtils.replaceExtension(PathFragment.create("/foo"), ".baz"));
     assertPath("/foo.baz",
-               FileSystemUtils.replaceExtension(new PathFragment("/foo.cc"), ".baz"));
-    assertPath(".baz", FileSystemUtils.replaceExtension(new PathFragment(".cc"), ".baz"));
-    assertNull(FileSystemUtils.replaceExtension(new PathFragment("/"), ".baz"));
-    assertNull(FileSystemUtils.replaceExtension(new PathFragment(""), ".baz"));
+               FileSystemUtils.replaceExtension(PathFragment.create("/foo.cc"), ".baz"));
+    assertPath(".baz", FileSystemUtils.replaceExtension(PathFragment.create(".cc"), ".baz"));
+    assertNull(FileSystemUtils.replaceExtension(PathFragment.create("/"), ".baz"));
+    assertNull(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz"));
     assertPath("foo/bar.baz",
-        FileSystemUtils.replaceExtension(new PathFragment("foo/bar.pony"), ".baz", ".pony"));
+        FileSystemUtils.replaceExtension(PathFragment.create("foo/bar.pony"), ".baz", ".pony"));
     assertPath("foo/bar.baz",
-        FileSystemUtils.replaceExtension(new PathFragment("foo/bar"), ".baz", ""));
-    assertNull(FileSystemUtils.replaceExtension(new PathFragment(""), ".baz", ".pony"));
+        FileSystemUtils.replaceExtension(PathFragment.create("foo/bar"), ".baz", ""));
+    assertNull(FileSystemUtils.replaceExtension(PathFragment.create(""), ".baz", ".pony"));
     assertNull(
-        FileSystemUtils.replaceExtension(new PathFragment("foo/bar.pony"), ".baz", ".unicorn"));
+        FileSystemUtils.replaceExtension(PathFragment.create("foo/bar.pony"), ".baz", ".unicorn"));
   }
 
   @Test
   public void testAppendWithoutExtension() throws Exception {
     assertPath("libfoo-src.jar",
-        appendWithoutExtension(new PathFragment("libfoo.jar"), "-src"));
+        appendWithoutExtension(PathFragment.create("libfoo.jar"), "-src"));
     assertPath("foo/libfoo-src.jar",
-        appendWithoutExtension(new PathFragment("foo/libfoo.jar"), "-src"));
+        appendWithoutExtension(PathFragment.create("foo/libfoo.jar"), "-src"));
     assertPath("java/com/google/foo/libfoo-src.jar",
-        appendWithoutExtension(new PathFragment("java/com/google/foo/libfoo.jar"), "-src"));
+        appendWithoutExtension(PathFragment.create("java/com/google/foo/libfoo.jar"), "-src"));
     assertPath("libfoo.bar-src.jar",
-        appendWithoutExtension(new PathFragment("libfoo.bar.jar"), "-src"));
+        appendWithoutExtension(PathFragment.create("libfoo.bar.jar"), "-src"));
     assertPath("libfoo-src",
-        appendWithoutExtension(new PathFragment("libfoo"), "-src"));
+        appendWithoutExtension(PathFragment.create("libfoo"), "-src"));
     assertPath("libfoo-src.jar",
-        appendWithoutExtension(new PathFragment("libfoo.jar/"), "-src"));
+        appendWithoutExtension(PathFragment.create("libfoo.jar/"), "-src"));
     assertPath("libfoo.src.jar",
-        appendWithoutExtension(new PathFragment("libfoo.jar"), ".src"));
-    assertNull(appendWithoutExtension(new PathFragment("/"), "-src"));
-    assertNull(appendWithoutExtension(new PathFragment(""), "-src"));
+        appendWithoutExtension(PathFragment.create("libfoo.jar"), ".src"));
+    assertNull(appendWithoutExtension(PathFragment.create("/"), "-src"));
+    assertNull(appendWithoutExtension(PathFragment.create(""), "-src"));
   }
 
   @Test
   public void testReplaceSegments() {
     assertPath(
         "poo/bar/baz.cc",
-        FileSystemUtils.replaceSegments(new PathFragment("foo/bar/baz.cc"), "foo", "poo", true));
+        FileSystemUtils.replaceSegments(PathFragment.create("foo/bar/baz.cc"), "foo", "poo", true));
     assertPath(
         "poo/poo/baz.cc",
-        FileSystemUtils.replaceSegments(new PathFragment("foo/foo/baz.cc"), "foo", "poo", true));
+        FileSystemUtils.replaceSegments(PathFragment.create("foo/foo/baz.cc"), "foo", "poo", true));
     assertPath(
         "poo/foo/baz.cc",
-        FileSystemUtils.replaceSegments(new PathFragment("foo/foo/baz.cc"), "foo", "poo", false));
+        FileSystemUtils.replaceSegments(
+            PathFragment.create("foo/foo/baz.cc"), "foo", "poo", false));
     assertPath(
         "foo/bar/baz.cc",
-        FileSystemUtils.replaceSegments(new PathFragment("foo/bar/baz.cc"), "boo", "poo", true));
+        FileSystemUtils.replaceSegments(PathFragment.create("foo/bar/baz.cc"), "boo", "poo", true));
   }
 
   @Test
@@ -308,11 +309,11 @@ public class FileSystemUtilsTest {
 
   @Test
   public void testResolveRelativeToFilesystemWorkingDir() {
-    PathFragment relativePath = new PathFragment("relative/path");
+    PathFragment relativePath = PathFragment.create("relative/path");
     assertEquals(workingDir.getRelative(relativePath),
                  workingDir.getRelative(relativePath));
 
-    PathFragment absolutePath = new PathFragment("/absolute/path");
+    PathFragment absolutePath = PathFragment.create("/absolute/path");
     assertEquals(fileSystem.getPath(absolutePath),
                  workingDir.getRelative(absolutePath));
   }
@@ -781,16 +782,16 @@ public class FileSystemUtilsTest {
 
   @Test
   public void testStartsWithAnySuccess() throws Exception {
-    PathFragment a = new PathFragment("a");
+    PathFragment a = PathFragment.create("a");
     assertTrue(FileSystemUtils.startsWithAny(a,
-        Arrays.asList(new PathFragment("b"), new PathFragment("a"))));
+        Arrays.asList(PathFragment.create("b"), PathFragment.create("a"))));
   }
 
   @Test
   public void testStartsWithAnyNotFound() throws Exception {
-    PathFragment a = new PathFragment("a");
+    PathFragment a = PathFragment.create("a");
     assertFalse(FileSystemUtils.startsWithAny(a,
-        Arrays.asList(new PathFragment("b"), new PathFragment("c"))));
+        Arrays.asList(PathFragment.create("b"), PathFragment.create("c"))));
   }
 
   @Test
@@ -811,7 +812,7 @@ public class FileSystemUtilsTest {
 
   @Test
   public void testEnsureSymbolicLinkDoesNotMakeUnnecessaryChanges() throws Exception {
-    PathFragment target = new PathFragment("/b");
+    PathFragment target = PathFragment.create("/b");
     Path file = fileSystem.getPath("/a");
     file.createSymbolicLink(target);
     long prevTimeMillis = clock.currentTimeMillis();

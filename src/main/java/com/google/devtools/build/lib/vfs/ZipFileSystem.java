@@ -160,7 +160,7 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
   private Collection<Path> populatePathTree() {
     Collection<Path> paths = new ArrayList<>();
     for (ZipEntry entry : Collections.list(zipFile.entries())) {
-      PathFragment frag = new PathFragment(entry.getName());
+      PathFragment frag = PathFragment.create(entry.getName());
       Path path = rootPath.getRelative(frag);
       paths.add(path);
       ((ZipPath) path).setZipEntry(entry);

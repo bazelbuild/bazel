@@ -107,7 +107,7 @@ public class RuleClass {
   static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
       Functions.<Map<String, Label>>constant(ImmutableMap.<String, Label>of());
 
-  public static final PathFragment THIRD_PARTY_PREFIX = new PathFragment("third_party");
+  public static final PathFragment THIRD_PARTY_PREFIX = PathFragment.create("third_party");
 
   /**
    * A constraint for the package name of the Rule instances.

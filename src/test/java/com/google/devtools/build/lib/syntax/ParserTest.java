@@ -1025,7 +1025,7 @@ public class ParserTest extends EvaluationTestCase {
     assertThat(imp.getImportString()).named("getImportString()").isEqualTo("/some/skylark/file");
     assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
     assertThat(imp.getAbsolutePath()).named("getAbsolutePath()")
-        .isEqualTo(new PathFragment("/some/skylark/file.bzl"));
+        .isEqualTo(PathFragment.create("/some/skylark/file.bzl"));
 
     int startOffset = stmt.getImport().getLocation().getStartOffset();
     int endOffset = stmt.getImport().getLocation().getEndOffset();

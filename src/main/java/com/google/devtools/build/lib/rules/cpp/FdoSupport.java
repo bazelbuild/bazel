@@ -127,7 +127,7 @@ public class FdoSupport {
    * Path within profile data .zip files that is considered the root of the
    * profile information directory tree.
    */
-  private static final PathFragment ZIP_ROOT = new PathFragment("/");
+  private static final PathFragment ZIP_ROOT = PathFragment.create("/");
 
   /**
    * Returns true if the given fdoFile represents an AutoFdo profile.
@@ -220,7 +220,7 @@ public class FdoSupport {
     this.fdoRootExecPath = fdoRootExecPath;
     this.fdoPath = fdoProfile == null
         ? null
-        : FileSystemUtils.removeExtension(new PathFragment("_fdo").getChild(
+        : FileSystemUtils.removeExtension(PathFragment.create("_fdo").getChild(
             fdoProfile.getBaseName()));
     this.lipoMode = lipoMode;
     this.fdoMode = fdoMode;
@@ -264,7 +264,7 @@ public class FdoSupport {
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null
         : fdoRoot.getExecPath().getRelative(FileSystemUtils.removeExtension(
-            new PathFragment("_fdo").getChild(fdoProfile.getBaseName())));
+            PathFragment.create("_fdo").getChild(fdoProfile.getBaseName())));
 
     if (fdoProfile != null) {
       if (lipoMode != LipoMode.OFF) {
@@ -413,12 +413,12 @@ public class FdoSupport {
       if (!line.isEmpty()) {
         // We can't yet fully check the validity of a line. this is done later
         // when we actually parse the contained paths.
-        PathFragment execPath = new PathFragment(line);
+        PathFragment execPath = PathFragment.create(line);
         if (execPath.isAbsolute()) {
           throw new FdoException("Absolute paths not allowed in gcda imports file " + importsFile
               + ": " + execPath);
         }
-        importsBuilder.put(key, new PathFragment(line));
+        importsBuilder.put(key, PathFragment.create(line));
       }
     }
   }
@@ -440,7 +440,7 @@ public class FdoSupport {
       if (colonIndex < 0) {
         continue;
       }
-      PathFragment key = new PathFragment(line.substring(0, colonIndex));
+      PathFragment key = PathFragment.create(line.substring(0, colonIndex));
       if (key.isAbsolute()) {
         throw new FdoException("Absolute paths not allowed in afdo imports file " + importsFile
             + ": " + key);
@@ -450,7 +450,7 @@ public class FdoSupport {
           continue;
         }
 
-        importBuilder.put(key, new PathFragment(auxFile));
+        importBuilder.put(key, PathFragment.create(auxFile));
       }
     }
     return importBuilder.build();
@@ -665,7 +665,7 @@ public class FdoSupport {
   }
 
   private static PathFragment getAutoProfileRootRelativePath(Path fdoProfile) {
-    return new PathFragment(fdoProfile.getBaseName());
+    return PathFragment.create(fdoProfile.getBaseName());
   }
 
 
@@ -674,7 +674,7 @@ public class FdoSupport {
   }
 
   private static PathFragment getLLVMProfileRootRelativePath(Path fdoProfile) {
-    return new PathFragment(fdoProfile.getBaseName());
+    return PathFragment.create(fdoProfile.getBaseName());
   }
 
   /**

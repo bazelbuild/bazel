@@ -131,7 +131,7 @@ public abstract class FileSystem {
    * file system.
    */
   public Path getPath(String pathName) {
-    return getPath(new PathFragment(pathName));
+    return getPath(PathFragment.create(pathName));
   }
 
   /**

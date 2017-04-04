@@ -39,13 +39,20 @@ public class LocationTest extends EventTestTemplate {
   @Test
   public void testPrintRelative() throws Exception {
     Location location = Location.fromPathFragment(path);
-    assertEquals("/path/to/workspace/my/sample/path.txt:1",
-        location.print(new PathFragment("/some/other/path"), new PathFragment("baz")));
-    assertEquals("new/sample/path.txt:1",
-        location.print(new PathFragment("/path/to/workspace/my"), new PathFragment("new")));
-    assertEquals("new/path.txt:1",
-        location.print(new PathFragment("/path/to/workspace/my/sample"), new PathFragment("new")));
-    assertEquals("new:1", location.print(new PathFragment("/path/to/workspace/my/sample/path.txt"),
-        new PathFragment("new")));
+    assertEquals(
+        "/path/to/workspace/my/sample/path.txt:1",
+        location.print(PathFragment.create("/some/other/path"), PathFragment.create("baz")));
+    assertEquals(
+        "new/sample/path.txt:1",
+        location.print(PathFragment.create("/path/to/workspace/my"), PathFragment.create("new")));
+    assertEquals(
+        "new/path.txt:1",
+        location.print(
+            PathFragment.create("/path/to/workspace/my/sample"), PathFragment.create("new")));
+    assertEquals(
+        "new:1",
+        location.print(
+            PathFragment.create("/path/to/workspace/my/sample/path.txt"),
+            PathFragment.create("new")));
   }
 }

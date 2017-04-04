@@ -785,7 +785,7 @@ public final class Runfiles {
      *     created.
      */
     public Builder(String workspace, boolean legacyExternalRunfiles) {
-      this(new PathFragment(workspace), legacyExternalRunfiles);
+      this(PathFragment.create(workspace), legacyExternalRunfiles);
     }
 
     /**

@@ -334,7 +334,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     String name = path.toString();
     long startTime = Profiler.nanoTimeMaybe();
     try {
-      return new PathFragment(NativePosixFiles.readlink(name));
+      return PathFragment.create(NativePosixFiles.readlink(name));
     } catch (IOException e) {
       // EINVAL => not a symbolic link.  Anything else is a real error.
       throw e.getMessage().endsWith("(Invalid argument)") ? new NotASymlinkException(path) : e;

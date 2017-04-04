@@ -79,7 +79,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         "    name = 'w',",
         "    path = '/a/b/c',",
         ")");
-    assertEquals(new PathFragment("/a/b/c"),
+    assertEquals(PathFragment.create("/a/b/c"),
         TestingRepositoryFunction.getTargetPath(rule, rootDirectory));
   }
 

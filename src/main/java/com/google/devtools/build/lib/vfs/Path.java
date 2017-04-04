@@ -223,7 +223,7 @@ public class Path implements Comparable<Path>, Serializable {
   private void readObject(ObjectInputStream in) throws IOException {
     fileSystem = fileSystemForSerialization;
     String p = in.readUTF();
-    PathFragment pf = new PathFragment(p);
+    PathFragment pf = PathFragment.create(p);
     PathFragment parentDir = pf.getParentDirectory();
     if (parentDir == null) {
       this.name = "/";
@@ -725,9 +725,9 @@ public class Path implements Comparable<Path>, Serializable {
     } else if (path.equals("..")) {
       return isTopLevelDirectory() ? this : parent;
     } else if (path.indexOf('/') != -1) {
-      return getRelative(new PathFragment(path));
+      return getRelative(PathFragment.create(path));
     } else if (path.indexOf(PathFragment.EXTRA_SEPARATOR_CHAR) != -1) {
-      return getRelative(new PathFragment(path));
+      return getRelative(PathFragment.create(path));
     } else {
       return getCachedChildPath(path);
     }
@@ -745,7 +745,7 @@ public class Path implements Comparable<Path>, Serializable {
 
   /** Returns an absolute PathFragment representing this path. */
   public PathFragment asFragment() {
-    return new PathFragment('\0', true, getSegments());
+    return PathFragment.createNoClone('\0', true, getSegments());
   }
 
   /**
@@ -777,7 +777,7 @@ public class Path implements Comparable<Path>, Serializable {
           currentPath = currentPath.getParentDirectory();
         }
         if (ancestorPath.equals(currentPath)) {
-          return new PathFragment('\0', false, resultSegments);
+          return PathFragment.createNoClone('\0', false, resultSegments);
         }
       }
     }

@@ -61,7 +61,7 @@ public class RBuildFilesFunction implements QueryFunction {
       new Function<Argument, PathFragment>() {
         @Override
         public PathFragment apply(Argument argument) {
-          return new PathFragment(argument.getWord());
+          return PathFragment.create(argument.getWord());
         }
       };
 

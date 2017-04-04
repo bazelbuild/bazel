@@ -273,7 +273,7 @@ public class CustomCommandLineTest {
   }
 
   private Artifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = new PathFragment(rootRelativePath);
+    PathFragment relpath = PathFragment.create(rootRelativePath);
     return new SpecialArtifact(
         rootDir.getPath().getRelative(relpath),
         rootDir,
@@ -286,6 +286,6 @@ public class CustomCommandLineTest {
       Artifact inputTreeArtifact, String parentRelativePath) {
     return ActionInputHelper.treeFileArtifact(
         inputTreeArtifact,
-        new PathFragment(parentRelativePath));
+        PathFragment.create(parentRelativePath));
   }
 }

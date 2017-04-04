@@ -107,7 +107,7 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     Path symlinkcycleBuildFile = scratch.file("symlinkcycle/BUILD",
         "sh_library(name = 'cycle', srcs = glob(['*.sh']))");
     Path dirPath = symlinkcycleBuildFile.getParentDirectory();
-    dirPath.getRelative("foo.sh").createSymbolicLink(new PathFragment("foo.sh"));
+    dirPath.getRelative("foo.sh").createSymbolicLink(PathFragment.create("foo.sh"));
     scratch.file("okaypkg/BUILD",
         "sh_library(name = 'transitively-a-cycle',",
         "           srcs = ['//symlinkcycle:cycle'])");

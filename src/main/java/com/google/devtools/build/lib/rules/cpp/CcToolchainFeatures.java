@@ -2072,7 +2072,7 @@ public class CcToolchainFeatures implements Serializable {
    */
   String getArtifactNameForCategory(ArtifactCategory artifactCategory, String outputName)
       throws ExpansionException {
-    PathFragment output = new PathFragment(outputName);
+    PathFragment output = PathFragment.create(outputName);
 
     ArtifactNamePattern patternForCategory = null;
     for (ArtifactNamePattern artifactNamePattern : artifactNamePatterns) {

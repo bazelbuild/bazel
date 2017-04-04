@@ -999,7 +999,7 @@ public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifie
      * commands to be executed.
      */
     public Builder setShellCommand(Iterable<String> command) {
-      this.executable = new PathFragment(Iterables.getFirst(command, null));
+      this.executable = PathFragment.create(Iterables.getFirst(command, null));
       // The first item of the commands is the shell executable that should be used.
       this.executableArgs = ImmutableList.copyOf(Iterables.skip(command, 1));
       this.isShellCommand = true;

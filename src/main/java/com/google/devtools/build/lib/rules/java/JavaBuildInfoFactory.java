@@ -39,11 +39,11 @@ public abstract class JavaBuildInfoFactory implements BuildInfoFactory {
   public static final BuildInfoKey KEY = new BuildInfoKey("Java");
 
   static final PathFragment BUILD_INFO_NONVOLATILE_PROPERTIES_NAME =
-      new PathFragment("build-info-nonvolatile.properties");
+      PathFragment.create("build-info-nonvolatile.properties");
   static final PathFragment BUILD_INFO_VOLATILE_PROPERTIES_NAME =
-      new PathFragment("build-info-volatile.properties");
+      PathFragment.create("build-info-volatile.properties");
   static final PathFragment BUILD_INFO_REDACTED_PROPERTIES_NAME =
-      new PathFragment("build-info-redacted.properties");
+      PathFragment.create("build-info-redacted.properties");
 
   private static final DateTimeFormatter DEFAULT_TIME_FORMAT =
       DateTimeFormat.forPattern("EEE MMM d HH:mm:ss yyyy");

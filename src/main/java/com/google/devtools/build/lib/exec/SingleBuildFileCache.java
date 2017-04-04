@@ -130,7 +130,7 @@ public class SingleBuildFileCache implements ActionInputFileCache {
    */
   private String fullPath(ActionInput input) {
     String relPath = input.getExecPathString();
-    return new PathFragment(relPath).isAbsolute() ? relPath : new File(cwd, relPath).getPath();
+    return PathFragment.create(relPath).isAbsolute() ? relPath : new File(cwd, relPath).getPath();
   }
 
   /** Container class for caching I/O around ActionInputs. */

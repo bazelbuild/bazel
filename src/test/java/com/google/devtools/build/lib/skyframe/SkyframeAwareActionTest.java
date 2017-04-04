@@ -443,7 +443,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
 
   private RootedPath createSkyframeDepOfAction() throws Exception {
     scratch.file(rootDirectory.getRelative("action.dep").getPathString(), "blah");
-    return RootedPath.toRootedPath(rootDirectory, new PathFragment("action.dep"));
+    return RootedPath.toRootedPath(rootDirectory, PathFragment.create("action.dep"));
   }
 
   private void appendToFile(Path path) throws Exception {
