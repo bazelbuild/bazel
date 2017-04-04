@@ -320,6 +320,37 @@ TEST_F(OutputJarSimpleTest, Resources) {
   EXPECT_EQ("res2.line1\nres2.line2\n", res2);
 }
 
+TEST_F(OutputJarSimpleTest, ResourcesParentDirectories) {
+  string res1_path = CreateTextFile("res1", "res1.line1\nres1.line2\n");
+  string res2_path = CreateTextFile("res2", "res2.line1\nres2.line2\n");
+
+  string out_path = OutputFilePath("out.jar");
+  CreateOutput(out_path, {"--exclude_build_data", "--resources",
+                          res1_path + ":the/resources/res1",
+                          res2_path + ":the/resources2/res2"});
+
+  string res1 = GetEntryContents(out_path, "the/resources/res1");
+  EXPECT_EQ("res1.line1\nres1.line2\n", res1);
+
+  string res2 = GetEntryContents(out_path, "the/resources2/res2");
+  EXPECT_EQ("res2.line1\nres2.line2\n", res2);
+
+  // The output should contain entries for parent directories
+  std::vector<string> expected_entries(
+      {"META-INF/", "META-INF/MANIFEST.MF", "the/", "the/resources/",
+       "the/resources/res1", "the/resources2/", "the/resources2/res2"});
+  std::vector<string> jar_entries;
+  InputJar input_jar;
+  ASSERT_TRUE(input_jar.Open(out_path));
+  const LH *lh;
+  const CDH *cdh;
+  while ((cdh = input_jar.NextEntry(&lh))) {
+    jar_entries.push_back(cdh->file_name_string());
+  }
+  input_jar.Close();
+  EXPECT_EQ(expected_entries, jar_entries);
+}
+
 // --classpath_resources
 TEST_F(OutputJarSimpleTest, ClasspathResources) {
   string res1_path = OutputFilePath("cp_res");
