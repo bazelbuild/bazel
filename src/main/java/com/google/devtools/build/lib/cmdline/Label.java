@@ -548,7 +548,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * Returns a suitable string for the user-friendly representation of the Label. Works even if the
    * argument is null.
    */
-  public static String print(Label label) {
+  public static String print(@Nullable Label label) {
     return label == null ? "(unknown)" : label.toString();
   }
 

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,7 +39,10 @@ import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
 import com.google.devtools.build.lib.remote.RemoteProtocol.BlobChunk;
 import com.google.devtools.build.lib.remote.RemoteProtocol.CasDownloadBlobRequest;
@@ -60,10 +63,11 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheReply;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
-import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
@@ -77,6 +81,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -363,6 +368,42 @@ public class GrpcRemoteExecutionClientTest {
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
 
+  private FileOutErr outErr;
+  private long timeoutMillis = 0;
+
+  private final SpawnExecutionPolicy simplePolicy = new SpawnExecutionPolicy() {
+    @Override
+    public boolean shouldPrefetchInputsForLocalExecution(Spawn spawn) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void lockOutputFiles() throws InterruptedException {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ActionInputFileCache getActionInputFileCache() {
+      return fakeFileCache;
+    }
+
+    @Override
+    public long getTimeoutMillis() {
+      return timeoutMillis;
+    }
+
+    @Override
+    public FileOutErr getFileOutErr() {
+      return outErr;
+    }
+
+    @Override
+    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
+      return new SpawnInputExpander(/*strict*/false)
+          .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache, "workspace");
+    }
+  };
+
   @Before
   public final void setUp() throws Exception {
     fs = new InMemoryFileSystem();
@@ -379,6 +420,12 @@ public class GrpcRemoteExecutionClientTest {
         /*outputs=*/ImmutableList.<ActionInput>of(),
         ResourceSet.ZERO
     );
+
+    Path stdout = fs.getPath("/tmp/stdout");
+    Path stderr = fs.getPath("/tmp/stderr");
+    FileSystemUtils.createDirectoryAndParents(stdout.getParentDirectory());
+    FileSystemUtils.createDirectoryAndParents(stderr.getParentDirectory());
+    outErr = new FileOutErr(stdout, stderr);
   }
 
   private void scratch(ActionInput input, String content) throws IOException {
@@ -397,7 +444,7 @@ public class GrpcRemoteExecutionClientTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
     RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, "workspace", options, executor);
+        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
 
@@ -407,16 +454,12 @@ public class GrpcRemoteExecutionClientTest {
         .build();
     when(cacheIface.getCachedResult(any(ExecutionCacheRequest.class))).thenReturn(reply);
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ByteArrayOutputStream err = new ByteArrayOutputStream();
-    OutErr outErr = OutErr.create(out, err);
-    SpawnResult result =
-        client.exec(simpleSpawn, outErr, fakeFileCache, SIMPLE_ARTIFACT_EXPANDER, /*timeout=*/-1);
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(out.toByteArray()).isEmpty();
-    assertThat(err.toByteArray()).isEmpty();
+    assertThat(outErr.hasRecordedOutput()).isFalse();
+    assertThat(outErr.hasRecordedStderr()).isFalse();
   }
 
   @Test
@@ -428,7 +471,7 @@ public class GrpcRemoteExecutionClientTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
     RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, "workspace", options, executor);
+        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
     byte[] cacheStdOut = "stdout".getBytes(StandardCharsets.UTF_8);
@@ -445,16 +488,12 @@ public class GrpcRemoteExecutionClientTest {
         .build();
     when(cacheIface.getCachedResult(any(ExecutionCacheRequest.class))).thenReturn(reply);
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ByteArrayOutputStream err = new ByteArrayOutputStream();
-    OutErr outErr = OutErr.create(out, err);
-    SpawnResult result =
-        client.exec(simpleSpawn, outErr, fakeFileCache, SIMPLE_ARTIFACT_EXPANDER, /*timeout=*/-1);
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(out.toByteArray()).isEqualTo(cacheStdOut);
-    assertThat(err.toByteArray()).isEqualTo(cacheStdErr);
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
   }
 
   @Test
@@ -466,7 +505,7 @@ public class GrpcRemoteExecutionClientTest {
     GrpcRemoteExecutor executor =
         new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
     RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, "workspace", options, executor);
+        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
     byte[] cacheStdOut = "stdout".getBytes(StandardCharsets.UTF_8);
@@ -488,15 +527,11 @@ public class GrpcRemoteExecutionClientTest {
                 .setStderrDigest(stdErrDigest))
             .build()).iterator());
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ByteArrayOutputStream err = new ByteArrayOutputStream();
-    OutErr outErr = OutErr.create(out, err);
-    SpawnResult result =
-        client.exec(simpleSpawn, outErr, fakeFileCache, SIMPLE_ARTIFACT_EXPANDER, /*timeout=*/-1);
+    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
     verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(out.toByteArray()).isEqualTo(cacheStdOut);
-    assertThat(err.toByteArray()).isEqualTo(cacheStdErr);
+    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
+    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
   }
 }

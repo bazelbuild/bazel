@@ -22,12 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionStatusMessage;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -38,7 +36,7 @@ import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Platform;
 import com.google.devtools.build.lib.remote.TreeNodeRepository.TreeNode;
-import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.TextFormat;
@@ -55,26 +53,22 @@ import java.util.TreeSet;
 /**
  * A client for the remote execution service.
  */
-final class RemoteSpawnRunner {
+final class RemoteSpawnRunner implements SpawnRunner {
   private final EventBus eventBus;
   private final Path execRoot;
   private final RemoteOptions options;
   // TODO(olaola): This will be set on a per-action basis instead.
   private final Platform platform;
-  private final String workspaceName;
-  private final SpawnInputExpander spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
 
   private final GrpcRemoteExecutor executor;
 
   RemoteSpawnRunner(
       Path execRoot,
       EventBus eventBus,
-      String workspaceName,
       RemoteOptions options,
       GrpcRemoteExecutor executor) {
     this.execRoot = execRoot;
     this.eventBus = eventBus;
-    this.workspaceName = workspaceName;
     this.options = options;
     if (options.experimentalRemotePlatformOverride != null) {
       Platform.Builder platformBuilder = Platform.newBuilder();
@@ -93,9 +87,8 @@ final class RemoteSpawnRunner {
   RemoteSpawnRunner(
       Path execRoot,
       EventBus eventBus,
-      String workspaceName,
       RemoteOptions options) {
-    this(execRoot, eventBus, workspaceName, options, connect(options));
+    this(execRoot, eventBus, options, connect(options));
   }
 
   private static GrpcRemoteExecutor connect(RemoteOptions options) {
@@ -109,13 +102,10 @@ final class RemoteSpawnRunner {
     return new GrpcRemoteExecutor(channel, options);
   }
 
+  @Override
   public SpawnResult exec(
       Spawn spawn,
-      // TODO(ulfjack): Change this back to FileOutErr.
-      OutErr outErr,
-      ActionInputFileCache actionInputFileCache,
-      ArtifactExpander artifactExpander,
-      float timeout) throws InterruptedException, IOException {
+      SpawnExecutionPolicy policy) throws InterruptedException, IOException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     if (owner.getOwner() != null) {
       eventBus.post(ActionStatusMessage.runningStrategy(owner, "remote"));
@@ -124,13 +114,8 @@ final class RemoteSpawnRunner {
     try {
       // Temporary hack: the TreeNodeRepository should be created and maintained upstream!
       TreeNodeRepository repository =
-          new TreeNodeRepository(execRoot, actionInputFileCache);
-      SortedMap<PathFragment, ActionInput> inputMap =
-          spawnInputExpander.getInputMapping(
-              spawn,
-              artifactExpander,
-              actionInputFileCache,
-              workspaceName);
+          new TreeNodeRepository(execRoot, policy.getActionInputFileCache());
+      SortedMap<PathFragment, ActionInput> inputMap = policy.getInputMapping();
       TreeNode inputRoot = repository.buildFromActionInputs(inputMap);
       repository.computeMerkleDigests(inputRoot);
       Command command = buildCommand(spawn.getArguments(), spawn.getEnvironment());
@@ -155,7 +140,7 @@ final class RemoteSpawnRunner {
                 .setAction(action)
                 .setAcceptCached(this.options.remoteAcceptCached)
                 .setTotalInputFileCount(inputMap.size())
-                .setTimeoutMillis((int) (1000 * timeout));
+                .setTimeoutMillis(policy.getTimeoutMillis());
         ExecuteReply reply = executor.executeRemotely(request.build());
         ExecutionStatus status = reply.getStatus();
 
@@ -171,7 +156,7 @@ final class RemoteSpawnRunner {
       }
 
       // TODO(ulfjack): Download stdout, stderr, and the output files in a single call.
-      passRemoteOutErr(executor, result, outErr);
+      passRemoteOutErr(executor, result, policy.getFileOutErr());
       executor.downloadAllResults(result, execRoot);
       return new SpawnResult.Builder()
           .setSetupSuccess(true)
@@ -211,7 +196,8 @@ final class RemoteSpawnRunner {
   }
 
   private static void passRemoteOutErr(
-      RemoteActionCache cache, ActionResult result, OutErr outErr) throws CacheNotFoundException {
+      RemoteActionCache cache, ActionResult result, FileOutErr outErr)
+          throws CacheNotFoundException {
     ImmutableList<byte[]> streams =
         cache.downloadBlobs(ImmutableList.of(result.getStdoutDigest(), result.getStderrDigest()));
     outErr.printOut(new String(streams.get(0), UTF_8));
