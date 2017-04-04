@@ -65,10 +65,9 @@ To **run** Bazel (even pre-built binaries), you will need:
 
 To **compile** Bazel, in addition to the above you will need:
 
-*    [Visual C++](https://www.visualstudio.com/) with Windows SDK installed
-     (Community Edition is fine). Note: we intend to relax this requirement in
-     the future to only require the Microsoft Visual C++ Build Tools, see
-     [github issue #2448](https://github.com/bazelbuild/bazel/issues/2448).
+*    [Visual C++ Build Tools](http://landinghub.visualstudio.com/visual-cpp-build-tools)
+     or the full [Visual C++](https://www.visualstudio.com/) (as part of Visual
+     Studio; Community Edition is fine) with Windows SDK installed.
 *    You may need to apply some patches/workarounds, see the
      [known issues](install.md#compiling-from-source-issues).
 
