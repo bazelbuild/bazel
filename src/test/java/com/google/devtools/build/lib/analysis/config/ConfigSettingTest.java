@@ -21,7 +21,6 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
@@ -328,8 +327,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "unused", PythonConfiguration.class,
         "javacopt", Jvm.class
     );
-    assertThat(
-        ConfigSettingRule.requiresConfigurationFragments((Rule) getTarget("//test:match"), map))
-        .containsExactly(CppConfiguration.class, Jvm.class);
+    Rule target = (Rule) getTarget("//test:match");
+    assertThat(target.getRuleClassObject().getOptionReferenceFunction().apply(target))
+        .containsExactly("copt", "javacopt");
   }
 }

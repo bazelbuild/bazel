@@ -14,10 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -210,10 +210,7 @@ public class TransitiveTargetFunction
 
       // config_setting rules have values like {"some_flag": "some_value"} that need the
       // corresponding fragments in their configurations to properly resolve:
-      if (rule.getRuleClass().equals(ConfigSettingRule.RULE_NAME)) {
-        addFragmentsIfNew(builder,
-            ConfigSettingRule.requiresConfigurationFragments(rule, optionsToFragmentMap));
-      }
+      addFragmentsIfNew(builder, getFragmentsFromRequiredOptions(rule));
 
       // Fragments to unconditionally include:
       addFragmentIfNew(builder,
@@ -221,6 +218,22 @@ public class TransitiveTargetFunction
     }
 
     return builder.build(errorLoadingTarget);
+  }
+
+  private Set<Class<? extends Fragment>> getFragmentsFromRequiredOptions(Rule rule) {
+    Set<String> requiredOptions =
+      rule.getRuleClassObject().getOptionReferenceFunction().apply(rule);
+    ImmutableSet.Builder<Class<? extends BuildConfiguration.Fragment>> optionsFragments =
+        new ImmutableSet.Builder<>();
+    for (String requiredOption : requiredOptions) {
+      Class<? extends BuildConfiguration.Fragment> fragment =
+          optionsToFragmentMap.get(requiredOption);
+      // Null values come from BuildConfiguration.Options, which is implicitly included.
+      if (fragment != null) {
+        optionsFragments.add(fragment);
+      }
+    }
+    return optionsFragments.build();
   }
 
   private void addFragmentIfNew(TransitiveTargetValueBuilder builder,
