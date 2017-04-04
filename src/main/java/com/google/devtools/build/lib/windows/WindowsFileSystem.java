@@ -102,12 +102,13 @@ public class WindowsFileSystem extends JavaIoFileSystem {
       }
 
       @Override
-      public TranslatedPath translatePath(Path parent, String child) {
-        return WindowsPathFactory.translatePath(parent, child, WINDOWS_SHORT_PATH_RESOLVER);
+      public Path getCachedChildPathInternal(Path path, String childName) {
+        return WindowsPathFactory.getCachedChildPathInternalImpl(
+            path, childName, WINDOWS_SHORT_PATH_RESOLVER);
       }
     };
 
-    private static TranslatedPath translatePath(
+    private static Path getCachedChildPathInternalImpl(
         Path parent, String child, Function<String, String> resolver) {
       if (parent != null && parent.isRootDirectory()) {
         // This is a top-level directory. It's either a drive name ("C:" or "c") or some other
@@ -165,7 +166,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         pathString += child;
         resolvedChild = resolver.apply(pathString);
       }
-      return new TranslatedPath(
+      return Path.getCachedChildPathInternal(
           parent,
           // If resolution succeeded, or we didn't attempt to resolve, then `resolvedChild` has the
           // child name. If it's null, then resolution failed; use the unresolved child name in that
@@ -196,8 +197,8 @@ public class WindowsFileSystem extends JavaIoFileSystem {
         }
 
         @Override
-        public TranslatedPath translatePath(Path parent, String child) {
-          return WindowsPathFactory.translatePath(parent, child, mockResolver);
+        public Path getCachedChildPathInternal(Path path, String childName) {
+          return WindowsPathFactory.getCachedChildPathInternalImpl(path, childName, mockResolver);
         }
       };
     }

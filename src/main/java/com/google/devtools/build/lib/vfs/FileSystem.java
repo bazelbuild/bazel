@@ -97,8 +97,8 @@ public abstract class FileSystem {
       }
 
       @Override
-      public TranslatedPath translatePath(Path parent, String child) {
-        return new TranslatedPath(parent, child);
+      public Path getCachedChildPathInternal(Path path, String childName) {
+        return Path.getCachedChildPathInternal(path, childName, /*cacheable=*/ true);
       }
     };
   }
