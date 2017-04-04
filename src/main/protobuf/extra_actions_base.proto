@@ -109,7 +109,7 @@ message SpawnInfo {
   }
 
   repeated string argument = 1;
-  // An *unordered* list of environment variables and their values.
+  // A list of environment variables and their values. No order is enforced.
   repeated EnvironmentVariable variable = 2;
   repeated string input_file = 4;
   repeated string output_file = 5;
@@ -130,6 +130,8 @@ message CppCompileInfo {
   // actually performed. If set, this field will include the value of
   // "source_file" in addition to the headers.
   repeated string sources_and_headers = 5;
+  // A list of environment variables and their values. No order is enforced.
+  repeated EnvironmentVariable variable = 6;
 }
 
 // Provides access to data that is specific to C++ link  actions.

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
+import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -76,6 +77,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nullable;
@@ -769,6 +771,13 @@ public class CppCompileAction extends AbstractAction
       info.addSourcesAndHeaders(getSourceFile().getExecPathString());
       info.addAllSourcesAndHeaders(
           Artifact.toExecPaths(context.getDeclaredIncludeSrcs()));
+    }
+    for (Entry<String, String> envVariable : getEnvironment().entrySet()) {
+      info.addVariable(
+          EnvironmentVariable.newBuilder()
+              .setName(envVariable.getKey())
+              .setValue(envVariable.getValue())
+              .build());
     }
 
     return super.getExtraActionInfo()
