@@ -261,18 +261,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
                 + "android_binary rules.")
     public List<String> fatApkCpus;
 
-    @Option(name = "experimental_android_use_jack_for_dexing",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Switches to the Jack and Jill toolchain for dexing instead of javac and dx.")
-    public boolean useJackForDexing;
-
-    @Option(name = "experimental_android_jack_sanity_checks",
-        defaultValue = "false",
-        category = "semantics",
-        help = "Enables sanity checks for Jack and Jill compilation.")
-    public boolean jackSanityChecks;
-
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.
@@ -285,9 +273,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Option(name = "incremental_dexing",
         defaultValue = "false",
         category = "semantics",
-        implicitRequirements = "--noexperimental_android_use_jack_for_dexing",
-        help = "Does most of the work for dexing separately for each Jar file.  Incompatible with "
-            + "Jack and Jill.")
+        help = "Does most of the work for dexing separately for each Jar file.")
     public boolean incrementalDexing;
 
     @Option(name = "host_incremental_dexing",
@@ -510,8 +496,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final String cpu;
   private final boolean incrementalNativeLibs;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final boolean useJackForDexing;
-  private final boolean jackSanityChecks;
   private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
   private final boolean incrementalDexingForLiteProtos;
   private final boolean incrementalDexingErrorOnMissedJars;
@@ -535,8 +519,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
     this.configurationDistinguisher = options.configurationDistinguisher;
-    this.useJackForDexing = options.useJackForDexing;
-    this.jackSanityChecks = options.jackSanityChecks;
     if (options.incrementalDexing) {
       this.incrementalDexingBinaries = ImmutableSet.copyOf(options.incrementalDexingBinaries);
     } else {
@@ -571,31 +553,15 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     return sdk;
   }
 
-  /**
-   * Returns true if Jack should be used in place of javac/dx for Android compilation.
-   */
-  public boolean isJackUsedForDexing() {
-    return useJackForDexing;
-  }
-
-  /**
-   * Returns true if Jack sanity checks should be enabled. Only relevant if isJackUsedForDexing()
-   * also returns true.
-   */
-  public boolean isJackSanityChecked() {
-    return jackSanityChecks;
-  }
-
   public boolean useIncrementalNativeLibs() {
     return incrementalNativeLibs;
   }
 
   /**
-   * Returns when to use incremental dexing using {@link DexArchiveProvider}.  Note this is disabled
-   * if {@link #isJackUsedForDexing()}.
+   * Returns when to use incremental dexing using {@link DexArchiveProvider}.
    */
   public ImmutableSet<AndroidBinaryType> getIncrementalDexingBinaries() {
-    return isJackUsedForDexing() ? ImmutableSet.<AndroidBinaryType>of() : incrementalDexingBinaries;
+    return incrementalDexingBinaries;
   }
 
   /**

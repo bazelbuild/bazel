@@ -93,7 +93,6 @@ import com.google.devtools.build.lib.rules.android.AndroidNeverlinkAspect;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
-import com.google.devtools.build.lib.rules.android.JackAspect;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -582,10 +581,8 @@ public class BazelRuleClassProvider {
 
           AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
           DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(toolsRepository);
-          JackAspect jackAspect = new JackAspect(toolsRepository);
           builder.addNativeAspectClass(androidNeverlinkAspect);
           builder.addNativeAspectClass(dexArchiveAspect);
-          builder.addNativeAspectClass(jackAspect);
 
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidSdkRule());
           builder.addRuleDefinition(new BazelAndroidToolsDefaultsJarRule());
@@ -594,9 +591,9 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new AndroidRuleClasses.AndroidResourceSupportRule());
           builder.addRuleDefinition(
               new AndroidRuleClasses.AndroidBinaryBaseRule(
-                  androidNeverlinkAspect, dexArchiveAspect, jackAspect));
+                  androidNeverlinkAspect, dexArchiveAspect));
           builder.addRuleDefinition(new AndroidBinaryOnlyRule());
-          builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect, jackAspect));
+          builder.addRuleDefinition(new AndroidLibraryBaseRule(androidNeverlinkAspect));
           builder.addRuleDefinition(new BazelAndroidLibraryRule());
           builder.addRuleDefinition(new BazelAndroidBinaryRule());
           builder.addRuleDefinition(new AarImportBaseRule());

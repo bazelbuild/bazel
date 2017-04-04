@@ -169,8 +169,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    apksigner = ':ApkSignerBinary',",
         "    dx = ':dx_binary',",
         "    framework_aidl = ':aidl_framework',",
-        "    jack = ':jack',",
-        "    jill = ':jill',",
         "    main_dex_classes = ':mainDexClasses.rules',",
         "    main_dex_list_creator = ':main_dex_list_creator',",
         "    proguard = ':ProGuard',",

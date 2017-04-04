@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import javax.annotation.Nullable;
 
@@ -36,8 +35,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       @Nullable TransitiveInfoCollection aidlLib,
       Artifact androidJar,
       Artifact shrinkedAndroidJar,
-      NestedSet<Artifact> androidBaseClasspathForJack,
-      NestedSet<Artifact> javaBaseClasspathForJack,
       Artifact annotationsJar,
       Artifact mainDexClasses,
       FilesToRunProvider adb,
@@ -49,8 +46,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
       FilesToRunProvider zipalign,
-      FilesToRunProvider jack,
-      FilesToRunProvider jill,
       FilesToRunProvider resourceExtractor) {
 
     return new AutoValue_AndroidSdkProvider(
@@ -60,8 +55,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         aidlLib,
         androidJar,
         shrinkedAndroidJar,
-        androidBaseClasspathForJack,
-        javaBaseClasspathForJack,
         annotationsJar,
         mainDexClasses,
         adb,
@@ -73,8 +66,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
         apkSigner,
         proguard,
         zipalign,
-        jack,
-        jill,
         resourceExtractor);
   }
 
@@ -118,18 +109,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
 
   public abstract Artifact getShrinkedAndroidJar();
 
-  /**
-   * Returns the set of jack files to be used as a base classpath for jack compilation of Android
-   * rules, typically a Jack translation of the jar returned by {@link getAndroidJar}.
-   */
-  public abstract NestedSet<Artifact> getAndroidBaseClasspathForJack();
-
-  /**
-   * Returns the set of jack files to be used as a base classpath for jack compilation of Java
-   * rules, typically a Jack translation of the jars in the Java bootclasspath.
-   */
-  public abstract NestedSet<Artifact> getJavaBaseClasspathForJack();
-
   public abstract Artifact getAnnotationsJar();
 
   public abstract Artifact getMainDexClasses();
@@ -152,10 +131,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
   public abstract FilesToRunProvider getProguard();
 
   public abstract FilesToRunProvider getZipalign();
-
-  public abstract FilesToRunProvider getJack();
-
-  public abstract FilesToRunProvider getJill();
 
   public abstract FilesToRunProvider getResourceExtractor();
 

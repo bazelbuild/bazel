@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.actions.util.LabelArtifactOwner;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
@@ -58,8 +55,6 @@ public class ApkManifestActionTest {
             null,  // aidlLib, optional
             createArtifact("/workspace/androidsdk/androidJar"),
             createArtifact("/workspace/androidsdk/shrinkedAndroidJar"),
-            createNestedSet(createArtifact("/workspace/androidsdk/androidBaseClasspathForJack")),
-            createNestedSet(createArtifact("/workspace/androidsdk/javaBaseClasspathForJack")),
             createArtifact("/workspace/androidsdk/annotationsJar"),
             createArtifact("/workspace/androidsdk/mainDexClasses"),
             createFilesToRunProvider("adb"),
@@ -71,8 +66,6 @@ public class ApkManifestActionTest {
             createFilesToRunProvider("apkSigner"),
             createFilesToRunProvider("proguard"),
             createFilesToRunProvider("zipalign"),
-            createFilesToRunProvider("jack"),
-            createFilesToRunProvider("jill"),
             createFilesToRunProvider("resourceExtractor"));
 
     Iterable<Artifact> jars1 = ImmutableList.of(
@@ -142,10 +135,6 @@ public class ApkManifestActionTest {
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }
-  }
-
-  private NestedSet<Artifact> createNestedSet(Artifact artifact) {
-    return NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
   }
 
   private FilesToRunProvider createFilesToRunProvider(String name) {

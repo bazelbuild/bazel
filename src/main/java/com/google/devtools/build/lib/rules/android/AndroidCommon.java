@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -119,7 +117,6 @@ public class AndroidCommon {
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
-  private JackCompilationHelper jackCompilationHelper;
   private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
   private Artifact iJar;
@@ -374,11 +371,6 @@ public class AndroidCommon {
     return transitiveAarNativeLibs;
   }
 
-  Artifact compileDexWithJack(
-      MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
-    return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
-  }
-
   private void compileResources(
       JavaSemantics javaSemantics,
       ResourceApk resourceApk,
@@ -575,11 +567,6 @@ public class AndroidCommon {
       }
     }
 
-    jackCompilationHelper = initJack(helper.getAttributes());
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
-
     initJava(
         javaSemantics,
         helper,
@@ -612,32 +599,6 @@ public class AndroidCommon {
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH));
     ruleContext.checkSrcsSamePackage(true);
     return helper;
-  }
-
-  JackCompilationHelper initJack(JavaTargetAttributes attributes) throws InterruptedException {
-    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    return new JackCompilationHelper.Builder()
-        // blaze infrastructure
-        .setRuleContext(ruleContext)
-        // configuration
-        .setOutputArtifact(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
-        // tools
-        .setJackBinary(sdk.getJack())
-        .setJillBinary(sdk.getJill())
-        .setResourceExtractorBinary(sdk.getResourceExtractor())
-        .setJackBaseClasspath(sdk.getAndroidBaseClasspathForJack())
-        // sources
-        .addJavaSources(attributes.getSourceFiles())
-        .addSourceJars(attributes.getSourceJars())
-        .addResources(attributes.getResources())
-        .addResourceJars(attributes.getResourceJars())
-        .addProcessorNames(attributes.getProcessorNames())
-        .addProcessorClasspathJars(attributes.getProcessorPath())
-        .addExports(JavaCommon.getExports(ruleContext))
-        .addClasspathDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))
-        .addRuntimeDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY))
-        .build();
   }
 
   private void initJava(
@@ -790,11 +751,6 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest))
         .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .add(
-            JackLibraryProvider.class,
-            asNeverLink
-                ? jackCompilationHelper.compileAsNeverlinkLibrary()
-                : jackCompilationHelper.compileAsLibrary())
         .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))

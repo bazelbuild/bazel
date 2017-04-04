@@ -38,8 +38,6 @@ message AndroidSdk {
   string annotations_jar = 5;
   string dx = 7;
   string framework_aidl = 8;
-  string jack = 9;
-  string jill = 10;
   string main_dex_classes = 11;
   string main_dex_list_creator = 12;
   string proguard = 13;
@@ -50,7 +48,7 @@ message AndroidSdk {
   string apksigner = 18;
 
   // Deprecated tag numbers.
-  reserved 6;
+  reserved 6, 9, 10;
 }
 
 // Information about a resource referenced from AndroidManifest.xml.

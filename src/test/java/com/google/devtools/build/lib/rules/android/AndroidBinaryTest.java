@@ -432,8 +432,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor'",
         ")",
         "java_library(",
@@ -495,8 +493,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor'",
         ")",
         "java_library(",
@@ -653,101 +649,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testDexesWithJackWhenFlagEnabled() throws Exception {
-    useConfiguration("--experimental_android_use_jack_for_dexing");
-    scratch.file(
-        "java/com/google/android/BUILD",
-        "android_library(",
-        "  name = 'dep',",
-        "  srcs = ['dep.java']",
-        ")",
-        "android_library(",
-        "  name = 'neverlink',",
-        "  srcs = ['neverlink.java'],",
-        "  neverlink = 1",
-        ")",
-        "java_plugin(",
-        "  name = 'plugin',",
-        "  srcs = ['plugin.java'],",
-        "  processor_class = 'com.google.android.Plugin'",
-        ")",
-        "android_binary(",
-        "  name = 'top',",
-        "  srcs = ['foo.java', 'bar.srcjar'],",
-        "  plugins = [':plugin'],",
-        "  manifest = 'AndroidManifest.xml',",
-        "  resource_files = glob(['res/**']),",
-        "  deps = [':dep', ':neverlink'],",
-        ")");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
-    Action jackDexAction =
-        getGeneratingAction(
-            artifactByPath(
-                ImmutableList.of(getCompressedUnsignedApk(topTarget)), ".apk", "classes.dex.zip"));
-    Iterable<String> jackDexInputs = ActionsTestUtil.baseArtifactNames(jackDexAction.getInputs());
-    assertThat(jackDexInputs).containsAllOf("libtop.jack", "libdep.jack");
-    assertThat(jackDexInputs).doesNotContain("libneverlink.jack");
-    Artifact jackLibrary = getBinArtifact("libtop.jack", topTarget);
-    assertThat(ActionsTestUtil.baseArtifactNames(actionsTestUtil().artifactClosureOf(jackLibrary)))
-        .containsAllOf("foo.java", "bar.srcjar", "libplugin.jar");
-  }
-
-  @Test
-  public void testJackDexingIncludesProguardSpecsFromLibraries() throws Exception {
-    useConfiguration("--experimental_android_use_jack_for_dexing");
-    scratch.file(
-        "java/com/google/android/BUILD",
-        "android_library(",
-        "  name = 'dep',",
-        "  srcs = ['dep.java'],",
-        "  proguard_specs = ['transitive.pro'],",
-        ")",
-        "android_binary(",
-        "  name = 'top',",
-        "  srcs = ['foo.java', 'bar.srcjar'],",
-        "  proguard_specs = ['direct.pro'],",
-        "  manifest = 'AndroidManifest.xml',",
-        "  deps = [':dep'],",
-        ")");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
-    Action jackDexAction =
-        getGeneratingAction(
-            artifactByPath(
-                ImmutableList.of(getCompressedUnsignedApk(topTarget)), ".apk", "classes.dex.zip"));
-    Iterable<String> jackDexInputs = ActionsTestUtil.baseArtifactNames(jackDexAction.getInputs());
-    assertThat(jackDexInputs).containsAllOf("transitive.pro_valid", "direct.pro");
-  }
-
-  @Test
-  public void testJackDexingOnNonProguardTargetHasNoProguardSpecsFromLibraries() throws Exception {
-    useConfiguration("--experimental_android_use_jack_for_dexing");
-    scratch.file(
-        "java/com/google/android/BUILD",
-        "android_library(",
-        "  name = 'dep',",
-        "  srcs = ['dep.java'],",
-        "  proguard_specs = ['transitive.pro'],",
-        ")",
-        "android_binary(",
-        "  name = 'top',",
-        "  srcs = ['foo.java', 'bar.srcjar'],",
-        "  manifest = 'AndroidManifest.xml',",
-        "  deps = [':dep'],",
-        ")");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
-
-    Action jackDexAction =
-        getGeneratingAction(
-            artifactByPath(
-                ImmutableList.of(getCompressedUnsignedApk(topTarget)), ".apk", "classes.dex.zip"));
-    Iterable<String> jackDexInputs = ActionsTestUtil.baseArtifactNames(jackDexAction.getInputs());
-    assertThat(jackDexInputs).doesNotContain("transitive.pro_valid");
-  }
-
-  @Test
   public void testV1SigningMethod() throws Exception {
     actualSignerToolTests("v1", "true", "false");
   }
@@ -781,8 +682,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor')");
     scratch.file("java/com/google/android/hello/BUILD",
         "android_binary(name = 'hello',",
@@ -2107,8 +2006,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor')");
 
     scratch.file("java/a/BUILD",
@@ -2148,8 +2045,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor')");
 
     scratch.file("java/a/BUILD",
@@ -2192,8 +2087,6 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    proguard = 'proguard',",
         "    shrinked_android_jar = 'shrinked_android_jar',",
         "    zipalign = 'zipalign',",
-        "    jack = 'jack',",
-        "    jill = 'jill',",
         "    resource_extractor = 'resource_extractor')");
 
     scratch.file("java/a/BUILD",
