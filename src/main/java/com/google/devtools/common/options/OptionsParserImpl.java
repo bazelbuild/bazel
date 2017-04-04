@@ -296,6 +296,15 @@ class OptionsParserImpl {
           // Create a warning if an expansion option overrides an explicit option:
           warnings.add("The option '" + expandedFrom + "' was expanded and now overrides a "
               + "previous explicitly specified option '" + name + "'");
+        } else if ((entry.getExpansionParent() != null) && (expandedFrom != null)) {
+          warnings.add(
+              "The option '"
+                  + name
+                  + "' was expanded to from both options '"
+                  + entry.getExpansionParent()
+                  + "' and '"
+                  + expandedFrom
+                  + "'");
         }
 
         // Record the new value:
@@ -633,6 +642,8 @@ class OptionsParserImpl {
       field = optionsData.getFieldFromName(name);
 
       // Look for a "no"-prefixed option name: "no<optionName>" or "no_<optionName>".
+      // Note: It is impossible to specify "--no_foo" for a flag named "--_foo", since that'll be
+      // interpreted as the "no_" negating prefix for "--foo".
       if (field == null && name.startsWith("no")) {
         name = name.substring(name.startsWith("no_") ? 3 : 2);
         field = optionsData.getFieldFromName(name);

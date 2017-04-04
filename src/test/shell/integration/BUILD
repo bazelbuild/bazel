@@ -156,6 +156,13 @@ sh_test(
 )
 
 sh_test(
+    name = "incompatible_changes_conflict_test",
+    size = "small",
+    srcs = ["incompatible_changes_conflict_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ide_info_generation_skylark",
     size = "large",
     srcs = ["ide_info_generation.sh"],

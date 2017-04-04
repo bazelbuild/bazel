@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.flags.InvocationPolicyParser;
@@ -28,7 +29,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
-
 import java.util.Collection;
 import java.util.List;
 
@@ -46,16 +46,53 @@ import java.util.List;
 public final class CanonicalizeCommand implements BlazeCommand {
 
   public static class Options extends OptionsBase {
-    @Option(name = "for_command",
-            defaultValue = "build",
-            category = "misc",
-            help = "The command for which the options should be canonicalized.")
+    @Option(
+      name = "for_command",
+      defaultValue = "build",
+      category = "misc",
+      help = "The command for which the options should be canonicalized."
+    )
     public String forCommand;
 
-    @Option(name = "invocation_policy",
-        defaultValue = "",
-        help = "Applies an invocation policy to the options to be canonicalized.")
+    @Option(
+      name = "invocation_policy",
+      defaultValue = "",
+      help = "Applies an invocation policy to the options to be canonicalized."
+    )
     public String invocationPolicy;
+
+    @Option(
+      name = "show_warnings",
+      defaultValue = "false",
+      help = "Output parser warnings to standard error (e.g. for conflicting flag options)."
+    )
+    public boolean showWarnings;
+  }
+
+  /**
+   * These options are used by the incompatible_changes_conflict_test.sh integration test, which
+   * confirms that the warning for conflicting expansion options is working correctly. These flags
+   * are undocumented no-ops, and are not to be used by anything outside of that test.
+   */
+  public static class FlagClashCanaryOptions extends OptionsBase {
+    @Option(name = "flag_clash_canary", defaultValue = "false", category = "undocumented")
+    public boolean flagClashCanary;
+
+    @Option(
+      name = "flag_clash_canary_expander1",
+      defaultValue = "null",
+      category = "undocumented",
+      expansion = {"--flag_clash_canary=1"}
+    )
+    public Void flagClashCanaryExpander1;
+
+    @Option(
+      name = "flag_clash_canary_expander2",
+      defaultValue = "null",
+      category = "undocumented",
+      expansion = {"--flag_clash_canary=0"}
+    )
+    public Void flagClashCanaryExpander2;
   }
 
   @Override
@@ -70,10 +107,12 @@ public final class CanonicalizeCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
     Collection<Class<? extends OptionsBase>> optionsClasses =
-        BlazeCommandUtils.getOptions(
-            command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider());
+        ImmutableList.<Class<? extends OptionsBase>>builder()
+            .addAll(BlazeCommandUtils.getOptions(
+                command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
+            .add(FlagClashCanaryOptions.class)
+            .build();
     try {
-      
       OptionsParser parser = OptionsParser.newOptionsParser(optionsClasses);
       parser.setAllowResidue(false);
       parser.parse(options.getResidue());
@@ -83,8 +122,13 @@ public final class CanonicalizeCommand implements BlazeCommand {
               InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy));
       invocationPolicyEnforcer.enforce(parser, commandName);
 
-      List<String> result = parser.canonicalize();
+      if (canonicalizeOptions.showWarnings) {
+        for (String warning : parser.getWarnings()) {
+          env.getReporter().handle(Event.warn(warning));
+        }
+      }
 
+      List<String> result = parser.canonicalize();
       for (String piece : result) {
         env.getReporter().getOutErr().printOutLn(piece);
       }
