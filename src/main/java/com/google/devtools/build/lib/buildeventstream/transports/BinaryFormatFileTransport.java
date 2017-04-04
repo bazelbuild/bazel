@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.BufferedOutputStream;
@@ -40,7 +41,14 @@ public final class BinaryFormatFileTransport implements BuildEventTransport {
 
   @Override
   public synchronized void sendBuildEvent(BuildEvent event) throws IOException {
-    event.asStreamProto(pathConverter).writeDelimitedTo(out);
+    BuildEventConverters converters =
+        new BuildEventConverters() {
+          @Override
+          public PathConverter pathConverter() {
+            return pathConverter;
+          }
+        };
+    event.asStreamProto(converters).writeDelimitedTo(out);
     out.flush();
   }
 

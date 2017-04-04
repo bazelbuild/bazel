@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
@@ -40,7 +41,14 @@ public final class TextFormatFileTransport implements BuildEventTransport {
   @Override
   public synchronized void sendBuildEvent(BuildEvent event) throws IOException {
     if (out != null) {
-      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(pathConverter));
+      BuildEventConverters converters =
+          new BuildEventConverters() {
+            @Override
+            public PathConverter pathConverter() {
+              return pathConverter;
+            }
+          };
+      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
       out.write(("event {\n" + protoTextRepresentation + "}\n\n").getBytes(StandardCharsets.UTF_8));
       out.flush();
     }

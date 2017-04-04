@@ -21,6 +21,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -34,6 +35,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -66,7 +68,8 @@ public class BuildEventTransportFactoryTest {
   @Before
   public void before() {
     MockitoAnnotations.initMocks(this);
-    when(buildEvent.asStreamProto(pathConverter)).thenReturn(BUILD_EVENT_AS_PROTO);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any()))
+        .thenReturn(BUILD_EVENT_AS_PROTO);
   }
 
   @After
