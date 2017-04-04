@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode.OFF;
 import static com.google.devtools.build.lib.rules.java.JavaHelper.getHostJavabaseInputs;
 
@@ -170,18 +171,31 @@ public final class JavaCompilationHelper {
       @Nullable Artifact outputMetadata) {
 
     JavaTargetAttributes attributes = getAttributes();
+
+    Artifact classJar;
+    if (attributes.getResources().isEmpty()
+        && attributes.getResourceJars().isEmpty()
+        && attributes.getClassPathResources().isEmpty()
+        && getTranslations().isEmpty()) {
+      // if there are sources and no resource, the only output is from the javac action
+      classJar = outputJar;
+    } else {
+      // otherwise create a separate jar for the compilation and add resources with singlejar
+      classJar =
+          ruleContext.getDerivedArtifact(
+              FileSystemUtils.appendWithoutExtension(outputJar.getRootRelativePath(), "-class"),
+              outputJar.getRoot());
+      createResourceJarAction(outputJar, ImmutableList.of(classJar));
+    }
+
     JavaCompileAction.Builder builder = createJavaCompileActionBuilder(semantics);
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.addResources(attributes.getResources());
-    builder.setResourceJars(attributes.getResourceJars());
-    builder.addClasspathResources(attributes.getClassPathResources());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setExtdirInputs(getExtdirInputs());
     builder.setLangtoolsJar(javaToolchain.getJavac());
     builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
-    builder.addTranslations(getTranslations());
-    builder.setOutputJar(outputJar);
+    builder.setOutputJar(classJar);
     builder.setManifestProtoOutput(manifestProtoOutput);
     builder.setGensrcOutputJar(gensrcOutputJar);
     builder.setOutputDepsProto(outputDepsProto);
@@ -194,9 +208,9 @@ public final class JavaCompilationHelper {
     builder.setJavacJvmOpts(customJavacJvmOpts);
     builder.setJavacExecutionInfo(getExecutionInfo());
     builder.setCompressJar(true);
-    builder.setSourceGenDirectory(sourceGenDir(outputJar));
-    builder.setTempDirectory(tempDir(outputJar));
-    builder.setClassDirectory(classDir(outputJar));
+    builder.setSourceGenDirectory(sourceGenDir(classJar));
+    builder.setTempDirectory(tempDir(classJar));
+    builder.setClassDirectory(classDir(classJar));
     builder.addProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorPathDirs(attributes.getProcessorPathDirs());
     builder.addProcessorNames(attributes.getProcessorNames());
@@ -489,35 +503,27 @@ public final class JavaCompilationHelper {
   }
 
   /**
-   * Creates an Action that packages all of the resources into a Jar. This
-   * includes the declared resources, the classpath resources and the translated
-   * messages.
-   *
-   * <p>The resource jar artifact is derived from the given original jar, by
-   * prepending the given prefix and appending the given suffix. The new jar
-   * uses the same root as the original jar.
+   * Creates and registers an Action that packages all of the resources into a Jar. This includes
+   * the declared resources, the classpath resources and the translated messages.
    */
-  // TODO(bazel-team): Extract this method to make it easier to create simple
-  // zip/jar archives without having to first create a JavaCompilationhelper and
-  // JavaTargetAttributes.
-  public Artifact createResourceJarAction(Artifact resourceJar) {
+  public void createResourceJarAction(Artifact resourceJar) {
+    createResourceJarAction(resourceJar, ImmutableList.<Artifact>of());
+  }
+
+  private void createResourceJarAction(Artifact resourceJar, ImmutableList<Artifact> extraJars) {
+    checkNotNull(resourceJar, "resource jar output must not be null");
     JavaTargetAttributes attributes = getAttributes();
-    JavaCompileAction.Builder builder = createJavaCompileActionBuilder(semantics);
-    builder.setOutputJar(resourceJar);
-    builder.addResources(attributes.getResources());
-    builder.addClasspathResources(attributes.getClassPathResources());
-    builder.setExtdirInputs(getExtdirInputs());
-    builder.setLangtoolsJar(javaToolchain.getJavac());
-    builder.addTranslations(getTranslations());
-    builder.setCompressJar(true);
-    builder.setTempDirectory(tempDir(resourceJar));
-    builder.setClassDirectory(classDir(resourceJar));
-    builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
-    builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
-    builder.setJavacJvmOpts(javaToolchain.getJvmOptions());
-    builder.setTargetLabel(ruleContext.getLabel());
-    getAnalysisEnvironment().registerAction(builder.build());
-    return resourceJar;
+    new ResourceJarActionBuilder()
+        .setJavabase(
+            NestedSetBuilder.fromNestedSet(hostJavabase).addAll(additionalJavaBaseInputs).build())
+        .setJavaToolchain(javaToolchain)
+        .setOutputJar(resourceJar)
+        .setResources(attributes.getResources())
+        .setClasspathResources(attributes.getClassPathResources())
+        .setTranslations(getTranslations())
+        .setResourceJars(
+            NestedSetBuilder.fromNestedSet(attributes.getResourceJars()).addAll(extraJars).build())
+        .build(semantics, ruleContext);
   }
 
   private JavaCompileAction.Builder createJavaCompileActionBuilder(

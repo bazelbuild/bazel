@@ -927,6 +927,7 @@ java_library(
         "rules/java/NativeLibraryNestedSetBuilder.java",
         "rules/java/ProtoJavaApiInfoAspectProvider.java",
         "rules/java/ProtoJavaApiInfoProvider.java",
+        "rules/java/ResourceJarActionBuilder.java",
         "rules/java/SingleJarActionBuilder.java",
         "rules/java/WriteBuildInfoPropertiesAction.java",
         "rules/java/proto/GeneratedExtensionRegistryProvider.java",
