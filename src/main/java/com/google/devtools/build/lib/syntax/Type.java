@@ -124,13 +124,17 @@ public abstract class Type<T> {
    */
   public abstract T getDefaultValue();
 
-  /** Function accepting a (potentially null) object value. See {@link #visitLabels}. */
-  public static interface LabelVisitor {
-    void visit(@Nullable Label label) throws InterruptedException;
+  /**
+   * Function accepting a (potentially null) {@link Label} and an arbitrary context object. Used by
+   * {@link #visitLabels}.
+   */
+  public static interface LabelVisitor<C> {
+    void visit(@Nullable Label label, @Nullable C context) throws InterruptedException;
   }
 
   /**
-   * Extracts all labels associated with the instance of the type to visitor.
+   * Invokes {@code visitor.visit(label, context)} for each {@link Label} {@code label} associated
+   * with {@code value}, which is assumed an instance of this {@link Type}.
    *
    * <p>This is used to support reliable label visitation in
    * {@link com.google.devtools.build.lib.packages.AbstractAttributeMapper#visitLabels}. To preserve
@@ -138,7 +142,8 @@ public abstract class Type<T> {
    * words, be careful about defining default instances in base types that get auto-inherited by
    * their children. Keep all definitions as explicit as possible.
    */
-  public abstract void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException;
+  public abstract <C> void visitLabels(LabelVisitor<C> visitor, Object value, @Nullable C context)
+      throws InterruptedException;
 
   /** Classifications of labels by their usage. */
   public enum LabelClass {
@@ -283,7 +288,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -309,7 +314,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -348,7 +353,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -398,7 +403,7 @@ public abstract class Type<T> {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -446,10 +451,11 @@ public abstract class Type<T> {
     private final LabelClass labelClass;
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
       for (Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
-        keyType.visitLabels(visitor, entry.getKey());
-        valueType.visitLabels(visitor, entry.getValue());
+        keyType.visitLabels(visitor, entry.getKey(), context);
+        valueType.visitLabels(visitor, entry.getValue(), context);
       }
     }
 
@@ -559,9 +565,10 @@ public abstract class Type<T> {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
       for (ElemT elem : cast(value)) {
-        elemType.visitLabels(visitor, elem);
+        elemType.visitLabels(visitor, elem, context);
       }
     }
 

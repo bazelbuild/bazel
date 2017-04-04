@@ -135,33 +135,34 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
   }
 
   @Override
-  public void visitLabels(AcceptsLabelAttribute observer) throws InterruptedException {
+  public void visitLabels(final AcceptsLabelAttribute observer) throws InterruptedException {
+    Type.LabelVisitor<Attribute> visitor = new Type.LabelVisitor<Attribute>() {
+      @Override
+      public void visit(@Nullable Label label, Attribute attribute) throws InterruptedException {
+        if (label != null) {
+          Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
+          observer.acceptLabelAttribute(absoluteLabel, attribute);
+        }
+      }
+    };
     for (Attribute attribute : ruleClass.getAttributes()) {
       Type<?> type = attribute.getType();
       // TODO(bazel-team): clean up the typing / visitation interface so we don't have to
       // special-case these types.
       if (type != BuildType.OUTPUT && type != BuildType.OUTPUT_LIST
           && type != BuildType.NODEP_LABEL && type != BuildType.NODEP_LABEL_LIST) {
-        visitLabels(attribute, observer);
+        visitLabels(attribute, visitor);
       }
     }
   }
 
   /** Visits all labels reachable from the given attribute. */
-  protected void visitLabels(final Attribute attribute, final AcceptsLabelAttribute observer)
+  protected void visitLabels(Attribute attribute, Type.LabelVisitor<Attribute> visitor)
       throws InterruptedException {
     Type<?> type = attribute.getType();
     Object value = get(attribute.getName(), type);
     if (value != null) { // null values are particularly possible for computed defaults.
-      type.visitLabels(new Type.LabelVisitor() {
-        @Override
-        public void visit(@Nullable Label label) throws InterruptedException {
-          if (label != null) {
-            Label absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
-            observer.acceptLabelAttribute(absoluteLabel, attribute);
-          }
-        }
-      }, value);
+      type.visitLabels(visitor, value, attribute);
     }
   }
 

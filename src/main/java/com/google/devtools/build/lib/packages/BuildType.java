@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.DictType;
 import com.google.devtools.build.lib.syntax.Type.LabelClass;
+import com.google.devtools.build.lib.syntax.Type.LabelVisitor;
 import com.google.devtools.build.lib.syntax.Type.ListType;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,7 +104,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -200,9 +201,10 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
       for (Label label : cast(value).getLabels()) {
-        visitor.visit(label);
+        visitor.visit(label, context);
       }
     }
   }
@@ -225,8 +227,9 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
-      visitor.visit(cast(value));
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
+      visitor.visit(cast(value), context);
     }
 
     @Override
@@ -345,7 +348,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -384,7 +387,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
@@ -410,8 +413,9 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) throws InterruptedException {
-      visitor.visit(cast(value));
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context)
+        throws InterruptedException {
+      visitor.visit(cast(value), context);
     }
 
     @Override
@@ -676,7 +680,7 @@ public final class BuildType {
     }
 
     @Override
-    public void visitLabels(LabelVisitor visitor, Object value) {
+    public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
     }
 
     @Override
