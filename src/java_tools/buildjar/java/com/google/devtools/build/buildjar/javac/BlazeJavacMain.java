@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic.Listener;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -37,6 +36,7 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import javax.tools.StandardLocation;
 
@@ -170,8 +170,8 @@ public class BlazeJavacMain {
           StandardLocation.CLASS_OUTPUT, ImmutableList.of(arguments.classOutput()));
       fileManager.setLocationFromPaths(StandardLocation.SOURCE_PATH, arguments.sourcePath());
       // TODO(cushon): require an explicit bootclasspath
-      Iterable<Path> bootClassPath = arguments.bootClassPath();
-      if (!Iterables.isEmpty(bootClassPath)) {
+      Collection<Path> bootClassPath = arguments.bootClassPath();
+      if (!bootClassPath.isEmpty()) {
         fileManager.setLocationFromPaths(StandardLocation.PLATFORM_CLASS_PATH, bootClassPath);
       }
       fileManager.setLocationFromPaths(
