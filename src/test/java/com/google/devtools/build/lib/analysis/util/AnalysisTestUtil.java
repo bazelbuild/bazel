@@ -247,6 +247,12 @@ public final class AnalysisTestUtil {
       DummyWorkspaceStatusAction that = (DummyWorkspaceStatusAction) o;
       return that.key.equals(this.key);
     }
+
+    @Override
+    public int hashCode() {
+      // TODO(b/38132001): return key.hashCode();
+      return System.identityHashCode(this);
+    }
   }
 
   @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
