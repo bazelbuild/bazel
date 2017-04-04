@@ -79,8 +79,6 @@ def create_android_sdk_rules(
         apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
         apksigner = ":apksigner",
         zipalign = ":zipalign_binary",
-        jack = ":fail",
-        jill = ":fail",
         resource_extractor = "@bazel_tools//tools/android:resource_extractor",
     )
 
