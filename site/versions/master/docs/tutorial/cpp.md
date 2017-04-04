@@ -271,8 +271,8 @@ more complicated:
 * `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
   `googletest-release-1.7.0/src/`, so we need to exclude it from the compile or we'll get
   link errors for duplicate symbols.
-* It uses header files that relative to the `googletest-release-1.7.0/include/` directory
-  (`"gtest/gtest.h"`), so we must add that directory the include paths.
+* It uses header files that are relative to the `googletest-release-1.7.0/include/` directory
+  (`"gtest/gtest.h"`), so we must add that directory to the include paths.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
 The final rule looks like this:
@@ -339,7 +339,7 @@ For example, we could create a test `./test/hello-test.cc` such as:
 #include "gtest/gtest.h"
 #include "lib/hello-greet.h"
 
-TEST(FactorialTest, Negative) {
+TEST(HelloTest, GetGreet) {
   EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");
 }
 ```
