@@ -767,7 +767,17 @@ cc_autoconf = repository_rule(
         "BAZEL_VS",
         "CC",
         "CC_TOOLCHAIN_NAME",
-        "CPLUS_INCLUDE_PATH"])
+        "CPLUS_INCLUDE_PATH",
+        "CUDA_COMPUTE_CAPABILITIES",
+        "CUDA_PATH",
+        "HOMEBREW_RUBY_PATH",
+        "NO_WHOLE_ARCHIVE_OPTION",
+        "SYSTEMROOT",
+        "VS90COMNTOOLS",
+        "VS100COMNTOOLS",
+        "VS110COMNTOOLS",
+        "VS120COMNTOOLS",
+        "VS140COMNTOOLS"])
 
 
 def cc_configure():

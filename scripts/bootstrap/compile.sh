@@ -338,7 +338,20 @@ function run_bazel_jar() {
   env_vars="$env_vars CC"
   env_vars="$env_vars CC_TOOLCHAIN_NAME"
   env_vars="$env_vars CPLUS_INCLUDE_PATH"
+  env_vars="$env_vars CUDA_COMPUTE_CAPABILITIES"
+  env_vars="$env_vars CUDA_PATH"
+  env_vars="$env_vars HOMEBREW_RUBY_PATH"
+  env_vars="$env_vars INCLUDE"
+  env_vars="$env_vars LIB"
+  env_vars="$env_vars NO_WHOLE_ARCHIVE_OPTION"
   env_vars="$env_vars PATH"
+  env_vars="$env_vars SYSTEMROOT"
+  env_vars="$env_vars TMP"
+  env_vars="$env_vars VS90COMNTOOLS"
+  env_vars="$env_vars VS100COMNTOOLS"
+  env_vars="$env_vars VS110COMNTOOLS"
+  env_vars="$env_vars VS120COMNTOOLS"
+  env_vars="$env_vars VS140COMNTOOLS"
   for varname in $env_vars; do
     eval value=\$$varname
     if [ "${value}" ]; then
