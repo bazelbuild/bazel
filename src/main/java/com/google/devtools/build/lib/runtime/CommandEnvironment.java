@@ -326,6 +326,14 @@ public final class CommandEnvironment {
   }
 
   /**
+   * Returns the directory where actions' outputs and errors will be written. Is below the directory
+   * returned by {@link #getExecRoot}.
+   */
+  public Path getActionConsoleOutputDirectory() {
+    return getDirectories().getActionConsoleOutputDirectory(getExecRoot());
+  }
+
+  /**
    * Returns the working directory of the {@code blaze} client process.
    *
    * <p>This may be equal to {@code BlazeRuntime#getWorkspace()}, or beneath it.
