@@ -76,7 +76,6 @@ def create_android_sdk_rules(
         shrinked_android_jar = "platforms/android-%d/android.jar" % api_level,
         annotations_jar = "tools/support/annotations.jar",
         main_dex_classes = "build-tools/%s/mainDexClasses.rules" % build_tools_directory,
-        apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
         apksigner = ":apksigner",
         zipalign = ":zipalign_binary",
         resource_extractor = "@bazel_tools//tools/android:resource_extractor",
