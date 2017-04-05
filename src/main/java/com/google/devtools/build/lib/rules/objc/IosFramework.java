@@ -41,7 +41,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for {@code ios_framework}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosFramework extends ReleaseBundlingTargetFactory {
 
   @VisibleForTesting

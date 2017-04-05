@@ -34,7 +34,11 @@ import java.io.Serializable;
 
 /**
  * Implementation for {@code ios_extension}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosExtension extends ReleaseBundlingTargetFactory {
 
   // Apple only accepts extensions starting at 8.0.

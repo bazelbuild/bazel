@@ -60,7 +60,11 @@ import javax.annotation.Nullable;
 /**
  * Contains support methods to build watch application bundle - does normal bundle processing -
  * resources, plists and creates a final (signed if necessary) bundle.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 final class WatchApplicationSupport {
 
   private final RuleContext ruleContext;

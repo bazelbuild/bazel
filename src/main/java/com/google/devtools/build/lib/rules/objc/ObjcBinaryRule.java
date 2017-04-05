@@ -30,8 +30,12 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 
 /**
  * Rule definition for objc_binary.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
 // TODO(bazel-team): Remove bundling functionality (dependency on ApplicationRule, IPA output).
+@Deprecated
 public class ObjcBinaryRule implements RuleDefinition {
 
   @Override
@@ -81,6 +85,10 @@ public class ObjcBinaryRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = objc_binary, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces one or more Objective-C libraries for bundling in an
 <code>ios_application</code>.</p>

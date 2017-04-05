@@ -46,7 +46,11 @@ import javax.annotation.Nullable;
  * Contains support methods to build watch extension bundle - does normal bundle processing -
  * compiling and linking the binary, resources, plists and creates a final (signed if necessary)
  * bundle.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class Watch2ExtensionSupport {
 
   private final RuleContext ruleContext;

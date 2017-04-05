@@ -37,7 +37,13 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 
-/** Implementation for rules that link binaries. */
+/**
+ * Implementation for rules that link binaries.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory {
   /**
    * Indicates whether this binary generates an application bundle. If so, it causes the {@code
@@ -72,6 +78,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
     ProtobufSupport protoSupport =
         new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
 

@@ -76,7 +76,11 @@ import javax.annotation.Nullable;
  * <p>Contains actions, validation logic and provider value generation.
  *
  * <p>Methods on this class can be called in any order without impacting the result.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public final class ReleaseBundlingSupport {
 
   /**

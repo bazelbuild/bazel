@@ -41,7 +41,11 @@ import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Implementation for {@code apple_watch1_extension}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
 
   static final SplitTransition<BuildOptions> MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION =
@@ -55,6 +59,10 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
     ObjcProvider.Builder extensionObjcProviderBuilder = new ObjcProvider.Builder();
     XcodeProvider.Builder applicationXcodeProviderBuilder = new XcodeProvider.Builder();
     XcodeProvider.Builder extensionXcodeProviderBuilder = new XcodeProvider.Builder();
