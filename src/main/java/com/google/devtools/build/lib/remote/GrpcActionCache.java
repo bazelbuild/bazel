@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.remote;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -53,6 +54,7 @@ import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -60,6 +62,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -72,9 +75,220 @@ public class GrpcActionCache implements RemoteActionCache {
 
   /** Channel over which to send gRPC CAS queries. */
   private final GrpcCasInterface casIface;
-
   private final GrpcExecutionCacheInterface iface;
   private final RemoteOptions options;
+
+  /** Reads from multiple sequential inputs and chunks the data into BlobChunks. */
+  static interface BlobChunkIterator {
+    boolean hasNext();
+
+    BlobChunk next() throws IOException; // IOException can be a result of file read.
+  }
+
+  final class BlobChunkInlineIterator implements BlobChunkIterator {
+    private final Iterator<byte[]> blobIterator;
+    private final Set<ContentDigest> digests;
+    private int offset;
+    private ContentDigest digest;
+    private byte[] currentBlob;
+
+    public BlobChunkInlineIterator(Set<ContentDigest> digests, Iterator<byte[]> blobIterator) {
+      this.digests = digests;
+      this.blobIterator = blobIterator;
+      advanceInput();
+    }
+
+    public BlobChunkInlineIterator(byte[] blob) {
+      blobIterator = null;
+      offset = 0;
+      currentBlob = blob;
+      digest = ContentDigests.computeDigest(currentBlob);
+      digests = null;
+    }
+
+    private void advanceInput() {
+      offset = 0;
+      do {
+        if (blobIterator != null && blobIterator.hasNext()) {
+          currentBlob = blobIterator.next();
+          digest = ContentDigests.computeDigest(currentBlob);
+        } else {
+          currentBlob = null;
+          digest = null;
+        }
+      } while (digest != null && !digests.contains(digest));
+    }
+
+    @Override
+    public boolean hasNext() {
+      return currentBlob != null;
+    }
+
+    @Override
+    public BlobChunk next() throws IOException {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      BlobChunk.Builder chunk = BlobChunk.newBuilder();
+      if (offset == 0) {
+        chunk.setDigest(digest);
+      } else {
+        chunk.setOffset(offset);
+      }
+      int size = Math.min(currentBlob.length - offset, options.grpcMaxChunkSizeBytes);
+      if (size > 0) {
+        chunk.setData(ByteString.copyFrom(currentBlob, offset, size));
+        offset += size;
+      }
+      if (offset >= currentBlob.length) {
+        advanceInput();
+      }
+      return chunk.build();
+    }
+  }
+
+  final class BlobChunkFileIterator implements BlobChunkIterator {
+    private final Iterator<Path> fileIterator;
+    private InputStream currentStream;
+    private final Set<ContentDigest> digests;
+    private ContentDigest digest;
+    private long bytesLeft;
+
+    public BlobChunkFileIterator(Set<ContentDigest> digests, Iterator<Path> fileIterator)
+        throws IOException {
+      this.digests = digests;
+      this.fileIterator = fileIterator;
+      advanceInput();
+    }
+
+    public BlobChunkFileIterator(Path file) throws IOException {
+      fileIterator = Iterators.singletonIterator(file);
+      digests = ImmutableSet.of(ContentDigests.computeDigest(file));
+      advanceInput();
+    }
+
+    private void advanceInput() throws IOException {
+      do {
+        if (fileIterator != null && fileIterator.hasNext()) {
+          Path file = fileIterator.next();
+          digest = ContentDigests.computeDigest(file);
+          currentStream = file.getInputStream();
+          bytesLeft = digest.getSizeBytes();
+        } else {
+          digest = null;
+          currentStream = null;
+          bytesLeft = 0;
+        }
+      } while (digest != null && !digests.contains(digest));
+    }
+
+    @Override
+    public boolean hasNext() {
+      return currentStream != null;
+    }
+
+    @Override
+    public BlobChunk next() throws IOException {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      BlobChunk.Builder chunk = BlobChunk.newBuilder();
+      long offset = digest.getSizeBytes() - bytesLeft;
+      if (offset == 0) {
+        chunk.setDigest(digest);
+      } else {
+        chunk.setOffset(offset);
+      }
+      if (bytesLeft > 0) {
+        byte[] blob = new byte[(int) Math.min(bytesLeft, options.grpcMaxChunkSizeBytes)];
+        currentStream.read(blob);
+        chunk.setData(ByteString.copyFrom(blob));
+        bytesLeft -= blob.length;
+      }
+      if (bytesLeft == 0) {
+        currentStream.close();
+        advanceInput();
+      }
+      return chunk.build();
+    }
+  }
+
+  final class BlobChunkActionInputIterator implements BlobChunkIterator {
+    private final Iterator<? extends ActionInput> inputIterator;
+    private final ActionInputFileCache inputCache;
+    private final Path execRoot;
+    private InputStream currentStream;
+    private final Set<ContentDigest> digests;
+    private ContentDigest digest;
+    private long bytesLeft;
+
+    public BlobChunkActionInputIterator(
+        Set<ContentDigest> digests,
+        Path execRoot,
+        Iterator<? extends ActionInput> inputIterator,
+        ActionInputFileCache inputCache)
+        throws IOException {
+      this.digests = digests;
+      this.inputIterator = inputIterator;
+      this.inputCache = inputCache;
+      this.execRoot = execRoot;
+      advanceInput();
+    }
+
+    public BlobChunkActionInputIterator(
+        ActionInput input, Path execRoot, ActionInputFileCache inputCache) throws IOException {
+      inputIterator = Iterators.singletonIterator(input);
+      digests = ImmutableSet.of(ContentDigests.getDigestFromInputCache(input, inputCache));
+      this.inputCache = inputCache;
+      this.execRoot = execRoot;
+      advanceInput();
+    }
+
+    private void advanceInput() throws IOException {
+      do {
+        if (inputIterator != null && inputIterator.hasNext()) {
+          ActionInput input = inputIterator.next();
+          digest = ContentDigests.getDigestFromInputCache(input, inputCache);
+          currentStream = execRoot.getRelative(input.getExecPathString()).getInputStream();
+          bytesLeft = digest.getSizeBytes();
+        } else {
+          digest = null;
+          currentStream = null;
+          bytesLeft = 0;
+        }
+      } while (digest != null && !digests.contains(digest));
+    }
+
+    @Override
+    public boolean hasNext() {
+      return currentStream != null;
+    }
+
+    @Override
+    public BlobChunk next() throws IOException {
+      if (!hasNext()) {
+        throw new NoSuchElementException();
+      }
+      BlobChunk.Builder chunk = BlobChunk.newBuilder();
+      long offset = digest.getSizeBytes() - bytesLeft;
+      if (offset == 0) {
+        chunk.setDigest(digest);
+      } else {
+        chunk.setOffset(offset);
+      }
+      if (bytesLeft > 0) {
+        byte[] blob = new byte[(int) Math.min(bytesLeft, (long) options.grpcMaxChunkSizeBytes)];
+        currentStream.read(blob);
+        chunk.setData(ByteString.copyFrom(blob));
+        bytesLeft -= blob.length;
+      }
+      if (bytesLeft == 0) {
+        currentStream.close();
+        advanceInput();
+      }
+      return chunk.build();
+    }
+  }
 
   public GrpcActionCache(
       RemoteOptions options, GrpcCasInterface casIface, GrpcExecutionCacheInterface iface) {
@@ -138,11 +352,8 @@ public class GrpcActionCache implements RemoteActionCache {
     if (!actionInputs.isEmpty()) {
       uploadChunks(
           actionInputs.size(),
-          new Chunker.Builder()
-              .chunkSize(options.grpcMaxChunkSizeBytes)
-              .addAllInputs(actionInputs, repository.getInputFileCache(), execRoot)
-              .onlyUseDigests(missingDigests)
-              .build());
+          new BlobChunkActionInputIterator(
+              missingDigests, execRoot, actionInputs.iterator(), repository.getInputFileCache()));
     }
   }
 
@@ -249,14 +460,12 @@ public class GrpcActionCache implements RemoteActionCache {
   public void uploadAllResults(Path execRoot, Collection<Path> files, ActionResult.Builder result)
       throws IOException, InterruptedException {
     ArrayList<ContentDigest> digests = new ArrayList<>();
-    Chunker.Builder b = new Chunker.Builder().chunkSize(options.grpcMaxChunkSizeBytes);
     for (Path file : files) {
       digests.add(ContentDigests.computeDigest(file));
-      b.addInput(file);
     }
     ImmutableSet<ContentDigest> missing = getMissingDigests(digests);
     if (!missing.isEmpty()) {
-      uploadChunks(missing.size(), b.onlyUseDigests(missing).build());
+      uploadChunks(missing.size(), new BlobChunkFileIterator(missing, files.iterator()));
     }
     int index = 0;
     for (Path file : files) {
@@ -286,7 +495,7 @@ public class GrpcActionCache implements RemoteActionCache {
     ContentDigest digest = ContentDigests.computeDigest(file);
     ImmutableSet<ContentDigest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, Chunker.from(file, options.grpcMaxChunkSizeBytes));
+      uploadChunks(1, new BlobChunkFileIterator(file));
     }
     return digest;
   }
@@ -304,7 +513,7 @@ public class GrpcActionCache implements RemoteActionCache {
     ContentDigest digest = ContentDigests.getDigestFromInputCache(input, inputCache);
     ImmutableSet<ContentDigest> missing = getMissingDigests(ImmutableList.of(digest));
     if (!missing.isEmpty()) {
-      uploadChunks(1, Chunker.from(input, options.grpcMaxChunkSizeBytes, inputCache, execRoot));
+      uploadChunks(1, new BlobChunkActionInputIterator(input, execRoot, inputCache));
     }
     return digest;
   }
@@ -340,7 +549,7 @@ public class GrpcActionCache implements RemoteActionCache {
     }
   }
 
-  private void uploadChunks(int numItems, Chunker blobs)
+  private void uploadChunks(int numItems, BlobChunkIterator blobs)
       throws InterruptedException, IOException {
     CountDownLatch finishLatch = new CountDownLatch(numItems); // Maximal number of batches.
     AtomicReference<RuntimeException> exception = new AtomicReference<>(null);
@@ -401,15 +610,13 @@ public class GrpcActionCache implements RemoteActionCache {
   public ImmutableList<ContentDigest> uploadBlobs(Iterable<byte[]> blobs)
       throws InterruptedException {
     ArrayList<ContentDigest> digests = new ArrayList<>();
-    Chunker.Builder b = new Chunker.Builder().chunkSize(options.grpcMaxChunkSizeBytes);
     for (byte[] blob : blobs) {
       digests.add(ContentDigests.computeDigest(blob));
-      b.addInput(blob);
     }
     ImmutableSet<ContentDigest> missing = getMissingDigests(digests);
     try {
       if (!missing.isEmpty()) {
-        uploadChunks(missing.size(), b.onlyUseDigests(missing).build());
+        uploadChunks(missing.size(), new BlobChunkInlineIterator(missing, blobs.iterator()));
       }
       return ImmutableList.copyOf(digests);
     } catch (IOException e) {
@@ -424,7 +631,7 @@ public class GrpcActionCache implements RemoteActionCache {
     ImmutableSet<ContentDigest> missing = getMissingDigests(ImmutableList.of(digest));
     try {
       if (!missing.isEmpty()) {
-        uploadChunks(1, Chunker.from(blob, options.grpcMaxChunkSizeBytes));
+        uploadChunks(1, new BlobChunkInlineIterator(blob));
       }
       return digest;
     } catch (IOException e) {
