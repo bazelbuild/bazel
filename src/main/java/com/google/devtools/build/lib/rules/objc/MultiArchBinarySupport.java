@@ -166,8 +166,6 @@ public class MultiArchBinarySupport {
    *     current rule have propagated
    * @param dylibProtoProviders {@link ObjcProtoProvider} providers that dynamic library
    *     dependencies of the current rule have propagated
-   * @param bundleLoaderObjcProvider Optional ObjcProvider containing artifacts and paths to be
-   *     included in this binary's compilation actions
    * @throws RuleErrorException if there are attribute errors in the current rule context
    */
   public ImmutableSet<DependencySpecificConfiguration> getDependencySpecificConfigurations(
@@ -177,14 +175,14 @@ public class MultiArchBinarySupport {
       Iterable<ObjcProvider> dylibObjcProviders,
       Iterable<ObjcProtoProvider> dylibProtoProviders)
       throws RuleErrorException, InterruptedException {
+    NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(dylibProtoProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
     for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
-            new ProtobufSupport(ruleContext, childConfig,
-                    protoArtifactsToAvoid(dylibProtoProviders))
+            new ProtobufSupport(ruleContext, childConfig, protosToAvoid)
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();
