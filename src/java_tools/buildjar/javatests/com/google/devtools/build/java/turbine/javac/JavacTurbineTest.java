@@ -825,7 +825,7 @@ public class JavacTurbineTest {
             new JavacTurbine(new PrintWriter(sw, true), optionsBuilder.build())) {
       Result result = turbine.compile();
       assertThat(result).isEqualTo(Result.ERROR);
-      assertThat(sw.toString()).contains("unmappable character for encoding UTF-8");
+      assertThat(sw.toString()).contains("unmappable character");
     }
   }
 
@@ -1420,3 +1420,12 @@ public class JavacTurbineTest {
     assertThat(result).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 }
+
+
+
+
+
+
+
+
+
