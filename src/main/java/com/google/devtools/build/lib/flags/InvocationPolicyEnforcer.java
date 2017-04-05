@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.flags;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -234,6 +235,26 @@ public final class InvocationPolicyEnforcer {
             .addAll(desc.getExpansions())
             .build();
     boolean isExpansion = !desc.getExpansions().isEmpty();
+
+    if (!subflags.isEmpty() && log.isLoggable(Level.FINE)) {
+      // Log the expansion. Since this is logged regardless of user provided command line, it is
+      // only really useful for understanding the invocation policy itself. Most of the time,
+      // invocation policy does not change, so this can be a log level fine.
+      List<String> subflagNames = new ArrayList<>(subflags.size());
+      for (OptionValueDescription subflag : subflags) {
+        subflagNames.add("--" + subflag.getName());
+      }
+
+      log.logp(Level.FINE,
+          "InvocationPolicyEnforcer",
+          "expandPolicy",
+          String.format(
+            "Expanding %s on option %s to its %s: %s.",
+            originalPolicy.getOperationCase(),
+            originalPolicy.getFlagName(),
+            isExpansion ? "expansions" : "implied flags",
+            Joiner.on("; ").join(subflagNames)));
+    }
 
     // Create a flag policy for the child that looks like the parent's policy "transferred" to its
     // child. Note that this only makes sense for SetValue, when setting an expansion flag, or
