@@ -175,7 +175,7 @@ public abstract class FileStateValue implements SkyValue {
             tsgm.notifyDependenceOnFileTime(path.asFragment(), mtime);
           }
           return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), null,
-              FileContentsProxy.create(mtime, stat.getNodeId()));
+              FileContentsProxy.create(stat));
         } else {
           // We are careful here to avoid putting the value ID into FileMetadata if we already have
           // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
@@ -269,7 +269,7 @@ public abstract class FileStateValue implements SkyValue {
       if (tsgm != null) {
         tsgm.notifyDependenceOnFileTime(path, mtime);
       }
-      return new SpecialFileStateValue(FileContentsProxy.create(mtime, stat.getNodeId()));
+      return new SpecialFileStateValue(FileContentsProxy.create(stat));
     }
 
     @Override
