@@ -855,9 +855,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
   }
 
   @SkylarkCallable(
+    name = "new_file",
     doc =
         "Creates a file object with the given filename, in the current package. "
-            + DOC_NEW_FILE_TAIL
+            + DOC_NEW_FILE_TAIL,
+    parameters = {
+      @Param(
+        name = "filename",
+        type = String.class,
+        doc = "The path of the new file, relative to the current package."
+      )
+    }
   )
   public Artifact newFile(String filename) throws EvalException {
     checkMutable("new_file");
@@ -877,9 +885,24 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext.getPackageRelativeArtifact(filename, root);
   }
 
-  @SkylarkCallable(doc =
-      "Creates a new file object in the same directory as the original file. "
-      + DOC_NEW_FILE_TAIL)
+  @SkylarkCallable(
+      name = "new_file",
+      doc =
+          "Creates a new file object in the same directory as the original file. "
+              + DOC_NEW_FILE_TAIL,
+      parameters = {
+        @Param(
+          name = "sibling_file",
+          type = Artifact.class,
+          doc = "A file that lives in the same directory as the newly created file."
+        ),
+        @Param(
+          name = "basename",
+          type = String.class,
+          doc = "The base name of the newly created file."
+        )
+      }
+    )
   public Artifact newFile(Artifact baseArtifact, String newBaseName) throws EvalException {
     checkMutable("new_file");
     PathFragment original = baseArtifact.getRootRelativePath();
