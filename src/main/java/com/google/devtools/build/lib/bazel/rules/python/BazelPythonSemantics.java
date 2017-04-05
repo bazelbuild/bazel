@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
@@ -67,6 +68,11 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public void collectDefaultRunfilesForBinary(RuleContext ruleContext, Builder builder) {
+  }
+
+  @Override
+  public void collectDefaultRunfiles(RuleContext ruleContext, Builder builder) {
+    builder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
   }
 
   @Override
