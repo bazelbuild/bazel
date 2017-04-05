@@ -203,6 +203,8 @@ public class JavaHeaderCompileAction extends SpawnAction {
     private ImmutableList<String> javacOpts;
     private final List<Artifact> processorPath = new ArrayList<>();
     private final List<String> processorNames = new ArrayList<>();
+    private final List<String> processorFlags = new ArrayList<>();
+
     private NestedSet<Artifact> javabaseInputs;
     private Artifact javacJar;
 
@@ -301,6 +303,13 @@ public class JavaHeaderCompileAction extends SpawnAction {
     public Builder addProcessorNames(Collection<String> processorNames) {
       checkNotNull(processorNames, "processorNames must not be null");
       this.processorNames.addAll(processorNames);
+      return this;
+    }
+
+    /** Sets annotation processor flags to pass to javac. */
+    public Builder addProcessorFlags(Collection<String> processorFlags) {
+      checkNotNull(processorFlags, "processorFlags must not be null");
+      this.processorFlags.addAll(processorFlags);
       return this;
     }
 
@@ -486,6 +495,9 @@ public class JavaHeaderCompileAction extends SpawnAction {
       baseCommandLine(result);
       if (!processorNames.isEmpty()) {
         result.add("--processors", processorNames);
+      }
+      if (!processorFlags.isEmpty()) {
+        result.add("--javacopts", processorFlags);
       }
       if (!processorPath.isEmpty()) {
         result.addExecPaths("--processorpath", processorPath);

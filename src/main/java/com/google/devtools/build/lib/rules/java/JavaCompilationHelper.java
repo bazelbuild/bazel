@@ -212,8 +212,8 @@ public final class JavaCompilationHelper {
     builder.setTempDirectory(tempDir(classJar));
     builder.setClassDirectory(classDir(classJar));
     builder.addProcessorPaths(attributes.getProcessorPath());
-    builder.addProcessorPathDirs(attributes.getProcessorPathDirs());
     builder.addProcessorNames(attributes.getProcessorNames());
+    builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setDirectJars(attributes.getDirectJars());
     builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
@@ -362,7 +362,7 @@ public final class JavaCompilationHelper {
     // only run API-generating annotation processors during header compilation
     builder.addProcessorPaths(attributes.getApiGeneratingProcessorPath());
     builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
-
+    builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setJavacOpts(getJavacOpts());
     builder.setTempDirectory(tempDir(headerJar));
     builder.setOutputJar(headerJar);

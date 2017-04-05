@@ -529,7 +529,7 @@ public class AndroidCommon {
                 androidSemantics.getJavacArguments(ruleContext))
             .setBootClassPath(bootclasspath);
     if (DataBinding.isEnabled(ruleContext)) {
-      DataBinding.addAnnotationProcessor(ruleContext, attributes);
+      DataBinding.addAnnotationProcessor(ruleContext, attributes, isBinary);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -589,7 +589,7 @@ public class AndroidCommon {
     JavaCompilationHelper helper = new JavaCompilationHelper(ruleContext, semantics,
         javaCommon.getJavacOpts(), attributes,
         DataBinding.isEnabled(ruleContext)
-            ? DataBinding.processDeps(ruleContext, attributes) : ImmutableList.<Artifact>of());
+            ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of());
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
@@ -905,8 +905,11 @@ public class AndroidCommon {
       // Add this rule's annotation processor input if this rule has direct resources. If it
       // doesn't have direct resources, it doesn't produce data binding output so there's no
       // input for the annotation processor.
-      srcs = ImmutableList.<Artifact>builder().addAll(srcs)
-          .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
+      if (annotationFile != null) {
+        srcs = ImmutableList.<Artifact>builder().addAll(srcs)
+            .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+      }
     }
 
     ImmutableList<TransitiveInfoCollection> compileDeps;

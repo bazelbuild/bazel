@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -116,6 +115,11 @@ public final class JavaCompileAction extends SpawnAction {
    */
   private final ImmutableList<String> processorNames;
 
+  /**
+   * The list of custom javac flags to pass to annotation processors.
+   */
+  private final ImmutableList<String> processorFlags;
+
   /** Set of additional Java source files to compile. */
   private final ImmutableList<Artifact> sourceJars;
 
@@ -160,6 +164,7 @@ public final class JavaCompileAction extends SpawnAction {
    * @param extdirInputs the compile-time extclasspath entries
    * @param processorPath the classpath to search for annotation processors
    * @param processorNames the annotation processors to run
+   * @param processorFlags custom annotation processor flags to pass to javac
    * @param sourceJars jars of sources to compile
    * @param sourceFiles source files to compile
    * @param javacOpts the javac options for the compilation
@@ -184,6 +189,7 @@ public final class JavaCompileAction extends SpawnAction {
       ImmutableList<Artifact> extdirInputs,
       List<Artifact> processorPath,
       List<String> processorNames,
+      List<String> processorFlags,
       Collection<Artifact> sourceJars,
       Collection<Artifact> sourceFiles,
       List<String> javacOpts,
@@ -218,6 +224,7 @@ public final class JavaCompileAction extends SpawnAction {
     this.extdirInputs = extdirInputs;
     this.processorPath = ImmutableList.copyOf(processorPath);
     this.processorNames = ImmutableList.copyOf(processorNames);
+    this.processorFlags = ImmutableList.copyOf(processorFlags);
     this.sourceJars = ImmutableList.copyOf(sourceJars);
     this.sourceFiles = ImmutableList.copyOf(sourceFiles);
     this.javacOpts = ImmutableList.copyOf(javacOpts);
@@ -309,6 +316,10 @@ public final class JavaCompileAction extends SpawnAction {
   @VisibleForTesting
   public List<String> getProcessorNames() {
     return processorNames;
+  }
+
+  private List<String> getProcessorFlags() {
+    return processorFlags;
   }
 
   /**
@@ -517,8 +528,8 @@ public final class JavaCompileAction extends SpawnAction {
     private PathFragment tempDirectory;
     private PathFragment classDirectory;
     private final List<Artifact> processorPath = new ArrayList<>();
-    private final Set<PathFragment> processorPathDirs = new LinkedHashSet<>();
     private final List<String> processorNames = new ArrayList<>();
+    private final List<String> processorFlags = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
 
@@ -652,6 +663,7 @@ public final class JavaCompileAction extends SpawnAction {
           extdirInputs,
           processorPath,
           processorNames,
+          processorFlags,
           sourceJars,
           sourceFiles,
           internedJcopts,
@@ -700,17 +712,17 @@ public final class JavaCompileAction extends SpawnAction {
       if (!sourcePathEntries.isEmpty()) {
         result.addJoinExecPaths("--sourcepath", pathSeparator, sourcePathEntries);
       }
-      if (!processorPath.isEmpty() || !processorPathDirs.isEmpty()) {
+      if (!processorPath.isEmpty()) {
         ImmutableList.Builder<String> execPathStrings = ImmutableList.<String>builder();
         execPathStrings.addAll(Artifact.toExecPaths(processorPath));
-        for (PathFragment processorPathDir : processorPathDirs) {
-          execPathStrings.add(processorPathDir.toString());
-        }
         result.addJoinStrings(
             "--processorpath", pathSeparator, execPathStrings.build());
       }
       if (!processorNames.isEmpty()) {
         result.add("--processors", processorNames);
+      }
+      if (!processorFlags.isEmpty()) {
+        result.add("--javacopts", processorFlags);
       }
       if (!sourceJars.isEmpty()) {
         result.addExecPaths("--source_jars", sourceJars);
@@ -944,13 +956,13 @@ public final class JavaCompileAction extends SpawnAction {
       return this;
     }
 
-    public Builder addProcessorPathDirs(Collection<PathFragment> processorPathDirs) {
-      this.processorPathDirs.addAll(processorPathDirs);
+    public Builder addProcessorNames(Collection<String> processorNames) {
+      this.processorNames.addAll(processorNames);
       return this;
     }
 
-    public Builder addProcessorNames(Collection<String> processorNames) {
-      this.processorNames.addAll(processorNames);
+    public Builder addProcessorFlags(Collection<String> processorFlags) {
+      this.processorFlags.addAll(processorFlags);
       return this;
     }
 
