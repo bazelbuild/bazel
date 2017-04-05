@@ -695,10 +695,6 @@ def _impl(repository_ctx):
       paths = (cuda_path.replace("\\", "\\\\") + "/bin;") + paths
     compute_capabilities = _cuda_compute_capabilities(repository_ctx)
     _tpl(repository_ctx, "wrapper/bin/pydir/msvc_tools.py", {
-        "%{tmp}": tmp_dir,
-        "%{path}": paths,
-        "%{include}": include_paths,
-        "%{lib}": lib_paths,
         "%{lib_tool}": lib_tool,
         "%{support_whole_archive}": support_whole_archive,
         "%{cuda_compute_capabilities}": ", ".join(
@@ -714,6 +710,10 @@ def _impl(repository_ctx):
         "%{cpu}": cpu_value,
         "%{default_toolchain_name}": "msvc_x64",
         "%{toolchain_name}": "msys_x64",
+        "%{msvc_env_tmp}": tmp_dir,
+        "%{msvc_env_path}": paths,
+        "%{msvc_env_include}": include_paths,
+        "%{msvc_env_lib}": lib_paths,
         "%{content}": _get_windows_msys_crosstool_content(repository_ctx),
         "%{opt_content}": "",
         "%{dbg_content}": "",
@@ -748,6 +748,10 @@ def _impl(repository_ctx):
         "%{dbg_content}": _build_crosstool(dbg_content, "    "),
         "%{cxx_builtin_include_directory}": "",
         "%{coverage}": _coverage_feature(darwin),
+        "%{msvc_env_tmp}": "",
+        "%{msvc_env_path}": "",
+        "%{msvc_env_include}": "",
+        "%{msvc_env_lib}": "",
     })
 
 

@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ShellEscaper;
@@ -710,19 +709,6 @@ public class CppCompileAction extends AbstractAction
     environment.putAll(this.environment);
     environment.putAll(cppCompileCommandLine.getEnvironment());
 
-    // TODO(bazel-team): Check (crosstool) host system name instead of using OS.getCurrent.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // TODO(bazel-team): Both GCC and clang rely on their execution directories being on
-      // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On
-      // the other hand, Windows documentation says that the directory of the executable
-      // is always searched for DLLs first. Not sure what to make of it.
-      // Other options are to forward the system path (brittle), or to add a PATH field to
-      // the crosstool file.
-      //
-      // @see com.google.devtools.build.lib.rules.cpp.CppLinkAction#getEnvironment
-      environment.put("PATH", cppConfiguration.getToolPathFragment(Tool.GCC).getParentDirectory()
-          .getPathString());
-   }
     return ImmutableMap.copyOf(environment);
   }
 
