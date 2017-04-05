@@ -289,6 +289,7 @@ public class CrosstoolCompilationSupport extends CompilationSupport {
             .addTransitiveActionInputs(objcProvider.get(DYNAMIC_FRAMEWORK_FILE))
             .setCrosstoolInputs(toolchain.getLink())
             .addActionInputs(prunedJ2ObjcArchives)
+            .addActionInputs(extraLinkInputs)
             .addActionInput(inputFileList)
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
