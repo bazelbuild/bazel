@@ -161,9 +161,16 @@ public class JavaImport implements RuleConfiguredTargetFactory {
             .setSourceJarsProvider(sourceJarsProvider)
             .setCompilationArgsProvider(compilationArgsProvider);
     common.addTransitiveInfoProviders(ruleBuilder, skylarkApiProvider, filesToBuild, null);
+    JavaProvider javaProvider = JavaProvider.Builder.create()
+        .addProvider(JavaCompilationArgsProvider.class, compilationArgsProvider)
+        .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
+        .addProvider(JavaSourceJarsProvider.class, sourceJarsProvider)
+        .build();
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, skylarkApiProvider.build())
+        .addNativeDeclaredProvider(javaProvider)
+        .addProvider(JavaProvider.class, javaProvider)
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
         .add(
             JavaRuntimeJarProvider.class,
