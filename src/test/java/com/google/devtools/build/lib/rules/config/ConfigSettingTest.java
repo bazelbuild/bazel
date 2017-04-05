@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis.config;
+package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -21,17 +21,20 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.Jvm;
-import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import java.util.Map;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -322,11 +325,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "        'javacopt': '-Dbar'",
         "    })");
 
-    Map<String, Class<? extends BuildConfiguration.Fragment>> map = ImmutableMap.of(
-        "copt", CppConfiguration.class,
-        "unused", PythonConfiguration.class,
-        "javacopt", Jvm.class
-    );
     Rule target = (Rule) getTarget("//test:match");
     assertThat(target.getRuleClassObject().getOptionReferenceFunction().apply(target))
         .containsExactly("copt", "javacopt");

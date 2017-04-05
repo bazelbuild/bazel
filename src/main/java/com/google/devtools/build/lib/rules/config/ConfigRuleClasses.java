@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.config;
+package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -234,4 +236,35 @@ config_setting(
 </p>
 
 <!-- #END_BLAZE_RULE -->*/
+
+  /** Rule definition for Android's config_feature_flag rule. */
+  public static final class ConfigFeatureFlagRule implements RuleDefinition {
+
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .setUndocumented(/* It's unusable as yet, as there are no ways to interact with it. */)
+          .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
+          .add(
+              attr("allowed_values", STRING_LIST)
+                  .mandatory()
+                  .nonEmpty()
+                  .orderIndependent()
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr("default_value", STRING)
+                  .mandatory()
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .build();
+    }
+
+    @Override
+    public RuleDefinition.Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("config_feature_flag")
+          .ancestors(ConfigBaseRule.class)
+          .factoryClass(ConfigFeatureFlag.class)
+          .build();
+    }
+  }
 }

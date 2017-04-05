@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.config;
+package com.google.devtools.build.lib.rules.config;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -62,7 +65,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
           new ConfigMatchingProvider(
               ruleContext.getLabel(),
               settings,
-              matchesConfig(settings, ruleContext.getConfiguration().getTransitiveOptionDetails()));
+              matchesConfig(
+                  settings, BuildConfigurationOptionDetails.get(ruleContext.getConfiguration())));
     } catch (OptionsParsingException e) {
       ruleContext.attributeError(ConfigRuleClasses.ConfigSettingRule.SETTINGS_ATTRIBUTE,
           "error while parsing configuration settings: " + e.getMessage());

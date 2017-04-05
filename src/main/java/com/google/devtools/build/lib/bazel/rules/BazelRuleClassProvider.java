@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.BazelToolchainType.BazelToolchainTypeRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
@@ -102,7 +101,7 @@ import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.swift.SwiftConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagConfiguration;
-import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagRule;
+import com.google.devtools.build.lib.rules.config.ConfigRuleClasses;
 import com.google.devtools.build.lib.rules.config.ConfigSkylarkCommon;
 import com.google.devtools.build.lib.rules.cpp.CcIncLibraryRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -395,11 +394,11 @@ public class BazelRuleClassProvider {
         public void init(Builder builder) {
           builder.addRuleDefinition(new ConfigRuleClasses.ConfigBaseRule());
           builder.addRuleDefinition(new ConfigRuleClasses.ConfigSettingRule());
+
           builder.addConfig(
               ConfigFeatureFlagConfiguration.Options.class,
               new ConfigFeatureFlagConfiguration.Loader());
-
-          builder.addRuleDefinition(new ConfigFeatureFlagRule());
+          builder.addRuleDefinition(new ConfigRuleClasses.ConfigFeatureFlagRule());
           builder.addSkylarkAccessibleTopLevels("config_common", new ConfigSkylarkCommon());
         }
 

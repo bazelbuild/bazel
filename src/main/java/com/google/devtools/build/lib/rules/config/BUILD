@@ -12,6 +12,7 @@ java_library(
     ]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:build-configuration-option-details",
         "//src/main/java/com/google/devtools/build/lib:collect",
         "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
