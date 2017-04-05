@@ -34,6 +34,7 @@ descriptions of current Bazel functionality.
 Changes to the Bazel build and extension language (Skylark) should go
 through the [Skylark Design Process](/designs/skylark/skylark-design-process.html).
 
-1. [Parameterized Skylark Aspects](/designs/skylark/parameterized-aspects.html).
-2. [Declared Providers](/designs/skylark/declared-providers.html).
-3. [Saner Skylark Sets](/designs/skylark/saner-skylark-sets.html).
+* [Parameterized Skylark Aspects](/designs/skylark/parameterized-aspects.html)
+  18 April 2016
+* [Declared Providers](/designs/skylark/declared-providers.html) 06 June 2016
+* [Saner Skylark Sets](/designs/skylark/saner-skylark-sets.html) 25 July 2016

@@ -1,5 +1,5 @@
 ---
-layout: documentation
+layout: contribute
 title: Declared Providers
 ---
 
@@ -9,12 +9,12 @@ title: Declared Providers
 Always go to the documentation for current information.**
 
 
+**Status:** Approved
+
 **Authors:** [Dmitry Lomov](mailto:dslomov@google.com),
 [Laurent Le Brun](mailto:laurentlb@google.com)
 
-**Status:** Approved
-
-**Date:** 2016-06-06
+**Design document published**: 2016-06-06
 
 ## Motivation
 

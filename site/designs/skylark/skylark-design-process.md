@@ -1,5 +1,5 @@
 ---
-layout: documentation
+layout: contribute
 title: Skylark Design Review Process
 ---
 

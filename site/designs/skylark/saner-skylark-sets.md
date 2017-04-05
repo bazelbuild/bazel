@@ -1,5 +1,5 @@
 ---
-layout: documentation
+layout: contribute
 title: Saner Skylark Sets
 ---
 
@@ -11,11 +11,11 @@ title: Saner Skylark Sets
 Always go to the documentation for current information.**
 
 
+**Status:** Draft
+
 **Author:** [Dmitry Lomov](mailto:dslomov@google.com)
 
-**Date:** 2016-07-25
-
-**Status:** Draft
+**Design document published**: 2016-07-25
 
 ## Motivation
 
