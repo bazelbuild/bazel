@@ -642,10 +642,8 @@ public class ObjcRuleClasses {
      * Rule class names for cc rules which are allowed as targets of the 'deps' attribute of this
      * rule.
      */
-    static final Iterable<String> ALLOWED_CC_DEPS_RULE_CLASSES =
-        ImmutableSet.of(
-            "cc_library",
-            "cc_inc_library"); 
+    static final ImmutableSet<String> ALLOWED_CC_DEPS_RULE_CLASSES =
+        ImmutableSet.of("cc_library", "cc_inc_library");
     /**
      * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
      */

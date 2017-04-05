@@ -85,7 +85,7 @@ public class LegacyCompilationSupport extends CompilationSupport {
    * Frameworks implicitly linked to iOS, watchOS, and tvOS binaries when using legacy compilation.
    */
   @VisibleForTesting
-  static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
+  static final ImmutableList<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS =
       ImmutableList.of(new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**

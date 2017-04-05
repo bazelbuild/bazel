@@ -34,10 +34,8 @@ import java.util.Iterator;
  */
 public abstract class Link {
 
-  /**
-   * Categories of link action that must be defined with action_configs in any toolchain. 
-   */
-  static final Iterable<LinkTargetType> MANDATORY_LINK_TARGET_TYPES =
+  /** Categories of link action that must be defined with action_configs in any toolchain. */
+  static final ImmutableList<LinkTargetType> MANDATORY_LINK_TARGET_TYPES =
       ImmutableList.of(
           LinkTargetType.STATIC_LIBRARY,
           LinkTargetType.PIC_STATIC_LIBRARY,

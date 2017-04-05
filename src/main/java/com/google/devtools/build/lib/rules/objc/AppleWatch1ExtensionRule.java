@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
  */
 public class AppleWatch1ExtensionRule implements RuleDefinition {
 
-  private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
+  private static final ImmutableSet<String> ALLOWED_DEPS_RULE_CLASSES =
       ImmutableSet.of("objc_library", "objc_import");
   static final String WATCH_APP_DEPS_ATTR  = "app_deps";
   static final String WATCH_EXT_FAMILIES_ATTR = "ext_families";

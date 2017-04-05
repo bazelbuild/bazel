@@ -63,7 +63,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   private static final String PATH_ENV_VAR = "ANDROID_NDK_HOME";
   private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
 
-  private static final Iterable<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
+  private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
 
   private static final class CrosstoolStlPair {
 
