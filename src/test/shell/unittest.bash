@@ -781,7 +781,9 @@ function run_suite() {
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
         fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
-        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
+        # Replacing '&' with '&amp;', '<' with '&lt;', '>' with '&gt;', and '"' with '&quot;'
+        escaped_fail_msg=$(echo $fail_msg | sed 's/&/\&amp;/g' | sed 's/</\&lt;/g' | sed 's/>/\&gt;/g' | sed 's/"/\&quot;/g')
+        testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$escaped_fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
 
       if [[ "$TEST_verbose" == "true" ]]; then
