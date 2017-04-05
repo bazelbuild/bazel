@@ -30,7 +30,9 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
@@ -100,6 +102,11 @@ public class CachedLocalSpawnRunnerTest {
     public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
       return new SpawnInputExpander(/*strict*/false)
           .getInputMapping(simpleSpawn, SIMPLE_ARTIFACT_EXPANDER, fakeFileCache, "workspace");
+    }
+
+    @Override
+    public void report(ProgressStatus state) {
+      // TODO(ulfjack): Test that the right calls are made.
     }
   };
 
@@ -213,7 +220,7 @@ public class CachedLocalSpawnRunnerTest {
     when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
     SpawnResult delegateResult = new SpawnResult.Builder()
         .setExitCode(0)
-        .setSetupSuccess(true)
+        .setStatus(Status.SUCCESS)
         .build();
     when(delegate.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
         .thenReturn(delegateResult);

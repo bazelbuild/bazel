@@ -42,6 +42,7 @@ import java.util.SortedMap;
  *
  * <h2>Process</h2>
  * <ul>
+ *   <li>Implementations MUST be thread-safe.
  *   <li>Implementations MUST ensure that all child processes (including transitive) exit in all
  *       cases, including successful completion, interruption, and timeout
  *   <li>Implementations MUST return the exit code as observed from the subprocess if the subprocess
@@ -78,9 +79,44 @@ import java.util.SortedMap;
  */
 public interface SpawnRunner {
   /**
+   * Used to report progress on the current spawn. This is mainly used to report the current state
+   * of the subprocess to the user, but may also be used to trigger parallel execution. For example,
+   * a dynamic scheduler may use the signal that there was a cache miss to start parallel execution
+   * of the same Spawn - also see the {@link SpawnRunner} documentation section on "optimistic
+   * concurrency".
+   *
+   * <p>{@link SpawnRunner} implementations should post a progress status before any potentially
+   * long-running operation.
+   */
+  public enum ProgressStatus {
+    /** Spawn is waiting for local or remote resources to become available. */
+    SCHEDULING,
+
+    /** The {@link SpawnRunner} is looking for a cache hit. */
+    CHECKING_CACHE,
+
+    /**
+     * Resources are acquired, and there was probably no cache hit. This MUST be posted before
+     * attempting to execute the subprocess.
+     *
+     * <p>Caching {@link SpawnRunner} implementations should only post this after a failed cache
+     * lookup, but may post this if cache lookup and execution happen within the same step, e.g. as
+     * part of a single RPC call with no mechanism to report cache misses.
+     */
+    EXECUTING,
+
+    /** Downloading outputs from a remote machine. */
+    DOWNLOADING;
+  }
+
+  /**
    * A helper class to provide additional tools and methods to {@link SpawnRunner} implementations.
    *
    * <p>This interface may change without notice.
+   *
+   * <p>Implementations must be at least thread-compatible, i.e., they must be safe as long as
+   * each instance is only used within a single thread. Different instances of the same class may
+   * be used by different threads, so they MUST not call any shared non-thread-safe objects.
    */
   public interface SpawnExecutionPolicy {
     /**
@@ -90,9 +126,7 @@ public interface SpawnRunner {
     // TODO(ulfjack): Use an execution info value instead.
     boolean shouldPrefetchInputsForLocalExecution(Spawn spawn);
 
-    /**
-     * The input file cache for this specific spawn.
-     */
+    /** The input file cache for this specific spawn. */
     ActionInputFileCache getActionInputFileCache();
 
     /**
@@ -102,17 +136,16 @@ public interface SpawnRunner {
      */
     void lockOutputFiles() throws InterruptedException;
 
-    /**
-     * Returns the timeout that should be applied for the given {@link Spawn} instance.
-     */
+    /** Returns the timeout that should be applied for the given {@link Spawn} instance. */
     long getTimeoutMillis();
 
-    /**
-     * The files to which to write stdout and stderr.
-     */
+    /** The files to which to write stdout and stderr. */
     FileOutErr getFileOutErr();
 
     SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException;
+
+    /** Reports a progress update to the Spawn strategy. */
+    void report(ProgressStatus state);
   }
 
   /**

@@ -19,12 +19,12 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnResult.Status;
 import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.Action;
@@ -53,8 +53,8 @@ import java.util.TreeSet;
 /**
  * A client for the remote execution service.
  */
+@ThreadSafe
 final class RemoteSpawnRunner implements SpawnRunner {
-  private final EventBus eventBus;
   private final Path execRoot;
   private final RemoteOptions options;
   // TODO(olaola): This will be set on a per-action basis instead.
@@ -64,11 +64,9 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
   RemoteSpawnRunner(
       Path execRoot,
-      EventBus eventBus,
       RemoteOptions options,
       GrpcRemoteExecutor executor) {
     this.execRoot = execRoot;
-    this.eventBus = eventBus;
     this.options = options;
     if (options.experimentalRemotePlatformOverride != null) {
       Platform.Builder platformBuilder = Platform.newBuilder();
@@ -86,9 +84,8 @@ final class RemoteSpawnRunner implements SpawnRunner {
 
   RemoteSpawnRunner(
       Path execRoot,
-      EventBus eventBus,
       RemoteOptions options) {
-    this(execRoot, eventBus, options, connect(options));
+    this(execRoot, options, connect(options));
   }
 
   private static GrpcRemoteExecutor connect(RemoteOptions options) {
@@ -108,7 +105,7 @@ final class RemoteSpawnRunner implements SpawnRunner {
       SpawnExecutionPolicy policy) throws InterruptedException, IOException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     if (owner.getOwner() != null) {
-      eventBus.post(ActionStatusMessage.runningStrategy(owner, "remote"));
+      policy.report(ProgressStatus.EXECUTING);
     }
 
     try {
@@ -147,7 +144,8 @@ final class RemoteSpawnRunner implements SpawnRunner {
         if (!status.getSucceeded()
             && (status.getError() != ExecutionStatus.ErrorCode.EXEC_FAILED)) {
           return new SpawnResult.Builder()
-              .setSetupSuccess(false)
+              // TODO(ulfjack): Improve the translation of the error status.
+              .setStatus(Status.EXECUTION_FAILED)
               .setExitCode(-1)
               .build();
         }
@@ -159,12 +157,10 @@ final class RemoteSpawnRunner implements SpawnRunner {
       passRemoteOutErr(executor, result, policy.getFileOutErr());
       executor.downloadAllResults(result, execRoot);
       return new SpawnResult.Builder()
-          .setSetupSuccess(true)
+          .setStatus(Status.SUCCESS)
           .setExitCode(result.getReturnCode())
           .build();
-    } catch (StatusRuntimeException e) {
-      throw new IOException(e);
-    } catch (CacheNotFoundException e) {
+    } catch (StatusRuntimeException | CacheNotFoundException e) {
       throw new IOException(e);
     }
   }
