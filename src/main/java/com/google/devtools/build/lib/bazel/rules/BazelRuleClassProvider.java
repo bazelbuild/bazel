@@ -162,6 +162,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcXcodeprojRule;
 import com.google.devtools.build.lib.rules.objc.XcTestAppProvider;
 import com.google.devtools.build.lib.rules.platform.ConstraintSettingRule;
 import com.google.devtools.build.lib.rules.platform.ConstraintValueRule;
+import com.google.devtools.build.lib.rules.platform.PlatformCommon;
 import com.google.devtools.build.lib.rules.platform.PlatformRule;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
@@ -353,6 +354,8 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new ConstraintSettingRule());
           builder.addRuleDefinition(new ConstraintValueRule());
           builder.addRuleDefinition(new PlatformRule());
+
+          builder.addSkylarkAccessibleTopLevels("platform_common", new PlatformCommon());
         }
 
         @Override
