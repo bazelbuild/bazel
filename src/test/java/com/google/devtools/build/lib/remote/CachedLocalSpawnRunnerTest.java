@@ -20,7 +20,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
@@ -31,15 +30,11 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnResult;
+import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionPolicy;
+import com.google.devtools.build.lib.remote.ContentDigests.ActionKey;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ActionResult;
 import com.google.devtools.build.lib.remote.RemoteProtocol.ContentDigest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecuteRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheReply;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheRequest;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionCacheStatus;
-import com.google.devtools.build.lib.remote.RemoteProtocol.ExecutionStatus;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -58,9 +53,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-/** Tests for {@link RemoteSpawnRunner} in combination with {@link GrpcRemoteExecutor}. */
+/** Tests for {@link CachedLocalSpawnRunner}. */
 @RunWith(JUnit4.class)
-public class GrpcRemoteExecutionClientTest {
+public class CachedLocalSpawnRunnerTest {
   private static final ArtifactExpander SIMPLE_ARTIFACT_EXPANDER = new ArtifactExpander() {
     @Override
     public void expand(Artifact artifact, Collection<? super Artifact> output) {
@@ -70,12 +65,10 @@ public class GrpcRemoteExecutionClientTest {
 
   private FileSystem fs;
   private Path execRoot;
-  private EventBus eventBus;
   private SimpleSpawn simpleSpawn;
   private FakeActionInputFileCache fakeFileCache;
 
   private FileOutErr outErr;
-  private long timeoutMillis = 0;
 
   private final SpawnExecutionPolicy simplePolicy = new SpawnExecutionPolicy() {
     @Override
@@ -95,7 +88,7 @@ public class GrpcRemoteExecutionClientTest {
 
     @Override
     public long getTimeoutMillis() {
-      return timeoutMillis;
+      return 0;
     }
 
     @Override
@@ -115,7 +108,6 @@ public class GrpcRemoteExecutionClientTest {
     fs = new InMemoryFileSystem();
     execRoot = fs.getPath("/exec/root");
     FileSystemUtils.createDirectoryAndParents(execRoot);
-    eventBus = new EventBus();
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn = new SimpleSpawn(
         new FakeOwner("Mnemonic", "Progress Message"),
@@ -141,103 +133,97 @@ public class GrpcRemoteExecutionClientTest {
         simpleSpawn.getInputFiles().get(0), ByteString.copyFrom(inputFile.getSHA1Digest()));
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void cacheHit() throws Exception {
-    GrpcCasInterface casIface = Mockito.mock(GrpcCasInterface.class);
-    GrpcExecutionCacheInterface cacheIface = Mockito.mock(GrpcExecutionCacheInterface.class);
-    GrpcExecutionInterface executionIface = Mockito.mock(GrpcExecutionInterface.class);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
-    RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
+    RemoteActionCache cache = Mockito.mock(RemoteActionCache.class);
+    SpawnRunner delegate = Mockito.mock(SpawnRunner.class);
+    CachedLocalSpawnRunner runner =
+        new CachedLocalSpawnRunner(execRoot, options, cache, delegate);
+    when(cache.getCachedActionResult(any(ActionKey.class)))
+        .thenReturn(ActionResult.newBuilder().setReturnCode(0).build());
+    when(cache.downloadBlobs(any(Iterable.class)))
+        .thenReturn(ImmutableList.of(new byte[0], new byte[0]));
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
 
-    ExecutionCacheReply reply = ExecutionCacheReply.newBuilder()
-        .setStatus(ExecutionCacheStatus.newBuilder().setSucceeded(true))
-        .setResult(ActionResult.newBuilder().setReturnCode(0))
-        .build();
-    when(cacheIface.getCachedResult(any(ExecutionCacheRequest.class))).thenReturn(reply);
-
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
-    verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
+    SpawnResult result = runner.exec(simpleSpawn, simplePolicy);
+    // We use verify to check that each method is called exactly once.
+    // TODO(ulfjack): Check that we also call it with exactly the right parameters, not just any.
+    verify(cache).getCachedActionResult(any(ActionKey.class));
+    verify(cache).downloadAllResults(any(ActionResult.class), any(Path.class));
+    verify(cache).downloadBlobs(any(Iterable.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(outErr.hasRecordedOutput()).isFalse();
     assertThat(outErr.hasRecordedStderr()).isFalse();
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void cacheHitWithOutput() throws Exception {
-    InMemoryCas casIface = new InMemoryCas();
-    GrpcExecutionCacheInterface cacheIface = Mockito.mock(GrpcExecutionCacheInterface.class);
-    GrpcExecutionInterface executionIface = Mockito.mock(GrpcExecutionInterface.class);
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
-    RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
+    RemoteActionCache cache = Mockito.mock(RemoteActionCache.class);
+    SpawnRunner delegate = Mockito.mock(SpawnRunner.class);
+    CachedLocalSpawnRunner runner =
+        new CachedLocalSpawnRunner(execRoot, options, cache, delegate);
+    when(cache.getCachedActionResult(any(ActionKey.class)))
+        .thenReturn(ActionResult.newBuilder().setReturnCode(0).build());
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
     byte[] cacheStdOut = "stdout".getBytes(StandardCharsets.UTF_8);
     byte[] cacheStdErr = "stderr".getBytes(StandardCharsets.UTF_8);
-    ContentDigest stdOutDigest = casIface.put(cacheStdOut);
-    ContentDigest stdErrDigest = casIface.put(cacheStdErr);
+    ContentDigest stdOutDigest = ContentDigests.computeDigest(cacheStdOut);
+    ContentDigest stdErrDigest = ContentDigests.computeDigest(cacheStdErr);
 
-    ExecutionCacheReply reply = ExecutionCacheReply.newBuilder()
-        .setStatus(ExecutionCacheStatus.newBuilder().setSucceeded(true))
-        .setResult(ActionResult.newBuilder()
-            .setReturnCode(0)
-            .setStdoutDigest(stdOutDigest)
-            .setStderrDigest(stdErrDigest))
+    ActionResult actionResult = ActionResult.newBuilder()
+        .setReturnCode(0)
+        .setStdoutDigest(stdOutDigest)
+        .setStderrDigest(stdErrDigest)
         .build();
-    when(cacheIface.getCachedResult(any(ExecutionCacheRequest.class))).thenReturn(reply);
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(actionResult);
+    when(cache.downloadBlobs(any(Iterable.class)))
+        .thenReturn(ImmutableList.of(cacheStdOut, cacheStdErr));
 
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
-    verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
+    SpawnResult result = runner.exec(simpleSpawn, simplePolicy);
+    // We use verify to check that each method is called exactly once.
+    verify(cache).getCachedActionResult(any(ActionKey.class));
+    verify(cache).downloadAllResults(any(ActionResult.class), any(Path.class));
+    verify(cache).downloadBlobs(any(Iterable.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
     assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
     assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
   }
 
+  @SuppressWarnings("unchecked")
   @Test
-  public void remotelyExecute() throws Exception {
-    InMemoryCas casIface = new InMemoryCas();
-    GrpcExecutionCacheInterface cacheIface = Mockito.mock(GrpcExecutionCacheInterface.class);
-    GrpcExecutionInterface executionIface = Mockito.mock(GrpcExecutionInterface.class);
+  public void cacheMiss() throws Exception {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    GrpcRemoteExecutor executor =
-        new GrpcRemoteExecutor(options, casIface, cacheIface, executionIface);
-    RemoteSpawnRunner client =
-        new RemoteSpawnRunner(execRoot, eventBus, options, executor);
+    RemoteActionCache cache = Mockito.mock(RemoteActionCache.class);
+    SpawnRunner delegate = Mockito.mock(SpawnRunner.class);
+    CachedLocalSpawnRunner runner =
+        new CachedLocalSpawnRunner(execRoot, options, cache, delegate);
+    when(cache.getCachedActionResult(any(ActionKey.class)))
+        .thenReturn(ActionResult.newBuilder().setReturnCode(0).build());
 
     scratch(simpleSpawn.getInputFiles().get(0), "xyz");
-    byte[] cacheStdOut = "stdout".getBytes(StandardCharsets.UTF_8);
-    byte[] cacheStdErr = "stderr".getBytes(StandardCharsets.UTF_8);
-    ContentDigest stdOutDigest = casIface.put(cacheStdOut);
-    ContentDigest stdErrDigest = casIface.put(cacheStdErr);
 
-    ExecutionCacheReply reply = ExecutionCacheReply.newBuilder()
-        .setStatus(ExecutionCacheStatus.newBuilder().setSucceeded(true))
+    when(cache.getCachedActionResult(any(ActionKey.class))).thenReturn(null);
+    SpawnResult delegateResult = new SpawnResult.Builder()
+        .setExitCode(0)
+        .setSetupSuccess(true)
         .build();
-    when(cacheIface.getCachedResult(any(ExecutionCacheRequest.class))).thenReturn(reply);
+    when(delegate.exec(any(Spawn.class), any(SpawnExecutionPolicy.class)))
+        .thenReturn(delegateResult);
 
-    when(executionIface.execute(any(ExecuteRequest.class))).thenReturn(ImmutableList.of(
-        ExecuteReply.newBuilder()
-            .setStatus(ExecutionStatus.newBuilder().setSucceeded(true))
-            .setResult(ActionResult.newBuilder()
-                .setReturnCode(0)
-                .setStdoutDigest(stdOutDigest)
-                .setStderrDigest(stdErrDigest))
-            .build()).iterator());
-
-    SpawnResult result = client.exec(simpleSpawn, simplePolicy);
-    verify(cacheIface).getCachedResult(any(ExecutionCacheRequest.class));
+    SpawnResult result = runner.exec(simpleSpawn, simplePolicy);
+    // We use verify to check that each method is called exactly once.
+    verify(cache)
+        .uploadAllResults(any(Path.class), any(Collection.class), any(ActionResult.Builder.class));
+    verify(cache).setCachedActionResult(any(ActionKey.class), any(ActionResult.class));
     assertThat(result.setupSuccess()).isTrue();
     assertThat(result.exitCode()).isEqualTo(0);
-    assertThat(outErr.outAsLatin1()).isEqualTo("stdout");
-    assertThat(outErr.errAsLatin1()).isEqualTo("stderr");
   }
 }
