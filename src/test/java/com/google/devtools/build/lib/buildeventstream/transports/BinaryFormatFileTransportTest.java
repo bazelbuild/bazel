@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
@@ -26,8 +28,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Tar
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.Future;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -61,7 +63,7 @@ public class BinaryFormatFileTransportTest {
   }
 
   @Test
-  public void testCreatesFileAndWritesProtoTextFormat() throws IOException {
+  public void testCreatesFileAndWritesProtoBinaryFormat() throws Exception {
     File output = tmp.newFile();
 
     BuildEventStreamProtos.BuildEvent started =
@@ -85,11 +87,88 @@ public class BinaryFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(completed);
     transport.sendBuildEvent(buildEvent);
 
-    transport.close();
+    transport.close().get();
     try (InputStream in = new FileInputStream(output)) {
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(progress);
       assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(completed);
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
+  public void testFileDoesNotExist() throws Exception {
+    // Get a file that doesn't exist by creating a new file and immediately deleting it.
+    File output = tmp.newFile();
+    String path = output.getAbsolutePath();
+    assertTrue(output.delete());
+
+    BuildEventStreamProtos.BuildEvent started =
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setStarted(BuildStarted.newBuilder().setCommand("build"))
+            .build();
+    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+    BinaryFormatFileTransport transport = new BinaryFormatFileTransport(path, pathConverter);
+    transport.sendBuildEvent(buildEvent);
+
+    transport.close().get();
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
+  public void testWriteWhenFileClosed() throws Exception {
+    File output = tmp.newFile();
+
+    BuildEventStreamProtos.BuildEvent started =
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setStarted(BuildStarted.newBuilder().setCommand("build"))
+            .build();
+    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
+
+    // Close the file.
+    transport.ch.close();
+    assertFalse(transport.ch.isOpen());
+
+    // This should not throw an exception.
+    transport.sendBuildEvent(buildEvent);
+    transport.close().get();
+
+    // Also, nothing should have been written to the file
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(in.available()).isEqualTo(0);
+    }
+  }
+
+  @Test
+  public void testWriteWhenTransportClosed() throws Exception {
+    File output = tmp.newFile();
+
+    BuildEventStreamProtos.BuildEvent started =
+        BuildEventStreamProtos.BuildEvent.newBuilder()
+            .setStarted(BuildStarted.newBuilder().setCommand("build"))
+            .build();
+    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
+
+    BinaryFormatFileTransport transport =
+        new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
+
+    transport.sendBuildEvent(buildEvent);
+    Future<Void> closeFuture = transport.close();
+    // This should not throw an exception, but also not perform any write.
+    transport.sendBuildEvent(buildEvent);
+
+    closeFuture.get();
+    assertFalse(transport.ch.isOpen());
+
+    // There should have only been one write.
+    try (InputStream in = new FileInputStream(output)) {
+      assertThat(BuildEventStreamProtos.BuildEvent.parseDelimitedFrom(in)).isEqualTo(started);
       assertThat(in.available()).isEqualTo(0);
     }
   }

@@ -11,24 +11,43 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.buildeventstream;
 
-import java.io.IOException;
+import java.util.concurrent.Future;
+import javax.annotation.concurrent.ThreadSafe;
 
-/** Interface for transports of the build-event stream. */
+/**
+ * Transport interface for the build event protocol.
+ *
+ * <p>All implementations need to be thread-safe. All methods are expected to return quickly.
+ *
+ * <p>Notice that this interface does not provide any error handling API. A transport may choose
+ * to log interesting errors to the command line and/or abort the whole build.
+ */
+@ThreadSafe
 public interface BuildEventTransport {
 
   /**
-   * Ensure that the event will eventually be reported to the receiver this object is a transport
-   * for; the transport is responsible that events arrive at the endpoint in the order they are sent
-   * by invocations of this method.
+   * Writes a build event to an endpoint. This method will always return quickly and will not
+   * wait for the write to complete.
+   *
+   * <p>In case the transport is in error, this method still needs to be able to accept build
+   * events. It may choose to ignore them, though.
+   *
+   * <p>This method should not throw any exceptions.
+   *
+   * @param event the event to sendBuildEvent.
    */
-  void sendBuildEvent(BuildEvent event) throws IOException;
+  void sendBuildEvent(BuildEvent event);
 
   /**
-   * Close all open resources, if any. This method will be called on the transport after all events
-   * have been sent. If a transport is stateless, it is correct to do nothing.
+   * Initiates a close. Callers may listen to the returned future to be notified when the close
+   * is complete i.e. wait for all build events to be sent. The future does not contain any
+   * information about possible transport errors.
+   *
+   * <p>This method might be called multiple times without any effect after the first call.
+   *
+   * <p>This method should not throw any exceptions.
    */
-  void close() throws IOException;
+  Future<Void> close();
 }

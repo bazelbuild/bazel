@@ -15,49 +15,28 @@
 package com.google.devtools.build.lib.buildeventstream.transports;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.protobuf.TextFormat;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 /**
  * A simple {@link BuildEventTransport} that writes the text representation of the protocol-buffer
- * representation of the events to a file. This is mainly useful for debugging.
+ * representation of the events to a file.
+ *
+ * <p>This class is used for debugging.
  */
-public final class TextFormatFileTransport implements BuildEventTransport {
-  private FileOutputStream out;
-  private final PathConverter pathConverter;
+public final class TextFormatFileTransport extends FileTransport {
 
-  public TextFormatFileTransport(String path, PathConverter pathConverter)
-      throws IOException {
-    this.out = new FileOutputStream(new File(path));
-    this.pathConverter = pathConverter;
+  TextFormatFileTransport(String path, PathConverter pathConverter) throws IOException {
+    super(path, pathConverter);
   }
 
   @Override
-  public synchronized void sendBuildEvent(BuildEvent event) throws IOException {
-    if (out != null) {
-      BuildEventConverters converters =
-          new BuildEventConverters() {
-            @Override
-            public PathConverter pathConverter() {
-              return pathConverter;
-            }
-          };
-      String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
-      out.write(("event {\n" + protoTextRepresentation + "}\n\n").getBytes(StandardCharsets.UTF_8));
-      out.flush();
-    }
-  }
+  public void sendBuildEvent(BuildEvent event) {
+    String protoTextRepresentation = TextFormat.printToString(event.asStreamProto(converters));
+    String line = "event {\n" + protoTextRepresentation + "}\n\n";
 
-  @Override
-  public void close() throws IOException {
-    if (out != null) {
-      out.close();
-    }
+    writeData(line.getBytes());
   }
 }
