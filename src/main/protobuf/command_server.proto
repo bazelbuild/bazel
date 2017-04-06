@@ -43,6 +43,14 @@ message RunRequest {
   // A simple description of the client for reporting purposes. This value is
   // required.
   string client_description = 4;
+
+  // Invocation policy affects how command arguments are interpreted and should
+  // be passed separately. This is a proto message, either a human readable
+  // String or base64-encoded binary-serialized version of the message. It is
+  // not typed directly as an InvocationPolicy message due to distinctions
+  // between batch and server mode, so the parsing logic is only in the Java
+  // code.
+  string invocation_policy = 5;
 }
 
 // Contains metadata and result data for a command execution.

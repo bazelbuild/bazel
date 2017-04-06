@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.flags.CommandNameCache;
+import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -747,13 +748,17 @@ public final class BlazeRuntime {
             + commandLineOptions.getStartupArgs());
 
     BlazeRuntime runtime;
+    InvocationPolicy policy;
     try {
       runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
+      policy = InvocationPolicyParser.parsePolicy(
+          runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class)
+              .invocationPolicy);
     } catch (OptionsParsingException e) {
-      OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
+      OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     } catch (AbruptExitException e) {
-      OutErr.SYSTEM_OUT_ERR.printErr(e.getMessage());
+      OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return e.getExitCode().getNumericExitCode();
     }
 
@@ -761,7 +766,7 @@ public final class BlazeRuntime {
 
     try {
       LOG.info(getRequestLogString(commandLineOptions.getOtherArgs()));
-      return dispatcher.exec(commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
+      return dispatcher.exec(policy, commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
           LockingMode.ERROR_OUT, "batch client", runtime.getClock().currentTimeMillis());
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       return e.getExitStatus();

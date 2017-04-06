@@ -22,8 +22,10 @@ import com.google.common.net.InetAddresses;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
 import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
@@ -38,6 +40,7 @@ import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.ByteString;
 import io.grpc.Server;
 import io.grpc.StatusRuntimeException;
@@ -840,14 +843,20 @@ public class GrpcServerImpl implements RPCServer {
           new RpcOutputStream(command.id, responseCookie, StreamType.STDOUT, sink),
           new RpcOutputStream(command.id, responseCookie, StreamType.STDERR, sink));
 
-      exitCode =
-          commandExecutor.exec(
-              args.build(),
-              rpcOutErr,
-              request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
-              request.getClientDescription(),
-              clock.currentTimeMillis());
-
+      try {
+        InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
+        exitCode =
+            commandExecutor.exec(
+                policy,
+                args.build(),
+                rpcOutErr,
+                request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+                request.getClientDescription(),
+                clock.currentTimeMillis());
+      } catch (OptionsParsingException e) {
+        rpcOutErr.printErrLn(e.getMessage());
+        exitCode = ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+      }
     } catch (InterruptedException e) {
       exitCode = ExitCode.INTERRUPTED.getNumericExitCode();
       commandId = ""; // The default value, the client will ignore it

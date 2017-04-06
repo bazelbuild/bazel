@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
-import com.google.devtools.build.lib.flags.InvocationPolicyParser;
 import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -246,7 +245,12 @@ public class BlazeCommandDispatcher {
    * client process, or throws {@link ShutdownBlazeServerException} to
    * indicate that a command wants to shutdown the Blaze server.
    */
-  int exec(List<String> args, OutErr outErr, LockingMode lockingMode, String clientDescription,
+  int exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      String clientDescription,
       long firstContactTime) throws ShutdownBlazeServerException, InterruptedException {
     OriginalCommandLineEvent originalCommandLine = new OriginalCommandLineEvent(args);
     Preconditions.checkNotNull(clientDescription);
@@ -303,8 +307,8 @@ public class BlazeCommandDispatcher {
         outErr.printErrLn("Server shut down " + shutdownReason);
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
-      return execExclusively(
-          originalCommandLine, args, outErr, firstContactTime, commandName, command, waitTimeInMs);
+      return execExclusively(originalCommandLine, invocationPolicy, args, outErr, firstContactTime,
+          commandName, command, waitTimeInMs);
     } catch (ShutdownBlazeServerException e) {
       shutdownReason = "explicitly by client " + currentClientDescription;
       throw e;
@@ -318,6 +322,7 @@ public class BlazeCommandDispatcher {
 
   private int execExclusively(
       OriginalCommandLineEvent originalCommandLine,
+      InvocationPolicy invocationPolicy,
       List<String> args,
       OutErr outErr,
       long firstContactTime,
@@ -395,12 +400,7 @@ public class BlazeCommandDispatcher {
       InvocationPolicy combinedPolicy =
           InvocationPolicy.newBuilder()
               .mergeFrom(runtime.getModuleInvocationPolicy())
-              .mergeFrom(
-                  InvocationPolicyParser.parsePolicy(
-                      getRuntime()
-                          .getStartupOptionsProvider()
-                          .getOptions(BlazeServerStartupOptions.class)
-                          .invocationPolicy))
+              .mergeFrom(invocationPolicy)
               .build();
       InvocationPolicyEnforcer optionsPolicyEnforcer = new InvocationPolicyEnforcer(combinedPolicy);
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
@@ -546,8 +546,8 @@ public class BlazeCommandDispatcher {
   @VisibleForTesting
   public int exec(List<String> args, LockingMode lockingMode, String clientDescription,
       OutErr originalOutErr) throws ShutdownBlazeServerException, InterruptedException {
-    return exec(args, originalOutErr, LockingMode.ERROR_OUT, clientDescription,
-        runtime.getClock().currentTimeMillis());
+    return exec(InvocationPolicy.getDefaultInstance(), args, originalOutErr, LockingMode.ERROR_OUT,
+        clientDescription, runtime.getClock().currentTimeMillis());
   }
 
   /**
