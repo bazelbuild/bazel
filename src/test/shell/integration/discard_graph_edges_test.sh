@@ -16,9 +16,6 @@
 #
 # discard_graph_edges_test.sh: basic tests for the --discard_graph_edges flag.
 
-additional_flags="$1"
-shift
-
 # Load the test setup defined in the parent directory
 CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
@@ -36,7 +33,7 @@ function set_up() {
 }
 
 STARTUP_FLAGS="--batch"
-BUILD_FLAGS="--keep_going --discard_analysis_cache $additional_flags"
+BUILD_FLAGS="--keep_going --discard_analysis_cache"
 
 #### TESTS #############################################################
 
@@ -198,10 +195,6 @@ function test_packages_cleared() {
 }
 
 function test_actions_deleted_after_execution() {
-  if [[ "$BUILD_FLAGS" != *"--noexperimental_enable_critical_path_profiling"* ]]; then
-    # Actions are only deleted if critical_path_profiling is disabled.
-    return
-  fi
   rm -rf histodump
   mkdir -p histodump || fail "Couldn't create directory"
   readonly local wait_fifo="$TEST_TMPDIR/wait_fifo"

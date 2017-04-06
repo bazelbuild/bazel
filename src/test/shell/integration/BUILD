@@ -217,15 +217,6 @@ sh_test(
 )
 
 sh_test(
-    name = "discard_graph_edges_test_no_critical_path",
-    size = "medium",
-    srcs = ["discard_graph_edges_test.sh"],
-    args = ["--noexperimental_enable_critical_path_profiling"],
-    data = [":test-deps"],
-    shard_count = 5,
-)
-
-sh_test(
     name = "build_event_stream_test",
     size = "medium",
     srcs = ["build_event_stream_test.sh"],

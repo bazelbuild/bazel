@@ -24,13 +24,15 @@ public class SimpleCriticalPathComputer
     extends CriticalPathComputer<SimpleCriticalPathComponent,
         AggregatedCriticalPath<SimpleCriticalPathComponent>> {
 
-  public SimpleCriticalPathComputer(Clock clock) {
-    super(clock);
+  SimpleCriticalPathComputer(Clock clock, boolean discardActions) {
+    super(clock, discardActions);
   }
 
   @Override
   public SimpleCriticalPathComponent createComponent(Action action, long relativeStartNanos) {
-    return new SimpleCriticalPathComponent(action, relativeStartNanos);
+    return discardActions
+        ? new ActionDiscardingCriticalPathComponent(action, relativeStartNanos)
+        : new SimpleCriticalPathComponent(action, relativeStartNanos);
   }
 
   /**

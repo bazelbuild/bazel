@@ -51,6 +51,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   /** Maximum critical path found. */
   private C maxCriticalPath;
   private final Clock clock;
+  protected final boolean discardActions;
 
   /**
    * The list of slowest individual components, ignoring the time to build dependencies.
@@ -69,8 +70,9 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
 
   private final Object lock = new Object();
 
-  protected CriticalPathComputer(Clock clock) {
+  protected CriticalPathComputer(Clock clock, boolean discardActions) {
     this.clock = clock;
+    this.discardActions = discardActions;
     maxCriticalPath = null;
   }
 
@@ -122,17 +124,43 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
    * @return The component to be used for updating the time stats.
    */
   private C tryAddComponent(C newComponent) {
-    Action newAction = newComponent.getAction();
+    Action newAction = Preconditions.checkNotNull(newComponent.maybeGetAction(), newComponent);
     Artifact primaryOutput = newAction.getPrimaryOutput();
     C storedComponent = outputArtifactToComponent.putIfAbsent(primaryOutput, newComponent);
 
     if (storedComponent != null) {
-      if (!Actions.canBeShared(newAction, storedComponent.getAction())) {
-        throw new IllegalStateException("Duplicate output artifact found for unsharable actions."
-            + "This could happen  if a previous event registered the action.\n"
-            + "Old action: " + storedComponent.getAction() + "\n\n"
-            + "New action: " + newAction + "\n\n"
-            + "Artifact: " + primaryOutput + "\n");
+      Action oldAction = storedComponent.maybeGetAction();
+      if (oldAction != null) {
+        if (!Actions.canBeShared(newAction, oldAction)) {
+          throw new IllegalStateException(
+              "Duplicate output artifact found for unsharable actions."
+                  + "This can happen if a previous event registered the action.\n"
+                  + "Old action: "
+                  + oldAction
+                  + "\n\nNew action: "
+                  + newAction
+                  + "\n\nArtifact: "
+                  + primaryOutput
+                  + "\n");
+        }
+      } else {
+        String mnemonic = storedComponent.getMnemonic();
+        String prettyPrint = storedComponent.prettyPrintAction();
+        if (!newAction.getMnemonic().equals(mnemonic)
+            || !newAction.prettyPrint().equals(prettyPrint)) {
+          throw new IllegalStateException(
+              "Duplicate output artifact found for unsharable actions."
+                  + "This can happen if a previous event registered the action.\n"
+                  + "Old action mnemonic and prettyPrint: "
+                  + mnemonic
+                  + ", "
+                  + prettyPrint
+                  + "\n\nNew action: "
+                  + newAction
+                  + "\n\nArtifact: "
+                  + primaryOutput
+                  + "\n");
+        }
       }
     } else {
       storedComponent = newComponent;
@@ -197,12 +225,12 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   }
 
   private void finalizeActionStat(long startTimeNanos, Action action, C component) {
-    boolean updated = component.finishActionExecution(startTimeNanos, clock.nanoTime());
 
     for (Artifact input : action.getInputs()) {
       addArtifactDependency(component, input);
     }
 
+    boolean updated = component.finishActionExecution(startTimeNanos, clock.nanoTime());
     synchronized (lock) {
       if (isBiggestCriticalPath(component)) {
         maxCriticalPath = component;
@@ -243,10 +271,10 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
   private void addArtifactDependency(C actionStats, Artifact input) {
     C depComponent = outputArtifactToComponent.get(input);
     if (depComponent != null) {
-      if (depComponent.isRunning) {
+      Action action = depComponent.maybeGetAction();
+      if (depComponent.isRunning && action != null) {
         // Rare case that an action depending on a previously-cached shared action sees a different
         // shared action that is in the midst of being an action cache hit.
-        Action action = depComponent.getAction();
         for (Artifact actionOutput : action.getOutputs()) {
           if (input.equals(actionOutput)
               && Objects.equals(input.getArtifactOwner(), actionOutput.getArtifactOwner())) {
@@ -255,7 +283,7 @@ public abstract class CriticalPathComputer<C extends AbstractCriticalPathCompone
             throw new IllegalStateException(
                 String.format(
                     "Cannot add critical path stats when the action is not finished. %s. %s. %s",
-                    input, actionStats.getAction(), depComponent.getAction()));
+                    input, actionStats.prettyPrintAction(), action));
           }
         }
         return;

@@ -26,7 +26,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.BuildView.Options;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
@@ -97,7 +96,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   private enum IncrementalState {
     NORMAL,
-    CLEAR_EDGES,
     CLEAR_EDGES_AND_ACTIONS
   }
 
@@ -550,8 +548,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public void decideKeepIncrementalState(
-      boolean batch, BuildView.Options viewOptions, ExecutionOptions executionOptions) {
+  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
     Preconditions.checkState(!active);
     if (viewOptions == null) {
       // Some blaze commands don't include the view options. Don't bother with them.
@@ -562,10 +559,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           incrementalState == IncrementalState.NORMAL,
           "May only be called once if successful: %s",
           incrementalState);
-      incrementalState =
-          executionOptions.enableCriticalPathProfiling
-              ? IncrementalState.CLEAR_EDGES
-              : IncrementalState.CLEAR_EDGES_AND_ACTIONS;
+      incrementalState = IncrementalState.CLEAR_EDGES_AND_ACTIONS;
       // Graph will be recreated on next sync.
       LOG.info("Set incremental state to " + incrementalState);
     }
