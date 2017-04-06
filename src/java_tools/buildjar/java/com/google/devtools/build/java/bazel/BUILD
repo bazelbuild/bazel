@@ -90,10 +90,6 @@ java_library(
 java_library(
     name = "JavaBuilderConfig",
     srcs = ["JavaBuilderConfig.java"],
-    data = select({
-        "@bazel_tools//tools/jdk:jdk7": ["@bazel_tools//tools/jdk:VanillaJavaBuilder_deploy.jar"],
-        "//conditions:default": ["@bazel_tools//tools/jdk:JavaBuilder_deploy.jar"],
-    }),
     deps = [
         ":javabuilder-javacopts-lib",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:javac_options",
