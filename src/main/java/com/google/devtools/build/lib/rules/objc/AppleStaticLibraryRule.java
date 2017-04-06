@@ -35,6 +35,12 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
  */
 public class AppleStaticLibraryRule implements RuleDefinition {
 
+  private final ObjcProtoAspect objcProtoAspect;
+
+  public AppleStaticLibraryRule(ObjcProtoAspect objcProtoAspect) {
+    this.objcProtoAspect = objcProtoAspect;
+  }
+
   /**
    * Template for the fat archive output (using Apple's "lipo" tool to combine .a archive files of
    * multiple architectures).
@@ -80,7 +86,8 @@ public class AppleStaticLibraryRule implements RuleDefinition {
                 .mandatoryNativeProviders(
                     ImmutableList.<Class<? extends TransitiveInfoProvider>>of(ObjcProvider.class))
                 .cfg(splitTransitionProvider)
-                .allowedFileTypes())
+                .allowedFileTypes()
+                .aspect(objcProtoAspect))
         /*<!-- #BLAZE_RULE(apple_static_library).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code><var>name</var>_lipo.a</code>: a 'lipo'ed archive file. All transitive

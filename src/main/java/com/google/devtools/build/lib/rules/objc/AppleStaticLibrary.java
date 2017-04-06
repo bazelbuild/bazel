@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
+
 import java.util.List;
 import java.util.Set;
 
@@ -79,6 +81,10 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
     ImmutableListMultimap<BuildConfiguration, CcLinkParamsProvider> configToCcAvoidDepsMap =
         ruleContext.getPrerequisitesByConfiguration(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
             Mode.SPLIT, CcLinkParamsProvider.class);
+    Iterable<ObjcProtoProvider> avoidProtoProviders =
+        ruleContext.getPrerequisites(AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME, Mode.TARGET,
+            ObjcProtoProvider.class);
+    NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 
     Set<BuildConfiguration> childConfigurations = getChildConfigurations(ruleContext);
 
@@ -95,7 +101,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     for (BuildConfiguration childConfig : childConfigurations) {
       ProtobufSupport protoSupport =
-          new ProtobufSupport(ruleContext, childConfig)
+          new ProtobufSupport(ruleContext, childConfig, protosToAvoid)
               .registerGenerationActions()
               .registerCompilationActions();
 
@@ -191,5 +197,16 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             CcToolchainProvider.class);
 
     return configToProvider.keySet();
+  }
+
+  private static NestedSet<Artifact> protoArtifactsToAvoid(
+      Iterable<ObjcProtoProvider> avoidedProviders) {
+    NestedSetBuilder<Artifact> avoidArtifacts = NestedSetBuilder.stableOrder();
+    for (ObjcProtoProvider avoidProvider : avoidedProviders) {
+      for (NestedSet<Artifact> avoidProviderOutputGroup : avoidProvider.getProtoGroups()) {
+        avoidArtifacts.addTransitive(avoidProviderOutputGroup);
+      }
+    }
+    return avoidArtifacts.build();
   }
 }

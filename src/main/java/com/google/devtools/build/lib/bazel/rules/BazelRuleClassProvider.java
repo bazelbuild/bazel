@@ -665,11 +665,11 @@ public class BazelRuleClassProvider {
           // TODO(ulfjack): Depending on objcProtoAspect from here is a layering violation.
           ObjcProtoAspect objcProtoAspect = new ObjcProtoAspect();
           builder.addNativeAspectClass(objcProtoAspect);
+          builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
+          builder.addRuleDefinition(new AppleStaticLibraryRule(objcProtoAspect));
           builder.addRuleDefinition(new ObjcProtoLibraryRule(objcProtoAspect));
 
-          builder.addRuleDefinition(new AppleBinaryRule(objcProtoAspect));
           builder.addRuleDefinition(new AppleCcToolchainRule());
-          builder.addRuleDefinition(new AppleStaticLibraryRule());
           builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(toolsRepository));
           builder.addRuleDefinition(new AppleWatch1ExtensionRule());
           builder.addRuleDefinition(new AppleWatch2ExtensionRule());
