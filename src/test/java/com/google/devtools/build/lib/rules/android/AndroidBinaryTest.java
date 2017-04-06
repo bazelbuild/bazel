@@ -588,10 +588,11 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testIncrementalDisabledWithBlacklistedDexopts_withDexShards() throws Exception {
-    // Even if we mark --no-locals, which is blacklisted by default, as an --incremental_dexopts
-    // incremental dexing isn't used
+  public void testIncrementalDexingDisabledWithBlacklistedDexopts() throws Exception {
+    // Even if we mark a dx flag as supported, incremental dexing isn't used with blacklisted
+    // dexopts (unless incremental_dexing attribute is set, which a different test covers)
     useConfiguration("--incremental_dexing",
+        "--non_incremental_per_target_dexopts=--no-locals",
         "--dexopts_supported_in_incremental_dexing=--no-locals");
     scratch.file(
         "java/com/google/android/BUILD",

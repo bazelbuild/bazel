@@ -276,6 +276,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Does most of the work for dexing separately for each Jar file.")
     public boolean incrementalDexing;
 
+    // TODO(b/31711689): remove this flag from config files and here
     @Option(name = "host_incremental_dexing",
         defaultValue = "false",
         category = "hidden",
@@ -286,8 +287,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Do not use on the command line.
     // The idea is that this option lets us gradually turn on incremental dexing for different
     // binaries.  Users should rely on --noincremental_dexing to turn it off.
+    // TODO(b/31711689): remove this flag from config files and here
     @Option(name = "incremental_dexing_binary_types",
-        defaultValue = "multidex_sharded",
+        defaultValue = "all",
         category = "undocumented",
         converter = AndroidBinaryTypesConverter.class,
         implicitRequirements = "--incremental_dexing",
@@ -295,13 +297,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public Set<AndroidBinaryType> incrementalDexingBinaries;
 
     /**
-     * Whether to look for incrementally dex protos built with java_lite_proto_library. Once this
-     * option works, we'll flip the default value in a config file, then once it is proven that it
-     * works, remove it from Bazel and said config file.
+     * Whether to look for incrementally dex protos built with java_lite_proto_library.
      */
+    // TODO(b/31711689): remove this flag from config files and here
     @Option(
       name = "experimental_incremental_dexing_for_lite_protos",
-      defaultValue = "false",
+      defaultValue = "true",
       category = "experimental",
       help = "Do not use.")
     public boolean incrementalDexingForLiteProtos;
@@ -319,7 +320,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Option(name = "non_incremental_per_target_dexopts",
         converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--no-locals",
+        defaultValue = "--set-max-idx-number,--positions",
         category = "semantics",
         help = "dx flags that that prevent incremental dexing for binary targets that list any of "
             + "the flags listed here in their 'dexopts' attribute, which are ignored with "
@@ -333,7 +334,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(name = "dexopts_supported_in_incremental_dexing",
         converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "",
+        defaultValue = "--no-optimize,--no-locals",
         category = "hidden",
         help = "dx flags supported in incremental dexing.")
     public List<String> dexoptsSupportedInIncrementalDexing;
