@@ -68,11 +68,10 @@ public class NestedSetView<E> {
     if (!(set instanceof Object[])) {
       return ImmutableSet.<NestedSetView<E>>of();
     }
-    ImmutableSet.Builder<NestedSetView<E>> transitives =
-        new ImmutableSet.Builder<NestedSetView<E>>();
+    ImmutableSet.Builder<NestedSetView<E>> transitives = new ImmutableSet.Builder<>();
     for (Object c : (Object[]) set) {
       if (c instanceof Object[]) {
-        transitives.add(new NestedSetView(c));
+        transitives.add(new NestedSetView<E>(c));
       }
     }
     return transitives.build();
@@ -84,6 +83,7 @@ public class NestedSetView<E> {
    * <p>This refers to the direct members after any inlining that might have happened at
    * construction of the nested set.
    */
+  @SuppressWarnings("unchecked")
   public Set<E> directs() {
     if (!(set instanceof Object[])) {
       return ImmutableSet.<E>of((E) set);

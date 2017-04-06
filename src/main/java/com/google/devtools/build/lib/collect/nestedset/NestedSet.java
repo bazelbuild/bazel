@@ -142,7 +142,7 @@ public final class NestedSet<E> implements Iterable<E> {
   }
 
   /**
-   * Returns the internal item or array. For use by NestedSetVisitor and NestedSetView. Those to
+   * Returns the internal item or array. For use by NestedSetVisitor and NestedSetView. Those two
    * classes also have knowledge of the internal implementation of NestedSet.
    */
   Object rawChildren() {
