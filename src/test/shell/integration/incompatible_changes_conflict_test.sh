@@ -36,7 +36,7 @@ function test_conflict_warning_is_working() {
   bazel canonicalize-flags --show_warnings -- \
     --flag_clash_canary_expander1 --flag_clash_canary_expander2 \
     &>$TEST_log || fail "bazel canonicalize-flags failed";
-  fail_msg = "Did not find expected flag conflict warning"
+  fail_msg="Did not find expected flag conflict warning"
   expect_log "$canary_clash_error" "$fail_msg"
 }
 
@@ -45,8 +45,8 @@ function test_canonicalize_flags_suppresses_warnings() {
   bazel canonicalize-flags -- \
     --flag_clash_canary_expander1 --flag_clash_canary_expander2 \
     &>$TEST_log || fail "bazel canonicalize-flags failed";
-  fail_msg = "canonicalize-flags should have suppressed parser warnings since "
-  fail_msg += "--show_warnings wasn't specified"
+  fail_msg="canonicalize-flags should have suppressed parser warnings since "
+  fail_msg+="--show_warnings wasn't specified"
   expect_not_log "$canary_clash_error" "$fail_msg"
 }
 
