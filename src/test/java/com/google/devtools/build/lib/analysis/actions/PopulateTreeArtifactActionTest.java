@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
@@ -105,11 +104,6 @@ public class PopulateTreeArtifactActionTest extends BuildViewTestCase {
     @Override
     public boolean artifactOmitted(Artifact artifact) {
       throw new UnsupportedOperationException(artifact.prettyPrint());
-    }
-
-    @Override
-    public boolean isInjected(Artifact file) throws IOException {
-      throw new UnsupportedOperationException(file.prettyPrint());
     }
 
     @Override
