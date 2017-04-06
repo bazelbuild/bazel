@@ -154,9 +154,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
   private int hashCode;
   private String path;
 
-  /** Don't call this ctor; use {@link #create(String)} instead. */
-  @Deprecated
-  public PathFragment(String path) {
+  private PathFragment(String path) {
     this.driveLetter =
         (OS.getCurrent() == OS.WINDOWS
                 && path.length() >= 2
