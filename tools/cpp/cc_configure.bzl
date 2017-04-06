@@ -57,12 +57,13 @@ def auto_configure_warning(msg):
   print("\n%sAuto-Configuration Warning:%s %s\n" % (yellow, no_color, msg))
 
 
-def _get_env_var(repository_ctx, name, default = None):
+def _get_env_var(repository_ctx, name, default = None, enable_warning = True):
   """Find an environment variable in system path."""
   if name in repository_ctx.os.environ:
     return repository_ctx.os.environ[name]
   if default != None:
-    auto_configure_warning("'%s' environment variable is not set, using '%s' as default" % (name, default))
+    if enable_warning:
+      auto_configure_warning("'%s' environment variable is not set, using '%s' as default" % (name, default))
     return default
   auto_configure_fail("'%s' environment variable is not set" % name)
 
@@ -212,11 +213,11 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   supports_gold_linker = _is_gold_supported(repository_ctx, cc)
   return {
-      "abi_version": _get_env_var(repository_ctx, "ABI_VERSION", "local"),
-      "abi_libc_version": _get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local"),
+      "abi_version": _get_env_var(repository_ctx, "ABI_VERSION", "local", False),
+      "abi_libc_version": _get_env_var(repository_ctx, "ABI_LIBC_VERSION", "local", False),
       "builtin_sysroot": "",
-      "compiler": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler"),
-      "host_system_name": _get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local"),
+      "compiler": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
+      "host_system_name": _get_env_var(repository_ctx, "BAZEL_HOST_SYSTEM", "local", False),
       "needsPic": True,
       "supports_gold_linker": supports_gold_linker,
       "supports_incremental_linker": False,
@@ -224,9 +225,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "supports_interface_shared_objects": False,
       "supports_normalizing_ar": False,
       "supports_start_end_lib": supports_gold_linker,
-      "target_libc": "macosx" if darwin else _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local"),
-      "target_cpu": _get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value),
-      "target_system_name": _get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local"),
+      "target_libc": "macosx" if darwin else _get_env_var(repository_ctx, "BAZEL_TARGET_LIBC", "local", False),
+      "target_cpu": _get_env_var(repository_ctx, "BAZEL_TARGET_CPU", cpu_value, False),
+      "target_system_name": _get_env_var(repository_ctx, "BAZEL_TARGET_SYSTEM", "local", False),
       "cxx_flag": [
           "-std=c++0x",
       ] + _cplus_include_paths(repository_ctx),
@@ -732,7 +733,7 @@ def _impl(repository_ctx):
         "%{name}": cpu_value,
         "%{supports_param_files}": "0" if darwin else "1",
         "%{cc_compiler_deps}": ":cc_wrapper" if darwin else ":empty",
-        "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler"),
+        "%{compiler}": _get_env_var(repository_ctx, "BAZEL_COMPILER", "compiler", False),
     })
     _tpl(repository_ctx,
         "osx_cc_wrapper.sh" if darwin else "linux_cc_wrapper.sh",
@@ -740,8 +741,8 @@ def _impl(repository_ctx):
         "cc_wrapper.sh")
     _tpl(repository_ctx, "CROSSTOOL", {
         "%{cpu}": cpu_value,
-        "%{default_toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local"),
-        "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local"),
+        "%{default_toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
+        "%{toolchain_name}": _get_env_var(repository_ctx, "CC_TOOLCHAIN_NAME", "local", False),
         "%{content}": _build_crosstool(crosstool_content) + "\n" +
                       _build_tool_path(tool_paths),
         "%{opt_content}": _build_crosstool(opt_content, "    "),
