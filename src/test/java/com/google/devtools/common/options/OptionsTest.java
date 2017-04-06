@@ -215,15 +215,6 @@ public class OptionsTest {
   }
 
   @Test
-  public void booleanNoUnderscore() throws OptionsParsingException {
-    Options<HttpOptions> options =
-        Options.parse(HttpOptions.class, new String[]{"--no_debug", "--no_tristate"});
-    HttpOptions webFlags = options.getOptions();
-    assertThat(webFlags.isDebugging).isEqualTo(false);
-    assertThat(webFlags.triState).isEqualTo(TriState.NO);
-  }
-
-  @Test
   public void booleanAbbrevMinus() throws OptionsParsingException {
     Options<HttpOptions> options =
         Options.parse(HttpOptions.class, new String[]{"-d-", "-t-"});
