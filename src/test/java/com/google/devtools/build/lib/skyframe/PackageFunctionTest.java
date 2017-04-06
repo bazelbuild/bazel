@@ -297,52 +297,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains(expectedMessage);
   }
 
-  @Test
-  public void testMultipleSubincludesFromSamePackage() throws Exception {
-    scratch.file("foo/BUILD",
-        "subinclude('//bar:a')",
-        "subinclude('//bar:b')");
-    scratch.file("bar/BUILD",
-        "exports_files(['a', 'b'])");
-    scratch.file("bar/a");
-    scratch.file("bar/b");
-
-    preparePackageLoading(rootDirectory);
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    validPackage(skyKey);
-  }
-
-  @Test
-  public void testTransitiveSubincludesStoredInPackage() throws Exception {
-    scratch.file("foo/BUILD",
-        "subinclude('//bar:a')");
-    scratch.file("bar/BUILD",
-        "exports_files(['a'])");
-    scratch.file("bar/a",
-        "subinclude('//baz:b')");
-    scratch.file("baz/BUILD",
-        "exports_files(['b', 'c'])");
-    scratch.file("baz/b");
-    scratch.file("baz/c");
-
-    preparePackageLoading(rootDirectory);
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    PackageValue value = validPackage(skyKey);
-    assertThat(value.getPackage().getSubincludeLabels()).containsExactly(
-        Label.parseAbsolute("//bar:a"), Label.parseAbsolute("//baz:b"));
-
-    scratch.overwriteFile("bar/a",
-        "subinclude('//baz:c')");
-    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(PathFragment.create("bar/a")).build(), rootDirectory);
-
-    value = validPackage(skyKey);
-    assertThat(value.getPackage().getSubincludeLabels()).containsExactly(
-        Label.parseAbsolute("//bar:a"), Label.parseAbsolute("//baz:c"));
-  }
-
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
   @Test
   public void testGlobOrderStable() throws Exception {
@@ -527,29 +481,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testIncludeInMainAndDefaultRepository() throws Exception {
-    scratch.file("foo/BUILD",
-        "subinclude('//baz:a')");
-    scratch.file("bar/BUILD",
-        "subinclude('@//baz:a')");
-    scratch.file("baz/BUILD",
-        "exports_files(['a'])");
-    scratch.file("baz/a");
-
-    preparePackageLoading(rootDirectory);
-
-    SkyKey fooKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
-    PackageValue fooValue = validPackage(fooKey);
-    assertThat(fooValue.getPackage().getSubincludeLabels()).containsExactly(
-        Label.parseAbsolute("//baz:a"));
-
-    SkyKey barKey = PackageValue.key(PackageIdentifier.parse("@//bar"));
-    PackageValue barValue = validPackage(barKey);
-    assertThat(barValue.getPackage().getSubincludeLabels()).containsExactly(
-        Label.parseAbsolute("@//baz:a"));
-  }
-
-  @Test
   public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD",
         "load('/bar/ext', 'a')");
@@ -592,29 +523,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "genrule(name = gr,",
         "    outs = ['out.txt'],",
         "    cmd = 'echo hello >@')");
-    invalidatePackages();
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/skylark"));
-    EvaluationResult<PackageValue> result = SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
-    ErrorInfo errorInfo = result.getError(skyKey);
-    String expectedMsg = "error loading package 'test/skylark': "
-        + "Extension file not found. Unable to load file '//test/skylark:bad_extension.bzl': "
-        + "file doesn't exist or isn't a file";
-    assertThat(errorInfo.getException())
-        .hasMessage(expectedMsg);
-  }
-
-  @Test
-  public void testNonExistingSkylarkExtensionWithPythonPreprocessing() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    scratch.file("foo/BUILD",
-        "exports_files(['a'])");
-    scratch.file("foo/a",
-        "load('/test/skylark/bad_extension', 'some_symbol')");
-    scratch.file("test/skylark/BUILD",
-        "subinclude('//foo:a')");
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//test/skylark"));

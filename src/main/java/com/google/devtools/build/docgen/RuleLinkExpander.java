@@ -38,8 +38,6 @@ public class RuleLinkExpander {
   private static final ImmutableMap<String, String> FUNCTIONS =
       ImmutableMap.<String, String>builder()
           .put("load", FUNCTIONS_PAGE)
-          .put("subinclude", FUNCTIONS_PAGE)
-          .put("PYTHON-PREPROCESSING-REQUIRED", FUNCTIONS_PAGE)
           .put("package", FUNCTIONS_PAGE)
           .put("package_group", FUNCTIONS_PAGE)
           .put("description", FUNCTIONS_PAGE)
