@@ -118,62 +118,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testInconsistentNewPackage() throws Exception {
-    scratch.file("pkg/BUILD", "subinclude('//foo:sub')");
-    scratch.file("foo/sub");
-
-    preparePackageLoading(rootDirectory);
-
-    SkyKey pkgLookupKey = PackageLookupValue.key(PathFragment.create("foo"));
-    EvaluationResult<PackageLookupValue> result = SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/false, reporter);
-    assertFalse(result.hasError());
-    assertFalse(result.get(pkgLookupKey).packageExists());
-
-    scratch.file("foo/BUILD");
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
-    result = SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(),
-        skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
-    Throwable exception = result.getError(skyKey).getException();
-    assertThat(exception.getMessage()).contains("Inconsistent filesystem operations");
-    assertThat(exception.getMessage()).contains("Unexpected package");
-  }
-
-  @Test
-  public void testInconsistentMissingPackage() throws Exception {
-    reporter.removeHandler(failFastHandler);
-    Path root1 = fs.getPath("/root1");
-    scratch.file("/root1/WORKSPACE");
-    scratch.file("/root1/foo/sub");
-    scratch.file("/root1/pkg/BUILD", "subinclude('//foo:sub')");
-
-    Path root2 = fs.getPath("/root2");
-    scratch.file("/root2/foo/BUILD");
-    scratch.file("/root2/foo/sub");
-
-    preparePackageLoading(root1, root2);
-
-    SkyKey pkgLookupKey = PackageLookupValue.key(PackageIdentifier.parse("@//foo"));
-    EvaluationResult<PackageLookupValue> result = SkyframeExecutorTestUtils.evaluate(
-        getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/false, reporter);
-    assertFalse(result.hasError());
-    assertEquals(root2, result.get(pkgLookupKey).getRoot());
-
-    scratch.file("/root1/foo/BUILD");
-
-    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
-    result = SkyframeExecutorTestUtils.evaluate(getSkyframeExecutor(),
-        skyKey, /*keepGoing=*/false, reporter);
-    assertTrue(result.hasError());
-    Throwable exception = result.getError(skyKey).getException();
-    System.out.println("exception: " + exception.getMessage());
-    assertThat(exception.getMessage()).contains("Inconsistent filesystem operations");
-    assertThat(exception.getMessage()).contains("Inconsistent package location");
-  }
-
-  @Test
   public void testPropagatesFilesystemInconsistencies() throws Exception {
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
