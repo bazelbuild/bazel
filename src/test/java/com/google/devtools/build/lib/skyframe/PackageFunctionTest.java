@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -88,11 +86,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of(),
             ImmutableMap.<String, String>of(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
-  }
-
-  @Override
-  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return new SubincludePreprocessor.FactorySupplier();
   }
 
   @Override
