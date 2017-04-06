@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-
 import java.util.Collection;
 import java.util.Map;
 
@@ -24,6 +23,10 @@ import java.util.Map;
  * normally provided.
  */
 public interface ActionExecutionContextFactory {
+  /**
+   * Returns an action execution context. This involves creating a new FileOutErr, and it is the
+   * caller's responsibility to close that, e.g. by calling {@link ActionExecutionContext#close}.
+   */
   ActionExecutionContext getContext(ActionInputFileCache graphFileCache,
       MetadataHandler metadataHandler, Map<Artifact, Collection<Artifact>> expandedInputs);
 }

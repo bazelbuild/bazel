@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
@@ -114,6 +115,12 @@ public class ActionMetadataHandler implements MetadataHandler {
    * Use {@link #getTimestampGranularityMonitor(Artifact)} to fetch this member.
    */
   private final TimestampGranularityMonitor tsgm;
+
+  /**
+   * Whether the action is being executed or not; this flag is set to true in
+   * {@link #discardOutputMetadata}.
+   */
+  private final AtomicBoolean executionMode = new AtomicBoolean(false);
 
   @VisibleForTesting
   public ActionMetadataHandler(Map<Artifact, FileArtifactValue> inputArtifactData,
@@ -418,6 +425,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void addExpandedTreeOutput(TreeFileArtifact output) {
+    Preconditions.checkState(executionMode.get());
     Set<TreeFileArtifact> values = getTreeArtifactContents(output.getParent());
     values.add(output);
   }
@@ -429,6 +437,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+    Preconditions.checkState(executionMode.get());
     // Assumption: any non-Artifact output is 'virtual' and should be ignored here.
     if (output instanceof Artifact) {
       final Artifact artifact = (Artifact) output;
@@ -439,9 +448,7 @@ public class ActionMetadataHandler implements MetadataHandler {
         // readily available. We cannot pass the digest in, though, because if it is not available
         // from the filesystem, this FileValue will not compare equal to another one created for the
         // same file, because the other one will be missing its digest.
-        fileValue = fileValueFromArtifact(artifact,
-            FileStatusWithDigestAdapter.adapt(statNoFollow),
-            getTimestampGranularityMonitor(artifact));
+        fileValue = constructFileValue(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow));
         // Ensure the digest supplied matches the actual digest if it exists.
         byte[] fileDigest = fileValue.getDigest();
         if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
@@ -451,7 +458,6 @@ public class ActionMetadataHandler implements MetadataHandler {
           throw new IllegalStateException("Expected digest " + digestString + " for artifact "
               + artifact + ", but got " + fileDigestString + " (" + fileValue + ")");
         }
-        outputArtifactData.put(artifact, fileValue);
       } catch (IOException e) {
         // Do nothing - we just failed to inject metadata. Real error handling will be done later,
         // when somebody will try to access that file.
@@ -477,6 +483,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public void markOmitted(ActionInput output) {
+    Preconditions.checkState(executionMode.get());
     if (output instanceof Artifact) {
       Artifact artifact = (Artifact) output;
       Preconditions.checkState(omittedOutputs.add(artifact), artifact);
@@ -486,11 +493,14 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public boolean artifactOmitted(Artifact artifact) {
+    // TODO(ulfjack): this is currently unreliable, see the documentation on MetadataHandler.
     return omittedOutputs.contains(artifact);
   }
 
   @Override
   public void discardOutputMetadata() {
+    boolean wasExecutionMode = executionMode.getAndSet(true);
+    Preconditions.checkState(!wasExecutionMode);
     Preconditions.checkState(injectedFiles.isEmpty(),
         "Files cannot be injected before action execution: %s", injectedFiles);
     Preconditions.checkState(omittedOutputs.isEmpty(),
@@ -514,6 +524,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @Override
   public boolean isInjected(Artifact file) {
+    Preconditions.checkState(executionMode.get());
     return injectedFiles.contains(file);
   }
 
@@ -550,12 +561,13 @@ public class ActionMetadataHandler implements MetadataHandler {
   }
 
   /** Constructs a new FileValue, saves it, and checks inconsistent data. */
-  FileValue constructFileValue(Artifact artifact, @Nullable FileStatusWithDigest statNoFollow)
-      throws IOException {
+  private FileValue constructFileValue(
+      Artifact artifact, @Nullable FileStatusWithDigest statNoFollow)
+          throws IOException {
     FileValue value = fileValueFromArtifact(artifact, statNoFollow,
         getTimestampGranularityMonitor(artifact));
     FileValue oldFsValue = outputArtifactData.putIfAbsent(artifact, value);
-    checkInconsistentData(artifact, oldFsValue, null);
+    checkInconsistentData(artifact, oldFsValue, value);
     return value;
   }
 

@@ -20,7 +20,11 @@ import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import java.io.IOException;
 
-/** Retrieves {@link Metadata} of {@link Artifact}s, and inserts virtual metadata as well. */
+/**
+ * Retrieves {@link Metadata} of {@link Artifact}s, and inserts virtual metadata as well. Some
+ * methods on this interface may only be called after a call to {@link #discardOutputMetadata}.
+ * Calling them before such a call results in an {@link IllegalStateException}.
+ */
 public interface MetadataHandler {
   /**
    * Returns metadata for the given artifact or null if it does not exist or is intentionally
@@ -49,6 +53,8 @@ public interface MetadataHandler {
   /**
    * Registers the given output as contents of a TreeArtifact, without injecting its digest. Prefer
    * {@link #injectDigest} when the digest is available.
+   *
+   * <p>Must only be called after a call to {@link #discardOutputMetadata}.
    */
   void addExpandedTreeOutput(TreeFileArtifact output);
 
@@ -57,19 +63,27 @@ public interface MetadataHandler {
 
   /**
    * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
+   *
+   * <p>Must only be called after a call to {@link #discardOutputMetadata}.
    */
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
 
   /**
    * Marks an artifact as intentionally omitted. Acknowledges that this Artifact could have existed,
    * but was intentionally not saved, most likely as an optimization.
+   *
+   * <p>Must only be called after a call to {@link #discardOutputMetadata}.
    */
   void markOmitted(ActionInput output);
 
   /** Returns true iff artifact is a regular file. */
   boolean isRegularFile(Artifact artifact);
 
-  /** Returns true iff artifact was intentionally omitted (not saved). */
+  /**
+   * Returns true iff artifact was intentionally omitted (not saved).
+   */
+  // TODO(ulfjack): artifactOmitted always returns false unless we've just executed the action, and
+  // made calls to markOmitted. We either need to document that or change it so it works reliably.
   boolean artifactOmitted(Artifact artifact);
 
   /**
@@ -86,6 +100,8 @@ public interface MetadataHandler {
    * Discards all known output artifact metadata, presumably because outputs will be modified. May
    * only be called before any metadata is injected using {@link #injectDigest} or {@link
    * #markOmitted};
+   *
+   * <p>Must be called at most once on any specific instance.
    */
   void discardOutputMetadata();
 }
