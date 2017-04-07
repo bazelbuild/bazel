@@ -192,7 +192,20 @@ public final class BlazeWorkspace {
    */
   public CommandEnvironment initCommand() {
     CommandEnvironment env = new CommandEnvironment(
-        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread());
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(), null, null);
+    skyframeExecutor.setClientEnv(env.getClientEnv());
+    return env;
+  }
+
+  /**
+   * Same as {@code #initCommand()} but setting the command name and the options manually since
+   * those values are set by {@code CommandEnvironment#beforeCommand()} which is not called for
+   * testing. Use ONLY for testing purposes.
+   */
+  public CommandEnvironment initCommandForTesting(String commandName, OptionsProvider options) {
+    CommandEnvironment env = new CommandEnvironment(
+        runtime, this, new EventBus(eventBusExceptionHandler), Thread.currentThread(),
+        commandName, options);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }

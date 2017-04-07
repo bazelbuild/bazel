@@ -147,6 +147,24 @@ public final class CommandEnvironment {
     workspace.getSkyframeExecutor().setEventBus(eventBus);
   }
 
+  /**
+   * Same as CommandEnvironment(BlazeRuntime, BlazeWorkspace, EventBus, Thread) but with an
+   * explicit commandName and options.
+   *
+   * ONLY for testing.
+   */
+  @VisibleForTesting
+  CommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
+      String commandNameForTesting, OptionsProvider optionsForTesting) {
+    this(runtime, workspace, eventBus, commandThread);
+    // Both commandName and options are normally set by beforeCommand(); however this method is not
+    // called in tests (i.e. tests use BlazeRuntimeWrapper). These fields should only be set for
+    // testing.
+    this.commandName = commandNameForTesting;
+    this.options = optionsForTesting;
+  }
+
   public BlazeRuntime getRuntime() {
     return runtime;
   }
