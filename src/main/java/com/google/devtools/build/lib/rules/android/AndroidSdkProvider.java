@@ -30,7 +30,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
 
   public static AndroidSdkProvider create(
       String buildToolsVersion,
-      boolean aaptSupportsMainDexGeneration,
       Artifact frameworkAidl,
       @Nullable TransitiveInfoCollection aidlLib,
       Artifact androidJar,
@@ -50,7 +49,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
 
     return new AutoValue_AndroidSdkProvider(
         buildToolsVersion,
-        aaptSupportsMainDexGeneration,
         frameworkAidl,
         aidlLib,
         androidJar,
@@ -97,8 +95,6 @@ public abstract class AndroidSdkProvider implements TransitiveInfoProvider {
 
   /** The value of build_tools_version. May be null or empty. */
   public abstract String getBuildToolsVersion();
-
-  public abstract boolean getAaptSupportsMainDexGeneration();
 
   public abstract Artifact getFrameworkAidl();
 

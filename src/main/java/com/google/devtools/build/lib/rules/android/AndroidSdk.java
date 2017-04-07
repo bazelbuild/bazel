@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.android.repository.Revision;
-import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -46,18 +44,6 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
 
     String buildToolsVersion = AggregatingAttributeMapper.of(ruleContext.getRule())
         .get("build_tools_version", Type.STRING);
-    Revision parsedBuildToolsVersion = null;
-    try {
-      parsedBuildToolsVersion =
-          Strings.isNullOrEmpty(buildToolsVersion)
-              ? null
-              : Revision.parseRevision(buildToolsVersion);
-    } catch (NumberFormatException nfe) {
-      ruleContext.attributeError("build_tools_version", "Invalid version: " + buildToolsVersion);
-    }
-    boolean aaptSupportsMainDexGeneration =
-        parsedBuildToolsVersion == null
-            || parsedBuildToolsVersion.compareTo(new Revision(24)) >= 0;
     FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl", Mode.HOST);
     FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt", Mode.HOST);
     FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite(
@@ -88,7 +74,6 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
             AndroidSdkProvider.class,
             AndroidSdkProvider.create(
                 buildToolsVersion,
-                aaptSupportsMainDexGeneration,
                 frameworkAidl,
                 aidlLib,
                 androidJar,

@@ -49,8 +49,7 @@ public class ApkManifestActionTest {
     Artifact outputFile = createArtifact("/workspace/java/test/manifest");
     AndroidSdkProvider sdk =
         AndroidSdkProvider.create(
-            "23.0.0",
-            false, // aapt_supports_main_dex_generation
+            "24.0.3",
             createArtifact("/workspace/androidsdk/frameworkAidl"),
             null,  // aidlLib, optional
             createArtifact("/workspace/androidsdk/androidJar"),

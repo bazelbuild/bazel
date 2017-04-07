@@ -1741,11 +1741,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     return splitResources;
   }
 
-  @Nullable
   private static Artifact createMainDexProguardSpec(RuleContext ruleContext) {
-    return AndroidSdkProvider.fromRuleContext(ruleContext).getAaptSupportsMainDexGeneration()
-        ? ProguardHelper.getProguardConfigArtifact(ruleContext, "main_dex")
-        : null;
+    return ProguardHelper.getProguardConfigArtifact(ruleContext, "main_dex");
   }
 
   /**
