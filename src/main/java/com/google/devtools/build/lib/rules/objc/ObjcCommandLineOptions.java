@@ -14,17 +14,15 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+
 import java.util.List;
 
 /**
@@ -322,16 +320,5 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     // This should have the same value in both target and host configurations
     host.objcHeaderScannerTool = this.objcHeaderScannerTool;
     return host;
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-    return ImmutableList.<SplitTransition<BuildOptions>>builder().add(
-            IosApplication.SPLIT_ARCH_TRANSITION, IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION,
-            AppleCrosstoolSplitTransition.APPLE_CROSSTOOL_SPLIT_TRANSITION)
-        .addAll(MultiArchSplitTransitionProvider.getPotentialSplitTransitions())
-        .build();
   }
 }

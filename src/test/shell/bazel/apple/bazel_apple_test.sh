@@ -766,8 +766,8 @@ EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION -s \
       //ios:bin >$TEST_log 2>&1 || fail "should build"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/apl-ios_x86_64-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
-  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/apl-ios_x86_64-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/dep/_objs/ios_dep.swiftmodule"
+  expect_log "-Xlinker -add_ast_path -Xlinker bazel-out/local-fastbuild/genfiles/ios/swift_lib/_objs/ios_swift_lib.swiftmodule"
 }
 
 function test_swiftc_script_mode() {

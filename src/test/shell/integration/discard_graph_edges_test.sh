@@ -173,7 +173,7 @@ function test_packages_cleared() {
   [[ "$package_count" -ge 10 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
   local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
-  [[ "$glob_count" -ge 30 ]] \
+  [[ "$glob_count" -ge 8 ]] \
       || fail "glob count $glob_count too low: did you move/rename the class?"
   local env_count="$(extract_histogram_count "$histo_file" \
       'Environment\$Extension$')"

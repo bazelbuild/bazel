@@ -108,15 +108,6 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
   }
 
   /**
-   * Returns the full list of potential split transitions this split transition provider may
-   * produce.
-   */
-  public static List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
-    return ImmutableList.<SplitTransition<BuildOptions>>copyOf(
-        SPLIT_TRANSITIONS_BY_TYPE.values());
-  }
-
-  /**
    * Transition that results in one configured target per architecture specified in the
    * platform-specific cpu flag for a particular platform type (for example, --watchos_cpus
    * for watchos platform type).
