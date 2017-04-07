@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.ResourceContainer.ResourceType;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -119,7 +117,6 @@ public class AndroidCommon {
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private JavaCompilationArgs javaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
   private JavaCompilationArgs recursiveJavaCompilationArgs = JavaCompilationArgs.EMPTY_ARGS;
-  private JackCompilationHelper jackCompilationHelper;
   private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
   private Artifact iJar;
@@ -374,11 +371,6 @@ public class AndroidCommon {
     return transitiveAarNativeLibs;
   }
 
-  Artifact compileDexWithJack(
-      MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
-    return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);
-  }
-
   private void compileResources(
       JavaSemantics javaSemantics,
       ResourceApk resourceApk,
@@ -537,7 +529,7 @@ public class AndroidCommon {
                 androidSemantics.getJavacArguments(ruleContext))
             .setBootClassPath(bootclasspath);
     if (DataBinding.isEnabled(ruleContext)) {
-      DataBinding.addAnnotationProcessor(ruleContext, attributes);
+      DataBinding.addAnnotationProcessor(ruleContext, attributes, isBinary);
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -575,11 +567,6 @@ public class AndroidCommon {
       }
     }
 
-    jackCompilationHelper = initJack(helper.getAttributes());
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
-
     initJava(
         javaSemantics,
         helper,
@@ -602,7 +589,7 @@ public class AndroidCommon {
     JavaCompilationHelper helper = new JavaCompilationHelper(ruleContext, semantics,
         javaCommon.getJavacOpts(), attributes,
         DataBinding.isEnabled(ruleContext)
-            ? DataBinding.processDeps(ruleContext, attributes) : ImmutableList.<Artifact>of());
+            ? DataBinding.processDeps(ruleContext) : ImmutableList.<Artifact>of());
 
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
@@ -612,32 +599,6 @@ public class AndroidCommon {
         javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH));
     ruleContext.checkSrcsSamePackage(true);
     return helper;
-  }
-
-  JackCompilationHelper initJack(JavaTargetAttributes attributes) throws InterruptedException {
-    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
-    return new JackCompilationHelper.Builder()
-        // blaze infrastructure
-        .setRuleContext(ruleContext)
-        // configuration
-        .setOutputArtifact(
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
-        // tools
-        .setJackBinary(sdk.getJack())
-        .setJillBinary(sdk.getJill())
-        .setResourceExtractorBinary(sdk.getResourceExtractor())
-        .setJackBaseClasspath(sdk.getAndroidBaseClasspathForJack())
-        // sources
-        .addJavaSources(attributes.getSourceFiles())
-        .addSourceJars(attributes.getSourceJars())
-        .addResources(attributes.getResources())
-        .addResourceJars(attributes.getResourceJars())
-        .addProcessorNames(attributes.getProcessorNames())
-        .addProcessorClasspathJars(attributes.getProcessorPath())
-        .addExports(JavaCommon.getExports(ruleContext))
-        .addClasspathDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY))
-        .addRuntimeDeps(javaCommon.targetsTreatedAsDeps(ClasspathType.RUNTIME_ONLY))
-        .build();
   }
 
   private void initJava(
@@ -657,7 +618,7 @@ public class AndroidCommon {
     }
 
     Artifact jar = null;
-    if (attributes.hasSourceFiles() || attributes.hasSourceJars() || attributes.hasResources()) {
+    if (attributes.hasSources() || attributes.hasResources()) {
       // We only want to add a jar to the classpath of a dependent rule if it has content.
       javaArtifactsBuilder.addRuntimeJar(classJar);
       jar = classJar;
@@ -698,7 +659,7 @@ public class AndroidCommon {
 
     filesToBuild = filesBuilder.build();
 
-    if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
+    if ((attributes.hasSources()) && jar != null) {
       iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
 
@@ -720,7 +681,7 @@ public class AndroidCommon {
         javaCommon.getDependencies(),
         javaCommon.getJavaCompilationArtifacts().getRuntimeJars());
     if (collectJavaCompilationArgs) {
-      boolean hasSources = attributes.hasSourceFiles() || attributes.hasSourceJars();
+      boolean hasSources = attributes.hasSources();
       this.javaCompilationArgs =
           collectJavaCompilationArgs(exportDeps, asNeverLink, hasSources);
       this.recursiveJavaCompilationArgs = collectJavaCompilationArgs(
@@ -790,11 +751,6 @@ public class AndroidCommon {
                 zipAlignedApk,
                 apksUnderTest))
         .add(JavaCompilationArgsProvider.class, compilationArgsProvider)
-        .add(
-            JackLibraryProvider.class,
-            asNeverLink
-                ? jackCompilationHelper.compileAsNeverlinkLibrary()
-                : jackCompilationHelper.compileAsLibrary())
         .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
@@ -816,7 +772,7 @@ public class AndroidCommon {
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {
-    return new PathFragment(ruleContext.attributes().get(
+    return PathFragment.create(ruleContext.attributes().get(
         ResourceType.ASSETS.getAttribute() + "_dir",
         Type.STRING));
   }
@@ -949,8 +905,11 @@ public class AndroidCommon {
       // Add this rule's annotation processor input if this rule has direct resources. If it
       // doesn't have direct resources, it doesn't produce data binding output so there's no
       // input for the annotation processor.
-      srcs = ImmutableList.<Artifact>builder().addAll(srcs)
-          .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+      Artifact annotationFile = DataBinding.createAnnotationFile(ruleContext, isLibrary);
+      if (annotationFile != null) {
+        srcs = ImmutableList.<Artifact>builder().addAll(srcs)
+            .add(DataBinding.createAnnotationFile(ruleContext, isLibrary)).build();
+      }
     }
 
     ImmutableList<TransitiveInfoCollection> compileDeps;

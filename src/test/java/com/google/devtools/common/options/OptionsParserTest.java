@@ -528,20 +528,6 @@ public class OptionsParserTest {
   }
 
   @Test
-  public void parsingFailsWithUnderscoredNegatedInternalBooleanOptionAsIfUnknown() {
-    OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
-    List<String> internalOpts = asList("--no_internal_boolean");
-    try {
-      parser.parse(internalOpts);
-      fail();
-    } catch (OptionsParsingException e) {
-      assertEquals("--no_internal_boolean", e.getInvalidArgument());
-      assertEquals("Unrecognized option: --no_internal_boolean", e.getMessage());
-      assertNotNull(parser.getOptions(ExampleInternalOptions.class));
-    }
-  }
-
-  @Test
   public void parsingSucceedsWithSpacesInFlagName() throws OptionsParsingException {
     OptionsParser parser = newOptionsParser(ExampleInternalOptions.class);
     List<String> spacedOpts = asList("--public string=value with spaces");
@@ -1648,36 +1634,16 @@ public class OptionsParserTest {
     }
   }
 
-  public static class ExampleUnderscorePrefixFooOptions extends OptionsBase {
-    @Option(name = "no_foo", defaultValue = "false")
-    public boolean noFoo;
-  }
-
-  @Test
-  public void testBooleanUnderscorePrefixNameConflict() {
-    // Try the same test in both orders, the parser should fail if the overlapping flag is defined
-    // before or after the boolean flag introduces the alias.
+    @Test
+  public void testBooleanUnderscorePrefixError() {
     try {
-      newOptionsParser(ExampleBooleanFooOptions.class, ExampleUnderscorePrefixFooOptions.class);
-      fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
-              + "can be written as --no_foo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to option --no_foo, it conflicts with a negating "
-              + "alias for boolean flag --foo");
-    }
+      OptionsParser parser = newOptionsParser(ExampleBooleanFooOptions.class);
+      parser.parse("--no_foo");
 
-    try {
-      newOptionsParser(ExampleUnderscorePrefixFooOptions.class, ExampleBooleanFooOptions.class);
-      fail("no_foo should conflict with the previous flag foo, since foo, as a boolean flag, "
-              + "can be written as --no_foo");
-    } catch (OptionsParser.ConstructionException e) {
-      assertConstructionErrorCausedBy(
-          e,
-          DuplicateOptionDeclarationException.class,
-          "Duplicate option name, due to boolean option alias: --no_foo");
+      fail("--no_foo should fail to parse and provide a nice error message.");
+    } catch (OptionsParsingException e) {
+      assertThat(e.getMessage()).contains(
+          "'no_' prefixes are no longer accepted, --no<flag> is an accepted alternative.");
     }
   }
 

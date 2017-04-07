@@ -44,7 +44,7 @@ public class BaseSpawnTest {
     final String runfilesDir = "runfilesdir";
     BaseSpawn underTest = minimalBaseSpawn(
         baseEnviron,
-        new RunfilesSupplierImpl(new PathFragment(runfilesDir), Runfiles.EMPTY));
+        new RunfilesSupplierImpl(PathFragment.create(runfilesDir), Runfiles.EMPTY));
 
     Map<String, String> expected = ImmutableMap.<String, String>builder()
         .putAll(baseEnviron)
@@ -60,8 +60,8 @@ public class BaseSpawnTest {
     Map<String, String> baseEnviron = ImmutableMap.of("HELLO", "world");
     BaseSpawn underTest = minimalBaseSpawn(baseEnviron,
         new CompositeRunfilesSupplier(
-            new RunfilesSupplierImpl(new PathFragment("rfdir1"), Runfiles.EMPTY),
-            new RunfilesSupplierImpl(new PathFragment("rfdir2"), Runfiles.EMPTY)));
+            new RunfilesSupplierImpl(PathFragment.create("rfdir1"), Runfiles.EMPTY),
+            new RunfilesSupplierImpl(PathFragment.create("rfdir2"), Runfiles.EMPTY)));
 
     assertThat(underTest.getEnvironment()).isEqualTo(baseEnviron);
   }

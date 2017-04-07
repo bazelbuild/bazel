@@ -22,11 +22,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.singlejar.FakeZipFile.ByteValidator;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -34,6 +29,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.jar.JarFile;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for {@link SingleJar}.
@@ -563,6 +561,8 @@ public class SingleJarTest {
         .addEntry(JarFile.MANIFEST_NAME, new ManifestValidator(
             "Manifest-Version: 1.0",
             "Created-By: blaze-singlejar"))
+        .addEntry("c/", (String) null)
+        .addEntry("c/b/", (String) null)
         .addEntry("c/b/a", "Test");
     expectedResult.assertSame(mockFs.toByteArray());
   }
@@ -574,12 +574,15 @@ public class SingleJarTest {
     SingleJar singleJar = new SingleJar(mockFs);
     singleJar.run(ImmutableList.of("--output", "output.jar", "--exclude_build_data",
         "--resources", "a/b/c"));
-    FakeZipFile expectedResult = new FakeZipFile()
-        .addEntry("META-INF/", EXTRA_FOR_META_INF)
-        .addEntry(JarFile.MANIFEST_NAME, new ManifestValidator(
-            "Manifest-Version: 1.0",
-            "Created-By: blaze-singlejar"))
-        .addEntry("a/b/c", "Test");
+    FakeZipFile expectedResult =
+        new FakeZipFile()
+            .addEntry("META-INF/", EXTRA_FOR_META_INF)
+            .addEntry(
+                JarFile.MANIFEST_NAME,
+                new ManifestValidator("Manifest-Version: 1.0", "Created-By: blaze-singlejar"))
+            .addEntry("a/", (String) null)
+            .addEntry("a/b/", (String) null)
+            .addEntry("a/b/c", "Test");
     expectedResult.assertSame(mockFs.toByteArray());
   }
 
@@ -604,12 +607,15 @@ public class SingleJarTest {
     SingleJar singleJar = new SingleJar(mockFs);
     singleJar.run(ImmutableList.of("--output", "output.jar", "--exclude_build_data",
         "--warn_duplicate_resources", "--resources", "a/b/c", "a/b/c"));
-    FakeZipFile expectedResult = new FakeZipFile()
-        .addEntry("META-INF/", EXTRA_FOR_META_INF)
-        .addEntry(JarFile.MANIFEST_NAME, new ManifestValidator(
-            "Manifest-Version: 1.0",
-            "Created-By: blaze-singlejar"))
-        .addEntry("a/b/c", "Test");
+    FakeZipFile expectedResult =
+        new FakeZipFile()
+            .addEntry("META-INF/", EXTRA_FOR_META_INF)
+            .addEntry(
+                JarFile.MANIFEST_NAME,
+                new ManifestValidator("Manifest-Version: 1.0", "Created-By: blaze-singlejar"))
+            .addEntry("a/", (String) null)
+            .addEntry("a/b/", (String) null)
+            .addEntry("a/b/c", "Test");
     expectedResult.assertSame(mockFs.toByteArray());
   }
 

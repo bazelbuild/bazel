@@ -45,6 +45,9 @@ public interface PythonSemantics {
   void collectDefaultRunfilesForBinary(RuleContext ruleContext, Runfiles.Builder builder)
       throws InterruptedException;
 
+  /** Collects a rule's default runfiles. */
+  void collectDefaultRunfiles(RuleContext ruleContext, Runfiles.Builder builder);
+
   /**
    * Returns the coverage instrumentation specification to be used in Python rules.
    */

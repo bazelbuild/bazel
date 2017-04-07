@@ -204,7 +204,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
   private Artifact getRootRelativePath(String template, RuleContext ruleContext) {
     PathFragment extraActionPackageFragment = label.getPackageIdentifier().getSourceRoot();
     PathFragment extraActionPrefix = extraActionPackageFragment.getRelative(label.getName());
-    PathFragment rootRelativePath = new PathFragment("extra_actions")
+    PathFragment rootRelativePath = PathFragment.create("extra_actions")
         .getRelative(extraActionPrefix)
         .getRelative(ruleContext.getPackageDirectory())
         .getRelative(template);

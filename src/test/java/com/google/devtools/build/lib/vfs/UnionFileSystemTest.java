@@ -64,8 +64,8 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
 
   private UnionFileSystem createDefaultUnionFileSystem(boolean readOnly) {
     return new UnionFileSystem(ImmutableMap.<PathFragment, FileSystem>of(
-        new PathFragment("/in"), inDelegate,
-        new PathFragment("/out"), outDelegate),
+        PathFragment.create("/in"), inDelegate,
+        PathFragment.create("/out"), outDelegate),
         defaultDelegate, readOnly);
   }
 
@@ -123,8 +123,8 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   @Test
   public void testPrefixDelegation() throws Exception {
     unionfs = new UnionFileSystem(ImmutableMap.<PathFragment, FileSystem>of(
-              new PathFragment("/foo"), inDelegate,
-              new PathFragment("/foo/bar"), outDelegate), defaultDelegate);
+              PathFragment.create("/foo"), inDelegate,
+              PathFragment.create("/foo/bar"), outDelegate), defaultDelegate);
 
     assertSame(inDelegate, unionfs.getDelegate(unionfs.getPath("/foo/foo.txt")));
     assertSame(outDelegate, unionfs.getDelegate(unionfs.getPath("/foo/bar/foo.txt")));
@@ -220,7 +220,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
     outStream.close();
 
     Path outFoo = unionfs.getPath("/out/foo");
-    unionfs.createSymbolicLink(outFoo, new PathFragment("../in/bar.txt"));
+    unionfs.createSymbolicLink(outFoo, PathFragment.create("../in/bar.txt"));
     assertTrue(unionfs.stat(outFoo, false).isSymbolicLink());
 
     try {
@@ -253,8 +253,8 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   @Test
   public void testWithinDirectoryMapping() throws Exception {
     unionfs = new UnionFileSystem(ImmutableMap.<PathFragment, FileSystem>of(
-        new PathFragment("/fruit/a"), inDelegate,
-        new PathFragment("/fruit/b"), outDelegate), defaultDelegate);
+        PathFragment.create("/fruit/a"), inDelegate,
+        PathFragment.create("/fruit/b"), outDelegate), defaultDelegate);
     assertTrue(unionfs.createDirectory(unionfs.getPath("/fruit")));
     assertTrue(defaultDelegate.getPath("/fruit").isDirectory());
     assertTrue(inDelegate.getPath("/fruit").createDirectory());
@@ -309,7 +309,7 @@ public class UnionFileSystemTest extends SymlinkAwareFileSystemTest {
   @Test
   public void testCreateParentsAcrossMapping() throws Exception {
     unionfs = new UnionFileSystem(ImmutableMap.<PathFragment, FileSystem>of(
-        new PathFragment("/out/dir"), outDelegate), defaultDelegate, false);
+        PathFragment.create("/out/dir"), outDelegate), defaultDelegate, false);
     Path outDir = unionfs.getPath("/out/dir/biz/bang");
     FileSystemUtils.createDirectoryAndParents(outDir);
     assertTrue(outDir.isDirectory());

@@ -81,7 +81,7 @@ public abstract class CcIncLibrary implements RuleConfiguredTargetFactory {
     // versions. Previous Blaze versions created a directory symlink; the new version does not
     // detect that the output directory isn't a directory, and tries to put the symlinks into what
     // is actually a symlink into the source tree.
-    PathFragment includeDirectory = new PathFragment("_")
+    PathFragment includeDirectory = PathFragment.create("_")
         .getRelative(ruleContext.getTarget().getName());
     Root configIncludeDirectory =
         ruleContext.getConfiguration().getIncludeDirectory(ruleContext.getRule().getRepository());

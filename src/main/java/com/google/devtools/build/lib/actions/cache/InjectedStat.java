@@ -17,6 +17,9 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 
 /**
  * A FileStatus corresponding to a file that is not determined by querying the file system.
+ *
+ * <p>Do not use this in combination with MetadataHandler or FileContentsProxy! FileContentsProxy
+ * may use ctime, which this class does not support.
  */
 public class InjectedStat implements FileStatus {
 

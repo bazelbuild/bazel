@@ -142,17 +142,20 @@ def _ReadDepMapping(input_file_queue, output_dep_mapping_queue,
       return
 
     try:
-      deps = []
-      entry = os.path.relpath(os.path.splitext(input_file)[0], output_root)
-      with file_open(input_file, 'r') as f:
-        for line in f:
-          include = _INCLUDE_RE.match(line)
-          if include:
-            include_path = include.group(2)
-            dep = os.path.splitext(include_path)[0]
-            if dep != entry:
-              deps.append(dep)
-      output_dep_mapping_queue.put((entry, deps))
+      deps = set()
+      input_file_name = os.path.splitext(input_file)[0]
+      entry = os.path.relpath(input_file_name, output_root)
+      for file_ext in ['.m', '.h']:
+        with file_open(input_file_name + file_ext, 'r') as f:
+          for line in f:
+            include = _INCLUDE_RE.match(line)
+            if include:
+              include_path = include.group(2)
+              dep = os.path.splitext(include_path)[0]
+              if dep != entry:
+                deps.add(dep)
+
+      output_dep_mapping_queue.put((entry, sorted(deps)))
     except Exception as e:  # pylint: disable=broad-except
       error_message_queue.put(str(e))
     finally:

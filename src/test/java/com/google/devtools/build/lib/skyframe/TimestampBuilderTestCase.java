@@ -309,7 +309,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createSourceArtifact(FileSystem fs, String name) {
     Path root = fs.getPath(TestUtils.tmpDir());
-    return new Artifact(new PathFragment(name), Root.asSourceRoot(root));
+    return new Artifact(PathFragment.create(name), Root.asSourceRoot(root));
   }
 
   protected Artifact createDerivedArtifact(String name) {
@@ -318,7 +318,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   Artifact createDerivedArtifact(FileSystem fs, String name) {
     Path execRoot = fs.getPath(TestUtils.tmpDir());
-    PathFragment execPath = new PathFragment("out").getRelative(name);
+    PathFragment execPath = PathFragment.create("out").getRelative(name);
     Path path = execRoot.getRelative(execPath);
     return new Artifact(
         path, Root.asDerivedRoot(execRoot, execRoot.getRelative("out")), execPath, ALL_OWNER);

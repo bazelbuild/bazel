@@ -32,7 +32,7 @@ public class CustomCommandLineTest extends BuildViewTestCase {
     CustomCommandLine commandLine = new CustomCommandLine.Builder()
         .add("foo")
         .addBeforeEachPath(
-            "-I", ImmutableList.of(new PathFragment("/path1"), new PathFragment("/path2")))
+            "-I", ImmutableList.of(PathFragment.create("/path1"), PathFragment.create("/path2")))
         .add("bar")
         .addBeforeEachPath("-I", ImmutableList.<PathFragment>of())
         .add("baz")

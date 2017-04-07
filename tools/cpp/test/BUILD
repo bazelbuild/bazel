@@ -91,7 +91,7 @@ pkg_tar(
         "fastbuild",
     ]]
     for flavour in FLAVOURS
-    if flavour != "debian-stretch" or mode != "opt"
+    if flavour != "debian-stretch"
 ]
 
 filegroup(

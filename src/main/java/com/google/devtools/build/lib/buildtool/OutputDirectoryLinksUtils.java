@@ -78,16 +78,15 @@ public class OutputDirectoryLinksUtils {
     }
 
     // Points to execroot
-    createLink(workspace, execRootSymlink(
-        symlinkPrefix, workspace.getBaseName()), execRoot, failures);
-    RepositoryName repositoryName = RepositoryName.createFromValidStrippedName(workspaceName);
+    createLink(workspace, execRootSymlink(symlinkPrefix, workspaceName), execRoot, failures);
+
     if (targetConfig != null) {
       createLink(workspace, symlinkPrefix + "bin",
-          targetConfig.getBinDirectory(repositoryName).getPath(), failures);
+          targetConfig.getBinDirectory(RepositoryName.MAIN).getPath(), failures);
       createLink(workspace, symlinkPrefix + "testlogs",
-          targetConfig.getTestLogsDirectory(repositoryName).getPath(), failures);
+          targetConfig.getTestLogsDirectory(RepositoryName.MAIN).getPath(), failures);
       createLink(workspace, symlinkPrefix + "genfiles",
-          targetConfig.getGenfilesDirectory(repositoryName).getPath(), failures);
+          targetConfig.getGenfilesDirectory(RepositoryName.MAIN).getPath(), failures);
     }
 
     if (!failures.isEmpty()) {
@@ -133,7 +132,7 @@ public class OutputDirectoryLinksUtils {
   // Helper to getPrettyPath.  Returns file, relativized w.r.t. the referent of
   // "linkname", or null if it was a not a child.
   private static PathFragment relativize(Path file, Path workspaceDirectory, String linkname) {
-    PathFragment link = new PathFragment(linkname);
+    PathFragment link = PathFragment.create(linkname);
     try {
       Path dir = workspaceDirectory.getRelative(link);
       PathFragment levelOneLinkTarget = dir.readSymbolicLink();
@@ -172,7 +171,7 @@ public class OutputDirectoryLinksUtils {
     removeLink(workspace, symlinkPrefix + "bin", failures);
     removeLink(workspace, symlinkPrefix + "testlogs", failures);
     removeLink(workspace, symlinkPrefix + "genfiles", failures);
-    FileSystemUtils.removeDirectoryAndParents(workspace, new PathFragment(symlinkPrefix));
+    FileSystemUtils.removeDirectoryAndParents(workspace, PathFragment.create(symlinkPrefix));
     if (!failures.isEmpty()) {
       eventHandler.handle(Event.warn(String.format(
           "failed to remove one or more convenience symlinks for prefix '%s':\n  %s", symlinkPrefix,

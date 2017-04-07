@@ -93,7 +93,7 @@ public class ExperimentalEventHandler implements EventHandler {
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.showProgress = options.showProgress;
-    this.progressInTermTitle = options.progressInTermTitle;
+    this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
     this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;

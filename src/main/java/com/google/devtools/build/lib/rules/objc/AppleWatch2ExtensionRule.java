@@ -24,7 +24,13 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
-/** Rule definition for apple_watch2_extension. */
+/**
+ * Rule definition for apple_watch2_extension.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 public class AppleWatch2ExtensionRule implements RuleDefinition {
 
   @Override
@@ -60,6 +66,10 @@ public class AppleWatch2ExtensionRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = apple_watch2_extension, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces an extension bundle for apple watch OS 2.</p>
 

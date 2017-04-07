@@ -127,7 +127,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
   }
 
-  public static final PathFragment TEST_TMP_ROOT = new PathFragment("_tmp");
+  public static final PathFragment TEST_TMP_ROOT = PathFragment.create("_tmp");
 
   // Used for generating unique temporary directory names. Contains the next numeric index for every
   // executable base name.

@@ -46,7 +46,7 @@ public class SkylarkImportTest {
         .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
  
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(new PathFragment(expectedPathString));
+        .isEqualTo(PathFragment.create(expectedPathString));
 
     thrown.expect(IllegalStateException.class);
     importForLabel.getAbsolutePath();   
@@ -76,10 +76,10 @@ public class SkylarkImportTest {
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
     assertThat(importForPath.getAbsolutePath()).named("getAbsolutePath()")
-        .isEqualTo(new PathFragment("//some/skylark/file.bzl"));
+        .isEqualTo(PathFragment.create("//some/skylark/file.bzl"));
 
      assertThat(importForPath.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(new PathFragment("/some/skylark/file.bzl"));
+        .isEqualTo(PathFragment.create("/some/skylark/file.bzl"));
 
     thrown.expect(IllegalStateException.class);
     importForPath.getLabel(irrelevantContainingFile);
@@ -99,7 +99,7 @@ public class SkylarkImportTest {
         .isEqualTo(Label.parseAbsolute(expectedLabelString));
 
     assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(new PathFragment(expectedPathString));
+        .isEqualTo(PathFragment.create(expectedPathString));
 
    thrown.expect(IllegalStateException.class);
     importForLabel.getAbsolutePath();
@@ -149,7 +149,7 @@ public class SkylarkImportTest {
         .isEqualTo(Label.parseAbsolute(expectedLabelString));
     
     assertThat(importForPath.asPathFragment()).named("asPathFragment()")
-        .isEqualTo(new PathFragment(expectedPathString));
+        .isEqualTo(PathFragment.create(expectedPathString));
 
     thrown.expect(IllegalStateException.class);
     importForPath.getAbsolutePath();

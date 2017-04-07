@@ -154,7 +154,7 @@ public final class ApplicationManifest {
    */
   public static ApplicationManifest generatedManifest(RuleContext ruleContext) {
     Artifact generatedManifest = ruleContext.getUniqueDirectoryArtifact(
-        ruleContext.getRule().getName() + "_generated", new PathFragment("AndroidManifest.xml"),
+        ruleContext.getRule().getName() + "_generated", PathFragment.create("AndroidManifest.xml"),
         ruleContext.getBinOrGenfilesDirectory());
 
     String manifestPackage = AndroidCommon.getJavaPackage(ruleContext);

@@ -128,7 +128,7 @@ public class FileFunction implements SkyFunction {
       if (parentFileValue == null) {
         return null;
       }
-      PathFragment baseName = new PathFragment(relativePath.getBaseName());
+      PathFragment baseName = PathFragment.create(relativePath.getBaseName());
       RootedPath parentRealRootedPath = parentFileValue.realRootedPath();
       realRootedPath = RootedPath.toRootedPath(parentRealRootedPath.getRoot(),
           parentRealRootedPath.getRelativePath().getRelative(baseName));

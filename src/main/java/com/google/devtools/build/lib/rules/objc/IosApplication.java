@@ -33,7 +33,11 @@ import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArch
 
 /**
  * Implementation for {@code ios_application}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosApplication extends ReleaseBundlingTargetFactory {
 
   /**

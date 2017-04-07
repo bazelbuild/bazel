@@ -33,6 +33,7 @@ filegroup(
        ":windows_msvc" : ["bin/java.exe"],
        "//conditions:default" : ["bin/java"],
     }),
+    data = [":jdk"],
 )
 
 filegroup(
@@ -43,6 +44,7 @@ filegroup(
        ":windows_msvc" : ["bin/jar.exe"],
        "//conditions:default" : ["bin/jar"],
     }),
+    data = [":jdk"],
 )
 
 filegroup(
@@ -53,6 +55,7 @@ filegroup(
         ":windows_msvc" : ["bin/javac.exe"],
         "//conditions:default" : ["bin/javac"],
     }),
+    data = [":jdk"],
 )
 
 

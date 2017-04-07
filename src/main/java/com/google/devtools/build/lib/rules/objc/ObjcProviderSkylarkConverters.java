@@ -119,7 +119,7 @@ public class ObjcProviderSkylarkConverters {
       validateTypes(skylarkValue, String.class, javaKey.getSkylarkKeyName());
       NestedSetBuilder<PathFragment> result = NestedSetBuilder.stableOrder();
       for (String path : ((SkylarkNestedSet) skylarkValue).toCollection(String.class)) {
-        result.add(new PathFragment(path));
+        result.add(PathFragment.create(path));
       }
       return result.build();
     }

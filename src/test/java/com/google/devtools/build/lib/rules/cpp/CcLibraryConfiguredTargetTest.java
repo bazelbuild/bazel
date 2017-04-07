@@ -58,8 +58,8 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
-  private static final PathFragment STL_CPPMAP = new PathFragment("stl.cppmap");
-  private static final PathFragment CROSSTOOL_CPPMAP = new PathFragment("crosstool.cppmap");
+  private static final PathFragment STL_CPPMAP = PathFragment.create("stl.cppmap");
+  private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Before
   public final void createFiles() throws Exception {
@@ -501,7 +501,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     List<String> names = new ArrayList<>();
     for (String flag : input) {
       if (CppFileTypes.CPP_MODULE.matches(flag)) {
-        names.add(new PathFragment(flag).getBaseName());
+        names.add(PathFragment.create(flag).getBaseName());
       }
     }
     return names;

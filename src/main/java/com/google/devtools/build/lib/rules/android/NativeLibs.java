@@ -139,7 +139,7 @@ public final class NativeLibs {
     for (Map.Entry<String, Iterable<Artifact>> entry : nativeLibs.entrySet()) {
       String arch = entry.getKey();
       for (Artifact lib : entry.getValue()) {
-        symlinks.put(new PathFragment(arch + "/" + lib.getExecPath().getBaseName()), lib);
+        symlinks.put(PathFragment.create(arch + "/" + lib.getExecPath().getBaseName()), lib);
       }
     }
 

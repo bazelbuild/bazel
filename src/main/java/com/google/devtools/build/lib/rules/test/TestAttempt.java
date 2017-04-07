@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
@@ -130,7 +131,8 @@ public class TestAttempt implements BuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TestResult.Builder builder =
         BuildEventStreamProtos.TestResult.newBuilder();
     builder.setStatus(BuildEventStreamerUtils.bepStatus(status));

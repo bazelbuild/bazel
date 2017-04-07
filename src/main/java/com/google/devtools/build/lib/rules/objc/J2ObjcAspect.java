@@ -85,14 +85,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     this.toolsRepository = toolsRepository;
   }
 
-  private static final Iterable<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
+  private static final ImmutableList<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
       ImmutableList.of(
           new Attribute(":jre_lib", Mode.TARGET),
           new Attribute("deps", Mode.TARGET),
           new Attribute("exports", Mode.TARGET),
           new Attribute("runtime_deps", Mode.TARGET));
 
-  private static final Iterable<Attribute> PROTO_DEPENDENT_ATTRIBUTES =
+  private static final ImmutableList<Attribute> PROTO_DEPENDENT_ATTRIBUTES =
       ImmutableList.of(
           new Attribute("$protobuf_lib", Mode.TARGET), new Attribute("deps", Mode.TARGET));
 
@@ -105,7 +105,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   private static final String PROTO_SOURCE_FILE_BLACKLIST_ATTR = "$j2objc_proto_blacklist";
 
   /** Flags passed to J2ObjC proto compiler plugin. */
-  protected static final Iterable<String> J2OBJC_PLUGIN_PARAMS =
+  protected static final ImmutableList<String> J2OBJC_PLUGIN_PARAMS =
       ImmutableList.of("file_dir_mapping", "generate_class_mappings");
 
   private static final LateBoundLabel<BuildConfiguration> JRE_LIB =

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintWriter;
@@ -39,12 +40,18 @@ public class CommandExecutor implements ServerCommand {
   }
 
   @Override
-  public int exec(List<String> args, OutErr outErr, BlazeCommandDispatcher.LockingMode lockingMode,
-      String clientDescription, long firstContactTime) throws InterruptedException {
+  public int exec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      BlazeCommandDispatcher.LockingMode lockingMode,
+      String clientDescription,
+      long firstContactTime) throws InterruptedException {
     LOG.info(BlazeRuntime.getRequestLogString(args));
 
     try {
-      return dispatcher.exec(args, outErr, lockingMode, clientDescription, firstContactTime);
+      return dispatcher.exec(invocationPolicy, args, outErr, lockingMode, clientDescription,
+          firstContactTime);
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       if (e.getCause() != null) {
         StringWriter message = new StringWriter();

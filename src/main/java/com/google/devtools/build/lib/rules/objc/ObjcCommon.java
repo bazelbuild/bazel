@@ -686,7 +686,7 @@ public final class ObjcCommon {
   static ImmutableSet<PathFragment> userHeaderSearchPaths(
       ObjcProvider provider, BuildConfiguration config) {
     return ImmutableSet.<PathFragment>builder()
-        .add(new PathFragment("."))
+        .add(PathFragment.create("."))
         .add(config.getGenfilesFragment())
         .addAll(provider.get(IQUOTE))
         .build();

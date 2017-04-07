@@ -30,15 +30,21 @@ public class BazelJavaSemanticsTest {
   @Test
   public void testFindingResources() {
     BazelJavaSemantics semantics = BazelJavaSemantics.INSTANCE;
-    assertEquals(PathFragment.EMPTY_FRAGMENT,
-        semantics.getDefaultJavaResourcePath(new PathFragment("x/y/src/main/resources")));
-    assertEquals(new PathFragment("foo"),
-        semantics.getDefaultJavaResourcePath(new PathFragment("x/y/src/main/resources/foo")));
-    assertEquals(new PathFragment("foo"),
-        semantics.getDefaultJavaResourcePath(new PathFragment("java/x/y/src/main/resources/foo")));
-    assertEquals(new PathFragment("foo/java/bar"),
-        semantics.getDefaultJavaResourcePath(new PathFragment("java/foo/java/bar")));
-    assertEquals(new PathFragment("foo/java/bar"),
-        semantics.getDefaultJavaResourcePath(new PathFragment("javatests/foo/java/bar")));
+    assertEquals(
+        PathFragment.EMPTY_FRAGMENT,
+        semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources")));
+    assertEquals(
+        PathFragment.create("foo"),
+        semantics.getDefaultJavaResourcePath(PathFragment.create("x/y/src/main/resources/foo")));
+    assertEquals(
+        PathFragment.create("foo"),
+        semantics.getDefaultJavaResourcePath(
+            PathFragment.create("java/x/y/src/main/resources/foo")));
+    assertEquals(
+        PathFragment.create("foo/java/bar"),
+        semantics.getDefaultJavaResourcePath(PathFragment.create("java/foo/java/bar")));
+    assertEquals(
+        PathFragment.create("foo/java/bar"),
+        semantics.getDefaultJavaResourcePath(PathFragment.create("javatests/foo/java/bar")));
   }
 }

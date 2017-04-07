@@ -162,6 +162,8 @@ function copy_tools_directory() {
   # tools/jdk/BUILD file for JDK 7 is generated.
   if [ -f tools/jdk/BUILD.* ]; then
     cp tools/jdk/BUILD.* tools/jdk/BUILD
+  fi
+  if [ -f tools/jdk/BUILD ]; then
     chmod +w tools/jdk/BUILD
   fi
   # To support custom langtools

@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
@@ -104,7 +105,8 @@ public class AspectCompleteEvent implements SkyValue, BuildEventWithOrderConstra
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+    PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());

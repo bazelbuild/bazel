@@ -56,11 +56,11 @@ public class ActionLookupValueTest {
   public void testActionNotPresentAfterEvaluation() {
     Root root = Root.asDerivedRoot(fs.getRootDirectory());
     Action normalAction = mock(Action.class);
-    Artifact normalArtifact = new Artifact(new PathFragment("normal"), root);
+    Artifact normalArtifact = new Artifact(PathFragment.create("normal"), root);
     when(normalAction.getOutputs()).thenReturn(ImmutableSet.of(normalArtifact));
     when(normalAction.canRemoveAfterExecution()).thenReturn(true);
     Action persistentAction = mock(Action.class);
-    Artifact persistentOutput = new Artifact(new PathFragment("persistent"), root);
+    Artifact persistentOutput = new Artifact(PathFragment.create("persistent"), root);
     when(persistentAction.getOutputs()).thenReturn(ImmutableSet.of(persistentOutput));
     when(persistentAction.canRemoveAfterExecution()).thenReturn(false);
     ActionLookupValue underTest =

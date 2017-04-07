@@ -256,7 +256,7 @@ public class AndroidIdlHelper {
       // Reconstruct the package tree under <rule>_aidl to avoid a name conflict
       // if the same AIDL files are used in multiple targets.
       PathFragment javaOutputPath = FileSystemUtils.replaceExtension(
-          new PathFragment(ruleName + "_aidl").getRelative(idl.getRootRelativePath()),
+          PathFragment.create(ruleName + "_aidl").getRelative(idl.getRootRelativePath()),
           ".java");
       Artifact output = ruleContext.getGenfilesArtifact(javaOutputPath.getPathString());
       outputJavaSources.put(idl, output);

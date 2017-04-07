@@ -41,7 +41,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Implementation for {@code ios_framework}.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosFramework extends ReleaseBundlingTargetFactory {
 
   @VisibleForTesting
@@ -94,13 +98,13 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
 
     // Create framework binary
     Artifact frameworkBinary =
-        outputArtifact(ruleContext, new PathFragment(bundleName(ruleContext)));
+        outputArtifact(ruleContext, PathFragment.create(bundleName(ruleContext)));
     builder.put(intermediateArtifacts.combinedArchitectureBinary(), frameworkBinary);
 
     // Create framework headers
     for (Pair<Artifact, Label> header : headers) {
       Artifact frameworkHeader =
-          outputArtifact(ruleContext, new PathFragment("Headers/" + header.first.getFilename()));
+          outputArtifact(ruleContext, PathFragment.create("Headers/" + header.first.getFilename()));
 
       builder.put(header.first, frameworkHeader);
     }
@@ -160,9 +164,9 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
    */
   private Artifact outputArtifact(RuleContext ruleContext, PathFragment path) {
     PathFragment frameworkRoot =
-        new PathFragment(
-            new PathFragment("_frameworks"),
-            new PathFragment(bundleName(ruleContext) + ".framework"),
+        PathFragment.create(
+            PathFragment.create("_frameworks"),
+            PathFragment.create(bundleName(ruleContext) + ".framework"),
             path);
 
     return ruleContext.getPackageRelativeArtifact(

@@ -127,7 +127,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
    */
   public ArtifactFactory(Path execRootParent, String derivedPathPrefix) {
     this.execRootParent = execRootParent;
-    this.derivedPathPrefix = new PathFragment(derivedPathPrefix);
+    this.derivedPathPrefix = PathFragment.create(derivedPathPrefix);
   }
 
   /**

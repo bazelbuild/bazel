@@ -3,13 +3,19 @@ layout: contribute
 title: Skylark Remote Repositories
 ---
 
-# Skylark Remote Repositories
+# Design Document: Skylark Remote Repositories
 
-__Status:__ implemented
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-__Author:__ dmarting@google.com
 
-__Reviewers:__ lberki@google.com, laurentlb@google.com, kchodorow@google.com
+**Status:** implemented
+
+**Author:** dmarting@google.com
+
+**Reviewers:** lberki@google.com, laurentlb@google.com, kchodorow@google.com
+
+**Design document published**: 02 July 2015
 
 ## Context
 

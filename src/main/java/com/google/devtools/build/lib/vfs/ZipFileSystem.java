@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path.PathFactory;
-import com.google.devtools.build.lib.vfs.Path.PathFactory.TranslatedPath;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -113,8 +112,8 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
         }
 
         @Override
-        public TranslatedPath translatePath(Path parent, String child) {
-          return new TranslatedPath(parent, child);
+        public Path getCachedChildPathInternal(Path path, String childName) {
+          return Path.getCachedChildPathInternal(path, childName, /*cacheable=*/ true);
         }
       };
     }
@@ -161,7 +160,7 @@ public class ZipFileSystem extends ReadonlyFileSystem implements Closeable {
   private Collection<Path> populatePathTree() {
     Collection<Path> paths = new ArrayList<>();
     for (ZipEntry entry : Collections.list(zipFile.entries())) {
-      PathFragment frag = new PathFragment(entry.getName());
+      PathFragment frag = PathFragment.create(entry.getName());
       Path path = rootPath.getRelative(frag);
       paths.add(path);
       ((ZipPath) path).setZipEntry(entry);

@@ -298,6 +298,26 @@ blaze_exit_code::ExitCode OptionProcessor::FindUserBlazerc(
   return blaze_exit_code::SUCCESS;
 }
 
+namespace internal {
+vector<string> DedupeBlazercPaths(const vector<string>& paths) {
+  set<string> canonical_paths;
+  vector<string> result;
+  for (const string& path : paths) {
+    const string canonical_path = blaze_util::MakeCanonical(path.c_str());
+    if (canonical_path.empty()) {
+      // MakeCanonical returns an empty string when it fails. We ignore this
+      // failure since blazerc paths may point to invalid locations.
+    } else if (canonical_paths.find(canonical_path) == canonical_paths.end()) {
+      result.push_back(path);
+      canonical_paths.insert(canonical_path);
+    }
+  }
+  return result;
+}
+}  // namespace internal
+
+// Parses the arguments provided in args using the workspace path and the
+// current working directory (cwd) and stores the results.
 blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     const vector<string>& args,
     const string& workspace,
@@ -307,7 +327,6 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   initialized_ = true;
 
   args_ = args;
-  // Check if there is a blazerc related option given
   std::unique_ptr<CommandLine> cmdLine = SplitCommandLine(args, error);
   if (cmdLine == nullptr) {
     return blaze_exit_code::BAD_ARGV;
@@ -324,7 +343,9 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     use_master_blazerc = false;
   }
 
-  // Parse depot and user blazerc files.
+  // Use the workspace path, the current working directory, the path to the
+  // blaze binary and the startup args to determine the list of possible
+  // paths to the rc files. This list may contain duplicates.
   vector<string> candidate_blazerc_paths;
   if (use_master_blazerc) {
     workspace_layout_->FindCandidateBlazercPaths(
@@ -340,15 +361,12 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   }
   candidate_blazerc_paths.push_back(user_blazerc_path);
 
-  // Throw away missing files, dedupe candidate blazerc paths, and parse the
-  // blazercs, all while preserving order. Duplicates can arise if e.g. the
-  // binary's path *is* the depot path.
-  set<string> blazerc_paths;
-  for (const auto& candidate_blazerc_path : candidate_blazerc_paths) {
-    if (!candidate_blazerc_path.empty()
-        && (blazerc_paths.insert(candidate_blazerc_path).second)) {
-      blazercs_.push_back(
-          new RcFile(candidate_blazerc_path, blazercs_.size()));
+  vector<string> deduped_blazerc_paths =
+      internal::DedupeBlazercPaths(candidate_blazerc_paths);
+
+  for (const auto& blazerc_path : deduped_blazerc_paths) {
+    if (!blazerc_path.empty()) {
+      blazercs_.push_back(new RcFile(blazerc_path, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
           blazercs_.back()->Parse(workspace, workspace_layout_, &blazercs_,
                                   &rcoptions_, error);
@@ -364,15 +382,16 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     return parse_startup_options_exit_code;
   }
 
-  // Determine command
+  // Once we're done with startup options the next arg is the command.
   if (startup_args_ + 1 >= args.size()) {
     command_ = "";
     return blaze_exit_code::SUCCESS;
   }
-
   command_ = args[startup_args_ + 1];
 
   AddRcfileArgsAndOptions(cwd);
+
+  // The rest of the args are the command options.
   for (unsigned int cmd_arg = startup_args_ + 2;
        cmd_arg < args.size(); cmd_arg++) {
     command_arguments_.push_back(args[cmd_arg]);

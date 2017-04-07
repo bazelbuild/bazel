@@ -156,6 +156,13 @@ public final class BuildEventId implements Serializable {
             .build());
   }
 
+  public static BuildEventId fromArtifactGroupName(String name) {
+    BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId namedSetId =
+        BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId.newBuilder().setId(name).build();
+    return new BuildEventId(
+        BuildEventStreamProtos.BuildEventId.newBuilder().setNamedSet(namedSetId).build());
+  }
+
   public static BuildEventId testResult(Label target, Integer run, Integer shard, Integer attempt) {
     BuildEventStreamProtos.BuildEventId.TestResultId resultId =
         BuildEventStreamProtos.BuildEventId.TestResultId.newBuilder()

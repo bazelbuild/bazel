@@ -37,12 +37,9 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  */
 public final class AndroidLibraryBaseRule implements RuleDefinition {
   private final AndroidNeverlinkAspect androidNeverlinkAspect;
-  private final JackAspect jackAspect;
 
-  public AndroidLibraryBaseRule(AndroidNeverlinkAspect androidNeverlinkAspect,
-      JackAspect jackAspect) {
+  public AndroidLibraryBaseRule(AndroidNeverlinkAspect androidNeverlinkAspect) {
     this.androidNeverlinkAspect = androidNeverlinkAspect;
-    this.jackAspect = jackAspect;
   }
 
   @Override
@@ -83,7 +80,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .override(builder.copy("deps")
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
             .allowedFileTypes()
-            .aspect(jackAspect)
             .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
         The closure of all rules reached via <code>exports</code> attributes
@@ -94,7 +90,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
             .allowedFileTypes(/*May not have files in exports!*/)
-            .aspect(jackAspect)
             .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports_manifest) -->
         Whether to export manifest entries to <code>android_binary</code> targets

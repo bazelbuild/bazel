@@ -3,15 +3,21 @@ layout: documentation
 title: Beautiful error messages
 ---
 
-# Beautiful error messages
+# Design Document: Beautiful error messages
 
-__Status__: Reviewed, not yet implemented
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-__Author__: laurentlb@google.com
 
-__Reviewers__: ulfjack@google.com
+**Status**: Reviewed, not yet implemented
 
-__Related__: [Implementing beautiful error
+**Author**: laurentlb@google.com
+
+**Reviewers**: ulfjack@google.com
+
+**Design document published**: 23 May 2016
+
+**Related**: [Implementing beautiful error
 messages](/designs/2016/05/26/implementing-beautiful-error-messages.html)
 
 ## Background

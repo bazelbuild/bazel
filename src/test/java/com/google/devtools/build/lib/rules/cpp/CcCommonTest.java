@@ -410,7 +410,7 @@ public class CcCommonTest extends BuildViewTestCase {
     String includesRoot = "bang/bang_includes";
     assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
         .containsAllOf(
-            new PathFragment(includesRoot),
+            PathFragment.create(includesRoot),
             targetConfig.getGenfilesFragment().getRelative(includesRoot));
   }
 
@@ -436,7 +436,7 @@ public class CcCommonTest extends BuildViewTestCase {
     List<PathFragment> expected =
         new ImmutableList.Builder<PathFragment>()
             .addAll(noIncludes.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
-            .add(new PathFragment(includesRoot))
+            .add(PathFragment.create(includesRoot))
             .add(targetConfig.getGenfilesFragment().getRelative(includesRoot))
             .build();
     assertThat(foo.getProvider(CppCompilationContext.class).getSystemIncludeDirs())
@@ -548,7 +548,7 @@ public class CcCommonTest extends BuildViewTestCase {
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            new ModifiedFileSet.Builder().modify(new PathFragment("WORKSPACE")).build(),
+            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
             rootDirectory);
     FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
     scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");

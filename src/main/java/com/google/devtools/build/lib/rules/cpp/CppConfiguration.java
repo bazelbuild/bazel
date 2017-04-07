@@ -190,7 +190,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       PathFragment defaultSysroot =
           toolchain.getBuiltinSysroot().length() == 0
               ? null
-              : new PathFragment(toolchain.getBuiltinSysroot());
+              : PathFragment.create(toolchain.getBuiltinSysroot());
       if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
         throw new InvalidConfigurationException(
             "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
@@ -502,7 +502,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.toolPaths = Maps.newHashMap();
     for (CrosstoolConfig.ToolPath tool : toolchain.getToolPathList()) {
-      PathFragment path = new PathFragment(tool.getPath());
+      PathFragment path = PathFragment.create(tool.getPath());
       if (!path.isNormalized()) {
         throw new IllegalArgumentException("The include path '" + tool.getPath()
             + "' is not normalized.");
@@ -604,7 +604,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // The default value for optional string attributes is the empty string.
     PathFragment defaultSysroot = toolchain.getBuiltinSysroot().length() == 0
         ? null
-        : new PathFragment(toolchain.getBuiltinSysroot());
+        : PathFragment.create(toolchain.getBuiltinSysroot());
     if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
       throw new IllegalArgumentException("The built-in sysroot '" + defaultSysroot
           + "' is not normalized.");
@@ -791,7 +791,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
               gccToolPath = tool.getPath();
               linkerToolPath =
                   crosstoolTopPathFragment
-                      .getRelative(new PathFragment(tool.getPath()))
+                      .getRelative(PathFragment.create(tool.getPath()))
                       .getPathString();
             }
           }
@@ -1181,7 +1181,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
-    PathFragment path = new PathFragment(pathString);
+    PathFragment path = PathFragment.create(pathString);
     if (!path.isNormalized()) {
       throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
     }

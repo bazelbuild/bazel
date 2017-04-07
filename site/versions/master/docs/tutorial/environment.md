@@ -77,8 +77,8 @@ Enter the following at the command line to get the files in the `source-only`
 branch:
 
 ```bash
-$ cd $HOME
-$ git clone -b source-only https://github.com/bazelbuild/examples
+cd $HOME
+git clone -b source-only https://github.com/bazelbuild/examples
 ```
 
 The `git clone` command creates a directory named `$HOME/examples/`. This

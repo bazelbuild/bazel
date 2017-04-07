@@ -79,7 +79,7 @@ public class IOExceptionsTest extends PackageLoadingTestCase {
 
   @Override
   protected FileSystem createFileSystem() {
-    return new InMemoryFileSystem(BlazeClock.instance(), new PathFragment(FS_ROOT)) {
+    return new InMemoryFileSystem(BlazeClock.instance(), PathFragment.create(FS_ROOT)) {
       @Override
       public FileStatus stat(Path path, boolean followSymlinks) throws IOException {
         String crash = crashMessage.apply(path);

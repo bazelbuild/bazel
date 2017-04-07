@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -29,13 +31,13 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
-  protected volatile boolean isRunning = true;
+  volatile boolean isRunning = true;
 
   /** We keep here the critical path time for the most expensive child. */
   private long childAggregatedElapsedTime = 0;
 
-  /** The action for which we are storing the stat. */
-  private final Action action;
+  /** May be nulled out after finished running to allow the action to be GC'ed. */
+  @Nullable protected Action action;
 
   /**
    * Child with the maximum critical path.
@@ -68,9 +70,33 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     return false;
   }
 
-  /** The action for which we are storing the stat. */
-  public Action getAction() {
+  /**
+   * The action for which we are storing the stat. May be null if the action has finished running.
+   */
+  @Nullable
+  public final Action maybeGetAction() {
     return action;
+  }
+
+  public String prettyPrintAction() {
+    return getActionNotNull().prettyPrint();
+  }
+
+  @Nullable
+  public Label getOwner() {
+    ActionOwner owner = getActionNotNull().getOwner();
+    if (owner != null && owner.getLabel() != null) {
+      return owner.getLabel();
+    }
+    return null;
+  }
+
+  public String getMnemonic() {
+    return getActionNotNull().getMnemonic();
+  }
+
+  private Action getActionNotNull() {
+    return Preconditions.checkNotNull(action, this);
   }
 
   /**
@@ -95,7 +121,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   long getElapsedTimeNanos() {
-    Preconditions.checkState(!isRunning, "Still running %s", action);
+    Preconditions.checkState(!isRunning, "Still running %s", this);
     return finishNanos - startNanos;
   }
 
@@ -109,7 +135,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
   }
 
   long getAggregatedElapsedTimeNanos() {
-    Preconditions.checkState(!isRunning, "Still running %s", action);
+    Preconditions.checkState(!isRunning, "Still running %s", this);
     return getElapsedTimeNanos() + childAggregatedElapsedTime;
   }
 
@@ -132,7 +158,7 @@ public class AbstractCriticalPathComponent<C extends AbstractCriticalPathCompone
     if (!isRunning) {
       currentTime = String.format("%.2f", getElapsedTimeMillis() / 1000.0) + "s ";
     }
-    return currentTime + action.describe();
+    return currentTime + prettyPrintAction();
   }
 
   /**

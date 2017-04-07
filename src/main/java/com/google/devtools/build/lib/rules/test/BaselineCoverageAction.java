@@ -116,7 +116,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
       RuleContext ruleContext, NestedSet<Artifact> instrumentedFiles) {
     // Baseline coverage artifacts will still go into "testlogs" directory.
     Artifact coverageData = ruleContext.getPackageRelativeArtifact(
-        new PathFragment(ruleContext.getTarget().getName()).getChild("baseline_coverage.dat"),
+        PathFragment.create(ruleContext.getTarget().getName()).getChild("baseline_coverage.dat"),
         ruleContext.getConfiguration().getTestLogsDirectory(
             ruleContext.getRule().getRepository()));
     ruleContext.registerAction(new BaselineCoverageAction(

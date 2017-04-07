@@ -25,7 +25,7 @@ a lot of time in a patch. Meet other Bazel contributors on [IRC](http://webchat.
 <li>Prepare a git commit that implements the feature. Don't forget to add tests.
 <li>Create a new code review on <a href="https://bazel-review.googlesource.com">Gerrit</a>
    by running:
-   <pre>$ git push https://bazel.googlesource.com/bazel HEAD:refs/for/master</pre>
+   <pre>git push https://bazel.googlesource.com/bazel HEAD:refs/for/master</pre>
    Gerrit upload requires that you:
    <ul>
      <li>Have signed a

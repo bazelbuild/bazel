@@ -160,7 +160,7 @@ be refined if appropriate.
     </tr>
     <tr><td>P1. Bazel can build Android application on Windows</td></tr>
     <tr><td>P1. Local caching of external repository is turned on by default and has a deletion strategy</td></tr>
-    <tr><td>P1. Access to native rules functionality from Skylark (<a href-"https://bazel.build/designs/2016/08/04/extensibility-for-native-rules.html">"sandwich"</a>)</td></tr>
+    <tr><td>P1. Access to native rules functionality from Skylark (<a href="https://bazel.build/designs/2016/08/04/extensibility-for-native-rules.html">"sandwich"</a>)</td></tr>
    <tr>
       <td rowspan="2"><b>0.9</b></td>
       <td rowspan="2"><b>2018&#8209;03</b></td>

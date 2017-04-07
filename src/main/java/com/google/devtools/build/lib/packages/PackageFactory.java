@@ -1344,7 +1344,7 @@ public final class PackageFactory {
       prefetchGlobs(
           packageId,
           astAfterPreprocessing.ast,
-          astAfterPreprocessing.preprocessed,
+          false /* waspreprocessed */,
           buildFile,
           globber,
           defaultVisibility,
@@ -1358,7 +1358,7 @@ public final class PackageFactory {
           globber,
           astAfterPreprocessing.allEvents,
           defaultVisibility,
-          astAfterPreprocessing.containsPreprocessingErrors,
+          false /* containsError */,
           makeEnv,
           imports,
           skylarkFileDependencies);

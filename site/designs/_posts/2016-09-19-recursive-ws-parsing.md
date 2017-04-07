@@ -2,11 +2,18 @@
 layout: contribute
 title: Recursive WORKSPACE file parsing
 ---
-# Recursive WORKSPACE file parsing
+
+# Design Document: Recursive WORKSPACE file parsing
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Unimplemented
 
 **Author**: [kchodorow@](mailto:kchodorow@google.com)
+
+**Design document published**: 19 September 2016
 
 ## Objective
 

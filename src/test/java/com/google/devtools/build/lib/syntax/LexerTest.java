@@ -41,7 +41,7 @@ public class LexerTest {
    * error handler beforehand.
    */
   private Lexer createLexer(String input) {
-    PathFragment somePath = new PathFragment("/some/path.txt");
+    PathFragment somePath = PathFragment.create("/some/path.txt");
     ParserInputSource inputSource = ParserInputSource.create(input, somePath);
     Reporter reporter = new Reporter(new EventBus());
     reporter.addHandler(new EventHandler() {

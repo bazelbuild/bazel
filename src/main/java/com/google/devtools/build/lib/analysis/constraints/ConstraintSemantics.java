@@ -823,15 +823,15 @@ public class ConstraintSemantics {
    */
   private static void addSelectValuesToSet(BuildType.Selector<?> select, final Set<Label> set) {
     Type<?> type = select.getOriginalType();
-    LabelVisitor visitor = new LabelVisitor() {
+    LabelVisitor<?> visitor = new LabelVisitor<Object>() {
       @Override
-      public void visit(Label label) {
+      public void visit(Label label, Object dummy) {
         set.add(label);
       }
     };
     for (Object value : select.getEntries().values()) {
       try {
-        type.visitLabels(visitor, value);
+        type.visitLabels(visitor, value, /*context=*/ null);
       } catch (InterruptedException ex) {
         // Because the LabelVisitor does not throw InterruptedException, it should not be thrown
         // by visitLabels here.

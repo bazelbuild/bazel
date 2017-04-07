@@ -269,7 +269,7 @@ Can I build Docker images with Bazel?
 -------------------------------------
 
 Yes, you can use our
-[Docker rules](http://bazel.build/docs/be/docker.html)
+[Docker rules](https://bazel.build/versions/master/docs/be/docker.html)
 to build reproducible Docker images.
 
 Will Bazel make my builds reproducible automatically?

@@ -1209,7 +1209,7 @@ public class CcToolchainFeaturesTest {
                 "   implies: 'action-a'",
                 "}")
             .getFeatureConfiguration("activates-action-a");
-    PathFragment crosstoolPath = new PathFragment("crosstool/");
+    PathFragment crosstoolPath = PathFragment.create("crosstool/");
     PathFragment toolPath = configuration.getToolForAction("action-a").getToolPath(crosstoolPath);
     assertThat(toolPath.toString()).isEqualTo("crosstool/toolchain/a");
   }
@@ -1251,7 +1251,7 @@ public class CcToolchainFeaturesTest {
             "  implies: 'action-a'",
             "}");
 
-    PathFragment crosstoolPath = new PathFragment("crosstool/");
+    PathFragment crosstoolPath = PathFragment.create("crosstool/");
 
     FeatureConfiguration featureAConfiguration =
         toolchainFeatures.getFeatureConfiguration("feature-a", "activates-action-a");
@@ -1310,7 +1310,7 @@ public class CcToolchainFeaturesTest {
             "  implies: 'action-a'",
             "}");
 
-    PathFragment crosstoolPath = new PathFragment("crosstool/");
+    PathFragment crosstoolPath = PathFragment.create("crosstool/");
 
     FeatureConfiguration noFeaturesConfiguration =
         toolchainFeatures.getFeatureConfiguration("activates-action-a");

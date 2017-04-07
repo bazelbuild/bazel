@@ -20,17 +20,15 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
-
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests for the {@link PersistentMap}.
@@ -197,6 +195,26 @@ public class PersistentMapTest {
     map.keepJournal = false;
     map.save();
     assertThat(map).hasSize(1);
+    assertFalse(journalFile.exists());
+  }
+
+  @Test
+  public void keepJournalWithMultipleSaves() throws Exception {
+    createMap();
+    map.put("foo", "bar");
+    map.put("baz", "bang");
+    map.save();
+    map.updateJournal = false;
+    map.keepJournal = true;
+    map.remove("foo");
+    assertThat(map).hasSize(1);
+    map.save();
+    map.remove("baz");
+    map.save();
+    assertThat(map).hasSize(0);
+    // Ensure recreating the map loads the correct state.
+    createMap();
+    assertThat(map).hasSize(0);
     assertFalse(journalFile.exists());
   }
 

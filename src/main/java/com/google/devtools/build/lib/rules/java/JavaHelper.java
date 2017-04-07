@@ -116,7 +116,7 @@ public abstract class JavaHelper {
     PathFragment rootRelativePath = resource.getRootRelativePath();
 
     if (!resource.getOwner().getWorkspaceRoot().isEmpty()) {
-      PathFragment workspace = new PathFragment(resource.getOwner().getWorkspaceRoot());
+      PathFragment workspace = PathFragment.create(resource.getOwner().getWorkspaceRoot());
       rootRelativePath = rootRelativePath.relativeTo(workspace);
     }
 
@@ -125,8 +125,8 @@ public abstract class JavaHelper {
       return semantics.getDefaultJavaResourcePath(rootRelativePath);
     }
 
-    PathFragment prefix = new PathFragment(
-        ruleContext.attributes().get("resource_strip_prefix", Type.STRING));
+    PathFragment prefix =
+        PathFragment.create(ruleContext.attributes().get("resource_strip_prefix", Type.STRING));
 
     if (!rootRelativePath.startsWith(prefix)) {
       ruleContext.attributeError("resource_strip_prefix", String.format(

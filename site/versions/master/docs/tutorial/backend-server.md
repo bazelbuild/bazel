@@ -99,7 +99,7 @@ Android and iOS apps.
 Open your new `BUILD` file for editing:
 
 ```bash
-$ vi $WORKSPACE/backend/BUILD
+vi $WORKSPACE/backend/BUILD
 ```
 
 ### Add a java_binary rule
@@ -159,13 +159,13 @@ is in the `master` branch of the GitHub repo.
 Make sure that your current working directory is inside your Bazel workspace:
 
 ```bash
-$ cd $WORKSPACE
+cd $WORKSPACE
 ```
 
 Now, enter the following to build the sample app:
 
 ```bash
-$ bazel build //backend:backend
+bazel build //backend:backend
 ```
 
 Bazel now launches and builds the sample app. During the build process, its
@@ -196,7 +196,7 @@ run your application on it.
 To run the application, enter the following:
 
 ```bash
-$ bazel-bin/backend/backend --port=12345
+bazel-bin/backend/backend --port=12345
 ```
 
 Your application will be available at `http://localhost:12345`
@@ -213,13 +213,13 @@ to perform these actions.
 Build the target that allows to deploy to App Engine:
 
 ```bash
-$ bazel build --java_toolchain=@io_bazel_rules_appengine//appengine:jdk7 //backend:backend.deploy
+bazel build --java_toolchain=@io_bazel_rules_appengine//appengine:jdk7 //backend:backend.deploy
 ```
 
 Then, to deploy the application, enter the following:
 
 ```bash
-$ $WORKSPACE/bazel-bin/backend/backend.deploy <project-id>
+bazel-bin/backend/backend.deploy <project-id>
 ```
 
 The deployment script prompts you to authorize access to Google Cloud Platform.
@@ -227,7 +227,7 @@ After you have authorized access the first time, you can deploy the application
 using the `bazel` command and the following rule target:
 
 ```bash
-$ bazel run //backend:backend.deploy <project-id>
+bazel run //backend:backend.deploy <project-id>
 ```
 
 Your application URL will be `http://<project-id>.appspot.com`.

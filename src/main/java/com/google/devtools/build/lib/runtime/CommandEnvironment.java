@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
@@ -92,7 +91,6 @@ public final class CommandEnvironment {
   private long commandStartTime;
   private OutputService outputService;
   private Path workingDirectory;
-  private String workspaceName;
 
   private String commandName;
   private OptionsProvider options;
@@ -145,9 +143,26 @@ public final class CommandEnvironment {
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
     this.workingDirectory = directories.getWorkspace();
-    this.workspaceName = null;
 
     workspace.getSkyframeExecutor().setEventBus(eventBus);
+  }
+
+  /**
+   * Same as CommandEnvironment(BlazeRuntime, BlazeWorkspace, EventBus, Thread) but with an
+   * explicit commandName and options.
+   *
+   * ONLY for testing.
+   */
+  @VisibleForTesting
+  CommandEnvironment(
+      BlazeRuntime runtime, BlazeWorkspace workspace, EventBus eventBus, Thread commandThread,
+      String commandNameForTesting, OptionsProvider optionsForTesting) {
+    this(runtime, workspace, eventBus, commandThread);
+    // Both commandName and options are normally set by beforeCommand(); however this method is not
+    // called in tests (i.e. tests use BlazeRuntimeWrapper). These fields should only be set for
+    // testing.
+    this.commandName = commandNameForTesting;
+    this.options = optionsForTesting;
   }
 
   public BlazeRuntime getRuntime() {
@@ -295,14 +310,13 @@ public final class CommandEnvironment {
   }
 
   public String getWorkspaceName() {
-    Preconditions.checkNotNull(workspaceName);
-    return workspaceName;
+    Path workspace = getDirectories().getWorkspace();
+    if (workspace == null) {
+      return "";
+    }
+    return workspace.getBaseName();
   }
 
-  public void setWorkspaceName(String workspaceName) {
-    Preconditions.checkState(this.workspaceName == null, "workspace name can only be set once");
-    this.workspaceName = workspaceName;
-  }
   /**
    * Returns if the client passed a valid workspace to be used for the build.
    */
@@ -325,8 +339,15 @@ public final class CommandEnvironment {
    * build reside.
    */
   public Path getExecRoot() {
-    Preconditions.checkNotNull(workspaceName);
-    return getDirectories().getExecRoot(workspaceName);
+    return getDirectories().getExecRoot();
+  }
+
+  /**
+   * Returns the directory where actions' outputs and errors will be written. Is below the directory
+   * returned by {@link #getExecRoot}.
+   */
+  public Path getActionConsoleOutputDirectory() {
+    return getDirectories().getActionConsoleOutputDirectory(getExecRoot());
   }
 
   /**
@@ -568,8 +589,7 @@ public final class CommandEnvironment {
     // Let skyframe figure out if it needs to store graph edges for this build.
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
-        optionsParser.getOptions(BuildView.Options.class),
-        optionsParser.getOptions(ExecutionOptions.class));
+        optionsParser.getOptions(BuildView.Options.class));
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, options, execStartTimeNanos);

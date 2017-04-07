@@ -163,10 +163,10 @@ public class LTOBackendActionTest extends BuildViewTestCase {
 
             if ((i & 8) == 0) {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(new PathFragment("a"), Runfiles.EMPTY, artifactA));
+                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactA));
             } else {
               builder.addRunfilesSupplier(
-                  new RunfilesSupplierImpl(new PathFragment("a"), Runfiles.EMPTY, artifactB));
+                  new RunfilesSupplierImpl(PathFragment.create("a"), Runfiles.EMPTY, artifactB));
             }
 
             if ((i & 16) == 0) {

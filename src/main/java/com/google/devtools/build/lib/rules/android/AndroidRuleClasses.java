@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Rule definitions for Android rules.
@@ -73,8 +72,6 @@ public final class AndroidRuleClasses {
    */
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_CLASS_JAR =
       JavaSemantics.JAVA_LIBRARY_CLASS_JAR;
-  public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_JACK_FILE =
-      fromTemplates("lib%{name}.jack");
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR =
       fromTemplates("%{name}.aar");
   /**
@@ -333,7 +330,6 @@ public final class AndroidRuleClasses {
           implicitOutputs.add(
               AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR,
               AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR,
-              AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE,
               AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
           if (LocalResourceContainer.definesAndroidResources(attributes)) {
@@ -381,14 +377,12 @@ public final class AndroidRuleClasses {
               attr("jack", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
-                  .exec()
-                  .mandatory())
+                  .exec())
           .add(
               attr("jill", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
-                  .exec()
-                  .mandatory())
+                  .exec())
           .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
@@ -569,14 +563,11 @@ public final class AndroidRuleClasses {
 
     private final AndroidNeverlinkAspect androidNeverlinkAspect;
     private final DexArchiveAspect dexArchiveAspect;
-    private final JackAspect jackAspect;
 
-    public AndroidBinaryBaseRule(AndroidNeverlinkAspect androidNeverlinkAspect,
-        DexArchiveAspect dexArchiveAspect,
-        JackAspect jackAspect) {
+    public AndroidBinaryBaseRule(
+        AndroidNeverlinkAspect androidNeverlinkAspect, DexArchiveAspect dexArchiveAspect) {
       this.androidNeverlinkAspect = androidNeverlinkAspect;
       this.dexArchiveAspect = dexArchiveAspect;
-      this.jackAspect = jackAspect;
     }
 
     @Override
@@ -615,8 +606,7 @@ public final class AndroidRuleClasses {
                   .allowedRuleClasses(ALLOWED_DEPENDENCIES)
                   .allowedFileTypes()
                   .aspect(androidNeverlinkAspect)
-                  .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR)
-                  .aspect(jackAspect))
+                  .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
           .add(
               attr("feature_of", LABEL)
                 .allowedRuleClasses("android_binary")
@@ -827,45 +817,19 @@ public final class AndroidRuleClasses {
    */
   public static enum MultidexMode {
     // Build dexes with multidex, assuming native platform support for multidex.
-    NATIVE("native"),
+    NATIVE,
     // Build dexes with multidex and implement support at the application level.
-    LEGACY("legacy"),
+    LEGACY,
     // Build dexes with multidex, main dex list needs to be manually specified.
-    MANUAL_MAIN_DEX("legacy"),
+    MANUAL_MAIN_DEX,
     // Build all dex code into a single classes.dex file.
-    OFF("none");
-
-    @Nullable private final String jackFlagValue;
-
-    private MultidexMode(String jackFlagValue) {
-      this.jackFlagValue = jackFlagValue;
-    }
+    OFF;
 
     /**
      * Returns the attribute value that specifies this mode.
      */
     public String getAttributeValue() {
       return toString().toLowerCase();
-    }
-
-    /**
-     * Returns whether or not this multidex mode can be passed to Jack.
-     */
-    public boolean isSupportedByJack() {
-      return jackFlagValue != null;
-    }
-
-    /**
-     * Returns the value that should be passed to Jack's --multi-dex flag.
-     *
-     * @throws UnsupportedOperationException if the dex mode is not supported by Jack
-     *     ({@link #isSupportedByJack()} returns false)
-     */
-    public String getJackFlagValue() {
-      if (!isSupportedByJack()) {
-        throw new UnsupportedOperationException();
-      }
-      return jackFlagValue;
     }
 
     /**

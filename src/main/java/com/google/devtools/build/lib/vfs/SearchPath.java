@@ -37,7 +37,7 @@ public class SearchPath {
       return paths;
     }
     for (String p : SEPARATOR.split(searchPath)) {
-      PathFragment pf = new PathFragment(p);
+      PathFragment pf = PathFragment.create(p);
 
       if (pf.isAbsolute()) {
         paths.add(fs.getPath(pf));
@@ -53,7 +53,7 @@ public class SearchPath {
    */
   @Nullable
   public static Path which(List<Path> searchPath, String exe) {
-    PathFragment fragment = new PathFragment(exe);
+    PathFragment fragment = PathFragment.create(exe);
     if (fragment.segmentCount() != 1 || fragment.isAbsolute()) {
       return null;
     }

@@ -37,10 +37,11 @@ We are going to create a small hello world project with the following directory 
 
 Using the following commands to create the necessary source files:
 {% highlight bash %}
-$ # If you're not already there, move to your workspace directory.
-$ cd ~/gitroot/my-project
-$ mkdir ./main
-$ cat > main/hello-world.cc <<'EOF'
+# If you're not already there, move to your workspace directory.
+cd ~/gitroot/my-project
+mkdir ./main
+cat > main/hello-world.cc <<'EOF'
+
 #include "lib/hello-greet.h"
 #include "main/hello-time.h"
 #include <iostream>
@@ -56,7 +57,9 @@ int main(int argc, char** argv) {
   return 0;
 }
 EOF
-$ cat > main/hello-time.h <<'EOF'
+
+cat > main/hello-time.h <<'EOF'
+
 #ifndef MAIN_HELLO_TIME_H_
 #define MAIN_HELLO_TIME_H_
 
@@ -64,7 +67,9 @@ void print_localtime();
 
 #endif
 EOF
-$ cat > main/hello-time.cc <<'EOF'
+
+cat > main/hello-time.cc <<'EOF'
+
 #include "main/hello-time.h"
 #include <ctime>
 #include <iostream>
@@ -74,8 +79,10 @@ void print_localtime() {
   std::cout << std::asctime(std::localtime(&result));
 }
 EOF
-$ mkdir ./lib
-$ cat > lib/hello-greet.h <<'EOF'
+
+mkdir ./lib
+cat > lib/hello-greet.h <<'EOF'
+
 #ifndef LIB_HELLO_GREET_H_
 #define LIB_HELLO_GREET_H_
 
@@ -85,7 +92,9 @@ std::string get_greet(const std::string &thing);
 
 #endif
 EOF
-$ cat > lib/hello-greet.cc <<'EOF'
+
+cat > lib/hello-greet.cc <<'EOF'
+
 #include "lib/hello-greet.h"
 #include <string>
 
@@ -135,15 +144,36 @@ When the target is in other package, a full path from root should be used, like 
 Now you are ready to build your hello world C++ binary:
 
 {% highlight bash %}
-$ bazel build main:hello-world
+bazel build main:hello-world
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 target...
 Target //main:hello-world up-to-date:
   bazel-bin/main/hello-world
 INFO: Elapsed time: 2.869s, Critical Path: 1.00s
-$ ./bazel-bin/main/hello-world
+{% endhighlight %}
+
+{% highlight bash %}
+./bazel-bin/main/hello-world
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 Hello world
 Thu Jun 23 18:51:46 2016
-$ ./bazel-bin/main/hello-world Bazel
+{% endhighlight %}
+
+{% highlight bash %}
+./bazel-bin/main/hello-world Bazel
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 Hello Bazel
 Thu Jun 23 18:52:10 2016
 {% endhighlight %}
@@ -241,8 +271,8 @@ more complicated:
 * `googletest-release-1.7.0/src/gtest-all.cc` `#include`s all of the other files in
   `googletest-release-1.7.0/src/`, so we need to exclude it from the compile or we'll get
   link errors for duplicate symbols.
-* It uses header files that relative to the `googletest-release-1.7.0/include/` directory
-  (`"gtest/gtest.h"`), so we must add that directory the include paths.
+* It uses header files that are relative to the `googletest-release-1.7.0/include/` directory
+  (`"gtest/gtest.h"`), so we must add that directory to the include paths.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
 The final rule looks like this:
@@ -309,7 +339,7 @@ For example, we could create a test `./test/hello-test.cc` such as:
 #include "gtest/gtest.h"
 #include "lib/hello-greet.h"
 
-TEST(FactorialTest, Negative) {
+TEST(HelloTest, GetGreet) {
   EXPECT_EQ(get_greet("Bazel"), "Hello Bazel");
 }
 ```
@@ -333,7 +363,12 @@ Note in order to make `hello-greet` visible to `hello-test`, we have to add `"//
 Now you can use `bazel test` to run the test.
 
 {% highlight bash %}
-$ bazel test test:hello-test
+bazel test test:hello-test
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 test target...
 Target //test:hello-test up-to-date:
   bazel-bin/test/hello-test

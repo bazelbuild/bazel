@@ -88,7 +88,7 @@ public final class TestActionBuilder {
     // heuristically sharding is currently experimental. Also, we do detect
     // false-positive cases and return an error.
     return runfilesSupport.getRunfilesSymlinkNames().contains(
-        new PathFragment("tools/test_sharding_compliant"));
+        PathFragment.create("tools/test_sharding_compliant"));
   }
 
   /**
@@ -180,7 +180,7 @@ public final class TestActionBuilder {
    *    TestResultAnalyzer to keep track of completed and pending test runs.
    */
   private TestParams createTestAction(int shards) {
-    PathFragment targetName = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment targetName = PathFragment.create(ruleContext.getLabel().getName());
     BuildConfiguration config = ruleContext.getConfiguration();
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     Root root = config.getTestLogsDirectory(ruleContext.getRule().getRepository());

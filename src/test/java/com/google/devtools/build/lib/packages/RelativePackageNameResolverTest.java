@@ -112,7 +112,7 @@ public class RelativePackageNameResolverTest {
   }
 
   private void createResolver(String offset, boolean discardBuild) {
-    resolver = new RelativePackageNameResolver(new PathFragment(offset), discardBuild);
+    resolver = new RelativePackageNameResolver(PathFragment.create(offset), discardBuild);
   }
 
   private void assertResolvesTo(String relative, String expectedAbsolute) throws Exception {

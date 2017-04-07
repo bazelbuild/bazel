@@ -24,10 +24,10 @@ Suppose that you have an existing project in a directory, say,
 Use the following commands to make a small Java project for this example:
 
 {% highlight bash %}
-$ # If you're not already there, move to your workspace directory.
-$ cd ~/gitroot/my-project
-$ mkdir -p src/main/java/com/example
-$ cat > src/main/java/com/example/ProjectRunner.java <<'EOF'
+# If you're not already there, move to your workspace directory.
+cd ~/gitroot/my-project
+mkdir -p src/main/java/com/example
+cat > src/main/java/com/example/ProjectRunner.java <<'EOF'
 package com.example;
 
 public class ProjectRunner {
@@ -36,7 +36,8 @@ public class ProjectRunner {
     }
 }
 EOF
-$ cat > src/main/java/com/example/Greeting.java <<'EOF'
+
+cat > src/main/java/com/example/Greeting.java <<'EOF'
 package com.example;
 
 public class Greeting {
@@ -70,14 +71,27 @@ main method.
 Now you are ready to build your Java binary:
 
 {% highlight bash %}
-$ cd ~/gitroot/my-project
-$ bazel build //:my-runner
+cd ~/gitroot/my-project
+bazel build //:my-runner
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 target...
 Target //:my-runner up-to-date:
   bazel-bin/my-runner.jar
   bazel-bin/my-runner
 INFO: Elapsed time: 1.021s, Critical Path: 0.83s
-$ bazel-bin/my-runner
+{% endhighlight %}
+
+{% highlight bash %}
+bazel-bin/my-runner
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 Hi!
 {% endhighlight %}
 
@@ -114,7 +128,12 @@ build the `greeter` library first and then build `my-other-runner`. Try building
 and running `//:my-other-runner`:
 
 {% highlight bash %}
-$ bazel run //:my-other-runner
+bazel run //:my-other-runner
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 target...
 Target //:my-other-runner up-to-date:
   bazel-bin/my-other-runner.jar
@@ -137,8 +156,8 @@ can refer to targets defined in other BUILD files using the syntax
 file:
 
 {% highlight bash %}
-$ mkdir -p src/main/java/com/example/cmdline
-$ cat > src/main/java/com/example/cmdline/Runner.java <<'EOF'
+mkdir -p src/main/java/com/example/cmdline
+cat > src/main/java/com/example/cmdline/Runner.java <<'EOF'
 package com.example.cmdline;
 
 import com.example.Greeting;
@@ -171,7 +190,12 @@ must explicitly allow `runner` to depend on `//:greeter`. As is, if we
 build `runner` we'll get a permissions error:
 
 {% highlight bash %}
-$ bazel build //src/main/java/com/example/cmdline:runner
+bazel build //src/main/java/com/example/cmdline:runner
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 ERROR: /home/user/gitroot/my-project/src/main/java/com/example/cmdline/BUILD:2:1:
   Target '//:greeter' is not visible from target '//src/main/java/com/example/cmdline:runner'.
   Check the visibility declaration of the former target if you think the dependency is legitimate.
@@ -196,7 +220,12 @@ This makes `//:greeter` visible to any rule in the
 run the `runner` binary:
 
 {% highlight bash %}
-$ bazel run //src/main/java/com/example/cmdline:runner
+bazel run //src/main/java/com/example/cmdline:runner
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 target...
 Target //src/main/java/com/example/cmdline:runner up-to-date:
   bazel-bin/src/main/java/com/example/cmdline/runner.jar
@@ -217,7 +246,12 @@ _bazel-bin/src/main/java/com/example/cmdline/runner.jar_, you can see that it
 only contains `Runner.class`, not its dependencies (`Greeting.class`):
 
 {% highlight bash %}
-$ jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
+jar tf bazel-bin/src/main/java/com/example/cmdline/runner.jar
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 META-INF/
 META-INF/MANIFEST.MF
 com/
@@ -233,7 +267,12 @@ jar that can be deployed, build `runner_deploy.jar` (or, more generally,
 `<target-name>_deploy.jar`):
 
 {% highlight bash %}
-$ bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
+bazel build //src/main/java/com/example/cmdline:runner_deploy.jar
+{% endhighlight %}
+
+This produces the following output:
+
+{% highlight bash %}
 INFO: Found 1 target...
 Target //src/main/java/com/example/cmdline:runner_deploy.jar up-to-date:
   bazel-bin/src/main/java/com/example/cmdline/runner_deploy.jar

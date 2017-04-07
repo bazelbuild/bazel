@@ -200,7 +200,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
     };
     Path linkPath = absolutize("link");
     for (String linkTarget : linkTargets) {
-      PathFragment relative = new PathFragment(linkTarget);
+      PathFragment relative = PathFragment.create(linkTarget);
       linkPath.delete();
       createSymbolicLink(linkPath, relative);
       if (supportsSymlinks) {
@@ -246,7 +246,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   @Test
   public void testLinkToFragmentContainingLinkResolvesCorrectly() throws IOException {
     Path link1 = absolutize("link1");
-    PathFragment link1target = new PathFragment("link2/foo");
+    PathFragment link1target = PathFragment.create("link2/foo");
     Path link2 = absolutize("link2");
     Path link2target = xNonEmptyDirectory;
 
@@ -331,7 +331,7 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
       String prefix = "./";
       while ((ancestor = ancestor.getParentDirectory()) != null) {
         xLinkToFile.delete();
-        createSymbolicLink(xLinkToFile, new PathFragment(prefix + xFile.relativeTo(ancestor)));
+        createSymbolicLink(xLinkToFile, PathFragment.create(prefix + xFile.relativeTo(ancestor)));
         assertEquals(xFile, xLinkToFile.resolveSymbolicLinks());
 
         prefix += "../";

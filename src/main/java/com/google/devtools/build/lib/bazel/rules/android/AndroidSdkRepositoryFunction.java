@@ -56,9 +56,9 @@ import javax.annotation.Nullable;
  * Implementation of the {@code android_sdk_repository} rule.
  */
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
-  private static final PathFragment BUILD_TOOLS_DIR = new PathFragment("build-tools");
-  private static final PathFragment PLATFORMS_DIR = new PathFragment("platforms");
-  private static final PathFragment SYSTEM_IMAGES_DIR = new PathFragment("system-images");
+  private static final PathFragment BUILD_TOOLS_DIR = PathFragment.create("build-tools");
+  private static final PathFragment PLATFORMS_DIR = PathFragment.create("platforms");
+  private static final PathFragment SYSTEM_IMAGES_DIR = PathFragment.create("system-images");
   private static final Revision MIN_BUILD_TOOLS_REVISION = new Revision(24, 0, 3);
   private static final String PATH_ENV_VAR = "ANDROID_HOME";
   private static final ImmutableList<String> PATH_ENV_VAR_AS_LIST = ImmutableList.of(PATH_ENV_VAR);
@@ -250,7 +250,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
 
   private static PathFragment getAndroidHomeEnvironmentVar(
       Path workspace, Map<String, String> env) {
-    return workspace.getRelative(new PathFragment(env.get(PATH_ENV_VAR))).asFragment();
+    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String getStringResource(String name) {

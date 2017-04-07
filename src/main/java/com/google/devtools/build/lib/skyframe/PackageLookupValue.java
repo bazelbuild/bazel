@@ -43,7 +43,7 @@ public abstract class PackageLookupValue implements SkyValue {
     WORKSPACE("WORKSPACE") {
       @Override
       public PathFragment getBuildFileFragment(PackageIdentifier packageIdentifier) {
-        return new PathFragment(BuildFileName.WORKSPACE.getFilename());
+        return PathFragment.create(BuildFileName.WORKSPACE.getFilename());
       }
     },
     BUILD("BUILD") {

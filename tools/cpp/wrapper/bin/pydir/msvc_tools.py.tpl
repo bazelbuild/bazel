@@ -27,12 +27,6 @@ MAX_DRIVE_LENGTH = 3  # The maximum length of a drive.
 MAX_PATH_ADJUSTED = MAX_PATH - MAX_OPTION_LENGTH - MAX_DRIVE_LENGTH
 ASSEMBLY_AS_C_SOURCE = '/Tc'
 LIB_SUFFIX = '.lib'
-
-TMP_PATH = '%{tmp}'
-
-PATH = "%{path}"
-INCLUDE = "%{include}"
-LIB = "%{lib}"
 LIB_TOOL = "%{lib_tool}"
 supported_cuda_compute_capabilities = [ %{cuda_compute_capabilities} ]
 
@@ -449,21 +443,6 @@ class WindowsRunner(object):
           % (str(abspath), MAX_PATH_ADJUSTED, len(abspath)))
     return abspath
 
-  def SetupEnvironment(self):
-    """Setup proper path for running.
-
-    Returns:
-      An environment suitable for running on Windows.
-    """
-
-    build_env = os.environ.copy()
-    build_env['PATH'] = PATH
-    build_env['INCLUDE'] = INCLUDE
-    build_env['LIB'] = LIB
-    build_env['TEMP'] = TMP_PATH
-    build_env['TMP'] = TMP_PATH
-    return build_env
-
   def RunBinary(self, binary, args, build_arch, parser):
     """Runs binary on Windows with the passed args.
 
@@ -495,9 +474,6 @@ class WindowsRunner(object):
         name = arg.rpartition(ntpath.sep)[2]
         filters.append(name)
 
-    # Setup the Windows paths and the build environment.
-    build_env = self.SetupEnvironment()
-
     # Construct a large regular expression for all filters.
     output_filter = re.compile('(' + ')|('.join(filters) + ')')
     includes_filter = re.compile(r'Note: including file:\s+(.*)')
@@ -520,7 +496,7 @@ class WindowsRunner(object):
     # Unconmment the following line to see what exact command is executed.
     # print("Running: " + " ".join(cmd))
     proc = subprocess.Popen(cmd,
-                            env=build_env,
+                            env=os.environ.copy(),
                             stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT,
                             shell=True)

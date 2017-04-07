@@ -94,9 +94,9 @@ public class DiffAwarenessManagerTest {
   @Test
   public void testHandlesUnprocessedDiffs() throws Exception {
     Path pathEntry = root.getRelative("pathEntry");
-    ModifiedFileSet diff1 = ModifiedFileSet.builder().modify(new PathFragment("file1")).build();
-    ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(new PathFragment("file2")).build();
-    ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(new PathFragment("file3")).build();
+    ModifiedFileSet diff1 = ModifiedFileSet.builder().modify(PathFragment.create("file1")).build();
+    ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(PathFragment.create("file2")).build();
+    ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(PathFragment.create("file3")).build();
     DiffAwarenessStub diffAwareness =
         new DiffAwarenessStub(ImmutableList.of(diff1, diff2, diff3, DiffAwarenessStub.BROKEN_DIFF));
     DiffAwarenessFactoryStub factory = new DiffAwarenessFactoryStub();
@@ -134,12 +134,12 @@ public class DiffAwarenessManagerTest {
         new DiffAwarenessStub(ImmutableList.<ModifiedFileSet>of(), 1);
     factory1.inject(pathEntry, diffAwareness1);
     DiffAwarenessFactoryStub factory2 = new DiffAwarenessFactoryStub();
-    ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(new PathFragment("file2")).build();
+    ModifiedFileSet diff2 = ModifiedFileSet.builder().modify(PathFragment.create("file2")).build();
     DiffAwarenessStub diffAwareness2 =
         new DiffAwarenessStub(ImmutableList.of(diff2, DiffAwarenessStub.BROKEN_DIFF));
     factory2.inject(pathEntry, diffAwareness2);
     DiffAwarenessFactoryStub factory3 = new DiffAwarenessFactoryStub();
-    ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(new PathFragment("file3")).build();
+    ModifiedFileSet diff3 = ModifiedFileSet.builder().modify(PathFragment.create("file3")).build();
     DiffAwarenessStub diffAwareness3 = new DiffAwarenessStub(ImmutableList.of(diff3));
     factory3.inject(pathEntry, diffAwareness3);
     DiffAwarenessManager manager =
@@ -217,7 +217,7 @@ public class DiffAwarenessManagerTest {
   private static class DiffAwarenessStub implements DiffAwareness {
 
     public static final ModifiedFileSet BROKEN_DIFF =
-        ModifiedFileSet.builder().modify(new PathFragment("special broken marker")).build();
+        ModifiedFileSet.builder().modify(PathFragment.create("special broken marker")).build();
 
     private boolean closed = false;
     private int curSequenceNum = 0;

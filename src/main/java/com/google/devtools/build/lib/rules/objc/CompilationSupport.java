@@ -309,6 +309,7 @@ public abstract class CompilationSupport {
   protected final AppleConfiguration appleConfiguration;
   protected final CompilationAttributes attributes;
   protected final IntermediateArtifacts intermediateArtifacts;
+  protected final boolean useDeps;
 
   /**
    * Creates a new compilation support for the given rule and build configuration.
@@ -327,13 +328,15 @@ public abstract class CompilationSupport {
       RuleContext ruleContext,
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
-      CompilationAttributes compilationAttributes) {
+      CompilationAttributes compilationAttributes,
+      boolean useDeps) {
     this.ruleContext = ruleContext;
     this.buildConfiguration = buildConfiguration;
     this.objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
     this.appleConfiguration = buildConfiguration.getFragment(AppleConfiguration.class);
     this.attributes = compilationAttributes;
     this.intermediateArtifacts = intermediateArtifacts;
+    this.useDeps = useDeps;
   }
 
   /**
@@ -343,7 +346,18 @@ public abstract class CompilationSupport {
    * @param ruleContext the RuleContext for the calling target
    */
   public static CompilationSupport create(RuleContext ruleContext) {
-    return createForConfig(ruleContext, ruleContext.getConfiguration());
+    return createForConfig(ruleContext, ruleContext.getConfiguration(), /*useDeps=*/true);
+  }
+
+  /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.  If this is an instance of
+   * {@link CrosstoolCompilationSupport}, dependencies will not be used.
+   */
+  public static CompilationSupport createWithoutDeps(RuleContext ruleContext) {
+    CompilationSupport result = createForConfig(ruleContext, ruleContext.getConfiguration(),
+        /*useDeps=*/false);
+    return result;
   }
 
    /**
@@ -356,10 +370,24 @@ public abstract class CompilationSupport {
    */
    public static CompilationSupport createForConfig(RuleContext ruleContext,
        BuildConfiguration buildConfiguration) {
+     return createForConfig(ruleContext, buildConfiguration, /*useDeps=*/true);
+   }
+
+  /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.  The result can be either {@link LegacyCompilationSupport}
+   * or {@link CrosstoolCompilationSupport}.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   * @param buildConfiguration the configuration for the calling target
+   * @param useDeps true if deps should be used
+   */
+   public static CompilationSupport createForConfig(RuleContext ruleContext,
+       BuildConfiguration buildConfiguration, boolean useDeps) {
      return createWithSelectedImplementation(ruleContext,
          buildConfiguration,
          ObjcRuleClasses.intermediateArtifacts(ruleContext, buildConfiguration),
-         CompilationAttributes.Builder.fromRuleContext(ruleContext).build());
+         CompilationAttributes.Builder.fromRuleContext(ruleContext).build(), useDeps);
    }
 
   /**
@@ -375,10 +403,11 @@ public abstract class CompilationSupport {
     return createWithSelectedImplementation(ruleContext,
         config,
         ObjcRuleClasses.intermediateArtifacts(ruleContext, config),
-        compilationAttributes);
+        compilationAttributes,
+        /*useDeps=*/true);
   }
 
-  /**
+   /**
    * Returns a CompilationSupport instance, the type of which is determined from the
    * --experimental_objc_crosstool flag.
    *
@@ -392,12 +421,36 @@ public abstract class CompilationSupport {
       BuildConfiguration buildConfiguration,
       IntermediateArtifacts intermediateArtifacts,
       CompilationAttributes compilationAttributes) {
+     return createWithSelectedImplementation(
+         ruleContext,
+         buildConfiguration,
+         intermediateArtifacts,
+         compilationAttributes,
+         /*useDeps=*/true);
+  }
+
+  /**
+   * Returns a CompilationSupport instance, the type of which is determined from the
+   * --experimental_objc_crosstool flag.
+   *
+   * @param ruleContext the RuleContext for the calling target
+   * @param buildConfiguration the configuration for the calling target
+   * @param intermediateArtifacts IntermediateArtifacts for deriving artifact paths
+   * @param compilationAttributes attributes of the calling target
+   * @param useDeps true if deps should be used
+   */
+   static CompilationSupport createWithSelectedImplementation(
+      RuleContext ruleContext,
+      BuildConfiguration buildConfiguration,
+      IntermediateArtifacts intermediateArtifacts,
+      CompilationAttributes compilationAttributes,
+       boolean useDeps) {
     return buildConfiguration.getFragment(ObjcConfiguration.class).getObjcCrosstoolMode()
         == ObjcCrosstoolMode.ALL
         ? new CrosstoolCompilationSupport(ruleContext, buildConfiguration, intermediateArtifacts,
-            compilationAttributes)
+            compilationAttributes, useDeps)
         : new LegacyCompilationSupport(ruleContext, buildConfiguration, intermediateArtifacts,
-            compilationAttributes);
+            compilationAttributes, useDeps);
   }
 
  /**
@@ -663,7 +716,7 @@ public abstract class CompilationSupport {
     ImmutableList.Builder<PathFragment> nonPropagatedHeaderSearchPaths =
         new ImmutableList.Builder<>();
     for (String includeDirOption : includeDirOptions) {
-      nonPropagatedHeaderSearchPaths.add(new PathFragment(includeDirOption.substring(2)));
+      nonPropagatedHeaderSearchPaths.add(PathFragment.create(includeDirOption.substring(2)));
     }
 
     // We also need to add the -isystem directories from the CC header providers. ObjCommon
@@ -876,6 +929,57 @@ public abstract class CompilationSupport {
       ObjcProvider objcProvider, Iterable<Artifact> inputArtifacts, Artifact outputArchive,
       @Nullable CcToolchainProvider ccToolchain, @Nullable FdoSupportProvider fdoSupport)
       throws InterruptedException;
+
+  private PathFragment removeSuffix(PathFragment path, String suffix) {
+    String name = path.getBaseName();
+    Preconditions.checkArgument(
+        name.endsWith(suffix), "expected %s to end with %s, but it does not", name, suffix);
+    return path.replaceName(name.substring(0, name.length() - suffix.length()));
+  }
+
+  protected CompilationSupport registerDsymActions(DsymOutputType dsymOutputType) {
+    Artifact tempDsymBundleZip = intermediateArtifacts.tempDsymBundleZip(dsymOutputType);
+    Artifact linkedBinary =
+        objcConfiguration.shouldStripBinary()
+            ? intermediateArtifacts.unstrippedSingleArchitectureBinary()
+            : intermediateArtifacts.strippedSingleArchitectureBinary();
+    Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
+    Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
+
+    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
+    PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
+    PathFragment debugSymbolFileZipEntry =
+        debugSymbolFile
+            .getExecPath()
+            .replaceName(linkedBinary.getFilename())
+            .relativeTo(dsymOutputDir);
+
+    StringBuilder unzipDsymCommand =
+        new StringBuilder()
+            .append(
+                String.format(
+                    "unzip -p %s %s > %s",
+                    tempDsymBundleZip.getExecPathString(),
+                    dsymPlistZipEntry,
+                    dsymPlist.getExecPathString()))
+            .append(
+                String.format(
+                    " && unzip -p %s %s > %s",
+                    tempDsymBundleZip.getExecPathString(),
+                    debugSymbolFileZipEntry,
+                    debugSymbolFile.getExecPathString()));
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setMnemonic("UnzipDsym")
+            .setShellCommand(unzipDsymCommand.toString())
+            .addInput(tempDsymBundleZip)
+            .addOutput(dsymPlist)
+            .addOutput(debugSymbolFile)
+            .build(ruleContext));
+
+    return this;
+  }
 
  /**
    * Returns all framework names to pass to the linker using {@code -framework} flags. For a

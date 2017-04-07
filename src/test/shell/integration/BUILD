@@ -156,6 +156,13 @@ sh_test(
 )
 
 sh_test(
+    name = "incompatible_changes_conflict_test",
+    size = "small",
+    srcs = ["incompatible_changes_conflict_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "ide_info_generation_skylark",
     size = "large",
     srcs = ["ide_info_generation.sh"],
@@ -205,15 +212,6 @@ sh_test(
     name = "discard_graph_edges_test",
     size = "medium",
     srcs = ["discard_graph_edges_test.sh"],
-    data = [":test-deps"],
-    shard_count = 5,
-)
-
-sh_test(
-    name = "discard_graph_edges_test_no_critical_path",
-    size = "medium",
-    srcs = ["discard_graph_edges_test.sh"],
-    args = ["--noexperimental_enable_critical_path_profiling"],
     data = [":test-deps"],
     shard_count = 5,
 )

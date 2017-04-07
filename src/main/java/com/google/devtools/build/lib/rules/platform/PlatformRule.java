@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -45,9 +44,7 @@ public class PlatformRule implements RuleDefinition {
         .add(
             attr(CONSTRAINT_VALUES_ATTR, BuildType.LABEL_LIST)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        ConstraintValueProvider.class)))
+                .mandatoryProviders(ImmutableList.of(ConstraintValueInfo.SKYLARK_IDENTIFIER)))
         .add(attr(REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT))
         .removeAttribute("deps")
         .removeAttribute("data")

@@ -232,7 +232,7 @@ public final class RepositoryName implements Serializable {
   public PathFragment getPathUnderExecRoot() {
     return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
-        : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
+        : PathFragment.create(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
   }
 
   /**
@@ -241,7 +241,7 @@ public final class RepositoryName implements Serializable {
   // TODO(kchodorow): remove once execroot is reorg-ed.
   public PathFragment getRunfilesPath() {
     return isDefault() || isMain()
-        ? PathFragment.EMPTY_FRAGMENT : new PathFragment("..").getRelative(strippedName());
+        ? PathFragment.EMPTY_FRAGMENT : PathFragment.create("..").getRelative(strippedName());
   }
 
   /**

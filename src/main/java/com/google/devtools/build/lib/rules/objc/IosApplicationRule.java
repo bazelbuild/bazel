@@ -31,7 +31,11 @@ import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.IpaRule;
 
 /**
  * Rule definition for ios_application.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosApplicationRule implements RuleDefinition {
 
   @Override
@@ -94,6 +98,10 @@ public class IosApplicationRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_application, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces an application bundle for iOS.</p>
 <p>When running an iOS application using the <code>run</code> command, environment variables that

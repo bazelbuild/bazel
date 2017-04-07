@@ -779,7 +779,7 @@ public abstract class TargetPattern implements Serializable {
         try {
           PackageAndTarget packageAndTarget = LabelValidator.validateAbsoluteLabel(fullLabel);
           packageIdentifier = PackageIdentifier.create(repository,
-              new PathFragment(packageAndTarget.getPackageName()));
+              PathFragment.create(packageAndTarget.getPackageName()));
         } catch (BadLabelException e) {
           String error = "invalid target format '" + originalPattern + "': " + e.getMessage();
           throw new TargetParsingException(error);

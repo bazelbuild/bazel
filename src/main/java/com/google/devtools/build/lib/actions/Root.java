@@ -137,12 +137,14 @@ public final class Root implements Comparable<Root>, Serializable {
   @Nullable private final Path execRoot;
   private final Path path;
   private final boolean isMiddlemanRoot;
+  private final boolean isMainRepo;
   private final PathFragment execPath;
 
   private Root(@Nullable Path execRoot, Path path, boolean isMiddlemanRoot, boolean isMainRepo) {
     this.execRoot = execRoot;
     this.path = Preconditions.checkNotNull(path);
     this.isMiddlemanRoot = isMiddlemanRoot;
+    this.isMainRepo = isMainRepo;
     this.execPath = isSourceRoot() ? PathFragment.EMPTY_FRAGMENT : path.relativeTo(execRoot);
   }
 
@@ -181,6 +183,10 @@ public final class Root implements Comparable<Root>, Serializable {
     return isMiddlemanRoot;
   }
 
+  public boolean isMainRepo() {
+    return isMainRepo;
+  }
+
   @Override
   public int compareTo(Root o) {
     return path.compareTo(o.path);
@@ -188,7 +194,7 @@ public final class Root implements Comparable<Root>, Serializable {
 
   @Override
   public int hashCode() {
-    return Objects.hash(execRoot, path.hashCode());
+    return Objects.hash(execRoot, path.hashCode(), isMainRepo);
   }
 
   @Override
@@ -200,7 +206,8 @@ public final class Root implements Comparable<Root>, Serializable {
       return false;
     }
     Root r = (Root) o;
-    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot);
+    return path.equals(r.path) && Objects.equals(execRoot, r.execRoot)
+        && Objects.equals(isMainRepo, r.isMainRepo);
   }
 
   @Override

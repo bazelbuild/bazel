@@ -31,10 +31,14 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
 /**
  * Rule definition for apple_watch1_extension.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class AppleWatch1ExtensionRule implements RuleDefinition {
 
-  private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
+  private static final ImmutableSet<String> ALLOWED_DEPS_RULE_CLASSES =
       ImmutableSet.of("objc_library", "objc_import");
   static final String WATCH_APP_DEPS_ATTR  = "app_deps";
   static final String WATCH_EXT_FAMILIES_ATTR = "ext_families";
@@ -104,6 +108,10 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = apple_watch1_extension, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces an extension bundle for apple watch OS 1 which also contains the watch
 application bundle</p>

@@ -20,7 +20,9 @@ import static org.mockito.Mockito.when;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildStarted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
@@ -34,6 +36,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -62,11 +65,13 @@ public class BuildEventTransportFactoryTest {
   @Mock public BuildEvent buildEvent;
 
   @Mock public PathConverter pathConverter;
+  @Mock public ArtifactGroupNamer artifactGroupNamer;
 
   @Before
   public void before() {
     MockitoAnnotations.initMocks(this);
-    when(buildEvent.asStreamProto(pathConverter)).thenReturn(BUILD_EVENT_AS_PROTO);
+    when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any()))
+        .thenReturn(BUILD_EVENT_AS_PROTO);
   }
 
   @After
@@ -126,7 +131,7 @@ public class BuildEventTransportFactoryTest {
   private void sendEventsAndClose(BuildEvent event, Iterable<BuildEventTransport> transports)
       throws IOException{
     for (BuildEventTransport transport : transports) {
-      transport.sendBuildEvent(event);
+      transport.sendBuildEvent(event, artifactGroupNamer);
       transport.close();
     }
   }

@@ -73,6 +73,9 @@ class OutputJar {
   void WriteEntry(void *local_header_and_payload);
   // Write META_INF/ entry (the first entry on output).
   void WriteMetaInf();
+  // Write a directory entry.
+  void WriteDirEntry(const std::string &name, const uint8_t *extra_fields,
+                     const uint16_t n_extra_fields);
   // Create output Central Directory Header for the given input entry and
   // append it to CEN (Central Directory) buffer.
   void AppendToDirectoryBuffer(const CDH *cdh, off_t local_header_offset,

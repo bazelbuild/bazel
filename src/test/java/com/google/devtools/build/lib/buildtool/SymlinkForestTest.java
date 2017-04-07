@@ -113,7 +113,7 @@ public class SymlinkForestTest {
 
   @Test
   public void testLongestPathPrefix() {
-    PathFragment a = new PathFragment("A");
+    PathFragment a = PathFragment.create("A");
     assertEquals(a, longestPathPrefix("A/b", "A", "B")); // simple parent
     assertEquals(a, longestPathPrefix("A", "A", "B")); // self
     assertEquals(a.getRelative("B"), longestPathPrefix("A/B/c", "A", "A/B"));  // want longest
@@ -151,7 +151,7 @@ public class SymlinkForestTest {
       createDirectoryAndParents(repoRoot.getRelative(pkg));
       FileSystemUtils.createEmptyFile(repoRoot.getRelative(pkg).getChild("file"));
     }
-    return PackageIdentifier.create(RepositoryName.create("@" + repo), new PathFragment(pkg));
+    return PackageIdentifier.create(RepositoryName.create("@" + repo), PathFragment.create(pkg));
   }
 
   private void assertLinksTo(Path fromRoot, Path toRoot, String relpart) throws IOException {

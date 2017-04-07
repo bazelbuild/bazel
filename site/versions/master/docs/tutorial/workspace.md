@@ -25,7 +25,7 @@ For your convenience, set the `$WORKSPACE` environment variable now to refer to
 your workspace directory. At the command line, enter:
 
 ```bash
-$ export WORKSPACE=$HOME/examples/tutorial
+export WORKSPACE=$HOME/examples/tutorial
 ```
 
 ## Create a WORKSPACE file
@@ -42,7 +42,7 @@ external dependency information.
 Enter the following at the command line:
 
 ```bash
-$ touch $WORKSPACE/WORKSPACE
+touch $WORKSPACE/WORKSPACE
 ```
 
 This creates the empty `WORKSPACE` file.

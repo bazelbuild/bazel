@@ -35,11 +35,11 @@ public class PathFragmentFilterTest {
   }
 
   protected void assertIncluded(String path) {
-    assertTrue(filter.isIncluded(new PathFragment(path)));
+    assertTrue(filter.isIncluded(PathFragment.create(path)));
   }
 
   protected void assertExcluded(String path) {
-    assertFalse(filter.isIncluded(new PathFragment(path)));
+    assertFalse(filter.isIncluded(PathFragment.create(path)));
   }
 
   @Test

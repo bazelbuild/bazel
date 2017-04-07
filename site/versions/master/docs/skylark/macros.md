@@ -42,7 +42,10 @@ macro), use the constant [PACKAGE_NAME](lib/globals.html#PACKAGE_NAME).
 
 *   You may filter the output based on `generator_function` (which function
     generated the rules) or `generator_name` (the name attribute of the macro),
-    e.g. `$ bazel query --output=build 'attr(generator_function, my_macro, //my/path:all)'`
+    e.g.
+    ```bash
+    $ bazel query --output=build 'attr(generator_function, my_macro, //my/path:all)'
+    ```
 
 *   To find out where exactly the rule `foo` is generated in a BUILD file, you
     can try the following trick. Insert this line near the top of the BUILD

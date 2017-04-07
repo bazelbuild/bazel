@@ -397,70 +397,67 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           metadataHandler.getAdditionalOutputData());
     }
 
+    // Delete the metadataHandler's cache of the action's outputs, since they are being deleted.
+    metadataHandler.discardOutputMetadata();
+
     // This may be recreated if we discover inputs.
     PerActionFileCache perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-    ActionExecutionContext actionExecutionContext = null;
-    try {
-      if (action.discoversInputs()) {
-        if (state.discoveredInputs == null) {
-          try {
-            state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
-                perActionFileCache, metadataHandler, env);
-            Preconditions.checkState(state.discoveredInputs != null,
-                "discoverInputs() returned null on action %s", action);
-          } catch (MissingDepException e) {
-            Preconditions.checkState(env.valuesMissing(), action);
-            return null;
-          }
+    if (action.discoversInputs()) {
+      if (state.discoveredInputs == null) {
+        try {
+          state.discoveredInputs = skyframeActionExecutor.discoverInputs(action,
+              perActionFileCache, metadataHandler, env);
+          Preconditions.checkState(state.discoveredInputs != null,
+              "discoverInputs() returned null on action %s", action);
+        } catch (MissingDepException e) {
+          Preconditions.checkState(env.valuesMissing(), action);
+          return null;
         }
+      }
+      addDiscoveredInputs(
+          state.inputArtifactData, state.expandedArtifacts, state.discoveredInputs, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      perActionFileCache = new PerActionFileCache(state.inputArtifactData);
+
+      // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
+      // files with addDiscoveredInputs() and then have waited for those files to be available
+      // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
+      // inputs to discover even more inputs and then potentially also wait for those to be
+      // available.
+      if (state.discoveredInputsStage2 == null) {
+        state.discoveredInputsStage2 = action.discoverInputsStage2(env);
+      }
+      if (state.discoveredInputsStage2 != null) {
         addDiscoveredInputs(
-            state.inputArtifactData, state.expandedArtifacts, state.discoveredInputs, env);
+            state.inputArtifactData, state.expandedArtifacts, state.discoveredInputsStage2, env);
         if (env.valuesMissing()) {
           return null;
         }
         perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-        metadataHandler =
-            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-
-        // Stage 1 finished, let's do stage 2. The stage 1 of input discovery will have added some
-        // files with addDiscoveredInputs() and then have waited for those files to be available
-        // by returning null if env.valuesMissing() returned true. So stage 2 can now access those
-        // inputs to discover even more inputs and then potentially also wait for those to be
-        // available.
-        if (state.discoveredInputsStage2 == null) {
-          state.discoveredInputsStage2 = action.discoverInputsStage2(env);
-        }
-        if (state.discoveredInputsStage2 != null) {
-          addDiscoveredInputs(
-              state.inputArtifactData, state.expandedArtifacts, state.discoveredInputsStage2, env);
-          if (env.valuesMissing()) {
-            return null;
-          }
-          perActionFileCache = new PerActionFileCache(state.inputArtifactData);
-          metadataHandler =
-              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
-        }
       }
+      metadataHandler =
+          new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
+      // Set the MetadataHandler to accept output information.
+      metadataHandler.discardOutputMetadata();
+    }
 
-      actionExecutionContext =
-          skyframeActionExecutor.getContext(
-              perActionFileCache,
-              metadataHandler,
-              Collections.unmodifiableMap(state.expandedArtifacts));
+    try (ActionExecutionContext actionExecutionContext =
+        skyframeActionExecutor.getContext(
+            perActionFileCache,
+            metadataHandler,
+            Collections.unmodifiableMap(state.expandedArtifacts))) {
       if (!state.hasExecutedAction()) {
         state.value =
             skyframeActionExecutor.executeAction(
                 action, metadataHandler, actionStartTime, actionExecutionContext, actionLookupData);
       }
-    } finally {
-      if (actionExecutionContext != null) {
-        try {
-          actionExecutionContext.getFileOutErr().close();
-        } catch (IOException e) {
-          // Nothing we can do here.
-        }
-      }
+    } catch (IOException e) {
+      throw new ActionExecutionException(
+          "Failed to close action output", e, action, /*catastrophe=*/ false);
     }
+
     if (action.discoversInputs()) {
       Iterable<Artifact> newInputs =
           filterKnownInputs(action.getInputs(), state.inputArtifactData.keySet());
@@ -481,6 +478,10 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
               ArtifactSkyKey.artifact(entry.getKey()), (FileArtifactValue) entry.getValue());
         }
         state.inputArtifactData = inputArtifactData;
+        // TODO(ulfjack): This causes information loss about omitted and injected outputs. Also see
+        // the documentation on MetadataHandler.artifactOmitted. This works by accident because
+        // markOmitted is only called for remote execution, and this code only gets executed for
+        // local execution.
         metadataHandler =
             new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
       }

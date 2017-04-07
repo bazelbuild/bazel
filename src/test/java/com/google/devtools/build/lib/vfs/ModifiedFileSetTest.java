@@ -28,8 +28,8 @@ public class ModifiedFileSetTest {
 
   @Test
   public void testHashCodeAndEqualsContract() throws Exception {
-    PathFragment fragA = new PathFragment("a");
-    PathFragment fragB = new PathFragment("b");
+    PathFragment fragA = PathFragment.create("a");
+    PathFragment fragB = PathFragment.create("b");
 
     ModifiedFileSet empty1 = ModifiedFileSet.NOTHING_MODIFIED;
     ModifiedFileSet empty2 = ModifiedFileSet.builder().build();

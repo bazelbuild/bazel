@@ -306,7 +306,7 @@ public abstract class FileSystemTest {
   @Test
   public void testCreatePathRelativeToWorkingDirectory() {
     Path relativeCreatedPath = absolutize("some-file");
-    Path expectedResult = workingDir.getRelative(new PathFragment("some-file"));
+    Path expectedResult = workingDir.getRelative(PathFragment.create("some-file"));
 
     assertEquals(expectedResult, relativeCreatedPath);
   }
@@ -1091,7 +1091,7 @@ public abstract class FileSystemTest {
   @Test
   public void testGetPathOnlyAcceptsAbsolutePathFragment() {
     try {
-      testFS.getPath(new PathFragment("not-absolute"));
+      testFS.getPath(PathFragment.create("not-absolute"));
       fail("The expected Exception was not thrown.");
     } catch (IllegalArgumentException ex) {
       assertThat(ex).hasMessage("not-absolute (not an absolute path)");

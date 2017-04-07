@@ -35,20 +35,20 @@ public class Platform implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
 
-    Iterable<ConstraintValueProvider> constraintValues =
-        ruleContext.getPrerequisites(
-            PlatformRule.CONSTRAINT_VALUES_ATTR, Mode.DONT_CHECK, ConstraintValueProvider.class);
+    Iterable<ConstraintValueInfo> constraintValues =
+        ConstraintValueInfo.fromTargets(
+            ruleContext.getPrerequisites(PlatformRule.CONSTRAINT_VALUES_ATTR, Mode.DONT_CHECK));
 
     // Verify the constraints - no two values for the same setting, and construct the map.
-    ImmutableMap<ConstraintSettingProvider, ConstraintValueProvider> constraints =
+    ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> constraints =
         validateConstraints(ruleContext, constraintValues);
     if (constraints == null) {
       // An error occurred, return null.
       return null;
     }
 
-    PlatformProvider.Builder platformProviderBuilder = PlatformProvider.builder();
-    platformProviderBuilder.constraints(constraints);
+    PlatformInfo.Builder platformProviderBuilder = PlatformInfo.builder();
+    platformProviderBuilder.constraints(constraints.values());
 
     Map<String, String> remoteExecutionProperties =
         ruleContext.attributes().get(PlatformRule.REMOTE_EXECUTION_PROPS_ATTR, Type.STRING_DICT);
@@ -58,37 +58,36 @@ public class Platform implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addProvider(PlatformProvider.class, platformProviderBuilder.build())
+        .addNativeDeclaredProvider(platformProviderBuilder.build())
         .build();
   }
 
-  private ImmutableMap<ConstraintSettingProvider, ConstraintValueProvider> validateConstraints(
-      RuleContext ruleContext, Iterable<ConstraintValueProvider> constraintValues) {
-    Multimap<ConstraintSettingProvider, ConstraintValueProvider> constraints =
-        ArrayListMultimap.create();
+  private ImmutableMap<ConstraintSettingInfo, ConstraintValueInfo> validateConstraints(
+      RuleContext ruleContext, Iterable<ConstraintValueInfo> constraintValues) {
+    Multimap<ConstraintSettingInfo, ConstraintValueInfo> constraints = ArrayListMultimap.create();
 
-    for (ConstraintValueProvider constraintValue : constraintValues) {
+    for (ConstraintValueInfo constraintValue : constraintValues) {
       constraints.put(constraintValue.constraint(), constraintValue);
     }
 
     // Are there any settings with more than one value?
     boolean foundError = false;
-    for (ConstraintSettingProvider constraintSetting : constraints.keySet()) {
+    for (ConstraintSettingInfo constraintSetting : constraints.keySet()) {
       if (constraints.get(constraintSetting).size() > 1) {
         foundError = true;
         // error
         StringBuilder constraintValuesDescription = new StringBuilder();
-        for (ConstraintValueProvider constraintValue : constraints.get(constraintSetting)) {
+        for (ConstraintValueInfo constraintValue : constraints.get(constraintSetting)) {
           if (constraintValuesDescription.length() > 0) {
             constraintValuesDescription.append(", ");
           }
-          constraintValuesDescription.append(constraintValue.value());
+          constraintValuesDescription.append(constraintValue.label());
         }
         ruleContext.attributeError(
             PlatformRule.CONSTRAINT_VALUES_ATTR,
             String.format(
                 "Duplicate constraint_values for constraint_setting %s: %s",
-                constraintSetting.constraintSetting(), constraintValuesDescription.toString()));
+                constraintSetting.label(), constraintValuesDescription.toString()));
       }
     }
 
@@ -97,10 +96,10 @@ public class Platform implements RuleConfiguredTargetFactory {
     }
 
     // Convert to a flat map.
-    ImmutableMap.Builder<ConstraintSettingProvider, ConstraintValueProvider> builder =
+    ImmutableMap.Builder<ConstraintSettingInfo, ConstraintValueInfo> builder =
         new ImmutableMap.Builder<>();
-    for (ConstraintSettingProvider constraintSetting : constraints.keySet()) {
-      ConstraintValueProvider constraintValue =
+    for (ConstraintSettingInfo constraintSetting : constraints.keySet()) {
+      ConstraintValueInfo constraintValue =
           Iterables.getOnlyElement(constraints.get(constraintSetting));
       builder.put(constraintSetting, constraintValue);
     }

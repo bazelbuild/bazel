@@ -145,14 +145,25 @@ class OptionProcessor {
   void AddRcfileArgsAndOptions(const std::string& cwd);
   blaze_exit_code::ExitCode ParseStartupOptions(std::string* error);
 
+  // The list of parsed rc files, this field is initialized by ParseOptions.
   std::vector<RcFile*> blazercs_;
   std::map<std::string, std::vector<RcOption> > rcoptions_;
+  // The original args given by the user, this field is initialized by
+  // ParseOptions.
   std::vector<std::string> args_;
+  // The index in args where the last startup option occurs, this field is
+  // initialized by ParseOptions.
   unsigned int startup_args_;
+  // The command found in args, this field is initialized by ParseOptions.
   std::string command_;
+  // The list of command options found in args, this field is initialized by
+  // ParseOptions.
   std::vector<std::string> command_arguments_;
+  // Whether ParseOptions has been called.
   bool initialized_;
   const WorkspaceLayout* workspace_layout_;
+  // The startup options parsed from args, this field is initialized by
+  // ParseOptions.
   std::unique_ptr<StartupOptions> parsed_startup_options_;
 };
 

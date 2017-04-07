@@ -139,7 +139,7 @@ public class Tests {
 EOF
 
   bazel test --explicit_java_test_deps --experimental_testrunner --test_strategy=experimental_worker \
-      --test_output=all --no_cache_test_results //java/testrunners:Tests &> $TEST_log \
+      --test_output=all --nocache_test_results //java/testrunners:Tests &> $TEST_log \
       && fail "Test passes unexpectedly" || true
   expect_log "Test is supposed to fail now"
 }
@@ -223,7 +223,7 @@ java_test(name = "Tests",
 EOF
 
   bazel test --explicit_java_test_deps --experimental_testrunner --test_strategy=experimental_worker \
-      --test_output=all --no_cache_test_results //java/testrunners:Tests &> $TEST_log \
+      --test_output=all --nocache_test_results //java/testrunners:Tests &> $TEST_log \
        && fail "Test passes unexpectedly" || true
   expect_log "Supposed to fail now."
 }
@@ -248,10 +248,10 @@ java_test(name = "TestWithoutRunner",
 )
 EOF
 
-  bazel test --explicit_java_test_deps --experimental_testrunner --no_cache_test_results \
+  bazel test --explicit_java_test_deps --experimental_testrunner --nocache_test_results \
       //java/testrunners:TestWithoutRunner >& $TEST_log || fail "Normal test execution should pass."
 
-  bazel test --explicit_java_test_deps --experimental_testrunner --no_cache_test_results \
+  bazel test --explicit_java_test_deps --experimental_testrunner --nocache_test_results \
       --test_strategy=experimental_worker >& $TEST_log //java/testrunners:TestWithoutRunner \
       && fail "Test should have failed when running with an experimental runner." || true
 
@@ -287,10 +287,10 @@ java_test(name = "Tests",
 )
 EOF
 
-  bazel test --no_cache_test_results //java/testrunners:Tests >& $TEST_log \
+  bazel test --nocache_test_results //java/testrunners:Tests >& $TEST_log \
       || fail "Normal test execution should pass."
 
-  bazel test --no_cache_test_results --test_strategy=experimental_worker >& $TEST_log \
+  bazel test --nocache_test_results --test_strategy=experimental_worker >& $TEST_log \
       //java/testrunners:Tests \
       && fail "Test should have failed when running with an experimental runner." \
       || true

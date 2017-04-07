@@ -192,7 +192,7 @@ public final class ActionsTestUtil {
   }
 
   public static final Artifact DUMMY_ARTIFACT = new Artifact(
-      new PathFragment("dummy"),
+      PathFragment.create("dummy"),
       Root.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
 
   public static final ActionOwner NULL_ACTION_OWNER =
@@ -549,7 +549,7 @@ public final class ActionsTestUtil {
       Artifact inputTreeArtifact, Artifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
         .setCommandLineTemplate(CustomCommandLine.builder().build())
-        .setExecutable(new PathFragment("bin/executable"))
+        .setExecutable(PathFragment.create("bin/executable"))
         .setOutputPathMapper(new OutputPathMapper() {
           @Override
           public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {

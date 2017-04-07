@@ -135,7 +135,7 @@ public final class TransitiveOptionDetails implements Serializable {
    * <p>As declared in {@link Option#allowMultiple}, multi-value options are expected to be
    * of type {@code List<T>}.
    */
-  boolean allowsMultipleValues(String optionName) {
+  public boolean allowsMultipleValues(String optionName) {
     OptionDetails optionData = transitiveOptionsMap.get(optionName);
     return (optionData == null) ? false : optionData.allowsMultiple;
   }

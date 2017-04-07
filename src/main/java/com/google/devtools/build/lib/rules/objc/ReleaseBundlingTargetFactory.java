@@ -34,7 +34,11 @@ import javax.annotation.Nullable;
 
 /**
  * Base class for rules that bundle releases.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTargetFactory {
 
   private final String bundleDirFormat;
@@ -65,6 +69,10 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    ruleContext.ruleWarning(
+        "This rule is deprecated. Please use the new Apple build rules "
+            + "(https://github.com/bazelbuild/rules_apple) to build Apple targets.");
+
     validateAttributes(ruleContext);
     ObjcCommon common = common(ruleContext);
 

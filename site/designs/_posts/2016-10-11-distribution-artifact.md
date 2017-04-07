@@ -3,11 +3,17 @@ layout: contribute
 title: Distribution Artifact for Bazel
 ---
 
-# Distribution Artifact for Bazel
+# Design Document: Distribution Artifact for Bazel
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Implemented
 
 **Author**: [Klaus Aehlig](mailto:aehlig@google.com)
+
+**Design document published**: 11 October 2016
 
 ## Current State and Shortcomings
 

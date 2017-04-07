@@ -592,13 +592,16 @@ public class BuildTypeTest {
   private static ImmutableList<Label> collectLabels(Type<?> type, Object value)
       throws InterruptedException {
     final ImmutableList.Builder<Label> result = ImmutableList.builder();
-    type.visitLabels(new Type.LabelVisitor() {
-      @SuppressWarnings("unchecked")
-      @Override
-      public void visit(Label label) throws InterruptedException {
-        result.add(label);
-      }
-    }, value);
+    type.visitLabels(
+        new Type.LabelVisitor<Object>() {
+          @SuppressWarnings("unchecked")
+          @Override
+          public void visit(Label label, Object dummy) throws InterruptedException {
+            result.add(label);
+          }
+        },
+        value,
+        /*context=*/ null);
     return result.build();
   }
 }

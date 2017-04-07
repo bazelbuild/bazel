@@ -526,7 +526,7 @@ public class Package {
     // stat(2) is executed.
     Path filename = getPackageDirectory().getRelative(targetName);
     String suffix;
-    if (!new PathFragment(targetName).isNormalized()) {
+    if (!PathFragment.create(targetName).isNormalized()) {
       // Don't check for file existence in this case because the error message
       // would be confusing and wrong. If the targetName is "foo/bar/.", and
       // there is a directory "foo/bar", it doesn't mean that "//pkg:foo/bar/."
@@ -1242,7 +1242,7 @@ public class Package {
       // Now, modify the package:
       for (OutputFile outputFile : rule.getOutputFiles()) {
         targets.put(outputFile.getName(), outputFile);
-        PathFragment outputFileFragment = new PathFragment(outputFile.getName());
+        PathFragment outputFileFragment = PathFragment.create(outputFile.getName());
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (!outputFilePrefixes.containsKey(prefix)) {
@@ -1430,7 +1430,7 @@ public class Package {
         }
 
         // Check if a prefix of this output file matches an already existing one
-        PathFragment outputFileFragment = new PathFragment(outputFileName);
+        PathFragment outputFileFragment = PathFragment.create(outputFileName);
         for (int i = 1; i < outputFileFragment.segmentCount(); i++) {
           String prefix = outputFileFragment.subFragment(0, i).toString();
           if (outputFiles.containsKey(prefix)) {

@@ -97,7 +97,7 @@ public class FileTypeTest {
 
   @Test
   public void handlesPathFragmentObjects() {
-    PathFragment readme = new PathFragment("some/where/readme.txt");
+    PathFragment readme = PathFragment.create("some/where/readme.txt");
     assertTrue(TEXT.matches(readme));
   }
 

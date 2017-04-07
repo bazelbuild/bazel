@@ -3,13 +3,19 @@ layout: contribute
 title: Generating C++ crosstool with a Skylark Remote Repository
 ---
 
-# Generating C++ crosstool with a Skylark Remote Repository
+# Design Document: Generating C++ crosstool with a Skylark Remote Repository
 
-__Status:__ implemented
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
 
-__Author:__ dmarting@google.com
 
-__Reviewers:__ lberki@google.com
+**Status:** implemented
+
+**Author:** dmarting@google.com
+
+**Reviewers:** lberki@google.com
+
+**Design document published**: 16 February 2016
 
 ## Context
 

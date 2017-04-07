@@ -3,11 +3,17 @@ layout: contribute
 title: Invalidation of remote repositories
 ---
 
-# Invalidation of remote repositories
+# Design Document: Invalidation of remote repositories
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Implemented
 
 **Author**: [Damien Martin-Guillerez](dmarting@google.com)
+
+**Design document published**: 18 October 2016
 
 ## State at commit [808a651](https://github.com/bazelbuild/bazel/commit/808a6518519501cfd32755a229d5dddf70e33557)
 

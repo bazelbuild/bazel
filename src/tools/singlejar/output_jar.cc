@@ -220,6 +220,17 @@ int OutputJar::Doit(Options *options) {
         }
       }
     }
+
+    // Add parent directory entries.
+    size_t pos = classpath_resource->filename().find('/');
+    while (pos != std::string::npos) {
+      std::string dir(classpath_resource->filename(), 0, pos + 1);
+      if (NewEntry(dir)) {
+        WriteDirEntry(dir, nullptr, 0);
+      }
+      pos = classpath_resource->filename().find('/', pos + 1);
+    }
+
     WriteEntry(classpath_resource->OutputEntry(do_compress));
   }
 
@@ -580,8 +591,7 @@ void OutputJar::WriteEntry(void *buffer) {
 }
 
 void OutputJar::WriteMetaInf() {
-  const char path[] = "META-INF/";
-  size_t n_path = strlen(path);
+  std::string path("META-INF/");
 
   // META_INF/ is always the first entry, and as such it should have an extra
   // field with the tag 0xCAFE and zero bytes of data. This is not the part of
@@ -590,7 +600,14 @@ void OutputJar::WriteMetaInf() {
   const uint8_t extra_fields[] = {0xFE, 0xCA, 0, 0};
   const uint16_t n_extra_fields =
       sizeof(extra_fields) / sizeof(extra_fields[0]);
-  size_t lh_size = sizeof(LH) + n_path + n_extra_fields;
+  WriteDirEntry(path, extra_fields, n_extra_fields);
+}
+
+// Writes a directory entry with the given name and extra fields.
+void OutputJar::WriteDirEntry(const std::string &name,
+                              const uint8_t *extra_fields,
+                              const uint16_t n_extra_fields) {
+  size_t lh_size = sizeof(LH) + name.size() + n_extra_fields;
   LH *lh = reinterpret_cast<LH *>(malloc(lh_size));
   lh->signature();
   lh->version(20);  // 2.0
@@ -599,9 +616,9 @@ void OutputJar::WriteMetaInf() {
   lh->crc32(0);
   lh->compressed_file_size32(0);
   lh->uncompressed_file_size32(0);
-  lh->file_name(path, n_path);
+  lh->file_name(name.c_str(), name.size());
   lh->extra_fields(extra_fields, n_extra_fields);
-  known_members_.emplace(path, EntryInfo{&null_combiner_});
+  known_members_.emplace(name, EntryInfo{&null_combiner_});
   WriteEntry(lh);
 }
 

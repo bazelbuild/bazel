@@ -29,12 +29,16 @@ image with an install wizard.
 
 Installing Homebrew is a one-time setup:
 
-`$ /usr/bin/ruby -e "$(curl -fsSL
-https://raw.githubusercontent.com/Homebrew/install/master/install)"`
+```bash
+/usr/bin/ruby -e "$(curl -fsSL
+https://raw.githubusercontent.com/Homebrew/install/master/install)"
+```
 
 ### 3. Install Bazel Homebrew Package
 
-`$ brew install bazel`
+```bash
+brew install bazel
+```
 
 You are all set. You can confirm Bazel is installed successfully by running
 `bazel version`.
@@ -69,7 +73,7 @@ Once XCode is installed you can trigger signing the license with the following
 command:
 
 ```
-$ sudo gcc --version
+sudo gcc --version
 ```
 
 ### 3. Download Bazel
@@ -82,8 +86,8 @@ your operating system.
 Run the installer:
 
 <pre>
-$ chmod +x bazel-<em>version</em>-installer-<em>os</em>.sh
-$ ./bazel-<em>version</em>-installer-<em>os</em>.sh --user
+chmod +x bazel-&lt;version&gt;-installer-&lt;os&gt;.sh
+./bazel-&lt;version&gt;-installer-&lt;os&gt;.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
@@ -97,10 +101,12 @@ executable is installed in your `$HOME/bin` directory. It's a good idea to add
 this directory to your default paths, as follows:
 
 ```bash
-$ export PATH="$PATH:$HOME/bin"
+export PATH="$PATH:$HOME/bin"
 ```
 
 You can also add this command to your `~/.bashrc` file.
 
 You are all set. You can confirm Bazel is installed successfully by running
-`bazel version`.
+```bash
+bazel version
+```

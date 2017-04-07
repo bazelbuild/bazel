@@ -15,43 +15,153 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import javax.annotation.Nullable;
 
 /**
  * The result of a spawn execution.
+ *
+ * <p>DO NOT IMPLEMENT THIS INTERFACE! Use {@link SpawnResult.Builder} to create instances instead.
+ * This is a temporary situation as long as we still have separate internal and external
+ * implementations - the plan is to merge the two into a single immutable, final class.
  */
+// TODO(ulfjack): Change this from an interface to an immutable, final class.
 public interface SpawnResult {
+  /** The status of the attempted Spawn execution. */
+  public enum Status {
+    /**
+     * Subprocess executed successfully, but may have returned a non-zero exit code. See
+     * {@link #exitCode} for the actual exit code.
+     */
+    SUCCESS,
+
+    /** Subprocess execution timed out. */
+    TIMEOUT,
+
+    /**
+     * Subprocess did not execute for an unknown reason - only use this if none of the more specific
+     * status codes apply.
+     */
+    EXECUTION_FAILED,
+
+    /** The attempted subprocess was disallowed by a user setting. */
+    LOCAL_ACTION_NOT_ALLOWED,
+
+    /** The Spawn referred to an non-existent absolute or relative path. */
+    COMMAND_NOT_FOUND,
+
+    /**
+     * One of the Spawn inputs was a directory. For backwards compatibility, some
+     * {@link SpawnRunner} implementations may attempt to run the subprocess anyway. Note that this
+     * leads to incremental correctness issues, as Bazel does not track dependencies on directories.
+     */
+    DIRECTORY_AS_INPUT_DISALLOWED,
+
+    /**
+     * Too many input files - remote execution systems may refuse to execute subprocesses with an
+     * excessive number of input files.
+     */
+    TOO_MANY_INPUT_FILES,
+
+    /**
+     * Total size of inputs is too large - remote execution systems may refuse to execute
+     * subprocesses if the total size of all inputs exceeds a limit.
+     */
+    INPUTS_TOO_LARGE,
+
+    /**
+     * One of the input files to the Spawn was modified during the build - some {@link SpawnRunner}
+     * implementations cache checksums and may detect such modifications on a best effort basis.
+     */
+    FILE_MODIFIED_DURING_BUILD,
+
+    /**
+     * The {@link SpawnRunner} was unable to establish a required network connection.
+     */
+    CONNECTION_FAILED,
+
+    /**
+     * The remote execution system is overloaded and had to refuse execution for this Spawn.
+     */
+    REMOTE_EXECUTOR_OVERLOADED,
+
+    /**
+     * The remote execution system did not allow the request due to missing authorization or
+     * authentication.
+     */
+    NOT_AUTHORIZED,
+
+    /**
+     * The Spawn was malformed.
+     */
+    INVALID_ARGUMENT;
+  }
+
   /**
-   * Returns whether the spawn was actually run, regardless of the exit code. Returns false if there
-   * were network errors, missing local files, errors setting up sandboxing, etc.
+   * Returns whether the spawn was actually run, regardless of the exit code. I.e., returns if
+   * status == SUCCESS || status == TIMEOUT. Returns false if there were errors that prevented the
+   * spawn from being run, such as network errors, missing local files, errors setting up
+   * sandboxing, etc.
    */
   boolean setupSuccess();
 
+  /** The status of the attempted Spawn execution. */
+  Status status();
+
   /**
-   * The exit code of the subprocess.
+   * The exit code of the subprocess if the subprocess was executed. Check {@link #status} for
+   * {@link Status#SUCCESS} before calling this method.
    */
   int exitCode();
+
+  /**
+   * The host name of the executor or {@code null}. This information is intended for debugging
+   * purposes, especially for remote execution systems. Remote caches usually do not store the
+   * original host name, so this is generally {@code null} for cache hits.
+   */
+  @Nullable String getExecutorHostName();
+
+  long getWallTimeMillis();
 
   /**
    * Basic implementation of {@link SpawnResult}.
    */
   @Immutable @ThreadSafe
   public static final class SimpleSpawnResult implements SpawnResult {
-    private final boolean setupSuccess;
     private final int exitCode;
+    private final Status status;
+    private final String executorHostName;
+    private final long wallTimeMillis;
 
     SimpleSpawnResult(Builder builder) {
-      this.setupSuccess = builder.setupSuccess;
       this.exitCode = builder.exitCode;
+      this.status = builder.status;
+      this.executorHostName = builder.executorHostName;
+      this.wallTimeMillis = builder.wallTimeMillis;
     }
 
     @Override
     public boolean setupSuccess() {
-      return setupSuccess;
+      return status == Status.SUCCESS || status == Status.TIMEOUT;
     }
 
     @Override
     public int exitCode() {
       return exitCode;
+    }
+
+    @Override
+    public Status status() {
+      return status;
+    }
+
+    @Override
+    public String getExecutorHostName() {
+      return executorHostName;
+    }
+
+    @Override
+    public long getWallTimeMillis() {
+      return wallTimeMillis;
     }
   }
 
@@ -59,20 +169,32 @@ public interface SpawnResult {
    * Builder class for {@link SpawnResult}.
    */
   public static final class Builder {
-    private boolean setupSuccess;
     private int exitCode;
+    private Status status;
+    private String executorHostName;
+    private long wallTimeMillis;
 
     public SpawnResult build() {
       return new SimpleSpawnResult(this);
     }
 
-    public Builder setSetupSuccess(boolean setupSuccess) {
-      this.setupSuccess = setupSuccess;
+    public Builder setExitCode(int exitCode) {
+      this.exitCode = exitCode;
       return this;
     }
 
-    public Builder setExitCode(int exitCode) {
-      this.exitCode = exitCode;
+    public Builder setStatus(Status status) {
+      this.status = status;
+      return this;
+    }
+
+    public Builder setExecutorHostname(String executorHostName) {
+      this.executorHostName = executorHostName;
+      return this;
+    }
+
+    public Builder setWallTimeMillis(long wallTimeMillis) {
+      this.wallTimeMillis = wallTimeMillis;
       return this;
     }
   }

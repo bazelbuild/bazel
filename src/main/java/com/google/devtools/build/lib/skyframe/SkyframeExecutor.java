@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -659,8 +658,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    *       way).
    * </ol>
    */
-  public void decideKeepIncrementalState(
-      boolean batch, Options viewOptions, ExecutionOptions executionOptions) {
+  public void decideKeepIncrementalState(boolean batch, Options viewOptions) {
     // Assume incrementality.
   }
 
@@ -1908,6 +1906,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           relativeWorkingDirectory.getPathString(), options.compileOneDependency,
           options.buildTestsOnly, determineTests,
           ImmutableList.copyOf(options.buildTagFilterList),
+          options.buildManualTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));

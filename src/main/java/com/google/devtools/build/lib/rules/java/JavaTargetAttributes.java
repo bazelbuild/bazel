@@ -73,8 +73,8 @@ public class JavaTargetAttributes {
     private final Set<Artifact> processorPath = new LinkedHashSet<>();
     // Classpath directories can't be represented as artifacts (TreeArtifact isn't appropriate
     // here since all we need is a path string to apply to the command line).
-    private final Set<PathFragment> processorPathDirs = new LinkedHashSet<>();
     private final Set<String> processorNames = new LinkedHashSet<>();
+    private final Set<String> processorFlags = new LinkedHashSet<>();
 
     private final Set<Artifact> apiGeneratingProcessorPath = new LinkedHashSet<>();
     private final Set<String> apiGeneratingProcessorNames = new LinkedHashSet<>();
@@ -319,15 +319,15 @@ public class JavaTargetAttributes {
       return this;
     }
 
-    public Builder addProcessorPath(Iterable<Artifact> jars) {
+    public Builder addProcessorFlag(String processorFlag) {
       Preconditions.checkArgument(!built);
-      Iterables.addAll(processorPath, jars);
+      processorFlags.add(processorFlag);
       return this;
     }
 
-    public Builder addProcessorPathDir(PathFragment dir) {
+    public Builder addProcessorPath(Iterable<Artifact> jars) {
       Preconditions.checkArgument(!built);
-      processorPathDirs.add(dir);
+      Iterables.addAll(processorPath, jars);
       return this;
     }
 
@@ -375,8 +375,8 @@ public class JavaTargetAttributes {
           sourcePath,
           nativeLibraries,
           processorPath,
-          processorPathDirs,
           processorNames,
+          processorFlags,
           apiGeneratingProcessorPath,
           apiGeneratingProcessorNames,
           resources,
@@ -393,22 +393,34 @@ public class JavaTargetAttributes {
           strictJavaDeps);
     }
 
-    // TODO(bazel-team): Remove these 5 methods.
+    // TODO(bazel-team): delete the following methods - users should use the built
+    // JavaTargetAttributes instead of accessing mutable state in the Builder.
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
     @Deprecated
     public Set<Artifact> getSourceFiles() {
       return sourceFiles;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSources} */
+    @Deprecated
+    public boolean hasSources() {
+      return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
+    }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceFiles} */
     @Deprecated
     public boolean hasSourceFiles() {
       return !sourceFiles.isEmpty();
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#getInstrumentationMetadata} */
     @Deprecated
     public List<Artifact> getInstrumentationMetadata() {
       return instrumentationMetadata;
     }
 
+    /** @deprecated prefer {@link JavaTargetAttributes#hasSourceJars} */
     @Deprecated
     public boolean hasSourceJars() {
       return !sourceJars.isEmpty();
@@ -430,8 +442,8 @@ public class JavaTargetAttributes {
   private final ImmutableList<Artifact> nativeLibraries;
 
   private final ImmutableSet<Artifact> processorPath;
-  private final ImmutableSet<PathFragment> processorPathDirs;
   private final ImmutableSet<String> processorNames;
+  private final ImmutableSet<String> processorFlags;
 
   private final ImmutableSet<Artifact> apiGeneratingProcessorPath;
   private final ImmutableSet<String> apiGeneratingProcessorNames;
@@ -464,8 +476,8 @@ public class JavaTargetAttributes {
       List<Artifact> sourcePath,
       List<Artifact> nativeLibraries,
       Set<Artifact> processorPath,
-      Set<PathFragment> processorPathDirs,
       Set<String> processorNames,
+      Set<String> processorFlags,
       Set<Artifact> apiGeneratingProcessorPath,
       Set<String> apiGeneratingProcessorNames,
       Map<PathFragment, Artifact> resources,
@@ -493,8 +505,8 @@ public class JavaTargetAttributes {
     this.sourcePath = ImmutableList.copyOf(sourcePath);
     this.nativeLibraries = ImmutableList.copyOf(nativeLibraries);
     this.processorPath = ImmutableSet.copyOf(processorPath);
-    this.processorPathDirs = ImmutableSet.copyOf(processorPathDirs);
     this.processorNames = ImmutableSet.copyOf(processorNames);
+    this.processorFlags = ImmutableSet.copyOf(processorFlags);
     this.apiGeneratingProcessorPath = ImmutableSet.copyOf(apiGeneratingProcessorPath);
     this.apiGeneratingProcessorNames = ImmutableSet.copyOf(apiGeneratingProcessorNames);
     this.resources = ImmutableMap.copyOf(resources);
@@ -588,10 +600,6 @@ public class JavaTargetAttributes {
     return processorPath;
   }
 
-  public ImmutableSet<PathFragment> getProcessorPathDirs() {
-    return processorPathDirs;
-  }
-
   public Collection<Artifact> getApiGeneratingProcessorPath() {
     return apiGeneratingProcessorPath;
   }
@@ -616,24 +624,23 @@ public class JavaTargetAttributes {
     return processorNames;
   }
 
-  public boolean hasSourceFiles() {
-    return !sourceFiles.isEmpty();
+  public Collection<String> getProcessorFlags() {
+    return processorFlags;
   }
 
-  public boolean hasSourceJars() {
-    return !sourceJars.isEmpty();
+  public boolean hasSources() {
+    return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
   }
 
   public boolean hasResources() {
-    return !resources.isEmpty();
+    return !resources.isEmpty()
+        || !messages.isEmpty()
+        || !classPathResources.isEmpty()
+        || !resourceJars.isEmpty();
   }
 
   public boolean hasMessages() {
     return !messages.isEmpty();
-  }
-
-  public boolean hasClassPathResources() {
-    return !classPathResources.isEmpty();
   }
 
   public String getRuleKind() {

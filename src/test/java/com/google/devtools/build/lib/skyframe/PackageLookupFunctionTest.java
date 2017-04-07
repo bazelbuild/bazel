@@ -199,7 +199,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("blacklisted/subdir/BUILD");
     scratch.file("blacklisted/BUILD");
     PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(differencer,
-        new PathFragment("config/blacklisted.txt"));
+        PathFragment.create("config/blacklisted.txt"));
     Path blacklist = scratch.file("config/blacklisted.txt", "blacklisted");
 
     ImmutableSet<String> pkgs = ImmutableSet.of("blacklisted/subdir", "blacklisted");
@@ -213,7 +213,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
     scratch.overwriteFile("config/blacklisted.txt", "not_blacklisted");
     RootedPath rootedBlacklist = RootedPath.toRootedPath(
         blacklist.getParentDirectory().getParentDirectory(),
-        new PathFragment("config/blacklisted.txt"));
+        PathFragment.create("config/blacklisted.txt"));
     differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedBlacklist)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);

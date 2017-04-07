@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -23,7 +21,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -107,22 +104,10 @@ public interface Preprocessor {
    * A (result, success) tuple indicating the outcome of preprocessing.
    */
   static class Result {
-    private static final char[] EMPTY_CHARS = new char[0];
-
     public final ParserInputSource result;
-    public final boolean preprocessed;
-    public final boolean containsErrors;
-    public final List<Event> events;
 
-    private Result(
-        ParserInputSource result,
-        boolean preprocessed,
-        boolean containsErrors,
-        List<Event> events) {
+    private Result(ParserInputSource result) {
       this.result = result;
-      this.preprocessed = preprocessed;
-      this.containsErrors = containsErrors;
-      this.events = ImmutableList.copyOf(events);
     }
 
     public static Result noPreprocessing(PathFragment buildFilePathFragment,
@@ -133,29 +118,7 @@ public interface Preprocessor {
 
     /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
-      return new Result(
-          buildFileSource,
-          /*preprocessed=*/ false,
-          /*containsErrors=*/ false,
-          ImmutableList.<Event>of());
-    }
-
-    /**
-     * Factory for a successful preprocessing result, meaning that the BUILD file was able to be
-     * read and has valid syntax and was preprocessed. But note that there may have been be errors
-     * during preprocessing.
-     */
-    public static Result success(ParserInputSource result, boolean containsErrors,
-        List<Event> events) {
-      return new Result(result, /*preprocessed=*/true, containsErrors, events);
-    }
-
-    public static Result invalidSyntax(PathFragment buildFile, List<Event> events) {
-      return new Result(
-          ParserInputSource.create(EMPTY_CHARS, buildFile),
-          /*preprocessed=*/true,
-          /*containsErrors=*/true,
-          events);
+      return new Result(buildFileSource);
     }
   }
 
@@ -185,8 +148,6 @@ public interface Preprocessor {
 
   /** The result of parsing a preprocessed BUILD file. */
   static class AstAfterPreprocessing {
-    public final boolean preprocessed;
-    public final boolean containsPreprocessingErrors;
     public final BuildFileAST ast;
     public final boolean containsAstParsingErrors;
     public final Iterable<Event> allEvents;
@@ -194,11 +155,8 @@ public interface Preprocessor {
     public AstAfterPreprocessing(Result preprocessingResult, BuildFileAST ast,
         StoredEventHandler astParsingEventHandler) {
       this.ast = ast;
-      this.preprocessed = preprocessingResult.preprocessed;
-      this.containsPreprocessingErrors = preprocessingResult.containsErrors;
       this.containsAstParsingErrors = astParsingEventHandler.hasErrors();
-      this.allEvents = Iterables.concat(
-          preprocessingResult.events, astParsingEventHandler.getEvents());
+      this.allEvents = astParsingEventHandler.getEvents();
     }
   }
 }

@@ -118,7 +118,6 @@ function test_basic() {
   expect_log 'build_finished'
   expect_log 'overall_success: true'
   expect_log 'finish_time'
-  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
@@ -138,7 +137,6 @@ function test_test_summary() {
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
     || fail "bazel test failed"
   expect_log_once '^test_summary '
-  expect_log_once '^progress '
   expect_not_log 'aborted'
   expect_log 'status.*PASSED'
   expect_not_log 'status.*FAILED'
@@ -156,7 +154,6 @@ function test_test_inidivual_results() {
   expect_log 'run.*1'
   expect_log 'status.*PASSED'
   expect_log_once '^test_summary '
-  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
@@ -175,7 +172,6 @@ function test_test_attempts() {
   expect_log 'status.*FAILED'
   expect_not_log 'status.*PASSED'
   expect_not_log 'status.*FLAKY'
-  expect_log_once '^progress '
   expect_not_log 'aborted'
   expect_log '^test_result'
   expect_log 'test_action_output'
@@ -221,7 +217,6 @@ function test_test_attempts_multi_runs() {
     && fail "test failure expected" ) || true
   expect_log 'run.*1'
   expect_log 'attempt.*2'
-  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
@@ -234,7 +229,6 @@ function test_test_attempts_multi_runs_flake_detection() {
     && fail "test failure expected" ) || true
   expect_log 'run.*1'
   expect_log 'attempt.*2'
-  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
@@ -247,7 +241,6 @@ function test_cached_test_results() {
   expect_log '^test_result'
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
-  expect_log_once '^progress '
   expect_not_log 'cached_locally'
   expect_not_log 'aborted'
   bazel test --experimental_build_event_text_file=$TEST_log pkg:true \
@@ -256,7 +249,6 @@ function test_cached_test_results() {
   expect_log 'name:.*test.log'
   expect_log 'name:.*test.xml'
   expect_log 'cached_locally'
-  expect_log_once '^progress '
   expect_not_log 'aborted'
 }
 
@@ -300,19 +292,10 @@ function test_build_only() {
     || fail "bazel build failed"
   expect_not_log 'aborted'
   expect_not_log 'test_summary '
-  expect_log_once '^progress'
   # Build Finished
   expect_log 'build_finished'
   expect_log 'overall_success: true'
   expect_log 'finish_time'
-}
-
-function test_build_test_suite() {
-  # Sucessfully building a test suite should not have any unexpected events;
-  # so we expect to see only one progress event.
-  bazel build --experimental_build_event_text_file=$TEST_log pkg:suite \
-    || fail "bazel build failed"
-  expect_log_once '^progress'
 }
 
 function test_multiple_transports() {

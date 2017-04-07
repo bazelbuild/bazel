@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -54,8 +53,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process, for Darwin */
@@ -74,43 +71,38 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
   private final ImmutableList<Path> confPaths;
   private final SpawnHelpers spawnHelpers;
 
-  private final UUID uuid = UUID.randomUUID();
-  private final AtomicInteger execCounter = new AtomicInteger();
-  private final String workspaceName;
-
   private DarwinSandboxedStrategy(
       BuildRequest buildRequest,
       Map<String, String> clientEnv,
       BlazeDirectories blazeDirs,
+      Path sandboxBase,
       boolean verboseFailures,
       String productName,
       ImmutableList<Path> confPaths,
-      SpawnHelpers spawnHelpers,
-      String workspaceName) {
+      SpawnHelpers spawnHelpers) {
     super(
         buildRequest,
         blazeDirs,
+        sandboxBase,
         verboseFailures,
-        buildRequest.getOptions(SandboxOptions.class),
-        workspaceName);
+        buildRequest.getOptions(SandboxOptions.class));
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.blazeDirs = blazeDirs;
-    this.execRoot = blazeDirs.getExecRoot(workspaceName);
+    this.execRoot = blazeDirs.getExecRoot();
     this.sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
     this.verboseFailures = verboseFailures;
     this.productName = productName;
     this.confPaths = confPaths;
     this.spawnHelpers = spawnHelpers;
-    this.workspaceName = workspaceName;
   }
 
   public static DarwinSandboxedStrategy create(
       BuildRequest buildRequest,
       Map<String, String> clientEnv,
       BlazeDirectories blazeDirs,
+      Path sandboxBase,
       boolean verboseFailures,
-      String productName,
-      String workspaceName)
+      String productName)
       throws IOException {
     // On OS X, in addition to what is specified in $TMPDIR, two other temporary directories may be
     // written to by processes. We have to get their location by calling "getconf".
@@ -127,11 +119,11 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
         buildRequest,
         clientEnv,
         blazeDirs,
+        sandboxBase,
         verboseFailures,
         productName,
         writablePaths.build(),
-        new SpawnHelpers(blazeDirs.getExecRoot(workspaceName)),
-        workspaceName);
+        new SpawnHelpers(blazeDirs.getExecRoot()));
   }
 
   /**
@@ -156,7 +148,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException {
+      throws ExecException, InterruptedException, IOException {
     Executor executor = actionExecutionContext.getExecutor();
     executor
         .getEventBus()
@@ -173,7 +165,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     }
 
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
+    Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
     if (errWriter != null) {
@@ -184,18 +176,13 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
     ImmutableMap<String, String> spawnEnvironment =
         StandaloneSpawnStrategy.locallyDeterminedEnv(execRoot, productName, spawn.getEnvironment());
 
-    Set<Path> writableDirs;
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
     Path runUnderPath = getRunUnderPath(spawn);
     HardlinkedExecRoot hardlinkedExecRoot =
         new HardlinkedExecRoot(execRoot, sandboxPath, sandboxExecRoot, errWriter);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    try {
-      writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-      hardlinkedExecRoot.createFileSystem(
-          getMounts(spawn, actionExecutionContext), outputs, writableDirs);
-    } catch (IOException e) {
-      throw new UserExecException("Could not prepare sandbox directory", e);
-    }
+    hardlinkedExecRoot.createFileSystem(
+        getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
     // Flush our logs before executing the spawn, otherwise they might get overwritten.
     if (errWriter != null) {
@@ -310,8 +297,7 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
   }
 
   private void finalizeLinksPath(
-      Map<PathFragment, Path> finalizedMounts, PathFragment target, Path source, FileStatus stat)
-      throws IOException {
+      Map<PathFragment, Path> finalizedMounts, PathFragment target, Path source, FileStatus stat) {
     // The source must exist.
     Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
     finalizedMounts.put(target, source);
@@ -330,12 +316,12 @@ public class DarwinSandboxedStrategy extends SandboxStrategy {
       TestRunnerAction testRunnerAction = ((TestRunnerAction) spawn.getResourceOwner());
       RunUnder runUnder = testRunnerAction.getExecutionSettings().getRunUnder();
       if (runUnder != null && runUnder.getCommand() != null) {
-        PathFragment sourceFragment = new PathFragment(runUnder.getCommand());
+        PathFragment sourceFragment = PathFragment.create(runUnder.getCommand());
         Path mount;
         if (sourceFragment.isAbsolute()) {
           mount = blazeDirs.getFileSystem().getPath(sourceFragment);
-        } else if (blazeDirs.getExecRoot(workspaceName).getRelative(sourceFragment).exists()) {
-          mount = blazeDirs.getExecRoot(workspaceName).getRelative(sourceFragment);
+        } else if (blazeDirs.getExecRoot().getRelative(sourceFragment).exists()) {
+          mount = blazeDirs.getExecRoot().getRelative(sourceFragment);
         } else {
           List<Path> searchPath =
               SearchPath.parse(blazeDirs.getFileSystem(), clientEnv.get("PATH"));

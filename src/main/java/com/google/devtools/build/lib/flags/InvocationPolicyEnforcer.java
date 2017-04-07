@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.flags;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -33,8 +34,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -237,6 +236,26 @@ public final class InvocationPolicyEnforcer {
             .build();
     boolean isExpansion = !desc.getExpansions().isEmpty();
 
+    if (!subflags.isEmpty() && log.isLoggable(Level.FINE)) {
+      // Log the expansion. Since this is logged regardless of user provided command line, it is
+      // only really useful for understanding the invocation policy itself. Most of the time,
+      // invocation policy does not change, so this can be a log level fine.
+      List<String> subflagNames = new ArrayList<>(subflags.size());
+      for (OptionValueDescription subflag : subflags) {
+        subflagNames.add("--" + subflag.getName());
+      }
+
+      log.logp(Level.FINE,
+          "InvocationPolicyEnforcer",
+          "expandPolicy",
+          String.format(
+            "Expanding %s on option %s to its %s: %s.",
+            originalPolicy.getOperationCase(),
+            originalPolicy.getFlagName(),
+            isExpansion ? "expansions" : "implied flags",
+            Joiner.on("; ").join(subflagNames)));
+    }
+
     // Create a flag policy for the child that looks like the parent's policy "transferred" to its
     // child. Note that this only makes sense for SetValue, when setting an expansion flag, or
     // UseDefault, when preventing it from being set.
@@ -394,18 +413,18 @@ public final class InvocationPolicyEnforcer {
 
   private static void applyUseDefaultOperation(
       OptionsParser parser, String policyType, String flagName) throws OptionsParsingException {
-
-    Map<String, OptionValueDescription> clearedValues = parser.clearValue(flagName);
-    for (Entry<String, OptionValueDescription> clearedValue : clearedValues.entrySet()) {
-
-      OptionValueDescription clearedValueDescription = clearedValue.getValue();
-      String clearedFlagName = clearedValue.getKey();
+    OptionValueDescription clearedValueDescription = parser.clearValue(flagName);
+    if (clearedValueDescription != null) {
+      // Log the removed value.
+      String clearedFlagName = clearedValueDescription.getName();
       String originalValue = clearedValueDescription.getValue().toString();
       String source = clearedValueDescription.getSource();
 
-      Object clearedFlagDefaultValue =
-          parser.getOptionDescription(clearedFlagName).getDefaultValue();
-
+      OptionDescription desc = parser.getOptionDescription(clearedFlagName);
+      Object clearedFlagDefaultValue = null;
+      if (desc != null) {
+        clearedFlagDefaultValue = desc.getDefaultValue();
+      }
       log.info(
           String.format(
               "Using default value '%s' for flag '%s' as "

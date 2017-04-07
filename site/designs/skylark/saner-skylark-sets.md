@@ -1,17 +1,21 @@
 ---
-layout: documentation
+layout: contribute
 title: Saner Skylark Sets
 ---
 
-# Saner Skylark Sets
+#  Design Document: Saner Skylark Sets
 
 ### (Sacrificing Superfluous Safety)
 
-Author: [Dmitry Lomov](mailto:dslomov@google.com)
+**Design documents are not descriptions of the current functionality of Skylark.
+Always go to the documentation for current information.**
 
-Date: 2016-07-25
 
-Status: Draft
+**Status:** Draft
+
+**Author:** [Dmitry Lomov](mailto:dslomov@google.com)
+
+**Design document published**: 2016-07-25
 
 ## Motivation
 

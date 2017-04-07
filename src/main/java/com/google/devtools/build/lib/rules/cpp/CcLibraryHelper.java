@@ -300,6 +300,7 @@ public final class CcLibraryHelper {
   private CcToolchainProvider ccToolchain;
   private final FdoSupportProvider fdoSupport;
   private String linkedArtifactNameSuffix = "";
+  private boolean useDeps = true;
 
   /**
    * Creates a CcLibraryHelper.
@@ -912,6 +913,15 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Causes actions generated from this CcLibraryHelper not to use build semantics (includes,
+   * headers, srcs) from dependencies.
+   */
+  public CcLibraryHelper doNotUseDeps() {
+    this.useDeps = false;
+    return this;
+  }
+
+  /**
    * Create the C++ compile and link actions, and the corresponding C++-related providers.
    *
    * @throws RuleErrorException
@@ -1197,13 +1207,13 @@ public final class CcLibraryHelper {
 
     PathFragment prefix =
         ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")
-            ? new PathFragment(ruleContext.attributes().get("include_prefix", Type.STRING))
+            ? PathFragment.create(ruleContext.attributes().get("include_prefix", Type.STRING))
             : null;
 
     PathFragment stripPrefix;
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("strip_include_prefix")) {
-      stripPrefix = new PathFragment(
-          ruleContext.attributes().get("strip_include_prefix", Type.STRING));
+      stripPrefix =
+          PathFragment.create(ruleContext.attributes().get("strip_include_prefix", Type.STRING));
       if (stripPrefix.isAbsolute()) {
         stripPrefix = ruleContext.getLabel().getPackageIdentifier().getRepository().getSourceRoot()
             .getRelative(stripPrefix.toRelative());
@@ -1318,9 +1328,11 @@ public final class CcLibraryHelper {
       contextBuilder.addIncludeDir(publicHeaders.getVirtualIncludePath());
     }
 
-    contextBuilder.mergeDependentContexts(
-        AnalysisUtils.getProviders(deps, CppCompilationContext.class));
-    contextBuilder.mergeDependentContexts(depContexts);
+    if (useDeps) {
+      contextBuilder.mergeDependentContexts(
+          AnalysisUtils.getProviders(deps, CppCompilationContext.class));
+      contextBuilder.mergeDependentContexts(depContexts);
+    }
     CppHelper.mergeToolchainDependentContext(ruleContext, ccToolchain, contextBuilder);
 
     // But defines come after those inherited from deps.

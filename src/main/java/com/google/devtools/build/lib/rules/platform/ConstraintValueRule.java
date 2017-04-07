@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
@@ -48,9 +47,7 @@ public class ConstraintValueRule implements RuleDefinition {
                 .mandatory()
                 .allowedRuleClasses(ConstraintSettingRule.RULE_NAME)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
-                .mandatoryNativeProviders(
-                    ImmutableList.<Class<? extends TransitiveInfoProvider>>of(
-                        ConstraintSettingProvider.class)))
+                .mandatoryProviders(ImmutableList.of(ConstraintSettingInfo.SKYLARK_IDENTIFIER)))
         .removeAttribute("deps")
         .removeAttribute("data")
         .exemptFromConstraintChecking("this rule *defines* a constraint")

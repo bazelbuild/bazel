@@ -171,6 +171,7 @@ function check_num_sos() {
 }
 
 function check_soname() {
+  unzip -p bazel-bin/java/bazel/bin.apk lib/x86/libbin.so > libbin.so
   # For an android_binary with name foo, readelf output format is
   #  Tag        Type          Name/Value
   # 0x00000010 (SONAME)       Library soname: [libfoo]
@@ -181,7 +182,7 @@ function check_soname() {
   # includes readelf however the path is difference for Mac vs Linux, hence the
   # star.
   readelf="${TEST_SRCDIR}/androidndk/ndk/toolchains/arm-linux-androideabi-4.9/prebuilt/*/bin/arm-linux-androideabi-readelf"
-  soname=$($readelf -d bazel-bin/java/bazel/_dx/bin/native_symlinks/x86/libbin.so \
+  soname=$($readelf -d libbin.so \
     | grep SONAME \
     | awk '{print substr($5,2,length($5)-2)}')
   assert_equals "libbin" "$soname"

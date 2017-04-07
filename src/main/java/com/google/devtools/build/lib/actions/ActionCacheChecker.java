@@ -340,7 +340,7 @@ public class ActionCacheChecker {
     }
     List<PathFragment> inputExecPaths = new ArrayList<>();
     for (String path : entry.getPaths()) {
-      PathFragment execPath = new PathFragment(path);
+      PathFragment execPath = PathFragment.create(path);
       // Code assumes that action has only 1-2 outputs and ArrayList.contains() will be
       // most efficient.
       if (!outputs.contains(execPath)) {

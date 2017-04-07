@@ -143,7 +143,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   private void invalidate(String file) throws InterruptedException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
-        ModifiedFileSet.builder().modify(new PathFragment(file)).build(), rootDirectory);
+        ModifiedFileSet.builder().modify(PathFragment.create(file)).build(), rootDirectory);
   }
 
   private void invalidate(ModifiedFileSet modifiedFileSet) throws InterruptedException {
@@ -340,9 +340,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("nest/nest/BUILD",
         "cc_library(name = 'nested2', srcs = [ ])");
 
-    updateOffset(new PathFragment("nest"));
+    updateOffset(PathFragment.create("nest"));
     assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest:nested1"));
-    updateOffset(new PathFragment("nest/nest"));
+    updateOffset(PathFragment.create("nest/nest"));
     assertThat(parseList(":all")).containsExactlyElementsIn(labels("//nest/nest:nested2"));
   }
 
@@ -556,7 +556,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("x/z/BUILD", "cc_library(name='z')");
     setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
 
-    parser.updateOffset(new PathFragment("x"));
+    parser.updateOffset(PathFragment.create("x"));
     assertEquals(Sets.newHashSet(Label.parseAbsolute("//x/z")),
         targetsToLabels(getFailFast(parser.parseTargetPattern(parsingListener, "...", false))));
   }
@@ -786,7 +786,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testSetOffset() throws Exception {
     assertEquals("//foo:foo1", parseIndividualTarget("foo:foo1").toString());
 
-    parser.updateOffset(new PathFragment("foo"));
+    parser.updateOffset(PathFragment.create("foo"));
     assertEquals("//foo:foo1", parseIndividualTarget(":foo1").toString());
   }
 
@@ -970,7 +970,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseList("//h/...")).containsExactlyElementsIn(labels("//h"));
 
     ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(new PathFragment("h/i/j/BUILD")).build();
+        .modify(PathFragment.create("h/i/j/BUILD")).build();
     invalidate(modifiedFileSet);
 
     assertThat(parseList("//h/...")).containsExactly(Label.parseAbsolute("//h/i/j:j"),
@@ -991,11 +991,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
     scratch.file("h/i/j/k/BUILD", "sh_library(name='l')");
     ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(new PathFragment("h"))
-        .modify(new PathFragment("h/i"))
-        .modify(new PathFragment("h/i/j"))
-        .modify(new PathFragment("h/i/j/k"))
-        .modify(new PathFragment("h/i/j/k/BUILD"))
+        .modify(PathFragment.create("h"))
+        .modify(PathFragment.create("h/i"))
+        .modify(PathFragment.create("h/i/j"))
+        .modify(PathFragment.create("h/i/j/k"))
+        .modify(PathFragment.create("h/i/j/k/BUILD"))
         .build();
     invalidate(modifiedFileSet);
     reporter.addHandler(failFastHandler);
@@ -1007,7 +1007,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testBrokenSymlinkRepaired() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path tuv = scratch.dir("t/u/v");
-    tuv.getChild("BUILD").createSymbolicLink(new PathFragment("../../BUILD"));
+    tuv.getChild("BUILD").createSymbolicLink(PathFragment.create("../../BUILD"));
 
     try {
       parseList("//t/...");
@@ -1018,7 +1018,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
     scratch.file("t/BUILD", "sh_library(name='t')");
     ModifiedFileSet modifiedFileSet = ModifiedFileSet.builder()
-        .modify(new PathFragment("t/BUILD"))
+        .modify(PathFragment.create("t/BUILD"))
         .build();
 
     invalidate(modifiedFileSet);
@@ -1033,7 +1033,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testInfiniteTreeFromSymlinks() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path ab = scratch.dir("a/b");
-    ab.getChild("c").createSymbolicLink(new PathFragment("../b"));
+    ab.getChild("c").createSymbolicLink(PathFragment.create("../b"));
     scratch.file("a/b/BUILD", "filegroup(name='g')");
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/b/..."), true);
@@ -1045,7 +1045,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testSymlinkCycle() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path ab = scratch.dir("a/b");
-    ab.getChild("c").createSymbolicLink(new PathFragment("c"));
+    ab.getChild("c").createSymbolicLink(PathFragment.create("c"));
     scratch.file("a/b/BUILD", "filegroup(name='g')");
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/b/..."), true);
@@ -1060,13 +1060,13 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.dir("from-c");
     scratch.file("from-c/BUILD", "filegroup(name = 'from-c')");
     Path ab = scratch.dir("a/b");
-    ab.getChild("symlink").createSymbolicLink(new PathFragment("../../from-b"));
+    ab.getChild("symlink").createSymbolicLink(PathFragment.create("../../from-b"));
     scratch.dir("a/b/not-a-symlink");
     scratch.file("a/b/not-a-symlink/BUILD", "filegroup(name = 'not-a-symlink')");
     scratch.file(
         "a/b/DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN");
     Path ac = scratch.dir("a/c");
-    ac.getChild("symlink").createSymbolicLink(new PathFragment("../../from-c"));
+    ac.getChild("symlink").createSymbolicLink(PathFragment.create("../../from-c"));
     ResolvedTargets<Target> result = parseTargetPatternList(parser, parsingListener,
         ImmutableList.of("//a/..."), true);
     assertThat(targetsToLabels(result.getTargets())).containsExactly(

@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LineNumberTableTest {
   private LineNumberTable create(String buffer) {
-    return LineNumberTable.create(buffer.toCharArray(), new PathFragment("/fake/file"));
+    return LineNumberTable.create(buffer.toCharArray(), PathFragment.create("/fake/file"));
   }
 
   @Test

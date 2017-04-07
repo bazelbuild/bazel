@@ -259,7 +259,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
             "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME + ' ' + PACKAGE_NAME)");
     Package pkg =
         packages.createPackage(
-            PackageIdentifier.create("@a", new PathFragment("b")), buildFile, events.reporter());
+            PackageIdentifier.create("@a", PathFragment.create("b")), buildFile, events.reporter());
     Rule c = pkg.getRule("c");
     assertThat(AggregatingAttributeMapper.of(c).get("cmd", Type.STRING)).isEqualTo("@a b");
   }

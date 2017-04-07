@@ -296,6 +296,15 @@ class OptionsParserImpl {
           // Create a warning if an expansion option overrides an explicit option:
           warnings.add("The option '" + expandedFrom + "' was expanded and now overrides a "
               + "previous explicitly specified option '" + name + "'");
+        } else if ((entry.getExpansionParent() != null) && (expandedFrom != null)) {
+          warnings.add(
+              "The option '"
+                  + name
+                  + "' was expanded to from both options '"
+                  + entry.getExpansionParent()
+                  + "' and '"
+                  + expandedFrom
+                  + "'");
         }
 
         // Record the new value:
@@ -313,13 +322,13 @@ class OptionsParserImpl {
     }
   }
 
-  private void addListValue(Field field, Object value, OptionPriority priority, String source,
-      String implicitDependant, String expandedFrom) {
+  private void addListValue(Field field, String originalName, Object value, OptionPriority priority,
+      String source, String implicitDependant, String expandedFrom) {
     OptionValueDescription entry = parsedValues.get(field);
     if (entry == null) {
       entry =
           new OptionValueDescription(
-              field.getName(),
+              originalName,
               /* originalValueString */ null,
               ArrayListMultimap.create(),
               priority,
@@ -333,20 +342,16 @@ class OptionsParserImpl {
     entry.addValue(priority, value);
   }
 
-  void clearValue(String optionName, Map<String, OptionValueDescription> clearedValues)
+  OptionValueDescription clearValue(String optionName)
       throws OptionsParsingException {
     Field field = optionsData.getFieldFromName(optionName);
     if (field == null) {
       throw new IllegalArgumentException("No such option '" + optionName + "'");
     }
-    Option option = field.getAnnotation(Option.class);
 
     // Actually remove the value from various lists tracking effective options.
     canonicalizeValues.removeAll(field);
-    OptionValueDescription removed = parsedValues.remove(field);
-    if (removed != null) {
-      clearedValues.put(option.name(), removed);
-    }
+    return parsedValues.remove(field);
   }
 
   OptionValueDescription getOptionValueDescription(String name) {
@@ -560,8 +565,8 @@ class OptionsParserImpl {
           // Note: The type of the list member is not known; Java introspection
           // only makes it available in String form via the signature string
           // for the field declaration.
-          addListValue(field, convertedValue, priority, sourceFunction.apply(originalName),
-              implicitDependent, expandedFrom);
+          addListValue(field, originalName, convertedValue, priority,
+              sourceFunction.apply(originalName), implicitDependent, expandedFrom);
         }
       }
 
@@ -636,9 +641,21 @@ class OptionsParserImpl {
       value = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
       field = optionsData.getFieldFromName(name);
 
-      // Look for a "no"-prefixed option name: "no<optionName>" or "no_<optionName>".
+      // Look for a "no"-prefixed option name: "no<optionName>".
       if (field == null && name.startsWith("no")) {
-        name = name.substring(name.startsWith("no_") ? 3 : 2);
+        // Give a nice error if someone is using the deprecated --no_ prefix.
+        // Note: With this check in place, is impossible to specify "--no_foo" for a flag named
+        // "--_foo", if a --foo flag also exists, since that'll be interpreted as the "no_"
+        // negating prefix for "--foo". Let that be a warning to anyone wanting to make flags that
+        // start with underscores.
+        // TODO(Bazel-team): Remove the --no_ check when sufficient time has passed for users of
+        // that feature to have stopped using it.
+        if (name.startsWith("no_") && optionsData.getFieldFromName(name.substring(3)) != null) {
+          throw new OptionsParsingException(
+              "'no_' prefixes are no longer accepted, --no<flag> is an accepted alternative.",
+              name.substring(3));
+        }
+        name = name.substring(2);
         field = optionsData.getFieldFromName(name);
         booleanValue = false;
         if (field != null) {

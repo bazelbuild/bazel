@@ -111,7 +111,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     // We add another header search path with gen root if we have generated sources to translate.
     for (Artifact sourceToTranslate : sourcesToTranslate) {
       if (!sourceToTranslate.isSourceArtifact()) {
-        headerSearchPaths.add(new PathFragment(objcFileRootExecPath, genRoot));
+        headerSearchPaths.add(PathFragment.create(objcFileRootExecPath, genRoot));
         return headerSearchPaths.build();
       }
     }

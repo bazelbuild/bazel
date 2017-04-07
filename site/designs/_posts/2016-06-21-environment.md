@@ -3,11 +3,17 @@ layout: contribute
 title: Specifying environment variables
 ---
 
-# Specifying environment variables for actions
+# Design Document: Specifying environment variables for actions
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Implemented. See [documentation](/docs/skylark/lib/ctx.html#action)
 
 **Author**: [Klaus Aehlig](mailto:aehlig@google.com)
+
+**Design document published**: 21 June 2016
 
 ## Current shortcomings
 

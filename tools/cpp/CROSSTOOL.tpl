@@ -222,6 +222,41 @@ toolchain {
   linker_flag: "-m64"
 
   feature {
+    name: "msvc_env"
+    env_set {
+      action: "c-compile"
+      action: "c++-compile"
+      action: "c++-module-compile"
+      action: "c++-header-parsing"
+      action: "c++-header-preprocessing"
+      action: "assemble"
+      action: "preprocess-assemble"
+      action: "c++-link-executable"
+      action: "c++-link-dynamic-library"
+      action: "c++-link-static-library"
+      action: "c++-link-alwayslink-static-library"
+      action: "c++-link-pic-static-library"
+      action: "c++-link-alwayslink-pic-static-library"
+      env_entry {
+        key: "PATH"
+        value: "%{msvc_env_path}"
+      }
+      env_entry {
+        key: "INCLUDE"
+        value: "%{msvc_env_include}"
+      }
+      env_entry {
+        key: "LIB"
+        value: "%{msvc_env_lib}"
+      }
+      env_entry {
+        key: "TMP"
+        value: "%{msvc_env_tmp}"
+      }
+    }
+  }
+
+  feature {
     name: 'include_paths'
     flag_set {
       action: 'preprocess-assemble'
@@ -301,6 +336,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'msvc_env'
   }
 
   action_config {
@@ -334,6 +370,7 @@ toolchain {
         flag: '/Fi%{output_preprocess_file}'
       }
     }
+    implies: 'msvc_env'
   }
 
   action_config {
@@ -348,6 +385,7 @@ toolchain {
      implies: 'input_param_flags'
      implies: 'legacy_link_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   action_config {
@@ -364,6 +402,7 @@ toolchain {
      implies: 'has_configured_linker_path'
      implies: 'legacy_link_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   action_config {
@@ -374,6 +413,7 @@ toolchain {
      }
      implies: 'input_param_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   action_config {
@@ -384,6 +424,7 @@ toolchain {
      }
      implies: 'input_param_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   # TODO(pcloudy): The following action_config is listed in MANDATORY_LINK_TARGET_TYPES.
@@ -396,6 +437,7 @@ toolchain {
      }
      implies: 'input_param_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   action_config {
@@ -406,6 +448,7 @@ toolchain {
      }
      implies: 'input_param_flags'
      implies: 'linker_param_file'
+     implies: 'msvc_env'
   }
 
   action_config {
@@ -416,6 +459,7 @@ toolchain {
     }
     implies: 'strip_debug_symbols'
     implies: 'linker_param_file'
+    implies: 'msvc_env'
   }
 
   feature {

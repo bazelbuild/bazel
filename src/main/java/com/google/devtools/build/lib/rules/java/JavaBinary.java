@@ -58,7 +58,7 @@ import javax.annotation.Nullable;
  * An implementation of java_binary.
  */
 public class JavaBinary implements RuleConfiguredTargetFactory {
-  private static final PathFragment CPP_RUNTIMES = new PathFragment("_cpp_runtimes");
+  private static final PathFragment CPP_RUNTIMES = PathFragment.create("_cpp_runtimes");
 
   private final JavaSemantics semantics;
 
@@ -187,8 +187,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
     }
 
-    if (attributes.hasSourceFiles() || attributes.hasSourceJars()
-        || attributes.hasResources() || attributes.hasClassPathResources()) {
+    if (attributes.hasSources() || attributes.hasResources()) {
       // We only want to add a jar to the classpath of a dependent rule if it has content.
       javaArtifactsBuilder.addRuntimeJar(classJar);
     }

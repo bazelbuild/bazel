@@ -99,45 +99,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testExportsJackProvider() throws Exception {
-    scratch.file(
-        "java/com/google/android/BUILD",
-        "android_library(",
-        "  name = 'dep',",
-        "  srcs = ['dep.java']",
-        ")",
-        "android_library(",
-        "  name = 'neverlink',",
-        "  srcs = ['neverlink.java'],",
-        "  neverlink = 1",
-        ")",
-        "java_plugin(",
-        "  name = 'plugin',",
-        "  srcs = ['plugin.java'],",
-        "  processor_class = 'com.google.android.Plugin'",
-        ")",
-        "android_library(",
-        "  name = 'top',",
-        "  srcs = ['foo.java', 'bar.srcjar'],",
-        "  plugins = [':plugin'],",
-        "  deps = [':dep', ':neverlink'],",
-        ")");
-
-    ConfiguredTarget topTarget = getConfiguredTarget("//java/com/google/android:top");
-    JackLibraryProvider jackProvider = topTarget.getProvider(JackLibraryProvider.class);
-    Iterable<String> classpathNames =
-        ActionsTestUtil.baseArtifactNames(jackProvider.getTransitiveJackClasspathLibraries());
-    Iterable<String> runtimeNames =
-        ActionsTestUtil.baseArtifactNames(jackProvider.getTransitiveJackLibrariesToLink());
-    assertThat(classpathNames).containsAllOf("libtop.jack", "libdep.jack", "libneverlink.jack");
-    assertThat(runtimeNames).containsAllOf("libtop.jack", "libdep.jack");
-    assertThat(runtimeNames).doesNotContain("libneverlink.jack");
-    Artifact jackLibrary = getBinArtifact("libtop.jack", topTarget);
-    assertThat(ActionsTestUtil.baseArtifactNames(actionsTestUtil().artifactClosureOf(jackLibrary)))
-        .containsAllOf("foo.java", "bar.srcjar", "libplugin.jar");
-  }
-
-  @Test
   public void testSlashInIdlImportRoot() throws Exception {
     scratchConfiguredTarget("java/com/google/android", "avocado",
         "android_library(name='avocado',",
@@ -613,8 +574,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "            proguard = 'proguard',",
         "            shrinked_android_jar = 'shrinked_android_jar',",
         "            zipalign = 'zipalign',",
-        "            jack = 'jack',",
-        "            jill = 'jill',",
         "            resource_extractor = 'resource_extractor')",
         "java_library(name = 'aidl_lib',",
         "             srcs = ['AidlLib.java'],",
@@ -1183,21 +1142,21 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("java/android/assets")),
+                PathFragment.create("java/android/assets")),
             SourceDirectory.fromRoot(
                 targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                new PathFragment("java/android/assets"))),
+                PathFragment.create("java/android/assets"))),
         provider.getAssetDirs());
     assertEquals(
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("java/android/res"))),
+                PathFragment.create("java/android/res"))),
         provider.getResourceDirs());
 
     assertEquals(ImmutableList.of(SourceDirectory.fromSourceRoot(
         rootDirectory.asFragment(),
-        new PathFragment("java/android")
+        PathFragment.create("java/android")
     )), provider.getIdlImports());
 
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
@@ -1234,11 +1193,13 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("research/handwriting/java/com/google/research/handwriting/assets")
+                PathFragment.create(
+                    "research/handwriting/java/com/google/research/handwriting/assets")
             ),
             SourceDirectory.fromRoot(
                 targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                new PathFragment("research/handwriting/java/com/google/research/handwriting/assets")
+                PathFragment.create(
+                    "research/handwriting/java/com/google/research/handwriting/assets")
             )
         ),
         provider.getAssetDirs());
@@ -1246,14 +1207,14 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("research/handwriting/java/com/google/research/handwriting/res")
+                PathFragment.create("research/handwriting/java/com/google/research/handwriting/res")
             )
         ),
         provider.getResourceDirs());
 
     assertEquals(ImmutableList.of(SourceDirectory.fromSourceRoot(
         rootDirectory.asFragment(),
-        new PathFragment("research/handwriting/java/com/google/research/handwriting")
+        PathFragment.create("research/handwriting/java/com/google/research/handwriting")
     )), provider.getIdlImports());
 
     Set<Artifact> artifactClosure = actionsTestUtil().artifactClosureOf(getFilesToBuild(target));
@@ -1293,17 +1254,17 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("java/android/assets")),
+                PathFragment.create("java/android/assets")),
             SourceDirectory.fromRoot(
                 targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                new PathFragment("java/android/assets"))
+                PathFragment.create("java/android/assets"))
         ),
         provider.getAssetDirs());
     assertEquals(
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("java/android/res"))
+                PathFragment.create("java/android/res"))
         ),
         provider.getResourceDirs());
 
@@ -1311,10 +1272,10 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         ImmutableList.of(
             SourceDirectory.fromSourceRoot(
                 rootDirectory.asFragment(),
-                new PathFragment("java/android")),
+                PathFragment.create("java/android")),
             SourceDirectory.fromRoot(
                 targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
-                new PathFragment("java/android"))
+                PathFragment.create("java/android"))
         ),
         provider.getIdlImports());
 

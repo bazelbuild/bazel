@@ -134,7 +134,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     ResolvedTargets<Target> targets =
         getTargetsToBuild(
             parseFailureListener, targetPatterns, options.compileOneDependency,
-            options.buildTagFilterList, keepGoing);
+            options.buildTagFilterList, options.buildManualTests, keepGoing);
 
     ImmutableSet<Target> filteredTargets = targets.getFilteredTargets();
 
@@ -268,6 +268,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    * @param targetPatterns the list of command-line target patterns specified by the user
    * @param compileOneDependency if true, enables alternative interpretation of targetPatterns; see
    *     {@link LoadingOptions#compileOneDependency}
+   * @param buildManualTests
    * @throws TargetParsingException if parsing failed and !keepGoing
    */
   private ResolvedTargets<Target> getTargetsToBuild(
@@ -275,11 +276,12 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
       List<String> targetPatterns,
       boolean compileOneDependency,
       List<String> buildTagFilterList,
-      boolean keepGoing)
+      boolean buildManualTests, boolean keepGoing)
       throws TargetParsingException, InterruptedException {
     ResolvedTargets<Target> evaluated =
         targetPatternEvaluator.parseTargetPatternList(eventHandler, targetPatterns,
-            FilteringPolicies.FILTER_MANUAL, keepGoing);
+            buildManualTests ? FilteringPolicies.NO_FILTER : FilteringPolicies.FILTER_MANUAL,
+            keepGoing);
 
     ResolvedTargets<Target> result = ResolvedTargets.<Target>builder()
         .merge(evaluated)

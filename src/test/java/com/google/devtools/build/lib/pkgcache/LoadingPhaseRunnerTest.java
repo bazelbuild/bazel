@@ -231,6 +231,19 @@ public class LoadingPhaseRunnerTest {
   }
 
   @Test
+  public void testTestFilteringIncludingManual() throws Exception {
+    writeBuildFilesForTestFiltering();
+    tester.useLoadingOptions("--build_manual_tests");
+    LoadingResult loadingResult = assertNoErrors(tester.loadTests("//tests:all"));
+    assertThat(loadingResult.getTargets())
+        .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2", "//tests:t3"));
+    assertThat(loadingResult.getTestsToRun())
+        .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
+  }
+
+  @Test
   public void testTestFilteringBuildTestsOnly() throws Exception {
     writeBuildFilesForTestFiltering();
     tester.useLoadingOptions("--build_tests_only");
@@ -455,8 +468,8 @@ public class LoadingPhaseRunnerTest {
     tester.getWorkspace().getChild("broken").createDirectory();
 
     // Create a circular symlink.
-    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
-        .createSymbolicLink(new PathFragment("BUILD"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/BUILD"))
+        .createSymbolicLink(PathFragment.create("BUILD"));
 
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }
@@ -466,10 +479,10 @@ public class LoadingPhaseRunnerTest {
     tester.getWorkspace().getChild("broken").createDirectory();
 
     // Create a circular symlink.
-    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
-        .createSymbolicLink(new PathFragment("x"));
-    tester.getWorkspace().getRelative(new PathFragment("broken/x"))
-        .createSymbolicLink(new PathFragment("BUILD"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/BUILD"))
+        .createSymbolicLink(PathFragment.create("x"));
+    tester.getWorkspace().getRelative(PathFragment.create("broken/x"))
+        .createSymbolicLink(PathFragment.create("BUILD"));
 
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }

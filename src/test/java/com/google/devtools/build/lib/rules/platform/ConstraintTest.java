@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,8 +28,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ConstraintTest extends BuildViewTestCase {
 
-  @Test
-  public void testConstraint() throws Exception {
+  @Before
+  public void createConstraints() throws Exception {
     scratch.file(
         "constraint/BUILD",
         "constraint_setting(name = 'basic')",
@@ -38,23 +39,60 @@ public class ConstraintTest extends BuildViewTestCase {
         "constraint_value(name = 'bar',",
         "    constraint_setting = ':basic',",
         "    )");
+  }
+
+  @Test
+  public void testConstraint() throws Exception {
     ConfiguredTarget setting = getConfiguredTarget("//constraint:basic");
     assertThat(setting).isNotNull();
-    assertThat(setting.getProvider(ConstraintSettingProvider.class)).isNotNull();
-    assertThat(setting.getProvider(ConstraintSettingProvider.class).constraintSetting())
+    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
+    assertThat(ConstraintSettingInfo.fromTarget(setting)).isNotNull();
+    assertThat(ConstraintSettingInfo.fromTarget(setting).label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
     ConfiguredTarget fooValue = getConfiguredTarget("//constraint:foo");
     assertThat(fooValue).isNotNull();
-    assertThat(fooValue.getProvider(ConstraintValueProvider.class)).isNotNull();
-    assertThat(fooValue.getProvider(ConstraintValueProvider.class).constraint().constraintSetting())
+    assertThat(ConstraintValueInfo.fromTarget(fooValue)).isNotNull();
+    assertThat(ConstraintValueInfo.fromTarget(fooValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(fooValue.getProvider(ConstraintValueProvider.class).value())
+    assertThat(ConstraintValueInfo.fromTarget(fooValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:foo"));
     ConfiguredTarget barValue = getConfiguredTarget("//constraint:bar");
     assertThat(barValue).isNotNull();
-    assertThat(barValue.getProvider(ConstraintValueProvider.class).constraint().constraintSetting())
+    assertThat(ConstraintValueInfo.fromTarget(barValue).constraint().label())
         .isEqualTo(Label.parseAbsolute("//constraint:basic"));
-    assertThat(barValue.getProvider(ConstraintValueProvider.class).value())
+    assertThat(ConstraintValueInfo.fromTarget(barValue).label())
         .isEqualTo(Label.parseAbsolute("//constraint:bar"));
+  }
+
+  @Test
+  public void testConstraint_skylark() throws Exception {
+
+    scratch.file(
+        "test/platform/constraints.bzl",
+        "def _impl(ctx):",
+        "  constraint_value = ctx.attr.constraint[platform_common.ConstraintValueInfo]",
+        "  return struct(",
+        "    setting = constraint_value.constraint.label,",
+        "    value = constraint_value.label)",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = { 'constraint': attr.label(providers = [platform_common.ConstraintValueInfo])},",
+        ")");
+
+    scratch.file(
+        "test/platform/BUILD",
+        "load('//test/platform:constraints.bzl', 'my_rule')",
+        "my_rule(name = 'r',",
+        "  constraint = '//constraint:foo')");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test/platform:r");
+    assertThat(configuredTarget).isNotNull();
+
+    Label settingLabel = (Label) configuredTarget.get("setting");
+    assertThat(settingLabel).isNotNull();
+    assertThat(settingLabel).isEqualTo(makeLabel("//constraint:basic"));
+    Label valueLabel = (Label) configuredTarget.get("value");
+    assertThat(valueLabel).isNotNull();
+    assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
   }
 }

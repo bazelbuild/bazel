@@ -2,11 +2,18 @@
 layout: contribute
 title: Building Python on Windows
 ---
-# Building Python on Windows
+
+# Design Document: Building Python on Windows
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Implemented
 
 **Author**: [Yun Peng](mailto:pcloudy@google.com)
+
+**Design document published**: 05 September 2016
 
 **Relevant changes**:
 

@@ -90,7 +90,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
 
     // and a blacklist for the malformed package,
     getSkyframeExecutor().setBlacklistedPackagePrefixesFile(
-        new PathFragment("config/blacklist.txt"));
+        PathFragment.create("config/blacklist.txt"));
     scratch.file("config/blacklist.txt", "foo/foo");
 
     assertSkipsFoo(patternSequence);

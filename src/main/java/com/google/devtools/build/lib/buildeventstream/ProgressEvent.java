@@ -34,7 +34,7 @@ public final class ProgressEvent extends GenericBuildEvent {
   }
 
   @Override
-  public BuildEventStreamProtos.BuildEvent asStreamProto(PathConverter pathConverter) {
+  public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
     return GenericBuildEvent.protoChaining(this)
         .setProgress(BuildEventStreamProtos.Progress.newBuilder().build())
         .build();

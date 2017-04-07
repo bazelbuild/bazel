@@ -14,4 +14,4 @@
 
 :: Invoke the python script under pydir with the same basename
 @echo OFF
-call_python.bat %0 %*
+external\local_config_cc\wrapper\bin\call_python.bat %0 %*

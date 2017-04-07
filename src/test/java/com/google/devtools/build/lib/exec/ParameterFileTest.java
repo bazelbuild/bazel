@@ -34,8 +34,11 @@ public class ParameterFileTest extends FoundationTestCase {
 
   @Test
   public void testDerive() {
-    assertEquals(new PathFragment("a/b-2.params"),
-        ParameterFile.derivePath(new PathFragment("a/b")));
-    assertEquals(new PathFragment("b-2.params"), ParameterFile.derivePath(new PathFragment("b")));
+    assertEquals(
+        PathFragment.create("a/b-2.params"),
+        ParameterFile.derivePath(PathFragment.create("a/b")));
+    assertEquals(
+        PathFragment.create("b-2.params"),
+        ParameterFile.derivePath(PathFragment.create("b")));
   }
 }

@@ -227,7 +227,7 @@ public final class TreeNodeRepository extends TreeTraverser<TreeNodeRepository.T
   public TreeNode buildFromActionInputs(Iterable<? extends ActionInput> inputs) {
     TreeMap<PathFragment, ActionInput> sortedMap = new TreeMap<>();
     for (ActionInput input : inputs) {
-      sortedMap.put(new PathFragment(input.getExecPathString()), input);
+      sortedMap.put(PathFragment.create(input.getExecPathString()), input);
     }
     return buildFromActionInputs(sortedMap);
   }

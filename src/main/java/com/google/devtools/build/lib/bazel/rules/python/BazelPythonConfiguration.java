@@ -23,8 +23,9 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Option;
-
 import javax.annotation.Nullable;
 
 /**
@@ -32,6 +33,24 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
+
+  /**
+  * A path converter for python3 path
+  */
+  public static class Python3PathConverter implements Converter<String> {
+    @Override
+    public String convert(String input) {
+      if (input.equals("auto")) {
+        return OS.getCurrent() == OS.WINDOWS ? "python" : "python3";
+      }
+      return input;
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "An option for python3 path";
+    }
+  }
 
   /**
    * Bazel-specific Python configuration options.
@@ -43,10 +62,13 @@ public class BazelPythonConfiguration extends BuildConfiguration.Fragment {
       help = "Local path to the Python2 executable.")
     public String python2Path;
 
-    @Option(name = "python3_path",
-      defaultValue = "python3",
+    @Option(
+      name = "python3_path",
+      converter = Python3PathConverter.class,
+      defaultValue = "auto",
       category = "version",
-      help = "Local path to the Python3 executable.")
+      help = "Local path to the Python3 executable."
+    )
     public String python3Path;
 
     @Option(name = "experimental_python_import_all_repositories",

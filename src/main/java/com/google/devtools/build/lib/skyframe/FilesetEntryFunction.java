@@ -217,7 +217,7 @@ public final class FilesetEntryFunction implements SkyFunction {
       public boolean apply(String e) {
         // Keep the top-level exclusions only. Do not look for "/" but count the path segments
         // instead, in anticipation of future Windows support.
-        return new PathFragment(e).segmentCount() == 1;
+        return PathFragment.create(e).segmentCount() == 1;
       }
     });
   }

@@ -283,7 +283,7 @@ public class CppHelper {
    * Returns the directory where object files are created.
    */
   public static PathFragment getObjDirectory(Label ruleLabel) {
-    return AnalysisUtils.getUniqueDirectory(ruleLabel, new PathFragment("_objs"));
+    return AnalysisUtils.getUniqueDirectory(ruleLabel, PathFragment.create("_objs"));
   }
 
   /**
@@ -360,7 +360,7 @@ public class CppHelper {
       BuildConfiguration config,
       LinkTargetType linkType,
       String linkedArtifactNameSuffix) {
-    PathFragment name = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment name = PathFragment.create(ruleContext.getLabel().getName());
     if (linkType != LinkTargetType.EXECUTABLE) {
       name = name.replaceName(
           "lib" + name.getBaseName() + linkedArtifactNameSuffix  + linkType.getExtension());

@@ -2,11 +2,18 @@
 layout: contribute
 title: Extensibility For Native Rules
 ---
-# Extensibility For Native Rules
+
+# Design Document: Extensibility For Native Rules
+
+**Design documents are not descriptions of the current functionality of Bazel.
+Always go to the documentation for current information.**
+
 
 **Status**: Reviewed, not yet implemeted
 
 **Author**: [Dmitry Lomov](mailto:dslomov@google.com)
+
+**Design document published**: 04 August 2016
 
 ## Motivation
 

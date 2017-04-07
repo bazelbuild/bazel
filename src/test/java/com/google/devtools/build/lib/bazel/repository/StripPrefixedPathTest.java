@@ -35,7 +35,7 @@ public class StripPrefixedPathTest {
   @Test
   public void testStrip() {
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix("foo/bar", Optional.of("foo"));
-    assertEquals(result.getPathFragment(), new PathFragment("bar"));
+    assertEquals(result.getPathFragment(), PathFragment.create("bar"));
     assertTrue(result.foundPrefix());
     assertFalse(result.skip());
 
@@ -53,13 +53,13 @@ public class StripPrefixedPathTest {
   public void testAbsolute() {
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
         "/foo/bar", Optional.<String>absent());
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("foo/bar"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar"));
 
     result = StripPrefixedPath.maybeDeprefix("///foo/bar/baz", Optional.<String>absent());
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("foo/bar/baz"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar/baz"));
 
     result = StripPrefixedPath.maybeDeprefix("/foo/bar/baz", Optional.of("/foo"));
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("bar/baz"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("bar/baz"));
   }
 
   @Test
@@ -69,19 +69,19 @@ public class StripPrefixedPathTest {
     }
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
         "c:/foo/bar", Optional.<String>absent());
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("foo/bar"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("foo/bar"));
   }
 
   @Test
   public void testNormalize() {
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix(
         "../bar", Optional.<String>absent());
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("../bar"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("../bar"));
 
     result = StripPrefixedPath.maybeDeprefix("foo/../baz", Optional.<String>absent());
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("baz"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("baz"));
 
     result = StripPrefixedPath.maybeDeprefix("foo/../baz", Optional.of("foo"));
-    assertThat(result.getPathFragment()).isEqualTo(new PathFragment("baz"));
+    assertThat(result.getPathFragment()).isEqualTo(PathFragment.create("baz"));
   }
 }

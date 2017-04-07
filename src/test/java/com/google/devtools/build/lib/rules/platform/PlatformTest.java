@@ -19,6 +19,8 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -27,8 +29,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PlatformTest extends BuildViewTestCase {
 
-  @Test
-  public void testPlatform() throws Exception {
+  @Before
+  public void createPlatform() throws Exception {
     scratch.file(
         "constraint/BUILD",
         "constraint_setting(name = 'basic')",
@@ -39,40 +41,37 @@ public class PlatformTest extends BuildViewTestCase {
         "    constraint_values = [",
         "       ':foo',",
         "    ])");
+  }
 
+  @Test
+  public void testPlatform() throws Exception {
     ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
     assertThat(platform).isNotNull();
 
-    PlatformProvider provider = platform.getProvider(PlatformProvider.class);
+    PlatformInfo provider = PlatformInfo.fromTarget(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.constraints()).hasSize(1);
-    ConstraintSettingProvider constraintSettingProvider =
-        ConstraintSettingProvider.create(makeLabel("//constraint:basic"));
-    ConstraintValueProvider constraintValueProvider =
-        ConstraintValueProvider.create(constraintSettingProvider, makeLabel("//constraint:foo"));
-    assertThat(provider.constraints())
-        .containsExactlyEntriesIn(
-            ImmutableMap.of(constraintSettingProvider, constraintValueProvider));
+    ConstraintSettingInfo constraintSetting =
+        ConstraintSettingInfo.create(makeLabel("//constraint:basic"));
+    ConstraintValueInfo constraintValue =
+        ConstraintValueInfo.create(constraintSetting, makeLabel("//constraint:foo"));
+    assertThat(provider.constraints()).containsExactly(constraintValue);
     assertThat(provider.remoteExecutionProperties()).isEmpty();
   }
 
   @Test
   public void testPlatform_overlappingConstraintValueError() throws Exception {
     checkError(
-        "constraint",
-        "plat1",
+        "constraint/overlap",
+        "plat_overlap",
         "Duplicate constraint_values for constraint_setting //constraint:basic: "
-            + "//constraint:foo, //constraint:bar",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )",
+            + "//constraint:foo, //constraint/overlap:bar",
         "constraint_value(name = 'bar',",
-        "    constraint_setting = ':basic',",
+        "    constraint_setting = '//constraint:basic',",
         "    )",
-        "platform(name = 'plat1',",
+        "platform(name = 'plat_overlap',",
         "    constraint_values = [",
-        "       ':foo',",
+        "       '//constraint:foo',",
         "       ':bar',",
         "    ])");
   }
@@ -80,14 +79,10 @@ public class PlatformTest extends BuildViewTestCase {
   @Test
   public void testPlatform_remoteExecution() throws Exception {
     scratch.file(
-        "constraint/BUILD",
-        "constraint_setting(name = 'basic')",
-        "constraint_value(name = 'foo',",
-        "    constraint_setting = ':basic',",
-        "    )",
-        "platform(name = 'plat1',",
+        "constraint/remote/BUILD",
+        "platform(name = 'plat_remote',",
         "    constraint_values = [",
-        "       ':foo',",
+        "       '//constraint:foo',",
         "    ],",
         "    remote_execution_properties = {",
         "        'foo': 'val1',",
@@ -95,12 +90,48 @@ public class PlatformTest extends BuildViewTestCase {
         "    },",
         ")");
 
-    ConfiguredTarget platform = getConfiguredTarget("//constraint:plat1");
+    ConfiguredTarget platform = getConfiguredTarget("//constraint/remote:plat_remote");
     assertThat(platform).isNotNull();
 
-    PlatformProvider provider = platform.getProvider(PlatformProvider.class);
+    PlatformInfo provider = PlatformInfo.fromTarget(platform);
     assertThat(provider).isNotNull();
     assertThat(provider.remoteExecutionProperties())
         .containsExactlyEntriesIn(ImmutableMap.of("foo", "val1", "bar", "val2"));
+  }
+
+  @Test
+  public void testPlatform_skylark() throws Exception {
+
+    scratch.file(
+        "test/platform/platform.bzl",
+        "def _impl(ctx):",
+        "  platform = ctx.attr.platform[platform_common.PlatformInfo]",
+        "  return struct(",
+        "    count = len(platform.constraints),",
+        "    first_setting = platform.constraints[0].constraint.label,",
+        "    first_value = platform.constraints[0].label)",
+        "my_rule = rule(",
+        "  _impl,",
+        "  attrs = { 'platform': attr.label(providers = [platform_common.PlatformInfo])},",
+        ")");
+
+    scratch.file(
+        "test/platform/BUILD",
+        "load('//test/platform:platform.bzl', 'my_rule')",
+        "my_rule(name = 'r',",
+        "  platform = '//constraint:plat1')");
+
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test/platform:r");
+    assertThat(configuredTarget).isNotNull();
+
+    int count = (int) configuredTarget.get("count");
+    assertThat(count).isEqualTo(1);
+
+    Label settingLabel = (Label) configuredTarget.get("first_setting");
+    assertThat(settingLabel).isNotNull();
+    assertThat(settingLabel).isEqualTo(makeLabel("//constraint:basic"));
+    Label valueLabel = (Label) configuredTarget.get("first_value");
+    assertThat(valueLabel).isNotNull();
+    assertThat(valueLabel).isEqualTo(makeLabel("//constraint:foo"));
   }
 }

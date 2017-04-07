@@ -9,7 +9,7 @@ genrule(
     name = "BUILD-jdk7",
     srcs = [":BUILD"],
     outs = ["BUILD.jdk7"],
-    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' $< > $@",
+    cmd = "sed -e 's/_version = \"8\"/_version = \"7\"/' -e 's/javac_supports_workers = 1/javac_supports_workers = 0/' -e 's/forcibly_disable_header_compilation = 0/forcibly_disable_header_compilation = 1/g' -e 's/:JavaBuilder_deploy/:VanillaJavaBuilder_deploy/' $< > $@",
 )
 
 filegroup(
@@ -63,6 +63,31 @@ filegroup(
     srcs = glob(["ijar/*"]),
 )
 
+filegroup(
+    name = "genclass",
+    srcs = ["//tools/jdk:GenClass_deploy.jar"],
+)
+
+filegroup(
+    name = "turbine",
+    srcs = ["//tools/jdk:turbine_deploy.jar"],
+)
+
+filegroup(
+    name = "singlejar",
+    srcs = ["//tools/jdk:SingleJar_deploy.jar"],
+)
+
+filegroup(
+    name = "javabuilder",
+    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
+)
+
+filegroup(
+    name = "vanillajavabuilder",
+    srcs = ["//tools/jdk:VanillaJavaBuilder_deploy.jar"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
@@ -114,10 +139,10 @@ java_toolchain(
     encoding = "UTF-8",
     extclasspath = [":extclasspath"],
     forcibly_disable_header_compilation = 0,
-    genclass = ["//tools/jdk:GenClass_deploy.jar"],
-    header_compiler = ["//tools/jdk:turbine_deploy.jar"],
+    genclass = ["@bazel_tools//tools/jdk:genclass"],
+    header_compiler = ["@bazel_tools//tools/jdk:turbine"],
     ijar = ["@bazel_tools//tools/jdk:ijar"],
-    javabuilder = ["//tools/jdk:JavaBuilder_deploy.jar"],
+    javabuilder = ["@bazel_tools//tools/jdk:javabuilder"],
     javac = ["//third_party/java/jdk/langtools:javac_jar"],
     javac_supports_workers = 1,
     jvm_opts = [
@@ -127,7 +152,7 @@ java_toolchain(
     misc = [
         "-XDskipDuplicateBridges=true",
     ],
-    singlejar = ["//tools/jdk:SingleJar_deploy.jar"],
+    singlejar = ["@bazel_tools//tools/jdk:SingleJar_deploy.jar"],
     source_version = "8",
     target_version = "8",
 )

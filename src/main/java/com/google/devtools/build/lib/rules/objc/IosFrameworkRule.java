@@ -28,7 +28,11 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
 /**
  * Rule definition for ios_framework.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
+@Deprecated
 public class IosFrameworkRule implements RuleDefinition {
 
   @Override
@@ -68,6 +72,10 @@ public class IosFrameworkRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = ios_framework, TYPE = BINARY, FAMILY = Objective-C) -->
+
+<p><strong>This rule is deprecated.</strong> Please use the new Apple build rules
+(<a href="https://github.com/bazelbuild/rules_apple">https://github.com/bazelbuild/rules_apple</a>)
+to build Apple targets.</p>
 
 <p>This rule produces a bundled binary for a framework from a compiled binary and bundle
 metadata. It is still highly experimental and has significant outstanding issues.</p>

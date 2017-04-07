@@ -30,9 +30,13 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
 /**
  * Contains support methods for common processing and generating of watch extension and application
  * bundles.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
  */
 // TODO(b/30503590): Refactor this into a support class -- such classes are better than this static
 // utility.
+@Deprecated
 final class WatchUtils {
 
   @VisibleForTesting

@@ -104,7 +104,8 @@ public final class Attribute implements Comparable<Attribute> {
 
     @Override
     public Aspect getAspect(Rule rule) {
-      return Aspect.forNative(aspectClass, parametersExtractor.apply(rule));
+      AspectParameters params = parametersExtractor.apply(rule);
+      return params == null ? null : Aspect.forNative(aspectClass, params);
     }
   }
 
@@ -992,7 +993,8 @@ public final class Attribute implements Comparable<Attribute> {
      * Asserts that a particular parameterized aspect probably needs to be computed for all direct
      * dependencies through this attribute.
      *
-     * @param evaluator function that extracts aspect parameters from rule.
+     * @param evaluator function that extracts aspect parameters from rule. If it returns null,
+     * then the aspect will not be attached.
      */
     public Builder<TYPE> aspect(
         NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
@@ -2050,7 +2052,10 @@ public final class Attribute implements Comparable<Attribute> {
   public ImmutableList<Aspect> getAspects(Rule rule) {
     ImmutableList.Builder<Aspect> builder = ImmutableList.builder();
     for (RuleAspect aspect : aspects) {
-      builder.add(aspect.getAspect(rule));
+      Aspect a = aspect.getAspect(rule);
+      if (a != null) {
+        builder.add(a);
+      }
     }
     return builder.build();
   }

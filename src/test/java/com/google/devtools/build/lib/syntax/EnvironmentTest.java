@@ -243,8 +243,8 @@ public class EnvironmentTest extends EvaluationTestCase {
       }
     }
     DummyFreezable dummy = new DummyFreezable();
-    Location locA = Location.fromPathFragment(new PathFragment("/a"));
-    Location locB = Location.fromPathFragment(new PathFragment("/b"));
+    Location locA = Location.fromPathFragment(PathFragment.create("/a"));
+    Location locB = Location.fromPathFragment(PathFragment.create("/b"));
     Environment env = Environment.builder(mutability).build();
 
     // Acquire two locks, release two locks, check along the way.

@@ -62,7 +62,7 @@ public class LabelTest {
   }
 
   private static String parseCommandLine(String label, String prefix) throws LabelSyntaxException {
-    return Label.parseCommandLineLabel(label, new PathFragment(prefix)).toString();
+    return Label.parseCommandLineLabel(label, PathFragment.create(prefix)).toString();
   }
 
   @Test
@@ -144,43 +144,43 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithDifferentRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", new PathFragment("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelative("@remote//x:y");
 
     assertEquals(RepositoryName.create("@remote"), relative.getPackageIdentifier().getRepository());
-    assertEquals(new PathFragment("x"), relative.getPackageFragment());
+    assertEquals(PathFragment.create("x"), relative.getPackageFragment());
     assertEquals("y", relative.getName());
   }
 
   @Test
   public void testGetRelativeWithRepoLocalAbsoluteLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", new PathFragment("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelative("//x:y");
 
     assertEquals(packageId.getRepository(), relative.getPackageIdentifier().getRepository());
-    assertEquals(new PathFragment("x"), relative.getPackageFragment());
+    assertEquals(PathFragment.create("x"), relative.getPackageFragment());
     assertEquals("y", relative.getName());
   }
 
   @Test
   public void testGetRelativeWithLocalRepoRelativeLabel() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", new PathFragment("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelative(":y");
 
     assertEquals(packageId.getRepository(), relative.getPackageIdentifier().getRepository());
-    assertEquals(new PathFragment("foo"), relative.getPackageFragment());
+    assertEquals(PathFragment.create("foo"), relative.getPackageFragment());
     assertEquals("y", relative.getName());
   }
 
   @Test
   public void testGetRelativeWithRepoAndReservedPackage() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", new PathFragment("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelative("//conditions:default");
@@ -193,13 +193,13 @@ public class LabelTest {
 
   @Test
   public void testGetRelativeWithRemoteRepoToDefaultRepo() throws Exception {
-    PackageIdentifier packageId = PackageIdentifier.create("@repo", new PathFragment("foo"));
+    PackageIdentifier packageId = PackageIdentifier.create("@repo", PathFragment.create("foo"));
     Label base = Label.create(packageId, "bar");
 
     Label relative = base.getRelative("@//x:y");
 
     assertEquals(RepositoryName.create("@"), relative.getPackageIdentifier().getRepository());
-    assertEquals(new PathFragment("x"), relative.getPackageFragment());
+    assertEquals(PathFragment.create("x"), relative.getPackageFragment());
     assertEquals("y", relative.getName());
   }
 

@@ -279,7 +279,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(file.toPath()).toString();
-      return new PathFragment(link);
+      return PathFragment.create(link);
     } catch (java.nio.file.NotLinkException e) {
       throw new NotASymlinkException(path);
     } catch (java.nio.file.NoSuchFileException e) {

@@ -81,6 +81,6 @@ public class PathGetParentTest {
 
     // Under UNIX, inode(/tmp/wiz/..) == inode(/).  However getPath() does not
     // perform I/O, only string operations, so it disagrees:
-    assertEquals(tmp, tmp.getRelative(new PathFragment("wiz/..")));
+    assertEquals(tmp, tmp.getRelative(PathFragment.create("wiz/..")));
   }
 }

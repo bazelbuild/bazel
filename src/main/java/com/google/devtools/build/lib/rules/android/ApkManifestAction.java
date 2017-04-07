@@ -53,8 +53,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
         .add(sdk.getAnnotationsJar())
         .add(sdk.getDx().getExecutable())
         .add(sdk.getFrameworkAidl())
-        .add(sdk.getJack().getExecutable())
-        .add(sdk.getJill().getExecutable())
         .add(sdk.getMainDexClasses())
         .add(sdk.getMainDexListCreator().getExecutable())
         .add(sdk.getProguard().getExecutable())
@@ -240,8 +238,6 @@ public final class ApkManifestAction extends AbstractFileWriteAction {
       sdkProto.setAnnotationsJar(getArtifactPath(sdk.getAnnotationsJar()));
       sdkProto.setDx(getArtifactPath(sdk.getDx()));
       sdkProto.setFrameworkAidl(getArtifactPath(sdk.getFrameworkAidl()));
-      sdkProto.setJack(getArtifactPath(sdk.getJack()));
-      sdkProto.setJill(getArtifactPath(sdk.getJill()));
       sdkProto.setMainDexClasses(getArtifactPath(sdk.getMainDexClasses()));
       sdkProto.setMainDexListCreator(getArtifactPath(sdk.getMainDexListCreator()));
       sdkProto.setProguard(getArtifactPath(sdk.getProguard()));

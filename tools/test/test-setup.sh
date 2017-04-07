@@ -114,6 +114,7 @@ else
 fi
 
 export -f rlocation
+export -f is_absolute
 export RUNFILES_MANIFEST_FILE
 
 DIR="$TEST_SRCDIR"

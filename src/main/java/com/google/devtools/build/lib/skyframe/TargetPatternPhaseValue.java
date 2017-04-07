@@ -130,7 +130,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
       ImmutableList<String> buildTargetFilter,
-      @Nullable TestFilter testFilter) {
+      boolean buildManualTests, @Nullable TestFilter testFilter) {
     return SkyKey.create(
         SkyFunctions.TARGET_PATTERN_PHASE,
         new TargetPatternList(
@@ -140,7 +140,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
             buildTestsOnly,
             determineTests,
             buildTargetFilter,
-            testFilter));
+            buildManualTests, testFilter));
   }
 
   /**
@@ -155,17 +155,20 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean buildTestsOnly;
     private final boolean determineTests;
     private final ImmutableList<String> buildTargetFilter;
+    private final boolean buildManualTests;
     @Nullable private final TestFilter testFilter;
 
     public TargetPatternList(ImmutableList<String> targetPatterns, String offset,
         boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
-        ImmutableList<String> buildTargetFilter, @Nullable TestFilter testFilter) {
+        ImmutableList<String> buildTargetFilter, boolean buildManualTests,
+        @Nullable TestFilter testFilter) {
       this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
       this.offset = Preconditions.checkNotNull(offset);
       this.compileOneDependency = compileOneDependency;
       this.buildTestsOnly = buildTestsOnly;
       this.determineTests = determineTests;
       this.buildTargetFilter = Preconditions.checkNotNull(buildTargetFilter);
+      this.buildManualTests = buildManualTests;
       this.testFilter = testFilter;
       if (buildTestsOnly || determineTests) {
         Preconditions.checkNotNull(testFilter);
@@ -196,6 +199,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
       return buildTargetFilter;
     }
 
+    public boolean getBuildManualTests() {
+      return buildManualTests;
+    }
+
     public TestFilter getTestFilter() {
       return testFilter;
     }
@@ -217,7 +224,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
     @Override
     public int hashCode() {
       return Objects.hash(targetPatterns, offset, compileOneDependency, buildTestsOnly,
-          determineTests, testFilter);
+          determineTests, buildManualTests, testFilter);
     }
 
     @Override
@@ -235,6 +242,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
           && other.buildTestsOnly == buildTestsOnly
           && other.determineTests == determineTests
           && other.buildTargetFilter.equals(buildTargetFilter)
+          && other.buildManualTests == buildManualTests
           && Objects.equals(other.testFilter, testFilter);
     }
   }

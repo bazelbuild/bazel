@@ -58,7 +58,7 @@ public final class ProjectFileSupport {
       // TODO(bazel-team): This is currently treated as a path relative to the workspace - if the
       // cwd is a subdirectory of the workspace, that will be surprising, and we should interpret it
       // relative to the cwd instead.
-      PathFragment projectFilePath = new PathFragment(targets.get(0).substring(1));
+      PathFragment projectFilePath = PathFragment.create(targets.get(0).substring(1));
       List<Path> packagePath = PathPackageLocator.create(
           env.getOutputBase(),
           optionsParser.getOptions(PackageCacheOptions.class).packagePath,

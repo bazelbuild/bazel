@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
@@ -36,8 +35,8 @@ import javax.annotation.Nullable;
  */
 public final class BazelShRuleClasses {
 
-  static final Collection<String> ALLOWED_RULES_IN_DEPS_WITH_WARNING = ImmutableSet.of(
-      "filegroup", "genrule", "sh_binary", "sh_test", "test_suite");
+  static final ImmutableSet<String> ALLOWED_RULES_IN_DEPS_WITH_WARNING =
+      ImmutableSet.of("filegroup", "genrule", "sh_binary", "sh_test", "test_suite");
 
   /**
    * Common attributes for shell rules.

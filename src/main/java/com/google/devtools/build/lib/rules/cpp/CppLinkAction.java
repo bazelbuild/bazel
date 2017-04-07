@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -207,24 +206,6 @@ public final class CppLinkAction extends AbstractAction
 
     result.putAll(actionEnv);
     result.putAll(toolchainEnv);
-
-    if (OS.getCurrent() == OS.WINDOWS) {
-      // Both GCC and clang rely on their execution directories being on
-      // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On
-      // the other hand, Windows documentation says that the directory of the executable
-      // is always searched for DLLs first. Not sure what to make of it.
-      // Other options are to forward the system path (brittle), or to add a PATH field to
-      // the crosstool file.
-      //
-      // @see com.google.devtools.build.lib.rules.cpp.CppCompileAction#getEnvironment.
-      // TODO(b/28791924): Use the crosstool to provide this value.
-      result.put(
-          "PATH",
-          cppConfiguration
-              .getToolPathFragment(CppConfiguration.Tool.GCC)
-              .getParentDirectory()
-              .getPathString());
-    }
 
     if (!needsToRunOnMac()) {
       // This prevents gcc from writing the unpredictable (and often irrelevant)

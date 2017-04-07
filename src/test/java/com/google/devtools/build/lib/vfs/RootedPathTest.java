@@ -40,12 +40,14 @@ public class RootedPathTest {
   public void testEqualsAndHashCodeContract() throws Exception {
     Path pkgRoot1 = root.getRelative("pkgroot1");
     Path pkgRoot2 = root.getRelative("pkgroot2");
-    RootedPath rootedPathA1 = RootedPath.toRootedPath(pkgRoot1, new PathFragment("foo/bar"));
-    RootedPath rootedPathA2 = RootedPath.toRootedPath(pkgRoot1, new PathFragment("foo/bar"));
-    RootedPath absolutePath1 = RootedPath.toRootedPath(root, new PathFragment("pkgroot1/foo/bar"));
-    RootedPath rootedPathB1 = RootedPath.toRootedPath(pkgRoot2, new PathFragment("foo/bar"));
-    RootedPath rootedPathB2 = RootedPath.toRootedPath(pkgRoot2, new PathFragment("foo/bar"));
-    RootedPath absolutePath2 = RootedPath.toRootedPath(root, new PathFragment("pkgroot2/foo/bar"));
+    RootedPath rootedPathA1 = RootedPath.toRootedPath(pkgRoot1, PathFragment.create("foo/bar"));
+    RootedPath rootedPathA2 = RootedPath.toRootedPath(pkgRoot1, PathFragment.create("foo/bar"));
+    RootedPath absolutePath1 =
+        RootedPath.toRootedPath(root, PathFragment.create("pkgroot1/foo/bar"));
+    RootedPath rootedPathB1 = RootedPath.toRootedPath(pkgRoot2, PathFragment.create("foo/bar"));
+    RootedPath rootedPathB2 = RootedPath.toRootedPath(pkgRoot2, PathFragment.create("foo/bar"));
+    RootedPath absolutePath2 =
+        RootedPath.toRootedPath(root, PathFragment.create("pkgroot2/foo/bar"));
     new EqualsTester()
       .addEqualityGroup(rootedPathA1, rootedPathA2)
       .addEqualityGroup(rootedPathB1, rootedPathB2)

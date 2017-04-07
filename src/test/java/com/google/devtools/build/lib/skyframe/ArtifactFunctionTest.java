@@ -389,11 +389,11 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createSourceArtifact(String path) {
-    return new Artifact(new PathFragment(path), Root.asSourceRoot(root));
+    return new Artifact(PathFragment.create(path), Root.asSourceRoot(root));
   }
 
   private Artifact createDerivedArtifact(String path) {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
     Artifact output =
         new Artifact(
@@ -416,7 +416,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private Artifact createDerivedTreeArtifactOnly(String path) {
-    PathFragment execPath = new PathFragment("out").getRelative(path);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
     Path fullPath = root.getRelative(execPath);
     return new SpecialArtifact(
         fullPath,
@@ -429,7 +429,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   private TreeFileArtifact createFakeTreeFileArtifact(Artifact treeArtifact,
       String parentRelativePath, String content) throws Exception {
     TreeFileArtifact treeFileArtifact = ActionInputHelper.treeFileArtifact(
-        treeArtifact, new PathFragment(parentRelativePath));
+        treeArtifact, PathFragment.create(parentRelativePath));
     Path path = treeFileArtifact.getPath();
     FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
     writeFile(path, content);
@@ -499,9 +499,9 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       try {
         if (output.isTreeArtifact()) {
           TreeFileArtifact treeFileArtifact1 = ActionInputHelper.treeFileArtifact(
-              output, new PathFragment("child1"));
+              output, PathFragment.create("child1"));
           TreeFileArtifact treeFileArtifact2 = ActionInputHelper.treeFileArtifact(
-              output, new PathFragment("child2"));
+              output, PathFragment.create("child2"));
           TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(ImmutableMap.of(
               treeFileArtifact1, FileArtifactValue.create(treeFileArtifact1),
               treeFileArtifact2, FileArtifactValue.create(treeFileArtifact2)));

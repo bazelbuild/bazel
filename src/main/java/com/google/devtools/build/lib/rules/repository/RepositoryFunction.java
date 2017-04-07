@@ -298,7 +298,7 @@ public abstract class RepositoryFunction {
     } catch (EvalException e) {
       throw new RepositoryFunctionException(e, Transience.PERSISTENT);
     }
-    PathFragment pathFragment = new PathFragment(path);
+    PathFragment pathFragment = PathFragment.create(path);
     return workspace.getRelative(pathFragment).asFragment();
   }
 

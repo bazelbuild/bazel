@@ -773,7 +773,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
-        new ModifiedFileSet.Builder().modify(new PathFragment(buildFilePathString)).build(),
+        new ModifiedFileSet.Builder().modify(PathFragment.create(buildFilePathString)).build(),
         rootDirectory);
     return (Rule) getTarget("//" + packageName + ":" + ruleName);
   }
@@ -924,7 +924,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected Artifact getSourceArtifact(String name) {
-    return getSourceArtifact(new PathFragment(name), Root.asSourceRoot(rootDirectory));
+    return getSourceArtifact(PathFragment.create(name), Root.asSourceRoot(rootDirectory));
   }
 
   /**
@@ -959,7 +959,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * used instead.
    */
   protected Artifact getBinArtifactWithNoOwner(String rootRelativePath) {
-    return getDerivedArtifact(new PathFragment(rootRelativePath),
+    return getDerivedArtifact(PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
@@ -1037,7 +1037,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * #getGenfilesArtifact(String, ArtifactOwner)} or its convenience methods should be used instead.
    */
   protected Artifact getGenfilesArtifactWithNoOwner(String rootRelativePath) {
-    return getDerivedArtifact(new PathFragment(rootRelativePath),
+    return getDerivedArtifact(PathFragment.create(rootRelativePath),
         targetConfig.getGenfilesDirectory(RepositoryName.MAIN),
         ActionsTestUtil.NULL_ARTIFACT_OWNER);
   }
@@ -1150,7 +1150,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * @param owner the artifact's owner.
    */
   protected Artifact getSharedArtifact(String rootRelativePath, ConfiguredTarget owner) {
-    return getDerivedArtifact(new PathFragment(rootRelativePath),
+    return getDerivedArtifact(PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
         new ConfiguredTargetKey(owner));
   }

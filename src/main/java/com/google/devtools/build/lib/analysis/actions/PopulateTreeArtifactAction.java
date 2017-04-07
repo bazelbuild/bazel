@@ -267,7 +267,7 @@ public final class PopulateTreeArtifactAction extends AbstractAction {
     for (String line :
         FileSystemUtils.iterateLinesAsLatin1(archiveManifest.getPath())) {
       if (!line.isEmpty()) {
-        PathFragment path = new PathFragment(line);
+        PathFragment path = PathFragment.create(line);
 
         if (!path.isNormalized() || path.isAbsolute()) {
           throw new IllegalManifestFileException(

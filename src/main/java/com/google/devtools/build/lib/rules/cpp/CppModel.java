@@ -919,7 +919,7 @@ public final class CppModel {
     builder
         .setPicMode(usePic)
         .setOutputs(ruleContext, outputCategory, outputNameBase, generateDotd)
-        .setTempOutputFile(new PathFragment(tempOutputName));
+        .setTempOutputFile(PathFragment.create(tempOutputName));
 
     setupCompileBuildVariables(
         builder,
@@ -969,7 +969,7 @@ public final class CppModel {
       }
       String linkedName = CppHelper.getArtifactNameForCategory(
           ruleContext, ccToolchain, linkTargetType.getLinkerOutput(), maybePicName);
-      PathFragment artifactFragment = new PathFragment(ruleContext.getLabel().getName())
+      PathFragment artifactFragment = PathFragment.create(ruleContext.getLabel().getName())
           .getParentDirectory().getRelative(linkedName);
 
       result = ruleContext.getPackageRelativeArtifact(
@@ -1042,7 +1042,7 @@ public final class CppModel {
     // If the crosstool is configured to select an output artifact, we use that selection.
     // Otherwise, we use linux defaults.
     Artifact linkedArtifact = getLinkedArtifact(linkType);
-    PathFragment labelName = new PathFragment(ruleContext.getLabel().getName());
+    PathFragment labelName = PathFragment.create(ruleContext.getLabel().getName());
     String libraryIdentifier = ruleContext.getPackageDirectory().getRelative(
         labelName.replaceName("lib" + labelName.getBaseName())).getPathString();
     CppLinkAction maybePicAction =

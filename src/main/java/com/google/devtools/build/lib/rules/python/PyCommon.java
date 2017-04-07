@@ -445,7 +445,7 @@ public final class PyCommon {
       }
       mainSourceName = ruleName + ".py";
     }
-    PathFragment mainSourcePath = new PathFragment(mainSourceName);
+    PathFragment mainSourcePath = PathFragment.create(mainSourceName);
 
     Artifact mainArtifact = null;
     for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()) {
@@ -468,8 +468,8 @@ public final class PyCommon {
     if (!withWorkspaceName) {
       return mainArtifact.getRunfilesPath().getPathString();
     }
-    PathFragment workspaceName = new PathFragment(
-        ruleContext.getRule().getPackage().getWorkspaceName());
+    PathFragment workspaceName =
+        PathFragment.create(ruleContext.getRule().getPackage().getWorkspaceName());
     return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
   }
 

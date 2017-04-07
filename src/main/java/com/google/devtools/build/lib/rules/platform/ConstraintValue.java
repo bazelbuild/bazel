@@ -30,19 +30,16 @@ public class ConstraintValue implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
 
-    ConstraintSettingProvider constraint =
-        ruleContext.getPrerequisite(
-            ConstraintValueRule.CONSTRAINT_SETTING_ATTR,
-            Mode.DONT_CHECK,
-            ConstraintSettingProvider.class);
+    ConstraintSettingInfo constraint =
+        ConstraintSettingInfo.fromTarget(
+            ruleContext.getPrerequisite(
+                ConstraintValueRule.CONSTRAINT_SETTING_ATTR, Mode.DONT_CHECK));
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(FileProvider.class, FileProvider.EMPTY)
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
-        .addProvider(
-            ConstraintValueProvider.class,
-            ConstraintValueProvider.create(constraint, ruleContext.getLabel()))
+        .addNativeDeclaredProvider(ConstraintValueInfo.create(constraint, ruleContext.getLabel()))
         .build();
   }
 }

@@ -129,7 +129,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
     }
   }
 
-  protected static final PathFragment SCOPE_ROOT = new PathFragment("/fs/root");
+  protected static final PathFragment SCOPE_ROOT = PathFragment.create("/fs/root");
 
   private Path fileLink;
   private PathFragment fileLinkTarget;
@@ -146,11 +146,11 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
     }
 
     fileLink = testFS.getPath(SCOPE_ROOT.getRelative("link"));
-    fileLinkTarget = new PathFragment("/should/be/delegated/fileLinkTarget");
+    fileLinkTarget = PathFragment.create("/should/be/delegated/fileLinkTarget");
     testFS.createSymbolicLink(fileLink, fileLinkTarget);
 
     dirLink = testFS.getPath(SCOPE_ROOT.getRelative("dirlink"));
-    dirLinkTarget = new PathFragment("/should/be/delegated/dirLinkTarget");
+    dirLinkTarget = PathFragment.create("/should/be/delegated/dirLinkTarget");
     testFS.createSymbolicLink(dirLink, dirLinkTarget);
   }
 
@@ -605,7 +605,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
     };
     scopedFS().setDelegator(delegator);
 
-    PathFragment newLinkTarget = new PathFragment("/something/else");
+    PathFragment newLinkTarget = PathFragment.create("/something/else");
     dirLink.getRelative("a").createSymbolicLink(newLinkTarget);
     assertEquals(dirLinkTarget.getRelative("a"), delegator.lastPath());
     assertSame(newLinkTarget, delegator.objectState());
@@ -623,7 +623,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
     scopedFS().setDelegator(delegator);
 
     // Since we're not following the link, this shouldn't invoke delegation.
-    delegator.setState(new PathFragment("whatever"));
+    delegator.setState(PathFragment.create("whatever"));
     PathFragment p = fileLink.readSymbolicLink();
     assertNull(delegator.lastPath());
     assertNotSame(delegator.objectState(), p);
@@ -705,7 +705,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
    */
   private void assertInScopeLink(String link, String target, TestDelegator d) throws IOException {
     Path l = testFS.getPath(SCOPE_ROOT.getRelative(link));
-    testFS.createSymbolicLink(l, new PathFragment(target));
+    testFS.createSymbolicLink(l, PathFragment.create(target));
     l.exists();
     assertNull(d.lastPath());
   }
@@ -717,7 +717,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
   private void assertOutOfScopeLink(String link, String target, String expectedPath,
       TestDelegator d) throws IOException {
     Path l = testFS.getPath(SCOPE_ROOT.getRelative(link));
-    testFS.createSymbolicLink(l, new PathFragment(target));
+    testFS.createSymbolicLink(l, PathFragment.create(target));
     l.exists();
     assertEquals(expectedPath, d.lastPath().getPathString());
   }
@@ -768,7 +768,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
 
     // Out-of-scope symlink that's not the final segment in a query.
     Path oDirLink = testFS.getPath(SCOPE_ROOT.getRelative("olinkdir"));
-    testFS.createSymbolicLink(oDirLink, new PathFragment("/some/other/dir"));
+    testFS.createSymbolicLink(oDirLink, PathFragment.create("/some/other/dir"));
     oDirLink.getRelative("file").exists();
     assertEquals("/some/other/dir/file", d.lastPath().getPathString());
   }
@@ -807,13 +807,13 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
 
     // In-scope symlink that's not the final segment in a query.
     Path iDirLink = testFS.getPath(SCOPE_ROOT.getRelative("dir/dir2/ilinkdir"));
-    testFS.createSymbolicLink(iDirLink, new PathFragment("../../dir"));
+    testFS.createSymbolicLink(iDirLink, PathFragment.create("../../dir"));
     iDirLink.getRelative("file").exists();
     assertNull(d.lastPath());
 
     // Out-of-scope symlink that's not the final segment in a query.
     Path oDirLink = testFS.getPath(SCOPE_ROOT.getRelative("dir/dir2/olinkdir"));
-    testFS.createSymbolicLink(oDirLink, new PathFragment("../../../other/dir"));
+    testFS.createSymbolicLink(oDirLink, PathFragment.create("../../../other/dir"));
     oDirLink.getRelative("file").exists();
     assertEquals(chopScopeRoot(1) + "/other/dir/file", d.lastPath().getPathString());
   }

@@ -492,7 +492,8 @@ static vector<string> GetArgumentArray() {
     }
   }
 
-  if (globals->options->invocation_policy != NULL &&
+  // Pass in invocation policy as a startup argument for batch mode only.
+  if (globals->options->batch && globals->options->invocation_policy != NULL &&
       strlen(globals->options->invocation_policy) > 0) {
     result.push_back(string("--invocation_policy=") +
                      globals->options->invocation_policy);
@@ -1612,6 +1613,10 @@ unsigned int GrpcBlazeServer::Communicate() {
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
     request.add_arg(arg);
+  }
+  if (globals->options->invocation_policy != NULL &&
+      strlen(globals->options->invocation_policy) > 0) {
+    request.set_invocation_policy(globals->options->invocation_policy);
   }
 
   grpc::ClientContext context;

@@ -139,7 +139,7 @@ project may have many nested packages.
 At a command-line prompt, open your new `BUILD` file for editing:
 
 ```bash
-$ vi $WORKSPACE/android/BUILD
+vi $WORKSPACE/android/BUILD
 ```
 
 ### Add an android_library rule
@@ -214,13 +214,13 @@ Before you build the sample app, make sure that your current working directory
 is inside your Bazel workspace:
 
 ```bash
-$ cd $WORKSPACE
+cd $WORKSPACE
 ```
 
 Now, enter the following to build the sample app:
 
 ```bash
-$ bazel build //android:android
+bazel build //android:android
 ```
 
 The [`build`](/docs/bazel-user-manual.html#build) subcommand instructs Bazel to
@@ -264,7 +264,7 @@ At a command prompt, list the contents of this directory and find the
 `android.apk` file:
 
 ```bash
-$ ls $WORKSPACE/bazel-bin/android
+ls $WORKSPACE/bazel-bin/android
 ```
 
 ## Run the app
@@ -281,7 +281,7 @@ deployment.
 Enter the following:
 
 ```bash
-$ bazel mobile-install //android:android
+bazel mobile-install //android:android
 ```
 
 Note that the `mobile-install` subcommand also supports the

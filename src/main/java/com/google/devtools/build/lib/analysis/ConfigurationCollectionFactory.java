@@ -39,7 +39,6 @@ public interface ConfigurationCollectionFactory {
    * @param loadedPackageProvider the package provider
    * @param buildOptions top-level build options representing the command-line
    * @param errorEventListener the event listener for errors
-   * @param mainRepositoryName the workspace name of the main repository
    * @return the top-level configuration
    * @throws InvalidConfigurationException
    */
@@ -49,8 +48,7 @@ public interface ConfigurationCollectionFactory {
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions,
-      EventHandler errorEventListener,
-      String mainRepositoryName)
+      EventHandler errorEventListener)
       throws InvalidConfigurationException, InterruptedException;
 
   /**

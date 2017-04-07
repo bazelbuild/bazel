@@ -530,18 +530,17 @@ Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeGetProcessPid(
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_google_devtools_build_lib_windows_WindowsProcesses_nativeTerminate(
     JNIEnv *env, jclass clazz, jlong process_long) {
+  static const UINT exit_code = 130;  // 128 + SIGINT, like on Linux
   NativeProcess* process = reinterpret_cast<NativeProcess*>(process_long);
 
   if (process->job_ != INVALID_HANDLE_VALUE) {
-    // In theory, CloseHandle() on process->job_ would work, too, since we set
-    // KILL_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, but this is a little more explicit.
-    if (!TerminateJobObject(process->job_, 0)) {
+    if (!TerminateJobObject(process->job_, exit_code)) {
       process->error_ =
           windows_util::GetLastErrorString("TerminateJobObject()");
       return JNI_FALSE;
     }
   } else if (process->process_ != INVALID_HANDLE_VALUE) {
-    if (!TerminateProcess(process->process_, 1)) {
+    if (!TerminateProcess(process->process_, exit_code)) {
       process->error_ = windows_util::GetLastErrorString("TerminateProcess()");
       return JNI_FALSE;
     }

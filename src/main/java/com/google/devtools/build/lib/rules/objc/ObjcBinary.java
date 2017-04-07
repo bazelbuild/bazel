@@ -14,7 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-/** Implementation for the "objc_binary" rule. */
+/**
+ * Implementation for the "objc_binary" rule.
+ *
+ * @deprecated The native bundling rules have been deprecated. This class will be removed in the
+ *     future.
+ */
+@Deprecated
 public class ObjcBinary extends BinaryLinkingTargetFactory {
   public ObjcBinary() {
     super(

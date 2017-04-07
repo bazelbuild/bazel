@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.genrule.GenRuleBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 
 /**
  * Rule definition for genrule for Bazel.
@@ -52,7 +51,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         .add(attr("stamp", BOOLEAN).value(false))
 
         .add(attr(":cc_toolchain", LABEL).value(GenRuleBaseRule.CC_TOOLCHAIN))
-        .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
+        .add(attr(":host_jdk", LABEL).cfg(HOST).value(GenRuleBaseRule.HOST_JDK))
 
         .build();
   }

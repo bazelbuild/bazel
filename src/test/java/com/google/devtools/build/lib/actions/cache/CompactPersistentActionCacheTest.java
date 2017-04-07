@@ -167,7 +167,7 @@ public class CompactPersistentActionCacheTest {
     ActionCache.Entry entry =
         new ActionCache.Entry("actionKey", ImmutableMap.<String, String>of(), false);
     entry.toString();
-    entry.addFile(new PathFragment("foo/bar"), Metadata.CONSTANT_METADATA);
+    entry.addFile(PathFragment.create("foo/bar"), Metadata.CONSTANT_METADATA);
     entry.toString();
     entry.getFileDigest();
     entry.toString();
