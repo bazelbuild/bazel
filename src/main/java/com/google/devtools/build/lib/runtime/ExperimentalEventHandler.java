@@ -54,8 +54,13 @@ public class ExperimentalEventHandler implements EventHandler {
   private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
   /** Latest refresh of the progress bar, if contents other than time changed */
   static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
-  /** Minimal rate limiting, if the progress bar cannot be updated in place */
-  static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 2000L;
+  /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
+  static final long NO_CURSES_MINIMAL_PROGRESS_RATE_LIMIT = 1000L;
+  /**
+   * Minimal rate limiting, as fraction of the request time so far, if the progress bar cannot be
+   * updated in place
+   */
+  static final double NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT = 0.15;
   /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
   static final long SHORT_REFRESH_MILLIS = 1000L;
   /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
@@ -64,17 +69,18 @@ public class ExperimentalEventHandler implements EventHandler {
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormat.forPattern("(HH:mm:ss.SSS) ");
 
-  private final long minimalDelayMillis;
   private final boolean cursorControl;
   private final Clock clock;
+  private final long uiStartTimeMillis;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
-  private final long minimalUpdateInterval;
   private final boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
   private final OutErr outErr;
+  private long minimalDelayMillis;
+  private long minimalUpdateInterval;
   private long lastRefreshMillis;
   private long mustRefreshAfterMillis;
   private int numLinesProgressBar;
@@ -96,6 +102,7 @@ public class ExperimentalEventHandler implements EventHandler {
     this.progressInTermTitle = options.progressInTermTitle && options.useCursorControl();
     this.showTimestamp = options.showTimestamp;
     this.clock = clock;
+    this.uiStartTimeMillis = clock.currentTimeMillis();
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     // If we have cursor control, we try to fit in the terminal width to avoid having
     // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
@@ -447,6 +454,17 @@ public class ExperimentalEventHandler implements EventHandler {
             clearProgressBar();
             addProgressBar();
             terminal.flush();
+            if (!cursorControl) {
+              // If we can't update the progress bar in place, make sure we increase the update
+              // interval as time progresses, to avoid too many progress messages in place.
+              minimalDelayMillis =
+                  Math.max(
+                      minimalDelayMillis,
+                      Math.round(
+                          NO_CURSES_MINIMAL_RELATIVE_PROGRESS_RATE_LMIT
+                              * (clock.currentTimeMillis() - uiStartTimeMillis)));
+              minimalUpdateInterval = Math.max(minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
+            }
           }
         } catch (IOException e) {
           LOG.warning("IO Error writing to output stream: " + e);
