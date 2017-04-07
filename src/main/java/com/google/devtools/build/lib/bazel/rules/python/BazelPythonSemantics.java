@@ -91,8 +91,8 @@ public class BazelPythonSemantics implements PythonSemantics {
 
   @Override
   public List<PathFragment> getImports(RuleContext ruleContext) {
-    List<PathFragment> result = new ArrayList<>();
-    PathFragment packageFragment = getPackageFragment(ruleContext);
+    final List<PathFragment> result = new ArrayList<>();
+    final PathFragment packageFragment = getPackageFragment(ruleContext);
     for (String importsAttr : ruleContext.attributes().get("imports", Type.STRING_LIST)) {
       importsAttr = ruleContext.expandMakeVariables("includes", importsAttr);
       if (importsAttr.startsWith("/")) {
