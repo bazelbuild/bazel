@@ -386,6 +386,7 @@ ios_test(name = "app_test",
 EOF
 
   bazel build --verbose_failures --xcode_version=$XCODE_VERSION \
+      --ios_minimum_os=8.0 \
       //ios:app_test >$TEST_log 2>&1 || fail "should build"
 
   otool -lv bazel-bin/ios/app_test_bin \

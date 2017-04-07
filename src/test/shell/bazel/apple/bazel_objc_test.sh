@@ -115,6 +115,7 @@ function test_ios_test() {
   make_app
 
   bazel build --test_output=all --ios_sdk_version=$IOS_SDK_VERSION \
+      --ios_minimum_os=8.0 \
       //ios:PassingXcTest >$TEST_log 2>&1 || fail "should pass"
   ls bazel-bin/ios/PassingXcTest.ipa \
       || fail "should generate PassingXcTest.ipa"
