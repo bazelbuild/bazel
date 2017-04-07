@@ -541,9 +541,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         finalProguardMap = proguardOutput.getMapping();
       }
       // the Rex flag --keep-main-dex is used to support builds with API level below 21 that do not
-      // support native multi-dex. The blaze flag main_dex_list is set in this case so it is used to
-      // determine whether or not to pass the flag to Rex
-      if (ruleContext.attributes().isAttributeValueExplicitlySpecified("main_dex_list")) {
+      // support native multi-dex. This flag indicates to Rex to use the main_dex_list file which
+      // can be provided by the user via the main_dex_list attribute or created automatically
+      // when multidex mode is set to legacy.
+      if (ruleContext.attributes().isAttributeValueExplicitlySpecified("main_dex_list")
+          || getMultidexMode(ruleContext) == MultidexMode.LEGACY) {
         rexActionBuilder.addArgument("--keep-main-dex");
       }
       ruleContext.registerAction(rexActionBuilder.build(ruleContext));
