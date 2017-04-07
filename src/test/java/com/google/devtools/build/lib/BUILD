@@ -1057,6 +1057,7 @@ java_test(
     srcs = glob(["remote/*.java"]),
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":analysis_testutil",
         ":foundations_testutil",
         ":test_runner",
         ":testutil",

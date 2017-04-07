@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2017 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,9 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote;
-
-import static org.mockito.Mockito.mock;
+package com.google.devtools.build.lib.exec.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -23,20 +21,38 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
+import javax.annotation.Nullable;
 
-/** A fake implementation of ActionExecutionMetadata as needed for SpawnRunner test. */
-final class FakeOwner implements ActionExecutionMetadata {
+/**
+ * Fake implementation of {@link ActionExecutionMetadata} for testing.
+ */
+public final class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
+  @Nullable private final String ownerLabel;
 
-  FakeOwner(String mnemonic, String progressMessage) {
+  public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
+    this.ownerLabel = ownerLabel;
+  }
+
+  public FakeOwner(String mnemonic, String progressMessage) {
+    this(mnemonic, progressMessage, null);
   }
 
   @Override
   public ActionOwner getOwner() {
-    return mock(ActionOwner.class);
+    return ActionOwner.create(
+        ownerLabel == null ? null : Label.parseAbsoluteUnchecked(ownerLabel),
+        /*aspectDescriptors=*/ ImmutableList.<AspectDescriptor>of(),
+        /*location=*/ null,
+        mnemonic,
+        /*targetKind=*/ null,
+        "configurationChecksum",
+        "additionalProgressInfo");
   }
 
   @Override
@@ -101,7 +117,7 @@ final class FakeOwner implements ActionExecutionMetadata {
 
   @Override
   public String getKey() {
-    throw new UnsupportedOperationException();
+    return "MockOwner.getKey";
   }
 
   @Override
@@ -117,7 +133,7 @@ final class FakeOwner implements ActionExecutionMetadata {
   @Override
   public Iterable<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
-    return ImmutableList.<Artifact>of();
+    return ImmutableList.of();
   }
 
   @Override

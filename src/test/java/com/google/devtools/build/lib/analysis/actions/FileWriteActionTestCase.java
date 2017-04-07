@@ -42,7 +42,7 @@ public abstract class FileWriteActionTestCase extends BuildViewTestCase {
   private Artifact outputArtifact;
   private Path output;
   private Executor executor;
-  private ActionExecutionContext context;
+  protected ActionExecutionContext context;
 
   @Before
   public final void createAction() throws Exception {
