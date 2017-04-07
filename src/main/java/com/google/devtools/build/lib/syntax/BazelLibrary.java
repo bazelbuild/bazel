@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import java.util.List;
 
 /**
@@ -155,6 +156,28 @@ public class BazelLibrary {
           // SkylarkNestedSets versus a set and another kind of iterable.
           // Can't use EvalUtils#toIterable since that would discard this information.
           return new SkylarkNestedSet(input, newElements, loc);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "to_list",
+    objectType = SkylarkNestedSet.class,
+    returnType = MutableList.class,
+    doc =
+        "Returns a list of the elements, without duplicates, in the depset's traversal order. "
+            + "Note that order is unspecified (but deterministic) for elements that were added "
+            + "more than once to the depset. Order is also unspecified for <code>\"default\""
+            + "</code>-ordered depsets, and for elements of child depsets whose order differs "
+            + "from that of the parent depset. The list is a copy; modifying it has no effect "
+            + "on the depset and vice versa.",
+    parameters = {@Param(name = "input", type = SkylarkNestedSet.class, doc = "The input depset.")},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction toList =
+      new BuiltinFunction("to_list") {
+        @SuppressWarnings("unused")
+        public MutableList<Object> invoke(SkylarkNestedSet input, Environment env) {
+          return new MutableList<>(input.toCollection(), env);
         }
       };
 
