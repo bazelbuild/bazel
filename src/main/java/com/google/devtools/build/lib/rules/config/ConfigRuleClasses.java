@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
@@ -107,6 +108,8 @@ public class ConfigRuleClasses {
      * The name of the attribute that declares flag bindings.
      */
     public static final String SETTINGS_ATTRIBUTE = "values";
+    /** The name of the attribute that declares user-defined flag bindings. */
+    public static final String FLAG_SETTINGS_ATTRIBUTE = "flag_values";
 
     private static final Function<Rule, Set<String>> CONFIG_SETTING_OPTION_REFERENCE =
         new Function<Rule, Set<String>>() {
@@ -157,7 +160,13 @@ public class ConfigRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(
               attr(SETTINGS_ATTRIBUTE, STRING_DICT)
-                  .mandatory()
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr(FLAG_SETTINGS_ATTRIBUTE, LABEL_KEYED_STRING_DICT)
+                  .undocumented("the feature flag feature has not yet been launched")
+                  .allowedFileTypes()
+                  .mandatoryProviders(
+                      ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER))
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .setIsConfigMatcherForConfigSettingOnly()
           .setOptionReferenceFunctionForConfigSettingOnly(CONFIG_SETTING_OPTION_REFERENCE)

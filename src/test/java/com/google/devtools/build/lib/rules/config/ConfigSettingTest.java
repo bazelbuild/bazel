@@ -114,6 +114,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
+    builder.addRuleDefinition(new FeatureFlagSetterRule());
     builder.addConfigurationOptions(LateBoundTestOptions.class);
     builder.addConfigurationFragment(new LateBoundTestOptionsLoader());
     builder.addConfigurationOptions(InternalTestOptions.class);
@@ -224,12 +225,13 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   /**
-   * Tests that *some* settings must be specified.
+   * Tests that *some* settings (values or flag_values) must be specified.
    */
   @Test
   public void emptySettings() throws Exception {
     checkError("foo", "empty",
-        "//foo:empty: no settings specified",
+        "in config_setting rule //foo:empty: "
+        + "Either values or flag_values must be specified and non-empty",
         "config_setting(",
         "    name = 'empty',",
         "    values = {})");
@@ -328,5 +330,638 @@ public class ConfigSettingTest extends BuildViewTestCase {
     Rule target = (Rule) getTarget("//test:match");
     assertThat(target.getRuleClassObject().getOptionReferenceFunction().apply(target))
         .containsExactly("copt", "javacopt");
+  }
+
+  @Test
+  public void matchesIfFlagValuesAndValuesBothMatch() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void matchesIfFlagValuesMatchAndValuesAreEmpty() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {},",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void matchesIfValuesMatchAndFlagValuesAreEmpty() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {},",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void doesNotMatchIfNeitherFlagValuesNorValuesMatches() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'wrong',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dwrong',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotMatchIfFlagValuesDoNotMatchAndValuesAreEmpty() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'wrong',",
+        "    },",
+        "    values = {},",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotMatchIfFlagValuesDoNotMatchButValuesDo() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'wrong',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotMatchIfValuesDoNotMatchAndFlagValuesAreEmpty() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {},",
+        "    values = {",
+        "        'copt': '-Dwrong',",
+        "    },",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotMatchIfValuesDoNotMatchButFlagValuesDo() throws Exception {
+    useConfiguration("--copt=-Dright");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dwrong',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotMatchIfEvenOneFlagValueDoesNotMatch() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'bad',",
+        "    },",
+        "    values = {},",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
+  }
+
+  @Test
+  public void matchesIfNonDefaultIsSpecifiedAndFlagValueIsThatValue() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'setter',",
+        "    exports_setting = ':match',",
+        "    flag_values = {':flag': 'actual'},",
+        ")",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'actual',",
+        "    },",
+        "    values = {},",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'actual'],",
+        "    default_value = 'default',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:setter").matches()).isTrue();
+  }
+
+  @Test
+  public void doesNotMatchIfDefaultIsSpecifiedAndFlagValueIsNotDefault() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "feature_flag_setter(",
+        "    name = 'setter',",
+        "    exports_setting = ':match',",
+        "    flag_values = {':flag': 'actual'},",
+        ")",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':flag': 'default',",
+        "    },",
+        "    values = {},",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['default', 'actual'],",
+        "    default_value = 'default',",
+        ")");
+    assertThat(getConfigMatchingProvider("//test:setter").matches()).isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithSameValuesAndSameFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithDifferentValuesAndSameFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithSameValuesAndDifferentFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithDifferentValuesAndDifferentFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithDifferentValuesAndSubsetFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void doesNotRefineSettingWithSubsetValuesAndDifferentFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isFalse();
+  }
+
+  @Test
+  public void refinesSettingWithSubsetValuesAndSameFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isTrue();
+  }
+
+  @Test
+  public void refinesSettingWithSameValuesAndSubsetFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isTrue();
+  }
+
+  @Test
+  public void refinesSettingWithSubsetValuesAndSubsetFlagValues() throws Exception {
+    useConfiguration("--copt=-Dright", "--javacopt=-Dgood");
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'refined',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "        ':flag2': 'good',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "        'javacopt': '-Dgood',",
+        "    },",
+        ")",
+        "config_setting(",
+        "    name = 'other',",
+        "    flag_values = {",
+        "        ':flag': 'right',",
+        "    },",
+        "    values = {",
+        "        'copt': '-Dright',",
+        "    },",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'wrong'],",
+        "    default_value = 'right',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'flag2',",
+        "    allowed_values = ['good', 'bad'],",
+        "    default_value = 'good',",
+        ")");
+    assertThat(
+            getConfigMatchingProvider("//test:refined")
+                .refines(getConfigMatchingProvider("//test:other")))
+        .isTrue();
+  }
+
+  @Test
+  public void forbidsNonConfigFeatureFlagRulesForFlagValues() throws Exception {
+    checkError("test", "invalid_flag",
+        "in flag_values attribute of config_setting rule //test:invalid_flag: "
+        + "'//test:genrule' does not have mandatory provider 'FeatureFlagInfo'",
+        "config_setting(",
+        "    name = 'invalid_flag',",
+        "    flag_values = {",
+        "        ':genrule': 'lolz',",
+        "    })",
+        "genrule(",
+        "    name = 'genrule',",
+        "    outs = ['output'],",
+        "    cmd = 'echo >$@',",
+        "    )");
+  }
+
+  @Test
+  public void requiresValidValueForFlagValues() throws Exception {
+    checkError("test", "invalid_flag",
+        "in flag_values attribute of config_setting rule //test:invalid_flag: "
+        + "error while parsing user-defined configuration values: "
+        + "'invalid' is not a valid value for '//test:flag'",
+        "config_setting(",
+        "    name = 'invalid_flag',",
+        "    flag_values = {",
+        "        ':flag': 'invalid',",
+        "    })",
+        "config_feature_flag(",
+        "    name = 'flag',",
+        "    allowed_values = ['right', 'valid'],",
+        "    default_value = 'valid',",
+        ")");
   }
 }

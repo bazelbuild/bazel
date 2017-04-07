@@ -15,30 +15,10 @@
 package com.google.devtools.build.lib.rules.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
-import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder;
-import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -51,55 +31,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigFeatureFlagTest extends SkylarkTestCase {
 
-  /** Rule introducing a transition to set feature flags for dependencies. */
-  public static final class FeatureFlagSetter
-      implements RuleDefinition, RuleConfiguredTargetFactory {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .requiresConfigurationFragments(ConfigFeatureFlagConfiguration.class)
-          .cfg(new ConfigFeatureFlagTransitionFactory("flag_values"))
-          .add(attr("deps", LABEL_LIST).allowedFileTypes())
-          .add(
-              attr("exports_flag", LABEL)
-                  .allowedRuleClasses("config_feature_flag")
-                  .allowedFileTypes())
-          .add(
-              attr("flag_values", LABEL_KEYED_STRING_DICT)
-                  .allowedRuleClasses("config_feature_flag")
-                  .allowedFileTypes()
-                  .nonconfigurable("used in RuleTransitionFactory")
-                  .value(ImmutableMap.<Label, String>of()))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("feature_flag_setter")
-          .ancestors(BaseRuleClasses.BaseRule.class)
-          .factoryClass(FeatureFlagSetter.class)
-          .build();
-    }
-
-    @Override
-    public ConfiguredTarget create(RuleContext ruleContext)
-        throws InterruptedException, RuleErrorException {
-      TransitiveInfoCollection dep = ruleContext.getPrerequisite("exports_flag", Mode.TARGET);
-      ConfigFeatureFlagProvider exportedProvider =
-          dep != null ? ConfigFeatureFlagProvider.fromTarget(dep) : null;
-      RuleConfiguredTargetBuilder builder =
-          new RuleConfiguredTargetBuilder(ruleContext)
-              .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
-              .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY);
-      if (exportedProvider != null) {
-        builder.addNativeDeclaredProvider(exportedProvider);
-      }
-      return builder.build();
-    }
-  }
-
   @Before
   public void useDynamicConfigurations() throws Exception {
     useConfiguration("--experimental_dynamic_configs=on");
@@ -108,7 +39,7 @@ public final class ConfigFeatureFlagTest extends SkylarkTestCase {
   @Override
   protected ConfiguredRuleClassProvider getRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
-        new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetter());
+        new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
     return builder.build();
   }
