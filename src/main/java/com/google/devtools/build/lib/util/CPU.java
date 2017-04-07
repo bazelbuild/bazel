@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 
 import com.google.common.collect.ImmutableSet;
-import java.util.Set;
 
 /**
  * Detects the CPU of the running JVM and returns a describing enum value.
@@ -30,9 +29,9 @@ public enum CPU {
   UNKNOWN("unknown", ImmutableSet.<String>of());
 
   private final String canonicalName;
-  private final Set<String> archs;
+  private final ImmutableSet<String> archs;
 
-  CPU(String canonicalName, Set<String> archs) {
+  CPU(String canonicalName, ImmutableSet<String> archs) {
     this.canonicalName = canonicalName;
     this.archs = archs;
   }
