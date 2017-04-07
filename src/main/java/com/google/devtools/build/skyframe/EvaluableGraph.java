@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -37,4 +38,16 @@ interface EvaluableGraph extends QueryableGraph, DeletableGraph {
    */
   Map<SkyKey, ? extends NodeEntry> createIfAbsentBatch(
       @Nullable SkyKey requestor, Reason reason, Iterable<SkyKey> keys) throws InterruptedException;
+
+  /**
+   * Optional optimization: graph may use internal knowledge to filter out keys in {@code deps} that
+   * have not been recomputed since the last computation of {@code parent}. When determining if
+   * {@code parent} needs to be re-evaluated, this may be used to avoid unnecessary graph accesses.
+   *
+   * <p>Returns deps that may have new values since the node of {@code parent} was last computed,
+   * and therefore which may force re-evaluation of the node of {@code parent}.
+   */
+  DepsReport analyzeDepsDoneness(SkyKey parent, Collection<SkyKey> deps)
+      throws InterruptedException;
+
 }
