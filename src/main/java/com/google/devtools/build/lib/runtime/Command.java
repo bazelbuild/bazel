@@ -72,6 +72,12 @@ public @interface Command {
   boolean allowResidue() default false;
 
   /**
+   * Specifies whether the command line residue might have sensitive data, or arbitrary command
+   * line values.
+   */
+  boolean hasSensitiveResidue() default false;
+
+  /**
    * Returns true if this command wants to write binary data to stdout.
    * Enabling this flag will disable ANSI escape stripping for this command.
    * This should be used in conjunction with {@code Reporter#switchToAnsiAllowingHandler}.
