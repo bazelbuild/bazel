@@ -104,7 +104,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
-    common.addCommonTransitiveInfoProviders(builder, semantics, common.getFilesToBuild());
+    common.addCommonTransitiveInfoProviders(
+        ruleContext, builder, semantics, common.getFilesToBuild(), imports);
 
     semantics.postInitBinary(ruleContext, runfilesSupport, common);
     return builder

@@ -69,6 +69,8 @@ public final class PyCommon {
   public static final String PYTHON_SKYLARK_PROVIDER_NAME = "py";
   public static final String TRANSITIVE_PYTHON_SRCS = "transitive_sources";
   public static final String IS_USING_SHARED_LIBRARY = "uses_shared_libraries";
+  public static final String IMPORTS = "imports";
+  public static final String PACKAGE_FRAGMENT = "package_fragment";
 
   private static final LocalMetadataCollector METADATA_COLLECTOR = new LocalMetadataCollector() {
     @Override
@@ -132,9 +134,12 @@ public final class PyCommon {
     addPyExtraActionPseudoAction();
   }
 
-  public void addCommonTransitiveInfoProviders(RuleConfiguredTargetBuilder builder,
-      PythonSemantics semantics, NestedSet<Artifact> filesToBuild) {
-
+  public void addCommonTransitiveInfoProviders(
+      RuleContext ruleContext,
+      RuleConfiguredTargetBuilder builder,
+      PythonSemantics semantics,
+      NestedSet<Artifact> filesToBuild,
+      NestedSet<PathFragment> imports) {
     builder
         .add(
             InstrumentedFilesProvider.class,
@@ -145,7 +150,11 @@ public final class PyCommon {
                 filesToBuild))
         .addSkylarkTransitiveInfo(
             PYTHON_SKYLARK_PROVIDER_NAME,
-            createSourceProvider(this.transitivePythonSources, usesSharedLibraries()))
+            createSourceProvider(
+                transitivePythonSources,
+                usesSharedLibraries(),
+                semantics.getPackageFragment(ruleContext),
+                imports))
         // Python targets are not really compilable. The best we can do is make sure that all
         // generated source files are ready.
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, transitivePythonSources)
@@ -158,14 +167,40 @@ public final class PyCommon {
    *     addSkylarkTransitiveInfo(PYTHON_SKYLARK_PROVIDER_NAME, createSourceProvider(...))
    */
   public static SkylarkClassObject createSourceProvider(
-      NestedSet<Artifact> transitivePythonSources, boolean isUsingSharedLibrary) {
+      NestedSet<Artifact> transitivePythonSources,
+      boolean isUsingSharedLibrary,
+      PathFragment packageFragment,
+      NestedSet<PathFragment> imports) {
     return NativeClassObjectConstructor.STRUCT.create(
         ImmutableMap.<String, Object>of(
             TRANSITIVE_PYTHON_SRCS,
             SkylarkNestedSet.of(Artifact.class, transitivePythonSources),
             IS_USING_SHARED_LIBRARY,
-            isUsingSharedLibrary),
+            isUsingSharedLibrary,
+            PACKAGE_FRAGMENT,
+            packageFragment.toString(),
+            IMPORTS,
+            SkylarkNestedSet.of(String.class,
+                                makeImportStrings(imports ))
+            ),
         "No such attribute '%s'");
+  }
+
+  /**
+   * Converts {@link NestedSet} of {@link PathFragment} to
+   * {@link NestedSet} of {@link String}
+   * @param imports - {@link NestedSet} of {@link PathFragment}
+   * @return - {@link NestedSet} of {@link String}
+   */
+  public static NestedSet<String> makeImportStrings(
+      NestedSet<PathFragment> imports) {
+    final NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
+
+    for (PathFragment pathFragment : imports) {
+      builder.add(pathFragment.toString());
+    }
+
+    return builder.build();
   }
 
   public PythonVersion getDefaultPythonVersion() {
