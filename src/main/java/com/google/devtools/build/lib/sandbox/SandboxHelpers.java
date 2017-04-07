@@ -21,15 +21,11 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /** Helper methods that are shared by the different sandboxing strategies in this package. */
 public final class SandboxHelpers {
@@ -74,13 +70,5 @@ public final class SandboxHelpers {
 
     // Network access is allowed by default.
     return true;
-  }
-
-  static Path getSandboxRoot(
-      BlazeDirectories blazeDirs, String productName, UUID uuid, AtomicInteger execCounter) {
-    return blazeDirs
-        .getOutputBase()
-        .getRelative(productName + "-sandbox")
-        .getRelative(uuid + "-" + execCounter.getAndIncrement());
   }
 }

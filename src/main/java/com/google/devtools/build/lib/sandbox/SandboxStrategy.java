@@ -57,14 +57,17 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
   private final boolean verboseFailures;
   private final SandboxOptions sandboxOptions;
   private final SpawnInputExpander spawnInputExpander;
+  private final Path sandboxBase;
 
   public SandboxStrategy(
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
+      Path sandboxBase,
       boolean verboseFailures,
       SandboxOptions sandboxOptions) {
     this.buildRequest = buildRequest;
     this.execRoot = blazeDirs.getExecRoot();
+    this.sandboxBase = sandboxBase;
     this.verboseFailures = verboseFailures;
     this.sandboxOptions = sandboxOptions;
     this.spawnInputExpander = new SpawnInputExpander(/*strict=*/false);
@@ -96,6 +99,8 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
     try (ResourceHandle ignored =
         ResourceManager.instance().acquireResources(owner, spawn.getLocalResources())) {
       actuallyExec(spawn, actionExecutionContext, writeOutputFiles);
+    } catch (IOException e) {
+      throw new UserExecException("I/O exception during sandboxed execution", e);
     }
   }
 
@@ -103,7 +108,7 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException;
+      throws ExecException, InterruptedException, IOException;
 
   protected void runSpawn(
       Spawn spawn,
@@ -159,6 +164,17 @@ abstract class SandboxStrategy implements SandboxedSpawnActionContext {
           + "=standalone to disable sandboxing for the failing actions.\n");
       throw execException;
     }
+  }
+
+  /**
+   * Returns a temporary directory that should be used as the sandbox directory for a single action.
+   */
+  protected Path getSandboxRoot() throws IOException {
+    return sandboxBase.getRelative(
+        java.nio.file.Files.createTempDirectory(
+                java.nio.file.Paths.get(sandboxBase.getPathString()), "")
+            .getFileName()
+            .toString());
   }
 
   /**

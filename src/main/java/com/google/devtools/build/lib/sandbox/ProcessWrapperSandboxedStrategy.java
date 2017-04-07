@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
-import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.events.Event;
@@ -32,8 +31,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Strategy that uses sandboxing to execute a process. */
@@ -47,25 +44,23 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
   }
 
   private final SandboxOptions sandboxOptions;
-  private final BlazeDirectories blazeDirs;
   private final Path execRoot;
   private final boolean verboseFailures;
-  private final String productName;
-
-  private final UUID uuid = UUID.randomUUID();
-  private final AtomicInteger execCounter = new AtomicInteger();
 
   ProcessWrapperSandboxedStrategy(
       BuildRequest buildRequest,
       BlazeDirectories blazeDirs,
-      boolean verboseFailures,
-      String productName) {
-    super(buildRequest, blazeDirs, verboseFailures, buildRequest.getOptions(SandboxOptions.class));
+      Path sandboxBase,
+      boolean verboseFailures) {
+    super(
+        buildRequest,
+        blazeDirs,
+        sandboxBase,
+        verboseFailures,
+        buildRequest.getOptions(SandboxOptions.class));
     this.sandboxOptions = buildRequest.getOptions(SandboxOptions.class);
-    this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
-    this.productName = productName;
   }
 
   @Override
@@ -73,7 +68,7 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
       Spawn spawn,
       ActionExecutionContext actionExecutionContext,
       AtomicReference<Class<? extends SpawnActionContext>> writeOutputFiles)
-      throws ExecException, InterruptedException {
+      throws ExecException, InterruptedException, IOException {
     Executor executor = actionExecutionContext.getExecutor();
     executor
         .getEventBus()
@@ -83,19 +78,14 @@ public class ProcessWrapperSandboxedStrategy extends SandboxStrategy {
     SandboxHelpers.reportSubcommand(executor, spawn);
 
     // Each invocation of "exec" gets its own sandbox.
-    Path sandboxPath = SandboxHelpers.getSandboxRoot(blazeDirs, productName, uuid, execCounter);
+    Path sandboxPath = getSandboxRoot();
     Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
 
-    Set<Path> writableDirs;
+    Set<Path> writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
     SymlinkedExecRoot symlinkedExecRoot = new SymlinkedExecRoot(sandboxExecRoot);
     ImmutableSet<PathFragment> outputs = SandboxHelpers.getOutputFiles(spawn);
-    try {
-      writableDirs = getWritableDirs(sandboxExecRoot, spawn.getEnvironment());
-      symlinkedExecRoot.createFileSystem(
-          getMounts(spawn, actionExecutionContext), outputs, writableDirs);
-    } catch (IOException e) {
-      throw new UserExecException("I/O error during sandboxed execution", e);
-    }
+    symlinkedExecRoot.createFileSystem(
+        getMounts(spawn, actionExecutionContext), outputs, writableDirs);
 
     SandboxRunner runner = new ProcessWrapperRunner(execRoot, sandboxExecRoot, verboseFailures);
     try {
