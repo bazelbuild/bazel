@@ -20,6 +20,7 @@ import static org.mockito.Mockito.when;
 import com.google.common.base.Function;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -64,6 +65,7 @@ public class BuildEventTransportFactoryTest {
   @Mock public BuildEvent buildEvent;
 
   @Mock public PathConverter pathConverter;
+  @Mock public ArtifactGroupNamer artifactGroupNamer;
 
   @Before
   public void before() {
@@ -129,7 +131,7 @@ public class BuildEventTransportFactoryTest {
   private void sendEventsAndClose(BuildEvent event, Iterable<BuildEventTransport> transports)
       throws IOException{
     for (BuildEventTransport transport : transports) {
-      transport.sendBuildEvent(event);
+      transport.sendBuildEvent(event, artifactGroupNamer);
       transport.close();
     }
   }

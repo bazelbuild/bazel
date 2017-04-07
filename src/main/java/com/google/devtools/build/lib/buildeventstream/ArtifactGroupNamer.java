@@ -4,30 +4,23 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-// http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.buildeventstream;
 
-/**
- * Interface for providing {@link BuildEvent}s with the convertes needed for computing the protobuf
- * representation.
- */
-public interface BuildEventConverters {
-  /**
-   * Return the {@link PathConverter} to be used in order to obtain URIs for the the file paths to
-   * be reported in the event.
-   */
-  PathConverter pathConverter();
 
+/** Interface for conversion of paths to URIs. */
+public interface ArtifactGroupNamer {
   /**
-   * Return the {@link ArtifactGroupNamer} that can be used to refer to a {@link
-   * NestedSet<Artifact>} declared via the {@link EventReportingArtifacts} interface.
+   * Return the name of a declared group of artifacts, identified by the identifier of their {@link
+   * NestedSetView}. A {@link BuildEvent} should only assume that this function is defined if the
+   * corresponding {@link NestedSet<Artifact>} is declared via the {@link EventReportingArtifacts}
+   * interface. On undefined positions, the value null is returned.
    */
-  ArtifactGroupNamer artifactGroupNamer();
+  BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId apply(Object id);
 }

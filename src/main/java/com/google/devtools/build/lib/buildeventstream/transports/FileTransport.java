@@ -20,9 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousFileChannel;
@@ -55,7 +53,6 @@ abstract class FileTransport implements BuildEventTransport {
   @VisibleForTesting
   final AsynchronousFileChannel ch;
   private final WriteCompletionHandler completionHandler = new WriteCompletionHandler();
-  protected final BuildEventConverters converters;
   // The offset in the file to begin the next write at.
   private long writeOffset;
   // Number of writes that haven't completed yet.
@@ -63,19 +60,13 @@ abstract class FileTransport implements BuildEventTransport {
   // The future returned by close()
   private SettableFuture<Void> closeFuture;
 
-  FileTransport(String path, final PathConverter pathConverter) {
+  FileTransport(String path) {
     try {
       ch = AsynchronousFileChannel.open(Paths.get(path), StandardOpenOption.CREATE,
           StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-    this.converters = new BuildEventConverters() {
-      @Override
-      public PathConverter pathConverter() {
-        return pathConverter;
-      }
-    };
   }
 
   synchronized void writeData(byte[] data) {

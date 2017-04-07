@@ -19,6 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -51,6 +52,7 @@ public class BinaryFormatFileTransportTest {
   @Mock public BuildEvent buildEvent;
 
   @Mock public PathConverter pathConverter;
+  @Mock public ArtifactGroupNamer artifactGroupNamer;
 
   @Before
   public void initMocks() {
@@ -73,19 +75,19 @@ public class BinaryFormatFileTransportTest {
     when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent progress =
         BuildEventStreamProtos.BuildEvent.newBuilder().setProgress(Progress.newBuilder()).build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(progress);
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     BuildEventStreamProtos.BuildEvent completed =
         BuildEventStreamProtos.BuildEvent.newBuilder()
             .setCompleted(TargetComplete.newBuilder().setSuccess(true))
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(completed);
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
     try (InputStream in = new FileInputStream(output)) {
@@ -109,7 +111,7 @@ public class BinaryFormatFileTransportTest {
             .build();
     when(buildEvent.asStreamProto(Matchers.<BuildEventConverters>any())).thenReturn(started);
     BinaryFormatFileTransport transport = new BinaryFormatFileTransport(path, pathConverter);
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     transport.close().get();
     try (InputStream in = new FileInputStream(output)) {
@@ -136,7 +138,7 @@ public class BinaryFormatFileTransportTest {
     assertFalse(transport.ch.isOpen());
 
     // This should not throw an exception.
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
     transport.close().get();
 
     // Also, nothing should have been written to the file
@@ -158,10 +160,10 @@ public class BinaryFormatFileTransportTest {
     BinaryFormatFileTransport transport =
         new BinaryFormatFileTransport(output.getAbsolutePath(), pathConverter);
 
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
     Future<Void> closeFuture = transport.close();
     // This should not throw an exception, but also not perform any write.
-    transport.sendBuildEvent(buildEvent);
+    transport.sendBuildEvent(buildEvent, artifactGroupNamer);
 
     closeFuture.get();
     assertFalse(transport.ch.isOpen());

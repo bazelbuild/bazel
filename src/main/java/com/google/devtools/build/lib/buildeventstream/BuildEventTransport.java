@@ -38,7 +38,7 @@ public interface BuildEventTransport {
    *
    * @param event the event to sendBuildEvent.
    */
-  void sendBuildEvent(BuildEvent event);
+  void sendBuildEvent(BuildEvent event, ArtifactGroupNamer namer);
 
   /**
    * Initiates a close. Callers may listen to the returned future to be notified when the close

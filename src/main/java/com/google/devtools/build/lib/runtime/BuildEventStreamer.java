@@ -21,23 +21,31 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Future;
 import java.util.logging.Logger;
@@ -50,8 +58,40 @@ public class BuildEventStreamer implements EventHandler {
   private final Set<BuildEventId> postedEvents = new HashSet<>();
   private final Multimap<BuildEventId, BuildEvent> pendingEvents = HashMultimap.create();
   private int progressCount;
+  private final CountingArtifactGroupNamer artifactGroupNamer = new CountingArtifactGroupNamer();
   private AbortReason abortReason = AbortReason.UNKNOWN;
   private static final Logger log = Logger.getLogger(BuildEventStreamer.class.getName());
+
+  private static class CountingArtifactGroupNamer implements ArtifactGroupNamer {
+    private final Map<Object, Long> reportedArtifactNames = new HashMap<>();
+    private long nextArtifactName;
+
+    @Override
+    public NamedSetOfFilesId apply(Object id) {
+      Long name;
+      synchronized (this) {
+        name = reportedArtifactNames.get(id);
+      }
+      if (name == null) {
+        return null;
+      }
+      return NamedSetOfFilesId.newBuilder().setId(name.toString()).build();
+    }
+
+    /**
+     * If the {@link NestedSetView} has no name already, return a new name for it. Return null
+     * otherwise.
+     */
+    synchronized String maybeName(NestedSetView<Artifact> view) {
+      if (reportedArtifactNames.containsKey(view.identifier())) {
+        return null;
+      }
+      Long name = nextArtifactName;
+      nextArtifactName++;
+      reportedArtifactNames.put(view.identifier(), name);
+      return name.toString();
+    }
+  }
 
   public BuildEventStreamer(Collection<BuildEventTransport> transports) {
     this.transports = transports;
@@ -93,9 +133,9 @@ public class BuildEventStreamer implements EventHandler {
 
     for (BuildEventTransport transport : transports) {
       if (linkEvent != null) {
-        transport.sendBuildEvent(linkEvent);
+        transport.sendBuildEvent(linkEvent, artifactGroupNamer);
       }
-      transport.sendBuildEvent(event);
+      transport.sendBuildEvent(event, artifactGroupNamer);
     }
   }
 
@@ -142,6 +182,21 @@ public class BuildEventStreamer implements EventHandler {
     }
   }
 
+  private void maybeReportArtifactSet(NestedSetView<Artifact> view) {
+    String name = artifactGroupNamer.maybeName(view);
+    if (name == null) {
+      return;
+    }
+    for (NestedSetView<Artifact> transitive : view.transitives()) {
+      maybeReportArtifactSet(transitive);
+    }
+    post(new NamedArtifactGroup(name, view));
+  }
+
+  private void maybeReportArtifactSet(NestedSet<Artifact> set) {
+    maybeReportArtifactSet(new NestedSetView<Artifact>(set));
+  }
+
   @Override
   public void handle(Event event) {}
 
@@ -159,6 +214,13 @@ public class BuildEventStreamer implements EventHandler {
   public void buildEvent(BuildEvent event) {
     if (isActionWithoutError(event) || bufferUntilPrerequisitesReceived(event)) {
       return;
+    }
+
+    if (event instanceof EventReportingArtifacts) {
+      for (NestedSet<Artifact> artifactSet :
+          ((EventReportingArtifacts) event).reportedArtifacts()) {
+        maybeReportArtifactSet(artifactSet);
+      }
     }
 
     post(event);

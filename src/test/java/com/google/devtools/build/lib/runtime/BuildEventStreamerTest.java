@@ -19,16 +19,28 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.NamedSetOfFilesId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
+import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.buildeventstream.ProgressEvent;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -39,18 +51,33 @@ import org.junit.runners.JUnit4;
 
 /** Tests {@link BuildEventStreamer}. */
 @RunWith(JUnit4.class)
-public class BuildEventStreamerTest {
+public class BuildEventStreamerTest extends FoundationTestCase {
 
   private static class RecordingBuildEventTransport implements BuildEventTransport {
-    private final List<BuildEvent> events;
-
-    RecordingBuildEventTransport() {
-      events = new ArrayList<>();
-    }
+    private final List<BuildEvent> events = new ArrayList<>();
+    private final List<BuildEventStreamProtos.BuildEvent> eventsAsProtos = new ArrayList<>();
 
     @Override
-    public void sendBuildEvent(BuildEvent event) {
+    public void sendBuildEvent(BuildEvent event, final ArtifactGroupNamer namer) {
       events.add(event);
+      eventsAsProtos.add(
+          event.asStreamProto(
+              new BuildEventConverters() {
+                @Override
+                public ArtifactGroupNamer artifactGroupNamer() {
+                  return namer;
+                }
+
+                @Override
+                public PathConverter pathConverter() {
+                  return new PathConverter() {
+                    @Override
+                    public String apply(Path path) {
+                      return path.toString();
+                    }
+                  };
+                }
+              }));
     }
 
     @Override
@@ -60,6 +87,10 @@ public class BuildEventStreamerTest {
 
     List<BuildEvent> getEvents() {
       return events;
+    }
+
+    List<BuildEventStreamProtos.BuildEvent> getEventProtos() {
+      return eventsAsProtos;
     }
   }
 
@@ -97,6 +128,53 @@ public class BuildEventStreamerTest {
     @Override
     public Collection<BuildEventId> postedAfter() {
       return after;
+    }
+  }
+
+  private static class GenericArtifactReportingEvent implements EventReportingArtifacts {
+    private final BuildEventId id;
+    private final Collection<BuildEventId> children;
+    private final Collection<NestedSet<Artifact>> artifacts;
+
+    GenericArtifactReportingEvent(
+        BuildEventId id,
+        Collection<BuildEventId> children,
+        Collection<NestedSet<Artifact>> artifacts) {
+      this.id = id;
+      this.children = children;
+      this.artifacts = artifacts;
+    }
+
+    GenericArtifactReportingEvent(BuildEventId id, Collection<NestedSet<Artifact>> artifacts) {
+      this(id, ImmutableSet.<BuildEventId>of(), artifacts);
+    }
+
+    @Override
+    public BuildEventId getEventId() {
+      return id;
+    }
+
+    @Override
+    public Collection<BuildEventId> getChildrenEvents() {
+      return children;
+    }
+
+    @Override
+    public Collection<NestedSet<Artifact>> reportedArtifacts() {
+      return artifacts;
+    }
+
+    @Override
+    public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
+      BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
+          BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
+      for (NestedSet<Artifact> artifactset : artifacts) {
+        builder.addFileSets(
+            converters
+                .artifactGroupNamer()
+                .apply((new NestedSetView<Artifact>(artifactset)).identifier()));
+      }
+      return GenericBuildEvent.protoChaining(this).setNamedSetOfFiles(builder.build()).build();
     }
   }
 
@@ -325,5 +403,55 @@ public class BuildEventStreamerTest {
     assertThat(allEventsSeen).hasSize(2);
     assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
     assertEquals(waitingForStart.getEventId(), allEventsSeen.get(1).getEventId());
+  }
+
+  private Artifact makeArtifact(String pathString) {
+    Path path = outputBase.getRelative(PathFragment.create(pathString));
+    return new Artifact(path, Root.asSourceRoot(path));
+  }
+
+  @Test
+  public void testReportedArtifacts() {
+    // Verify that reported artifacts are correctly unfolded into the stream
+    RecordingBuildEventTransport transport = new RecordingBuildEventTransport();
+    BuildEventStreamer streamer =
+        new BuildEventStreamer(ImmutableSet.<BuildEventTransport>of(transport));
+
+    BuildEvent startEvent =
+        new GenericBuildEvent(
+            testId("Initial"),
+            ImmutableSet.<BuildEventId>of(ProgressEvent.INITIAL_PROGRESS_UPDATE));
+
+    Artifact a = makeArtifact("path/a");
+    Artifact b = makeArtifact("path/b");
+    Artifact c = makeArtifact("path/c");
+    NestedSet<Artifact> innerGroup = NestedSetBuilder.<Artifact>stableOrder().add(a).add(b).build();
+    NestedSet<Artifact> group =
+        NestedSetBuilder.<Artifact>stableOrder().addTransitive(innerGroup).add(c).build();
+    BuildEvent reportingArtifacts =
+        new GenericArtifactReportingEvent(testId("reporting"), ImmutableSet.of(group));
+
+    streamer.buildEvent(startEvent);
+    streamer.buildEvent(reportingArtifacts);
+
+    List<BuildEvent> allEventsSeen = transport.getEvents();
+    List<BuildEventStreamProtos.BuildEvent> eventProtos = transport.getEventProtos();
+    assertEquals(7, allEventsSeen.size());
+    assertEquals(startEvent.getEventId(), allEventsSeen.get(0).getEventId());
+    assertEquals(ProgressEvent.INITIAL_PROGRESS_UPDATE, allEventsSeen.get(1).getEventId());
+    List<BuildEventStreamProtos.File> firstSetDirects =
+        eventProtos.get(2).getNamedSetOfFiles().getFilesList();
+    assertEquals(2, firstSetDirects.size());
+    assertEquals(
+        ImmutableSet.of(a.getPath().toString(), b.getPath().toString()),
+        ImmutableSet.of(firstSetDirects.get(0).getUri(), firstSetDirects.get(1).getUri()));
+    List<NamedSetOfFilesId> secondSetTransitives =
+        eventProtos.get(4).getNamedSetOfFiles().getFileSetsList();
+    assertEquals(1, secondSetTransitives.size());
+    assertEquals(eventProtos.get(2).getId().getNamedSet(), secondSetTransitives.get(0));
+    List<NamedSetOfFilesId> reportedArtifactSets =
+        eventProtos.get(6).getNamedSetOfFiles().getFileSetsList();
+    assertEquals(1, reportedArtifactSets.size());
+    assertEquals(eventProtos.get(4).getId().getNamedSet(), reportedArtifactSets.get(0));
   }
 }
