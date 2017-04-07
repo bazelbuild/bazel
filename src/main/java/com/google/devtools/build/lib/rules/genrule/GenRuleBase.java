@@ -64,7 +64,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     return CROSSTOOL_MAKE_VARIABLE.matcher(command).find();
   }
 
-  protected static boolean requiresJdk(String command) {
+  protected boolean requiresJdk(String command) {
     return JDK_MAKE_VARIABLE.matcher(command).find();
   }
 

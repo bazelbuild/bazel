@@ -37,9 +37,6 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
-import com.google.devtools.build.lib.rules.java.JavaImplicitAttributes;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -62,22 +59,6 @@ public class GenRuleBaseRule implements RuleDefinition {
           return attributes != null
               && GenRuleBase.requiresCrosstool(attributes.get("cmd", Type.STRING))
               ? CppRuleClasses.CC_TOOLCHAIN.resolve(rule, attributes, configuration)
-              : null;
-        }
-      };
-
-  /**
-   * Late-bound dependency on the host JDK <i>iff</i> the genrule has make variables that need
-   * that rule.
-   */
-  public static final Attribute.LateBoundLabel<BuildConfiguration> HOST_JDK =
-      new Attribute.LateBoundLabel<BuildConfiguration>(
-          JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return attributes != null
-              && GenRuleBase.requiresJdk(attributes.get("cmd", Type.STRING))
-              ? JavaSemantics.HOST_JDK.resolve(rule, attributes, configuration)
               : null;
         }
       };
