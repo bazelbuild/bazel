@@ -29,10 +29,12 @@ import java.util.List;
 final class ArmCrosstools {
   private final NdkPaths ndkPaths;
   private final StlImpl stlImpl;
+  private final String clangVersion;
 
-  ArmCrosstools(NdkPaths ndkPaths, StlImpl stlImpl) {
+  ArmCrosstools(NdkPaths ndkPaths, StlImpl stlImpl, String clangVersion) {
     this.ndkPaths = ndkPaths;
     this.stlImpl = stlImpl;
+    this.clangVersion = clangVersion;
   }
 
   ImmutableList<CToolchain.Builder> createCrosstools() {
@@ -56,8 +58,7 @@ final class ArmCrosstools {
             .setCompiler("clang3.8")
             .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
             .addCxxBuiltinIncludeDirectory(
-                ndkPaths.createClangToolchainBuiltinIncludeDirectory(
-                    AndroidNdkCrosstoolsR13.CLANG_VERSION))
+                ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm64"))
 
             // Compiler flags
@@ -139,8 +140,7 @@ final class ArmCrosstools {
             .setCompiler("clang3.8")
             .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, null))
             .addCxxBuiltinIncludeDirectory(
-                ndkPaths.createClangToolchainBuiltinIncludeDirectory(
-                    AndroidNdkCrosstoolsR13.CLANG_VERSION))
+                ndkPaths.createClangToolchainBuiltinIncludeDirectory(clangVersion))
             .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("arm"))
 
             // Compiler flags

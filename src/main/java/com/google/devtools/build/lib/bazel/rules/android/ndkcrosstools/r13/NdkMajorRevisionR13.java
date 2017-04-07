@@ -23,10 +23,16 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.Cross
 
 /** Logic specific to Android NDK R13. */
 public class NdkMajorRevisionR13 implements NdkMajorRevision {
+  private final String clangVersion;
+
+  public NdkMajorRevisionR13(String clangVersion) {
+    this.clangVersion = clangVersion;
+  }
+
   @Override
   public CrosstoolRelease crosstoolRelease(
       NdkPaths ndkPaths, StlImpl stlImpl, String hostPlatform) {
-    return AndroidNdkCrosstoolsR13.create(ndkPaths, stlImpl, hostPlatform);
+    return AndroidNdkCrosstoolsR13.create(ndkPaths, stlImpl, hostPlatform, clangVersion);
   }
 
   @Override
