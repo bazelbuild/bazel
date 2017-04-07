@@ -18,7 +18,6 @@ import com.google.common.collect.ForwardingMap;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
@@ -193,7 +192,15 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
   private void writeJournal() {
     try {
       if (journalOut == null) {
-        journalOut = createMapFile(journalFile);
+        if (journalFile.exists()) {
+          // The journal file was left around after the last save() because
+          // keepJournal() was true. Append to it.
+          journalOut =
+              new DataOutputStream(new BufferedOutputStream(journalFile.getOutputStream(true)));
+        } else {
+          // Create new journal.
+          journalOut = createMapFile(journalFile);
+        }
       }
       writeEntries(journalOut, journal);
       journalOut.flush();
