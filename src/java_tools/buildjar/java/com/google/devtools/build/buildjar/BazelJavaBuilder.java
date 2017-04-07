@@ -44,11 +44,10 @@ public abstract class BazelJavaBuilder {
       System.exit(runPersistentWorker());
     } else {
       // This is a single invocation of JavaBuilder that exits after it processed the request.
-      int exitCode = 1;
-      try (PrintWriter err =
-          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()))) {
-        exitCode = processRequest(Arrays.asList(args), err);
-      }
+      PrintWriter err =
+          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));
+      int exitCode = processRequest(Arrays.asList(args), err);
+      err.flush();
       System.exit(exitCode);
     }
   }
@@ -119,6 +118,7 @@ public abstract class BazelJavaBuilder {
           errorProneEnabled = false;
           arg.remove();
           break;
+        default: // fall out
       }
     }
 
