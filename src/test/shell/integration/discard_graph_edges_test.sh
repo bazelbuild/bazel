@@ -170,7 +170,7 @@ function test_packages_cleared() {
   local histo_file="$(prepare_histogram "--nodiscard_analysis_cache")"
   local package_count="$(extract_histogram_count "$histo_file" \
       'devtools\.build\.lib\..*\.Package$')"
-  [[ "$package_count" -ge 9 ]] \
+  [[ "$package_count" -ge 10 ]] \
       || fail "package count $package_count too low: did you move/rename the class?"
   local glob_count="$(extract_histogram_count "$histo_file" "GlobValue")"
   [[ "$glob_count" -ge 8 ]] \

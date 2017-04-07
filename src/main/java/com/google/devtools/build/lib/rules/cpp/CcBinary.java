@@ -523,7 +523,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
   private static final boolean dashStaticInLinkopts(List<String> linkopts,
       CppConfiguration cppConfiguration) {
-    return linkopts.contains("-static") || cppConfiguration.hasStaticLinkOption();
+    return linkopts.contains("-static")
+        || cppConfiguration.getLinkOptions().contains("-static");
   }
 
   private static final LinkStaticness getLinkStaticness(RuleContext context,

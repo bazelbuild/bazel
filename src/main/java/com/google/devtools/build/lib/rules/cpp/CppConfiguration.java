@@ -25,10 +25,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
@@ -58,6 +60,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CTool
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.io.Serializable;
@@ -159,6 +162,127 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  /** Storage for the libc label, if given. */
+  public static class LibcTop implements Serializable {
+    private final Label label;
+
+    /**
+     * Result of trying to create LibcTop. Bundles whether or not it still needs values that aren't
+     * loaded yet.
+     */
+    public static class Result {
+      private final LibcTop libcTop;
+      private final boolean valuesMissing;
+
+      Result(LibcTop libcTop, boolean valuesMissing) {
+        this.libcTop = libcTop;
+        this.valuesMissing = valuesMissing;
+      }
+
+      @Nullable
+      public LibcTop getLibcTop() {
+        return libcTop;
+      }
+
+      public boolean valuesMissing() {
+        return valuesMissing;
+      }
+    };
+
+    /** Tries to create a LibcTop object and returns whether or not all were any missing values. */
+    public static LibcTop.Result createLibcTop(
+        CppOptions cppOptions, ConfigurationEnvironment env, CrosstoolConfig.CToolchain toolchain)
+        throws InterruptedException, InvalidConfigurationException {
+      Preconditions.checkArgument(env != null);
+
+      PathFragment defaultSysroot =
+          toolchain.getBuiltinSysroot().length() == 0
+              ? null
+              : PathFragment.create(toolchain.getBuiltinSysroot());
+      if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
+        throw new InvalidConfigurationException(
+            "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
+      }
+
+      if ((cppOptions.libcTopLabel != null) && (defaultSysroot == null)) {
+        throw new InvalidConfigurationException(
+            "The selected toolchain "
+                + toolchain.getToolchainIdentifier()
+                + " does not support setting --grte_top.");
+      }
+
+      LibcTop libcTop = null;
+      if (cppOptions.libcTopLabel != null) {
+        libcTop = createLibcTop(cppOptions.libcTopLabel, env);
+        if (libcTop == null) {
+          return new Result(libcTop, true);
+        }
+      } else if (!toolchain.getDefaultGrteTop().isEmpty()) {
+        Label grteTopLabel = null;
+        try {
+          grteTopLabel =
+              new CppOptions.LibcTopLabelConverter().convert(toolchain.getDefaultGrteTop());
+        } catch (OptionsParsingException e) {
+          throw new InvalidConfigurationException(e.getMessage(), e);
+        }
+
+        libcTop = createLibcTop(grteTopLabel, env);
+        if (libcTop == null) {
+          return new Result(libcTop, true);
+        }
+      }
+      return new Result(libcTop, false);
+    }
+
+    @Nullable
+    private static LibcTop createLibcTop(Label label, ConfigurationEnvironment env)
+        throws InvalidConfigurationException, InterruptedException {
+      Preconditions.checkArgument(label != null);
+      Label trueLabel = label;
+      // Allow the sysroot to follow any redirects.
+      trueLabel = RedirectChaser.followRedirects(env, label, "libc_top");
+      if (trueLabel == null) {
+        // Happens if there's a reference to package that hasn't been loaded yet.
+        return null;
+      }
+      return new LibcTop(trueLabel);
+    }
+
+    private LibcTop(Label label) {
+      Preconditions.checkArgument(label != null);
+      this.label = label;
+    }
+
+    public Label getLabel() {
+      return label;
+    }
+
+    public PathFragment getSysroot() {
+      return label.getPackageFragment();
+    }
+
+    @Override
+    public String toString() {
+      return label.toString();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      } else if (other instanceof LibcTop) {
+        return label.equals(((LibcTop) other).label);
+      } else {
+        return false;
+      }
+    }
+
+    @Override
+    public int hashCode() {
+      return label.hashCode();
+    }
+  }
+
   /**
    * This macro will be passed as a command-line parameter (eg. -DBUILD_FDO_TYPE="LIPO").
    * For possible values see {@code CppModel.getFdoBuildStamp()}.
@@ -257,17 +381,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
   // transition to the cc_compiler rule is complete.
+  private final Label libcLabel;
   private final Label staticRuntimeLibsLabel;
   private final Label dynamicRuntimeLibsLabel;
   private final Label ccToolchainLabel;
   private final Label stlLabel;
 
-  // TODO(kmensah): This is temporary until all the Skylark functions that need this can be removed.
-  private final PathFragment nonConfiguredSysroot;
-  private final Label sysrootLabel;
-  private final PathFragment defaultSysroot;
+  private final PathFragment sysroot;
   private final PathFragment runtimeSysroot;
-  private final ImmutableList<String> rawBuiltInIncludeDirectories;
+  private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
   private final Map<String, PathFragment> toolPaths;
   private final PathFragment ldExecutable;
@@ -492,14 +614,29 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.abiGlibcVersion = toolchain.getAbiLibcVersion();
 
     // The default value for optional string attributes is the empty string.
-    this.defaultSysroot = computeDefaultSysroot(toolchain);
+    PathFragment defaultSysroot = toolchain.getBuiltinSysroot().length() == 0
+        ? null
+        : PathFragment.create(toolchain.getBuiltinSysroot());
+    if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
+      throw new IllegalArgumentException("The built-in sysroot '" + defaultSysroot
+          + "' is not normalized.");
+    }
 
-    this.sysrootLabel = params.sysrootLabel;
-    this.nonConfiguredSysroot =
-        params.sysrootLabel == null ? defaultSysroot : params.sysrootLabel.getPackageFragment();
+    LibcTop libcTop = params.libcTop;
+    if ((libcTop != null) && (libcTop.getLabel() != null)) {
+      libcLabel = libcTop.getLabel();
+    } else {
+      libcLabel = null;
+    }
 
-    rawBuiltInIncludeDirectories =
-        ImmutableList.copyOf(toolchain.getCxxBuiltinIncludeDirectoryList());
+    ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder
+        = ImmutableList.builder();
+    sysroot = libcTop == null ? defaultSysroot : libcTop.getSysroot();
+    for (String s : toolchain.getCxxBuiltinIncludeDirectoryList()) {
+      builtInIncludeDirectoriesBuilder.add(
+          resolveIncludeDir(s, sysroot, crosstoolTopPathFragment));
+    }
+    builtInIncludeDirectories = builtInIncludeDirectoriesBuilder.build();
 
     // The runtime sysroot should really be set from --grte_top. However, currently libc has no
     // way to set the sysroot. The CROSSTOOL file does set the runtime sysroot, in the
@@ -507,8 +644,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // and libc versions, you must always choose compatible ones.
     runtimeSysroot = defaultSysroot;
 
-    ImmutableList.Builder<String> unfilteredCoptsBuilder = ImmutableList.builder();
+    String sysrootFlag;
+    if (sysroot != null) {
+      sysrootFlag = "--sysroot=" + sysroot;
+    } else {
+      sysrootFlag = null;
+    }
 
+    ImmutableList.Builder<String> unfilteredCoptsBuilder = ImmutableList.builder();
+    if (sysrootFlag != null) {
+      unfilteredCoptsBuilder.add(sysrootFlag);
+    }
     unfilteredCoptsBuilder.addAll(toolchain.getUnfilteredCxxFlagList());
     unfilteredCompilerFlags = new FlagList(
         unfilteredCoptsBuilder.build(),
@@ -519,6 +665,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     linkoptsBuilder.addAll(cppOptions.linkoptList);
     if (cppOptions.experimentalOmitfp) {
       linkoptsBuilder.add("-Wl,--eh-frame-hdr");
+    }
+    if (sysrootFlag != null) {
+      linkoptsBuilder.add(sysrootFlag);
     }
     this.linkOptions = linkoptsBuilder.build();
 
@@ -580,6 +729,12 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     makeVariablesBuilder.put("CC_FLAGS", "");
     for (CrosstoolConfig.MakeVariable variable : toolchain.getMakeVariableList()) {
       makeVariablesBuilder.put(variable.getName(), variable.getValue());
+    }
+    // TODO(kmensah): Remove once targets can depend on the cc_toolchain in skylark.
+    if (sysrootFlag != null) {
+      String ccFlags = makeVariablesBuilder.get("CC_FLAGS");
+      ccFlags = ccFlags.isEmpty() ? sysrootFlag : ccFlags + " " + sysrootFlag;
+      makeVariablesBuilder.put("CC_FLAGS", ccFlags);
     }
     this.additionalMakeVariables = ImmutableMap.copyOf(makeVariablesBuilder);
   }
@@ -1123,6 +1278,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns a label that forms a dependency to the files required for the
+   * sysroot that is used.
+   */
+  public Label getLibcLabel() {
+    return libcLabel;
+  }
+
+  /**
    * Returns a label that references the library files needed to statically
    * link the C++ runtime (i.e. libgcc.a, libgcc_eh.a, libstdc++.a) for the
    * target architecture.
@@ -1270,30 +1433,17 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the built-in list of system include paths for the toolchain compiler. All paths in this
-   * list should be relative to the exec directory. They may be absolute if they are also installed
-   * on the remote build nodes or for local compilation.
+   * Returns the built-in list of system include paths for the toolchain
+   * compiler. All paths in this list should be relative to the exec directory.
+   * They may be absolute if they are also installed on the remote build nodes or
+   * for local compilation.
    */
-  @SkylarkCallable(
-    name = "built_in_include_directories",
-    structField = true,
-    doc =
-        "Built-in system include paths for the toolchain compiler. All paths in this list"
-            + " should be relative to the exec directory. They may be absolute if they are also"
-            + " installed on the remote build nodes or for local compilation."
-  )
-  public ImmutableList<PathFragment> getBuiltInIncludeDirectories()
-      throws InvalidConfigurationException {
-    return getBuiltInIncludeDirectories(nonConfiguredSysroot);
-  }
-
-  public ImmutableList<PathFragment> getBuiltInIncludeDirectories(PathFragment sysroot)
-      throws InvalidConfigurationException {
-    ImmutableList.Builder<PathFragment> builtInIncludeDirectoriesBuilder = ImmutableList.builder();
-    for (String s : rawBuiltInIncludeDirectories) {
-      builtInIncludeDirectoriesBuilder.add(resolveIncludeDir(s, sysroot, crosstoolTopPathFragment));
-    }
-    return builtInIncludeDirectoriesBuilder.build();
+  @SkylarkCallable(name = "built_in_include_directories", structField = true,
+      doc = "Built-in system include paths for the toolchain compiler. All paths in this list"
+      + " should be relative to the exec directory. They may be absolute if they are also installed"
+      + " on the remote build nodes or for local compilation.")
+  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
+    return builtInIncludeDirectories;
   }
 
   /**
@@ -1306,11 +1456,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       + "different sysroots, or the sysroot is the same as the default sysroot, then "
       + "this method returns <code>None</code>.")
   public PathFragment getSysroot() {
-    return nonConfiguredSysroot;
-  }
-
-  public Label getSysrootLabel() {
-    return sysrootLabel;
+    return sysroot;
   }
 
   /**
@@ -1370,8 +1516,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the default list of options which cannot be filtered by BUILD rules. These should be
-   * appended to the command line after filtering.
+   * Returns the default list of options which cannot be filtered by BUILD
+   * rules. These should be appended to the command line after filtering.
    */
   @SkylarkCallable(
     name = "unfiltered_compiler_options",
@@ -1380,56 +1526,21 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "rules. These should be appended to the command line after filtering."
   )
   public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return getUnfilteredCompilerOptions(features, nonConfiguredSysroot);
-  }
-
-  public ImmutableList<String> getUnfilteredCompilerOptions(
-      Iterable<String> features, PathFragment sysroot) {
-    if (sysroot == null) {
-      return unfilteredCompilerFlags.evaluate(features);
-    } else {
-      return ImmutableList.<String>builder()
-          .add("--sysroot=" + sysroot)
-          .addAll(unfilteredCompilerFlags.evaluate(features))
-          .build();
-    }
+    return unfilteredCompilerFlags.evaluate(features);
   }
 
   /**
-   * Returns the set of command-line linker options, including any flags inferred from the
-   * command-line options.
+   * Returns the set of command-line linker options, including any flags
+   * inferred from the command-line options.
    *
    * @see Link
    */
   // TODO(bazel-team): Clean up the linker options computation!
-  @SkylarkCallable(
-    name = "link_options",
-    structField = true,
-    doc =
-        "Returns the set of command-line linker options, including any flags "
-            + "inferred from the command-line options."
-  )
+  @SkylarkCallable(name = "link_options", structField = true,
+      doc = "Returns the set of command-line linker options, including any flags "
+      + "inferred from the command-line options.")
   public ImmutableList<String> getLinkOptions() {
-    return getLinkOptions(nonConfiguredSysroot);
-  }
-
-  public ImmutableList<String> getLinkOptions(PathFragment sysroot) {
-    if (sysroot == null) {
-      return linkOptions;
-    } else {
-      return ImmutableList.<String>builder()
-          .addAll(linkOptions)
-          .add("--sysroot=" + sysroot)
-          .build();
-    }
-  }
-
-  public boolean hasStaticLinkOption() {
-    return linkOptions.contains("-static");
-  }
-
-  public boolean hasSharedLinkOption() {
-    return linkOptions.contains("-shared");
+    return linkOptions;
   }
 
   /** Returns the set of command-line LTO indexing options. */
@@ -2059,8 +2170,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // TODO(bazel-team): delete all of these.
     globalMakeEnvBuilder.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
-    // CcToolchainProvider.
     globalMakeEnvBuilder.putAll(getAdditionalMakeVariables());
 
     globalMakeEnvBuilder.put("ABI_GLIBC_VERSION", getAbiGlibcVersion());
@@ -2141,22 +2250,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       requestedFeatures.add(CppRuleClasses.COVERAGE);
     }
     return requestedFeatures.build();
-  }
-
-  public static PathFragment computeDefaultSysroot(CToolchain toolchain) {
-    PathFragment defaultSysroot =
-        toolchain.getBuiltinSysroot().length() == 0
-            ? null
-            : PathFragment.create(toolchain.getBuiltinSysroot());
-    if ((defaultSysroot != null) && !defaultSysroot.isNormalized()) {
-      throw new IllegalArgumentException(
-          "The built-in sysroot '" + defaultSysroot + "' is not normalized.");
-    }
-    return defaultSysroot;
-  }
-
-  public PathFragment getDefaultSysroot() {
-    return defaultSysroot;
   }
 
   @Override

@@ -25,27 +25,28 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
-import com.google.devtools.build.lib.rules.MakeVariableProvider;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
+import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,22 +58,30 @@ import org.junit.runners.JUnit4;
 public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   private static final Collection<String> NO_FEATURES = Collections.emptySet();
 
+  private BuildOptions createBuildOptionsForTest(String... args) {
+    ImmutableList<Class<? extends FragmentOptions>> testFragments =
+        TestRuleClassProvider.getRuleClassProvider().getConfigurationOptions();
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(testFragments);
+    try {
+      optionsParser.parse(args);
+      InvocationPolicyEnforcer optionsPolicyEnforcer = analysisMock.getInvocationPolicyEnforcer();
+      optionsPolicyEnforcer.enforce(optionsParser);
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
+    }
+    return BuildOptions.applyStaticConfigOverride(BuildOptions.of(testFragments, optionsParser));
+  }
+
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {
-    useConfiguration(args);
     ConfigurationEnvironment env =
         new ConfigurationEnvironment.TargetProviderEnvironment(
             skyframeExecutor.getPackageManager(), reporter, directories);
-    return loader.create(env, buildOptions);
+    return loader.create(env, createBuildOptionsForTest(args));
   }
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {
     getAnalysisMock().ccSupport().setupCrosstoolWithRelease(mockToolsConfig, crosstoolFileContents);
     return new CppConfigurationLoader(Functions.<String>identity());
-  }
-
-  @Before
-  public void setupTests() throws Exception {
-    useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
   }
 
   private CppConfigurationLoader loaderWithOptionalTool(String optionalTool) throws IOException {
@@ -158,18 +167,6 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
             + "}");
   }
 
-  private ConfiguredTarget getCcToolchainTarget(CppConfiguration cppConfiguration)
-      throws Exception {
-    update(cppConfiguration.getCcToolchainRuleLabel().toString());
-    return Preconditions.checkNotNull(
-        getConfiguredTarget(cppConfiguration.getCcToolchainRuleLabel().toString()));
-  }
-
-  private CcToolchainProvider getCcToolchainProvider(CppConfiguration cppConfiguration)
-      throws Exception {
-    return getCcToolchainTarget(cppConfiguration).getProvider(CcToolchainProvider.class);
-  }
-
   /**
    * Checks that we do not accidentally change the proto format in incompatible
    * ways. Do not modify the configuration file in this test, except if you are
@@ -179,10 +176,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   public void testSimpleCompleteConfiguration() throws Exception {
     CppConfigurationLoader loader = loaderWithOptionalTool("");
 
-    // Need to clear out the android cpu options to avoid this split transition in Bazel.
-    CppConfiguration toolchain =
-        create(loader, "--cpu=cpu", "--host_cpu=cpu", "--android_cpu=", "--fat_apk_cpu=");
-    CcToolchainProvider ccProvider = getCcToolchainProvider(toolchain);
+    CppConfiguration toolchain = create(loader, "--cpu=cpu");
     assertEquals("toolchain-identifier", toolchain.getToolchainIdentifier());
 
     assertEquals("host-system-name", toolchain.getHostSystemName());
@@ -203,16 +197,17 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertFalse(toolchain.toolchainNeedsPic());
     assertTrue(toolchain.supportsFission());
 
-    assertThat(ccProvider.getBuiltInIncludeDirectories())
-        .containsExactly(getToolPath("/system-include-dir"));
-    assertNull(ccProvider.getSysroot());
+    assertEquals(
+        ImmutableList.of(getToolPath("/system-include-dir")),
+        toolchain.getBuiltInIncludeDirectories());
+    assertNull(toolchain.getSysroot());
 
     assertEquals(Arrays.asList("c", "fastbuild"), toolchain.getCompilerOptions(NO_FEATURES));
     assertEquals(Arrays.<String>asList(), toolchain.getCOptions());
     assertEquals(Arrays.asList("cxx", "cxx-fastbuild"), toolchain.getCxxOptions(NO_FEATURES));
-    assertEquals(Arrays.asList("unfiltered"), ccProvider.getUnfilteredCompilerOptions(NO_FEATURES));
+    assertEquals(Arrays.asList("unfiltered"), toolchain.getUnfilteredCompilerOptions(NO_FEATURES));
 
-    assertEquals(Arrays.<String>asList(), ccProvider.getLinkOptions());
+    assertEquals(Arrays.<String>asList(), toolchain.getLinkOptions());
     assertEquals(
         Arrays.asList("linker", "linker-fastbuild", "fully static"),
         toolchain.getFullyStaticLinkOptions(NO_FEATURES, false));
@@ -487,12 +482,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         "licenses(['unencumbered'])",
         "filegroup(name = 'everything')");
 
-    // Need to clear out the android cpu options to avoid this split transition in Bazel.
-    CppConfiguration toolchainA =
-        create(loader, "--cpu=piii", "--host_cpu=piii", "--android_cpu=", "--fat_apk_cpu=");
-    ConfiguredTarget ccToolchainA = getCcToolchainTarget(toolchainA);
-    CcToolchainProvider ccProviderA = ccToolchainA.getProvider(CcToolchainProvider.class);
-    MakeVariableProvider makeProviderA = ccToolchainA.getProvider(MakeVariableProvider.class);
+    CppConfiguration toolchainA = create(loader, "--cpu=piii");
     assertEquals("toolchain-identifier-A", toolchainA.getToolchainIdentifier());
     assertEquals("host-system-name-A", toolchainA.getHostSystemName());
     assertEquals("target-system-name-A", toolchainA.getTargetGnuSystemName());
@@ -525,7 +515,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         toolchainA.getCxxOptions(NO_FEATURES));
     assertEquals(
         Arrays.asList("--sysroot=some", "unfiltered-flag-A-1", "unfiltered-flag-A-2"),
-        ccProviderA.getUnfilteredCompilerOptions(NO_FEATURES));
+        toolchainA.getUnfilteredCompilerOptions(NO_FEATURES));
     assertEquals(
         Arrays.asList(
             "linker-flag-A-1",
@@ -594,7 +584,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         toolchainA.getLdOptionsForEmbedding());
     assertEquals(Arrays.asList("ar-flag-A"), toolchainA.getArFlags());
 
-    assertThat(makeProviderA.getMakeVariables().entrySet())
+    assertThat(toolchainA.getAdditionalMakeVariables().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.<String, String>builder()
                 .put("SOME_MAKE_VARIABLE-A-1", "make-variable-value-A-1")
@@ -606,8 +596,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertEquals(
         Arrays.asList(
             getToolPath("/system-include-dir-A-1"), getToolPath("/system-include-dir-A-2")),
-        ccProviderA.getBuiltInIncludeDirectories());
-    assertEquals(PathFragment.create("some"), ccProviderA.getSysroot());
+        toolchainA.getBuiltInIncludeDirectories());
+    assertEquals(PathFragment.create("some"), toolchainA.getSysroot());
 
     // Cursory testing of the "B" toolchain only; assume that if none of
     // toolchain B bled through into toolchain A, the reverse also didn't occur. And
@@ -617,17 +607,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
 
     // Make sure nothing bled through to the nearly-empty "C" toolchain. This is also testing for
     // all the defaults.
-    // Need to clear out the android cpu options to avoid this split transition in Bazel.
     CppConfiguration toolchainC =
-        create(
-            loader,
-            "--compiler=compiler-C",
-            "--glibc=target-libc-C",
-            "--cpu=piii",
-            "--host_cpu=piii",
-            "--android_cpu=",
-            "--fat_apk_cpu=");
-    CcToolchainProvider ccProviderC = getCcToolchainProvider(toolchainC);
+        create(loader, "--compiler=compiler-C", "--glibc=target-libc-C", "--cpu=piii");
     assertEquals("toolchain-identifier-C", toolchainC.getToolchainIdentifier());
     assertEquals("host-system-name-C", toolchainC.getHostSystemName());
     assertEquals("target-system-name-C", toolchainC.getTargetGnuSystemName());
@@ -647,7 +628,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     assertThat(toolchainC.getCompilerOptions(NO_FEATURES)).isEmpty();
     assertThat(toolchainC.getCOptions()).isEmpty();
     assertThat(toolchainC.getCxxOptions(NO_FEATURES)).isEmpty();
-    assertThat(ccProviderC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
+    assertThat(toolchainC.getUnfilteredCompilerOptions(NO_FEATURES)).isEmpty();
     assertEquals(Collections.EMPTY_LIST, toolchainC.getDynamicLinkOptions(NO_FEATURES, true));
     assertEquals(
         Collections.EMPTY_LIST,
@@ -680,8 +661,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 .put("STACK_FRAME_UNLIMITED", "")
                 .build()
                 .entrySet());
-    assertThat(ccProviderC.getBuiltInIncludeDirectories()).isEmpty();
-    assertNull(ccProviderC.getSysroot());
+    assertThat(toolchainC.getBuiltInIncludeDirectories()).isEmpty();
+    assertNull(toolchainC.getSysroot());
   }
 
   protected PathFragment getToolPath(String path) throws LabelSyntaxException {

@@ -75,8 +75,7 @@ public final class CcToolchainProvider
           NestedSetBuilder.<Pair<String, String>>emptySet(Order.COMPILE_ORDER),
           null,
           ImmutableMap.<String, String>of(),
-          ImmutableList.<PathFragment>of(),
-          null);
+          ImmutableList.<PathFragment>of());
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
@@ -103,7 +102,6 @@ public final class CcToolchainProvider
   @Nullable private final Artifact linkDynamicLibraryTool;
   private final ImmutableMap<String, String> environment;
   private final ImmutableList<PathFragment> builtInIncludeDirectories;
-  @Nullable private final PathFragment sysroot;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -130,8 +128,7 @@ public final class CcToolchainProvider
       NestedSet<Pair<String, String>> coverageEnvironment,
       Artifact linkDynamicLibraryTool,
       ImmutableMap<String, String> environment,
-      ImmutableList<PathFragment> builtInIncludeDirectories,
-      @Nullable PathFragment sysroot) {
+      ImmutableList<PathFragment> builtInIncludeDirectories) {
     super(SKYLARK_CONSTRUCTOR, ImmutableMap.<String, Object>of());
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
@@ -158,7 +155,6 @@ public final class CcToolchainProvider
     this.linkDynamicLibraryTool = linkDynamicLibraryTool;
     this.environment = environment;
     this.builtInIncludeDirectories = builtInIncludeDirectories;
-    this.sysroot = sysroot;
   }
 
   @SkylarkCallable(
@@ -356,7 +352,7 @@ public final class CcToolchainProvider
             + "this method returns <code>None</code>."
   )
   public PathFragment getSysroot() {
-    return sysroot;
+    return cppConfiguration.getSysroot();
   }
 
   @SkylarkCallable(
@@ -366,7 +362,7 @@ public final class CcToolchainProvider
             + "rules. These should be appended to the command line after filtering."
   )
   public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
-    return cppConfiguration.getUnfilteredCompilerOptions(features, sysroot);
+    return cppConfiguration.getUnfilteredCompilerOptions(features);
   }
 
   @SkylarkCallable(
@@ -377,6 +373,6 @@ public final class CcToolchainProvider
             + "inferred from the command-line options."
   )
   public ImmutableList<String> getLinkOptions() {
-    return cppConfiguration.getLinkOptions(sysroot);
+    return cppConfiguration.getLinkOptions();
   }
 }

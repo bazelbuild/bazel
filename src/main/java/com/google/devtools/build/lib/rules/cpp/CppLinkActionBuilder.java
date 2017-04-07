@@ -813,7 +813,7 @@ public class CppLinkActionBuilder {
     } else if (isLTOIndexing && allLTOArtifacts != null) {
       for (LTOBackendArtifacts a : allLTOArtifacts) {
         List<String> argv = new ArrayList<>();
-        argv.addAll(toolchain.getLinkOptions());
+        argv.addAll(cppConfiguration.getLinkOptions());
         argv.addAll(cppConfiguration.getCompilerOptions(features));
         a.setCommandLine(argv);
 
@@ -914,7 +914,7 @@ public class CppLinkActionBuilder {
     boolean sharedLinkopts =
         type == LinkTargetType.DYNAMIC_LIBRARY
             || linkopts.contains("-shared")
-            || cppConfig.hasSharedLinkOption();
+            || cppConfig.getLinkOptions().contains("-shared");
     return (isNativeDeps || cppConfig.legacyWholeArchive())
         && (fullyStatic || mostlyStatic)
         && sharedLinkopts;

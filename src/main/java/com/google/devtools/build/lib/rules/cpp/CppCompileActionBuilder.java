@@ -386,8 +386,6 @@ public class CppCompileActionBuilder {
           getLipoScannables(realMandatoryInputs),
           ccToolchain.getBuiltinIncludeFiles(),
           cppSemantics,
-          ccToolchain.getUnfilteredCompilerOptions(features),
-          ccToolchain.getBuiltInIncludeDirectories(),
           ImmutableMap.copyOf(executionInfo));
     } else {
       return new CppCompileAction(
@@ -424,9 +422,7 @@ public class CppCompileActionBuilder {
           ImmutableMap.copyOf(environment),
           getActionName(),
           ccToolchain.getBuiltinIncludeFiles(),
-          cppSemantics,
-          ccToolchain.getUnfilteredCompilerOptions(features),
-          ccToolchain.getBuiltInIncludeDirectories());
+          cppSemantics);
     }
   }
 
