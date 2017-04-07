@@ -64,8 +64,8 @@ final class DarwinSandboxRunner extends SandboxRunner {
     // And we should check if sandbox still work when it gets 11.x
     String osxVersion = OS.getVersion();
     String[] parts = osxVersion.split("\\.");
-    if (parts.length != 3) {
-      // Currently the format is 10.11.x
+    if (parts.length < 2 || parts.length > 3) {
+      // Can be 10.xx or 10.xx.yy format
       return false;
     }
     try {
