@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -65,21 +66,41 @@ public final class LocalSpawnRunner implements SpawnRunner {
 
   private final ActionInputPrefetcher actionInputPrefetcher;
 
-  private final String processWrapper;
-
   private final LocalExecutionOptions localExecutionOptions;
+
+  private final boolean useProcessWrapper;
+  private final String processWrapper;
 
   public LocalSpawnRunner(
       Path execRoot,
       ActionInputPrefetcher actionInputPrefetcher,
       LocalExecutionOptions localExecutionOptions,
-      ResourceManager resourceManager) {
+      ResourceManager resourceManager,
+      boolean useProcessWrapper) {
     this.execRoot = execRoot;
     this.actionInputPrefetcher = Preconditions.checkNotNull(actionInputPrefetcher);
     this.processWrapper = execRoot.getRelative("_bin/process-wrapper").getPathString();
     this.localExecutionOptions = localExecutionOptions;
     this.hostName = NetUtil.findShortHostName();
     this.resourceManager = resourceManager;
+    this.useProcessWrapper = useProcessWrapper;
+  }
+
+  public LocalSpawnRunner(
+      Path execRoot,
+      ActionInputPrefetcher actionInputPrefetcher,
+      LocalExecutionOptions localExecutionOptions,
+      ResourceManager resourceManager) {
+    this(
+        execRoot,
+        actionInputPrefetcher,
+        localExecutionOptions,
+        resourceManager,
+        // TODO(bazel-team): process-wrapper seems to work on Windows, but requires additional setup
+        // as it is an msys2 binary, so it needs msys2 DLLs on %PATH%. Disable it for now to make
+        // the setup easier and to avoid further PATH hacks. Ideally we should have a native
+        // implementation of process-wrapper for Windows.
+        OS.getCurrent() != OS.WINDOWS);
   }
 
   @Override
@@ -198,20 +219,32 @@ public final class LocalSpawnRunner implements SpawnRunner {
             Status.LOCAL_ACTION_NOT_ALLOWED);
       }
 
-      List<String> cmdLine = new ArrayList<>();
-      cmdLine.add(processWrapper);
-      cmdLine.add(Float.toString(timeout));
-      cmdLine.add(Double.toString(localExecutionOptions.localSigkillGraceSeconds));
-      cmdLine.add(getPathOrDevNull(outErr.getOutputPath()));
-      cmdLine.add(getPathOrDevNull(outErr.getErrorPath()));
-      cmdLine.addAll(args);
-      Command cmd = new Command(cmdLine.toArray(new String[]{}), env, execRoot.getPathFile());
+      Command cmd;
+      OutputStream stdOut = ByteStreams.nullOutputStream();
+      OutputStream stdErr = ByteStreams.nullOutputStream();
+      if (useProcessWrapper) {
+        List<String> cmdLine = new ArrayList<>();
+        cmdLine.add(processWrapper);
+        cmdLine.add(Float.toString(timeout));
+        cmdLine.add(Double.toString(localExecutionOptions.localSigkillGraceSeconds));
+        cmdLine.add(getPathOrDevNull(outErr.getOutputPath()));
+        cmdLine.add(getPathOrDevNull(outErr.getErrorPath()));
+        cmdLine.addAll(args);
+        cmd = new Command(cmdLine.toArray(new String[]{}), env, execRoot.getPathFile());
+      } else {
+        stdOut = outErr.getOutputStream();
+        stdErr = outErr.getErrorStream();
+        cmd = new Command(
+            args.toArray(new String[0]),
+            env,
+            execRoot.getPathFile(),
+            (int) timeout);
+      }
 
       long startTime = System.currentTimeMillis();
-      OutputStream nullOut = ByteStreams.nullOutputStream();
       CommandResult result;
       try {
-        result = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, nullOut, nullOut, true);
+        result = cmd.execute(Command.NO_INPUT, Command.NO_OBSERVER, stdOut, stdErr, true);
         if (Thread.currentThread().isInterrupted()) {
           throw new InterruptedException();
         }

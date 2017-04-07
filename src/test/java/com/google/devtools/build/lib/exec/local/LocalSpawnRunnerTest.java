@@ -60,6 +60,9 @@ import org.mockito.ArgumentCaptor;
  */
 @RunWith(JUnit4.class)
 public class LocalSpawnRunnerTest {
+  private static final boolean USE_WRAPPER = true;
+  private static final boolean NO_WRAPPER = false;
+
   private static class FinishedSubprocess implements Subprocess {
     private final int exitCode;
 
@@ -193,7 +196,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.localSigkillGraceSeconds = 456;
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager);
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
 
     timeoutMillis = 123 * 1000L;
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
@@ -210,6 +213,37 @@ public class LocalSpawnRunnerTest {
             "/execroot/_bin/process-wrapper", "123.0", "456.0", "/out/stdout", "/out/stderr",
             "/bin/echo", "Hi!"));
     assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
+    assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(-1);
+
+    assertThat(calledLockOutputFiles).isTrue();
+  }
+
+  @Test
+  public void noProcessWrapper() throws Exception {
+    Subprocess.Factory factory = mock(Subprocess.Factory.class);
+    ArgumentCaptor<SubprocessBuilder> captor = ArgumentCaptor.forClass(SubprocessBuilder.class);
+    when(factory.create(captor.capture())).thenReturn(new FinishedSubprocess(0));
+    SubprocessBuilder.setSubprocessFactory(factory);
+
+    LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
+    options.localSigkillGraceSeconds = 456;
+    LocalSpawnRunner runner = new LocalSpawnRunner(
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, NO_WRAPPER);
+
+    timeoutMillis = 123 * 1000L;
+    outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
+    SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
+    verify(factory).create(any());
+    assertThat(result.status()).isEqualTo(SpawnResult.Status.SUCCESS);
+    assertThat(result.exitCode()).isEqualTo(0);
+    assertThat(result.setupSuccess()).isTrue();
+    assertThat(result.getExecutorHostName()).isEqualTo(NetUtil.findShortHostName());
+
+    assertThat(captor.getValue().getArgv())
+        .isEqualTo(ImmutableList.of("/bin/echo", "Hi!"));
+    assertThat(captor.getValue().getEnv()).containsExactly("VARIABLE", "value");
+    // Without the process wrapper, we use the Command API to enforce the timeout.
+    assertThat(captor.getValue().getTimeoutMillis()).isEqualTo(timeoutMillis);
 
     assertThat(calledLockOutputFiles).isTrue();
   }
@@ -223,7 +257,7 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager);
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -252,7 +286,7 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager);
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     SpawnResult result = runner.exec(SIMPLE_SPAWN, policy);
@@ -271,7 +305,7 @@ public class LocalSpawnRunnerTest {
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     options.allowedLocalAction = Pattern.compile("none");
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager);
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr();
     SpawnResult reply = runner.exec(SIMPLE_SPAWN, policy);
@@ -309,7 +343,7 @@ public class LocalSpawnRunnerTest {
 
     LocalExecutionOptions options = Options.getDefaults(LocalExecutionOptions.class);
     LocalSpawnRunner runner = new LocalSpawnRunner(
-        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager);
+        fs.getPath("/execroot"), ActionInputPrefetcher.NONE, options, resourceManager, USE_WRAPPER);
 
     outErr = new FileOutErr(fs.getPath("/out/stdout"), fs.getPath("/out/stderr"));
     try {
