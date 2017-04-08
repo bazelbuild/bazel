@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.mock;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
@@ -119,6 +120,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "/bazel_tools_workspace/tools/android/BUILD",
         androidBuildContents.toArray(new String[androidBuildContents.size()]));
     config.create(
+        "/bazel_tools_workspace/tools/android/emulator/BUILD",
+        Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
+
+    config.create(
         "/bazel_tools_workspace/third_party/java/apkbuilder/BUILD",
         "sh_binary(name = 'embedded_apkbuilder',",
         "          srcs = ['embedded_apkbuilder.sh'])");
@@ -152,6 +157,17 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "exports_files(['precompile.py'])",
         "cc_binary(name='zipper', srcs=['zip_main.cc'])");
     ccSupport().setup(config);
+  }
+
+  /** Contents of {@code //tools/android/emulator/BUILD.tools}. */
+  private ImmutableList<String> createToolsAndroidEmulatorContents() {
+    return ImmutableList.of(
+        "exports_files(['emulator_arm', 'emulator_x86', 'mksd', 'empty_snapshot_fs'])",
+        "filegroup(name = 'emulator_x86_bios', srcs = ['bios.bin', 'vgabios-cirrus.bin'])",
+        "filegroup(name = 'xvfb_support', srcs = ['support_file1', 'support_file2'])",
+        "sh_binary(name = 'unified_launcher', srcs = ['empty.sh'])",
+        "filegroup(name = 'shbase', srcs = ['googletest.sh'])",
+        "filegroup(name = 'sdk_path', srcs = ['empty.sh'])");
   }
 
   private ImmutableList<String> createAndroidBuildContents() {
@@ -216,7 +232,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'zip_manifest_creator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'aar_embedded_jars_extractor', srcs = ['empty.sh'])")
         .add("java_import(name = 'idlclass_import',")
-        .add("            jars = [ 'idlclass.jar' ])");
+        .add("            jars = [ 'idlclass.jar' ])")
+        .add("exports_files(['adb', 'adb_static'])")
+        .add("sh_binary(name = 'android_runtest', srcs = ['empty.sh'])");
 
     return androidBuildContents.build();
   }
