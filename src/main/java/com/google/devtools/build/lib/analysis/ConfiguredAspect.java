@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
@@ -46,20 +45,19 @@ import javax.annotation.Nullable;
  * Extra information about a configured target computed on request of a dependent.
  *
  * <p>Analogous to {@link ConfiguredTarget}: contains a bunch of transitive info providers, which
- * are merged with the providers of the associated configured target before they are passed to
- * the configured target factories that depend on the configured target to which this aspect is
- * added.
+ * are merged with the providers of the associated configured target before they are passed to the
+ * configured target factories that depend on the configured target to which this aspect is added.
  *
  * <p>Aspects are created alongside configured targets on request from dependents.
  *
- * <p>For more information about aspects, see
- * {@link com.google.devtools.build.lib.packages.AspectClass}.
+ * <p>For more information about aspects, see {@link
+ * com.google.devtools.build.lib.packages.AspectClass}.
  *
  * @see com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory
  * @see com.google.devtools.build.lib.packages.AspectClass
  */
 @Immutable
-public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> {
+public final class ConfiguredAspect {
   private final TransitiveInfoProviderMap providers;
   private final AspectDescriptor descriptor;
 
@@ -117,12 +115,6 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     return skylarkProviders != null
         ? skylarkProviders.get(SkylarkProviderIdentifier.forLegacy(legacyKey))
         : null;
-  }
-
-
-  @Override
-  public Iterator<TransitiveInfoProvider> iterator() {
-    return providers.values().iterator();
   }
 
   public static ConfiguredAspect forAlias(ConfiguredAspect real) {
@@ -188,9 +180,10 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
 
     /** Adds providers to the aspect. */
     public Builder addProviders(TransitiveInfoProviderMap providers) {
-      for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-          providers.entries()) {
-        addProvider(entry.getKey(), entry.getKey().cast(entry.getValue()));
+      for (int i = 0; i < providers.getProviderCount(); ++i) {
+        Class<? extends TransitiveInfoProvider> providerClass = providers.getProviderClassAt(i);
+        TransitiveInfoProvider provider = providers.getProviderAt(i);
+        addProvider(providerClass, providerClass.cast(provider));
       }
       return this;
     }

@@ -146,11 +146,11 @@ public final class RuleConfiguredTargetBuilder {
   /** Adds skylark providers from a skylark provider registry, and checks for collisions. */
   private void addRegisteredProvidersToSkylarkProviders(TransitiveInfoProviderMap providers) {
     Map<String, Object> nativeSkylarkProviders = new HashMap<>();
-    for (Map.Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> entry :
-        providers.entries()) {
-      if (ruleContext.getSkylarkProviderRegistry().containsValue(entry.getKey())) {
-        String skylarkName = ruleContext.getSkylarkProviderRegistry().inverse().get(entry.getKey());
-        nativeSkylarkProviders.put(skylarkName, entry.getValue());
+    for (int i = 0; i < providers.getProviderCount(); ++i) {
+      Class<? extends TransitiveInfoProvider> providerClass = providers.getProviderClassAt(i);
+      if (ruleContext.getSkylarkProviderRegistry().containsValue(providerClass)) {
+        String skylarkName = ruleContext.getSkylarkProviderRegistry().inverse().get(providerClass);
+        nativeSkylarkProviders.put(skylarkName, providers.getProviderAt(i));
       }
     }
     try {

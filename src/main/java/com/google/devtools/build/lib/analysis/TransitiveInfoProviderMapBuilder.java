@@ -55,7 +55,10 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   public TransitiveInfoProviderMapBuilder addAll(TransitiveInfoProviderMap providers) {
-    return addAll(providers.values());
+    for (int i = 0; i < providers.getProviderCount(); ++i) {
+      add(providers.getProviderAt(i));
+    }
+    return this;
   }
 
   public TransitiveInfoProviderMapBuilder addAll(Iterable<TransitiveInfoProvider> providers) {
@@ -71,6 +74,6 @@ public class TransitiveInfoProviderMapBuilder {
   }
 
   public TransitiveInfoProviderMap build() {
-    return new TransitiveInfoProviderMapImmutableMapBased(ImmutableMap.copyOf(providers));
+    return new TransitiveInfoProviderMapOffsetBased(ImmutableMap.copyOf(providers));
   }
 }

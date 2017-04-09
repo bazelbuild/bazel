@@ -813,7 +813,12 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:zzz.jar");
     assertThat(result.hasError()).isFalse();
-    assertThat(Iterables.getOnlyElement(result.getAspects()).getConfiguredAspect()).isEmpty();
+    assertThat(
+            Iterables.getOnlyElement(result.getAspects())
+                .getConfiguredAspect()
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
   }
 
 
@@ -1714,8 +1719,12 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:file.txt");
     assertThat(analysisResult.hasError()).isFalse();
-    assertThat(Iterables.getOnlyElement(analysisResult.getAspects()).getConfiguredAspect())
-        .isEmpty();
+    assertThat(
+            Iterables.getOnlyElement(analysisResult.getAspects())
+                .getConfiguredAspect()
+                .getProviders()
+                .getProviderCount())
+        .isEqualTo(0);
   }
 
   @Test
