@@ -87,16 +87,27 @@ def _which_cmd(repository_ctx, cmd, default = None):
   return str(result)
 
 
-def _execute(repository_ctx, command, environment = None):
+def _execute(repository_ctx, command, environment = None,
+             expect_failure = False):
   """Execute a command, return stdout if succeed and throw an error if it fails."""
   if environment:
     result = repository_ctx.execute(command, environment = environment)
   else:
     result = repository_ctx.execute(command)
-  if result.stderr:
-    auto_configure_fail(result.stderr)
-  else:
-    return result.stdout.strip()
+  if expect_failure != (result.return_code != 0):
+    if expect_failure:
+      auto_configure_fail(
+          "expected failure, command %s, stderr: (%s)" % (
+              command, result.stderr))
+    else:
+      auto_configure_fail(
+          "non-zero exit code: %d, command %s, stderr: (%s)" % (
+              result.return_code, command, result.stderr))
+  stripped_stdout = result.stdout.strip()
+  if not stripped_stdout:
+    auto_configure_fail(
+        "empty output from command %s, stderr: (%s)" % (command, result.stderr))
+  return stripped_stdout
 
 
 def _get_tool_paths(repository_ctx, darwin, cc):
@@ -578,7 +589,7 @@ def _is_support_whole_archive(repository_ctx, vc_path):
   if "NO_WHOLE_ARCHIVE_OPTION" in env and env["NO_WHOLE_ARCHIVE_OPTION"] == "1":
     return False
   linker = _find_msvc_tool(repository_ctx, vc_path, "link.exe")
-  result = _execute(repository_ctx, [linker])
+  result = _execute(repository_ctx, [linker], expect_failure = True)
   return result.find("/WHOLEARCHIVE") != -1
 
 
