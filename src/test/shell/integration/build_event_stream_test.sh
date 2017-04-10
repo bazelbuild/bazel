@@ -43,6 +43,7 @@ sleep 1
 exit 0
 EOF
   chmod 755 pkg/slowtest.sh
+  touch pkg/sourcefileA pkg/sourcefileB pkg/sourcefileC
   cat > pkg/BUILD <<EOF
 sh_test(
   name = "true",
@@ -81,6 +82,14 @@ action_listener(
 extra_action(
    name = "extra",
    cmd = "echo Hello World",
+)
+filegroup(
+  name = "innergroup",
+  srcs = ["sourcefileA", "sourcefileB"],
+)
+filegroup(
+  name = "outergroup",
+  srcs = ["sourcefileC", ":innergroup"],
 )
 EOF
 cat > simpleaspect.bzl <<EOF
@@ -343,6 +352,16 @@ function test_loading_failure_keep_going() {
   expect_log_once '^loading_failed'
   expect_log_once '^expanded'
   expect_log 'details.*BUILD file not found on package path'
+  expect_not_log 'aborted'
+}
+
+function test_artifact_dedup() {
+  bazel build --experimental_build_event_text_file=$TEST_log \
+      pkg:innergroup pkg:outergroup \
+  || fail "bazel build failed"
+  expect_log_once "name.*sourcefileA"
+  expect_log_once "name.*sourcefileB"
+  expect_log_once "name.*sourcefileC"
   expect_not_log 'aborted'
 }
 

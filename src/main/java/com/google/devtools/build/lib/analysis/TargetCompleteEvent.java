@@ -15,21 +15,23 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.test.TestProvider;
@@ -39,7 +41,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
 /** This event is fired as soon as a target is either built or fails. */
-public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderConstraint {
+public final class TargetCompleteEvent
+    implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
 
   private final ConfiguredTarget target;
   private final NestedSet<Cause> rootCauses;
@@ -134,13 +137,12 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
 
   @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    PathConverter pathConverter = converters.pathConverter();
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
 
     builder.setSuccess(!failed());
     builder.addAllTag(getTags());
-    builder.addAllOutputGroup(getOutputFilesByGroup(pathConverter));
+    builder.addAllOutputGroup(getOutputFilesByGroup(converters.artifactGroupNamer()));
 
     BuildEventStreamProtos.TargetComplete complete = builder.build();
     return GenericBuildEvent.protoChaining(this).setCompleted(complete).build();
@@ -149,6 +151,16 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
   @Override
   public Collection<BuildEventId> postedAfter() {
     return postedAfter;
+  }
+
+  @Override
+  public Collection<NestedSet<Artifact>> reportedArtifacts() {
+    ImmutableSet.Builder<NestedSet<Artifact>> builder =
+        new ImmutableSet.Builder<NestedSet<Artifact>>();
+    for (ArtifactsInOutputGroup artifactsInGroup : outputs) {
+      builder.add(artifactsInGroup.getArtifacts());
+    }
+    return builder.build();
   }
 
   private Iterable<String> getTags() {
@@ -161,19 +173,14 @@ public final class TargetCompleteEvent implements SkyValue, BuildEventWithOrderC
     return attributes.get("tags", Type.STRING_LIST);
   }
 
-  private Iterable<OutputGroup> getOutputFilesByGroup(PathConverter pathConverter) {
+  private Iterable<OutputGroup> getOutputFilesByGroup(ArtifactGroupNamer namer) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
     for (ArtifactsInOutputGroup artifactsInOutputGroup : outputs) {
       OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
       groupBuilder.setName(artifactsInOutputGroup.getOutputGroup());
-
-      File.Builder fileBuilder = File.newBuilder();
-      for (Artifact artifact : artifactsInOutputGroup.getArtifacts()) {
-        String name = artifact.getFilename();
-        String uri = pathConverter.apply(artifact.getPath());
-        groupBuilder.addOutputFile(fileBuilder.setName(name).setUri(uri).build());
-      }
-
+      groupBuilder.addFileSets(
+          namer.apply(
+              (new NestedSetView<Artifact>(artifactsInOutputGroup.getArtifacts())).identifier()));
       groups.add(groupBuilder.build());
     }
     return groups.build();
