@@ -388,18 +388,21 @@ def _get_system_root(repository_ctx):
 def _find_cc(repository_ctx):
   """Find the C++ compiler."""
   cc_name = "gcc"
-  if "CC" in repository_ctx.os.environ:
-    cc_name = repository_ctx.os.environ["CC"].strip()
-    if not cc_name:
-      cc_name = "gcc"
+  cc_environ = repository_ctx.os.environ.get("CC")
+  cc_paren = ""
+  if cc_environ != None:
+    cc_environ = cc_environ.strip()
+    if cc_environ:
+      cc_name = cc_environ
+      cc_paren = " (%s)" % cc_environ
   if cc_name.startswith("/"):
     # Absolute path, maybe we should make this suported by our which function.
     return cc_name
   cc = repository_ctx.which(cc_name)
   if cc == None:
     fail(
-        "Cannot find gcc, either correct your path or set the CC" +
-        " environment variable")
+        ("Cannot find gcc or CC%s, either correct your path or set the CC"
+         + " environment variable") % cc_paren)
   return cc
 
 
