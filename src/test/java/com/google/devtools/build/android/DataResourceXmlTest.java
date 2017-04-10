@@ -43,8 +43,10 @@ import com.google.devtools.build.android.xml.AttrXmlResourceValue.IntegerResourc
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.ReferenceResourceXmlAttrValue;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue.StringResourceXmlAttrValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
+import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.PublicXmlResourceValue;
+import com.google.devtools.build.android.xml.ResourcesAttribute;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
@@ -652,6 +654,41 @@ public class DataResourceXmlTest {
   }
 
   @Test
+  public void resourcesAttribute() throws Exception {
+    Namespaces namespaces = Namespaces.from(
+        ImmutableMap.of("tools", "http://schemas.android.com/tools"));
+
+    Path path = writeResourceXml(
+        namespaces.asMap(),
+        ImmutableMap.of("tools:foo", "fooVal", "tools:ignore", "ignoreVal"));
+
+    final Map<DataKey, DataResource> toOverwrite = new HashMap<>();
+    final Map<DataKey, DataResource> toCombine = new HashMap<>();
+    parseResourcesFrom(path, toOverwrite, toCombine);
+
+    FullyQualifiedName fooFqn = fqn("<resources>/{http://schemas.android.com/tools}foo");
+    assertThat(toOverwrite)
+        .containsExactly(
+            fooFqn,
+            DataResourceXml.createWithNamespaces(
+                path,
+                ResourcesAttribute.of(fooFqn, "tools:foo", "fooVal"),
+                namespaces)
+            );
+
+    FullyQualifiedName ignoreFqn = fqn("<resources>/{http://schemas.android.com/tools}ignore");
+    assertThat(toCombine)
+        .containsExactly(
+            ignoreFqn,
+            DataResourceXml.createWithNamespaces(
+                path,
+                ResourcesAttribute.of(ignoreFqn, "tools:ignore", "ignoreVal"),
+                namespaces)
+            );
+
+  }
+
+  @Test
   public void writeSimpleXmlResources() throws Exception {
     Path source =
         writeResourceXml(
@@ -986,8 +1023,9 @@ public class DataResourceXmlTest {
     Path source = writeResourceXml(
         ImmutableMap.of("tools", "http://schemas.android.com/tools"),
         ImmutableMap.of("tools:foo", "fooVal"));
+
     assertAbout(resourcePaths)
-        .that(parsedAndWritten(source, fqn("<resources>/tools:foo")))
+        .that(parsedAndWritten(source, fqn("<resources>/{http://schemas.android.com/tools}foo")))
         .xmlContentsIsEqualTo(
             resourcesXmlFrom(
                 ImmutableMap.of("tools", "http://schemas.android.com/tools"),

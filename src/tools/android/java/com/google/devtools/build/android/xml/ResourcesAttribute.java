@@ -24,6 +24,7 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.Builder;
+import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Map;
@@ -34,20 +35,67 @@ import java.util.Objects;
  */
 public class ResourcesAttribute implements XmlResourceValue {
 
-  public static ResourcesAttribute of(String name, String value) {
-    return new ResourcesAttribute(name, value);
+  @Immutable
+  private interface Combiner {
+    public String combine(String first, String second);
+  }
+
+  private static final Combiner COMMA_SEPARATED_COMBINER = new Combiner() {
+    private final Joiner joiner = Joiner.on(',');
+    @Override
+    public String combine(String first, String second) {
+      return joiner.join(first, second);
+    }
+  };
+
+  private static enum AttributeType {
+    UNCOMBINABLE(null, null),
+    TOOLS_IGNORE("{http://schemas.android.com/tools}ignore", COMMA_SEPARATED_COMBINER),
+    TOOLS_MENU("{http://schemas.android.com/tools}menu", COMMA_SEPARATED_COMBINER),
+    TOOLS_KEEP("{http://schemas.android.com/tools}keep", COMMA_SEPARATED_COMBINER),
+    TOOLS_DISCARD("{http://schemas.android.com/tools}discard", COMMA_SEPARATED_COMBINER);
+
+    public static AttributeType from(String name) {
+      if (name == null) {
+        return UNCOMBINABLE;
+      }
+      for (AttributeType type : AttributeType.values()) {
+        if (name.equals(type.name)) {
+          return type;
+        }
+      }
+      return UNCOMBINABLE;
+    }
+
+    private final String name;
+    public final Combiner combiner;
+
+    private AttributeType(String name, Combiner combiner) {
+      this.name = name;
+      this.combiner = combiner;
+    }
+  }
+
+  public static ResourcesAttribute of(FullyQualifiedName fqn, String name, String value) {
+    return new ResourcesAttribute(AttributeType.from(fqn.name()), name, value);
   }
 
   public static ResourcesAttribute from(SerializeFormat.DataValueXml proto) {
     Map.Entry<String, String> attribute =
         Iterables.getOnlyElement(proto.getAttributeMap().entrySet());
-    return of(attribute.getKey(), attribute.getValue());
+    return new ResourcesAttribute(
+        AttributeType.valueOf(proto.getValueType()),
+        attribute.getKey(),
+        attribute.getValue());
   }
 
+  private final AttributeType type;
   private final String name;
   private final String value;
 
-  private ResourcesAttribute(String name, String value) {
+  private ResourcesAttribute(AttributeType type, String name, String value) {
+
+    this.type = type;
     this.name = name;
     this.value = value;
   }
@@ -55,7 +103,7 @@ public class ResourcesAttribute implements XmlResourceValue {
   @Override
   public void write(
       FullyQualifiedName key, DataSource source, AndroidDataWritingVisitor mergedDataWriter) {
-    mergedDataWriter.defineAttribute(key, value);
+    mergedDataWriter.defineAttribute(key, name, value);
   }
 
   @Override
@@ -68,6 +116,7 @@ public class ResourcesAttribute implements XmlResourceValue {
             .getXmlValueBuilder()
             .putAllNamespace(namespaces.asMap())
             .setType(SerializeFormat.DataValueXml.XmlType.RESOURCES_ATTRIBUTE)
+            .setValueType(type.name())
             .putAttribute(name, value);
     builder.setXmlValue(xmlValueBuilder);
     return XmlResourceValues.serializeProtoDataValue(output, builder);
@@ -75,7 +124,7 @@ public class ResourcesAttribute implements XmlResourceValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, value);
+    return Objects.hash(type, name, value);
   }
 
   @Override
@@ -84,16 +133,22 @@ public class ResourcesAttribute implements XmlResourceValue {
       return false;
     }
     ResourcesAttribute other = (ResourcesAttribute) obj;
-    return Objects.equals(name, other.name)
+    return Objects.equals(type, other.type)
+        && Objects.equals(name, other.name)
         && Objects.equals(value, other.value);
   }
 
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass())
+        .add("type", type)
         .add("name", name)
         .add("value", value)
         .toString();
+  }
+
+  public boolean isCombining() {
+    return type != AttributeType.UNCOMBINABLE;
   }
 
   @Override
@@ -102,9 +157,8 @@ public class ResourcesAttribute implements XmlResourceValue {
       throw new IllegalArgumentException(value + "is not combinable with " + this);
     }
     ResourcesAttribute other = (ResourcesAttribute) value;
-    if ((name.startsWith("tools:keep") && other.name.startsWith("tools:keep"))
-        || (name.startsWith("tools:discard") && other.name.startsWith("tools:discard"))) {
-      return of(name, Joiner.on(',').join(value, other.value));
+    if (type == other.type && isCombining()) {
+      return new ResourcesAttribute(type, name, type.combiner.combine(this.value, other.value));
     }
     throw new IllegalArgumentException(value + "is not combinable with " + this);
   }

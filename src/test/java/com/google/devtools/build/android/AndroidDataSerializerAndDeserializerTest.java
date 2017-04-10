@@ -191,7 +191,8 @@ public class AndroidDataSerializerAndDeserializerTest {
                 .overwritable(
                     file("layout/banker").source("layout/banker.xml"),
                     xml("<resources>/foo").source("values/ids.xml")
-                        .value(ResourcesAttribute.of("foo", "fooVal")))
+                        .value(ResourcesAttribute.of(
+                            fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
                 .combining(
                     xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/boojum"))
@@ -232,7 +233,8 @@ public class AndroidDataSerializerAndDeserializerTest {
                 .overwritable(
                     file("layout/banker").source("layout/banker.xml"),
                     xml("<resources>/foo").source("values/ids.xml")
-                        .value(ResourcesAttribute.of("foo", "fooVal")))
+                        .value(ResourcesAttribute.of(
+                            fqnFactory.parse("<resources>/foo"), "foo", "fooVal")))
                 .combining(
                     xml("id/snark").source("values/ids.xml").value(IdXmlResourceValue.of()))
                 .assets(file().source("hunting/of/the/boojum"))

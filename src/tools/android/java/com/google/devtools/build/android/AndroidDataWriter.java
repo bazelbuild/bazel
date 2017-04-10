@@ -309,12 +309,12 @@ public class AndroidDataWriter implements AndroidDataWritingVisitor {
   }
 
   @Override
-  public void defineAttribute(FullyQualifiedName fqn, String value) {
+  public void defineAttribute(FullyQualifiedName fqn, String name, String value) {
     String valuesPath = fqn.valuesPath();
     if (!valueTags.containsKey(valuesPath)) {
       valueTags.put(valuesPath, new ResourceValuesDefinitions());
     }
-    valueTags.get(valuesPath).addAttribute(fqn.name(), value);
+    valueTags.get(valuesPath).addAttribute(name, value);
   }
 
   @Override

@@ -101,15 +101,20 @@ public class DataResourceXml implements DataResource {
               attribute.getName().getNamespaceURI().isEmpty()
                   ? attribute.getName().getLocalPart()
                   : attribute.getName().getPrefix() + ":" + attribute.getName().getLocalPart();
-          overwritingConsumer.consume(
-            fqnFactory.create(
+          FullyQualifiedName fqn = fqnFactory.create(
                 VirtualType.RESOURCES_ATTRIBUTE,
-                attributeName),
-            DataResourceXml.createWithNamespaces(
+                attribute.getName().toString());
+          ResourcesAttribute resourceAttribute =
+              ResourcesAttribute.of(fqn, attributeName, attribute.getValue());
+          DataResourceXml resource = DataResourceXml.createWithNamespaces(
                 path,
-                ResourcesAttribute.of(attributeName, attribute.getValue()),
-                namespaces)
-            );
+                resourceAttribute,
+                namespaces);
+          if (resourceAttribute.isCombining()) {
+            combiningConsumer.consume(fqn, resource);
+          } else {
+            overwritingConsumer.consume(fqn, resource);
+          }
         }
         // Process resource declarations.
         for (StartElement start = XmlResourceValues.findNextStart(eventReader);

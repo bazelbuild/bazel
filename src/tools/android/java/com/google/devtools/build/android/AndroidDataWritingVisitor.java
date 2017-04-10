@@ -54,9 +54,10 @@ public interface AndroidDataWritingVisitor extends Flushable {
    *
    * @param fqn The fully qualified name of the attribute indicating both the name of the attribute
    *     and which qualified values.xml file to be associated with.
+   * @param name The simple name of the attribute given as {@code [prefix:]name}.
    * @param value The value of the attribute.
    */
-  void defineAttribute(FullyQualifiedName fqn, String value);
+  void defineAttribute(FullyQualifiedName fqn, String name, String value);
 
   /**
    * Adds the namespaces associated with a {@link FullyQualifiedName}.

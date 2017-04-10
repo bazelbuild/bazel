@@ -234,7 +234,7 @@ public class ParsedAndroidDataTest {
             attributeFoo, // key
             DataResourceXml.createWithNoNamespace(
                 root.resolve("res/values/attr.xml"),
-                ResourcesAttribute.of("foo", "fooVal")), // value
+                ResourcesAttribute.of(attributeFoo, "foo", "fooVal")), // value
             stringExit, // key
             DataResourceXml.createWithNoNamespace(
                 root.resolve("res/values/attr.xml"),
@@ -360,9 +360,10 @@ public class ParsedAndroidDataTest {
                     MergeConflict.of(
                         attributeFoo,
                         DataResourceXml.createWithNoNamespace(
-                            rootValuesPath, ResourcesAttribute.of("foo", "fooVal")),
+                            rootValuesPath, ResourcesAttribute.of(attributeFoo, "foo", "fooVal")),
                         DataResourceXml.createWithNoNamespace(
-                            otherRootValuesPath, ResourcesAttribute.of("foo", "fooVal")))),
+                            otherRootValuesPath,
+                            ResourcesAttribute.of(attributeFoo, "foo", "fooVal")))),
                 ImmutableMap.of(
                     drawableMenu, // key
                     DataValueFile.of(
@@ -370,7 +371,7 @@ public class ParsedAndroidDataTest {
                     attributeFoo, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),
-                        ResourcesAttribute.of("foo", "fooVal")), // value
+                        ResourcesAttribute.of(attributeFoo, "foo", "fooVal")), // value
                     stringExit, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),
