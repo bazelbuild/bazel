@@ -14,21 +14,23 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
+import com.google.devtools.build.lib.buildeventstream.ArtifactGroupNamer;
 import com.google.devtools.build.lib.buildeventstream.BuildEventConverters;
 import com.google.devtools.build.lib.buildeventstream.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
-import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.OutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
-import com.google.devtools.build.lib.buildeventstream.PathConverter;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -36,7 +38,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
 /** This event is fired as soon as a top-level aspect is either built or fails. */
-public class AspectCompleteEvent implements SkyValue, BuildEventWithOrderConstraint {
+public class AspectCompleteEvent
+    implements SkyValue, BuildEventWithOrderConstraint, EventReportingArtifacts {
   private final AspectValue aspectValue;
   private final NestedSet<Cause> rootCauses;
   private final Collection<BuildEventId> postedAfter;
@@ -105,8 +108,19 @@ public class AspectCompleteEvent implements SkyValue, BuildEventWithOrderConstra
   }
 
   @Override
+  public Collection<NestedSet<Artifact>> reportedArtifacts() {
+    ImmutableSet.Builder<NestedSet<Artifact>> builder =
+        new ImmutableSet.Builder<NestedSet<Artifact>>();
+    for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
+      builder.add(artifactsInGroup.getArtifacts());
+    }
+    return builder.build();
+  }
+
+  @Override
   public BuildEventStreamProtos.BuildEvent asStreamProto(BuildEventConverters converters) {
-    PathConverter pathConverter = converters.pathConverter();
+    ArtifactGroupNamer namer = converters.artifactGroupNamer();
+
     BuildEventStreamProtos.TargetComplete.Builder builder =
         BuildEventStreamProtos.TargetComplete.newBuilder();
     builder.setSuccess(!failed());
@@ -114,13 +128,9 @@ public class AspectCompleteEvent implements SkyValue, BuildEventWithOrderConstra
       for (ArtifactsInOutputGroup artifactsInGroup : artifacts.getAllArtifactsByOutputGroup()) {
         OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
         groupBuilder.setName(artifactsInGroup.getOutputGroup());
-
-        File.Builder fileBuilder = File.newBuilder();
-        for (Artifact artifact : artifactsInGroup.getArtifacts()) {
-          String name = artifact.getFilename();
-          String uri = pathConverter.apply(artifact.getPath());
-          groupBuilder.addOutputFile(fileBuilder.setName(name).setUri(uri).build());
-        }
+        groupBuilder.addFileSets(
+            namer.apply(
+                (new NestedSetView<Artifact>(artifactsInGroup.getArtifacts())).identifier()));
         builder.addOutputGroup(groupBuilder.build());
       }
     }
