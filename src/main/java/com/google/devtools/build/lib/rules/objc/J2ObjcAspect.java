@@ -108,6 +108,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   protected static final ImmutableList<String> J2OBJC_PLUGIN_PARAMS =
       ImmutableList.of("file_dir_mapping", "generate_class_mappings");
 
+  private static final LateBoundLabel<BuildConfiguration> DEAD_CODE_REPORT =
+      new LateBoundLabel<BuildConfiguration>(J2ObjcConfiguration.class) {
+    @Override
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+      return configuration.getFragment(J2ObjcConfiguration.class).deadCodeReport().orNull();
+    }
+  };
+
   private static final LateBoundLabel<BuildConfiguration> JRE_LIB =
       new LateBoundLabel<BuildConfiguration>(JRE_CORE_LIB, J2ObjcConfiguration.class) {
     @Override
@@ -186,6 +194,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .value(
                     Label.parseAbsoluteUnchecked(
                         toolsRepository + "//third_party/java/j2objc:jre_emul.jar")))
+        .add(
+            attr(":dead_code_report", LABEL)
+                .cfg(HOST)
+                .value(DEAD_CODE_REPORT))
         .add(attr(":jre_lib", LABEL).value(JRE_LIB))
         .add(
             attr("$protobuf_lib", LABEL)
@@ -542,6 +554,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
     argBuilder.add("-Xbootclasspath:" + bootclasspathJar.getExecPathString());
 
+    Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
+    if (deadCodeReport != null) {
+      argBuilder.addExecPath("--dead-code-report", deadCodeReport);
+    }
+
     argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
     NestedSet<Artifact> compileTimeJars =
@@ -580,6 +597,11 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
             .addOutputs(j2ObjcSource.getObjcHdrs())
             .addOutput(outputDependencyMappingFile)
             .addOutput(archiveSourceMappingFile);
+
+    if (deadCodeReport != null) {
+      transpilationAction.addInput(deadCodeReport);
+    }
+
     if (!experimentalJ2ObjcHeaderMap) {
       transpilationAction.addOutput(outputHeaderMappingFile);
     }

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters;
@@ -43,6 +44,15 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
           + "bundle."
       )
   public boolean removeDeadCode;
+
+  @Option(name = "j2objc_dead_code_report",
+      defaultValue = "null",
+      category = "undocumented",
+      converter = LabelConverter.class,
+      help = "Allows J2ObjC to strip dead code reported by ProGuard. Takes a label that can "
+          + "generate a dead code report as argument."
+  )
+  public Label deadCodeReport;
 
   @Option(name = "explicit_jre_deps",
       defaultValue = "true",
