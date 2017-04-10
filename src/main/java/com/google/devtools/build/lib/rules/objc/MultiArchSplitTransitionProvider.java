@@ -127,6 +127,9 @@ public class MultiArchSplitTransitionProvider implements SplitTransitionProvider
       switch (platformType) {
         case IOS:
           cpus = buildOptions.get(AppleCommandLineOptions.class).iosMultiCpus;
+          if (cpus.isEmpty()) {
+            cpus = ImmutableList.of(buildOptions.get(AppleCommandLineOptions.class).iosCpu);
+          }
           configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
           break;
         case WATCHOS:
