@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.NewRepositoryFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -26,6 +27,10 @@ import java.util.Map;
  * Clones a Git repository, creates a WORKSPACE file, and adds a BUILD file for it.
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
+  public NewGitRepositoryFunction(HttpDownloader httpDownloader) {
+    super(httpDownloader);
+  }
+
   @Override
   public RepositoryDirectoryValue.Builder fetch(Rule rule, Path outputDirectory,
       BlazeDirectories directories, Environment env, Map<String, String> markerData)
@@ -36,7 +41,7 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
     }
 
     createDirectory(outputDirectory, rule);
-    GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment);
+    GitCloner.clone(rule, outputDirectory, env.getListener(), clientEnvironment, downloader);
     fileHandler.finishFile(outputDirectory);
 
     return RepositoryDirectoryValue.builder().setPath(outputDirectory);
