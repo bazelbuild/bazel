@@ -396,7 +396,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean useSingleJarApkBuilder;
 
     @Option(name = "experimental_android_use_singlejar_for_multidex",
-        defaultValue = "false",
+        defaultValue = "true",
         category = "undocumented",
         help = "Use SingleJar for multidex dex extraction.")
     public boolean useSingleJarForMultidex;
