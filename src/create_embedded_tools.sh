@@ -42,6 +42,7 @@ for i in $*; do
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *tools/platforms/platforms.BUILD) OUTPUT_PATH=platforms/BUILD ;;
+    *tools/platforms/*) OUTPUT_PATH=platforms/${i##*/} ;;
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/${i##*/} ;;
     *JacocoCoverage*_deploy.jar) OUTPUT_PATH=tools/jdk/JacocoCoverage_deploy.jar ;;
     *turbine_deploy.jar) OUTPUT_PATH=tools/jdk/turbine_deploy.jar ;;

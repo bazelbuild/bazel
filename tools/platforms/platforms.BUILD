@@ -4,6 +4,8 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
+export_files = ["toolchains.bzl"]
+
 # These match values in //src/main/java/com/google/build/lib/util:CPU.java
 constraint_setting(name = "cpu")
 

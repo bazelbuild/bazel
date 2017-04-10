@@ -434,6 +434,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "toolchain_test",
+    size = "small",
+    srcs = ["toolchain_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

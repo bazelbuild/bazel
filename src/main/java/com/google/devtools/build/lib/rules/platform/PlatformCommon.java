@@ -62,7 +62,7 @@ public class PlatformCommon {
   public ClassObjectConstructor getConstraintValueInfoConstructor() {
     return ConstraintValueInfo.SKYLARK_CONSTRUCTOR;
   }
-
+  
   @SkylarkCallable(
       name = ToolchainInfo.SKYLARK_NAME,
       doc = "The key used to retrieve the provider containing toolchain data.",
