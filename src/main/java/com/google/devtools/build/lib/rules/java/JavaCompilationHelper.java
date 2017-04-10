@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
@@ -202,7 +203,7 @@ public final class JavaCompilationHelper {
     builder.setAdditionalOutputs(attributes.getAdditionalOutputs());
     builder.setMetadata(outputMetadata);
     builder.setInstrumentationJars(jacocoInstrumentation);
-    builder.addSourceFiles(attributes.getSourceFiles());
+    builder.setSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setJavacOpts(customJavacOpts);
     builder.setJavacJvmOpts(customJavacJvmOpts);
@@ -211,12 +212,12 @@ public final class JavaCompilationHelper {
     builder.setSourceGenDirectory(sourceGenDir(classJar));
     builder.setTempDirectory(tempDir(classJar));
     builder.setClassDirectory(classDir(classJar));
-    builder.addProcessorPaths(attributes.getProcessorPath());
+    builder.setProcessorPaths(attributes.getProcessorPath());
     builder.addProcessorNames(attributes.getProcessorNames());
     builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
     builder.setDirectJars(attributes.getDirectJars());
-    builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(
         attributes.getTargetLabel() == null
@@ -353,14 +354,14 @@ public final class JavaCompilationHelper {
     JavaTargetAttributes attributes = getAttributes();
     JavaHeaderCompileAction.Builder builder =
         new JavaHeaderCompileAction.Builder(getRuleContext());
-    builder.addSourceFiles(attributes.getSourceFiles());
+    builder.setSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());
-    builder.addAllBootclasspathEntries(getBootclasspathOrDefault());
-    builder.addAllExtClasspathEntries(getExtdirInputs());
+    builder.setBootclasspathEntries(
+        ImmutableIterable.from(Iterables.concat(getBootclasspathOrDefault(), getExtdirInputs())));
 
     // only run API-generating annotation processors during header compilation
-    builder.addProcessorPaths(attributes.getApiGeneratingProcessorPath());
+    builder.setProcessorPaths(attributes.getApiGeneratingProcessorPath());
     builder.addProcessorNames(attributes.getApiGeneratingProcessorNames());
     builder.addProcessorFlags(attributes.getProcessorFlags());
     builder.setJavacOpts(getJavacOpts());
@@ -368,7 +369,7 @@ public final class JavaCompilationHelper {
     builder.setOutputJar(headerJar);
     builder.setOutputDepsProto(headerDeps);
     builder.setStrictJavaDeps(attributes.getStrictJavaDeps());
-    builder.addCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
+    builder.setCompileTimeDependencyArtifacts(attributes.getCompileTimeDependencyArtifacts());
     builder.setDirectJars(attributes.getDirectJars());
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());

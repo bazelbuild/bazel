@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.packages.SkylarkClassObjectConstructor.SkylarkKey;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Iterator;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -70,14 +70,16 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
       .getDeclaredProvider(
           new SkylarkKey(Label.parseAbsolute("//java/test:extension.bzl"), "result"));
 
-    assertThat(Iterables.transform((List<?>) skylarkClassObject.getValue("processor_classpath"),
-        new Function<Object, String>() {
-          @Nullable
-          @Override
-          public String apply(@Nullable Object o) {
-            return ((Artifact) o).getFilename();
-          }
-        }))
+    assertThat(
+            Iterables.transform(
+                ((SkylarkNestedSet) skylarkClassObject.getValue("processor_classpath"))
+                    .toCollection(),
+                new Function<Object, String>() {
+                  @Override
+                  public String apply(Object o) {
+                    return ((Artifact) o).getFilename();
+                  }
+                }))
         .containsExactly("libplugin.jar", "libplugin_dep.jar");
 
     assertThat((List<?>) skylarkClassObject.getValue("processor_classnames"))

@@ -215,14 +215,12 @@ public class JavaCommon {
     return javaArtifacts;
   }
 
-  public ImmutableList<Artifact> getProcessorClasspathJars() {
-    Set<Artifact> processorClasspath = new LinkedHashSet<>();
+  public NestedSet<Artifact> getProcessorClasspathJars() {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
     for (JavaPluginInfoProvider plugin : activePlugins) {
-      for (Artifact classpathJar : plugin.getProcessorClasspath()) {
-        processorClasspath.add(classpathJar);
-      }
+      builder.addTransitive(plugin.getProcessorClasspath());
     }
-    return ImmutableList.copyOf(processorClasspath);
+    return builder.build();
   }
 
   public ImmutableList<String> getProcessorClassNames() {
