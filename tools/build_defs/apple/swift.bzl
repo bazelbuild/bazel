@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Skylark rules for Swift."""
+"""Skylark rules for Swift.
+
+NOTE: This file is deprecated and will be removed soon. If you depend on it,
+please start using the version from the rules_apple repository
+(https://github.com/bazelbuild/rules_apple) instead.
+"""
 
 load("shared",
      "xcrun_action",
@@ -330,6 +335,9 @@ def swiftc_args(ctx):
 
 def _swift_library_impl(ctx):
   """Implementation for swift_library Skylark rule."""
+  print("This file is deprecated and will be removed soon. Please start " +
+        "using the version from the rules_apple repository " +
+        "(https://github.com/bazelbuild/rules_apple) instead.")
 
   _validate_rule_and_deps(ctx)
 
