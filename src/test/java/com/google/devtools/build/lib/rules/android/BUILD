@@ -129,3 +129,23 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "AndroidBinaryMultidexTest",
+    srcs = [
+        "AndroidBinaryMultidexTest.java",
+        "AndroidMultidexBaseTest.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
+        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
