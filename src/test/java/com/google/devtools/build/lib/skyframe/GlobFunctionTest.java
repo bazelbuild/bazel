@@ -407,7 +407,6 @@ public abstract class GlobFunctionTest {
 
   @Test
   public void testIllegalPatterns() throws Exception {
-    assertIllegalPattern("(illegal) pattern");
     assertIllegalPattern("[illegal pattern");
     assertIllegalPattern("}illegal pattern");
     assertIllegalPattern("foo**bar");
