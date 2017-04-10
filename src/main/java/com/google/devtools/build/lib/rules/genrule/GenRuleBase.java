@@ -180,7 +180,7 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     executionInfo.putAll(getExtraExecutionInfo(ruleContext, baseCommand));
 
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
-    inputs.addAll(resolvedSrcs);
+    inputs.addTransitive(resolvedSrcs);
     inputs.addAll(commandHelper.getResolvedTools());
     FilesToRunProvider genruleSetup =
         ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
