@@ -1444,12 +1444,12 @@ public class CcToolchainFeaturesTest {
   @Test
   public void testLibraryToLinkValue() {
     assertThat(
-            LibraryToLinkValue.forDynamicLibrary("foo", false)
+            LibraryToLinkValue.forDynamicLibrary("foo")
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME)
                 .getStringValue(LibraryToLinkValue.NAME_FIELD_NAME))
         .isEqualTo("foo");
     assertThat(
-            LibraryToLinkValue.forDynamicLibrary("foo", false)
+            LibraryToLinkValue.forDynamicLibrary("foo")
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME))
         .isNull();
 

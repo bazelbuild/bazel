@@ -1609,7 +1609,6 @@ public class CppLinkActionBuilder {
           addDynamicInputLinkOptions(
               input,
               librariesToLink,
-              true,
               librarySearchDirectories,
               rpathRootsForExplicitSoDeps,
               solibDir,
@@ -1643,7 +1642,6 @@ public class CppLinkActionBuilder {
           addDynamicInputLinkOptions(
               input,
               librariesToLink,
-              false,
               librarySearchDirectories,
               rpathEntries,
               solibDir,
@@ -1663,7 +1661,6 @@ public class CppLinkActionBuilder {
     private void addDynamicInputLinkOptions(
         LinkerInput input,
         SequenceBuilder librariesToLink,
-        boolean isRuntimeLinkerInput,
         ImmutableSet.Builder<String> librarySearchDirectories,
         ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps,
         PathFragment solibDir,
@@ -1690,26 +1687,24 @@ public class CppLinkActionBuilder {
           inputArtifact.getExecPath().getParentDirectory().getPathString());
 
       String name = inputArtifact.getFilename();
-      boolean inputIsWholeArchive = !isRuntimeLinkerInput && needWholeArchive;
       if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
         // Use normal shared library resolution rules for shared libraries.
         String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
         librariesToLink.addValue(
-            LibraryToLinkValue.forDynamicLibrary(libName, inputIsWholeArchive));
+            LibraryToLinkValue.forDynamicLibrary(libName));
       } else if (CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
         // Versioned shared libraries require the exact library filename, e.g.:
         // -lfoo -> libfoo.so
         // -l:libfoo.so.1 -> libfoo.so.1
         librariesToLink.addValue(
-            LibraryToLinkValue.forVersionedDynamicLibrary(name, inputIsWholeArchive));
+            LibraryToLinkValue.forVersionedDynamicLibrary(name));
       } else {
         // Interface shared objects have a non-standard extension
         // that the linker won't be able to find.  So use the
         // filename directly rather than a -l option.  Since the
         // library has an SONAME attribute, this will work fine.
         librariesToLink.addValue(
-            LibraryToLinkValue.forInterfaceLibrary(
-                inputArtifact.getExecPathString(), inputIsWholeArchive));
+            LibraryToLinkValue.forInterfaceLibrary(inputArtifact.getExecPathString()));
       }
     }
 

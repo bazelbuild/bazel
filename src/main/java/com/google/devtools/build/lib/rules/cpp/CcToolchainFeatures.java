@@ -1033,17 +1033,17 @@ public class CcToolchainFeatures implements Serializable {
       private final boolean isWholeArchive;
       private final Type type;
 
-      public static LibraryToLinkValue forDynamicLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.DYNAMIC_LIBRARY);
+      public static LibraryToLinkValue forDynamicLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.DYNAMIC_LIBRARY);
       }
 
       public static LibraryToLinkValue forVersionedDynamicLibrary(
-          String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.VERSIONED_DYNAMIC_LIBRARY);
+          String name) {
+        return new LibraryToLinkValue(name, null, false, Type.VERSIONED_DYNAMIC_LIBRARY);
       }
 
-      public static LibraryToLinkValue forInterfaceLibrary(String name, boolean isWholeArchive) {
-        return new LibraryToLinkValue(name, null, isWholeArchive, Type.INTERFACE_LIBRARY);
+      public static LibraryToLinkValue forInterfaceLibrary(String name) {
+        return new LibraryToLinkValue(name, null, false, Type.INTERFACE_LIBRARY);
       }
 
       public static LibraryToLinkValue forStaticLibrary(String name, boolean isWholeArchive) {
