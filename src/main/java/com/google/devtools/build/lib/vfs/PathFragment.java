@@ -40,9 +40,9 @@ import java.util.Set;
  * It is safe to use in places that need simple segmented string path functionality.
  *
  * <p>There is some limited support for Windows-style paths. Most importantly, drive identifiers
- * in front of a path (c:/abc) are supported and such paths are correctly recognized as absolute.
- * However, Windows-style backslash separators (C:\\foo\\bar) are explicitly not supported, same
- * with advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
+ * in front of a path (c:/abc) are supported and such paths are correctly recognized as absolute, as
+ * are paths with backslash separators (C:\\foo\\bar). However, advanced Windows-style features like
+ * \\\\network\\paths and \\\\?\\unc\\paths are not supported.
  */
 @Immutable @ThreadSafe
 public final class PathFragment implements Comparable<PathFragment>, Serializable {
