@@ -183,7 +183,7 @@ public class MethodLibrary {
         "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
             + "are removed."
             + "<pre class=\"language-python\">"
-            + "\"abcba\".rstrip(\"ba\") == \"abc\""
+            + "\"abcbaa\".rstrip(\"ab\") == \"abc\""
             + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string."),
@@ -212,7 +212,7 @@ public class MethodLibrary {
         "Returns a copy of the string where trailing characters that appear in <code>chars</code>"
             + "are removed."
             + "<pre class=\"language-python\">"
-            + "\"abcba\".strip(\"ba\") == \"abc\""
+            + "\"aabcbcbaa\".strip(\"ab\") == \"cbc\""
             + "</pre>",
     parameters = {
       @Param(name = "self", type = String.class, doc = "This string."),
