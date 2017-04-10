@@ -191,52 +191,52 @@ public class SpawnInputExpanderTest {
   public void testManifestWithSingleFile() throws Exception {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
     scratchFile(
-        "/root/_foo/MANIFEST",
+        "/root/out/_foo/MANIFEST",
         "workspace/bar /dir/file",
         "<some digest>");
 
-    Artifact artifact =
-        new Artifact(fs.getPath("/root/foo"), Root.asSourceRoot(fs.getPath("/root")));
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
-        .containsEntry(PathFragment.create("foo/bar"), ActionInputHelper.fromPath("/dir/file"));
+        .containsEntry(PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/dir/file"));
   }
 
   @Test
   public void testManifestWithTwoFiles() throws Exception {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
     scratchFile(
-        "/root/_foo/MANIFEST",
+        "/root/out/_foo/MANIFEST",
         "workspace/bar /dir/file",
         "<some digest>",
         "workspace/baz /dir/file",
         "<some digest>");
 
-    Artifact artifact =
-        new Artifact(fs.getPath("/root/foo"), Root.asSourceRoot(fs.getPath("/root")));
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(2);
     assertThat(inputMappings)
-        .containsEntry(PathFragment.create("foo/bar"), ActionInputHelper.fromPath("/dir/file"));
+        .containsEntry(PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/dir/file"));
     assertThat(inputMappings)
-        .containsEntry(PathFragment.create("foo/baz"), ActionInputHelper.fromPath("/dir/file"));
+        .containsEntry(PathFragment.create("out/foo/baz"), ActionInputHelper.fromPath("/dir/file"));
   }
 
   @Test
   public void testManifestWithDirectory() throws Exception {
     // See AnalysisUtils for the mapping from "foo" to "_foo/MANIFEST".
     scratchFile(
-        "/root/_foo/MANIFEST",
+        "/root/out/_foo/MANIFEST",
         "workspace/bar /some",
         "<some digest>");
 
-    Artifact artifact =
-        new Artifact(fs.getPath("/root/foo"), Root.asSourceRoot(fs.getPath("/root")));
+    Root outputRoot = Root.asDerivedRoot(fs.getPath("/root"), fs.getPath("/root/out"), true);
+    Artifact artifact = new Artifact(fs.getPath("/root/out/foo"), outputRoot);
     expander.parseFilesetManifest(inputMappings, artifact, "workspace");
     assertThat(inputMappings).hasSize(1);
     assertThat(inputMappings)
         .containsEntry(
-            PathFragment.create("foo/bar"), ActionInputHelper.fromPath("/some"));
+            PathFragment.create("out/foo/bar"), ActionInputHelper.fromPath("/some"));
   }
 }
