@@ -123,8 +123,7 @@ public class GlobCacheTest {
 
   @Test
   public void testSafeGlobInvalidPatterns() throws Exception {
-    for (String pattern : new String[] {
-        "Foo?.txt", "List{Test}.py", "List(Test).py" }) {
+    for (String pattern : new String[] {"Foo?.txt", "List{Test}.py"}) {
       try {
         cache.safeGlobUnsorted(pattern, false);
         fail("Expected pattern " + pattern + " to fail");
