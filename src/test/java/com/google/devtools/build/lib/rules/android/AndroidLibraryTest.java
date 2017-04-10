@@ -565,7 +565,6 @@ public class AndroidLibraryTest extends AndroidBuildViewTestCase {
         "            aidl_lib = ':aidl_lib',",
         "            android_jar = 'android.jar',",
         "            annotations_jar = 'annotations_jar',",
-        "            apkbuilder = 'apkbuilder',",
         "            apksigner = 'apksigner',",
         "            dx = 'dx',",
         "            framework_aidl = 'framework_aidl',",

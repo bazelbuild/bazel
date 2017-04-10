@@ -124,11 +124,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
 
     config.create(
-        "/bazel_tools_workspace/third_party/java/apkbuilder/BUILD",
-        "sh_binary(name = 'embedded_apkbuilder',",
-        "          srcs = ['embedded_apkbuilder.sh'])");
-
-    config.create(
         "/bazel_tools_workspace/tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
     config.create(
         "/bazel_tools_workspace/third_party/java/jarjar/BUILD",
@@ -181,7 +176,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "    aidl = ':static_aidl_tool',",
         "    android_jar = ':android_runtime_jar',",
         "    annotations_jar = ':annotations_jar',",
-        "    apkbuilder = ':ApkBuilderMainBinary',",
         "    apksigner = ':ApkSignerBinary',",
         "    dx = ':dx_binary',",
         "    framework_aidl = ':aidl_framework',",
