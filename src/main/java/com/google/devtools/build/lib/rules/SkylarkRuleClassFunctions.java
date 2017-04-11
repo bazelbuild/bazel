@@ -37,6 +37,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -189,6 +190,22 @@ public class SkylarkRuleClassFunctions {
     useLocation = true
   )
   private static final ClassObjectConstructor struct = NativeClassObjectConstructor.STRUCT;
+
+  @SkylarkSignature(
+    name = "DefaultInfo",
+    returnType = ClassObjectConstructor.class,
+    doc = "A provider that is provided by every rule, even if it iss not returned explicitly. "
+        + "A <code>DefaultInfo</code> accepts all special parameters that can be returned "
+        + "from rule implementation function in a struct, which are <code>runfiles</code>, "
+        + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
+        + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
+        + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules. "
+        + "Each instance of the default provider contains the following standard fields: "
+        + "<code>data_runfiles</code>, <code>default_runfiles</code>, <code>files</code>, "
+        + "and <code>files_to_run</code>. The values of these fields are equivalent to the "
+        + "values of the corresponding fields of the target the default provider belongs to."
+  )
+  private static final ClassObjectConstructor defaultInfo = DefaultProvider.SKYLARK_CONSTRUCTOR;
 
   // TODO(bazel-team): Move to a "testing" namespace module. Normally we'd pass an objectType
   // to @SkylarkSignature to do this, but that doesn't work here because we're exposing an already-

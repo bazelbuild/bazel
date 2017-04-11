@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LabelExpander;
 import com.google.devtools.build.lib.analysis.LabelExpander.NotUniqueExpansionException;
@@ -595,31 +596,12 @@ public final class SkylarkRuleContext implements SkylarkValue {
     return ruleContext;
   }
 
-  private static final ClassObjectConstructor DEFAULT_PROVIDER =
-      new NativeClassObjectConstructor("default_provider") {
-        @Override
-        protected SkylarkClassObject createInstanceFromSkylark(Object[] args, Location loc) {
-          @SuppressWarnings("unchecked")
-          Map<String, Object> kwargs = (Map<String, Object>) args[0];
-          return new SkylarkClassObject(this, kwargs, loc);
-        }
-      };
-
   @SkylarkCallable(
     name = "default_provider",
     structField = true,
-    doc = "A provider that's provided by every rule, even if it's not returned explicitly. "
-        + "A <code>default_provider</code> accepts all special parameters that can be returned "
-        + "from rule implementation function in a struct, which are <code>runfiles</code>, "
-        + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
-        + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
-        + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules. "
-        + "Each instance of the default provider contains the following standard fields: "
-        + "<code>data_runfiles</code>, <code>default_runfiles</code>, <code>files</code>, "
-        + "and <code>files_to_run</code>. The values of these fields are equivalent to the "
-        + "values of the corresponding fields of the target the default provider belongs to.")
+    doc = "Deprecated. Use <a href=\"globals.html#DefaultInfo\">DefaultInfo</a> instead.")
   public static ClassObjectConstructor getDefaultProvider() {
-    return DEFAULT_PROVIDER;
+    return DefaultProvider.SKYLARK_CONSTRUCTOR;
   }
 
   @SkylarkCallable(name = "created_actions",

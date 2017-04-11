@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -256,7 +257,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
                 "A return value of a rule implementation function should be "
                     + "a sequence of declared providers");
         if (declaredProvider.getConstructor().getKey().equals(
-            SkylarkRuleContext.getDefaultProvider().getKey())) {
+            DefaultProvider.SKYLARK_CONSTRUCTOR.getKey())) {
           parseProviderKeys(declaredProvider, true, ruleContext, loc, executable,
               registeredProviderTypes, builder);
           isParsed = true;
