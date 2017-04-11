@@ -85,7 +85,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     public Void startApp;
 
     @Option(name = "debug_app",
-        category = "mobile_install",
+        category = "mobile-install",
         defaultValue = "null",
         help = "Whether to wait for the debugger before starting the app.",
         expansion = {"--start=DEBUG"})
