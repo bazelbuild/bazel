@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
 @Immutable
 public final class OutputGroupProvider implements
     TransitiveInfoProvider, SkylarkIndexable, Iterable<String> {
-  public static String SKYLARK_NAME = "output_groups";
+  public static final String SKYLARK_NAME = "output_groups";
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when

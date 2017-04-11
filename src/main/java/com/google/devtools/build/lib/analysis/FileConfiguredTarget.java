@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
+import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.fileset.FilesetProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.util.FileType;
@@ -40,12 +42,22 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     super(targetContext);
     NestedSet<Artifact> filesToBuild = NestedSetBuilder.create(Order.STABLE_ORDER, artifact);
     this.artifact = artifact;
+    FileProvider fileProvider = new FileProvider(filesToBuild);
+    FilesToRunProvider filesToRunProvider =
+        FilesToRunProvider.fromSingleExecutableArtifact(artifact);
+    SkylarkClassObject defaultProvider =
+        DefaultProvider.build(null, fileProvider, filesToRunProvider);
+    SkylarkProviders skylarkProviders =
+        new SkylarkProviders(
+            ImmutableMap.<String, Object>of(),
+            ImmutableMap.of(SkylarkRuleContext.getDefaultProvider().getKey(), defaultProvider));
     TransitiveInfoProviderMap.Builder builder =
         TransitiveInfoProviderMap.builder()
             .put(VisibilityProvider.class, this)
             .put(LicensesProvider.class, this)
-            .add(new FileProvider(filesToBuild))
-            .add(FilesToRunProvider.fromSingleExecutableArtifact(artifact));
+            .put(SkylarkProviders.class, skylarkProviders)
+            .add(fileProvider)
+            .add(filesToRunProvider);
     if (this instanceof FilesetProvider) {
       builder.put(FilesetProvider.class, this);
     }
@@ -86,6 +98,6 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Nullable
   @Override
   public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    return null;
+    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
   }
 }

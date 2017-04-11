@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -27,10 +26,10 @@ import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import javax.annotation.Nullable;
 
 /**
@@ -108,19 +107,17 @@ public abstract class AbstractConfiguredTarget
 
   @Override
   public Object getValue(String name) {
+    // Standard fields should be proxied to their default provider object
+    DefaultProvider defaultProvider =
+        (DefaultProvider) get(SkylarkRuleContext.getDefaultProvider().getKey());
     switch (name) {
+      case FILES_FIELD:
+      case DEFAULT_RUNFILES_FIELD:
+      case DATA_RUNFILES_FIELD:
+      case FilesToRunProvider.SKYLARK_NAME:
+        return defaultProvider.getValue(name);
       case LABEL_FIELD:
         return getLabel();
-      case FILES_FIELD:
-        // A shortcut for files to build in Skylark. FileConfiguredTarget and RuleConfiguredTarget
-        // always has FileProvider and Error- and PackageGroupConfiguredTarget-s shouldn't be
-        // accessible in Skylark.
-        return SkylarkNestedSet.of(
-            Artifact.class, getProvider(FileProvider.class).getFilesToBuild());
-      case DEFAULT_RUNFILES_FIELD:
-        return RunfilesProvider.DEFAULT_RUNFILES.apply(this);
-      case DATA_RUNFILES_FIELD:
-        return RunfilesProvider.DATA_RUNFILES.apply(this);
       default:
         return get(name);
     }
@@ -173,6 +170,10 @@ public abstract class AbstractConfiguredTarget
   @Override
   public ImmutableCollection<String> getKeys() {
     return ImmutableList.of(
-        DATA_RUNFILES_FIELD, DEFAULT_RUNFILES_FIELD, LABEL_FIELD, FILES_FIELD);
+        DATA_RUNFILES_FIELD,
+        DEFAULT_RUNFILES_FIELD,
+        LABEL_FIELD,
+        FILES_FIELD,
+        FilesToRunProvider.SKYLARK_NAME);
   }
 }

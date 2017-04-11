@@ -92,7 +92,6 @@ public final class RuleConfiguredTargetBuilder {
         getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
     addProvider(new FileProvider(filesToBuild));
     addProvider(filesToRunProvider);
-    addSkylarkTransitiveInfo(FilesToRunProvider.SKYLARK_NAME, filesToRunProvider);
 
     if (runfilesSupport != null) {
       // If a binary is built, build its runfiles, too
@@ -135,6 +134,14 @@ public final class RuleConfiguredTargetBuilder {
       addProvider(OutputGroupProvider.class, outputGroupProvider);
       addSkylarkTransitiveInfo(OutputGroupProvider.SKYLARK_NAME, outputGroupProvider);
     }
+
+    // Populate default provider fields and build it
+    DefaultProvider defaultProvider =
+        DefaultProvider.build(
+            providersBuilder.getProvider(RunfilesProvider.class),
+            providersBuilder.getProvider(FileProvider.class),
+            filesToRunProvider);
+    skylarkDeclaredProviders.put(defaultProvider.getConstructor().getKey(), defaultProvider);
 
     TransitiveInfoProviderMap providers = providersBuilder.build();
     addRegisteredProvidersToSkylarkProviders(providers);

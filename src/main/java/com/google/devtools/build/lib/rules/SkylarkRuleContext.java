@@ -594,13 +594,19 @@ public final class SkylarkRuleContext implements SkylarkValue {
         }
       };
 
-  @SkylarkCallable(name = "default_provider", structField = true,
-      doc = "A provider that's provided by every rule, even if it's not returned explicitly. "
-          + "A <code>default_provider</code> accepts all special parameters that can be returned "
-          + "from rule implementation function in a struct, which are <code>runfiles</code>, "
-          + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
-          + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
-          + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules.")
+  @SkylarkCallable(
+    name = "default_provider",
+    structField = true,
+    doc = "A provider that's provided by every rule, even if it's not returned explicitly. "
+        + "A <code>default_provider</code> accepts all special parameters that can be returned "
+        + "from rule implementation function in a struct, which are <code>runfiles</code>, "
+        + "<code>data_runfiles</code>, <code>default_runfiles</code>, "
+        + "<code>output_groups</code>, <code>instrumented_files</code>, and all "
+        + "<a href=\"skylark-provider.html\">providers</a> that are available on built-in rules. "
+        + "Each instance of the default provider contains the following standard fields: "
+        + "<code>data_runfiles</code>, <code>default_runfiles</code>, <code>files</code>, "
+        + "and <code>files_to_run</code>. The values of these fields are equivalent to the "
+        + "values of the corresponding fields of the target the default provider belongs to.")
   public static ClassObjectConstructor getDefaultProvider() {
     return DEFAULT_PROVIDER;
   }

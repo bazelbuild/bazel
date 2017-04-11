@@ -30,8 +30,9 @@ import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DefaultProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -864,38 +865,111 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "test/bar.bzl",
         "load(':foo.bzl', 'foo_provider')",
         "def _impl(ctx):",
-        "    dep = ctx.attr.deps[0]",
-        "    provider = dep[ctx.default_provider]",  // The goal is to test this object
-        "    return struct(",                        // so we return it here
-        "        default = provider,",
+        "    provider = ctx.attr.deps[0][ctx.default_provider]",
+        "    return struct(",
+        "        provider = provider,",
+        "        dir = str(sorted(dir(provider))),",
+        "        rule_data_runfiles = provider.data_runfiles,",
+        "        rule_default_runfiles = provider.default_runfiles,",
+        "        rule_files = provider.files,",
+        "        rule_files_to_run = provider.files_to_run,",
         "    )",
         "bar_rule = rule(",
         "    implementation = _impl,",
         "    attrs = {",
         "       'deps': attr.label_list(allow_files=True),",
         "    }",
-        ")"
-    );
+        ")");
     scratch.file(
         "test/BUILD",
         "load(':foo.bzl', 'foo_rule')",
         "load(':bar.bzl', 'bar_rule')",
         "foo_rule(name = 'dep_rule', runs = ['run.file', 'run2.file'])",
-        "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
+        "bar_rule(name = 'my_rule', deps = [':dep_rule', 'file.txt'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
-    Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
-    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
-    assertThat((defaultProvider).getConstructor().getPrintableName())
+    SkylarkProviders providers = configuredTarget.getProvider(SkylarkProviders.class);
+
+    Object provider = providers.getValue("provider");
+    assertThat(provider).isInstanceOf(DefaultProvider.class);
+    assertThat(((DefaultProvider) provider).getConstructor().getPrintableName())
         .isEqualTo("default_provider");
 
-    // Test .runfiles
-    Object runfilesProvider = defaultProvider.getValue("runfiles");
-    assertThat(runfilesProvider).isInstanceOf(RunfilesProvider.class);
-    assertThat(Iterables.transform(
-        ((RunfilesProvider) runfilesProvider).getDefaultRunfiles().getAllArtifacts(), TO_STRING)
-    ).containsExactly("File:[/workspace[source]]test/run.file",
-        "File:[/workspace[source]]test/run2.file");
+    assertThat(providers.getValue("dir"))
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\", \"to_json\", "
+                + "\"to_proto\"]");
+
+    assertThat(providers.getValue("rule_data_runfiles")).isInstanceOf(Runfiles.class);
+    assertThat(
+            Iterables.transform(
+                ((Runfiles) providers.getValue("rule_data_runfiles")).getAllArtifacts(), TO_STRING))
+        .containsExactly(
+            "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
+
+    assertThat(providers.getValue("rule_default_runfiles")).isInstanceOf(Runfiles.class);
+    assertThat(
+            Iterables.transform(
+                ((Runfiles) providers.getValue("rule_default_runfiles")).getAllArtifacts(),
+                TO_STRING))
+        .containsExactly(
+            "File:[/workspace[source]]test/run.file", "File:[/workspace[source]]test/run2.file");
+
+    assertThat(providers.getValue("rule_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(providers.getValue("rule_files_to_run")).isInstanceOf(FilesToRunProvider.class);
+  }
+
+  @Test
+  public void testDefaultProviderOnFileTarget() throws Exception {
+    scratch.file(
+        "test/bar.bzl",
+        "def _impl(ctx):",
+        "    provider = ctx.attr.deps[0][ctx.default_provider]",
+        "    return struct(",
+        "        provider = provider,",
+        "        dir = str(sorted(dir(provider))),",
+        "        file_data_runfiles = provider.data_runfiles,",
+        "        file_default_runfiles = provider.default_runfiles,",
+        "        file_files = provider.files,",
+        "        file_files_to_run = provider.files_to_run,",
+        "    )",
+        "bar_rule = rule(",
+        "    implementation = _impl,",
+        "    attrs = {",
+        "       'deps': attr.label_list(allow_files=True),",
+        "    }",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load(':bar.bzl', 'bar_rule')",
+        "bar_rule(name = 'my_rule', deps = ['file.txt'])");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
+    SkylarkProviders providers = configuredTarget.getProvider(SkylarkProviders.class);
+
+    Object provider = providers.getValue("provider");
+    assertThat(provider).isInstanceOf(DefaultProvider.class);
+    assertThat(((DefaultProvider) provider).getConstructor().getPrintableName())
+        .isEqualTo("default_provider");
+
+    assertThat(providers.getValue("dir"))
+        .isEqualTo(
+            "[\"data_runfiles\", \"default_runfiles\", \"files\", \"files_to_run\", \"to_json\", "
+                + "\"to_proto\"]");
+
+    assertThat(providers.getValue("file_data_runfiles")).isInstanceOf(Runfiles.class);
+    assertThat(
+            Iterables.transform(
+                ((Runfiles) providers.getValue("file_data_runfiles")).getAllArtifacts(), TO_STRING))
+        .isEmpty();
+
+    assertThat(providers.getValue("file_default_runfiles")).isInstanceOf(Runfiles.class);
+    assertThat(
+            Iterables.transform(
+                ((Runfiles) providers.getValue("file_default_runfiles")).getAllArtifacts(),
+                TO_STRING))
+        .isEmpty();
+
+    assertThat(providers.getValue("file_files")).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(providers.getValue("file_files_to_run")).isInstanceOf(FilesToRunProvider.class);
   }
 
   @Test
@@ -934,8 +1008,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "bar_rule(name = 'my_rule', deps = [':dep_rule'])");
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:my_rule");
     Object provider = configuredTarget.getProvider(SkylarkProviders.class).getValue("default");
-    assertThat(provider).isInstanceOf(SkylarkClassObject.class);
-    SkylarkClassObject defaultProvider = (SkylarkClassObject) provider;
+    assertThat(provider).isInstanceOf(DefaultProvider.class);
+    SkylarkClassObject defaultProvider = (DefaultProvider) provider;
     assertThat((defaultProvider).getConstructor().getPrintableName())
         .isEqualTo("default_provider");
   }
