@@ -534,6 +534,86 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectsNonExported() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return []",
+        "",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "",
+        "def mk_aspect():",
+        "   return aspect(implementation=_aspect_impl)",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:aspect.bzl', 'my_rule')",
+        "java_library(",
+        "     name = 'yyy',",
+        ")",
+        "my_rule(",
+        "     name = 'xxx',",
+        "     attr = [':yyy'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult analysisResult = update("//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(analysisResult.hasError()).isTrue();
+    } catch (ViewCreationFailedException | TargetParsingException e) {
+      // expected
+    }
+
+    assertContainsEvent("ERROR /workspace/test/aspect.bzl:11:23");
+    assertContainsEvent("Aspects should be top-level values in extension files that define them.");
+  }
+
+  @Test
+  public void providerNonExported() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def mk_provider():",
+        "   return provider()",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rule.bzl', 'my_rule')",
+        "java_library(",
+        "     name = 'yyy',",
+        ")",
+        "my_rule(",
+        "     name = 'xxx',",
+        "     attr = [':yyy'],",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      AnalysisResult analysisResult = update("//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(analysisResult.hasError()).isTrue();
+    } catch (ViewCreationFailedException | TargetParsingException e) {
+      // expected
+    }
+
+    assertContainsEvent("ERROR /workspace/test/rule.bzl:7:23");
+    assertContainsEvent(
+        "Providers should be top-level values in extension files that define them.");
+  }
+
+
+  @Test
   public void aspectOnLabelAttr() throws Exception {
     scratch.file(
         "test/aspect.bzl",

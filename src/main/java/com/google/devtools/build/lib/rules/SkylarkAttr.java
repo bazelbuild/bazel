@@ -160,7 +160,7 @@ public final class SkylarkAttr {
 
   private static Attribute.Builder<?> createAttribute(
       Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env)
-      throws EvalException, ConversionException {
+      throws EvalException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
     Attribute.Builder<?> builder = Attribute.attr("", type);
@@ -283,6 +283,11 @@ public final class SkylarkAttr {
       List<SkylarkAspect> aspects =
           ((SkylarkList<?>) obj).getContents(SkylarkAspect.class, "aspects");
       for (SkylarkAspect aspect : aspects) {
+        if (!aspect.isExported()) {
+          throw new EvalException(
+              ast.getLocation(),
+              "Aspects should be top-level values in extension files that define them.");
+        }
         builder.aspect(aspect, ast.getLocation());
       }
     }
@@ -339,7 +344,7 @@ public final class SkylarkAttr {
         ClassObjectConstructor constructor = (ClassObjectConstructor) obj;
         if (!constructor.isExported()) {
           throw new EvalException(location,
-              "Providers should be assigned to top-level values in modules");
+              "Providers should be top-level values in extension files that define them.");
         }
         result.add(SkylarkProviderIdentifier.forKey(constructor.getKey()));
       }
