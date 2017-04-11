@@ -44,7 +44,8 @@ function set_up() {
   BINS=$(bazel info $PRODUCT_NAME-bin)/${WORKSPACE_SUBDIR}
 
   # This causes Bazel to shut down all running workers.
-  bazel build --worker_quit_after_build &> $TEST_log
+  bazel build --worker_quit_after_build &> $TEST_log \
+    || fail "'bazel build --worker_quit_after_build' during test set_up failed"
 }
 
 function write_hello_library_files() {
@@ -499,6 +500,27 @@ EOF
 
   fgrep CAKE=LIE $BINS/hello_world.out \
     && fail "environment variable leaked into worker env" || true
+}
+
+function test_workers_quit_on_clean() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_clean",
+  worker = ":worker",
+  args = ["hello clean"],
+)
+EOF
+
+  bazel build :hello_clean &> $TEST_log \
+    || fail "build failed"
+  assert_equals "hello clean" "$(cat $BINS/hello_clean.out)"
+  expect_log "Created new ${WORKER_TYPE_LOG_STRING} Work worker (id [0-9]\+)"
+
+  bazel clean &> $TEST_log \
+    || fail "clean failed"
+  expect_log "Clean command is running, shutting down worker pool..."
+  expect_log "Destroying Work worker (id [0-9]\+)"
 }
 
 run_suite "Worker integration tests"

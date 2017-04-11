@@ -102,6 +102,21 @@ public final class CleanCommand implements BlazeCommand {
     public boolean async;
   }
 
+  /**
+   * Posted on the public event stream to announce that a clean is happening.
+   */
+  public static class CleanStartingEvent {
+    private final OptionsProvider optionsProvider;
+
+    public CleanStartingEvent(OptionsProvider optionsProvider) {
+      this.optionsProvider = optionsProvider;
+    }
+
+    public OptionsProvider getOptionsProvider() {
+      return optionsProvider;
+    }
+  }
+
   private static Logger LOG = Logger.getLogger(CleanCommand.class.getName());
 
   @Override
@@ -152,7 +167,9 @@ public final class CleanCommand implements BlazeCommand {
                 + asyncName
                 + " if the clean takes more than several minutes.";
 
+    env.getEventBus().post(new CleanStartingEvent(options));
     env.getReporter().handle(Event.info(null/*location*/, cleanBanner));
+
     try {
       String symlinkPrefix = options.getOptions(BuildRequest.BuildRequestOptions.class)
           .getSymlinkPrefix(env.getRuntime().getProductName());
