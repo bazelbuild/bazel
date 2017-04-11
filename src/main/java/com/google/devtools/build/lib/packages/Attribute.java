@@ -29,6 +29,7 @@ import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -167,6 +168,7 @@ public final class Attribute implements Comparable<Attribute> {
    * the symbol isn't available here.
    */
   // TODO(bazel-team): Serializability constraints?
+  @ThreadSafety.Immutable
   public interface SplitTransition<T> extends Transition {
     /**
      * Return the list of {@code BuildOptions} after splitting; empty if not applicable.

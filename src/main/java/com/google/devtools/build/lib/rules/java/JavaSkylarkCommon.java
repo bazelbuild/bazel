@@ -254,7 +254,7 @@ public class JavaSkylarkCommon {
         @Param(name = "java_toolchain_attr", positional = false, named = true, type = String.class)
       }
   )
-  public static List<String> getDefaultJavacOpts(
+  public static ImmutableList<String> getDefaultJavacOpts(
       SkylarkRuleContext skylarkRuleContext, String javaToolchainAttr) throws EvalException {
     RuleContext ruleContext = skylarkRuleContext.getRuleContext();
     ConfiguredTarget javaToolchainConfigTarget =

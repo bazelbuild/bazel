@@ -44,6 +44,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
   name = "apple_toolchain",
   doc = "Utilities for resolving items from the Apple toolchain."
 )
+@Immutable
 public class AppleToolchain {
 
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow

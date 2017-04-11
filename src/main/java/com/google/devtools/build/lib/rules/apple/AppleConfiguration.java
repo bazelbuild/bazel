@@ -249,7 +249,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * their corresponding values.
    */
   @SkylarkCallable(name = "target_apple_env")
-  public Map<String, String> getTargetAppleEnvironment(Platform platform) {
+  public ImmutableMap<String, String> getTargetAppleEnvironment(Platform platform) {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(platform));
     return mapBuilder.build();
@@ -267,7 +267,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
           + "build on an apple host system. These environment variables are needed by the apple "
           + "toolchain. Keys are variable names and values are their corresponding values."
     )
-  public Map<String, String> getAppleHostSystemEnv() {
+  public ImmutableMap<String, String> getAppleHostSystemEnv() {
     DottedVersion xcodeVersion = getXcodeVersion();
     if (xcodeVersion != null) {
       return getXcodeVersionEnv(xcodeVersion);
@@ -281,7 +281,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * a version of xcode to be explicitly declared. Keys are variable names and values are their
    * corresponding values.
    */
-  public Map<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
+  public ImmutableMap<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
     return ImmutableMap.of(AppleConfiguration.XCODE_VERSION_ENV_NAME, xcodeVersion.toString());
   }
 

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
@@ -25,7 +26,6 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Preconditions;
-
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -47,6 +47,7 @@ import java.util.Map;
           + " output stream content, the standard error stream content and the execution return"
           + " code."
 )
+@Immutable
 final class SkylarkExecutionResult {
   private final int returnCode;
   private final String stdout;

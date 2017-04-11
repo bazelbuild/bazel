@@ -106,17 +106,17 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     }
   }
 
-  final Iterable<OutputJar> outputJars;
+  final ImmutableList<OutputJar> outputJars;
   @Nullable final Artifact jdeps;
 
-  private JavaRuleOutputJarsProvider(Iterable<OutputJar> outputJars,
+  private JavaRuleOutputJarsProvider(ImmutableList<OutputJar> outputJars,
       @Nullable Artifact jdeps) {
     this.outputJars = outputJars;
     this.jdeps = jdeps;
   }
 
   @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
-  public Iterable<OutputJar> getOutputJars() {
+  public ImmutableList<OutputJar> getOutputJars() {
     return outputJars;
   }
 

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ClassObjectConstructor;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
@@ -32,6 +33,7 @@ import javax.annotation.Nullable;
   category = SkylarkModuleCategory.NONE,
   doc = "Distinguishes between various apple platforms."
 )
+@Immutable
 public enum Platform {
 
   IOS_DEVICE("ios_device", "iPhoneOS", PlatformType.IOS, true),
@@ -202,6 +204,7 @@ public enum Platform {
     category = SkylarkModuleCategory.NONE,
     doc = "Describes Apple platform \"type\", such as iOS, tvOS, macOS etc."
   )
+  @Immutable
   public enum PlatformType {
     IOS("ios"),
     WATCHOS("watchos"),

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultL
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -348,6 +349,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
         "Apple Bitcode mode for compilation steps. Possible values are \"none\", "
             + "\"embedded\", and \"embedded_markers\""
   )
+  @Immutable
   public enum AppleBitcodeMode {
 
     /** Do not compile bitcode. */

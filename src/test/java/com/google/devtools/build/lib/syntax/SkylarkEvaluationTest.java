@@ -26,12 +26,14 @@ import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.testutil.TestMode;
 import org.junit.Before;
@@ -59,6 +61,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     return new SkylarkTest();
   }
 
+  @Immutable
   static class Bad {
     Bad () {
     }
@@ -100,11 +103,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
     @SuppressWarnings("unused")
     @SkylarkCallable(name = "nullfunc_failing", doc = "", allowReturnNones = false)
-    public Object nullfuncFailing(String p1, Integer p2) {
+    public SkylarkValue nullfuncFailing(String p1, Integer p2) {
       return null;
     }
     @SkylarkCallable(name = "nullfunc_working", doc = "", allowReturnNones = true)
-    public Object nullfuncWorking() {
+    public SkylarkValue nullfuncWorking() {
       return null;
     }
     @SkylarkCallable(name = "voidfunc", doc = "")

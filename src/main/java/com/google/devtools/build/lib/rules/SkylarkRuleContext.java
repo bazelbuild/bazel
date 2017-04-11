@@ -479,7 +479,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
     category = SkylarkModuleCategory.NONE,
     doc = "Information about attributes of a rule an aspect is applied to."
   )
-  private static class SkylarkRuleAttributesCollection {
+  private static class SkylarkRuleAttributesCollection implements SkylarkValue {
     private final SkylarkRuleContext skylarkRuleContext;
     private final SkylarkClassObject attrObject;
     private final SkylarkClassObject executableObject;
@@ -557,6 +557,17 @@ public final class SkylarkRuleContext implements SkylarkValue {
     public ImmutableMap<Artifact, FilesToRunProvider> getExecutableRunfilesMap() {
       return executableRunfilesMap;
     }
+
+    @Override
+    public boolean isImmutable() {
+      return skylarkRuleContext.isImmutable();
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "rule_collection:");
+      skylarkRuleContext.write(buffer, quotationMark);
+    }
   }
 
   private void addOutput(HashMap<String, Object> outputsBuilder, String key, Object value)
@@ -621,7 +632,7 @@ public final class SkylarkRuleContext implements SkylarkValue {
           + "<br/><br/>"
           + "This is intended to help write tests for rule-implementation helper functions, which "
           + "may take in a <code>ctx</code> object and create actions on it.")
-  public Object createdActions() throws EvalException {
+  public SkylarkValue createdActions() throws EvalException {
     checkMutable("created_actions");
     if (ruleContext.getRule().getRuleClassObject().isSkylarkTestable()) {
       return ActionsProvider.create(

@@ -381,7 +381,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   private final PathFragment sysroot;
   private final PathFragment runtimeSysroot;
-  private final List<PathFragment> builtInIncludeDirectories;
+  private final ImmutableList<PathFragment> builtInIncludeDirectories;
 
   private final Map<String, PathFragment> toolPaths;
   private final PathFragment ldExecutable;
@@ -1433,7 +1433,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       doc = "Built-in system include paths for the toolchain compiler. All paths in this list"
       + " should be relative to the exec directory. They may be absolute if they are also installed"
       + " on the remote build nodes or for local compilation.")
-  public List<PathFragment> getBuiltInIncludeDirectories() {
+  public ImmutableList<PathFragment> getBuiltInIncludeDirectories() {
     return builtInIncludeDirectories;
   }
 
