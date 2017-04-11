@@ -310,4 +310,7 @@ public class CppRuleClasses {
 
   /** A string constant for the match-clif feature. */
   public static final String MATCH_CLIF = "match_clif";
+
+  /** A build variable for the location of the sysroot (relative to the exec path or absolute) */
+  public static final String SYSROOT_VARIABLE = "sysroot";
 }
