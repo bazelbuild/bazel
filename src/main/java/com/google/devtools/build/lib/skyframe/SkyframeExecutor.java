@@ -1014,16 +1014,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private void checkPreprocessorFactory() {
     if (preprocessorFactory == null) {
-      Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
-          packageManager, directories.getOutputBase());
-      pkgFactory.setPreprocessorFactory(newPreprocessorFactory);
-      preprocessorFactory = newPreprocessorFactory;
+      preprocessorFactory =
+          preprocessorFactorySupplier.getFactory(packageManager, directories.getOutputBase());
     } else if (!preprocessorFactory.isStillValid()) {
-      Preprocessor.Factory newPreprocessorFactory = preprocessorFactorySupplier.getFactory(
-          packageManager, directories.getOutputBase());
+      preprocessorFactory =
+          preprocessorFactorySupplier.getFactory(packageManager, directories.getOutputBase());
       invalidate(SkyFunctionName.functionIs(SkyFunctions.PACKAGE));
-      pkgFactory.setPreprocessorFactory(newPreprocessorFactory);
-      preprocessorFactory = newPreprocessorFactory;
     }
   }
 

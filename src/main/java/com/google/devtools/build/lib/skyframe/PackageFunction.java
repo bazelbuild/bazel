@@ -1151,14 +1151,8 @@ public class PackageFunction implements SkyFunction {
               throw new PackageFunctionException(new BuildFileContainsErrorsException(
                   packageId, e.getMessage()), Transience.TRANSIENT);
             }
-            try {
-              preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
-                  buildFileBytes, skyframeGlobber);
-            } catch (IOException e) {
-              throw new PackageFunctionException(
-                  new BuildFileContainsErrorsException(
-                      packageId, "preprocessing failed" + e.getMessage(), e), Transience.TRANSIENT);
-            }
+            preprocessingResult =
+                Preprocessor.Result.noPreprocessing(buildFilePath.asFragment(), buildFileBytes);
           } else {
             ParserInputSource replacementSource =
                 ParserInputSource.create(replacementContents, buildFilePath.asFragment());
