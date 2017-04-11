@@ -67,7 +67,7 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -76,7 +76,6 @@ import java.io.PrintWriter;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,25 +95,41 @@ public class RemoteWorker {
   private final ExecuteServiceImplBase execServer;
   private final ExecutionCacheServiceImplBase execCacheServer;
   private final SimpleBlobStoreActionCache cache;
+  private final RemoteWorkerOptions workerOptions;
 
-  public RemoteWorker(
-      Path workPath, RemoteWorkerOptions options, SimpleBlobStoreActionCache cache) {
+  public RemoteWorker(RemoteWorkerOptions workerOptions, SimpleBlobStoreActionCache cache)
+      throws IOException {
     this.cache = cache;
+    this.workerOptions = workerOptions;
+    if (workerOptions.workPath != null) {
+      Path workPath = getFileSystem().getPath(workerOptions.workPath);
+      FileSystemUtils.createDirectoryAndParents(workPath);
+      execServer = new ExecutionServer(workPath);
+    } else {
+      execServer = null;
+    }
     casServer = new CasServer();
-    execServer = new ExecutionServer(workPath, options);
     execCacheServer = new ExecutionCacheServer();
   }
 
-  public CasServiceImplBase getCasServer() {
-    return casServer;
-  }
-
-  public ExecuteServiceImplBase getExecutionServer() {
-    return execServer;
-  }
-
-  public ExecutionCacheServiceImplBase getExecCacheServer() {
-    return execCacheServer;
+  public Server startServer() throws IOException {
+    NettyServerBuilder b =
+        NettyServerBuilder.forPort(workerOptions.listenPort)
+            .addService(casServer)
+            .addService(execCacheServer);
+    if (execServer != null) {
+      b.addService(execServer);
+    } else {
+      System.out.println(
+          "*** Execution disabled, only serving cache requests.");
+    }
+    Server server = b.build();
+    System.out.println(
+        "*** Starting grpc server on all locally bound IPs on port "
+            + workerOptions.listenPort
+            + ".");
+    server.start();
+    return server;
   }
 
   class CasServer extends CasServiceImplBase {
@@ -329,7 +344,6 @@ public class RemoteWorker {
 
   class ExecutionServer extends ExecuteServiceImplBase {
     private final Path workPath;
-    private final RemoteWorkerOptions options;
 
     //The name of the container image entry in the Platform proto
     // (see src/main/protobuf/remote_protocol.proto and
@@ -337,9 +351,8 @@ public class RemoteWorker {
     // src/main/java/com/google/devtools/build/lib/remote/RemoteOptions.java)
     public static final String CONTAINER_IMAGE_ENTRY_NAME = "container-image";
 
-    public ExecutionServer(Path workPath, RemoteWorkerOptions options) {
+    public ExecutionServer(Path workPath) {
       this.workPath = workPath;
-      this.options = options;
     }
 
     private Map<String, String> getEnvironmentVariables(RemoteProtocol.Command command) {
@@ -547,14 +560,14 @@ public class RemoteWorker {
         }
         ExecuteReply reply = execute(request.getAction(), tempRoot);
         responseObserver.onNext(reply);
-        if (options.debug) {
+        if (workerOptions.debug) {
           if (!reply.getStatus().getSucceeded()) {
             LOG.warning("Work failed. Request: " + request.toString() + ".");
           } else if (LOG_FINER) {
             LOG.fine("Work completed.");
           }
         }
-        if (!options.debug) {
+        if (!workerOptions.debug) {
           FileSystemUtils.deleteTree(tempRoot);
         } else {
           LOG.warning("Preserving work directory " + tempRoot.toString() + ".");
@@ -579,11 +592,6 @@ public class RemoteWorker {
     RemoteOptions remoteOptions = parser.getOptions(RemoteOptions.class);
     RemoteWorkerOptions remoteWorkerOptions = parser.getOptions(RemoteWorkerOptions.class);
 
-    if (remoteWorkerOptions.workPath == null) {
-      printUsage(parser);
-      return;
-    }
-
     System.out.println("*** Initializing in-memory cache server.");
     boolean remoteCache = SimpleBlobStoreFactory.isRemoteCacheOptions(remoteOptions);
     if (!remoteCache) {
@@ -595,21 +603,9 @@ public class RemoteWorker {
             : new SimpleBlobStoreFactory.ConcurrentMapBlobStore(
                 new ConcurrentHashMap<String, byte[]>());
 
-    System.out.println(
-        "*** Starting grpc server on all locally bound IPs on port "
-            + remoteWorkerOptions.listenPort
-            + ".");
-    Path workPath = getFileSystem().getPath(remoteWorkerOptions.workPath);
-    FileSystemUtils.createDirectoryAndParents(workPath);
     RemoteWorker worker =
-        new RemoteWorker(workPath, remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore));
-    final Server server =
-        ServerBuilder.forPort(remoteWorkerOptions.listenPort)
-            .addService(worker.getCasServer())
-            .addService(worker.getExecutionServer())
-            .addService(worker.getExecCacheServer())
-            .build();
-    server.start();
+        new RemoteWorker(remoteWorkerOptions, new SimpleBlobStoreActionCache(blobStore));
+    final Server server = worker.startServer();
 
     final Path pidFile;
     if (remoteWorkerOptions.pidFile != null) {
@@ -640,13 +636,6 @@ public class RemoteWorker {
               }
             });
     server.awaitTermination();
-  }
-
-  public static void printUsage(OptionsParser parser) {
-    System.out.println("Usage: remote_worker \n\n" + "Starts a worker that runs a gRPC service.");
-    System.out.println(
-        parser.describeOptions(
-            Collections.<String, String>emptyMap(), OptionsParser.HelpVerbosity.LONG));
   }
 
   static FileSystem getFileSystem() {

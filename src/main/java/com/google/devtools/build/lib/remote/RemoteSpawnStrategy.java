@@ -223,10 +223,6 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
-    if (workExecutor == null) {
-      execLocally(spawn, actionExecutionContext, actionCache, actionKey);
-      return;
-    }
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(spawn);
     }
@@ -267,6 +263,11 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
         } catch (CacheNotFoundException e) {
           acceptCachedResult = false; // Retry the action remotely and invalidate the results.
         }
+      }
+
+      if (workExecutor == null) {
+        execLocally(spawn, actionExecutionContext, actionCache, actionKey);
+        return;
       }
 
       // Upload the command and all the inputs into the remote cache.
