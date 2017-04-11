@@ -231,15 +231,21 @@ public final class AspectFunction implements SkyFunction {
     if (!key.getBaseKeys().isEmpty()) {
       // We transitively collect all required aspects to reduce the number of restarts.
       // Semantically it is enough to just request key.getBaseKeys().
-      ImmutableMap<AspectDescriptor, SkyKey> aspectKeys = getSkyKeysForAspects(key.getBaseKeys());
+      ImmutableList.Builder<SkyKey> aspectPathSkyKeysBuilder = ImmutableList.builder();
+      ImmutableMap<AspectDescriptor, SkyKey> aspectKeys =
+          getSkyKeysForAspectsAndCollectAspectPath(key.getBaseKeys(), aspectPathSkyKeysBuilder);
 
       Map<SkyKey, SkyValue> values = env.getValues(aspectKeys.values());
       if (env.valuesMissing()) {
         return null;
       }
+      ImmutableList<SkyKey> aspectPathSkyKeys = aspectPathSkyKeysBuilder.build();
+      for (SkyKey aspectPathSkyKey : aspectPathSkyKeys) {
+        aspectPathBuilder.add(((AspectValue) values.get(aspectPathSkyKey)).getAspect());
+      }
       try {
-        associatedTarget = getBaseTargetAndCollectPath(
-            associatedTarget, key.getBaseKeys(), values, aspectPathBuilder);
+        associatedTarget = getBaseTarget(
+            associatedTarget, key.getBaseKeys(), values);
       } catch (DuplicateException e) {
         env.getListener().handle(
             Event.error(associatedTarget.getTarget().getLocation(), e.getMessage()));
@@ -331,15 +337,12 @@ public final class AspectFunction implements SkyFunction {
    * Merges aspects defined by {@code aspectKeys} into the {@code target} using
    * previously computed {@code values}.
    *
-   * Also populates {@code aspectPath}.
-   *
    * @return A {@link ConfiguredTarget} that is a result of a merge.
    * @throws DuplicateException if there is a duplicate provider provided by aspects.
    */
-  private ConfiguredTarget getBaseTargetAndCollectPath(ConfiguredTarget target,
+  private ConfiguredTarget getBaseTarget(ConfiguredTarget target,
       ImmutableList<AspectKey> aspectKeys,
-      Map<SkyKey, SkyValue> values,
-      ImmutableList.Builder<Aspect> aspectPath)
+      Map<SkyKey, SkyValue> values)
       throws DuplicateException {
     ArrayList<ConfiguredAspect> aspectValues = new ArrayList<>();
     for (AspectKey aspectKey : aspectKeys) {
@@ -347,7 +350,6 @@ public final class AspectFunction implements SkyFunction {
       AspectValue aspectValue = (AspectValue) values.get(skyAspectKey);
       ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
       aspectValues.add(configuredAspect);
-      aspectPath.add(aspectValue.getAspect());
     }
     return MergedConfiguredTarget.of(target, aspectValues);
   }
@@ -355,25 +357,33 @@ public final class AspectFunction implements SkyFunction {
   /**
    *  Collect all SkyKeys that are needed for a given list of AspectKeys,
    *  including transitive dependencies.
+   *
+   *  Also collects all propagating aspects in correct order.
    */
-  private ImmutableMap<AspectDescriptor, SkyKey> getSkyKeysForAspects(
-      ImmutableList<AspectKey> keys) {
+  private ImmutableMap<AspectDescriptor, SkyKey> getSkyKeysForAspectsAndCollectAspectPath(
+      ImmutableList<AspectKey> keys,
+      ImmutableList.Builder<SkyKey> aspectPathBuilder) {
     HashMap<AspectDescriptor, SkyKey> result = new HashMap<>();
     for (AspectKey key : keys) {
-      buildSkyKeys(key, result);
+      buildSkyKeys(key, result, aspectPathBuilder);
     }
     return ImmutableMap.copyOf(result);
   }
 
-  private void buildSkyKeys(AspectKey key, HashMap<AspectDescriptor, SkyKey> result) {
+  private void buildSkyKeys(AspectKey key, HashMap<AspectDescriptor, SkyKey> result,
+      ImmutableList.Builder<SkyKey> aspectPathBuilder) {
     if (result.containsKey(key.getAspectDescriptor())) {
       return;
     }
     ImmutableList<AspectKey> baseKeys = key.getBaseKeys();
-    result.put(key.getAspectDescriptor(), key.getSkyKey());
+    SkyKey skyKey = key.getSkyKey();
+    result.put(key.getAspectDescriptor(), skyKey);
     for (AspectKey baseKey : baseKeys) {
-      buildSkyKeys(baseKey, result);
+      buildSkyKeys(baseKey, result, aspectPathBuilder);
     }
+    // Post-order list of aspect SkyKeys gives the order of propagating aspects:
+    // the aspect comes after all aspects it transitively sees.
+    aspectPathBuilder.add(skyKey);
   }
   private SkyValue createAliasAspect(
       Environment env,

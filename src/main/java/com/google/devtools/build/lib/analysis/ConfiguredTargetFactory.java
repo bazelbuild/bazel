@@ -356,11 +356,13 @@ public final class ConfiguredTargetFactory {
 
     ConfiguredAspect configuredAspect = aspectFactory
         .create(associatedTarget, ruleContext, aspect.getParameters());
-    validateAdvertisedProviders(
-        configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
-        associatedTarget.getTarget(),
-        env.getEventHandler()
-    );
+    if (configuredAspect != null) {
+      validateAdvertisedProviders(
+          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          associatedTarget.getTarget(),
+          env.getEventHandler()
+      );
+    }
     return configuredAspect;
   }
 

@@ -1982,6 +1982,67 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         + "(when propagating from //test:r2 to //test:r1 via attribute dep)");
   }
 
+  /**
+   * Aspect a3 sees aspect a2, aspect a2 sees aspect a1, but a3 does not see a1.
+   * All three aspects should still propagate together.
+   */
+  @Test
+  public void aspectOnAspectOnAspect() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "p1 = provider()",
+        "def _a1_impl(target, ctx):",
+        "   return [p1()]",
+        "a1 = aspect(_a1_impl, attr_aspects = ['dep'], provides = [p1])",
+        "p2 = provider()",
+        "def _a2_impl(target, ctx):",
+        "   value = True if p1 in target else False",
+        "   return [p2(has_p1 = value)]",
+        "a2 = aspect(_a2_impl, attr_aspects = ['dep'],",
+        "   required_aspect_providers = [p1], provides = [p2])",
+        "p3 = provider()",
+        "def _a3_impl(target, ctx):",
+        "   list = []",
+        "   if ctx.rule.attr.dep:",
+        "     list = ctx.rule.attr.dep[p3].value",
+        "   my_value = str(target.label) +'=' + str(target[p2].has_p1 if p2 in target else False)",
+        "   return [p3(value = list + [my_value])]",
+        "a3 = aspect(_a3_impl, attr_aspects = ['dep'],",
+        "   required_aspect_providers = [p2])",
+        "def _r0_impl(ctx):",
+        "  pass",
+        "r0 = rule(_r0_impl, attrs = { 'dep' : attr.label()})",
+        "def _r1_impl(ctx):",
+        "  pass",
+        "def _r2_impl(ctx):",
+        "  pass",
+        "r1 = rule(_r1_impl, attrs = { 'dep' : attr.label(aspects = [a1])})",
+        "r2 = rule(_r2_impl, attrs = { 'dep' : attr.label(aspects = [a2])})"
+    );
+    scratch.file(
+        "test/BUILD",
+        "load(':aspect.bzl', 'r0', 'r1', 'r2')",
+        "r0(name = 'r0_1')",
+        "r0(name = 'r0_2', dep = ':r0_1')",
+        "r0(name = 'r0_3', dep = ':r0_2')",
+        "r1(name = 'r1_1', dep = ':r0_3')",
+        "r2(name = 'r2_1', dep = ':r1_1')"
+    );
+
+    AnalysisResult analysisResult = update(ImmutableList.of("//test:aspect.bzl%a3"), "//test:r2_1");
+    SkylarkProviders skylarkProviders = Iterables.getOnlyElement(analysisResult.getAspects())
+        .getConfiguredAspect().getProvider(SkylarkProviders.class);
+    SkylarkKey p3 = new SkylarkKey(Label.parseAbsolute("//test:aspect.bzl"), "p3");
+    assertThat((SkylarkList<?>) skylarkProviders.getDeclaredProvider(p3).getValue("value"))
+        .containsExactly(
+            "//test:r0_1=True",
+            "//test:r0_2=True",
+            "//test:r0_3=True",
+            "//test:r1_1=False",
+            "//test:r2_1=False");
+  }
+
+
   /** SkylarkAspectTest with "keep going" flag */
   @RunWith(JUnit4.class)
   public static final class WithKeepGoing extends SkylarkAspectsTest {
