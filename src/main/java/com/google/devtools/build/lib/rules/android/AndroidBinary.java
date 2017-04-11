@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.analysis.OutputGroupProvider.INTERNA
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -1369,11 +1368,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             : AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries();
     if (!result.isEmpty()) {
       Iterable<String> blacklistedDexopts =
-          Iterables.filter(
-              dexopts,
-              new FlagMatcher(AndroidCommon
-                  .getAndroidConfig(ruleContext)
-                  .getTargetDexoptsThatPreventIncrementalDexing()));
+          DexArchiveAspect.blacklistedDexopts(ruleContext, dexopts);
       if (!Iterables.isEmpty(blacklistedDexopts)) {
         // target's dexopts include flags blacklisted with --non_incremental_per_target_dexopts. If
         // incremental_dexing attribute is explicitly set for this target then we'll warn and
@@ -1412,15 +1407,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .addInputArgument(inputJar)
         .addArgument("--output")
         .addOutputArgument(classesDex)
-        .addArguments(DexArchiveAspect.incrementalDexopts(ruleContext, dexopts))
+        .addArguments(DexArchiveAspect.mergerDexopts(ruleContext, dexopts))
         .addArgument("--multidex=" + multidexStrategy)
         .setMnemonic("DexMerger")
         .setProgressMessage("Assembling dex files into " + classesDex.prettyPrint());
     if (mainDexList != null) {
       dexmerger.addArgument("--main-dex-list").addInputArgument(mainDexList);
-      if (dexopts.contains("--minimal-main-dex")) {
-        dexmerger.addArgument("--minimal-main-dex");
-      }
     }
     ruleContext.registerAction(dexmerger.build(ruleContext));
   }
@@ -1813,23 +1805,5 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public static Artifact getDxArtifact(RuleContext ruleContext, String baseName) {
     return ruleContext.getUniqueDirectoryArtifact("_dx", baseName,
         ruleContext.getBinOrGenfilesDirectory());
-  }
-
-  private static class FlagMatcher implements Predicate<String> {
-    private final ImmutableList<String> matching;
-
-    FlagMatcher(ImmutableList<String> matching) {
-      this.matching = matching;
-    }
-
-    @Override
-    public boolean apply(String input) {
-      for (String match : matching) {
-        if (input.contains(match)) {
-          return true;
-        }
-      }
-      return false;
-    }
   }
 }

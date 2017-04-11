@@ -23,6 +23,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -60,9 +61,9 @@ import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 /**
  * Aspect to {@link DexArchiveProvider build .dex Archives} from Jars.
@@ -442,9 +443,7 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
 
   private static Set<Set<String>> aspectDexopts(RuleContext ruleContext) {
     return Sets.powerSet(
-        normalizeDexopts(
-            ruleContext,
-            getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
+        normalizeDexopts(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing()));
   }
 
   /**
@@ -455,25 +454,67 @@ public final class DexArchiveAspect extends NativeAspectClass implements Configu
    */
   static ImmutableSet<String> incrementalDexopts(RuleContext ruleContext,
       Iterable<String> tokenizedDexopts) {
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      // TODO(bazel-team): Still needed? No longer done in AndroidCommon.createDexAction
+      tokenizedDexopts = Iterables.concat(tokenizedDexopts, ImmutableList.of("--no-locals"));
+    }
     return normalizeDexopts(
-        ruleContext,
         Iterables.filter(
             tokenizedDexopts,
+            // dexopts have to match exactly since aspect only creates archives for listed ones
             Predicates.in(getAndroidConfig(ruleContext).getDexoptsSupportedInIncrementalDexing())));
   }
 
-  private static ImmutableSet<String> normalizeDexopts(
-      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
+  /**
+   * Returns the subset of the given dexopts that are blacklisted from using incremental dexing
+   * by default.
+   */
+  static Iterable<String> blacklistedDexopts(
+      RuleContext ruleContext, List<String> dexopts) {
+    return Iterables.filter(
+        dexopts,
+        new FlagMatcher(
+            getAndroidConfig(ruleContext).getTargetDexoptsThatPreventIncrementalDexing()));
+  }
+
+  /**
+   * Derives options to use in DexFileMerger actions from the given context and dx flags, where the
+   * latter typically come from a {@code dexopts} attribute on a top-level target.
+   */
+  static ImmutableSet<String> mergerDexopts(RuleContext ruleContext,
+      Iterable<String> tokenizedDexopts) {
+    // We don't need an ordered set but might as well.  Note we don't need to worry about coverage
+    // builds since the merger doesn't use --no-locals.
+    return normalizeDexopts(
+        Iterables.filter(
+            tokenizedDexopts,
+            new FlagMatcher(getAndroidConfig(ruleContext).getDexoptsSupportedInDexMerger())));
+  }
+
+  private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
     // Use TreeSet to drop duplicates and get fixed (sorted) order.  Fixed order is important so
     // we generate one dex archive per set of flag in create() method, regardless of how those flags
     // are listed in all the top-level targets being built.
-    Set<String> args = new TreeSet<>();
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      // Match what we do in AndroidCommon.createDexAction
-      args.add("--nolocals"); // TODO(bazel-team): Still needed? See createDexAction
+    return ImmutableSet.copyOf(
+        Sets.newTreeSet(Iterables.transform(tokenizedDexopts, FlagConverter.DX_TO_DEXBUILDER)));
+  }
+
+  private static class FlagMatcher implements Predicate<String> {
+    private final ImmutableList<String> matching;
+
+    FlagMatcher(ImmutableList<String> matching) {
+      this.matching = matching;
     }
-    Iterables.addAll(args, Iterables.transform(tokenizedDexopts, FlagConverter.DX_TO_DEXBUILDER));
-    return ImmutableSet.copyOf(args);
+
+    @Override
+    public boolean apply(String input) {
+      for (String match : matching) {
+        if (input.contains(match)) {
+          return true;
+        }
+      }
+      return false;
+    }
   }
 
   private enum FlagConverter implements Function<String, String> {

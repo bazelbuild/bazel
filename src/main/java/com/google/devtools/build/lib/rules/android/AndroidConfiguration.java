@@ -318,9 +318,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       help = "Do not use.")
     public boolean incrementalDexingErrorOnMissedJars;
 
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
     @Option(name = "non_incremental_per_target_dexopts",
         converter = Converters.CommaSeparatedOptionListConverter.class,
-        defaultValue = "--set-max-idx-number,--positions",
+        defaultValue = "--positions",
         category = "semantics",
         help = "dx flags that that prevent incremental dexing for binary targets that list any of "
             + "the flags listed here in their 'dexopts' attribute, which are ignored with "
@@ -336,8 +338,18 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         converter = Converters.CommaSeparatedOptionListConverter.class,
         defaultValue = "--no-optimize,--no-locals",
         category = "hidden",
-        help = "dx flags supported in incremental dexing.")
+        help = "dx flags supported when converting Jars to dex archives incrementally.")
     public List<String> dexoptsSupportedInIncrementalDexing;
+
+    // Do not use on the command line.
+    // This flag is intended to be updated as we add supported flags to the incremental dexing tools
+    // TODO(b/31711689): remove --no-optimize and --no-locals as DexFileMerger no longer needs them
+    @Option(name = "dexopts_supported_in_dexmerger",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        defaultValue = "--no-optimize,--no-locals,--minimal-main-dex,--set-max-idx-number",
+        category = "hidden",
+        help = "dx flags supported in tool that merges dex archives into final classes.dex files.")
+    public List<String> dexoptsSupportedInDexMerger;
 
     @Option(
       name = "experimental_android_rewrite_dexes_with_rex",
@@ -455,6 +467,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       host.incrementalDexingErrorOnMissedJars = incrementalDexingErrorOnMissedJars;
       host.nonIncrementalPerTargetDexopts = nonIncrementalPerTargetDexopts;
       host.dexoptsSupportedInIncrementalDexing = dexoptsSupportedInIncrementalDexing;
+      host.dexoptsSupportedInDexMerger = dexoptsSupportedInDexMerger;
       host.manifestMerger = manifestMerger;
       return host;
     }
@@ -502,6 +515,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalDexingErrorOnMissedJars;
   private final ImmutableList<String> dexoptsSupportedInIncrementalDexing;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
+  private final ImmutableList<String> dexoptsSupportedInDexMerger;
   private final boolean desugarJava8;
   private final boolean useRexToCompressDexFiles;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
@@ -515,7 +529,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useSingleJarForProguardLibraryJars;
   private final boolean compressJavaResources;
 
-  AndroidConfiguration(Options options, Label androidSdk) {
+  AndroidConfiguration(Options options, Label androidSdk) throws InvalidConfigurationException {
     this.sdk = androidSdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.cpu = options.cpu;
@@ -531,6 +545,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         ImmutableList.copyOf(options.dexoptsSupportedInIncrementalDexing);
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
+    this.dexoptsSupportedInDexMerger = ImmutableList.copyOf(options.dexoptsSupportedInDexMerger);
     this.desugarJava8 = options.desugarJava8;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
     this.useAndroidResourceShrinking = options.useAndroidResourceShrinking
@@ -544,6 +559,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useRexToCompressDexFiles = options.useRexToCompressDexFiles;
     this.resourceFilter = options.resourceFilter;
     this.compressJavaResources = options.compressJavaResources;
+
+    if (!dexoptsSupportedInIncrementalDexing.contains("--no-locals")) {
+      // TODO(bazel-team): Still needed? See DexArchiveAspect
+      throw new InvalidConfigurationException("--dexopts_supported_in_incremental_dexing must "
+          + "include '--no-locals' to enable coverage builds");
+    }
   }
 
   public String getCpu() {
@@ -585,6 +606,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public ImmutableList<String> getDexoptsSupportedInIncrementalDexing() {
     return dexoptsSupportedInIncrementalDexing;
+  }
+
+  /**
+   * dx flags supported in dexmerger actions.
+   */
+  public ImmutableList<String> getDexoptsSupportedInDexMerger() {
+    return dexoptsSupportedInDexMerger;
   }
 
   /**
