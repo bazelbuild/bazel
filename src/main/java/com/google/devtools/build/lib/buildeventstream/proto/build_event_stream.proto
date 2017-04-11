@@ -275,11 +275,11 @@ message ActionExecuted {
 
 // Collection of all output files belonging to that output group.
 message OutputGroup {
+  // Ids of fields that have been removed.
+  reserved 2;
+
   // Name of the output group
   string name = 1;
-
-  // List of output files that belong to this output group.
-  repeated File output_file = 2;
 
   // List of file sets that belong to this output group as well.
   repeated BuildEventId.NamedSetOfFilesId file_sets = 3;
