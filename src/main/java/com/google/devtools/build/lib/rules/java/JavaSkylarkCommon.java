@@ -121,7 +121,12 @@ public class JavaSkylarkCommon {
         doc = "A list of the Java source files to be compiled. At least one of source_jars or "
           + "source_files should be specified."
       ),
-      @Param(name = "output", positional = false, named = true, type = Artifact.class),
+      @Param(
+        name = "output",
+        positional = false,
+        named = true,
+        type = Artifact.class
+      ),
       @Param(
         name = "javac_opts",
         positional = false,
