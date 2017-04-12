@@ -248,6 +248,31 @@ public class PathFragmentWindowsTest {
   }
 
   @Test
+  public void testConfusingSemanticsOfDriveLettersInRelativePaths() {
+    // This test serves to document the current confusing semantics of non-empty relative windows
+    // paths that have drive letters. Also note the above testEmptyRelativePathToEmptyPathWindows
+    // which documents the confusing semantics of empty relative windows paths that have drive
+    // letters.
+    //
+    // TODO(laszlocsomor): Reevaluate the current semantics. Depending on the results of that,
+    // consider not storing the drive letter in relative windows paths.
+    PathFragment cColonFoo = PathFragment.create("C:foo");
+    PathFragment dColonFoo = PathFragment.create("D:foo");
+    PathFragment foo = PathFragment.create("foo");
+    assertThat(cColonFoo).isNotEqualTo(dColonFoo);
+    assertThat(cColonFoo).isNotEqualTo(foo);
+    assertThat(dColonFoo).isNotEqualTo(foo);
+    assertThat(cColonFoo.segmentCount()).isEqualTo(dColonFoo.segmentCount());
+    assertThat(cColonFoo.segmentCount()).isEqualTo(foo.segmentCount());
+    assertThat(cColonFoo.startsWith(dColonFoo)).isTrue();
+    assertThat(cColonFoo.startsWith(foo)).isTrue();
+    assertThat(foo.startsWith(cColonFoo)).isTrue();
+    assertThat(cColonFoo.getPathString()).isEqualTo("foo");
+    assertThat(cColonFoo.getPathString()).isEqualTo(dColonFoo.getPathString());
+    assertThat(cColonFoo.getPathString()).isEqualTo(foo.getPathString());
+  }
+
+  @Test
   public void testWindowsVolumeUppercase() {
     assertRegular("C:/", "c:/");
   }
