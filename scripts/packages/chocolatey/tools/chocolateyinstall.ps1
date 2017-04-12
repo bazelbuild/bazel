@@ -15,20 +15,20 @@ $packageDir = Split-Path -parent $toolsDir
 Install-ChocolateyZipPackage -PackageName "$packageName" `
   -Url64bit "$($paramsText[0])" `
   -Checksum64 "$($paramsText[1])" `
-  -Checksum64Type "sha256" `
-  -ChecksumType "sha256" `
+  -ChecksumType64 "sha256" `
   -UnzipLocation "$packageDir"
 
 write-host "Ensure that msys2 dll is present in PATH to allow bazel to be run from non-msys2 shells"
 $pp = Get-PackageParameters $env:chocolateyPackageParameters
-Install-ChocolateyPath -PathToInstall "$($pp.msys2Path)\usr\bin" -PathType "Machine"
+$msys2Path = ($pp.msys2Path, "c:\tools\msys64" -ne $null)[0]
+Install-ChocolateyPath -PathToInstall "$($msys2Path)\usr\bin" -PathType "Machine"
 
 $addToMsysPath = ($packageDir -replace '^([a-zA-Z]):\\(.*)','/$1/$2') -replace '\\','/'
 write-host @"
 bazel installed to $packageDir
 
 To use it in powershell or cmd, you should ensure your PATH environment variable contains
-  $($pp.msys2Path)\usr\bin
+  $($msys2Path)\usr\bin
 BEFORE both
   c:\windows\system32 (because bash-on-windows' bash.exe will be found here, if it's installed)
   any references to msysgit (like c:\program files (x86)\git\bin or c:\program files (x86)\git\cmd) (because git's vendored version of msys2 will interfere with the real msys2)
