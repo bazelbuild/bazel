@@ -97,10 +97,13 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    */
   private final RepositoryName repository;
 
-  /** The name of the package. Canonical (i.e. x.equals(y) <=> x==y). */
+  /** The name of the package. */
   private final PathFragment pkgName;
 
-  /** Precomputed hash code **/
+  /**
+   * Precomputed hash code. Hash/equality is based on repository and pkgName. Note that due to
+   * interning, x.equals(y) <=> x==y.
+   **/
   private final int hashCode;
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
