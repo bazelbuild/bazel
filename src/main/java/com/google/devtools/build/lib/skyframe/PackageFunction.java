@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -1137,38 +1136,42 @@ public class PackageFunction implements SkyFunction {
               buildFilePath.getParentDirectory(), packageId, packageLocator);
           SkyframeHybridGlobber skyframeGlobber = new SkyframeHybridGlobber(packageId, packageRoot,
               env, legacyGlobber);
-          Preprocessor.Result preprocessingResult;
+          ParserInputSource input;
           if (replacementContents == null) {
             Preconditions.checkNotNull(buildFileValue, packageId);
-            byte[] buildFileBytes;
             try {
-              buildFileBytes = buildFileValue.isSpecialFile()
-                  ? FileSystemUtils.readContent(buildFilePath)
-                  : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
+              byte[] buildFileBytes =
+                  buildFileValue.isSpecialFile()
+                      ? FileSystemUtils.readContent(buildFilePath)
+                      : FileSystemUtils.readWithKnownFileSize(
+                          buildFilePath, buildFileValue.getSize());
+              input =
+                  ParserInputSource.create(
+                      FileSystemUtils.convertFromLatin1(buildFileBytes),
+                      buildFilePath.asFragment());
             } catch (IOException e) {
               // Note that we did this work, so we should conservatively report this error as
               // transient.
               throw new PackageFunctionException(new BuildFileContainsErrorsException(
                   packageId, e.getMessage()), Transience.TRANSIENT);
             }
-            preprocessingResult =
-                Preprocessor.Result.noPreprocessing(buildFilePath.asFragment(), buildFileBytes);
           } else {
-            ParserInputSource replacementSource =
-                ParserInputSource.create(replacementContents, buildFilePath.asFragment());
-            preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
+            input = ParserInputSource.create(replacementContents, buildFilePath.asFragment());
           }
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
-          BuildFileAST ast = PackageFactory.parseBuildFile(packageId, preprocessingResult.result,
-              preludeStatements, astParsingEventHandler);
+          BuildFileAST ast =
+              PackageFactory.parseBuildFile(
+                  packageId, input, preludeStatements, astParsingEventHandler);
           // If no globs were fetched during preprocessing, then there's no need to reuse the
           // legacy globber instance during BUILD file evaluation since the performance argument
           // below does not apply.
           Set<SkyKey> globDepsRequested = skyframeGlobber.getGlobDepsRequested();
           LegacyGlobber legacyGlobberToStore = globDepsRequested.isEmpty() ? null : legacyGlobber;
-          astCacheEntry = new CacheEntryWithGlobDeps<>(
-              new AstAfterPreprocessing(preprocessingResult, ast, astParsingEventHandler),
-              globDepsRequested, legacyGlobberToStore);
+          astCacheEntry =
+              new CacheEntryWithGlobDeps<>(
+                  new AstAfterPreprocessing(ast, astParsingEventHandler),
+                  globDepsRequested,
+                  legacyGlobberToStore);
           astCache.put(packageId, astCacheEntry);
         }
         AstAfterPreprocessing astAfterPreprocessing = astCacheEntry.value;
