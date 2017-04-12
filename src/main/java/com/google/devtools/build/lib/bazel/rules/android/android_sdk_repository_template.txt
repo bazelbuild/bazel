@@ -2,8 +2,8 @@ package(default_visibility = ["//visibility:public"])
 
 load(
     "@bazel_tools//tools/android:android_sdk_repository_template.bzl",
-    "create_android_device_rules",
-    "create_android_sdk_rules")
+    "create_android_sdk_rules",
+    "create_system_images_filegroups")
 
 create_android_sdk_rules(
     name = "%repository_name%",
@@ -53,7 +53,7 @@ filegroup(
     srcs = ["."],
 )
 
-create_android_device_rules(
+create_system_images_filegroups(
     system_image_dirs = [
 %system_image_dirs%    ],
 )

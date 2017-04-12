@@ -128,7 +128,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
     invalidatePackages();
 
     ConfiguredTarget android25ArmFilegroup =
-        getConfiguredTarget("@androidsdk//:android-25_default_armeabi-v7a_files");
+        getConfiguredTarget("@androidsdk//:emulator_images_android_25_arm");
     assertThat(android25ArmFilegroup).isNotNull();
     assertThat(
         artifactsToStrings(
@@ -137,7 +137,7 @@ public class AndroidSdkRepositoryTest extends BuildViewTestCase {
             "src external/androidsdk/system-images/android-25/default/armeabi-v7a/system.img");
 
     ConfiguredTarget android24X86Filegroup =
-        getConfiguredTarget("@androidsdk//:android-24_google_apis_x86_files");
+        getConfiguredTarget("@androidsdk//:emulator_images_google_24_x86");
     assertThat(android24X86Filegroup).isNotNull();
     assertThat(
         artifactsToStrings(

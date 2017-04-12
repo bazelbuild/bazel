@@ -201,25 +201,99 @@ def create_android_sdk_rules(
       jars = [":dx_jar"],
   )
 
-def create_android_device_rules(system_image_dirs):
-  """Generate android_device rules for the system images in the Android SDK.
+
+TAGDIR_TO_TAG_MAP = {
+    "google_apis": "google",
+    "default": "android",
+    "android-tv": "tv",
+    "android-wear": "wear",
+}
+
+
+ARCHDIR_TO_ARCH_MAP = {
+    "x86": "x86",
+    "armeabi-v7a": "arm",
+}
+
+
+def create_system_images_filegroups(system_image_dirs):
+  """Generate filegroups for the system images in the Android SDK.
 
   Args:
     system_image_dirs: list of strings, the directories containing system image
         files to be used to create android_device rules.
   """
 
+  # These images will need to be updated as Android releases new system images.
+  # We are intentionally not adding future releases because there is no
+  # guarantee that they will work out of the box. Supported system images should
+  # be added here once they have been confirmed to work with the Bazel Android
+  # testing infrastructure.
+  system_images = [(tag, api, arch)
+                   for tag in ["android", "google"]
+                   for api in [10] + range(15, 20) + range(21, 27)
+                   for arch in ("x86", "arm")]
+  tv_images = [("tv", api, arch)
+               for api in range(21, 25) for arch in ("x86", "arm")]
+  wear_images = [("wear", api, "x86")
+                 for api in range(20, 26)] + [("wear", api, "arm")
+                                              for api in range(24, 26)]
+  supported_system_images = system_images + tv_images + wear_images
+
+  installed_system_images_dirs = {}
   for system_image_dir in system_image_dirs:
-    name = "_".join(system_image_dir.split("/")[1:])
+    apidir, tagdir, archdir = system_image_dir.split("/")[1:]
+    api = int(apidir.split("-")[1])  # "android-24" --> 24
+    if tagdir not in TAGDIR_TO_TAG_MAP:
+      continue
+    tag = TAGDIR_TO_TAG_MAP[tagdir]
+    if archdir not in ARCHDIR_TO_ARCH_MAP:
+      continue
+    arch = ARCHDIR_TO_ARCH_MAP[archdir]
+    if (tag, api, arch) in supported_system_images:
+      name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+      installed_system_images_dirs[name] = system_image_dir
+    else:
+      # TODO(bazel-team): If the user has an unsupported system image installed,
+      # should we print a warning? This includes all 64-bit system-images.
+      pass
 
-    # TODO(ajmichael): Remove this target after unified_launcher's tests are
-    # updated to use the emulator_images_%s filegroups instead.
-    native.filegroup(
-        name = "%s_files" % name,
-        srcs = native.glob(["%s/**" % system_image_dir]),
-    )
-
-    native.filegroup(
-        name = "emulator_images_%s" % name,
-        srcs = native.glob(["%s/**" % system_image_dir]),
-    )
+  for (tag, api, arch) in supported_system_images:
+    name = "emulator_images_%s_%s_%s" % (tag, api, arch)
+    if name in installed_system_images_dirs:
+      system_image_dir = installed_system_images_dirs[name]
+      # For supported system images that exist in /sdk/system-images/, we
+      # create a filegroup with their contents.
+      native.filegroup(
+          name = name,
+          srcs = native.glob([
+              "%s/**" % system_image_dir,
+          ]),
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = native.glob(["%s/kernel-ranchu" % system_image_dir]),
+      )
+    else:
+      # For supported system images that are not installed in the SDK, we
+      # create a "poison pill" genrule to display a helpful error message to
+      # a user who attempts to run a test against an android_device that
+      # they don't have the system image for installed.
+      native.genrule(
+          name = name,
+          outs = [
+              # Necessary so that the build doesn't fail in analysis because
+              # android_device expects a file named source.properties.
+              "poison_pill_for_%s/source.properties" % name,
+          ],
+          cmd = """echo \
+          This rule requires that the Android SDK used by Bazel has the \
+          following system image installed: %s. Please install this system \
+          image through the Android SDK Manager and try again. ; \
+          exit 1
+          """ % name,
+      )
+      native.filegroup(
+          name = "%s_qemu2_extra" % name,
+          srcs = [],
+      )
