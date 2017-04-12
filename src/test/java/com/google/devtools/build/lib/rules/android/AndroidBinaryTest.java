@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -2443,5 +2444,218 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  proguard_apply_mapping = 'proguard.map',",
         "  manifest = 'AndroidManifest.xml',",
         ")");
+  }
+
+  @Test
+  public void testFeatureFlagsAttributeSetsSelectInDependency() throws Exception {
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "config_feature_flag(",
+        "  name = 'flag2',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag2@on',",
+        "  flag_values = {':flag2': 'on'},",
+        ")",
+        "android_library(",
+        "  name = 'lib',",
+        "  srcs = select({",
+        "    ':flag1@on': ['Flag1On.java'],",
+        "    '//conditions:default': ['Flag1Off.java'],",
+        "  }) + select({",
+        "    ':flag2@on': ['Flag2On.java'],",
+        "    '//conditions:default': ['Flag2Off.java'],",
+        "  }),",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  deps = [':lib'],",
+        "  feature_flags = {",
+        "    'flag1': 'on',",
+        "  }",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
+    List<String> inputs =
+        actionsTestUtil()
+            .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
+
+    assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
+    assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
+  }
+
+  @Test
+  public void testFeatureFlagsAttributeSetsSelectInBinary() throws Exception {
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "config_feature_flag(",
+        "  name = 'flag2',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag2@on',",
+        "  flag_values = {':flag2': 'on'},",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = select({",
+        "    ':flag1@on': ['Flag1On.java'],",
+        "    '//conditions:default': ['Flag1Off.java'],",
+        "  }) + select({",
+        "    ':flag2@on': ['Flag2On.java'],",
+        "    '//conditions:default': ['Flag2Off.java'],",
+        "  }),",
+        "  feature_flags = {",
+        "    'flag1': 'on',",
+        "  }",
+        ")");
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
+    List<String> inputs =
+        actionsTestUtil()
+            .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFinalUnsignedApk(binary)));
+
+    assertThat(inputs).containsAllOf("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
+    assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
+  }
+
+  @Test
+  public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalid() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "android_library(",
+        "  name = 'lib',",
+        "  srcs = select({",
+        "    ':flag1@on': ['Flag1On.java'],",
+        "    '//conditions:default': ['Flag1Off.java'],",
+        "  })",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  deps = [':lib'],",
+        "  feature_flags = {",
+        "    'flag1': 'invalid',",
+        "  }",
+        ")");
+    assertThat(getConfiguredTarget("//java/com/foo")).isNull();
+    assertContainsEvent(
+        "in config_feature_flag rule //java/com/foo:flag1: "
+            + "value must be one of ['off', 'on'], but was 'invalid'");
+  }
+
+  @Test
+  public void testFeatureFlagsAttributeFailsAnalysisIfFlagValueIsInvalidEvenIfNotUsed()
+      throws Exception {
+    reporter.removeHandler(failFastHandler);
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_setting(",
+        "  name = 'flag1@on',",
+        "  flag_values = {':flag1': 'on'},",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  feature_flags = {",
+        "    'flag1': 'invalid',",
+        "  }",
+        ")");
+    assertThat(getConfiguredTarget("//java/com/foo")).isNull();
+    assertContainsEvent(
+        "in config_feature_flag rule //java/com/foo:flag1: "
+            + "value must be one of ['off', 'on'], but was 'invalid'");
+  }
+
+  @Test
+  public void testFeatureFlagsAttributeSetsFeatureFlagProviderValues() throws Exception {
+    useConfiguration("--experimental_dynamic_configs=on");
+    scratch.file(
+        "java/com/foo/reader.bzl",
+        "def _impl(ctx):",
+        "  ctx.file_action(",
+        "      ctx.outputs.java,",
+        "      '\\n'.join([",
+        "          str(target.label) + ': ' + target[config_common.FeatureFlagInfo].value",
+        "          for target in ctx.attr.flags]))",
+        "  return struct(files=depset([ctx.outputs.java]))",
+        "flag_reader = rule(",
+        "  implementation=_impl,",
+        "  attrs={'flags': attr.label_list(providers=[config_common.FeatureFlagInfo])},",
+        "  outputs={'java': '%{name}.java'},",
+        ")");
+    scratch.file(
+        "java/com/foo/BUILD",
+        "load('//java/com/foo:reader.bzl', 'flag_reader')",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "config_feature_flag(",
+        "  name = 'flag2',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "flag_reader(",
+        "  name = 'FooFlags',",
+        "  flags = [':flag1', ':flag2'],",
+        ")",
+        "android_binary(",
+        "  name = 'foo',",
+        "  manifest = 'AndroidManifest.xml',",
+        "  srcs = [':FooFlags.java'],",
+        "  feature_flags = {",
+        "    'flag1': 'on',",
+        "  }",
+        ")");
+    Artifact flagList =
+        getFirstArtifactEndingWith(
+            actionsTestUtil()
+                .artifactClosureOf(getFinalUnsignedApk(getConfiguredTarget("//java/com/foo"))),
+            "/FooFlags.java");
+    FileWriteAction action = (FileWriteAction) getGeneratingAction(flagList);
+    assertThat(action.getFileContents())
+        .isEqualTo("//java/com/foo:flag1: on\n//java/com/foo:flag2: off");
   }
 }

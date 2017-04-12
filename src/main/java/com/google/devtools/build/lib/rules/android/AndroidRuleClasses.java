@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_KEYED_STRING_DICT;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -795,6 +797,12 @@ public final class AndroidRuleClasses {
           Rex suggests an updated package map that can be saved and reused for subsequent builds.
            */
           .add(attr("rex_package_map", LABEL).legacyAllowAnyFileType().undocumented("experimental"))
+          .add(attr(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, LABEL_KEYED_STRING_DICT)
+              .undocumented("the feature flag feature has not yet been launched")
+              .allowedRuleClasses("config_feature_flag")
+              .allowedFileTypes()
+              .nonconfigurable("defines an aspect of configuration")
+              .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.SKYLARK_IDENTIFIER)))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

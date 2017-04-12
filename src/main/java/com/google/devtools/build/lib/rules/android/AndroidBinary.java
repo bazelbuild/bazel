@@ -809,7 +809,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .add(
+        .addProvider(
             RunfilesProvider.class,
             RunfilesProvider.simple(
                 new Runfiles.Builder(
@@ -818,16 +818,20 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                     .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
                     .addTransitiveArtifacts(filesToBuild)
                     .build()))
-        .add(
+        .addProvider(
             JavaSourceInfoProvider.class,
             JavaSourceInfoProvider.fromJavaTargetAttributes(resourceClasses, javaSemantics))
-        .add(
+        .addProvider(
             ApkProvider.class,
             ApkProvider.create(
                 NestedSetBuilder.create(Order.STABLE_ORDER, zipAlignedApk),
                 coverageMetadata,
                 NestedSetBuilder.create(Order.STABLE_ORDER, applicationManifest.getManifest())))
-        .add(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
+        .addProvider(AndroidPreDexJarProvider.class, AndroidPreDexJarProvider.create(jarToDex))
+        .addProvider(
+            AndroidFeatureFlagSetProvider.class,
+            AndroidFeatureFlagSetProvider.create(
+                AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext)))
         .addOutputGroup("mobile_install_full" + INTERNAL_SUFFIX, fullInstallOutputGroup)
         .addOutputGroup(
             "mobile_install_incremental" + INTERNAL_SUFFIX, incrementalInstallOutputGroup)

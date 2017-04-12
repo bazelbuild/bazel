@@ -46,8 +46,13 @@ public abstract class ConfigFeatureFlagProvider extends SkylarkClassObject
   static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
       new NativeClassObjectConstructor(SKYLARK_NAME) {};
 
-  /** Identifier used to retrieve this provider from rules which export it. */
-  static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
+  /**
+   * Identifier used to retrieve this provider from rules which export it.
+   *
+   * <p>Prefer to use {@link #fromTarget(TransitiveInfoCollection)} for the purposes of getting this
+   * provider from a TransitiveInfoCollection; this should be used for mandatoryProviders only.
+   */
+  public static final SkylarkProviderIdentifier SKYLARK_IDENTIFIER =
       SkylarkProviderIdentifier.forKey(SKYLARK_CONSTRUCTOR.getKey());
 
   ConfigFeatureFlagProvider() {
