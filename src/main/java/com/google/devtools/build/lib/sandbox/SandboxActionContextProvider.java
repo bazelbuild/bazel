@@ -50,7 +50,7 @@ final class SandboxActionContextProvider extends ActionContextProvider {
     if (OS.isPosixCompatible()) {
       contexts.add(
           new ProcessWrapperSandboxedStrategy(
-              buildRequest, env.getDirectories(), sandboxBase, verboseFailures));
+              buildRequest, env.getDirectories(), sandboxBase, verboseFailures, productName));
     }
 
     switch (OS.getCurrent()) {
