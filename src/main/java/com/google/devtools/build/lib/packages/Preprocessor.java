@@ -22,58 +22,9 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /** A Preprocessor is an interface to implement generic text-based preprocessing of BUILD files. */
 public interface Preprocessor {
-  /** Factory for {@link Preprocessor} instances. */
-  interface Factory {
-    /**
-     * Returns whether this {@link Factory} is still suitable for providing {@link Preprocessor}s.
-     * If not, all previous preprocessing results should be assumed to be invalid and a new
-     * {@link Factory} should be created via {@link Supplier#getFactory}.
-     */
-    boolean isStillValid();
-
-    /**
-     * Returns whether all globs encountered during {@link Preprocessor#preprocess} will be passed
-     * along to the {@link Globber} given there (which then executes them asynchronously). If this
-     * is not the case, then e.g. prefetching globs during normal BUILD file evaluation may be
-     * profitable.
-     */
-    boolean considersGlobs();
-
-    /**
-     * Returns a Preprocessor instance capable of preprocessing a BUILD file independently (e.g. it
-     * ought to be fine to call {@link #getPreprocessor} for each BUILD file).
-     */
-    @Nullable
-    Preprocessor getPreprocessor();
-
-    /** Factory that always returns {@code null} {@link Preprocessor}s. */
-    static class NullFactory implements Factory {
-      public static final NullFactory INSTANCE = new NullFactory();
-
-      private NullFactory() {
-      }
-
-      @Override
-      public boolean isStillValid() {
-        return true;
-      }
-
-      @Override
-      public boolean considersGlobs() {
-        return false;
-      }
-
-      @Override
-      public Preprocessor getPreprocessor() {
-        return null;
-      }
-    }
-  }
-
   /**
    * A (result, success) tuple indicating the outcome of preprocessing.
    */
