@@ -32,19 +32,19 @@ import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.rules.test.ExecutionInfoProvider;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 
-/**
- * Implementation for {@code ios_test} rule in Bazel.
- */
+/** Implementation for {@code ios_test} rule in Bazel. */
 public final class IosTest implements RuleConfiguredTargetFactory {
 
   private static final ImmutableList<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS_FOR_XCTEST =
@@ -68,6 +68,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   @VisibleForTesting
   public static final String REQUIRES_SOURCE_ERROR =
       "ios_test requires at least one source file in srcs or non_arc_srcs";
+
   @VisibleForTesting
   public static final String NO_MULTI_CPUS_ERROR =
       "ios_test cannot be built for multiple CPUs at the same time";
@@ -75,17 +76,27 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   /**
    * {@inheritDoc}
    *
-   * Creates a target, including registering actions, just as {@link #create(RuleContext)} does.
+   * <p>Creates a target, including registering actions, just as {@link #create(RuleContext)} does.
    * The difference between {@link #create(RuleContext)} and this method is that this method does
-   * only what is needed to support tests on the environment besides generate the Xcodeproj file
-   * and build the app and test {@code .ipa}s. The {@link #create(RuleContext)} method delegates
-   * to this method.
+   * only what is needed to support tests on the environment besides generate the Xcodeproj file and
+   * build the app and test {@code .ipa}s. The {@link #create(RuleContext)} method delegates to this
+   * method.
    */
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+
+    Iterable<ObjcProtoProvider> objcProtoProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+
     ProtobufSupport protoSupport =
-        new ProtobufSupport(ruleContext).registerGenerationActions().registerCompilationActions();
+        new ProtobufSupport(
+                ruleContext,
+                ruleContext.getConfiguration(),
+                ImmutableList.<ProtoSourcesProvider>of(),
+                objcProtoProviders)
+            .registerGenerationActions()
+            .registerCompilationActions();
     Optional<ObjcProvider> protosObjcProvider = protoSupport.getObjcProvider();
     Optional<XcodeProvider> protosXcodeProvider = protoSupport.getXcodeProvider();
 
@@ -132,10 +143,15 @@ public final class IosTest implements RuleConfiguredTargetFactory {
       // missing symbols.
       // -rpath @loader_path/Frameworks allows test bundles to load dylibs from the app's
       // Frameworks directory.
-      extraLinkArgs = new ExtraLinkArgs(
-          "-bundle",
-          "-bundle_loader", bundleLoader.getExecPathString(),
-          "-Xlinker", "-rpath", "-Xlinker", "@loader_path/Frameworks");
+      extraLinkArgs =
+          new ExtraLinkArgs(
+              "-bundle",
+              "-bundle_loader",
+              bundleLoader.getExecPathString(),
+              "-Xlinker",
+              "-rpath",
+              "-Xlinker",
+              "@loader_path/Frameworks");
 
       extraLinkInputs = ImmutableList.of(bundleLoader);
       bundleFormat = ReleaseBundlingSupport.XCTEST_BUNDLE_DIR_FORMAT;
@@ -143,12 +159,14 @@ public final class IosTest implements RuleConfiguredTargetFactory {
       filesToBuild.add(testApp.getIpa());
     }
 
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-        .addTransitive(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
-        .build();
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
+        new J2ObjcEntryClassProvider.Builder()
+            .addTransitive(
+                ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcEntryClassProvider.class))
+            .build();
 
     CompilationSupport.create(ruleContext)
         .registerLinkActions(
@@ -159,7 +177,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             extraLinkInputs,
             DsymOutputType.TEST)
         .registerCompileAndArchiveActions(common)
-        .registerFullyLinkAction(common.getObjcProvider(),
+        .registerFullyLinkAction(
+            common.getObjcProvider(),
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
@@ -192,10 +211,11 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     NestedSet<Artifact> filesToBuildSet = filesToBuild.build();
 
-    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(),
-        ruleContext.getConfiguration().legacyExternalRunfiles())
-        .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+    Runfiles.Builder runfilesBuilder =
+        new Runfiles.Builder(
+                ruleContext.getWorkspaceName(),
+                ruleContext.getConfiguration().legacyExternalRunfiles())
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
 
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
@@ -301,5 +321,4 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   protected static XcTestAppProvider xcTestAppProvider(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(XCTEST_APP_ATTR, Mode.TARGET, XcTestAppProvider.class);
   }
-
 }

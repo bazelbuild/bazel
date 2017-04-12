@@ -18,10 +18,12 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 
 /**
  * Implementation for the "objc_proto_library" rule.
@@ -45,8 +47,17 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
       throws InterruptedException, RuleErrorException {
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
 
+    Iterable<ProtoSourcesProvider> protoProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoSourcesProvider.class);
+
+    Iterable<ObjcProtoProvider> objcProtoProviders =
+        ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProtoProvider.class);
+
     ProtobufSupport protoSupport =
-        new ProtobufSupport(ruleContext).registerGenerationActions().addFilesToBuild(filesToBuild);
+        new ProtobufSupport(
+                ruleContext, ruleContext.getConfiguration(), protoProviders, objcProtoProviders)
+            .registerGenerationActions()
+            .addFilesToBuild(filesToBuild);
 
     Optional<XcodeProvider> xcodeProvider = protoSupport.getXcodeProvider();
 

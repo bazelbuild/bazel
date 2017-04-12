@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform.PlatformType;
@@ -37,7 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
 import java.util.Set;
 
@@ -99,9 +100,17 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     ObjcProvider.Builder objcProviderBuilder = new ObjcProvider.Builder();
 
+    ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
+
     for (BuildConfiguration childConfig : childConfigurations) {
       ProtobufSupport protoSupport =
-          new ProtobufSupport(ruleContext, childConfig, protosToAvoid)
+          new ProtobufSupport(
+                  ruleContext,
+                  childConfig,
+                  protosToAvoid,
+                  ImmutableList.<ProtoSourcesProvider>of(),
+                  objcProtoProvidersMap.get(childConfig))
               .registerGenerationActions()
               .registerCompilationActions();
 

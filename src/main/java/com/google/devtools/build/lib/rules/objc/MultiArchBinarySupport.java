@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
+import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -178,11 +179,19 @@ public class MultiArchBinarySupport {
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(dylibProtoProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
+    ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersMap =
+        ruleContext.getPrerequisitesByConfiguration("deps", Mode.SPLIT, ObjcProtoProvider.class);
+
     for (BuildConfiguration childConfig : childConfigurationsAndToolchains.keySet()) {
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
-            new ProtobufSupport(ruleContext, childConfig, protosToAvoid)
+            new ProtobufSupport(
+                    ruleContext,
+                    childConfig,
+                    protosToAvoid,
+                    ImmutableList.<ProtoSourcesProvider>of(),
+                    objcProtoProvidersMap.get(childConfig))
                 .registerGenerationActions()
                 .registerCompilationActions();
         protosObjcProvider = protoSupport.getObjcProvider();
