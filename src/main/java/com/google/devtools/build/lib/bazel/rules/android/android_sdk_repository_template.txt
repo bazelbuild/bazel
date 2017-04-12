@@ -53,6 +53,14 @@ filegroup(
     srcs = ["."],
 )
 
+filegroup(
+    name = "qemu2_x86",
+    srcs = [
+        "tools/emulator",
+        "tools/qemu/linux-x86_64/qemu-system-i386",
+    ],
+)
+
 create_system_images_filegroups(
     system_image_dirs = [
 %system_image_dirs%    ],
