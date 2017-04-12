@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -61,11 +60,6 @@ import java.util.List;
  *
  */
 public final class DataBinding {
-  /**
-   * The rule attribute supplying the data binding runtime/compile-time support libraries.
-   */
-  private static final String DATABINDING_RUNTIME_ATTR = "$databinding_runtime";
-
   /**
    * The rule attribute supplying the data binding annotation processor.
    */
@@ -159,21 +153,6 @@ public final class DataBinding {
     // The data binding library expects this to be called "layout-info.zip".
     return ruleContext.getUniqueDirectoryArtifact("databinding", "layout-info.zip",
         ruleContext.getBinOrGenfilesDirectory());
-  }
-
-  /**
-   * Adds the support libraries needed to compile/run Java code with data binding.
-   *
-   * <p>This excludes the annotation processor, which is injected separately as a Java plugin
-   * (see {@link #addAnnotationProcessor}).
-   */
-  static ImmutableList<TransitiveInfoCollection> addSupportLibs(RuleContext ruleContext,
-      List<? extends TransitiveInfoCollection> deps) {
-    RuleConfiguredTarget.Mode mode = RuleConfiguredTarget.Mode.TARGET;
-    return ImmutableList.<TransitiveInfoCollection>builder()
-        .addAll(deps)
-        .addAll(ruleContext.getPrerequisites(DATABINDING_RUNTIME_ATTR, mode))
-        .build();
   }
 
   /**

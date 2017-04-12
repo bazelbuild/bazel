@@ -918,19 +918,13 @@ public class AndroidCommon {
 
     if (isLibrary) {
       compileDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY);
-      if (useDataBinding) {
-        compileDeps = DataBinding.addSupportLibs(ruleContext, compileDeps);
-      }
       compileDeps = AndroidIdlHelper.maybeAddSupportLibs(ruleContext, compileDeps);
       runtimeDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY);
       bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
     } else {
       // Binary:
-      List<? extends TransitiveInfoCollection> ruleDeps =
-          ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET);
-      compileDeps = useDataBinding
-          ? DataBinding.addSupportLibs(ruleContext, ruleDeps)
-          : ImmutableList.<TransitiveInfoCollection>copyOf(ruleDeps);
+      compileDeps = ImmutableList.copyOf(
+          ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET));
       runtimeDeps = compileDeps;
       bothDeps = compileDeps;
     }
