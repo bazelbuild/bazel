@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.BuildFileName;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -42,7 +41,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories,
       Predicate<PathFragment> allowedMissingInputs,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues,
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
@@ -55,7 +53,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
         buildInfoFactories,
         diffAwarenessFactories,
         allowedMissingInputs,
-        preprocessorFactorySupplier,
         extraSkyFunctions,
         extraPrecomputedValues,
         customDirtinessCheckers,

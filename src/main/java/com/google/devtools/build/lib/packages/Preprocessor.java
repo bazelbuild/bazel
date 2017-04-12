@@ -28,32 +28,6 @@ import javax.annotation.Nullable;
 public interface Preprocessor {
   /** Factory for {@link Preprocessor} instances. */
   interface Factory {
-    /** Supplier for {@link Factory} instances. */
-    interface Supplier {
-      /**
-       * Returns a Preprocessor factory to use for getting Preprocessor instances.
-       *
-       * @param loc a package locator for preprocessors to look up other BUILD files
-       * @param outputBase allows non-hermetic access to the file system and output base; use with
-       *        extreme caution
-       */
-      Factory getFactory(CachingPackageLocator loc, Path outputBase);
-
-      /** Supplier that always returns {@code NullFactory.INSTANCE}. */
-      static class NullSupplier implements Supplier {
-
-        public static final NullSupplier INSTANCE = new NullSupplier();
-
-        private NullSupplier() {
-        }
-
-        @Override
-        public Factory getFactory(CachingPackageLocator loc, Path outputBase) {
-          return NullFactory.INSTANCE;
-        }
-      }
-    }
-
     /**
      * Returns whether this {@link Factory} is still suitable for providing {@link Preprocessor}s.
      * If not, all previous preprocessing results should be assumed to be invalid and a new

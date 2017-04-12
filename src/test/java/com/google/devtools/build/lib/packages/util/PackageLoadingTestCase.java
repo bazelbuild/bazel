@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -88,7 +87,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         loadingMock
             .getPackageFactoryForTesting()
             .create(ruleClassProvider, null, getEnvironmentExtensions(), scratch.getFileSystem());
-    skyframeExecutor = createSkyframeExecutor(getPreprocessorFactorySupplier());
+    skyframeExecutor = createSkyframeExecutor();
     setUpSkyframe(parsePackageCacheOptions());
   }
 
@@ -97,8 +96,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return ImmutableList.of();
   }
 
-  private SkyframeExecutor createSkyframeExecutor(
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
+  private SkyframeExecutor createSkyframeExecutor() {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             packageFactory,
@@ -109,7 +107,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ruleClassProvider.getBuildInfoFactories(),
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
-            preprocessorFactorySupplier,
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of(),
@@ -121,10 +118,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {
     return ImmutableList.<EnvironmentExtension>of();
-  }
-
-  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
   }
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility, String defaultsPackageContents) {
