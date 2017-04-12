@@ -17,12 +17,9 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.packages.ClassObjectConstructor;
-import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * A single dependency with its configured target and aspects merged together.
@@ -55,12 +52,6 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public Object get(String providerKey) {
     return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  @Nullable
-  @Override
-  public SkylarkClassObject get(ClassObjectConstructor.Key providerKey) {
-    return getProvider(SkylarkProviders.class).getDeclaredProvider(providerKey);
   }
 
   @Override

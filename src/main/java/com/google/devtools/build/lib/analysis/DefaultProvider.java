@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -22,6 +24,7 @@ import com.google.devtools.build.lib.packages.NativeClassObjectConstructor;
 import com.google.devtools.build.lib.packages.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** DefaultProvider is provided by all targets implicitly and contains all standard fields. */
 @Immutable
@@ -31,6 +34,17 @@ public final class DefaultProvider extends SkylarkClassObject {
   private static final String DATA_RUNFILES_FIELD = "data_runfiles";
   private static final String DEFAULT_RUNFILES_FIELD = "default_runfiles";
   private static final String FILES_FIELD = "files";
+  private static final ImmutableList<String> KEYS =
+      ImmutableList.of(
+          DATA_RUNFILES_FIELD,
+          DEFAULT_RUNFILES_FIELD,
+          FILES_FIELD,
+          FilesToRunProvider.SKYLARK_NAME);
+
+  private final RunfilesProvider runfilesProvider;
+  private final FileProvider fileProvider;
+  private final FilesToRunProvider filesToRunProvider;
+  private final AtomicReference<SkylarkNestedSet> files = new AtomicReference<>();
 
   public static final String SKYLARK_NAME = "DefaultInfo";
   public static final ClassObjectConstructor SKYLARK_CONSTRUCTOR =
@@ -43,27 +57,47 @@ public final class DefaultProvider extends SkylarkClassObject {
         }
       };
 
-  private DefaultProvider(ClassObjectConstructor constructor, Map<String, Object> values) {
-    super(constructor, values);
+  private DefaultProvider(
+      ClassObjectConstructor constructor,
+      RunfilesProvider runfilesProvider,
+      FileProvider fileProvider,
+      FilesToRunProvider filesToRunProvider) {
+    // Fields map is not used here to prevent memory regression
+    super(constructor, ImmutableMap.<String, Object>of());
+    this.runfilesProvider = runfilesProvider;
+    this.fileProvider = fileProvider;
+    this.filesToRunProvider = filesToRunProvider;
   }
 
   public static DefaultProvider build(
       RunfilesProvider runfilesProvider,
       FileProvider fileProvider,
       FilesToRunProvider filesToRunProvider) {
-    ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
-    if (runfilesProvider != null) {
-      attrBuilder.put(DATA_RUNFILES_FIELD, runfilesProvider.getDataRunfiles());
-      attrBuilder.put(DEFAULT_RUNFILES_FIELD, runfilesProvider.getDefaultRunfiles());
-    } else {
-      attrBuilder.put(DATA_RUNFILES_FIELD, Runfiles.EMPTY);
-      attrBuilder.put(DEFAULT_RUNFILES_FIELD, Runfiles.EMPTY);
+    return new DefaultProvider(
+        SKYLARK_CONSTRUCTOR, runfilesProvider, fileProvider, filesToRunProvider);
+  }
+
+  @Override
+  public Object getValue(String name) {
+    switch (name) {
+      case DATA_RUNFILES_FIELD:
+        return (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDataRunfiles();
+      case DEFAULT_RUNFILES_FIELD:
+        return (runfilesProvider == null) ? Runfiles.EMPTY : runfilesProvider.getDefaultRunfiles();
+      case FILES_FIELD:
+        if (files.get() == null) {
+          files.compareAndSet(
+              null, SkylarkNestedSet.of(Artifact.class, fileProvider.getFilesToBuild()));
+        }
+        return files.get();
+      case FilesToRunProvider.SKYLARK_NAME:
+        return filesToRunProvider;
     }
+    return null;
+  }
 
-    attrBuilder.put(
-        FILES_FIELD, SkylarkNestedSet.of(Artifact.class, fileProvider.getFilesToBuild()));
-    attrBuilder.put(FilesToRunProvider.SKYLARK_NAME, filesToRunProvider);
-
-    return new DefaultProvider(SKYLARK_CONSTRUCTOR, attrBuilder.build());
+  @Override
+  public ImmutableCollection<String> getKeys() {
+    return KEYS;
   }
 }
