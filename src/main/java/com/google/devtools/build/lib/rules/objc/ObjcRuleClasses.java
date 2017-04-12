@@ -915,6 +915,11 @@ public class ObjcRuleClasses {
      * Attribute name for apple platform type (e.g. ios or watchos).
      */
     static final String PLATFORM_TYPE_ATTR_NAME = "platform_type";
+    
+    /**
+     * Attribute name for the minimum OS version (e.g. "7.3").
+     */
+    static final String MINIMUM_OS_VERSION = "minimum_os_version";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -945,6 +950,15 @@ public class ObjcRuleClasses {
           .add(attr(PLATFORM_TYPE_ATTR_NAME, STRING)
               .value(PlatformType.IOS.toString())
               .nonconfigurable("Determines the configuration transition on deps"))
+          /* <!-- #BLAZE_RULE($apple_multiarch_rule).ATTRIBUTE(minimum_os) -->
+          The minimum OS version that this target and its dependencies should be built for.
+
+          This should be a dotted version string such as "7.3". 
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          // TODO(b/37096178): This should be a mandatory attribute.
+          .add(
+              attr(MINIMUM_OS_VERSION, STRING)
+                  .nonconfigurable("Determines the configuration transition on deps"))
           .build();
     }
 

@@ -184,6 +184,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       doc = "The minimum compatible OS version for target simulator and devices for a particular "
           + "platform type.")
   public DottedVersion getMinimumOsForPlatformType(PlatformType platformType) {
+    // TODO(b/37240784): Look into using only a single minimum OS flag tied to the current
+    // apple_platform_type.
     switch (platformType) {
       case IOS:
         return iosMinimumOs;
@@ -568,6 +570,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     if (!appleSplitCpu.isEmpty()) {
       components.add(applePlatformType.toString().toLowerCase());
       components.add(appleSplitCpu);
+      components.add("min" + getMinimumOsForPlatformType(applePlatformType));
     }
     if (shouldDistinguishOutputDirectory()) {
       components.add(configurationDistinguisher.getFileSystemName());

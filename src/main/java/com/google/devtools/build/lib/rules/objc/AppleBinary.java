@@ -108,7 +108,9 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
   @Override
   public final ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException {
+    MultiArchSplitTransitionProvider.validateMinimumOs(ruleContext);
     PlatformType platformType = MultiArchSplitTransitionProvider.getPlatformType(ruleContext);
+
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     Platform platform = appleConfiguration.getMultiArchPlatform(platformType);
