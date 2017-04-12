@@ -94,8 +94,6 @@ public abstract class ImplicitOutputsFunction {
           attrValues.put(attrName, value == null ? Runtime.NONE : value);
         }
       }
-      // Add 'name' explicitly, since its value is not in the attribute map.
-      attrValues.put("name", map.getName());
       ClassObject attrs = NativeClassObjectConstructor.STRUCT.create(
           attrValues,
           "Attribute '%s' either doesn't exist "
@@ -297,10 +295,7 @@ public abstract class ImplicitOutputsFunction {
    * strings.  Helper function for {@link #fromTemplates(Iterable)}.
    */
   private static Set<String> attributeValues(AttributeMap rule, String attrName) {
-    // Special case "name" since it's not treated as an attribute.
-    if (attrName.equals("name")) {
-      return singleton(rule.getName());
-    } else if (attrName.equals("dirname")) {
+    if (attrName.equals("dirname")) {
       PathFragment dir = PathFragment.create(rule.getName()).getParentDirectory();
       return (dir.segmentCount() == 0) ? singleton("") : singleton(dir.getPathString() + "/");
     } else if (attrName.equals("basename")) {
