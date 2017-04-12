@@ -48,39 +48,66 @@ def artifact_location(f):
   if f == None:
     return None
 
-  return struct_omit_none(
-      relative_path = get_relative_path(f),
-      is_source = f.is_source,
-      is_external = is_external(f.owner),
-      root_execution_path_fragment = f.root.path if not f.is_source else None,
+  return to_artifact_location(
+      f.path,
+      f.root.path if not f.is_source else "",
+      f.is_source,
+      is_external_artifact(f.owner),
   )
 
-def is_external(label):
+def to_artifact_location(exec_path, root_exec_path_fragment, is_source, is_external):
+  """Derives workspace path from other path fragments, and creates an ArtifactLocation proto."""
+  # Bazel 0.4.4 has directory structure:
+  # exec_path = (root_fragment)? + (external/repo_name)? + relative_path
+  # Bazel 0.4.5 has planned directory structure:
+  # exec_path = (../repo_name)? + (root_fragment)? + relative_path
+  # Handle both cases by trying to strip the external workspace prefix before and after removing
+  # root_exec_path_fragment.
+  relative_path = strip_external_workspace_prefix(exec_path)
+  relative_path = strip_root_exec_path_fragment(relative_path, root_exec_path_fragment)
+  # Remove this line when Bazel 0.4.4 and earlier no longer need to be supported.
+  relative_path = strip_external_workspace_prefix(relative_path)
+
+  root_exec_path_fragment = exec_path[:-(len("/" + relative_path))]
+
+  return struct_omit_none(
+      relative_path = relative_path,
+      is_source = is_source,
+      is_external = is_external,
+      root_execution_path_fragment = root_exec_path_fragment,
+      is_new_external_version = True,
+  )
+
+def strip_root_exec_path_fragment(path, root_fragment):
+  if root_fragment and path.startswith(root_fragment + "/"):
+    return path[len(root_fragment + "/"):]
+  return path
+
+def strip_external_workspace_prefix(path):
+  """Either 'external/workspace_name/' or '../workspace_name/'."""
+  # Label.EXTERNAL_PATH_PREFIX is due to change from 'external' to '..' in Bazel 0.4.5.
+  # This code is for forwards and backwards compatibility.
+  # Remove the 'external/' check when Bazel 0.4.4 and earlier no longer need to be supported.
+  if path.startswith("../") or path.startswith("external/"):
+    return "/".join(path.split("/")[2:])
+  return path
+
+def is_external_artifact(label):
   """Determines whether a label corresponds to an external artifact."""
-  return label.workspace_root.startswith("external")
-
-def get_relative_path(artifact):
-  """A temporary workaround to find the root-relative path from an artifact.
-
-  This is required because 'short_path' is incorrect for external source artifacts.
-
-  Args:
-    artifact: the input artifact
-  Returns:
-    string: the root-relative path for this artifact.
-  """
-  # TODO(bazel-team): remove this workaround when Artifact::short_path is fixed.
-  if is_external(artifact.owner) and artifact.short_path.startswith(".."):
-    # short_path is '../repo_name/path', we want 'external/repo_name/path'
-    return "external" + artifact.short_path[2:]
-  return artifact.short_path
+  # Label.EXTERNAL_PATH_PREFIX is due to change from 'external' to '..' in Bazel 0.4.5.
+  # This code is for forwards and backwards compatibility.
+  # Remove the 'external' check when Bazel 0.4.4 and earlier no longer need to be supported.
+  return label.workspace_root.startswith("external") or label.workspace_root.startswith("..")
 
 def source_directory_tuple(resource_file):
-  """Creates a tuple of (source directory, is_source, root execution path)."""
+  """Creates a tuple of (exec_path, root_exec_path_fragment, is_source, is_external)."""
+  relative_path = str(android_common.resource_source_directory(resource_file))
+  root_exec_path_fragment = resource_file.root.path if not resource_file.is_source else None
   return (
-      str(android_common.resource_source_directory(resource_file)),
+      relative_path if resource_file.is_source else root_exec_path_fragment + relative_path,
+      root_exec_path_fragment,
       resource_file.is_source,
-      resource_file.root.path if not resource_file.is_source else None
+      is_external_artifact(resource_file.owner)
   )
 
 def all_unique_source_directories(resources):
@@ -88,17 +115,20 @@ def all_unique_source_directories(resources):
   # Sets can contain tuples, but cannot contain structs.
   # Use set of tuples to unquify source directories.
   source_directory_tuples = set([source_directory_tuple(f) for f in resources])
-  return [struct_omit_none(relative_path = relative_path,
-                           is_source = is_source,
-                           root_execution_path_fragment = root_execution_path_fragment)
-          for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
+  return [to_artifact_location(
+      exec_path,
+      root_path_fragment,
+      is_source,
+      is_external)
+          for (exec_path, root_path_fragment, is_source, is_external) in source_directory_tuples]
 
 def build_file_artifact_location(ctx):
   """Creates an ArtifactLocation proto representing a location of a given BUILD file."""
-  return struct(
-      relative_path = ctx.build_file_path,
-      is_source = True,
-      is_external = is_external(ctx.label)
+  return to_artifact_location(
+      ctx.build_file_path,
+      ctx.build_file_path,
+      True,
+      is_external_artifact(ctx.label)
   )
 
 def library_artifact(java_output):
@@ -343,7 +373,9 @@ def build_java_ide_info(target, ctx, semantics):
   return (java_ide_info, ide_info_files, intellij_resolve_files)
 
 def _package_manifest_file_argument(f):
-  return f.root.path + "," + f.short_path + "," + ("1" if is_external(f.owner) else "0")
+  artifact = artifact_location(f)
+  is_external = "1" if is_external_artifact(f.owner) else "0"
+  return artifact.root_execution_path_fragment + "," + artifact.relative_path + "," + is_external
 
 def build_java_package_manifest(ctx, target, source_files, suffix):
   """Builds the java package manifest for the given source files."""
