@@ -419,6 +419,7 @@ public abstract class OutputFormatter implements Serializable {
 
         private void outputRule(Rule rule, PrintStream printStream) throws InterruptedException {
           final String lineTerm = options.getLineTerminator();
+          final String outputAttributePattern = "  %s = %s," + lineTerm;
           printStream.printf("# %s%s", rule.getLocation(), lineTerm);
           printStream.printf("%s(%s", rule.getRuleClass(), lineTerm);
           printStream.printf("  name = \"%s\",%s", rule.getName(), lineTerm);
@@ -432,41 +433,73 @@ public abstract class OutputFormatter implements Serializable {
               continue;
             }
             if (attributeMap.isConfigurable(attr.getName())) {
-              continue; // TODO(bazel-team): handle configurable attributes.
+              // We don't know the actual value for configurable attributes, so we reconstruct
+              // the select without trying to resolve it.
+              printStream.printf(outputAttributePattern,
+                  attr.getPublicName(),
+                  outputConfigurableAttrValue(rule, attributeMap, attr));
+              continue;
             }
             PossibleAttributeValues values = getPossibleAttributeValues(rule, attr);
             if (values.source != AttributeValueSource.RULE) {
               continue; // Don't print default values.
             }
             if (Iterables.size(values) != 1) {
-              // Computed defaults that depend on configurable attributes can also have multiple
-              // values.
+              // Computed defaults that depend on configurable attributes can have multiple values.
               continue;
             }
-            Object value = Iterables.getOnlyElement(values);
-            printStream.printf("  %s = ", attr.getPublicName());
-            if (value instanceof Label) {
-              value = ((Label) value).getDefaultCanonicalForm();
-            } else if (value instanceof License) {
-              List<String> licenseTypes = new ArrayList<>();
-              for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
-                licenseTypes.add(licenseType.toString().toLowerCase());
-              }
-              value = licenseTypes;
-            } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-              // Display it as a list (and not as a tuple). Attributes can never be tuples.
-              value = new ArrayList<>((List<?>) value);
-            } else if (value instanceof TriState) {
-              value = ((TriState) value).toInt();
-            }
-            // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
-            StringBuilder builder = new StringBuilder();
-            Printer.write(builder, value);
-            printStream.print(builder);
-            printStream.printf(",%s", lineTerm);
+            printStream.printf(outputAttributePattern,
+                attr.getPublicName(),
+                outputAttrValue(Iterables.getOnlyElement(values)));
           }
           printStream.printf(")\n%s", lineTerm);
         }
+
+        /**
+         * Returns the given attribute value with BUILD output syntax. Does not support selects.
+         */
+        private String outputAttrValue(Object value) {
+          if (value instanceof Label) {
+            value = ((Label) value).getDefaultCanonicalForm();
+          } else if (value instanceof License) {
+            List<String> licenseTypes = new ArrayList<>();
+            for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
+              licenseTypes.add(licenseType.toString().toLowerCase());
+            }
+            value = licenseTypes;
+          } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
+            // Display it as a list (and not as a tuple). Attributes can never be tuples.
+            value = new ArrayList<>((List<?>) value);
+          } else if (value instanceof TriState) {
+            value = ((TriState) value).toInt();
+          }
+          // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
+          StringBuilder builder = new StringBuilder();
+          Printer.write(builder, value);
+          return builder.toString();
+        }
+
+        /**
+         * Returns the given configurable attribute value with BUILD output syntax.
+         *
+         * <p>Since query doesn't know which select path should be chosen, this doesn't try to
+         * resolve the final value. Instead it just reconstructs the select.
+         */
+        private String outputConfigurableAttrValue(Rule rule, RawAttributeMapper attributeMap,
+            Attribute attr) {
+          List<String> selectors = new ArrayList<>();
+          for (BuildType.Selector<?> selector : ((BuildType.SelectorList<?>)
+              attributeMap.getRawAttributeValue(rule, attr)).getSelectors()) {
+            if (selector.isUnconditional()) {
+              selectors.add(outputAttrValue(
+                  Iterables.getOnlyElement(selector.getEntries().entrySet()).getValue()));
+            } else {
+              selectors.add(String.format("select(%s)", outputAttrValue(selector.getEntries())));
+            }
+          }
+          return String.join(" + ", selectors);
+        }
+
 
         @Override
         public void processOutput(Iterable<Target> partialResult) throws InterruptedException {
