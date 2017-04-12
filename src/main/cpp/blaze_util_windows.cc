@@ -1255,93 +1255,74 @@ uint64_t WindowsClock::GetProcessMilliseconds() const {
 
 uint64_t AcquireLock(const string& output_base, bool batch_mode, bool block,
                      BlazeLock* blaze_lock) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-  return 0;
-#else  // not COMPILER_MSVC
   string lockfile = blaze_util::JoinPath(output_base, "lock");
-  int lockfd = open(lockfile.c_str(), O_CREAT|O_RDWR, 0644);
-
-  if (lockfd < 0) {
+  wstring wlockfile;
+  if (!blaze_util::AsWindowsPathWithUncPrefix(lockfile, &wlockfile)) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "cannot open lockfile '%s' for writing", lockfile.c_str());
+         "AcquireLock, lockfile=(%s)", lockfile.c_str());
   }
 
-  // Keep server from inheriting a useless fd if we are not in batch mode
-  if (!batch_mode) {
-    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
+  blaze_lock->handle = INVALID_HANDLE_VALUE;
+  bool first_lock_attempt = true;
+  uint64_t st = GetMillisecondsMonotonic();
+  while (true) {
+    blaze_lock->handle = ::CreateFileW(
+        /* lpFileName */ wlockfile.c_str(),
+        /* dwDesiredAccess */ GENERIC_READ | GENERIC_WRITE,
+        /* dwShareMode */ FILE_SHARE_READ,
+        /* lpSecurityAttributes */ NULL,
+        /* dwCreationDisposition */ CREATE_ALWAYS,
+        /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
+        /* hTemplateFile */ NULL);
+    if (blaze_lock->handle != INVALID_HANDLE_VALUE) {
+      // We could open the file, so noone else holds a lock on it.
+      break;
+    }
+    if (GetLastError() == ERROR_SHARING_VIOLATION) {
+      // Someone else has the lock.
+      if (!block) {
+        die(blaze_exit_code::BAD_ARGV,
+            "Another command is running. Exiting immediately.");
+      }
+      if (first_lock_attempt) {
+        first_lock_attempt = false;
+        fprintf(stderr,
+                "Another command is running. Waiting for it to complete...");
+        fflush(stderr);
+      }
+      Sleep(/* dwMilliseconds */ 200);
+    } else {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "fcntl(F_SETFD) failed for lockfile");
+           "cannot open lockfile '%s', and not because it's held",
+           lockfile.c_str());
     }
   }
+  uint64_t wait_time = GetMillisecondsMonotonic() - st;
 
-  struct flock lock;
-  lock.l_type = F_WRLCK;
-  lock.l_whence = SEEK_SET;
-  lock.l_start = 0;
-  // This doesn't really matter now, but allows us to subdivide the lock
-  // later if that becomes meaningful.  (Ranges beyond EOF can be locked.)
-  lock.l_len = 4096;
-
-  uint64_t wait_time = 0;
-  // Try to take the lock, without blocking.
-  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
-    if (errno != EACCES && errno != EAGAIN) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_SETLK");
-    }
-
-    // We didn't get the lock.  Find out who has it.
-    struct flock probe = lock;
-    probe.l_pid = 0;
-    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "unexpected result from F_GETLK");
-    }
-    if (!block) {
-      die(blaze_exit_code::BAD_ARGV,
-          "Another command is running (pid=%d). Exiting immediately.",
-          probe.l_pid);
-    }
-    fprintf(stderr, "Another command is running (pid = %d).  "
-            "Waiting for it to complete...", probe.l_pid);
-    fflush(stderr);
-
-    // Take a clock sample for that start of the waiting time
-    uint64_t st = GetMillisecondsMonotonic();
-    // Try to take the lock again (blocking).
-    int r;
-    do {
-      r = fcntl(lockfd, F_SETLKW, &lock);
-    } while (r == -1 && errno == EINTR);
-    fprintf(stderr, "\n");
-    if (r == -1) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "couldn't acquire file lock");
-    }
-    // Take another clock sample, calculate elapsed
-    uint64_t et = GetMillisecondsMonotonic();
-    wait_time = et - st;
+  // We have the lock.
+  OVERLAPPED overlapped = {0};
+  if (!LockFileEx(
+          /* hFile */ blaze_lock->handle,
+          /* dwFlags */ LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY,
+          /* dwReserved */ 0,
+          /* nNumberOfBytesToLockLow */ 1,
+          /* nNumberOfBytesToLockHigh */ 0,
+          /* lpOverlapped */ &overlapped)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+         "cannot lock the lockfile '%s'", lockfile.c_str());
   }
+  // On other platforms we write some info about this process into the lock file
+  // such as the server PID. On Windows we don't do that because the file is
+  // locked exclusively, meaning other processes may not open the file even for
+  // reading.
 
-  // Identify ourselves in the lockfile.
-  (void) ftruncate(lockfd, 0);
-  const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
-  string msg = "owner=launcher\npid="
-      + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
-  // The contents are currently meant only for debugging.
-  (void) write(lockfd, msg.data(), msg.size());
-  blaze_lock->lockfd = lockfd;
   return wait_time;
-#endif  // COMPILER_MSVC
 }
 
 void ReleaseLock(BlazeLock* blaze_lock) {
-#ifdef COMPILER_MSVC
-  // TODO(bazel-team): implement this.
-#else  // not COMPILER_MSVC
-  close(blaze_lock->lockfd);
-#endif  // COMPILER_MSVC
+  OVERLAPPED overlapped = {0};
+  UnlockFileEx(blaze_lock->handle, 0, 1, 0, &overlapped);
+  CloseHandle(blaze_lock->handle);
 }
 
 #ifdef GetUserName

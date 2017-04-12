@@ -41,6 +41,12 @@ struct AutoHandle {
 
   bool IsValid() { return handle != INVALID_HANDLE_VALUE && handle != NULL; }
 
+  AutoHandle& operator=(const HANDLE& rhs) {
+    ::CloseHandle(handle);
+    handle = rhs;
+    return *this;
+  }
+
   operator HANDLE() const { return handle; }
 
   HANDLE handle;
