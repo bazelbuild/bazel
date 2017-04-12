@@ -258,6 +258,13 @@ sh_test(
     tags = ["jdk8"],
 )
 
+sh_test(
+    name = "logging_test",
+    size = "medium",
+    srcs = ["logging_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],

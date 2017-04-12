@@ -275,6 +275,15 @@ java_library(
 )
 
 java_library(
+    name = "single-line-formatter",
+    srcs = ["util/SingleLineFormatter.java"],
+    deps = [
+        "//third_party:guava",
+        "//third_party:joda_time",
+    ],
+)
+
+java_library(
     name = "util",
     srcs = glob(
         ["util/*.java"],
@@ -286,6 +295,7 @@ java_library(
             "util/OS.java",
             "util/Preconditions.java",
             "util/ProcessUtils.java",
+            "util/SingleLineFormatter.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
             "util/VarInt.java",
@@ -1192,6 +1202,7 @@ java_binary(
     main_class = "com.google.devtools.build.lib.bazel.BazelMain",
     runtime_deps = [
         ":bazel-main",
+        ":single-line-formatter",  # See startup_options.cc
     ],
 )
 

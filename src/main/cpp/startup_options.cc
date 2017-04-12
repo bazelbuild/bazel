@@ -55,7 +55,8 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(10),
       invocation_policy(NULL),
       client_debug(false),
-      java_logging_formatter("java.util.logging.SimpleFormatter") {
+      java_logging_formatter(
+          "com.google.devtools.build.lib.util.SingleLineFormatter") {
   bool testing = !blaze::GetEnv("TEST_TMPDIR").empty();
   if (testing) {
     output_root = MakeAbsolute(blaze::GetEnv("TEST_TMPDIR"));

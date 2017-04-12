@@ -61,7 +61,7 @@ TEST_F(StartupOptionsTest, ProductName) {
 }
 
 TEST_F(StartupOptionsTest, JavaLoggingOptions) {
-  ASSERT_EQ("java.util.logging.SimpleFormatter",
+  ASSERT_EQ("com.google.devtools.build.lib.util.SingleLineFormatter",
       startup_options_->java_logging_formatter);
 }
 

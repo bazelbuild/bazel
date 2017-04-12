@@ -47,7 +47,7 @@ function assert_last_log() {
   local log="${1}"; shift
   local fail_message="${1}"; shift
 
-  if ! grep -A1 "${context}" "${log}" | tail -n1 | grep -q "${message}" ; then
+  if ! grep "${context}" "${log}" | grep -q "${message}" ; then
     cat "${log}" >>"${TEST_log}"  # Help debugging when we fail.
     fail "${fail_message}"
   fi
@@ -60,7 +60,7 @@ function assert_cache_stats() {
   local exp_value="${1}"; shift
 
   local java_log="$(bazel info output_base 2>/dev/null)/java.log"
-  local last="$(grep -A1 "CacheFileDigestsModule" "${java_log}" | tail -n1)"
+  local last="$(grep "CacheFileDigestsModule" "${java_log}")"
   [ -n "${last}" ] || fail "Could not find cache stats in log"
   if ! echo "${last}" | grep -q "${metric}=${exp_value}"; then
     echo "Last cache stats: ${last}" >>"${TEST_log}"
