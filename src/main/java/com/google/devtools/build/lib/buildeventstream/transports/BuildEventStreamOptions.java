@@ -38,11 +38,39 @@ public class BuildEventStreamOptions extends OptionsBase {
   )
   public String buildEventBinaryFile;
 
+  @Option(
+    name = "experimental_build_event_text_file_path_conversion",
+    defaultValue = "true",
+    category = "hidden",
+    help = "Convert paths in the text file representation of the build event protocol to more"
+        + " globally valid URIs whenever possible; if disabled, the file:// uri scheme will always"
+        + " be used"
+  )
+  public boolean buildEventTextFilePathConversion;
+
+  @Option(
+    name = "experimental_build_event_binary_file_path_conversion",
+    defaultValue = "true",
+    category = "hidden",
+    help = "Convert paths in the binary file representation of the build event protocol to more"
+        + " globally valid URIs whenever possible; if disabled, the file:// uri scheme will always"
+        + " be used"
+  )
+  public boolean buildEventBinaryFilePathConversion;
+
   public String getBuildEventTextFile() {
     return buildEventTextFile;
   }
 
   public String getBuildEventBinaryFile() {
     return buildEventBinaryFile;
+  }
+
+  public boolean getBuildEventTextFilePathConversion() {
+    return buildEventTextFilePathConversion;
+  }
+
+  public boolean getBuildEventBinaryFilePathConversion() {
+    return buildEventBinaryFilePathConversion;
   }
 }

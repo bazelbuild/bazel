@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
+import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 
 /** Factory used to create a Set of BuildEventTransports from BuildEventStreamOptions. */
@@ -33,7 +34,9 @@ public enum BuildEventTransportFactory {
     @Override
     protected BuildEventTransport create(BuildEventStreamOptions options,
         PathConverter pathConverter) throws IOException {
-      return new TextFormatFileTransport(options.getBuildEventTextFile(), pathConverter);
+      return new TextFormatFileTransport(
+          options.getBuildEventTextFile(),
+          options.getBuildEventTextFilePathConversion() ? pathConverter : new NullPathConverter());
     }
   },
 
@@ -46,7 +49,11 @@ public enum BuildEventTransportFactory {
     @Override
     protected BuildEventTransport create(BuildEventStreamOptions options,
         PathConverter pathConverter) throws IOException {
-      return new BinaryFormatFileTransport(options.getBuildEventBinaryFile(), pathConverter);
+      return new BinaryFormatFileTransport(
+          options.getBuildEventBinaryFile(),
+          options.getBuildEventBinaryFilePathConversion()
+              ? pathConverter
+              : new NullPathConverter());
     }
   };
 
@@ -75,4 +82,11 @@ public enum BuildEventTransportFactory {
   /** Creates a BuildEventTransport from the specified options. */
   protected abstract BuildEventTransport create(BuildEventStreamOptions options,
       PathConverter pathConverter) throws IOException;
+
+  private static class NullPathConverter implements PathConverter {
+    @Override
+    public String apply(Path path) {
+      return "file://" + path;
+    }
+  }
 }
