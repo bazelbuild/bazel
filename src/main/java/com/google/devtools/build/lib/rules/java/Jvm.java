@@ -45,11 +45,11 @@ public final class Jvm extends BuildConfiguration.Fragment {
 
   /**
    * Creates a Jvm instance. Either the {@code javaHome} parameter is absolute,
-   * or the {@code jvmLabel} parameter must be non-null. This restriction might
-   * be lifted in the future. Only the {@code jvmLabel} is optional.
+   * and/or the {@code jvmLabel} parameter must be non-null. Only the
+   * {@code jvmLabel} is optional.
    */
   public Jvm(PathFragment javaHome, Label jvmLabel) {
-    Preconditions.checkArgument(javaHome.isAbsolute() ^ (jvmLabel != null));
+    Preconditions.checkArgument(javaHome.isAbsolute() || jvmLabel != null);
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
     this.java = getJavaHome().getRelative(BIN_JAVA);
@@ -88,7 +88,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
    * same thing as getJavaExecutable().
    */
   public PathFragment getRunfilesJavaExecutable() {
-    if (jvmLabel == null || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
+    if (javaHome.isAbsolute() || jvmLabel.getPackageIdentifier().getRepository().isMain()) {
       return getJavaExecutable();
     }
     return jvmLabel.getPackageIdentifier().getRepository().getRunfilesPath().getRelative(BIN_JAVA);
