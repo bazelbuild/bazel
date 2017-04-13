@@ -167,8 +167,8 @@ public final class BuildEventId implements Serializable {
     BuildEventStreamProtos.BuildEventId.TestResultId resultId =
         BuildEventStreamProtos.BuildEventId.TestResultId.newBuilder()
             .setLabel(target.toString())
-            .setRun(run)
-            .setShard(shard)
+            .setRun(run + 1)
+            .setShard(shard + 1)
             .setAttempt(attempt)
             .build();
     return new BuildEventId(
