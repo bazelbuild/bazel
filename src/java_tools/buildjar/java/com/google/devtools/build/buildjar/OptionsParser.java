@@ -252,7 +252,9 @@ public final class OptionsParser {
    * @throws java.io.IOException if one of the files containing options cannot be read.
    */
   private static void expandArgument(Deque<String> expanded, String arg) throws IOException {
-    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+    if (arg.startsWith("@@")) {
+      expanded.add(arg.substring(1));
+    } else if (arg.startsWith("@")) {
       for (String line : Files.readAllLines(Paths.get(arg.substring(1)), UTF_8)) {
         if (line.length() > 0) {
           expandArgument(expanded, line);
