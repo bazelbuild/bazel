@@ -40,9 +40,13 @@ public class Turbine {
   }
 
   public int compile(String[] args) throws IOException {
+    return compile(TurbineOptionsParser.parse(Arrays.asList(args)));
+  }
+
+  public int compile(TurbineOptions options) throws IOException {
     Throwable turbineCrash = null;
     try {
-      if (Main.compile(args)) {
+      if (Main.compile(options)) {
         return 0;
       }
       // fall back to javac for API-generating processors
@@ -59,18 +63,12 @@ public class Turbine {
     } catch (Throwable t) {
       turbineCrash = t;
     }
-    Result result = javacTurbineCompile(args);
+    Result result = JavacTurbine.compile(options);
     if (result == Result.OK_WITH_REDUCED_CLASSPATH && turbineCrash != null) {
       System.err.println(bugMessage);
       turbineCrash.printStackTrace();
       result = Result.ERROR;
     }
     return result.exitCode();
-  }
-
-  Result javacTurbineCompile(String[] args) throws IOException {
-    TurbineOptions.Builder options = TurbineOptions.builder();
-    TurbineOptionsParser.parse(options, Arrays.asList(args));
-    return JavacTurbine.compile(options.build());
   }
 }

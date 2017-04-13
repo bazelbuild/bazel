@@ -181,8 +181,8 @@ public class JavacTurbine implements AutoCloseable {
     }
 
     Result result = Result.ERROR;
-    JavacTurbineCompileResult compileResult;
-    List<String> actualClasspath;
+    JavacTurbineCompileResult compileResult = null;
+    List<String> actualClasspath = ImmutableList.of();
 
     List<String> originalClasspath = turbineOptions.classPath();
     List<String> compressedClasspath =
@@ -190,7 +190,7 @@ public class JavacTurbine implements AutoCloseable {
 
     requestBuilder.setStrictDepsPlugin(new StrictJavaDepsPlugin(dependencyModule));
 
-    {
+    if (turbineOptions.shouldReduceClassPath()) {
       // compile with reduced classpath
       actualClasspath = compressedClasspath;
       requestBuilder.setClassPath(asPaths(actualClasspath));
@@ -201,7 +201,8 @@ public class JavacTurbine implements AutoCloseable {
       }
     }
 
-    if (!compileResult.success() && hasRecognizedError(compileResult.output())) {
+    if (compileResult == null
+        || (!compileResult.success() && hasRecognizedError(compileResult.output()))) {
       // fall back to transitive classpath
       actualClasspath = originalClasspath;
       requestBuilder.setClassPath(asPaths(actualClasspath));
