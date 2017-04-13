@@ -396,11 +396,7 @@ public final class LinkCommandLine extends CommandLine {
       case PIC_STATIC_LIBRARY:
       case ALWAYS_LINK_STATIC_LIBRARY:
       case ALWAYS_LINK_PIC_STATIC_LIBRARY:
-        // The static library link command follows this template:
-        // ar <cmd> <output_archive> <input_files...>
-        argv.add(cppConfiguration.getArExecutable().getPathString());
-        argv.addAll(cppConfiguration.getArFlags());
-        argv.add(output.getExecPathString());
+        argv.add(toolPath);
         argv.addAll(featureConfiguration.getCommandLine(actionName, variables));
         break;
 
