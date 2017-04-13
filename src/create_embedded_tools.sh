@@ -30,15 +30,6 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
 
-  # Xcode tools should come from src/tools/xcode/.  Exclude scripts in
-  # tools/objc to avoid conflict.
-  if  [ "$i" = "tools/objc/xcrunwrapper.sh" ] \
-    || [ "$i" = "tools/objc/libtool.sh" ] \
-    || [ "$i" = "tools/objc/make_hashed_objlist.py" ]
-  then
-    continue
-  fi
-
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *tools/platforms/platforms.BUILD) OUTPUT_PATH=platforms/BUILD ;;
