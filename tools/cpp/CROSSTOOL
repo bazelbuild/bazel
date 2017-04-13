@@ -168,9 +168,6 @@ toolchain {
   linker_flag: "-no-canonical-prefixes"
   # Have gcc return the exit code from ld.
   linker_flag: "-pass-exit-codes"
-  # Stamp the binary with a unique identifier.
-  linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
   # Gold linker only? Can we enable this by default?
   # linker_flag: "-Wl,--warn-execstack"
   # linker_flag: "-Wl,--detect-odr-violations"
@@ -386,8 +383,6 @@ toolchain {
   # Have gcc return the exit code from ld.
   #linker_flag: "-pass-exit-codes"
   # Stamp the binary with a unique identifier.
-  #linker_flag: "-Wl,--build-id=md5"
-  linker_flag: "-Wl,--hash-style=gnu"
   # Gold linker only? Can we enable this by default?
   # linker_flag: "-Wl,--warn-execstack"
   # linker_flag: "-Wl,--detect-odr-violations"
